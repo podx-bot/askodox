@@ -6,37 +6,39 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Discover in production
+      - name: After 255-257 deploy
         run: |
           python3 - <<'PY'
-          import json, urllib.request, urllib.error
+          import json, time, urllib.request, urllib.error
           base = 'https://admin.askodox.com'
-          def post(path, data):
-              req = urllib.request.Request(base + path, data=json.dumps(data).encode(),
-                                           headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST')
+          def call(path, data=None):
+              req = urllib.request.Request(base + path, data=json.dumps(data).encode() if data else None,
+                                           headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'},
+                                           method='POST' if data else 'GET')
               try:
                   with urllib.request.urlopen(req, timeout=120) as r:
                       return r.status, json.loads(r.read() or b'{}')
               except urllib.error.HTTPError as e:
-                  return e.code, {'error': e.read()[:300].decode('utf-8', 'replace')}
+                  return e.code, {}
+          live = ''
+          for _ in range(60):
+              _, h = call('/health')
+              live = str(h.get('commit', ''))
+              if live.startswith('f742fb3'):
+                  break
+              time.sleep(30)
+          print(f'::notice title=deployed::{live}')
           loc = {'label': 'Vijayawada', 'latitude': 16.5062, 'longitude': 80.6480}
           for subject, said in (('Oppo Find X10 Pro Max', 'Oppo Find X10 Pro Max కావాలి'), ('washing machine', 'washing machine under 30000 show me')):
-              body = {'user_id': '', 'raw_text': said, 'intent': 'buy', 'subject': subject, 'category': 'electronics',
-                      'location': loc, 'dynamic_fields': {}, 'trace': {'query': said}}
-              code, d = post('/deals/discover', body)
-              secs = d.get('sections') or {}
-              sizes = {k: len(v.get('items', v) if isinstance(v, dict) else v) for k, v in secs.items()} if isinstance(secs, dict) else secs
-              status = d.get('source_status') or d.get('sources') or {}
-              m = d.get('matches') or []
-              first = [(x.get('source') or x.get('segment'), (x.get('title') or '')[:50], (x.get('url') or x.get('link') or '')[:60]) for x in m[:6]]
-              mk = {k: v for k, v in (d.get('debug') or {}).items() if 'market' in k} if isinstance(d.get('debug'), dict) else {}
-              allsec = d.get('sections') or []
-              stat = {}
-              for sec in (allsec if isinstance(allsec, list) else []):
-                  stat[sec.get('kind')] = sec.get('status')
-              print(f'::notice title={subject} status::' + json.dumps(stat, ensure_ascii=False)[:1500] + ' | providers ' + json.dumps(d.get('provider_status') or d.get('source_status') or {}, ensure_ascii=False)[:800])
-              hc, hs = urllib.request.urlopen(urllib.request.Request(base + '/health/search', headers={'User-Agent': 'ASKODOX-probe'}), timeout=30).status, None
-              with urllib.request.urlopen(urllib.request.Request(base + '/health/search', headers={'User-Agent': 'ASKODOX-probe'}), timeout=30) as r:
-                  print(f'::notice title={subject} health::' + r.read().decode()[:800])
-              print(f'::notice title={subject}::status {code} | matches {len(m)} | sections {json.dumps(sizes)[:600]} | sources {json.dumps(status, ensure_ascii=False)[:900]} | first {first} | err {str(d.get("error",""))[:200]}')
+              code, d = call('/deals/discover', {'user_id': '', 'raw_text': said, 'intent': 'buy', 'subject': subject,
+                                                 'category': 'electronics', 'location': loc, 'dynamic_fields': {},
+                                                 'trace': {'query': said}})
+              stat = {sec.get('kind'): sec.get('status') for sec in (d.get('sections') or []) if isinstance(sec, dict)}
+              mk = [ (m.get('marketplace') or m.get('source'), (m.get('title') or '')[:40]) for m in (d.get('matches') or []) if m.get('marketplace')]
+              print(f'::notice title={subject}::matches {len(d.get("matches") or [])} | status {json.dumps(stat, ensure_ascii=False)[:700]} | marketplace rows {mk[:6]}')
+          _, hs = call('/health/search')
+          print('::notice title=search health::' + json.dumps(hs, ensure_ascii=False)[:1200])
+          code, d = call('/api/in-app/assistant', {'message': 'ఒప్పో ఫైండ్ ఎక్స్ 10 గురించి చెప్పండి', 'locale': 'te', 'history': []})
+          g = d.get('grounding') or {}
+          print(f'::notice title=telugu script phone::status {code} | mode {g.get("mode")} | verified {g.get("verified")} | honesty {d.get("honesty")} | sources {len(g.get("sources") or [])} | reply: {(d.get("reply") or "")[:400]}'.replace('\n', ' '))
           PY
