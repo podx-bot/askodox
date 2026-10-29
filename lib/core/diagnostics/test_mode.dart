@@ -106,7 +106,7 @@ class AskodoxTestModeController extends StateNotifier<AskodoxTestModeState> {
   final String _session = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
   FlutterExceptionHandler? _previousOnError;
 
-  bool get _signedIn => _token != null && _token!.isNotEmpty && _token != 'DEMO_ONLY';
+  bool get _signedIn => (_token ?? '').isNotEmpty && _token != 'DEMO_ONLY';
   ApiRequestOptions get _auth => ApiRequestOptions(authToken: _token);
 
   Future<void> _load() async {
