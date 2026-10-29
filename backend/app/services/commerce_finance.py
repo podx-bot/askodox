@@ -117,6 +117,8 @@ ENV_ALIASES: Dict[str, Dict[str, tuple[str, ...]]] = {
     "firebase_auth": {"project_id": ("FIREBASE_PROJECT_ID",)},
     # Reply voice (elevenlabs_tts.py).
     "elevenlabs": {"api_key": ("ELEVENLABS_API_KEY", "XI_API_KEY")},
+    # Primary web search (Google results) since 2026-10-29; Brave is second.
+    "serper": {"api_key": ("SERPER_API_KEY",)},
 }
 
 

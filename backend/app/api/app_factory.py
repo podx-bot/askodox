@@ -185,7 +185,10 @@ def create_app() -> FastAPI:
         timeout_seconds=container.settings.brave_search_timeout_seconds,
         country=getattr(container.settings, "search_country", "IN"),
     )
-    live_research = OASATLiveResearchService(web_provider)
+    # Live research uses the same chain as discovery (Serper first when
+    # configured, then Brave); built just below, read at call time.
+    live_research = OASATLiveResearchService(
+        lambda query, limit: (getattr(container, "web_search_chain", None) or web_provider)(query, limit))
     deep_research = OASATDeepResearchService(live_research)
     research_aware = LiveResearchAwareConversationService(
         delegate=quality_guard,

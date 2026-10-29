@@ -53,6 +53,7 @@ def _bump(provider: str, key: str) -> None:
 # such in Admin -- the provider's bill is the source of truth.
 DEFAULT_COST_INR = {
     "brave": 0.42,           # Brave Search API ~ $5 / 1000
+    "serper": 0.09,          # Serper ~ $1 / 1000 (prepaid credits; estimate)
     "google_places": 2.70,   # Places Text Search ~ $32 / 1000
     "google_geocode": 0.42,  # Geocoding ~ $5 / 1000
     "llm_extract": 0.05,     # small LLM extraction call (varies by model/tokens)

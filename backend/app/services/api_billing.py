@@ -28,6 +28,8 @@ THRESHOLDS = (20, 10, 5, 0)
 NO_RECHARGE = "Manual only: open the provider's dashboard. ASKODOX never recharges or pays by itself."
 
 PROVIDERS: dict[str, dict[str, Any]] = {
+    "serper": {"label": "Serper (Google web search, primary)", "usage": ("serper",), "fallback": "brave",
+               "dashboard": "https://serper.dev/dashboard"},
     "brave": {"label": "Brave Search", "usage": ("brave",), "fallback": "google_cse",
               "dashboard": "https://api-dashboard.search.brave.com/app/subscriptions"},
     "google_cse": {"label": "Google Programmable Search (web fallback)", "usage": ("google_cse",), "fallback": None,
@@ -116,6 +118,16 @@ def _usage(rows: list[dict[str, Any]], keys: tuple[str, ...], today: str, month:
 
 def _state(name: str, container: Any) -> dict[str, Any]:
     """Real state only; never from key presence."""
+    if name == "serper":
+        chain = getattr(container, "web_search_chain", None)
+        serper = next((p for p in getattr(chain, "providers", []) if getattr(p, "name", "") == "serper"), None)
+        if serper is None:
+            return {"state": "NEEDS_CONFIGURATION", "note": "SERPER_API_KEY is not set; Brave is the primary"}
+        snap = serper.health_snapshot() if hasattr(serper, "health_snapshot") else {}
+        state = _BRAVE_STATE.get(str(snap.get("state") or "unknown"), "ERROR")
+        return {"state": state, "last_checked_at": snap.get("at"), "last_success_at": snap.get("last_ok_at"),
+                "http_status": snap.get("http_status"), "credits_left": snap.get("credits_left"),
+                "paused_for_seconds": snap.get("paused_for_seconds")}
     if name in ("brave", "google_cse"):
         brave = getattr(container, "brave_web_search_provider", None)
         if name == "brave":

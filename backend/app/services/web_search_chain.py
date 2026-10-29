@@ -191,17 +191,25 @@ class WebSearchChain:
 
     def health_snapshot(self) -> dict:
         snap = dict(self.primary.health_snapshot()) if hasattr(self.primary, "health_snapshot") else {}
+        snap["primary"] = getattr(self.primary, "name", type(self.primary).__name__) if self.primary else None
         snap["fallbacks"] = {getattr(p, "name", type(p).__name__): (getattr(p, "health", {}) or {}).get("state")
                              for p in self.providers[1:]}
         return snap
 
 
-def build_chain(primary: Any, env: Optional[dict] = None, *, country: str = "IN") -> WebSearchChain:
+def build_chain(brave: Any, env: Optional[dict] = None, *, country: str = "IN",
+                serper: Any = None) -> WebSearchChain:
+    """Serper (Google results) first when ``SERPER_API_KEY`` is set (owner
+    decision 2026-10-29), then Brave, then the legacy Google CSE entitlement.
+    Without a Serper key the order is the old one: Brave, then CSE."""
     import os
 
     from app.services.commerce_finance import env_value
+    from app.services.serper_web_search_provider import SerperWebSearchProvider
 
     env = dict(os.environ) if env is None else env
+    if serper is None:
+        serper = SerperWebSearchProvider(env_value(env, "serper", "api_key"), country=country)
     cse = GoogleCseProvider(env_value(env, "google_cse", "api_key"), env_value(env, "google_cse", "cx"),
                             country=country)
-    return WebSearchChain([primary, cse])
+    return WebSearchChain(([serper] if getattr(serper, "configured", False) else []) + [brave, cse])

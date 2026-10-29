@@ -672,11 +672,12 @@ def _resolve_typed_places(container, demand: dict) -> None:
 
 
 def _web_search(container):
-    """The web-search CHAIN (Brave, then fallbacks). A test or caller that
-    replaced ``brave_web_search_provider`` alone gets that provider."""
+    """The web-search CHAIN (Serper when configured, Brave, then fallbacks). A
+    test or caller that replaced ``brave_web_search_provider`` alone (so the
+    chain no longer holds it) gets that provider."""
     brave = getattr(container, "brave_web_search_provider", None)
     chain = getattr(container, "web_search_chain", None)
-    if chain is None or brave is None or getattr(chain, "primary", None) is not brave:
+    if chain is None or brave is None or not any(p is brave for p in getattr(chain, "providers", [])):
         return brave
     return chain
 

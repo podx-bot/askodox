@@ -169,13 +169,21 @@ def runtime_rows(container: Any, *, maps_body: Dict[str, Any] | None, web: Dict[
     records -- never a hand-set value."""
     rows: List[Dict[str, Any]] = []
     fallbacks = web.get("fallbacks") or {}
+    if isinstance(fallbacks, dict) and "serper" in fallbacks:
+        serper = fallbacks.get("serper")
+        serper_state = {"not_configured": "NOT_CONFIGURED", None: "CONFIGURED_NOT_VERIFIED",
+                        "unknown": "CONFIGURED_NOT_VERIFIED", "ok": "LIVE", "rate_limited": "DEGRADED",
+                        "quota_exhausted": "QUOTA_EXHAUSTED", "auth_failed": "ERROR"}.get(serper, "ERROR")
+        rows.append({"integration": "Web search (Serper, primary)", "state": serper_state,
+                     "reason": "SERPER_API_KEY is not set: Brave is the primary" if serper_state == "NOT_CONFIGURED"
+                     else "Google results first; Brave is used only when Serper fails"})
     cse = fallbacks.get("google_cse") if isinstance(fallbacks, dict) else None
     cse_state = {"not_configured": "DISABLED", None: "CONFIGURED_NOT_VERIFIED", "ok": "LIVE",
                  "error": "ERROR", "quota_exhausted": "QUOTA_EXHAUSTED"}.get(cse, "ERROR") \
         if "google_cse" in fallbacks else "DISABLED"
     rows.append({"integration": "Legacy web-search fallback (Google Programmable Search)", "state": cse_state,
                  "reason": ("legacy entitlement only; Google closed Custom Search JSON API to new customers "
-                            "on 2026-01-20; Brave remains the primary whole-web provider")
+                            "on 2026-01-20; Serper (when configured) and Brave are the web providers")
                  if cse_state == "DISABLED" else
                  "legacy provider; used only when Brave fails"})
     if not maps_body or not maps_body.get("configured"):
