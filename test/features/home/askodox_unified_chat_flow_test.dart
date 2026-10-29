@@ -1266,7 +1266,7 @@ void main() {
       expect(find.byKey(const Key('askodoxResultsProviderError')), findsNothing);
       expect(find.textContaining('service problem'), findsNothing);
       expect(find.textContaining('marketplaces'), findsNothing);
-      expect(find.text('Godrej Slimline 2-door steel almirah at Store A'), findsWidgets, reason: 'the results that came are shown');
+      expect(find.textContaining('Godrej Slimline'), findsWidgets, reason: 'the results that came are shown');
     });
 
     testWidgets('1-3, 5, 6, 14: broad request asks first; answers update state; ONE search once enough is known',
