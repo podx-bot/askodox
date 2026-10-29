@@ -20,8 +20,7 @@ jobs:
               except urllib.error.HTTPError as e:
                   return e.code, {'error': e.read()[:300].decode('utf-8', 'replace')}
           loc = {'label': 'Vijayawada', 'latitude': 16.5062, 'longitude': 80.6480}
-          for subject, said in (('Oppo Find X10', 'Oppo Find X10 కావాలి'), ('washing machine', 'washing machine under 30000 show me'),
-                                ('iPhone 17', 'iPhone 17 price')):
+          for subject, said in (('Oppo Find X10 Pro Max', 'Oppo Find X10 Pro Max కావాలి'), ('washing machine', 'washing machine under 30000 show me')):
               body = {'user_id': '', 'raw_text': said, 'intent': 'buy', 'subject': subject, 'category': 'electronics',
                       'location': loc, 'dynamic_fields': {}, 'trace': {'query': said}}
               code, d = post('/deals/discover', body)
@@ -30,5 +29,14 @@ jobs:
               status = d.get('source_status') or d.get('sources') or {}
               m = d.get('matches') or []
               first = [(x.get('source') or x.get('segment'), (x.get('title') or '')[:50], (x.get('url') or x.get('link') or '')[:60]) for x in m[:6]]
+              mk = {k: v for k, v in (d.get('debug') or {}).items() if 'market' in k} if isinstance(d.get('debug'), dict) else {}
+              allsec = d.get('sections') or []
+              stat = {}
+              for sec in (allsec if isinstance(allsec, list) else []):
+                  stat[sec.get('kind')] = sec.get('status')
+              print(f'::notice title={subject} status::' + json.dumps(stat, ensure_ascii=False)[:1500] + ' | providers ' + json.dumps(d.get('provider_status') or d.get('source_status') or {}, ensure_ascii=False)[:800])
+              hc, hs = urllib.request.urlopen(urllib.request.Request(base + '/health/search', headers={'User-Agent': 'ASKODOX-probe'}), timeout=30).status, None
+              with urllib.request.urlopen(urllib.request.Request(base + '/health/search', headers={'User-Agent': 'ASKODOX-probe'}), timeout=30) as r:
+                  print(f'::notice title={subject} health::' + r.read().decode()[:800])
               print(f'::notice title={subject}::status {code} | matches {len(m)} | sections {json.dumps(sizes)[:600]} | sources {json.dumps(status, ensure_ascii=False)[:900]} | first {first} | err {str(d.get("error",""))[:200]}')
           PY
