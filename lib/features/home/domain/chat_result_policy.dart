@@ -602,26 +602,6 @@ String? askodoxProviderProblemText(AskodoxChatResults results, {required bool te
       : '${parts.join(' · ')}. This is a service problem -- not "no results".';
 }
 
-/// When other results DID come back, a failing source is a small grey line
-/// under the cards, not the big service banner (owner 2026-10-29). Null when
-/// nothing failed. Marketplaces are named as the shops people know.
-String? askodoxProviderProblemNote(AskodoxChatResults results, {required bool telugu}) {
-  final failing = [
-    for (final e in results.sourceStatus.entries)
-      if (askodoxProviderFailureStatuses.contains(e.value) && _sourceNames.containsKey(e.key)) e.key,
-  ];
-  if (failing.isEmpty) return null;
-  final names = [
-    for (final key in failing)
-      key == 'marketplaces' ? 'Amazon / Flipkart / Meesho' : (telugu ? _sourceNames[key]!.$2 : _sourceNames[key]!.$1),
-  ];
-  final joined = names.join(', ');
-  final prices = failing.length == 1 && failing.first == 'marketplaces';
-  return telugu
-      ? (prices ? '$joined ధరలు ఇప్పుడు చూపలేకపోయాం.' : '$joined ఇప్పుడు చూపలేకపోయాం.')
-      : (prices ? "Couldn't show $joined prices right now." : "Couldn't show $joined right now.");
-}
-
 const _downStatuses = {'error', 'unavailable', 'disabled', 'quota_exhausted', 'rate_limited', 'auth_failed', 'needs_location', 'not_configured'};
 
 final _claimsResults = RegExp(

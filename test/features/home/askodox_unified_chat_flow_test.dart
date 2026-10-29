@@ -1252,7 +1252,7 @@ void main() {
       expect(h.matches.deals, hasLength(1), reason: 'APK 1304: the static schema had nothing missing -> search');
     });
 
-    testWidgets('owner 2026-10-29: other results came back -> no big banner, one grey line about Amazon / Flipkart',
+    testWidgets('owner 2026-10-29: other results came back -> a failing source is not mentioned at all',
         (tester) async {
       final h = _Harness(
         matches: _FakeMatchRepository([const UniversalMatchResult(dealId: 'mk', matches: [almirah],
@@ -1264,8 +1264,9 @@ void main() {
       await h.pump(tester);
       await h.send(tester, 'show me steel almirah');
       expect(find.byKey(const Key('askodoxResultsProviderError')), findsNothing);
-      expect(find.byKey(const Key('askodoxResultsProviderNote')), findsWidgets);
-      expect(find.textContaining('Amazon / Flipkart / Meesho'), findsWidgets);
+      expect(find.textContaining('service problem'), findsNothing);
+      expect(find.textContaining('marketplaces'), findsNothing);
+      expect(find.text('Godrej Slimline 2-door steel almirah at Store A'), findsWidgets, reason: 'the results that came are shown');
     });
 
     testWidgets('1-3, 5, 6, 14: broad request asks first; answers update state; ONE search once enough is known',

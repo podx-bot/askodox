@@ -5771,8 +5771,9 @@ class _ChatResultsView extends StatelessWidget {
           ),
         // A provider problem (quota / rate limit / key / outage) is said as
         // that -- never dressed up as "nothing found".
-        // The big service banner only when nothing came back; with other
-        // results a grey line under the cards says what is missing.
+        // The service banner only when NOTHING came back (owner 2026-10-29):
+        // no source is required -- when others answered, a failing one is
+        // simply not mentioned (it stays in diagnostics / Command Center).
         if (askodoxProviderProblemText(results, telugu: te) case final problem? when results.matches.isEmpty)
           _notice(
             key: const Key('askodoxResultsProviderError'),
@@ -5849,13 +5850,6 @@ class _ChatResultsView extends StatelessWidget {
               ),
             ]),
           ),
-        if (results.matches.isNotEmpty)
-          if (askodoxProviderProblemNote(results, telugu: te) case final quiet?)
-            Padding(
-              key: const Key('askodoxResultsProviderNote'),
-              padding: const EdgeInsets.only(top: 2, bottom: 4),
-              child: Text(quiet, style: const TextStyle(color: _muted, fontSize: 12, height: 1.3)),
-            ),
         if (_sourceNote(te) case final note?)
           Padding(
             key: const Key('askodoxSourceStatus'),
