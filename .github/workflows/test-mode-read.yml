@@ -46,8 +46,9 @@ jobs:
           with urllib.request.urlopen(req, timeout=60) as r:
               data = json.loads(r.read())
           print('::notice title=summary::' + json.dumps(data.get('summary', {}), ensure_ascii=False)[:4000])
-          SAFE = ('input', 'mode', 'action', 'usable', 'grounding_verified', 'grounding_mode', 'honesty', 'engine',
-                  'reason', 'language', 'chars', 'error')
+          SAFE = ('input', 'mode', 'action', 'usable', 'search_ready', 'asks_next', 'grounding_verified', 'grounding_mode',
+                  'honesty', 'engine', 'reason', 'language', 'chars', 'chunks', 'stage', 'allowed', 'has_deal',
+                  'has_subject', 'brain_ready', 'schema_ready', 'asks_question', 'matches', 'local', 'advisor_hold', 'error')
           lines = []
           for e in data.get('items', []):
               d = e.get('detail') or {}
