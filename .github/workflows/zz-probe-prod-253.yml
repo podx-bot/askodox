@@ -1,0 +1,39 @@
+name: Probe production after 253 (throwaway)
+on:
+  push:
+    branches: [claude/probe-prod-253]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for deploy, then check the new features
+        run: |
+          python3 - <<'PY'
+          import json, time, urllib.request, urllib.error
+          base = 'https://admin.askodox.com'
+          def get(path, data=None):
+              req = urllib.request.Request(base + path, data=json.dumps(data).encode() if data else None,
+                                           headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'},
+                                           method='POST' if data else 'GET')
+              try:
+                  with urllib.request.urlopen(req, timeout=90) as r:
+                      return r.status, json.loads(r.read() or b'{}')
+              except urllib.error.HTTPError as e:
+                  return e.code, {}
+          live = ''
+          for _ in range(60):
+              _, h = get('/health')
+              live = str(h.get('commit', ''))
+              if live.startswith('24cc48b'):
+                  break
+              time.sleep(30)
+          print(f'::notice title=deployed::commit {live}')
+          for path in ('/api/me/test-mode', '/api/me/availability-watches'):
+              print(f'::notice title=route {path}::status {get(path)[0]} (401 = route live, sign-in needed)')
+          for text in ('Oppo Find X10 గురించి చెప్పండి', 'is Oppo Find X10 released'):
+              code, d = get('/api/in-app/assistant', {'message': text, 'locale': 'te', 'history': []})
+              g = d.get('grounding') or {}
+              srcs = [(s.get('label'), (s.get('url') or '')[:60]) for s in g.get('sources') or []]
+              print(f'::notice title={text}::status {code} | mode {g.get("mode")} | verified {g.get("verified")} | '
+                    f'honesty {d.get("honesty")} | sources {srcs[:5]} | reply: {(d.get("reply") or "")[:500]}'.replace('\n', ' '))
+          PY
