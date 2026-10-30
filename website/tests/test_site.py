@@ -98,8 +98,10 @@ class SiteBuild(unittest.TestCase):
         self.assertIsNone(re.search(r"\+\d{2}\s?\d{5}\s?\d{5}", home))
 
     def test_legal_placeholders_until_configured(self):
-        for r in ("privacy", "terms"):
-            self.assertIn('class="placeholder"', self.page(r))
+        # Legal entity is configured (proprietor, trading as ASKODOX AI): privacy shows no placeholder.
+        self.assertNotIn('class="placeholder"', self.page("privacy"))
+        # Governing law / jurisdiction is still unconfirmed: terms keeps its placeholder.
+        self.assertIn('class="placeholder"', self.page("terms"))
 
     def test_forms_are_honest_without_endpoint(self):
         join = self.page("join")
