@@ -7,737 +7,3035 @@
       "name": "Universal Decision Brain (search readiness, one next question)",
       "purpose": "Understand the need from the whole conversation and decide whether a search is justified now.",
       "expected_behavior": "decide() returns mode, state, search_ready, ONE next_question and a consolidated search_subject; known facts are never asked again; a product noun alone never triggers cards.",
-      "roles": ["any"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/in-app/assistant",
-               "response_model": "app.api.routes.in_app_assistant:AssistantDecision",
-               "response_keys": ["reply", "mode", "state", "search_ready", "next_question", "search_subject", "new_need", "conversation_relation", "subject_changed"]}],
-      "ui": {"symbols": ["askodoxSearchGate"]},
-      "flags": {"ai.assistant": true},
-      "tests": {"backend": ["tests/test_decision_guidance.py"], "flutter": ["test/features/home/askodox_unified_chat_flow_test.dart"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant",
+          "response_model": "app.api.routes.in_app_assistant:AssistantDecision",
+          "response_keys": [
+            "reply",
+            "mode",
+            "state",
+            "search_ready",
+            "next_question",
+            "search_subject",
+            "new_need",
+            "conversation_relation",
+            "subject_changed"
+          ]
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxSearchGate"
+        ]
+      },
+      "flags": {
+        "ai.assistant": true
+      },
+      "tests": {
+        "backend": [
+          "tests/test_decision_guidance.py"
+        ],
+        "flutter": [
+          "test/features/home/askodox_unified_chat_flow_test.dart"
+        ]
+      },
       "health": "conversation_intelligence",
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": 163, "change": "brain owns search readiness"}]
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 163,
+          "change": "brain owns search readiness"
+        }
+      ]
     },
     {
       "id": "reasoning_before_results",
       "name": "Reasoning before results (guidance + goal planning)",
       "purpose": "Every reply genuinely helps first; cards support the answer, never replace it.",
       "expected_behavior": "Guidance with the user's own numbers, labelled estimates, goal / resource planning when something must get done, at most one question; a false results claim drops only its sentence.",
-      "roles": ["any"], "domains": ["any"],
-      "ui": {"symbols": ["askodoxStripResultClaims", "askodoxWithoutTrailingQuestion"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxStripResultClaims",
+          "askodoxWithoutTrailingQuestion"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_decision_guidance.py::test_guidance_rule_is_universal_and_honest_about_estimates"],
-                "flutter": ["test/features/home/result_board_test.dart::reasoning before results"]},
-      "dependencies": ["decision_brain"], "status": "approved",
-      "history": [{"pr": 178, "change": "guidance rule; sentence-level claim stripping"}, {"pr": "post-1312", "change": "goal / resource planning, formatting"}]
+      "tests": {
+        "backend": [
+          "tests/test_decision_guidance.py::test_guidance_rule_is_universal_and_honest_about_estimates"
+        ],
+        "flutter": [
+          "test/features/home/result_board_test.dart::reasoning before results"
+        ]
+      },
+      "dependencies": [
+        "decision_brain"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 178,
+          "change": "guidance rule; sentence-level claim stripping"
+        },
+        {
+          "pr": "post-1312",
+          "change": "goal / resource planning, formatting"
+        }
+      ]
     },
     {
       "id": "one_time_advice",
       "name": "One-time advice memory",
       "purpose": "Advise once, respect the decision, keep helping.",
       "expected_behavior": "A concern repeats only for new information, an explicit ask or a critical risk; the ledger is kept per conversation.",
-      "roles": ["any"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/in-app/assistant",
-               "response_model": "app.api.routes.in_app_assistant:AssistantDecision",
-               "response_keys": ["advice", "advice_ledger"]}],
-      "ui": {"symbols": ["_adviceLedger"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant",
+          "response_model": "app.api.routes.in_app_assistant:AssistantDecision",
+          "response_keys": [
+            "advice",
+            "advice_ledger"
+          ]
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "_adviceLedger"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_advice_memory.py"], "flutter": ["test/services/in_app_assistant_advice_test.dart"]},
+      "tests": {
+        "backend": [
+          "tests/test_advice_memory.py"
+        ],
+        "flutter": [
+          "test/services/in_app_assistant_advice_test.dart"
+        ]
+      },
       "health": "advice_policy",
-      "dependencies": ["decision_brain"], "status": "approved",
-      "history": [{"pr": 177, "change": "introduced"}]
+      "dependencies": [
+        "decision_brain"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 177,
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "result_board",
       "name": "Result Board (above the conversation, same Home screen)",
       "purpose": "Show relevant results without covering the conversation, input or avatar.",
       "expected_behavior": "hidden / loading / expanded / minimized pill / restored / pinned selection / stale / archived; sized from the real Home column height; minimize and restore reflow the chat; a retired deck is archived and restorable; default board keeps the locked one-rail layout; mega expand shows one box per category with up/down, swipe and an n/N counter whose position survives minimize; a provider failure is a separate notice, never 'no results'.",
-      "roles": ["any"], "domains": ["any"],
-      "ui": {"keys": ["askodoxResultContext", "askodoxResultPill", "askodoxResultPillRestore", "askodoxResultBoardMinimize", "askodoxArchivedResultsRestore", "askodoxSelectedContext", "askodoxResultsOutdated", "askodoxResultBoardMega", "askodoxResultsProviderError", "askodoxResultBoardTabs"],
-             "symbols": ["askodoxBoardStateOf", "askodoxBoardMaxHeight", "askodoxBoardMegaHeight", "askodoxBoardPosition", "askodoxProviderProblemText", "askodoxBoardTabRows", "askodoxResultsForTab"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "ui": {
+        "keys": [
+          "askodoxResultContext",
+          "askodoxResultPill",
+          "askodoxResultPillRestore",
+          "askodoxResultBoardMinimize",
+          "askodoxArchivedResultsRestore",
+          "askodoxSelectedContext",
+          "askodoxResultsOutdated",
+          "askodoxResultBoardMega",
+          "askodoxResultsProviderError",
+          "askodoxResultBoardTabs"
+        ],
+        "symbols": [
+          "askodoxBoardStateOf",
+          "askodoxBoardMaxHeight",
+          "askodoxBoardMegaHeight",
+          "askodoxBoardPosition",
+          "askodoxProviderProblemText",
+          "askodoxBoardTabRows",
+          "askodoxResultsForTab"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_provider_failure_status.py"],
-                "flutter": ["test/features/home/result_board_test.dart", "test/features/home/navigator_ux_test.dart", "test/features/home/askodox_unified_chat_flow_test.dart::Universal Result Board lifecycle", "test/features/home/askodox_unified_chat_flow_test.dart::Result Board navigation", "test/features/home/askodox_unified_chat_flow_test.dart::a provider failure is shown as a service problem"]},
-      "dependencies": ["result_contract_v2"], "status": "approved",
-      "history": [{"pr": 167, "change": "minimize pill / restore"}, {"pr": 177, "change": "archived restore"}, {"pr": 178, "change": "lifecycle module + real-height sizing"}, {"pr": "post-1313", "change": "mega expand with per-category up/down navigation + counter (positions survive minimize); provider failures (quota / rate limit / key) shown apart from no results"}, {"pr": "navigator", "change": "one tab row Result Board | Local | Online | Deals | Reviews | Videos + Expand + Minimize (tabs are views of the same deck; Reviews only grounded ratings)"}]
+      "tests": {
+        "backend": [
+          "tests/test_provider_failure_status.py"
+        ],
+        "flutter": [
+          "test/features/home/result_board_test.dart",
+          "test/features/home/navigator_ux_test.dart",
+          "test/features/home/askodox_unified_chat_flow_test.dart::Universal Result Board lifecycle",
+          "test/features/home/askodox_unified_chat_flow_test.dart::Result Board navigation",
+          "test/features/home/askodox_unified_chat_flow_test.dart::a provider failure is shown as a service problem"
+        ]
+      },
+      "dependencies": [
+        "result_contract_v2"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 167,
+          "change": "minimize pill / restore"
+        },
+        {
+          "pr": 177,
+          "change": "archived restore"
+        },
+        {
+          "pr": 178,
+          "change": "lifecycle module + real-height sizing"
+        },
+        {
+          "pr": "post-1313",
+          "change": "mega expand with per-category up/down navigation + counter (positions survive minimize); provider failures (quota / rate limit / key) shown apart from no results"
+        },
+        {
+          "pr": "navigator",
+          "change": "one tab row Result Board | Local | Online | Deals | Reviews | Videos + Expand + Minimize (tabs are views of the same deck; Reviews only grounded ratings)"
+        }
+      ]
     },
     {
       "id": "result_contract_v2",
       "name": "Result Contract v2 (sections, honest empties)",
       "purpose": "One versioned backend-to-app result contract for every source.",
       "expected_behavior": "/deals/discover and /deals/{id}/matches return sections, conversation_state, answer.may_claim_results and matches; a failing source empties only its own section.",
-      "roles": ["any"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/deals/discover"}, {"method": "GET", "path": "/deals/{deal_id}/matches"}],
-      "flags": {"results.registered": true, "results.nearby_external": true, "results.online": true, "results.videos": true, "results.affiliate": true},
-      "tests": {"backend": ["tests/test_result_contract_combinations.py"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/deals/discover"
+        },
+        {
+          "method": "GET",
+          "path": "/deals/{deal_id}/matches"
+        }
+      ],
+      "flags": {
+        "results.registered": true,
+        "results.nearby_external": true,
+        "results.online": true,
+        "results.videos": true,
+        "results.affiliate": true
+      },
+      "tests": {
+        "backend": [
+          "tests/test_result_contract_combinations.py"
+        ]
+      },
       "health": "result_discovery",
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": 150, "change": "introduced"}]
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 150,
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "channel_preference",
       "name": "Online / local / mixed discovery channel",
       "purpose": "Route discovery to the channel the user asked for.",
       "expected_behavior": "An online ask never shows nearby shop cards and always runs the online search; a local ask skips the web search; a channel switch never leaves old cards posing as the answer.",
-      "roles": ["any"], "domains": ["any"],
-      "ui": {"symbols": ["askodoxChannelPreference", "rememberChannel"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxChannelPreference",
+          "rememberChannel"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_channel_preference.py"], "flutter": ["test/features/home/askodox_unified_chat_flow_test.dart::APK 1312"]},
-      "dependencies": ["result_contract_v2"], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "introduced"}]
+      "tests": {
+        "backend": [
+          "tests/test_channel_preference.py"
+        ],
+        "flutter": [
+          "test/features/home/askodox_unified_chat_flow_test.dart::APK 1312"
+        ]
+      },
+      "dependencies": [
+        "result_contract_v2"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1312",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "rich_replies",
       "name": "Structured reply rendering",
       "purpose": "Readable answers in any language: headings, points, bold, tables, links -- never raw markup.",
       "expected_behavior": "Assistant replies render their structure; plain replies stay plain; speech gets plain words; lines the assistant tags [ok]/[caution]/[risk] are coloured green/orange/red with an icon (never keyword-guessed); tall scripts get 1.5 line height.",
-      "roles": ["any"], "domains": ["any"],
-      "ui": {"symbols": ["AskodoxRichReply", "askodoxPlainReply", "askodoxSeverityOf", "askodoxSeverityStyle", "askodoxNeedsTallLines"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "ui": {
+        "symbols": [
+          "AskodoxRichReply",
+          "askodoxPlainReply",
+          "askodoxSeverityOf",
+          "askodoxSeverityStyle",
+          "askodoxNeedsTallLines"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_decision_guidance.py::test_guidance_rule_is_universal_and_honest_about_estimates", "tests/test_decision_guidance.py::test_meaning_tags_only_for_app_builds_that_render_them"],
-                "flutter": ["test/shared/rich_reply_test.dart", "test/shared/rich_reply_test.dart::meaning colours"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "introduced"}, {"pr": "post-1313", "change": "meaning colours from the assistant's [ok]/[caution]/[risk] tags (bar + tint + icon + label, light/dark), Telugu line height"}, {"pr": 180, "change": "tags only for app builds that send capabilities=[meaning_tags] (older APKs never see raw tags)"}]
+      "tests": {
+        "backend": [
+          "tests/test_decision_guidance.py::test_guidance_rule_is_universal_and_honest_about_estimates",
+          "tests/test_decision_guidance.py::test_meaning_tags_only_for_app_builds_that_render_them"
+        ],
+        "flutter": [
+          "test/shared/rich_reply_test.dart",
+          "test/shared/rich_reply_test.dart::meaning colours"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1312",
+          "change": "introduced"
+        },
+        {
+          "pr": "post-1313",
+          "change": "meaning colours from the assistant's [ok]/[caution]/[risk] tags (bar + tint + icon + label, light/dark), Telugu line height"
+        },
+        {
+          "pr": 180,
+          "change": "tags only for app builds that send capabilities=[meaning_tags] (older APKs never see raw tags)"
+        }
+      ]
     },
     {
       "id": "attachments",
       "name": "Photo / video / document understanding",
       "purpose": "Understand media sent with or without words, without assuming a purchase.",
       "expected_behavior": "One analyze endpoint; media alone is explained, never searched; honest failures.",
-      "roles": ["any"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/attachments/analyze"}],
-      "ui": {"keys": ["askodoxAttachmentPreview", "askodoxCancelAttachment", "askodoxAttachButton"], "symbols": ["askodoxAttachmentGuidance"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/attachments/analyze"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxAttachmentPreview",
+          "askodoxCancelAttachment",
+          "askodoxAttachButton"
+        ],
+        "symbols": [
+          "askodoxAttachmentGuidance"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_chat_attachments.py"], "flutter": ["test/features/home/attachment_intent_test.dart"]},
+      "tests": {
+        "backend": [
+          "tests/test_chat_attachments.py"
+        ],
+        "flutter": [
+          "test/features/home/attachment_intent_test.dart"
+        ]
+      },
       "health": "media_analysis",
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": 177, "change": "non-commerce guidance"}]
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 177,
+          "change": "non-commerce guidance"
+        }
+      ]
     },
     {
       "id": "voice",
       "name": "Continuous voice (Sarvam STT / TTS)",
       "purpose": "Speak naturally until Stop; replies spoken in the conversation language.",
       "expected_behavior": "Recording ends on the user's Stop; long silence (8 s) and 2 min are safety limits; Telugu preserved; no markup spoken; ONE audio lifecycle -- a newer reply or Stop cuts the old one off and it never falls back to a second voice.",
-      "roles": ["any"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/in-app/voice/transcribe"}, {"method": "POST", "path": "/api/in-app/voice/speak"}],
-      "ui": {"keys": ["askodoxVoicePanel", "askodoxVoiceCancel", "askodoxPauseSpeaking", "askodoxResumeSpeaking", "askodoxMuteSpeaking", "askodoxStopSpeaking"], "symbols": ["AskodoxVoiceEndpointer"]},
-      "flags": {"voice.sarvam_tts": true},
-      "tests": {"backend": ["tests/test_in_app_voice_transcribe_route.py"], "flutter": ["test/services/voice_endpointing_test.dart", "test/features/home/askodox_unified_chat_flow_test.dart::never two voices", "test/features/home/askodox_unified_chat_flow_test.dart::pause / resume Sarvam reply audio", "test/features/home/askodox_unified_chat_flow_test.dart::resume continues there with the SAME voice", "test/features/home/askodox_unified_chat_flow_test.dart::mute stops the voice"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "no stop on a thinking pause"}, {"pr": "post-1313", "change": "one audio lifecycle (speech turn token; native speech stops reply audio)"}, {"pr": "post-1313", "change": "pause / resume (Sarvam in place; device voice resumes from the last word, same engine), mute, replay"}]
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/transcribe"
+        },
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/speak"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxVoicePanel",
+          "askodoxVoiceCancel",
+          "askodoxPauseSpeaking",
+          "askodoxResumeSpeaking",
+          "askodoxMuteSpeaking",
+          "askodoxStopSpeaking"
+        ],
+        "symbols": [
+          "AskodoxVoiceEndpointer"
+        ]
+      },
+      "flags": {
+        "voice.sarvam_tts": true
+      },
+      "tests": {
+        "backend": [
+          "tests/test_in_app_voice_transcribe_route.py"
+        ],
+        "flutter": [
+          "test/services/voice_endpointing_test.dart",
+          "test/features/home/askodox_unified_chat_flow_test.dart::never two voices",
+          "test/features/home/askodox_unified_chat_flow_test.dart::pause / resume Sarvam reply audio",
+          "test/features/home/askodox_unified_chat_flow_test.dart::resume continues there with the SAME voice",
+          "test/features/home/askodox_unified_chat_flow_test.dart::mute stops the voice"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1312",
+          "change": "no stop on a thinking pause"
+        },
+        {
+          "pr": "post-1313",
+          "change": "one audio lifecycle (speech turn token; native speech stops reply audio)"
+        },
+        {
+          "pr": "post-1313",
+          "change": "pause / resume (Sarvam in place; device voice resumes from the last word, same engine), mute, replay"
+        }
+      ]
     },
     {
       "id": "message_actions",
       "name": "Message actions (copy / select / share / replay)",
       "purpose": "Every message can be copied, selected and shared; replies can be replayed aloud.",
       "expected_behavior": "Long-press a message: Copy (plain text, no markup), Select text, Share through the Android share sheet (the user chooses; nothing is posted by ASKODOX); replies add Replay aloud and Mute / Unmute voice replies.",
-      "roles": ["any"], "domains": ["any"],
-      "ui": {"keys": ["askodoxMessageCopy", "askodoxMessageSelect", "askodoxMessageShare", "askodoxMessageReplay", "askodoxMessageMute", "askodoxMessageSelectable"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "ui": {
+        "keys": [
+          "askodoxMessageCopy",
+          "askodoxMessageSelect",
+          "askodoxMessageShare",
+          "askodoxMessageReplay",
+          "askodoxMessageMute",
+          "askodoxMessageSelectable"
+        ]
+      },
       "flags": {},
-      "tests": {"flutter": ["test/features/home/askodox_unified_chat_flow_test.dart::long-press a message"]},
-      "dependencies": ["rich_replies", "voice"], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced"}]
+      "tests": {
+        "flutter": [
+          "test/features/home/askodox_unified_chat_flow_test.dart::long-press a message"
+        ]
+      },
+      "dependencies": [
+        "rich_replies",
+        "voice"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "profile_memory",
       "name": "Conversation -> profile memory (roles, needs, offers)",
       "purpose": "Remember what a person needs / offers, by role, privately and under their control.",
       "expected_behavior": "Requests become items on the ONE profile by role (buyer / seller / service_provider / service_taker = seeking services or jobs); the same need updates (history kept), never duplicates; statuses active / updated / completed / cancelled / expired; private by default, public only with explicit consent and never with contacts; OTPs, passwords, card / account / Aadhaar / PAN numbers never stored; view, correct, delete one / all, switch off; strictly per user; removed with the account.",
-      "roles": ["any"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/me/memory"}, {"method": "PUT", "path": "/api/me/memory/settings"},
-              {"method": "PATCH", "path": "/api/me/memory/{item_id}"}, {"method": "DELETE", "path": "/api/me/memory/{item_id}"},
-              {"method": "DELETE", "path": "/api/me/memory"}, {"method": "GET", "path": "/api/me/memory/{item_id}/history"}],
-      "ui": {"keys": ["askodoxProfileMemoryEntry", "askodoxMemoryEnabled", "askodoxMemoryDeleteAll"], "symbols": ["ProfileMemoryScreen"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/memory"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/me/memory/settings"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/me/memory/{item_id}"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/me/memory/{item_id}"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/me/memory"
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/memory/{item_id}/history"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxProfileMemoryEntry",
+          "askodoxMemoryEnabled",
+          "askodoxMemoryDeleteAll"
+        ],
+        "symbols": [
+          "ProfileMemoryScreen"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_profile_memory.py"], "flutter": ["test/features/profile/profile_memory_screen_test.dart"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced"}]
+      "tests": {
+        "backend": [
+          "tests/test_profile_memory.py"
+        ],
+        "flutter": [
+          "test/features/profile/profile_memory_screen_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "roles_and_business_navigation",
       "name": "Profile -> My Roles / My Business navigation (Home unchanged)",
       "purpose": "One personal identity, role sections, and one My Business hub -- never a tile on Home.",
       "expected_behavior": "Profile -> My roles shows the personal profile once and, per held role (buyer, service taker, seller, service provider), tiles that open real screens; a role not held offers 'Add this role'. Profile -> My business: counted summary + insights (Analytics) first, then sections Business profile, My listings, Promotions & coupons, Business orders (plus Conversations & automation, Business settings and My creations as they ship). Promotions create offers that ASKODOX reviews before customers see them.",
-      "roles": ["any"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/merchant/offers"}, {"method": "POST", "path": "/api/merchant/offers"}],
-      "ui": {"keys": ["askodoxMyRolesEntry", "askodoxRolesPersonal", "askodoxBusinessSection-analytics", "askodoxOfferCreate"],
-             "symbols": ["MyRolesScreen", "BusinessPromotionsScreen", "askodoxBusinessSections"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/merchant/offers"
+        },
+        {
+          "method": "POST",
+          "path": "/api/merchant/offers"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxMyRolesEntry",
+          "askodoxRolesPersonal",
+          "askodoxBusinessSection-analytics",
+          "askodoxOfferCreate"
+        ],
+        "symbols": [
+          "MyRolesScreen",
+          "BusinessPromotionsScreen",
+          "askodoxBusinessSections"
+        ]
+      },
       "flags": {},
-      "tests": {"flutter": ["test/features/business/my_business_navigation_test.dart", "test/features/business/business_center_test.dart"]},
-      "dependencies": ["profile_memory"], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced"}]
+      "tests": {
+        "flutter": [
+          "test/features/business/my_business_navigation_test.dart",
+          "test/features/business/business_center_test.dart"
+        ]
+      },
+      "dependencies": [
+        "profile_memory"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "conversations_automation",
       "name": "Conversations & Automation workspace (sellers)",
       "purpose": "Auto replies from approved answers only, handover, hours, preview and real platform status.",
       "expected_behavior": "ON/OFF auto-replies in ASKODOX chats from the seller's approved answers (templates); handover words and out-of-hours always reach the owner; a customer message can be tried before saving; Facebook / Instagram / WhatsApp show Connected only after a verified connection (else needs setup / test mode / not available); conversation history opens the real inbox; nothing is posted to any platform from here.",
-      "roles": ["seller", "service_provider"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/business/auto-response"}, {"method": "PUT", "path": "/api/business/auto-response"},
-              {"method": "POST", "path": "/api/business/auto-response/preview"}],
-      "ui": {"keys": ["askodoxAutoReplyEnabled", "askodoxAutoSave", "askodoxAutoPreview", "askodoxAutoHistory", "askodoxAutoSettings"],
-             "symbols": ["BusinessAutomationScreen", "askodoxPlatformStatusLabel"]},
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/business/auto-response"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/business/auto-response"
+        },
+        {
+          "method": "POST",
+          "path": "/api/business/auto-response/preview"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxAutoReplyEnabled",
+          "askodoxAutoSave",
+          "askodoxAutoPreview",
+          "askodoxAutoHistory",
+          "askodoxAutoSettings"
+        ],
+        "symbols": [
+          "BusinessAutomationScreen",
+          "askodoxPlatformStatusLabel"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_business_automation.py"], "flutter": ["test/features/business/business_automation_test.dart"]},
-      "dependencies": ["roles_and_business_navigation"], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced"}]
+      "tests": {
+        "backend": [
+          "tests/test_business_automation.py"
+        ],
+        "flutter": [
+          "test/features/business/business_automation_test.dart"
+        ]
+      },
+      "dependencies": [
+        "roles_and_business_navigation"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "api_health_billing",
       "name": "Admin API Health & Billing",
       "purpose": "Per provider: real state, failure type, credits, usage, cost and alerts -- never an invented balance, never a recharge.",
       "expected_behavior": "Brave credits from its own X-RateLimit headers; other balances UNKNOWN or a labelled ESTIMATE from an admin budget; actual cost UNKNOWN (provider bill); failure types billing_quota / credential / rate_limit / downtime; alerts at 20/10/5/0% remaining, spend spikes and repeated failures, once per period, acknowledge / resolve; no recharge endpoint exists.",
-      "roles": ["staff"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/api-billing"}, {"method": "POST", "path": "/admin/cc/api-billing/scan"},
-              {"method": "PUT", "path": "/admin/cc/api-billing/{provider}"}, {"method": "POST", "path": "/admin/cc/api-billing/alerts/{alert_id}/{action}"}],
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/api-billing"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/api-billing/scan"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/cc/api-billing/{provider}"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/api-billing/alerts/{alert_id}/{action}"
+        }
+      ],
       "flags": {},
-      "tests": {"backend": ["tests/test_api_billing.py"]},
-      "dependencies": ["provider_readiness"], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced"}]
+      "tests": {
+        "backend": [
+          "tests/test_api_billing.py"
+        ]
+      },
+      "dependencies": [
+        "provider_readiness"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "admin_ai_incidents",
       "name": "Admin AI incidents + action framework",
       "purpose": "Explain what is wrong from real telemetry and act only through approved, verified, auditable steps.",
       "expected_behavior": "Incidents in ONE format (Problem / Impact / Reason / Evidence / Solution / Action Status / Retest / AI Explanation) in English or Telugu; Reason confirmed only from the provider's own answer, else 'Root cause not confirmed'; correlations labelled POSSIBLE_CORRELATION; history kept; release readiness never READY without device proof. Actions only from a fixed catalog: read-only checks may run (max 2/hour), changes need approval by the right permission, are verified (VERIFIED / NOT_RECOVERED / UNVERIFIED), keep rollback, and are blocked after two failed recoveries.",
-      "roles": ["staff"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/incidents"}, {"method": "GET", "path": "/admin/cc/actions"},
-              {"method": "POST", "path": "/admin/cc/actions"}, {"method": "POST", "path": "/admin/cc/actions/{run_id}/{step}"},
-              {"method": "POST", "path": "/admin/cc/assistant/ask"}],
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/incidents"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/actions"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/actions"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/actions/{run_id}/{step}"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/assistant/ask"
+        }
+      ],
       "flags": {},
-      "tests": {"backend": ["tests/test_admin_incidents.py", "tests/test_admin_ops.py"]},
-      "dependencies": ["api_health_billing", "feature_health"], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced"}]
+      "tests": {
+        "backend": [
+          "tests/test_admin_incidents.py",
+          "tests/test_admin_ops.py"
+        ]
+      },
+      "dependencies": [
+        "api_health_billing",
+        "feature_health"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "my_creations",
       "name": "My Business -> My Creations",
       "purpose": "Posts, descriptions, offer / catalogue / poster text and reel scripts the owner keeps and shares.",
       "expected_behavior": "Write by hand or draft with AI from the owner's facts only (missing facts stay [placeholders]; no invented prices or claims); saved per owner; edit / copy / share through the phone's share sheet; nothing posted automatically; image generation and video generation shown as NOT_AVAILABLE with the reason; video is upload-only.",
-      "roles": ["seller", "service_provider"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/business/creations"}, {"method": "POST", "path": "/api/business/creations"},
-              {"method": "POST", "path": "/api/business/creations/draft"}],
-      "ui": {"keys": ["askodoxCreationAi", "askodoxCreationManual", "askodoxCreationImageGen", "askodoxCreationVideoUpload"],
-             "symbols": ["BusinessCreationsScreen"]},
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/business/creations"
+        },
+        {
+          "method": "POST",
+          "path": "/api/business/creations"
+        },
+        {
+          "method": "POST",
+          "path": "/api/business/creations/draft"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxCreationAi",
+          "askodoxCreationManual",
+          "askodoxCreationImageGen",
+          "askodoxCreationVideoUpload"
+        ],
+        "symbols": [
+          "BusinessCreationsScreen"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_business_creations.py"], "flutter": ["test/features/business/business_creations_test.dart"]},
-      "dependencies": ["roles_and_business_navigation"], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced (image generation blocked: no provider)"}]
+      "tests": {
+        "backend": [
+          "tests/test_business_creations.py"
+        ],
+        "flutter": [
+          "test/features/business/business_creations_test.dart"
+        ]
+      },
+      "dependencies": [
+        "roles_and_business_navigation"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced (image generation blocked: no provider)"
+        }
+      ]
     },
     {
       "id": "release_gate",
       "name": "Strict release gate",
       "purpose": "No release is marked READY while any condition fails or real-phone verification is missing.",
       "expected_behavior": "Code conditions (approved features intact, Home unchanged, no recharge route, no unbacked generation claims) run in CI; runtime: no red incident; device: every phone check PHONE VERIFIED. READY only when all PASS; otherwise NOT_READY or BLOCKED_ON_DEVICE_VERIFICATION. Visible in Integration readiness.",
-      "roles": ["staff"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/release-gate"}],
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/release-gate"
+        }
+      ],
       "flags": {},
-      "tests": {"backend": ["tests/test_release_gate.py"]},
-      "dependencies": ["admin_ai_incidents"], "status": "approved",
-      "history": [{"pr": "post-1313", "change": "introduced"}]
+      "tests": {
+        "backend": [
+          "tests/test_release_gate.py"
+        ]
+      },
+      "dependencies": [
+        "admin_ai_incidents"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1313",
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "header_location",
       "name": "Header location control (the one place to change location)",
       "purpose": "One location control; the companion menus never duplicate it.",
       "expected_behavior": "Header chip changes the place; companion ring / floating menu offer no Location action.",
-      "roles": ["any"], "domains": ["any"],
-      "ui": {"keys": ["askodoxLocationChip", "askodoxHeaderMenu", "askodoxHeaderScreenGuide"], "symbols": ["askodoxCompanionMenuActions"]},
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "ui": {
+        "keys": [
+          "askodoxLocationChip",
+          "askodoxHeaderMenu",
+          "askodoxHeaderScreenGuide"
+        ],
+        "symbols": [
+          "askodoxCompanionMenuActions"
+        ]
+      },
       "flags": {},
-      "tests": {"flutter": ["test/features/companion_hub_test.dart"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": "post-1312", "change": "duplicate companion Location removed"}]
+      "tests": {
+        "flutter": [
+          "test/features/companion_hub_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": "post-1312",
+          "change": "duplicate companion Location removed"
+        }
+      ]
     },
     {
       "id": "provider_readiness",
       "name": "Truthful provider readiness + Check now",
       "purpose": "Admins see real provider state, never key presence.",
       "expected_behavior": "LIVE only after a real answer; QUOTA_EXHAUSTED / NEEDS_CONFIGURATION / ERROR distinguished; no secrets.",
-      "roles": ["staff"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/health/integrations"}, {"method": "POST", "path": "/admin/cc/integrations/{name}/check"}],
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/health/integrations"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/integrations/{name}/check"
+        }
+      ],
       "flags": {},
-      "tests": {"backend": ["tests/test_provider_health.py", "tests/test_integration_states.py"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": 176, "change": "real checks"}]
+      "tests": {
+        "backend": [
+          "tests/test_provider_health.py",
+          "tests/test_integration_states.py"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 176,
+          "change": "real checks"
+        }
+      ]
     },
     {
       "id": "feature_health",
       "name": "Assistant feature health + self-heal verified recovery",
       "purpose": "Real user-facing outcomes and recoveries that are proven, not assumed.",
       "expected_behavior": "No traffic = unknown; an applied fix is UNVERIFIED until evidence shows VERIFIED / NOT_RECOVERED.",
-      "roles": ["staff"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/health"}, {"method": "GET", "path": "/admin/cc/feature-registry"}],
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/health"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/feature-registry"
+        }
+      ],
       "flags": {},
-      "tests": {"backend": ["tests/test_advice_memory.py::test_cc_health_lists_assistant_components_without_fake_green", "tests/test_selfheal_verification.py", "tests/test_feature_registry.py"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": 177, "change": "assistant health"}, {"pr": "post-1312", "change": "verified recovery + registry view"}]
+      "tests": {
+        "backend": [
+          "tests/test_advice_memory.py::test_cc_health_lists_assistant_components_without_fake_green",
+          "tests/test_selfheal_verification.py",
+          "tests/test_feature_registry.py"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 177,
+          "change": "assistant health"
+        },
+        {
+          "pr": "post-1312",
+          "change": "verified recovery + registry view"
+        }
+      ]
     },
     {
       "id": "universal_advisor",
       "name": "Universal Advisor (configurable decision fields)",
       "purpose": "Category questions from Command Center configuration, never keyword scripts.",
       "expected_behavior": "A required unanswered field holds results unless the user asks to see them; the brain's answer is kept with the advisor's one question.",
-      "roles": ["buyer"], "domains": ["any"],
-      "flags": {"advisor.enabled": true},
-      "tests": {"backend": ["tests/test_universal_advisor_demand.py"], "flutter": ["test/features/home/universal_advisor_test.dart"]},
-      "dependencies": ["decision_brain"], "status": "approved",
-      "history": [{"pr": 105, "change": "introduced"}]
+      "roles": [
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "flags": {
+        "advisor.enabled": true
+      },
+      "tests": {
+        "backend": [
+          "tests/test_universal_advisor_demand.py"
+        ],
+        "flutter": [
+          "test/features/home/universal_advisor_test.dart"
+        ]
+      },
+      "dependencies": [
+        "decision_brain"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 105,
+          "change": "introduced"
+        }
+      ]
     },
     {
       "id": "db_backup_export",
       "name": "Owner-only encrypted database backup with verified restore",
       "purpose": "Take a recoverable backup of the production SQLite database without Railway volume backups.",
       "expected_behavior": "Owner key only (staff refused); read-only snapshot; AES-256-GCM with a passphrase that is never stored; a restore into an isolated database must pass integrity_check + row counts + SHA-256 before the file is offered; one-time download; no row contents in any response, log or audit entry.",
-      "roles": ["owner"], "domains": ["any"],
-      "api": [
-        {"method": "POST", "path": "/admin/cc/backup/export",
-         "response_keys": ["backup_id", "encrypted_sha256", "database_sha256", "restore_test", "tables", "download_token"]},
-        {"method": "GET", "path": "/admin/cc/backup/download/{backup_id}"}
+      "roles": [
+        "owner"
       ],
-      "ui": {"symbols": []}, "flags": {},
-      "tests": {"backend": ["tests/test_db_backup.py"], "flutter": []},
-      "health": "", "dependencies": [], "status": "approved",
-      "history": [{"pr": 0, "change": "introduced (release safety before PR 180)"}]
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/backup/export",
+          "response_keys": [
+            "backup_id",
+            "encrypted_sha256",
+            "database_sha256",
+            "restore_test",
+            "tables",
+            "download_token"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/backup/download/{backup_id}"
+        }
+      ],
+      "ui": {
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_db_backup.py"
+        ],
+        "flutter": []
+      },
+      "health": "",
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 0,
+          "change": "introduced (release safety before PR 180)"
+        }
+      ]
     },
     {
       "id": "catalogue_attribute_master",
       "name": "Universal catalogue + attribute master (admin-editable) with real buyer filters",
       "purpose": "One data-driven engine for every business type: templates, inherited attributes, indexed listing attributes, filters from real listings.",
       "expected_behavior": "catalog_templates resource seeded once and editable; parent inheritance; required / conditional / multi / number / unit attributes; missing price or required detail keeps a draft; contact details never in attributes; filters list only values real active listings carry.",
-      "roles": ["seller", "service_provider", "buyer"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/catalog/templates/{key}"}, {"method": "GET", "path": "/api/catalog/filters/{key}"},
-              {"method": "POST", "path": "/api/catalog/templates/{key}/publish"}],
-      "ui": {"keys": ["askodoxOpenCatalogTemplates", "askodoxListingSearch", "askodoxConfirmRemoveListing", "askodoxProfileSection-business", "askodoxVoiceModeSwitch"],
-             "symbols": ["AskodoxNavSection", "askodoxSpeechChunks", "askodoxSplitGluedPoints", "askodoxVoiceModeProvider"]},
+      "roles": [
+        "seller",
+        "service_provider",
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/catalog/templates/{key}"
+        },
+        {
+          "method": "GET",
+          "path": "/api/catalog/filters/{key}"
+        },
+        {
+          "method": "POST",
+          "path": "/api/catalog/templates/{key}/publish"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxOpenCatalogTemplates",
+          "askodoxListingSearch",
+          "askodoxConfirmRemoveListing",
+          "askodoxProfileSection-business",
+          "askodoxVoiceModeSwitch"
+        ],
+        "symbols": [
+          "AskodoxNavSection",
+          "askodoxSpeechChunks",
+          "askodoxSplitGluedPoints",
+          "askodoxVoiceModeProvider"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_catalogue_attributes.py"], "flutter": ["test/features/business/my_listing_edit_test.dart"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": 182, "change": "first version"}]
+      "tests": {
+        "backend": [
+          "tests/test_catalogue_attributes.py"
+        ],
+        "flutter": [
+          "test/features/business/my_listing_edit_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 182,
+          "change": "first version"
+        }
+      ]
     },
     {
       "id": "travel_radio_addon",
       "name": "Travel Radio add-on (separate billing, plans inactive)",
       "purpose": "Location-aware audio segments from real facts while travelling, sold as an add-on separate from the base plan.",
       "expected_behavior": "Plans radio_1d/7d/30d (proposed Rs 29/149/399) seeded INACTIVE in growth_plans (audience addon_radio); /api/subscriptions refuses add-ons; paid passes stay PENDING_PAYMENT; only staff promotional passes grant access and only with flag radio.enabled (default off); segments only from geocoding / Places / LIVE content; audio cached; no repeats within radio.repeat_hours; daily minute cap; cost model light/medium/heavy labelled ESTIMATE.",
-      "roles": ["buyer"],
-      "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/radio/status"}, {"method": "POST", "path": "/api/radio/next"},
-              {"method": "POST", "path": "/api/radio/pass"}, {"method": "GET", "path": "/admin/cc/radio"},
-              {"method": "POST", "path": "/admin/cc/radio/passes"}],
-      "ui": {"keys": ["askodoxRadioPlay", "askodoxRadioLocked"], "symbols": ["TravelRadioScreen", "askodoxRadioProblemText"]},
-      "flags": {"radio.enabled": false},
-      "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": ["test/features/radio/travel_radio_test.dart"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/master-phase2)"}]
+      "roles": [
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/radio/status"
+        },
+        {
+          "method": "POST",
+          "path": "/api/radio/next"
+        },
+        {
+          "method": "POST",
+          "path": "/api/radio/pass"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/radio"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/radio/passes"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxRadioPlay",
+          "askodoxRadioLocked"
+        ],
+        "symbols": [
+          "TravelRadioScreen",
+          "askodoxRadioProblemText"
+        ]
+      },
+      "flags": {
+        "radio.enabled": false
+      },
+      "tests": {
+        "backend": [
+          "tests/test_travel_radio.py"
+        ],
+        "flutter": [
+          "test/features/radio/travel_radio_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/master-phase2)"
+        }
+      ]
     },
     {
       "id": "executive_ai_brief",
       "name": "ASKODOX Executive AI (AXE) brief",
       "purpose": "One graded executive brief for the Owner over the release gate, incidents, API spend, Travel Radio pricing and the Feature Registry.",
       "expected_behavior": "GET /admin/cc/axe/brief (health:view) returns overall + findings graded CONFIRMED / POSSIBLE / ESTIMATE / PENDING and owner_decisions; recommends only admin_action_framework.CATALOG actions (never runs them); en / te templates, no model call.",
-      "roles": ["admin"],
-      "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/axe/brief"}],
-      "ui": {"keys": [], "symbols": []},
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/axe/brief"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_executive_ai.py"], "flutter": []},
-      "dependencies": ["travel_radio_addon"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/master-phase2)"}]
+      "tests": {
+        "backend": [
+          "tests/test_executive_ai.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "travel_radio_addon"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/master-phase2)"
+        }
+      ]
     },
     {
       "id": "catalogue_smart_fill",
       "name": "Smart Fill for the ready-made catalogue (seller's own words only)",
       "purpose": "Fill a template's details from what the seller types, for any category, without guessing.",
       "expected_behavior": "POST /api/catalog/templates/{key}/smart-fill (signed in, rate-limited) returns values only for options named in the text, numbers next to the attribute's name / unique unit, or explicit 'name: value'; ambiguous choices stay empty; clean_attributes rules apply (conditions, ranges, no contact details); the app fills only EMPTY fields and never replaces the seller's price or choices; nothing is saved until Publish.",
-      "roles": ["seller", "service_provider"],
-      "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/catalog/templates/{key}/smart-fill"}],
-      "ui": {"keys": ["askodoxCatalogueSmartFill", "askodoxCatalogueSmartFillText"], "symbols": []},
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/catalog/templates/{key}/smart-fill"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxCatalogueSmartFill",
+          "askodoxCatalogueSmartFillText"
+        ],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_catalogue_attributes.py"], "flutter": ["test/features/business/my_listing_edit_test.dart"]},
-      "dependencies": ["catalogue_attribute_master"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase3-smartfill-plans)"}]
+      "tests": {
+        "backend": [
+          "tests/test_catalogue_attributes.py"
+        ],
+        "flutter": [
+          "test/features/business/my_listing_edit_test.dart"
+        ]
+      },
+      "dependencies": [
+        "catalogue_attribute_master"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase3-smartfill-plans)"
+        }
+      ]
     },
     {
       "id": "base_plans_catalogue",
       "name": "Free / Plus / Pro plans (Plus and Pro inactive until billing is approved)",
       "purpose": "Show the owner's proposed base plans honestly without selling anything before approval.",
       "expected_behavior": "Plans free (Rs 0, active), plus (Rs 499 / 30 d), pro (Rs 999 / 30 d, 7-day trial) seeded once with audience 'base' (staff edits never overwritten); Plus / Pro INACTIVE; GET /api/plans/catalogue lists them with available + billing not_available; /api/subscriptions refuses inactive plans; app Plans screen shows 'Not available yet' with no button; /admin/subscriptions (old mock screen) redirects to the Command Center.",
-      "roles": ["buyer", "seller"],
-      "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/plans/catalogue"}],
-      "ui": {"keys": ["askodoxPlansBillingNote", "askodoxPlansCurrent"], "symbols": ["AskodoxPlansScreen"]},
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/plans/catalogue"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPlansBillingNote",
+          "askodoxPlansCurrent"
+        ],
+        "symbols": [
+          "AskodoxPlansScreen"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_subscription_plans.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase3-smartfill-plans)"}]
+      "tests": {
+        "backend": [
+          "tests/test_subscription_plans.py"
+        ],
+        "flutter": [
+          "test/features/plans/plans_screen_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase3-smartfill-plans)"
+        }
+      ]
     },
     {
       "id": "travel_radio_internal_testing",
       "name": "Travel Radio internal testers (admin-controlled, no billing)",
       "purpose": "Let staff-chosen testers use Travel Radio in production while the customer flag stays off.",
       "expected_behavior": "POST /admin/cc/radio/testers and DELETE /admin/cc/radio/testers/{user_id} (growth:manage); a tester gets status internal_testing + access and /api/radio/next works with radio.enabled OFF, with no pass and no price; usage still metered and capped; non-testers get 503 RADIO_DISABLED.",
-      "roles": ["admin", "buyer"],
-      "domains": ["any"],
-      "api": [{"method": "POST", "path": "/admin/cc/radio/testers"}, {"method": "DELETE", "path": "/admin/cc/radio/testers/{user_id}"}],
-      "ui": {"keys": ["askodoxRadioInternalTesting"], "symbols": []},
-      "flags": {"radio.enabled": false},
-      "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": ["test/features/radio/travel_radio_test.dart"]},
-      "dependencies": ["travel_radio_addon"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase3-smartfill-plans)"}]
+      "roles": [
+        "admin",
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/radio/testers"
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/cc/radio/testers/{user_id}"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxRadioInternalTesting"
+        ],
+        "symbols": []
+      },
+      "flags": {
+        "radio.enabled": false
+      },
+      "tests": {
+        "backend": [
+          "tests/test_travel_radio.py"
+        ],
+        "flutter": [
+          "test/features/radio/travel_radio_test.dart"
+        ]
+      },
+      "dependencies": [
+        "travel_radio_addon"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase3-smartfill-plans)"
+        }
+      ]
     },
     {
       "id": "radio_tester_console",
       "name": "Travel Radio tester management in the Command Center (audited, kill switch, billing off)",
       "purpose": "Staff add / remove internal Radio testers from the console without API calls.",
       "expected_behavior": "Console view radioadmin (growth:view; changes need growth:manage); every add / remove audited (radio.tester.add / radio.tester.remove); flag radio.internal_testing (default ON) is the kill switch for tester access; customer flag radio.enabled stays OFF; billing INACTIVE; a pass plan's entitlements.limits.radio_minutes_per_day tightens the daily cap.",
-      "roles": ["admin"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/radio"}],
-      "ui": {"keys": [], "symbols": []},
-      "flags": {"radio.internal_testing": true, "radio.enabled": false},
-      "tests": {"backend": ["tests/test_travel_radio.py"], "flutter": []},
-      "dependencies": ["travel_radio_internal_testing"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/radio"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {
+        "radio.internal_testing": true,
+        "radio.enabled": false
+      },
+      "tests": {
+        "backend": [
+          "tests/test_travel_radio.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "travel_radio_internal_testing"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase4-blockers)"
+        }
+      ]
     },
     {
       "id": "partner_document_check_and_test_delivery",
       "name": "Delivery partner document check + staff test delivery",
       "purpose": "No independent partner takes jobs before staff have seen the required documents; staff can rehearse a delivery with one real approved partner.",
       "expected_behavior": "delivery_partners carry docs_checked (staff tick what they saw; numbers never stored beyond last 4); motor vehicles need driving_licence + vehicle_rc + insurance, others id_proof; going online returns 409 documents_pending until ticked; matching skips partners with missing documents; POST /admin/cc/mobility/test-job (delivery:manage) offers a test_run job to ONE approved, checked partner without a fare.",
-      "roles": ["admin", "partner"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/admin/cc/mobility/test-job"}],
-      "ui": {"keys": [], "symbols": []},
+      "roles": [
+        "admin",
+        "partner"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/mobility/test-job"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_delivery_jobs.py", "tests/test_mobility.py"], "flutter": []},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+      "tests": {
+        "backend": [
+          "tests/test_delivery_jobs.py",
+          "tests/test_mobility.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase4-blockers)"
+        }
+      ]
     },
     {
       "id": "push_readiness_and_test_send",
       "name": "Push notification readiness + staff test send (FCM, honest NOT_CONFIGURED)",
       "purpose": "Show exactly what is missing for background push and let staff test a real send once credentials exist.",
       "expected_behavior": "GET /admin/cc/push/readiness (health:view) -> NOT_CONFIGURED / SERVER_READY_NO_DEVICES / READY_UNVERIFIED + android_client NOT_BUILT + missing steps; POST /admin/cc/push/test (integrations:manage) -> 409 NOT_CONFIGURED without credentials, NO_DEVICE_TOKENS, SENT or NOT_DELIVERED (respects the user's switches), audited.",
-      "roles": ["admin"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/push/readiness"}, {"method": "POST", "path": "/admin/cc/push/test"}],
-      "ui": {"keys": [], "symbols": []},
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/push/readiness"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/push/test"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_push_admin.py"], "flutter": []},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+      "tests": {
+        "backend": [
+          "tests/test_push_admin.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase4-blockers)"
+        }
+      ]
     },
     {
       "id": "update_integrity_check",
       "name": "In-app update installs only a checksum-verified APK, after user confirmation",
       "purpose": "Never install a corrupted or substituted APK; never install silently.",
       "expected_behavior": "latest.json carries sha256 + signer_cert_sha256; the release API path uses the GitHub asset digest; downloadAndInstall computes the file's SHA-256 and refuses (deletes the file) when it is missing or differs; the user confirms in the app dialog and in Android's installer.",
-      "roles": ["buyer", "seller"], "domains": ["any"],
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
       "api": [],
-      "ui": {"keys": [], "symbols": ["askodoxApkDigestMatches", "askodoxNormalizeSha256"]},
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "askodoxApkDigestMatches",
+          "askodoxNormalizeSha256"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": [], "flutter": ["test/core/update/update_integrity_test.dart"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/core/update/update_integrity_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase4-blockers)"
+        }
+      ]
     },
     {
       "id": "plans_pricing_controls",
       "name": "Plans & pricing console + live-pricing switch + billing readiness",
       "purpose": "Staff configure prices, trials and usage limits; nothing goes on sale or is charged without the Owner.",
       "expected_behavior": "Console view plansadmin; PUT /admin/cc/growth/plans/{code} refuses an active paid plan with 409 LIVE_PRICING_OFF while flag billing.live_pricing (default OFF) is off; entitlements.limits must be numbers >= 0; GET /admin/cc/growth/billing-readiness reports gateway / switch / on-sale checks and collection INACTIVE until all pass.",
-      "roles": ["admin"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/growth/billing-readiness"}],
-      "ui": {"keys": [], "symbols": []},
-      "flags": {"billing.live_pricing": false},
-      "tests": {"backend": ["tests/test_growth_engines.py"], "flutter": []},
-      "dependencies": ["base_plans_catalogue"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase4-blockers)"}]
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/growth/billing-readiness"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {
+        "billing.live_pricing": false
+      },
+      "tests": {
+        "backend": [
+          "tests/test_growth_engines.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "base_plans_catalogue"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase4-blockers)"
+        }
+      ]
     },
     {
       "id": "payment_gateways_sandbox_and_live_lock",
       "name": "Razorpay + Cashfree adapters (official APIs), TEST mode, Live mode locked",
       "purpose": "Take payments through an individual / sole-proprietor merchant account once a gateway approves it, starting in sandbox only.",
       "expected_behavior": "Cashfree adapter (2023-08-01: orders -> payment_session_id, webhook base64 HMAC of timestamp+body, stale replays refused, refunds); Razorpay refunds; checkout provider = the gateway in TEST/LIVE (ASKODOX_PAYMENT_PROVIDER picks); live mode and live keys refused (LIVE_MODE_LOCKED) unless ASKODOX_PAYMENTS_LIVE_APPROVED=yes; a full refund webhook ends REFUNDED.",
-      "roles": ["admin"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/payments/webhook/{provider}"}],
-      "ui": {"keys": [], "symbols": []},
-      "flags": {"billing.live_pricing": false},
-      "tests": {"backend": ["tests/test_billing.py", "tests/test_platform_core.py"], "flutter": []},
-      "dependencies": ["plans_pricing_controls"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase5-fcm-payments)"}]
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/payments/webhook/{provider}"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {
+        "billing.live_pricing": false
+      },
+      "tests": {
+        "backend": [
+          "tests/test_billing.py",
+          "tests/test_platform_core.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "plans_pricing_controls"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase5-fcm-payments)"
+        }
+      ]
     },
     {
       "id": "subscription_radio_billing",
       "name": "Subscription + Travel Radio billing (activate only on gateway-confirmed payment)",
       "purpose": "Sell base plans and the separate Radio add-on through one payment layer, safely.",
       "expected_behavior": "POST /api/billing/checkout (TEST: billing testers only; LIVE: owner approvals + on sale); POST /api/billing/razorpay/verify checks the checkout signature; plan / pass activates only on PAID, idempotent; refund requested by staff (confirm) through the gateway and the plan / pass ends on the refund webhook; Radio pass separate from the base plan; no card data stored; staff GET /admin/cc/billing/status, testers, refunds (console view billingadmin).",
-      "roles": ["buyer", "admin"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/billing/checkout"}, {"method": "POST", "path": "/api/billing/razorpay/verify"},
-              {"method": "GET", "path": "/api/billing/purchases/mine"}, {"method": "GET", "path": "/admin/cc/billing/status"}],
-      "ui": {"keys": [], "symbols": []},
+      "roles": [
+        "buyer",
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/billing/checkout"
+        },
+        {
+          "method": "POST",
+          "path": "/api/billing/razorpay/verify"
+        },
+        {
+          "method": "GET",
+          "path": "/api/billing/purchases/mine"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/billing/status"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_billing.py"], "flutter": []},
-      "dependencies": ["payment_gateways_sandbox_and_live_lock", "travel_radio_addon", "base_plans_catalogue"],
+      "tests": {
+        "backend": [
+          "tests/test_billing.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "payment_gateways_sandbox_and_live_lock",
+        "travel_radio_addon",
+        "base_plans_catalogue"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase5-fcm-payments)"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase5-fcm-payments)"
+        }
+      ]
     },
     {
       "id": "fcm_android_client",
       "name": "Android FCM client (token registration, refresh, foreground display, tap routing)",
       "purpose": "Background push on phones once Firebase values exist, without committing config files.",
       "expected_behavior": "Firebase initialised from build-time variables FIREBASE_API_KEY / APP_ID / SENDER_ID / PROJECT_ID (Live Build repository variables); without them sync() is notConfigured and nothing is called; with them: permission, token -> POST /api/me/push-token, onTokenRefresh re-registers, foreground messages shown via the local channel, taps open only in-app routes; account deletion unregisters; delivery / subscription / radio events push to the requester.",
-      "roles": ["buyer", "seller", "partner"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/me/push-token"}],
-      "ui": {"keys": [], "symbols": ["AskodoxPushRegistration", "AskodoxFirebaseConfig"]},
+      "roles": [
+        "buyer",
+        "seller",
+        "partner"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/me/push-token"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "AskodoxPushRegistration",
+          "AskodoxFirebaseConfig"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_push_admin.py", "tests/test_delivery_jobs.py"], "flutter": ["test/services/push_registration_test.dart"]},
-      "dependencies": ["push_readiness_and_test_send"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/phase5-fcm-payments)"}]
+      "tests": {
+        "backend": [
+          "tests/test_push_admin.py",
+          "tests/test_delivery_jobs.py"
+        ],
+        "flutter": [
+          "test/services/push_registration_test.dart"
+        ]
+      },
+      "dependencies": [
+        "push_readiness_and_test_send"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/phase5-fcm-payments)"
+        }
+      ]
     },
     {
       "id": "razorpay_test_mode_checkout",
       "name": "Razorpay TEST mode: hosted checkout, verification, reconciliation, audit",
       "purpose": "Let billing testers pay for approved plans with Razorpay TEST keys from the deployment variables, with no real money and no client-trusted amount or success.",
       "expected_behavior": "RAZORPAY_KEY_ID (rzp_test_) + RAZORPAY_KEY_SECRET alone enable Razorpay in TEST mode (staff settings override; webhook secret optional); GET /api/billing/options lists what the server lets this user pay for; checkout returns pay_url -> GET /billing/pay/{id}?t= (30-minute purchase-bound token) opening Razorpay Standard Checkout with server amount / order / key; success verified by HMAC signature bound to the purchase's own order; closing = CANCELLED; failed attempts keep the order PENDING (retry); a later capture still activates; webhooks need the right amount + currency and are deduplicated; open purchases are read back from Razorpay (GET only, never refunds or captures) and expire after 24 h; refunds only by staff with confirmation, status read back; every step in billing_events; Radio billing behind billing.radio_checkout (OFF); live keys LIVE_MODE_LOCKED; /health/integrations Razorpay row is secret-free.",
-      "roles": ["buyer", "admin"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/billing/options"}, {"method": "GET", "path": "/billing/pay/{purchase_id}"},
-              {"method": "POST", "path": "/api/billing/pay/{purchase_id}/verify"}, {"method": "POST", "path": "/api/billing/pay/{purchase_id}/cancel"},
-              {"method": "GET", "path": "/api/billing/purchases/{purchase_id}"}, {"method": "POST", "path": "/admin/cc/billing/purchases/{purchase_id}/reconcile"}],
-      "ui": {"keys": ["askodoxPlansTestMode", "askodoxPayCheck", "askodoxPayStatusText"], "symbols": ["askodoxPayLauncherProvider", "AskodoxCheckoutStart"]},
-      "flags": {"billing.radio_checkout": false, "billing.live_pricing": false},
-      "tests": {"backend": ["tests/test_razorpay_test_mode.py", "tests/test_billing.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
-      "dependencies": ["subscription_radio_billing", "payment_gateways_sandbox_and_live_lock"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/razorpay-test-mode)"}]
+      "roles": [
+        "buyer",
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/billing/options"
+        },
+        {
+          "method": "GET",
+          "path": "/billing/pay/{purchase_id}"
+        },
+        {
+          "method": "POST",
+          "path": "/api/billing/pay/{purchase_id}/verify"
+        },
+        {
+          "method": "POST",
+          "path": "/api/billing/pay/{purchase_id}/cancel"
+        },
+        {
+          "method": "GET",
+          "path": "/api/billing/purchases/{purchase_id}"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/billing/purchases/{purchase_id}/reconcile"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPlansTestMode",
+          "askodoxPayCheck",
+          "askodoxPayStatusText"
+        ],
+        "symbols": [
+          "askodoxPayLauncherProvider",
+          "AskodoxCheckoutStart"
+        ]
+      },
+      "flags": {
+        "billing.radio_checkout": false,
+        "billing.live_pricing": false
+      },
+      "tests": {
+        "backend": [
+          "tests/test_razorpay_test_mode.py",
+          "tests/test_billing.py"
+        ],
+        "flutter": [
+          "test/features/plans/plans_screen_test.dart"
+        ]
+      },
+      "dependencies": [
+        "subscription_radio_billing",
+        "payment_gateways_sandbox_and_live_lock"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/razorpay-test-mode)"
+        }
+      ]
     },
     {
       "id": "razorpay_gateway_health_and_test_entitlements",
       "name": "One Razorpay gateway state (read-only key check, webhook evidence) + TEST payments never entitle",
       "purpose": "Every admin screen tells the same verified truth about the payment gateway, and sandbox money never unlocks a paid plan.",
       "expected_behavior": "payment_gateway_health.check: authenticated read-only GET /v1/payments?count=1 (cached 15 min, forced at most once a minute by POST /admin/cc/api-billing/razorpay/check, audited); a pass is recorded so Integration readiness shows TEST_MODE_VERIFIED / health TEST_VERIFIED; only HTTP 401 records a failure (CREDENTIAL_ERROR, checkout off); API Health & Billing has a Razorpay row with mode, key kind, key check, webhook signing, verified webhook events and rejected signatures; no key, secret or signature in any response; a TEST purchase confirmed by the gateway becomes TEST_PAID with no subscription / pass, only a LIVE purchase becomes ACTIVE; testers can be added by phone number; the app shows the server's reason when there is no Pay button.",
-      "roles": ["admin", "buyer"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/admin/cc/api-billing/razorpay/check"}, {"method": "GET", "path": "/admin/cc/api-billing"}],
-      "ui": {"keys": ["askodoxPlansPayNote"], "symbols": []},
-      "flags": {"billing.radio_checkout": false, "billing.live_pricing": false},
-      "tests": {"backend": ["tests/test_razorpay_test_mode.py", "tests/test_billing.py"], "flutter": ["test/features/plans/plans_screen_test.dart"]},
-      "dependencies": ["razorpay_test_mode_checkout"], "status": "approved",
-      "history": [{"pr": null, "change": "first version (branch claude/razorpay-gateway-health)"}]
+      "roles": [
+        "admin",
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/api-billing/razorpay/check"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/api-billing"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPlansPayNote"
+        ],
+        "symbols": []
+      },
+      "flags": {
+        "billing.radio_checkout": false,
+        "billing.live_pricing": false
+      },
+      "tests": {
+        "backend": [
+          "tests/test_razorpay_test_mode.py",
+          "tests/test_billing.py"
+        ],
+        "flutter": [
+          "test/features/plans/plans_screen_test.dart"
+        ]
+      },
+      "dependencies": [
+        "razorpay_test_mode_checkout"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "first version (branch claude/razorpay-gateway-health)"
+        }
+      ]
     },
     {
       "id": "integration_platform_catalog",
       "name": "Universal Integration Catalog + Setup Wizard + Owner checklist; OTP fallback; no demo bypass in production",
       "purpose": "One honest place for every external integration: what it needs, its real state, and what only the Owner must do.",
       "expected_behavior": "GET /admin/cc/integrations/catalog lists integrations in 10 areas with statuses computed from live state (CODE READY / CONFIGURATION REQUIRED / ACCOUNT REQUIRED / PROVIDER APPROVAL REQUIRED / SANDBOX TESTED / LIVE VERIFIED / DISABLED / ERROR / NOT BUILT); mock mode never counts as tested; no secret value returned; GET /admin/cc/integrations/owner-checklist orders Owner actions and lists NOT BUILT as development work; console view wizard. Sign-in OTP goes through ASKODOX_OTP_CHANNELS (whatsapp_template, whatsapp, sms) with fallback, code never logged or returned; the demo number / test OTP mobiles work in production only with ASKODOX_DEMO_LOGIN=yes; /health/integrations shows a Sign-in OTP row.",
-      "roles": ["admin"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/integrations/catalog"}, {"method": "GET", "path": "/admin/cc/integrations/owner-checklist"},
-              {"method": "POST", "path": "/onboarding/otp/send"}],
-      "ui": {"keys": [], "symbols": []},
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/integrations/catalog"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/integrations/owner-checklist"
+        },
+        {
+          "method": "POST",
+          "path": "/onboarding/otp/send"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_integration_platform.py"], "flutter": []},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": null, "change": "phase 1 (branch claude/integration-platform-1)"}]
+      "tests": {
+        "backend": [
+          "tests/test_integration_platform.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "phase 1 (branch claude/integration-platform-1)"
+        }
+      ]
     },
     {
       "id": "kyc_engine",
       "name": "AI-assisted KYC engine: consent, extraction (never verification), masked storage, levels L1-L5, review queue, expiry",
       "purpose": "Verify users only as far as an activity needs, with honest badges and minimal data.",
       "expected_behavior": "POST /api/kyc/consent before any document; POST /api/kyc/documents reads a photo / PDF / text with the chat analysers, classifies (PAN, GST, bank, business document, professional licence, Aadhaar), extracts, prefills masked values, lists missing fields and issues (GSTIN check digit, PAN vs GSTIN, name vs profile, ID used by another account); full ID numbers never stored (masked + keyed hash), Aadhaar never stored; AI extraction never verifies -- identity / GST / bank need a provider adapter (container.kyc_providers; none configured -> AWAITING_PROVIDER), staff may verify only business documents and professional licences (kyc:approve, confirm, audited); verified checks expire; DELETE /api/kyc/consent wipes stored details; demo account refused; GET /api/kyc/me returns level, badges, requirements per activity; app screen /verification.",
-      "roles": ["buyer", "seller", "admin"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/kyc/me"}, {"method": "POST", "path": "/api/kyc/consent"},
-              {"method": "POST", "path": "/api/kyc/documents"}, {"method": "GET", "path": "/admin/cc/kyc/queue"},
-              {"method": "POST", "path": "/admin/cc/kyc/checks/{check_id}/review"}],
-      "ui": {"keys": ["askodoxKycLevel", "askodoxKycAccept", "askodoxKycAddDocument", "askodoxKycWithdraw"], "symbols": ["AskodoxKycScreen"]},
+      "roles": [
+        "buyer",
+        "seller",
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/kyc/me"
+        },
+        {
+          "method": "POST",
+          "path": "/api/kyc/consent"
+        },
+        {
+          "method": "POST",
+          "path": "/api/kyc/documents"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/kyc/queue"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/kyc/checks/{check_id}/review"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxKycLevel",
+          "askodoxKycAccept",
+          "askodoxKycAddDocument",
+          "askodoxKycWithdraw"
+        ],
+        "symbols": [
+          "AskodoxKycScreen"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_kyc_engine.py"], "flutter": ["test/features/kyc/kyc_screen_test.dart"]},
-      "dependencies": ["integration_platform_catalog"], "status": "approved",
-      "history": [{"pr": null, "change": "phase 2 (branch claude/kyc-engine)"}]
+      "tests": {
+        "backend": [
+          "tests/test_kyc_engine.py"
+        ],
+        "flutter": [
+          "test/features/kyc/kyc_screen_test.dart"
+        ]
+      },
+      "dependencies": [
+        "integration_platform_catalog"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "phase 2 (branch claude/kyc-engine)"
+        }
+      ]
     },
     {
       "id": "commission_engine",
       "name": "Commission engine on the Partner Hub: all models, partner-confirmed only, PENDING -> CONFIRMED -> PAYABLE -> PAID, reversals, fraud flags, reconciliation",
       "purpose": "Track every affiliate / app-install / referral / BFSI commission honestly in one ledger.",
       "expected_behavior": "Partner commission rules support cps / cpi / cpa / cpl / cpc / recurring / revenue_share / fixed / percentage, per_event and per_category amounts, attribution_days and hold_days (validated); signed postbacks accept order / install / action / signup / lead (CPL with an id) / subscription / renewal events; clicks never create conversions (CPC = expected from clicks only); duplicates impossible per (partner, id); flags: no_click_id, unknown_or_expired_click, outside_attribution_window, too_fast_after_click, repeat_conversion_for_click; re-sent reports never move a conversion backwards; staff transitions are forward-only with confirmation + audit; promote-payable moves unflagged CONFIRMED past hold to PAYABLE; reconciliation of a partner statement is read-only; GET /admin/cc/commissions/summary; console view commissions.",
-      "roles": ["admin"], "domains": ["any"],
-      "api": [{"method": "GET", "path": "/admin/cc/commissions/summary"}, {"method": "POST", "path": "/admin/cc/commissions/conversions/{conversion_id}/transition"},
-              {"method": "POST", "path": "/admin/cc/commissions/promote-payable"}, {"method": "POST", "path": "/admin/cc/commissions/reconcile/{partner_id}"}],
-      "ui": {"keys": [], "symbols": []},
+      "roles": [
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/commissions/summary"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/commissions/conversions/{conversion_id}/transition"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/commissions/promote-payable"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/commissions/reconcile/{partner_id}"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_commission_engine.py", "tests/test_partner_hub_revenue.py"], "flutter": []},
-      "dependencies": ["integration_platform_catalog"], "status": "approved",
-      "history": [{"pr": null, "change": "phase 3 (branch claude/commission-engine)"}]
+      "tests": {
+        "backend": [
+          "tests/test_commission_engine.py",
+          "tests/test_partner_hub_revenue.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "integration_platform_catalog"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "phase 3 (branch claude/commission-engine)"
+        }
+      ]
     },
     {
       "id": "partner_campaign_items",
       "name": "Partner campaigns in the item store: app installs, referral programmes, financial-services partner offers",
       "purpose": "Show partner campaigns transparently, only when relevant.",
       "expected_behavior": "Item types app_install / referral / financial_offer (staff grant offers:create) reach results only when LIVE and relevant (financial offers only when the need matches their own category); result rows carry partner_offer=true and a disclosure (may earn a commission; no reward promised; financial: partner decides eligibility / KYC / terms, no financial advice); conversions come only through the commission engine.",
-      "roles": ["admin", "buyer"], "domains": ["any"],
+      "roles": [
+        "admin",
+        "buyer"
+      ],
+      "domains": [
+        "any"
+      ],
       "api": [],
-      "ui": {"keys": [], "symbols": []},
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_partner_campaigns.py"], "flutter": []},
-      "dependencies": ["commission_engine"], "status": "approved",
-      "history": [{"pr": null, "change": "phase 4 (branch claude/platform-phase-4-5)"}]
+      "tests": {
+        "backend": [
+          "tests/test_partner_campaigns.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "commission_engine"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "phase 4 (branch claude/platform-phase-4-5)"
+        }
+      ]
     },
     {
       "id": "one_account_per_phone",
       "name": "One account per phone number however it is typed",
       "purpose": "No duplicate profiles from typing the same number with or without +91.",
       "expected_behavior": "POST /onboarding/otp/verify maps the number through auth_accounts (Indian spellings share the 10-digit key; other countries keep their full international digits): the first id issued is reused; an existing user_profiles row for the number is adopted; the app stores the server's app_user_id digits as its identity; a request claiming another spelling of the SAME number is accepted (token wins), another number still gets 403.",
-      "roles": ["buyer", "seller"], "domains": ["any"],
-      "api": [{"method": "POST", "path": "/onboarding/otp/verify"}],
-      "ui": {"keys": [], "symbols": ["askodoxAccountDigits"]},
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/onboarding/otp/verify"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "askodoxAccountDigits"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_account_identity.py"], "flutter": ["test/features/auth/account_identity_test.dart"]},
-      "dependencies": [], "status": "approved",
-      "history": [{"pr": null, "change": "phase 5 (branch claude/platform-phase-4-5)"}]
+      "tests": {
+        "backend": [
+          "tests/test_account_identity.py"
+        ],
+        "flutter": [
+          "test/features/auth/account_identity_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "pr": null,
+          "change": "phase 5 (branch claude/platform-phase-4-5)"
+        }
+      ]
     },
     {
       "id": "sign_in_sign_out_session",
       "name": "Sign up / sign in / sign out with server-checked sessions",
       "purpose": "Phone OTP sign-up and sign-in (server code or Firebase phone sign-in), persistent login checked with the server on start, and one secure sign-out from Profile and the side menu.",
       "expected_behavior": "Numbers are sent as E.164 (+91 default). Resend waits for the server cooldown (Retry-After); wrong / expired / rate-limited / offline answers are explained. Returning users get their saved profile back (never overwritten, never a second account); new users add name + roles. On start GET /api/me/session: 401 signs the phone out, offline keeps the session. Sign-out asks first, POST /api/me/logout revokes only that session and unlinks this phone's push token, deletes nothing on the server, puts the account's phone-side data away (restored when the same account signs in) and restarts the app with fresh state on the sign-in screen. Firebase ID tokens are verified on the server (RS256, project, times); Firebase phone sign-in is offered only when ASKODOX_FIREBASE_PHONE_AUTH is on.",
-      "roles": ["buyer", "seller"],
-      "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/me/session", "response_keys": ["valid", "app_user_id", "profile"]}, {"method": "POST", "path": "/api/me/logout", "response_keys": ["signed_out", "server_session", "push_token_removed"]}, {"method": "GET", "path": "/onboarding/methods", "response_keys": ["firebase_phone_auth", "server_otp", "resend_seconds"]}, {"method": "POST", "path": "/onboarding/firebase/verify"}],
-      "ui": {"keys": ["askodoxProfileSignOut", "askodoxMenu-signout", "askodoxSignOutConfirm", "askodoxSendOtp", "askodoxResendOtp", "askodoxChangeNumber"], "symbols": ["askodoxSignOut", "askodoxConfirmSignOut", "askodoxCheckSession", "askodoxE164", "AskodoxAppRestart", "askodoxStashAccountData"]},
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/session",
+          "response_keys": [
+            "valid",
+            "app_user_id",
+            "profile"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/me/logout",
+          "response_keys": [
+            "signed_out",
+            "server_session",
+            "push_token_removed"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/onboarding/methods",
+          "response_keys": [
+            "firebase_phone_auth",
+            "server_otp",
+            "resend_seconds"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/onboarding/firebase/verify"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxProfileSignOut",
+          "askodoxMenu-signout",
+          "askodoxSignOutConfirm",
+          "askodoxSendOtp",
+          "askodoxResendOtp",
+          "askodoxChangeNumber"
+        ],
+        "symbols": [
+          "askodoxSignOut",
+          "askodoxConfirmSignOut",
+          "askodoxCheckSession",
+          "askodoxE164",
+          "AskodoxAppRestart",
+          "askodoxStashAccountData"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_auth_session.py"], "flutter": ["test/core/auth/sign_out_test.dart", "test/core/auth/phone_number_test.dart", "test/features/auth/onboarding_flow_test.dart"]},
-      "dependencies": ["one_account_per_phone"],
+      "tests": {
+        "backend": [
+          "tests/test_auth_session.py"
+        ],
+        "flutter": [
+          "test/core/auth/sign_out_test.dart",
+          "test/core/auth/phone_number_test.dart",
+          "test/features/auth/onboarding_flow_test.dart"
+        ]
+      },
+      "dependencies": [
+        "one_account_per_phone"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "auth + sign-out round (branch claude/auth-signout-fcm)"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "auth + sign-out round (branch claude/auth-signout-fcm)"
+        }
+      ]
     },
     {
       "id": "push_fcm_client_diagnostics",
       "name": "FCM push client, self test, in-app offer messages, developer diagnostics",
       "purpose": "Background / closed-app notifications with tap navigation, a safe one-phone test, opt-in Firebase In-App Messaging, and a development-only diagnostics screen.",
       "expected_behavior": "With Firebase build values the app registers its FCM token after sign-in (Android 13 permission asked then), re-registers on refresh, shows a foreground message once (deduplicated by message id), opens only in-app routes on tap. POST /api/me/push-test sends only to the caller's own devices (3 per 10 min). In-App Messaging is suppressed and collects nothing until opted in; the app trigger fires at most once per 20 h. Developer Diagnostics (token, Installation ID) exists only in non-production debug / ASKODOX_DEV_DIAGNOSTICS builds.",
-      "roles": ["buyer", "seller"],
-      "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/me/push-test", "response_keys": ["status", "delivered", "detail"]}],
-      "ui": {"keys": ["askodoxPushSelfTest", "askodoxInAppOffersSwitch"], "symbols": ["AskodoxInAppMessaging", "askodoxDiagnosticsAllowed", "askodoxPushBackgroundHandler"]},
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/me/push-test",
+          "response_keys": [
+            "status",
+            "delivered",
+            "detail"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPushSelfTest",
+          "askodoxInAppOffersSwitch"
+        ],
+        "symbols": [
+          "AskodoxInAppMessaging",
+          "askodoxDiagnosticsAllowed",
+          "askodoxPushBackgroundHandler"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_auth_session.py", "tests/test_firebase_android_config.py"], "flutter": ["test/services/push_registration_test.dart", "test/services/in_app_messaging_test.dart"]},
+      "tests": {
+        "backend": [
+          "tests/test_auth_session.py",
+          "tests/test_firebase_android_config.py"
+        ],
+        "flutter": [
+          "test/services/push_registration_test.dart",
+          "test/services/in_app_messaging_test.dart"
+        ]
+      },
       "dependencies": [],
       "status": "approved",
-      "history": [{"pr": null, "change": "auth + sign-out round (branch claude/auth-signout-fcm)"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "auth + sign-out round (branch claude/auth-signout-fcm)"
+        }
+      ]
     },
     {
       "id": "smart_tools_vision_inspection",
       "name": "Smart Tools hub, on-device calculators / sensors, evidence-tiered AI photo inspection",
       "purpose": "One registry of Smart Tools with honest readiness (ready / not yet phone-verified / needs external device / coming soon); deterministic construction, area, volume and load calculators; phone-sensor level, inclinometer and compass; and photo inspection for any domain that separates seen / inferred / not verifiable from a photo.",
       "expected_behavior": "Profile > Smart Tools lists every tool; only built tools open, the rest explain what they need. Calculators run on the phone, list their assumptions and show a cost only from the user's own rate. Chat opens a tool for an explicit tool ask or a material-quantity question with no results on screen; commerce asks (buy / price / near me / hire) never match; an unbuilt tool is reported as unavailable. POST /api/vision/inspect takes 1-4 photos (quick 1, deep 2, expert 4), down-scales them, makes at most one bounded model call per mode (cached + metered as vision_inspect) and returns report.observed / inferred / not_verifiable / recommended_checks / safety_warnings; a photo never certifies food safety, roadworthiness, tyre pressure, exact animal weight, structural safety, confirmed disease or authenticity.",
-      "roles": ["buyer", "seller"],
-      "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/vision/inspect", "response_keys": ["status", "report", "facts"]}, {"method": "GET", "path": "/api/vision/profiles", "response_keys": ["status", "profiles", "modes"]}],
-      "ui": {"keys": ["askodoxSmartToolsHub", "askodoxInspectionReport", "askodoxInspectRun", "askodoxLevelReading", "askodoxCompassReading", "askodoxSensorUnavailable", "askodoxToolResult", "profile-smart-tools"], "symbols": ["askodoxSmartTools", "askodoxToolIntent", "askodoxCalcSpecs", "askodoxPlanLoad", "askodoxHeading", "AskodoxVisionInspectionRepository", "askodoxSmartToolRoutes"]},
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/vision/inspect",
+          "response_keys": [
+            "status",
+            "report",
+            "facts"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/vision/profiles",
+          "response_keys": [
+            "status",
+            "profiles",
+            "modes"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxSmartToolsHub",
+          "askodoxInspectionReport",
+          "askodoxInspectRun",
+          "askodoxLevelReading",
+          "askodoxCompassReading",
+          "askodoxSensorUnavailable",
+          "askodoxToolResult",
+          "profile-smart-tools"
+        ],
+        "symbols": [
+          "askodoxSmartTools",
+          "askodoxToolIntent",
+          "askodoxCalcSpecs",
+          "askodoxPlanLoad",
+          "askodoxHeading",
+          "AskodoxVisionInspectionRepository",
+          "askodoxSmartToolRoutes"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_vision_inspection.py"], "flutter": ["test/features/smart_tools/smart_tools_domain_test.dart", "test/features/smart_tools/smart_tools_widgets_test.dart"]},
+      "tests": {
+        "backend": [
+          "tests/test_vision_inspection.py"
+        ],
+        "flutter": [
+          "test/features/smart_tools/smart_tools_domain_test.dart",
+          "test/features/smart_tools/smart_tools_widgets_test.dart"
+        ]
+      },
       "dependencies": [],
       "status": "approved",
-      "history": [{"pr": null, "change": "Master command phase 1-2 + vision contract (branch claude/smart-tools-vision-foundation); merge needs owner approval"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "Master command phase 1-2 + vision contract (branch claude/smart-tools-vision-foundation); merge needs owner approval"
+        }
+      ]
     },
     {
       "id": "round2_tax_fraud_tricks_intelligence",
       "name": "Tax & GST intelligence, Fraud & Market Reality checklists, Smart Tricks savings calculators",
       "purpose": "Sourced, deterministic India tax / GST estimates, scam recognition and reporting checklists, and savings maths, attached to the ONE conversation brain and reachable as Smart Tools.",
       "expected_behavior": "The assistant reply carries `intelligence` only when the user's own words ask (income tax, GST, scam / fraud, buy vs rent, repair vs replace, bulk, unit price, save money); every card lists official sources and the date they were checked. How-to-evade-tax and how-to-commit-fraud asks replace the model reply with an awareness answer (detection, consequences, lawful alternatives) and never search. /api/intel/* compute income tax (new vs old, rebate with marginal relief, surcharge relief, cess) only for verified years, GST registration by State, composition eligibility and GST splits; scam checklists name official channels (1930, cybercrime.gov.in, NCH 1915, Sanchar Saathi, VAHAN, RERA, BIS Care). Smart tricks use only the user's numbers.",
-      "roles": ["buyer", "seller"],
-      "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/in-app/assistant", "response_model": "app.api.routes.in_app_assistant:AssistantDecision", "response_keys": ["intelligence"]}, {"method": "GET", "path": "/api/intel/tax", "response_keys": ["current_tax_year", "sources"]}, {"method": "POST", "path": "/api/intel/tax/income", "response_keys": ["comparison", "result"]}, {"method": "POST", "path": "/api/intel/gst/registration", "response_keys": ["result"]}, {"method": "POST", "path": "/api/intel/gst/composition", "response_keys": ["result"]}, {"method": "POST", "path": "/api/intel/gst/amount", "response_keys": ["result"]}, {"method": "GET", "path": "/api/intel/fraud", "response_keys": ["schemes"]}, {"method": "GET", "path": "/api/intel/fraud/{scheme_id}", "response_keys": ["scheme"]}, {"method": "POST", "path": "/api/intel/tricks/{calculator}", "response_keys": ["result"]}],
-      "ui": {"keys": ["askodoxIncomeTax", "askodoxTaxCalculate", "askodoxGstTool", "askodoxFraudList", "askodoxFraudDetail", "askodoxSmartTricks", "askodoxTrickResult"], "symbols": ["AskodoxIntelligenceCard", "askodoxIntelligenceRepositoryProvider", "askodoxRupees"]},
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant",
+          "response_model": "app.api.routes.in_app_assistant:AssistantDecision",
+          "response_keys": [
+            "intelligence"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/intel/tax",
+          "response_keys": [
+            "current_tax_year",
+            "sources"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/intel/tax/income",
+          "response_keys": [
+            "comparison",
+            "result"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/intel/gst/registration",
+          "response_keys": [
+            "result"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/intel/gst/composition",
+          "response_keys": [
+            "result"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/intel/gst/amount",
+          "response_keys": [
+            "result"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/intel/fraud",
+          "response_keys": [
+            "schemes"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/intel/fraud/{scheme_id}",
+          "response_keys": [
+            "scheme"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/intel/tricks/{calculator}",
+          "response_keys": [
+            "result"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxIncomeTax",
+          "askodoxTaxCalculate",
+          "askodoxGstTool",
+          "askodoxFraudList",
+          "askodoxFraudDetail",
+          "askodoxSmartTricks",
+          "askodoxTrickResult"
+        ],
+        "symbols": [
+          "AskodoxIntelligenceCard",
+          "askodoxIntelligenceRepositoryProvider",
+          "askodoxRupees"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_round2_intelligence.py"], "flutter": ["test/features/intelligence/intelligence_test.dart"]},
-      "dependencies": ["smart_tools_vision_inspection"],
+      "tests": {
+        "backend": [
+          "tests/test_round2_intelligence.py"
+        ],
+        "flutter": [
+          "test/features/intelligence/intelligence_test.dart"
+        ]
+      },
+      "dependencies": [
+        "smart_tools_vision_inspection"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "Master command round 2 (branch claude/master-round2-intelligence); merge needs owner approval"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "Master command round 2 (branch claude/master-round2-intelligence); merge needs owner approval"
+        }
+      ]
     },
     {
       "id": "round3_connectivity_pairing_ptt",
       "name": "Device registry + compatibility catalog, Bluetooth LE Add-Device flow with standard GATT profiles, internet push-to-talk",
       "purpose": "One Add-Device experience and device dashboard for standard Bluetooth LE devices, an honest catalog of what ASKODOX can and cannot connect to, and walkie-talkie style voice groups over the internet.",
       "expected_behavior": "Bluetooth permission is requested only when the user taps Scan; unsupported phones, Bluetooth off and denied permission are said plainly. Devices exposing Bluetooth SIG standard services (weight scale 181D, environmental sensing 181A, health thermometer 1809, heart rate 180D, battery 180F) show decoded readings exactly as sent; other devices get no made-up readings. The server stores only a keyed hash of the Bluetooth address (token-proven, per user, deleted with the account). The compatibility catalog marks BLE profiles standard_profile_untested until a real device is tested and lists Matter, Zigbee, Z-Wave, IR, UHF RFID, LoRa, UWB, OBD-II, IP cameras and offline radio with the reason they are not supported. Push-to-talk groups are joined by code only, members only, clips <= 60 s, deleted after 24 h; it needs internet and is not an offline radio.",
-      "roles": ["buyer", "seller"],
-      "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/devices/compatibility", "response_keys": ["devices"]}, {"method": "POST", "path": "/api/devices/match", "response_keys": ["matches"]}, {"method": "GET", "path": "/api/devices", "response_keys": ["devices"]}, {"method": "POST", "path": "/api/devices", "response_keys": ["device"]}, {"method": "PATCH", "path": "/api/devices/{device_id}", "response_keys": ["device"]}, {"method": "DELETE", "path": "/api/devices/{device_id}", "response_keys": ["removed"]}, {"method": "POST", "path": "/api/ptt/channels", "response_keys": ["channel"]}, {"method": "POST", "path": "/api/ptt/join", "response_keys": ["channel"]}, {"method": "GET", "path": "/api/ptt/channels", "response_keys": ["channels"]}, {"method": "POST", "path": "/api/ptt/channels/{channel_id}/clips", "response_keys": ["clip"]}, {"method": "GET", "path": "/api/ptt/channels/{channel_id}/clips", "response_keys": ["clips"]}, {"method": "GET", "path": "/api/ptt/clips/{clip_id}/audio", "response_keys": []}],
-      "ui": {"keys": ["askodoxDevices", "askodoxAddDevice", "askodoxAddDeviceFlow", "askodoxBleScan", "askodoxBleNoProfile", "askodoxCompatibilityList", "askodoxPttHome", "askodoxPttTalk"], "symbols": ["askodoxPairingNext", "askodoxDecodeWeight", "askodoxBleGatewayProvider", "FlutterBluePlusGateway", "AskodoxPttRepository", "DevicePttAudio"]},
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/devices/compatibility",
+          "response_keys": [
+            "devices"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/devices/match",
+          "response_keys": [
+            "matches"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/devices",
+          "response_keys": [
+            "devices"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/devices",
+          "response_keys": [
+            "device"
+          ]
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/devices/{device_id}",
+          "response_keys": [
+            "device"
+          ]
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/devices/{device_id}",
+          "response_keys": [
+            "removed"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/ptt/channels",
+          "response_keys": [
+            "channel"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/ptt/join",
+          "response_keys": [
+            "channel"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/ptt/channels",
+          "response_keys": [
+            "channels"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/ptt/channels/{channel_id}/clips",
+          "response_keys": [
+            "clip"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/ptt/channels/{channel_id}/clips",
+          "response_keys": [
+            "clips"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/ptt/clips/{clip_id}/audio",
+          "response_keys": []
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxDevices",
+          "askodoxAddDevice",
+          "askodoxAddDeviceFlow",
+          "askodoxBleScan",
+          "askodoxBleNoProfile",
+          "askodoxCompatibilityList",
+          "askodoxPttHome",
+          "askodoxPttTalk"
+        ],
+        "symbols": [
+          "askodoxPairingNext",
+          "askodoxDecodeWeight",
+          "askodoxBleGatewayProvider",
+          "FlutterBluePlusGateway",
+          "AskodoxPttRepository",
+          "DevicePttAudio"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_devices_ptt.py"], "flutter": ["test/features/devices/devices_test.dart"]},
-      "dependencies": ["smart_tools_vision_inspection"],
+      "tests": {
+        "backend": [
+          "tests/test_devices_ptt.py"
+        ],
+        "flutter": [
+          "test/features/devices/devices_test.dart"
+        ]
+      },
+      "dependencies": [
+        "smart_tools_vision_inspection"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "Master command round 3 (branch claude/master-round3-connectivity); NOT HARDWARE VERIFIED; merge needs owner approval"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "Master command round 3 (branch claude/master-round3-connectivity); NOT HARDWARE VERIFIED; merge needs owner approval"
+        }
+      ]
     },
     {
       "id": "photo_reference_measurement",
       "name": "Measure from a photo with a reference object (A4 / bank card / typed size)",
       "purpose": "Approximate lengths without AR: the user marks a known-size reference and the object in one photo.",
       "expected_behavior": "Four taps (reference ends, object ends) give a length with a low-high range from tap uncertainty and a quality grade; the same-flat-surface condition is always shown; too-small references are refused instead of guessed; never presented as survey-grade. AR / ARCore measuring stays 'coming soon'.",
-      "roles": ["buyer", "seller"],
-      "domains": ["any"],
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
       "api": [],
-      "ui": {"keys": ["askodoxPhotoMeasure", "askodoxMeasureImage", "askodoxMeasureResult", "askodoxMeasureError"], "symbols": ["askodoxMeasureFromPhoto", "askodoxReferenceObjects", "AskodoxPhotoMeasureScreen"]},
+      "ui": {
+        "keys": [
+          "askodoxPhotoMeasure",
+          "askodoxMeasureImage",
+          "askodoxMeasureResult",
+          "askodoxMeasureError"
+        ],
+        "symbols": [
+          "askodoxMeasureFromPhoto",
+          "askodoxReferenceObjects",
+          "AskodoxPhotoMeasureScreen"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": [], "flutter": ["test/features/smart_tools/photo_measure_test.dart"]},
-      "dependencies": ["smart_tools_vision_inspection"],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/smart_tools/photo_measure_test.dart"
+        ]
+      },
+      "dependencies": [
+        "smart_tools_vision_inspection"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "Master command round 4 (branch claude/master-round4-photo-measure); NOT HARDWARE VERIFIED"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "Master command round 4 (branch claude/master-round4-photo-measure); NOT HARDWARE VERIFIED"
+        }
+      ]
     },
     {
       "id": "universal_pos_core",
       "name": "Universal AI POS core (billing, GST invoices, credit notes, customer credit, stock, day close, offline queue, ESC/POS)",
       "purpose": "One configurable POS for every kind of shop inside ASKODOX My Business, starting with India GST billing and meat / kirana counters.",
       "expected_behavior": "Integer-paise decimal-safe GST (CGST+SGST/UTGST intra, IGST inter, composition = bill of supply with the Rule 5(1)(f) heading, unregistered = plain bill); HSN / rates only from the shop's own entry; issued invoices never edited or deleted (credit note, or same-day cancel that keeps the row); idempotent client transaction ids; owner / manager / cashier / accountant roles checked on the server and shops isolated (404 for non-members); UPI / card entered at the counter stored as cashier_confirmed, never bank-verified; offline sales use the device's own series and are never dropped; typed / spoken commands are proposals confirmed by the cashier; printers are BLE ESC/POS only and unverified.",
-      "roles": ["seller", "service_provider"],
-      "domains": ["any"],
-      "api": [{"method": "GET", "path": "/api/pos/meta", "response_keys": ["states", "rules", "gst_rates_bp"]}, {"method": "GET", "path": "/api/pos/businesses", "response_keys": ["businesses"]}, {"method": "POST", "path": "/api/pos/businesses", "response_keys": ["id", "my_role", "permissions"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}", "response_keys": ["registration_type", "state_code", "my_role", "permissions"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/products", "response_keys": ["id", "price_paise", "rate_bp"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/products", "response_keys": ["products"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/invoices", "response_keys": ["id", "number", "totals", "lines", "payments", "replayed"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}", "response_keys": ["number", "status", "totals", "lines"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}/credit-notes", "response_keys": ["number", "original_invoice"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}/cancel", "response_keys": ["status"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/payments", "response_keys": ["balance_paise", "verification"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/statement", "response_keys": ["opening_paise", "entries", "closing_paise"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/day-close", "response_keys": ["closed"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/gst", "response_keys": ["by_rate", "hsn", "b2b", "b2c", "disclaimer"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/device-series", "response_keys": ["prefix", "fy", "next_number"]}],
-      "ui": {"keys": ["askodoxPosSetup", "askodoxPosDashboard", "askodoxPosCommand", "askodoxPosConfirmCommand", "askodoxPosPay", "askodoxPosIssue", "askodoxPosOfflineIssued", "askodoxPosReceipt", "askodoxPosGstDisclaimer", "askodoxPosPrinterLimits"], "symbols": ["askodoxInvoicePreview", "askodoxParsePosCommand", "AskodoxEscPos", "askodoxReceiptBytes", "AskodoxPosOfflineQueue", "askodoxPosRoutes", "BlePrinterTransport"]},
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/meta",
+          "response_keys": [
+            "states",
+            "rules",
+            "gst_rates_bp"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses",
+          "response_keys": [
+            "businesses"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses",
+          "response_keys": [
+            "id",
+            "my_role",
+            "permissions"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}",
+          "response_keys": [
+            "registration_type",
+            "state_code",
+            "my_role",
+            "permissions"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/products",
+          "response_keys": [
+            "id",
+            "price_paise",
+            "rate_bp"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/products",
+          "response_keys": [
+            "products"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/invoices",
+          "response_keys": [
+            "id",
+            "number",
+            "totals",
+            "lines",
+            "payments",
+            "replayed"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}",
+          "response_keys": [
+            "number",
+            "status",
+            "totals",
+            "lines"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}/credit-notes",
+          "response_keys": [
+            "number",
+            "original_invoice"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/invoices/{invoice_id}/cancel",
+          "response_keys": [
+            "status"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/payments",
+          "response_keys": [
+            "balance_paise",
+            "verification"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/customers/{customer_id}/statement",
+          "response_keys": [
+            "opening_paise",
+            "entries",
+            "closing_paise"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/day-close",
+          "response_keys": [
+            "closed"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/gst",
+          "response_keys": [
+            "by_rate",
+            "hsn",
+            "b2b",
+            "b2c",
+            "disclaimer"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/device-series",
+          "response_keys": [
+            "prefix",
+            "fy",
+            "next_number"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPosSetup",
+          "askodoxPosDashboard",
+          "askodoxPosCommand",
+          "askodoxPosConfirmCommand",
+          "askodoxPosPay",
+          "askodoxPosIssue",
+          "askodoxPosOfflineIssued",
+          "askodoxPosReceipt",
+          "askodoxPosGstDisclaimer",
+          "askodoxPosPrinterLimits"
+        ],
+        "symbols": [
+          "askodoxInvoicePreview",
+          "askodoxParsePosCommand",
+          "AskodoxEscPos",
+          "askodoxReceiptBytes",
+          "AskodoxPosOfflineQueue",
+          "askodoxPosRoutes",
+          "BlePrinterTransport"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_pos.py"], "flutter": ["test/features/pos/pos_test.dart"]},
+      "tests": {
+        "backend": [
+          "tests/test_pos.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_test.dart"
+        ]
+      },
       "dependencies": [],
       "status": "approved",
-      "history": [{"pr": null, "change": "POS master command phase 0-2 (branch claude/pos-core); NOT HARDWARE VERIFIED, NOT PHONE VERIFIED"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "POS master command phase 0-2 (branch claude/pos-core); NOT HARDWARE VERIFIED, NOT PHONE VERIFIED"
+        }
+      ]
     },
     {
       "id": "pos_restaurant_tables_kot",
       "name": "POS restaurant: tables, orders, KOT, kitchen screen, move / merge, split bill; held bills and quotations",
       "purpose": "Restaurants and bakeries run table orders and kitchen tickets on the same POS core and bill through the same GST invoice engine.",
       "expected_behavior": "One open order per table; item notes; resent items are not doubled (client_txn_id); KOT numbers count per business per day; kitchen states new -> preparing -> ready -> served only; an item already sent is voided with a reason by a manager / owner, never deleted; move to a busy table merges; billing all or chosen items (split bill) issues a normal invoice at today's prices and frees the table when nothing is left; waiters cannot bill, kitchen staff only see tickets. Held bills / quotations are drafts, never invoices.",
-      "roles": ["seller", "service_provider"],
-      "domains": ["restaurant", "bakery"],
-      "api": [{"method": "GET", "path": "/api/pos/businesses/{business_id}/tables", "response_keys": ["tables"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders", "response_keys": ["id", "items", "kots", "status"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders/{order_id}/items", "response_keys": ["items", "pending"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders/{order_id}/kot", "response_keys": ["kot"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/orders/{order_id}/bill", "response_keys": ["number", "totals", "order", "replayed"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/kitchen", "response_keys": ["kots"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/drafts", "response_keys": ["id", "kind"]}],
-      "ui": {"keys": ["askodoxPosTables", "askodoxPosSendKot", "askodoxPosBillOrder", "askodoxPosKitchen", "askodoxPosHold", "askodoxPosHeld", "askodoxPosQuote"], "symbols": ["AskodoxPosTablesScreen", "AskodoxPosOrderScreen", "AskodoxPosKitchenScreen", "AskodoxPosDraftsScreen"]},
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "restaurant",
+        "bakery"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/tables",
+          "response_keys": [
+            "tables"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/orders",
+          "response_keys": [
+            "id",
+            "items",
+            "kots",
+            "status"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/orders/{order_id}/items",
+          "response_keys": [
+            "items",
+            "pending"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/orders/{order_id}/kot",
+          "response_keys": [
+            "kot"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/orders/{order_id}/bill",
+          "response_keys": [
+            "number",
+            "totals",
+            "order",
+            "replayed"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/kitchen",
+          "response_keys": [
+            "kots"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/drafts",
+          "response_keys": [
+            "id",
+            "kind"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPosTables",
+          "askodoxPosSendKot",
+          "askodoxPosBillOrder",
+          "askodoxPosKitchen",
+          "askodoxPosHold",
+          "askodoxPosHeld",
+          "askodoxPosQuote"
+        ],
+        "symbols": [
+          "AskodoxPosTablesScreen",
+          "AskodoxPosOrderScreen",
+          "AskodoxPosKitchenScreen",
+          "AskodoxPosDraftsScreen"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_pos_restaurant.py"], "flutter": ["test/features/pos/pos_restaurant_test.dart"]},
-      "dependencies": ["universal_pos_core"],
+      "tests": {
+        "backend": [
+          "tests/test_pos_restaurant.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_restaurant_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "POS round 2 (branch claude/pos-round2); NOT PHONE VERIFIED"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "POS round 2 (branch claude/pos-round2); NOT PHONE VERIFIED"
+        }
+      ]
     },
     {
       "id": "pos_hardware_scan_scale_pdf",
       "name": "POS barcode from a camera photo, Bluetooth weighing scale reading, GST invoice PDF share",
       "purpose": "Faster, less error-prone counters: scan printed barcodes, take the weight from a standard BLE scale, and give customers a PDF bill.",
       "expected_behavior": "A scanned barcode adds only the item whose barcode matches EXACTLY (else nothing, with a message); a weighed item can read ONE settled weight (two equal readings) from a paired standard BLE Weight Scale (0x181D), shown for the cashier to check and sent as source=scale (stored scale_unverified); private-protocol scales and the camera never supply a weight; the invoice PDF is built only from the issued record (seller / buyer / GSTIN / place of supply / HSN / rate-wise taxes / amount in words / cashier-confirmed note) and shared through the Android share sheet from the app cache only.",
-      "roles": ["seller", "service_provider"],
-      "domains": ["any"],
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
       "api": [],
-      "ui": {"keys": ["askodoxPosScan", "askodoxPosItemScan", "askodoxPosReadScale", "askodoxPosScaleNote", "askodoxPosSharePdf"], "symbols": ["AskodoxBarcodeScanner", "askodoxDecodeBarcodePixels", "AskodoxScaleReader", "askodoxScaleToItemMilli", "askodoxSettledWeight", "askodoxInvoicePdf", "askodoxAmountInWords", "askodoxShareInvoicePdf"]},
+      "ui": {
+        "keys": [
+          "askodoxPosScan",
+          "askodoxPosItemScan",
+          "askodoxPosReadScale",
+          "askodoxPosScaleNote",
+          "askodoxPosSharePdf"
+        ],
+        "symbols": [
+          "AskodoxBarcodeScanner",
+          "askodoxDecodeBarcodePixels",
+          "AskodoxScaleReader",
+          "askodoxScaleToItemMilli",
+          "askodoxSettledWeight",
+          "askodoxInvoicePdf",
+          "askodoxAmountInWords",
+          "askodoxShareInvoicePdf"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": [], "flutter": ["test/features/pos/pos_hardware_test.dart", "test/features/pos/pos_pdf_test.dart"]},
-      "dependencies": ["universal_pos_core"],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/pos_hardware_test.dart",
+          "test/features/pos/pos_pdf_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "POS round 3 (branch claude/pos-round3); camera / scale NOT HARDWARE VERIFIED"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "POS round 3 (branch claude/pos-round3); camera / scale NOT HARDWARE VERIFIED"
+        }
+      ]
     },
     {
       "id": "pos_purchases_batches",
       "name": "POS suppliers, purchase bills, supplier ledger, batch / expiry (FEFO), stock valuation, input tax as recorded",
       "purpose": "Shops record what they buy and what they owe, pharmacies sell by batch with expiry control, and accountants see recorded input tax.",
       "expected_behavior": "A purchase bill records the supplier's invoice (cost before GST; GST only from a GSTIN supplier; inter / intra by supplier State), adds stock per batch, and adds what is owed; the same supplier bill number cannot be recorded twice; a printed total that differs by more than Re 1 is refused; bills are cancelled (row kept, stock + ledger reversed), never deleted. Batch items sell first-expiry-first-out from non-expired batches; expired stock is never sold; returns go back to the batches sold from. Valuation = average purchase cost before GST (items without a cost are counted as unknown). Input tax is shown 'as recorded' -- eligibility is the accountant's decision.",
-      "roles": ["seller"],
-      "domains": ["any"],
-      "api": [{"method": "POST", "path": "/api/pos/businesses/{business_id}/suppliers", "response_keys": ["id", "owed_paise"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/purchases", "response_keys": ["id", "totals", "lines", "replayed"]}, {"method": "POST", "path": "/api/pos/businesses/{business_id}/suppliers/{supplier_id}/payments", "response_keys": ["owed_paise"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/suppliers/{supplier_id}/statement", "response_keys": ["entries", "closing_paise"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/stock/{product_id}/batches", "response_keys": ["batches"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/expiry", "response_keys": ["items"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/valuation", "response_keys": ["items", "total_value_paise"]}, {"method": "GET", "path": "/api/pos/businesses/{business_id}/reports/input-tax", "response_keys": ["bills", "totals", "disclaimer"]}],
-      "ui": {"keys": ["askodoxPosSuppliers", "askodoxPosPurchaseForm", "askodoxPosPurchaseComputed", "askodoxPosPaySupplier", "askodoxPosStockReport", "askodoxPosTrackBatches"], "symbols": ["AskodoxPosSuppliersScreen", "AskodoxPosPurchaseScreen", "AskodoxPosStockReportScreen"]},
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/suppliers",
+          "response_keys": [
+            "id",
+            "owed_paise"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/purchases",
+          "response_keys": [
+            "id",
+            "totals",
+            "lines",
+            "replayed"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/suppliers/{supplier_id}/payments",
+          "response_keys": [
+            "owed_paise"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/suppliers/{supplier_id}/statement",
+          "response_keys": [
+            "entries",
+            "closing_paise"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/stock/{product_id}/batches",
+          "response_keys": [
+            "batches"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/expiry",
+          "response_keys": [
+            "items"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/valuation",
+          "response_keys": [
+            "items",
+            "total_value_paise"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/input-tax",
+          "response_keys": [
+            "bills",
+            "totals",
+            "disclaimer"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPosSuppliers",
+          "askodoxPosPurchaseForm",
+          "askodoxPosPurchaseComputed",
+          "askodoxPosPaySupplier",
+          "askodoxPosStockReport",
+          "askodoxPosTrackBatches"
+        ],
+        "symbols": [
+          "AskodoxPosSuppliersScreen",
+          "AskodoxPosPurchaseScreen",
+          "AskodoxPosStockReportScreen"
+        ]
+      },
       "flags": {},
-      "tests": {"backend": ["tests/test_pos_purchases.py"], "flutter": ["test/features/pos/pos_purchase_test.dart"]},
-      "dependencies": ["universal_pos_core"],
+      "tests": {
+        "backend": [
+          "tests/test_pos_purchases.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_purchase_test.dart"
+        ]
+      },
+      "dependencies": [
+        "universal_pos_core"
+      ],
       "status": "approved",
-      "history": [{"pr": null, "change": "POS round 3 (branch claude/pos-round3); NOT PHONE VERIFIED"}]
+      "history": [
+        {
+          "pr": null,
+          "change": "POS round 3 (branch claude/pos-round3); NOT PHONE VERIFIED"
+        }
+      ]
     },
     {
       "id": "pos_units_serials_purchase_orders",
@@ -2364,6 +4662,50 @@
         {
           "pr": null,
           "change": "Owner decision 2026-10-29 (branch claude/serper-primary); needs SERPER_API_KEY on Railway; NOT PRODUCTION VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "meta_page_oauth_callback",
+      "name": "Facebook Login callback for Page connection (Meta App Review flow)",
+      "purpose": "Owner approved 2026-10-31: a working Meta login flow is required for App Review of pages_manage_posts / instagram_content_publish. This slice only starts the login and lists the Pages the owner manages; it stores no tokens.",
+      "expected_behavior": "GET /meta/oauth/start redirects to Facebook Login with the five approved scopes (no ads permissions) and sets a short-lived state cookie. GET /meta/oauth/callback verifies the state, exchanges the code server-side using META_APP_ID / META_APP_SECRET, lists managed Pages (names escaped) and never shows or stores the user token. Token storage is a separate owner-approved step.",
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/meta/oauth/start",
+          "response_keys": []
+        },
+        {
+          "method": "GET",
+          "path": "/meta/oauth/callback",
+          "response_keys": []
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "status": "approved",
+      "flags": {},
+      "dependencies": [],
+      "tests": {
+        "backend": [
+          "tests/test_meta_oauth.py"
+        ],
+        "flutter": []
+      },
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner approved \"1\" 2026-10-31 (branch claude/meta-oauth-callback). Needs META_APP_ID and META_APP_SECRET on Railway; NOT PRODUCTION VERIFIED; no token storage yet."
         }
       ]
     }
