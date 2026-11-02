@@ -218,6 +218,7 @@ FEATURE_FLAGS: Dict[str, str] = {
     "autoresponse.enabled": "Business auto-responses in deal chats (owner-approved FAQ only)",
     "pos.payment_alerts": "POS payment voice alerts (phone reads the shop's own UPI app notifications; emergency off switch)",
     "results.videos": "Related videos / reviews",
+    "videos.watermark": "ASKODOX logo on videos posted inside ASKODOX (outside videos are never touched)",
     "support.escalation": "In-app customer-support escalation",
     "notifications.admin": "Admin notifications (no-match, critical escalations)",
     "payments.subscriptions": "Optional payment / subscription flows",

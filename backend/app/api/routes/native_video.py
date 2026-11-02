@@ -186,6 +186,12 @@ async def upload_video(request: Request, file: UploadFile = File(...), title: st
         "language": language.strip().lower(), "video_type": video_type if video_type in VIDEO_TYPES else "demo",
         "relationship": "merchant" if as_business else "creator", "merchant_ref": user_ref(user),
     }, actor=f"user:{user_ref(user)}", owner_ref=user, status="PENDING_REVIEW" if submit else "DRAFT")
+    if feature_enabled(request.app.state.container, "videos.watermark"):
+        # ASKODOX mark on videos posted inside ASKODOX only (owner rule
+        # 2026-10-31); runs after this answer, the original stays on disk.
+        from app.services import video_watermark
+
+        video_watermark.start(pf.resources.repo, record["id"], _folder(request), name, _base(request))
     return _public(record)
 
 
