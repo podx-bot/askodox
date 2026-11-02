@@ -653,3 +653,101 @@ def workspace_analytics(request: Request) -> dict:
             "repeatedly_out_of_stock": [{"item": r["product_id"], "times": r["n"]} for r in oos],
             "staff_activity_30d": [{"actor": r["actor"], "action": r["action"], "count": r["n"]} for r in staff],
             "sources": sources, "open_tasks": len(tasks)}
+
+
+# --------------------------------------------------------------- reels --
+
+class ReelBody(BaseModel):
+    voice_text: str = Field(default="", max_length=600)   # spoken over the reel (ElevenLabs when configured)
+    seconds: int = Field(default=30, ge=6, le=60)
+
+
+def _own_photo_paths(request: Request, item: dict[str, Any]) -> list[str]:
+    """Only photos uploaded to ASKODOX (Staff Workspace camera / gallery)."""
+    refs = [item.get("image_url") or ""] + list(item.get("images") or [])
+    out = []
+    for ref in refs:
+        name = str(ref or "").rsplit("/", 1)[-1]
+        if re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", name):
+            path = os.path.join(_upload_dir(request), name)
+            if os.path.exists(path) and path not in out:
+                out.append(path)
+    return out
+
+
+def _reel_audio(container: Any, text: str, folder: str, stem: str) -> str | None:
+    if not text.strip():
+        return None
+    try:
+        from app.api.routes.in_app_assistant import _elevenlabs
+
+        spoken = _elevenlabs(container).synthesize(text.strip())
+    except Exception:
+        return None
+    if not spoken.get("success") or not spoken.get("content"):
+        return None
+    path = os.path.join(folder, stem + ".voice.mp3")
+    with open(path, "wb") as handle:
+        handle.write(spoken["content"])
+    return path
+
+
+@router.post("/admin/cc/workspace/items/{item_id}/reel")
+def make_item_reel(item_id: int, body: ReelBody, request: Request) -> dict:
+    """ASKODOX Creations: a short reel from the item's own photos, title and
+    stated price (+ optional voice). Made in the background as a DRAFT
+    ASKODOX video; when ready it goes to the normal video review
+    (PENDING_REVIEW -> ACTIVE). Nothing is published without review."""
+    import hashlib as _hashlib
+    import threading
+    import time
+
+    from app.services import rate_limit, reel_maker
+
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    rate_limit.check(request, "workspace_reel", limit=20)
+    container = request.app.state.container
+    item = catalog(container).get(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    photos = _own_photo_paths(request, item)
+    if not photos:
+        raise HTTPException(status_code=422, detail="Add the item's photos in the workspace first (camera / gallery)")
+    title = str(item.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="The item needs a title")
+    price = reel_maker.price_text(item.get("price"), str(item.get("currency") or "INR"))
+    folder = os.path.join(os.path.dirname(os.path.abspath(container.settings.database_path)), "video_uploads")
+    os.makedirs(folder, exist_ok=True)
+    stem = _hashlib.sha256(f"reel:{item_id}:{time.time_ns()}".encode()).hexdigest()[:32]
+    base = str(request.base_url).rstrip("/").replace("http://", "https://")
+    pf = _pf(request)
+    record = pf.resources.create("videos", {
+        "title": title[:140], "platform": "askodox", "url": f"{base}/media/videos/{stem}.mp4",
+        "description": str(item.get("description") or "")[:2000],
+        "categories": [str(item.get("category") or "").lower()] if item.get("category") else [],
+        "products": [title[:80]], "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
+    }, actor=f"staff:{principal.get('id')}", status="DRAFT")
+    repo = pf.resources.repo
+
+    def work() -> None:
+        audio = _reel_audio(container, body.voice_text, folder, stem)
+        outcome = reel_maker.make_reel(photos, title, price, os.path.join(folder, stem + ".mp4"),
+                                       seconds=body.seconds, audio=audio)
+        if audio:
+            try:
+                os.remove(audio)
+            except OSError:
+                pass
+        current = repo.get(record["id"]) or record
+        data = dict(current.get("data") or {})
+        data["reel"] = {"item_id": item_id, "status": "READY" if outcome.get("ok") else "FAILED",
+                        "reason": outcome.get("reason"), "voice": bool(audio), "price_shown": price}
+        repo.update(record["id"], actor="system:reel", action="reel",
+                    status="PENDING_REVIEW" if outcome.get("ok") else None, data=data)
+
+    threading.Thread(target=work, name=f"reel-{record['id']}", daemon=True).start()
+    return {"video_id": record["id"], "status": "MAKING", "photos": len(photos), "price_shown": price,
+            "voice": bool(body.voice_text.strip())}

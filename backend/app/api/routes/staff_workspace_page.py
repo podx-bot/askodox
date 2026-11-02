@@ -113,8 +113,12 @@ async function fetchOne(url,type){const box=$("#res")||M;box.innerHTML=`<p class
  $("#draft").onclick=()=>save("draft");$("#submit").onclick=()=>save("submit")}
 function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
  <div class="mut">${esc(i.item_type)} · ${esc(i.platform_name)} · <span class="badge">${esc(i.review_status)}</span> ${i.price!=null?"₹"+esc(i.price):""} ${i.stock_status==="OUT_OF_STOCK"?'<span class="bad">out of stock</span>':""}</div>
- ${i.review_note?`<div class="mut">Note: ${esc(i.review_note)}</div>`:""}<div class="row" style="margin-top:6px">${btns.map(([a,l])=>`<button class="s" data-a="${a}" data-id="${i.id}">${l}</button>`).join("")}</div></div></div>`}
-function bindReview(){M.querySelectorAll("button[data-a]").forEach(b=>b.onclick=async()=>{let note="";if(b.dataset.a==="reject"){note=prompt("What needs fixing?")||"";if(!note)return}
+ ${i.review_note?`<div class="mut">Note: ${esc(i.review_note)}</div>`:""}<div class="row" style="margin-top:6px">${btns.map(([a,l])=>`<button class="s" data-a="${a}" data-id="${i.id}">${l}</button>`).join("")}${i.item_type==="product"?`<button class="s" data-reel="${i.id}">🎬 Reel తయారు చేయి</button>`:""}</div></div></div>`}
+function bindReel(){M.querySelectorAll("button[data-reel]").forEach(b=>b.onclick=async()=>{
+ const voice=prompt("Reel లో చెప్పాల్సిన మాటలు (ఖాళీగా వదిలితే voice లేకుండా):","");if(voice===null)return;
+ try{const r=await api(`/admin/cc/workspace/items/${b.dataset.reel}/reel`,"POST",{voice_text:voice,seconds:30});
+  toast(`Reel తయారవుతోంది (${r.photos} photos${r.price_shown?", "+r.price_shown:""}). తయారైన తర్వాత Videos review లో కనిపిస్తుంది.`)}catch(e){toast(e.message)}})}
+function bindReview(){bindReel();M.querySelectorAll("button[data-a]").forEach(b=>b.onclick=async()=>{let note="";if(b.dataset.a==="reject"){note=prompt("What needs fixing?")||"";if(!note)return}
  try{await api(`/admin/cc/workspace/items/${b.dataset.id}/review`,"POST",{action:b.dataset.a,note});toast("Done");start()}catch(e){toast(e.message)}})}
 async function review(){const d=await api("/admin/cc/workspace/items?status=NEEDS_REVIEW");
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">Waiting for review (${d.items.length})</h3>${d.items.map(i=>itemRow(i,[["approve","Approve & publish"],["reject","Send back"]])).join("")||'<p class="mut">Nothing waiting.</p>'}</div>`;bindReview()}
