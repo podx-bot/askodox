@@ -249,3 +249,25 @@ def test_telugu_non_existence_phrases_are_guarded():
     text, reasons = live_lookup.guard_reply("ఆ మోడల్ లేదు. ఇది ఇంకా మార్కెట్‌లోకి రాలేదు. వేరేది చూడండి.",
                                             verified=False, telugu=True)
     assert "మోడల్ లేదు" not in text and "రాలేదు" not in text and reasons == ["unbacked_nonexistence"]
+
+
+def test_sources_footer_lists_only_the_sources_the_reply_cites():
+    sources = [
+        {"label": "official", "url": "https://www.example-brand.com/find-x10", "title": "A"},
+        {"label": "news", "url": "https://news.example.org/leak", "title": "B", "published_at": "2026-10-20"},
+        {"label": "web", "url": "https://unrelated.example.net/page", "title": "C"},
+    ]
+    footer = live_lookup.sources_footer(sources, "en", False, cited=live_lookup.cited_source_ids("Launched [S1]."))
+    assert "example-brand.com" in footer
+    assert "news.example.org" not in footer
+    assert "unrelated.example.net" not in footer
+
+
+def test_sources_footer_is_empty_when_the_reply_cites_nothing():
+    sources = [{"label": "official", "url": "https://www.example-brand.com/x", "title": "A"}]
+    assert live_lookup.sources_footer(sources, "en", False, cited=live_lookup.cited_source_ids("No cite here")) == ""
+
+
+def test_sources_footer_without_cited_keeps_the_old_listing():
+    sources = [{"label": "web", "url": "https://www.example.com/a", "title": "A"}]
+    assert "example.com" in live_lookup.sources_footer(sources, "en", False)

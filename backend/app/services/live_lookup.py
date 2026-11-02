@@ -202,11 +202,31 @@ def evidence_block(sources: list[dict[str, Any]], *, deep: bool) -> str:
     )
 
 
-def sources_footer(sources: list[dict[str, Any]], locale: str, telugu: bool, limit: int = 4) -> str:
+def cited_source_ids(reply: str) -> set[int]:
+    """Source numbers the reply itself cites, e.g. ``[S2]`` -> {2}."""
+    return {int(m) for m in re.findall(r"\[S(\d+)\]", reply or "")}
+
+
+def sources_footer(
+    sources: list[dict[str, Any]],
+    locale: str,
+    telugu: bool,
+    limit: int = 4,
+    cited: set[int] | None = None,
+) -> str:
     """A short, tappable sources list under the reply (links render in the app;
-    speech drops this block)."""
+    speech drops this block).
+
+    ``cited`` holds the 1-based ``[S<n>]`` numbers the reply actually used (the
+    same numbers ``evidence_block`` gave). When given, only those sources are
+    listed, so a link the answer never relied on is not shown; when the reply
+    cites nothing, no footer is shown at all."""
     if not sources:
         return ""
+    if cited is not None:
+        sources = [src for i, src in enumerate(sources, start=1) if i in cited]
+        if not sources:
+            return ""
     lang = "te" if telugu else "en"
     rows = []
     order = {"official": 0, "news": 1, "rumor": 2, "web": 3}
