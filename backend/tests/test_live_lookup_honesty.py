@@ -91,7 +91,10 @@ def test_lookup_kind_and_model_phrase_any_category(text, kind, phrase):
 
 def test_new_phone_gets_live_evidence_labelled_sources_and_no_fake_verdict():
     research = FakeResearch(LAUNCH)
-    service, models = make(reply="Oppo Find X10 India లో October 22న launch అయింది [S1].", research=research)
+    service, models = make(
+        reply="Oppo Find X10 India లో October 22న launch అయింది [S1][S2]. Ultra తర్వాత రావచ్చని leak [S3].",
+        research=research,
+    )
     decision = service.decide("Oppo Find X10 గురించి చెప్పండి", locale="te")
     assert research.queries == ["Oppo Find X10"]
     assert "LIVE WEB EVIDENCE" in models.prompts[0]
