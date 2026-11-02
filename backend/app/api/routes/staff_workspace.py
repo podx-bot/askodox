@@ -499,6 +499,40 @@ def create_task_once(pf: Any, data: dict[str, Any], *, actor: str) -> tuple[dict
     return pf.resources.create("staff_tasks", {k: v for k, v in data.items() if v not in (None, "")}, actor=actor), True
 
 
+def task_alert_targets(staff: list[dict[str, Any]], data: dict[str, Any]) -> list[str]:
+    """App accounts to alert for a new task: the assigned staff member, or every
+    active staff member with the assigned role. Staff without a linked app
+    account (``app_user_id``) are skipped -- they still see the task in the
+    workspace."""
+    person = str(data.get("assignee_staff") or "").removeprefix("staff-")
+    role = str(data.get("assignee_role") or "").strip().lower()
+    out = []
+    for s in staff:
+        if not s.get("active") or not str(s.get("app_user_id") or "").startswith("app-"):
+            continue
+        if (person and str(s.get("id")) == person) or (not person and role and str(s.get("role") or "").lower() == role):
+            out.append(str(s["app_user_id"]))
+    return sorted(set(out))
+
+
+def alert_new_task(container: Any, record: dict[str, Any]) -> int:
+    """Push a new task to its staff's phones, once per task. Best effort: a
+    push failure never fails the task (it is already saved)."""
+    try:
+        from app.services.push_service import push_service
+
+        data = record.get("data") or {}
+        title = str(data.get("title") or "New task")[:120]
+        notify = push_service(container).notify
+        sent = 0
+        for user_id in task_alert_targets(command_center(container).list_staff(), data):
+            sent += int(notify(user_id, title="ASKODOX: మీకు కొత్త పని", body=title, route="/profile",
+                               event_key=f"staff_task:{record.get('id')}") or 0)
+        return sent
+    except Exception:
+        return 0
+
+
 @router.post("/admin/cc/workspace/tasks/from-demand")
 def task_from_demand(body: DemandTaskBody, request: Request) -> dict:
     principal = _principal(request)
@@ -509,7 +543,8 @@ def task_from_demand(body: DemandTaskBody, request: Request) -> dict:
     data = body.model_dump()
     data["priority"] = data["priority"].lower()
     record, created = create_task_once(_pf(request), data, actor=principal["id"])
-    return {"task": record, "created": created}
+    alerted = alert_new_task(request.app.state.container, record) if created else 0
+    return {"task": record, "created": created, "alerted": alerted}
 
 
 class LinkBatchBody(BaseModel):
@@ -559,7 +594,8 @@ def task_batch_links(body: LinkBatchBody, request: Request) -> dict:
             "priority": "normal", "assignee_staff": who, "dedupe_key": f"links:{batch}:{n}",
             "kind": "add_products", "evidence": {"batch": batch, "links": chunk}}, actor=principal["id"])
         created += int(fresh)
-        tasks.append({"id": record["id"], "assignee": staff[who]["name"], "links": len(chunk)})
+        alerted = alert_new_task(request.app.state.container, record) if fresh else 0
+        tasks.append({"id": record["id"], "assignee": staff[who]["name"], "links": len(chunk), "alerted": alerted})
     return {"batch": batch, "links": len(pairs), "tasks": tasks, "created": created}
 
 

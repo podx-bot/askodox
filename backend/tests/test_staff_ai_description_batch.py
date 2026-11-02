@@ -56,3 +56,38 @@ def test_describe_route_and_link_batches_split_between_staff(api):  # noqa: F811
     assert progress["links"] == 7 and progress["added"] == 0
     me = client.get("/admin/cc/workspace/me", headers=OWNER).json()
     assert me["can_assign"] is True and {m["name"] for m in me["team"]} >= {worker["name"], other["name"]}
+
+
+def test_new_link_tasks_push_an_alert_to_each_assigned_staff_once(api):  # noqa: F811
+    client, container, _ = api
+    sent = []
+
+    class FakePush:
+        def notify(self, user_id, *, title, body, route, event_key):
+            sent.append((user_id, route, event_key))
+            return 1
+
+    container.push_service = FakePush()
+    worker = _staff(client, "affiliate_product_staff", phone="919833333333")
+    other = _staff(client, "affiliate_product_staff", phone="919844444444")
+    links = [f"https://www.meesho.com/alert-{i}/p/{2000 + i}" for i in range(4)]
+    body = {"links": links, "assignees": [str(worker["id"]), str(other["id"])], "per_task": 2}
+    made = client.post("/admin/cc/workspace/tasks/batch-links", headers=OWNER, json=body).json()
+    assert [t["alerted"] for t in made["tasks"]] == [1, 1]
+    users = sorted(u for u, _, _ in sent)
+    assert users[0].endswith("919833333333") and users[1].endswith("919844444444")
+    assert {route for _, route, _ in sent} == {"/profile"}, "Profile holds the Staff Workspace button"
+    client.post("/admin/cc/workspace/tasks/batch-links", headers=OWNER, json=body)
+    assert len(sent) == 2, "a repeated batch creates no task and sends no second alert"
+
+
+def test_task_alert_targets_person_or_role_and_skip_unlinked_staff():
+    from app.api.routes.staff_workspace import task_alert_targets
+
+    staff = [{"id": 1, "role": "catalog", "active": True, "app_user_id": "app-phone-911"},
+             {"id": 2, "role": "catalog", "active": True, "app_user_id": ""},
+             {"id": 3, "role": "catalog", "active": False, "app_user_id": "app-phone-933"},
+             {"id": 4, "role": "support", "active": True, "app_user_id": "app-phone-944"}]
+    assert task_alert_targets(staff, {"assignee_staff": "staff-4"}) == ["app-phone-944"]
+    assert task_alert_targets(staff, {"assignee_role": "Catalog"}) == ["app-phone-911"]
+    assert task_alert_targets(staff, {"assignee_staff": "2"}) == []
