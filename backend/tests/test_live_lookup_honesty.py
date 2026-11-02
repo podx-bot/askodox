@@ -91,7 +91,10 @@ def test_lookup_kind_and_model_phrase_any_category(text, kind, phrase):
 
 def test_new_phone_gets_live_evidence_labelled_sources_and_no_fake_verdict():
     research = FakeResearch(LAUNCH)
-    service, models = make(reply="Oppo Find X10 India లో October 22న launch అయింది [S1].", research=research)
+    service, models = make(
+        reply="Oppo Find X10 India లో October 22న launch అయింది [S1][S2]. Ultra తర్వాత రావచ్చని leak [S3].",
+        research=research,
+    )
     decision = service.decide("Oppo Find X10 గురించి చెప్పండి", locale="te")
     assert research.queries == ["Oppo Find X10"]
     assert "LIVE WEB EVIDENCE" in models.prompts[0]
@@ -249,3 +252,25 @@ def test_telugu_non_existence_phrases_are_guarded():
     text, reasons = live_lookup.guard_reply("ఆ మోడల్ లేదు. ఇది ఇంకా మార్కెట్‌లోకి రాలేదు. వేరేది చూడండి.",
                                             verified=False, telugu=True)
     assert "మోడల్ లేదు" not in text and "రాలేదు" not in text and reasons == ["unbacked_nonexistence"]
+
+
+def test_sources_footer_lists_only_the_sources_the_reply_cites():
+    sources = [
+        {"label": "official", "url": "https://www.example-brand.com/find-x10", "title": "A"},
+        {"label": "news", "url": "https://news.example.org/leak", "title": "B", "published_at": "2026-10-20"},
+        {"label": "web", "url": "https://unrelated.example.net/page", "title": "C"},
+    ]
+    footer = live_lookup.sources_footer(sources, "en", False, cited=live_lookup.cited_source_ids("Launched [S1]."))
+    assert "example-brand.com" in footer
+    assert "news.example.org" not in footer
+    assert "unrelated.example.net" not in footer
+
+
+def test_sources_footer_is_empty_when_the_reply_cites_nothing():
+    sources = [{"label": "official", "url": "https://www.example-brand.com/x", "title": "A"}]
+    assert live_lookup.sources_footer(sources, "en", False, cited=live_lookup.cited_source_ids("No cite here")) == ""
+
+
+def test_sources_footer_without_cited_keeps_the_old_listing():
+    sources = [{"label": "web", "url": "https://www.example.com/a", "title": "A"}]
+    assert "example.com" in live_lookup.sources_footer(sources, "en", False)

@@ -982,7 +982,12 @@ class UniversalAIAssistantService:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
             if verified:
-                reply = reply + live_lookup.sources_footer(grounding.get("sources") or [], locale, telugu)
+                reply = reply + live_lookup.sources_footer(
+                    grounding.get("sources") or [],
+                    locale,
+                    telugu,
+                    cited=live_lookup.cited_source_ids(reply),
+                )
             return {
                 **brain,
                 "conversation_relation": relation_name,
