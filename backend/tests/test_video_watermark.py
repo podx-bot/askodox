@@ -28,7 +28,7 @@ def test_success_moves_url_to_marked_copy_and_keeps_original():
     out = wm.apply_to_record(repo, "v1", "/tmp", "abc.mp4", "https://x", marker=lambda src, dst: {"ok": True})
     assert out == {"ok": True}
     data = repo.record["data"]
-    assert data["url"] == "https://x/media/videos/abc_ax.mp4"
+    assert data["url"] == f"https://x/media/videos/{wm.marked_name('abc.mp4')}"
     assert data["original_url"] == "https://x/media/videos/abc.mp4"
     assert data["watermark"] == "applied"
 
@@ -84,3 +84,10 @@ def test_garbage_bytes_fail_without_raising(tmp_path):
     bad = tmp_path / "bad.mp4"
     bad.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"0" * 64)
     assert wm.mark_file(str(bad), str(tmp_path / "bad_ax.mp4"), exe=exe)["ok"] is False
+
+
+def test_marked_name_is_one_the_media_route_serves():
+    from app.api.routes.native_video import _NAME
+
+    name = "0123456789abcdef0123456789abcdef.webm"
+    assert _NAME.fullmatch(wm.marked_name(name)) and wm.marked_name(name) != name

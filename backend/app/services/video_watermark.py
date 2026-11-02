@@ -99,7 +99,10 @@ def _remove(path: str) -> None:
 
 
 def marked_name(name: str) -> str:
-    return os.path.splitext(name)[0] + "_ax.mp4"
+    """32 hex characters + .mp4: the only names /media/videos/{name} serves."""
+    import hashlib
+
+    return hashlib.sha256(f"askodox-mark:{name}".encode()).hexdigest()[:32] + ".mp4"
 
 
 def apply_to_record(repo: Any, record_id: str, folder: str, name: str, base_url: str, *,
