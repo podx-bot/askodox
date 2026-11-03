@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/features/home/domain/chat_result_policy.dart';
 import 'package:podx/features/home/domain/result_board_tabs.dart';
 import 'package:podx/features/home/presentation/attachment_menu.dart';
@@ -118,10 +119,17 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
     await tester.pumpAndSettle();
     // Only the frequently used places; the rest lives in the Profile grid.
-    for (final key in ['business', 'listings', 'enquiries', 'orders', 'saved', 'mobility', 'more']) {
+    // A Phase 1 build offers only Phase 1 places (business, listings, rides... wait for Phase 2).
+    final phase2Only = ['business', 'listings', 'enquiries', 'orders', 'mobility'];
+    for (final key in [if (askodoxPhase2) ...phase2Only, 'saved', 'more']) {
       await tester.scrollUntilVisible(find.byKey(ValueKey('askodoxMenu-$key')), 120,
           scrollable: find.byType(Scrollable).last);
       expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget);
+    }
+    if (!askodoxPhase2) {
+      for (final key in phase2Only) {
+        expect(find.byKey(ValueKey('askodoxMenu-$key')), findsNothing, reason: '$key is Phase 2');
+      }
     }
     for (final key in ['roles', 'verification', 'plans', 'radio', 'studio_videos', 'memory', 'privacy']) {
       expect(find.byKey(ValueKey('askodoxMenu-$key')), findsNothing, reason: '$key lives in Profile');
@@ -134,7 +142,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('askodoxHeaderScreenGuide')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('askodoxGuideStart-upload_video')), findsOneWidget);
+    // Uploading own videos is Phase 2; changing location is offered in every build.
+    expect(find.byKey(const ValueKey('askodoxGuideStart-upload_video')), askodoxPhase2 ? findsOneWidget : findsNothing);
+    expect(find.byKey(const ValueKey('askodoxGuideStart-change_location')), findsOneWidget);
     expect(find.byKey(const Key('askodoxHeaderGuideOtherApps')), findsOneWidget);
   });
 
