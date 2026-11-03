@@ -74,9 +74,23 @@ CATALOG: tuple[tuple[str, str, str, str, str], ...] = (
 _BY_KEY = {row[0]: row for row in CATALOG}
 _KEY = re.compile(r"^[a-z_]{2,40}$")
 
+# Release phase (owner decision 2026-11-04). A Phase 1 app sends the capability
+# PHASE1_CAPABILITY; it hides the Phase 2 screens (business tools / POS, rides,
+# roles, KYC, money tools, own video uploads), so the brain is offered -- and may
+# return -- only these destinations. Old APKs and Phase 2 builds get the whole catalog.
+PHASE1_CAPABILITY = "phase1_only"
+PHASE1_KEYS = frozenset({
+    "ai_credits", "payment_methods", "profile_memory", "notification_settings",
+    "privacy", "watchlist", "updates", "profile",
+})
 
-def prompt_block() -> str:
-    lines = "\n".join(f"- {key}: {about}" for key, _route, _en, _te, about in CATALOG)
+
+def _rows(phase1_only: bool = False):
+    return [row for row in CATALOG if not phase1_only or row[0] in PHASE1_KEYS]
+
+
+def prompt_block(phase1_only: bool = False) -> str:
+    lines = "\n".join(f"- {key}: {about}" for key, _route, _en, _te, about in _rows(phase1_only))
     return (
         "APP ACTIONS: if (and only if) the user asks to DO, OPEN, MANAGE or SET UP one of these ASKODOX features "
         "(not just to find or buy something -- searches stay searches), also return app_action = "
@@ -86,11 +100,13 @@ def prompt_block() -> str:
     )
 
 
-def resolve(raw: Any, telugu: bool = False) -> Optional[dict[str, str]]:
+def resolve(raw: Any, telugu: bool = False, phase1_only: bool = False) -> Optional[dict[str, str]]:
     """The model's ``app_action`` -> a known destination, or None."""
     key = raw.get("key") if isinstance(raw, dict) else raw
     key = str(key or "").strip().lower()
     if not _KEY.fullmatch(key) or key not in _BY_KEY:
+        return None
+    if phase1_only and key not in PHASE1_KEYS:
         return None
     _key, route, en, te, _about = _BY_KEY[key]
     return {"key": key, "route": route, "label": te if telugu else en}

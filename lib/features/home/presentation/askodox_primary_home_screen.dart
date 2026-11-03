@@ -1,4 +1,5 @@
 import '../../../core/flags/askodox_remote_flags.dart';
+import '../../../core/flags/askodox_release_phase.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
@@ -1923,8 +1924,9 @@ class _AskodoxPrimaryHomeScreenState
     }
 
     // "How do I upload a video?": ASKODOX shows it on the real screen.
+    // A walkthrough to a screen hidden in this release phase is not offered (the question goes to chat).
     final guide = attachments.isEmpty ? askodoxGuideFor(typed) : null;
-    if (guide != null) {
+    if (guide != null && askodoxGuideAvailable(guide)) {
       final flow = guide;
       final te = _te;
       final text = te
@@ -2129,7 +2131,10 @@ class _AskodoxPrimaryHomeScreenState
     // none -- keep what we have).
     if (aiUsable && decision!.adviceLedger != null) _adviceLedger = decision.adviceLedger!;
     if (decision?.intelligence case final intel?) _intelByTurn[userTurnIndex] = intel;
-    if (aiUsable && decision!.appAction != null) _appActionByTurn[userTurnIndex] = decision.appAction!;
+    // A screen hidden in this release phase gets no button (the server is told too: "phase1_only").
+    if (aiUsable && decision!.appAction != null && askodoxRouteShownNow(decision.appAction!.route)) {
+      _appActionByTurn[userTurnIndex] = decision.appAction!;
+    }
     // APK 1305: the deterministic conversation-relation layer (backend)
     // classifies this turn against the ACTIVE need. A replaced subject or a
     // genuine new topic retires the previous active result deck NOW: those

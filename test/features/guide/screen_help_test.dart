@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/config/router/app_router.dart';
+import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/core/startup/startup_hint.dart';
 import 'package:podx/features/guide/screen_help.dart';
 import 'package:podx/features/guide/guide_sheet.dart';
@@ -246,7 +247,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(_asked.single, 'Profile|how do I upload a video?');
     expect(find.byKey(const Key('askodoxGuideAnswer')), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxGuideAnswerFlow-upload_video')), findsOneWidget);
+    // Uploading own videos is a Phase 2 screen: a Phase 1 build answers but offers no walkthrough to it.
+    expect(find.byKey(const ValueKey('askodoxGuideAnswerFlow-upload_video')),
+        askodoxPhase2 ? findsOneWidget : findsNothing);
     expect(_spoken.last, contains('Upload for review'), reason: 'the answer is spoken too');
     await tester.tap(find.byKey(const Key('askodoxGuideSpeak')));
     await tester.pump();

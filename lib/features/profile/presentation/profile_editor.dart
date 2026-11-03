@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/flags/askodox_release_phase.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../shared/widgets/askodox_guided_field.dart';
 import '../../guide/in_app_guide.dart';
@@ -787,7 +788,11 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
       });
     }
     ref.watch(askodoxRoleProvider); // held roles add / remove boxes
-    final sections = _sections();
+    // Phase 1: role and business boxes are hidden, so they do not count towards "done" either.
+    final sections = [
+      for (final s in _sections())
+        if (askodoxPhase2 || !(s.id.startsWith('role-') || s.id == 'business')) s,
+    ];
     final done = sections.where((s) => s.done).length;
     final bodies = <String, Widget Function()>{
       'personal': () => Column(children: [
@@ -910,9 +915,13 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
               children: [for (final s in mine) mini(s)],
             ),
             for (final s in mine) _section(s, bodies[s.id]!()),
-            const SizedBox(height: 16),
-            _rolesCard(),
-            if (roleBoxes.isNotEmpty) ...[
+            // Phase 1 = one role: no roles card and no role / business boxes (stored details are kept
+            // and still sent back unchanged on save).
+            if (askodoxPhase2) ...[
+              const SizedBox(height: 16),
+              _rolesCard(),
+            ],
+            if (askodoxPhase2 && roleBoxes.isNotEmpty) ...[
               const SizedBox(height: 8),
               GridView.count(
                 shrinkWrap: true,

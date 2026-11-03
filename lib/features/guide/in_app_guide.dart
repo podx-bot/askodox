@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/diagnostics/test_mode.dart';
+import '../../core/flags/askodox_release_phase.dart';
 import '../../core/flags/askodox_remote_flags.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../services/reply_speech_service.dart';
@@ -232,6 +233,12 @@ const askodoxScreenGuides = <AskodoxGuideFlow>[
 final _howTo = RegExp(
     r'\b(how (do|can|to|should)|show me how|teach me|guide me|help me (to )?|where (do|can) i|steps? to)\b|ఎలా|చూపించు|నేర్పించు',
     caseSensitive: false);
+
+/// Guides offered in this build. A Phase 1 build never offers a walkthrough
+/// that taps a hidden Profile row or walks to a Phase 2 screen.
+bool askodoxGuideAvailable(AskodoxGuideFlow flow) =>
+    askodoxPhase2 ||
+    flow.steps.every((s) => askodoxShownNow(s.target) && (s.route == null || askodoxRouteShownNow(s.route!)));
 
 /// A how-to question ("how do I upload a video?") -> the matching guide.
 /// Plain requests ("send a parcel from X to Y") are not how-to questions.
@@ -756,7 +763,7 @@ class AskodoxGuideList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Column(mainAxisSize: MainAxisSize.min, children: [
-        for (final flow in askodoxGuideFlows.where((f) => f.listed))
+        for (final flow in askodoxGuideFlows.where((f) => f.listed && askodoxGuideAvailable(f)))
           ListTile(
             key: ValueKey('askodoxGuideStart-${flow.id}'),
             leading: const Icon(Icons.assistant_navigation),

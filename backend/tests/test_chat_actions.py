@@ -73,6 +73,24 @@ def test_unknown_or_missing_model_action_adds_nothing():
         assert "app_action" not in brain.decide("hello", capabilities=[ca.CAPABILITY])
 
 
+def test_phase1_app_is_offered_and_given_only_phase1_screens():
+    """Owner decision 2026-11-04: a Phase 1 app hides business / POS / rides / roles screens."""
+    assert ca.PHASE1_KEYS <= {row[0] for row in ca.CATALOG}
+    block = ca.prompt_block(phase1_only=True)
+    assert "ai_credits" in block and "pos_bill" not in block and "rides_parcels" not in block
+    assert "pos_bill" in ca.prompt_block(), "old APKs / Phase 2 still get the whole catalog"
+    assert ca.resolve({"key": "pos_bill"}, phase1_only=True) is None
+    assert ca.resolve({"key": "ai_credits"}, phase1_only=True)["route"] == "/me/ai-credits"
+
+    brain, models = _brain({"key": "pos_bill"})
+    caps = ["meaning_tags", ca.CAPABILITY, ca.PHASE1_CAPABILITY]
+    out = brain.decide("bill veyyali", capabilities=caps)
+    assert "pos_bill" not in models.prompts[-1] and "app_action" not in out
+    brain, models = _brain({"key": "payment_methods"})
+    out = brain.decide("naa upi qr add cheyyali", capabilities=caps)
+    assert out["app_action"]["route"] == "/me/payment-methods"
+
+
 def test_prompt_keeps_searches_as_searches_and_never_claims_opening():
     block = ca.prompt_block()
     assert "searches stay searches" in block and "Never claim the screen was opened" in block

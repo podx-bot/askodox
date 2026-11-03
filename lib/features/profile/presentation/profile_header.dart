@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/flags/askodox_release_phase.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../home/domain/active_role.dart';
 import '../../location/application/location_controller.dart';
@@ -212,9 +213,11 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
             'or' => 'ଓଡ଼ିଆ',
             _ => null,
           }),
-          _row(Icons.badge_outlined, _t('Roles', 'పాత్రలు'),
-              roles.isEmpty ? null : roles.map((r) => askodoxUserRoleLabel(r, telugu: widget.telugu)).join(', ')),
-          if (sells) ...[
+          // Phase 1 = one role, so no roles line and no business block (stored data is kept).
+          if (askodoxPhase2)
+            _row(Icons.badge_outlined, _t('Roles', 'పాత్రలు'),
+                roles.isEmpty ? null : roles.map((r) => askodoxUserRoleLabel(r, telugu: widget.telugu)).join(', ')),
+          if (sells && askodoxPhase2) ...[
             const Divider(),
             _row(Icons.storefront_outlined, _t('Business', 'వ్యాపారం'), profile.businessName,
                 key: const Key('askodoxProfileBusiness')),
