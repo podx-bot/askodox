@@ -44,8 +44,8 @@ List<AskodoxGuideFlow> askodoxFlowsOwnedBy(String path) => [
 AskodoxGuideFlow? askodoxFlowForQuestion(String question) {
   final q = question.toLowerCase();
   final howTo = askodoxGuideFor(q);
-  if (howTo != null) return howTo;
-  for (final f in askodoxGuideFlows) {
+  if (howTo != null && askodoxGuideAvailable(howTo)) return howTo;
+  for (final f in askodoxGuideFlows.where(askodoxGuideAvailable)) {
     if (f.keywords.any(q.contains) || q.contains(f.titleEn.toLowerCase()) || q.contains(f.titleTe)) return f;
   }
   return null;
@@ -129,7 +129,10 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
       _answer = null;
       _answerFlow = askodoxFlowForQuestion(question);
     });
-    final guides = [for (final f in askodoxGuideFlows) if (f.listed || f.id.startsWith('screen_')) f.title(_te)];
+    final guides = [
+      for (final f in askodoxGuideFlows)
+        if ((f.listed || f.id.startsWith('screen_')) && askodoxGuideAvailable(f)) f.title(_te),
+    ];
     final answer = await ref.read(askodoxGuideAnswererProvider)(
         question, widget.help.title(_te), widget.help.steps(_te), guides, _te ? 'te' : 'en');
     if (!mounted) return;
@@ -152,8 +155,9 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
   @override
   Widget build(BuildContext context) {
     final te = _te;
-    final own = askodoxFlowsOwnedBy(widget.path);
-    final others = [for (final f in askodoxGuideFlows) if (f.listed && !own.contains(f)) f];
+    // Only guides this release phase offers (a Phase 2 screen's walkthrough is not shown in Phase 1).
+    final own = askodoxFlowsOwnedBy(widget.path).where(askodoxGuideAvailable).toList();
+    final others = [for (final f in askodoxGuideFlows) if (f.listed && !own.contains(f) && askodoxGuideAvailable(f)) f];
     return SafeArea(
       child: Padding(
         key: const Key('askodoxScreenHelpSheet'),

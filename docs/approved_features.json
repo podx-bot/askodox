@@ -2567,6 +2567,50 @@
           "change": "Merged 2026-11-03 (fe4b1fb); NOT PHONE VERIFIED"
         }
       ]
+    },
+    {
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxProfileSection-payments"
+        ],
+        "symbols": [
+          "askodoxPhase2",
+          "askodoxShownNow",
+          "askodoxRouteShownNow",
+          "askodoxGuideAvailable"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_chat_actions.py"
+        ],
+        "flutter": [
+          "test/core/flags/askodox_release_phase_test.dart",
+          "test/features/home/history_explore_profile_test.dart"
+        ]
+      },
+      "dependencies": [
+        "chat_actions"
+      ],
+      "status": "approved",
+      "id": "release_phase1_profile",
+      "name": "Phase 1 release: Phase 2 surfaces hidden (profile, guides, chat actions)",
+      "purpose": "Owner 2026-11-04: Phase 1 = chat, results, feed, payments, basic profile, Smart Tools, AI Credits, Travel Radio; business / POS / rides / roles / KYC / plans / money tools wait for Phase 2.",
+      "expected_behavior": "A normal build hides the Business tab, roles, KYC, plans, buyer agent, money tools, shop scan / advances, rides and own-video rows (code kept; --dart-define=ASKODOX_PHASE2=true shows them). My payment methods moves to Me > Payments. Guides to hidden screens are not offered. The app sends capability phase1_only; the brain offers / returns only Phase 1 chat actions and the app shows no button for a hidden route. Stored roles and role details are never wiped.",
+      "history": [
+        {
+          "pr": 0,
+          "change": "Branch claude/askodox-phase1-profile 2026-11-04; NOT MERGED, NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

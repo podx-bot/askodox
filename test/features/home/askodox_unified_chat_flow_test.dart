@@ -13,6 +13,7 @@ import 'package:http/testing.dart';
 import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
+import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/core/config/environment.dart';
 import 'package:podx/core/providers/backend_providers.dart';
@@ -1105,18 +1106,22 @@ void main() {
     expect(h.matches.deals, isEmpty);
   });
 
-  testWidgets('"How do I upload a video?" offers the on-screen guide and Customer Care, no search', (tester) async {
+  testWidgets('"How do I ...?" offers the on-screen guide and Customer Care, no search', (tester) async {
+    // Uploading own videos is a Phase 2 screen, so a Phase 1 build is asked about changing location instead.
+    final (question, flow) = askodoxPhase2
+        ? ('How do I upload a video?', 'upload_video')
+        : ('How do I change my location?', 'change_location');
     final h = _Harness(matches: _FakeMatchRepository(const []));
     await h.pump(tester);
-    await h.send(tester, 'How do I upload a video?');
+    await h.send(tester, question);
     expect(find.textContaining('on the real screen, step by step'), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxGuideOffer-upload_video')), findsOneWidget);
+    expect(find.byKey(ValueKey('askodoxGuideOffer-$flow')), findsOneWidget);
     expect(find.byKey(const Key('askodoxGuideSupport')), findsOneWidget);
     expect(h.matches.deals, isEmpty);
     final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
-    await tester.tap(find.byKey(const ValueKey('askodoxGuideOffer-upload_video')));
+    await tester.tap(find.byKey(ValueKey('askodoxGuideOffer-$flow')));
     await tester.pump();
-    expect(container.read(askodoxGuideProvider)?.flow.id, 'upload_video');
+    expect(container.read(askodoxGuideProvider)?.flow.id, flow);
     container.read(askodoxGuideProvider.notifier).stop();
   });
 

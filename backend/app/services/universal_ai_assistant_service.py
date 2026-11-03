@@ -817,7 +817,8 @@ class UniversalAIAssistantService:
             + CONVERSATION_STATE_RULES
             + DECISION_GUIDANCE_RULES
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
-            + (chat_actions.prompt_block() if chat_actions.CAPABILITY in (capabilities or ()) else "")
+            + (chat_actions.prompt_block(chat_actions.PHASE1_CAPABILITY in (capabilities or ()))
+               if chat_actions.CAPABILITY in (capabilities or ()) else "")
             + advice_memory.prompt_block(ledger) +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
@@ -983,7 +984,8 @@ class UniversalAIAssistantService:
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
-            app_action = (chat_actions.resolve(data.get("app_action"), telugu)
+            app_action = (chat_actions.resolve(data.get("app_action"), telugu,
+                                               chat_actions.PHASE1_CAPABILITY in (capabilities or ()))
                           if chat_actions.CAPABILITY in (capabilities or ()) else None)
             if verified:
                 reply = reply + live_lookup.sources_footer(

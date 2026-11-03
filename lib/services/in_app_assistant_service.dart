@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../core/flags/askodox_release_phase.dart';
+
 class InAppAssistantTurn {
   const InAppAssistantTurn({required this.role, required this.text});
 
@@ -307,8 +309,9 @@ class InAppAssistantService {
               if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
               if (adviceGiven != null && adviceGiven.isNotEmpty) 'advice_given': adviceGiven,
               // This build renders [ok] / [caution] / [risk] meaning tags and
-              // shows a chat-action button (app_action) under a reply.
-              'capabilities': const ['meaning_tags', 'app_actions'],
+              // shows a chat-action button (app_action) under a reply. A Phase 1
+              // build opens only Phase 1 screens, so the brain offers only those.
+              'capabilities': ['meaning_tags', 'app_actions', if (!askodoxPhase2) 'phase1_only'],
             }),
           )
           .timeout(const Duration(seconds: 15));

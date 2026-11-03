@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/services/in_app_assistant_service.dart';
 
 /// One-time advice memory: the app sends the ledger it got last turn and
@@ -34,8 +35,8 @@ void main() {
     final decision = await InAppAssistantService(client: client).decide(
         message: "I've decided, I'll buy it", locale: 'en', history: const [], adviceGiven: ledger);
     expect(sent!['advice_given'], ledger);
-    expect(sent!['capabilities'], ['meaning_tags', 'app_actions'],
-        reason: 'this build renders the meaning tags and chat-action buttons');
+    expect(sent!['capabilities'], ['meaning_tags', 'app_actions', if (!askodoxPhase2) 'phase1_only'],
+        reason: 'this build renders the meaning tags and chat-action buttons (Phase 1 screens only in Phase 1)');
     expect(decision!.advice!['repeated'], isTrue);
     expect(decision.adviceLedger!.single['times'], 2);
   });

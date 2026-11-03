@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/auth/sign_out.dart';
+import '../../../core/flags/askodox_release_phase.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../home/application/conversation_archive.dart';
@@ -231,7 +232,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   'అభ్యర్థనలు పంపడానికి, వాటి స్థితి చూడడానికి మాత్రమే అవసరం.'),
               onTap: () => context.push('/onboarding?signin=1')),
         ]),
-      if (sells)
+      // Phase 1: no Business tab, so no shortcut to it.
+      if (sells && askodoxPhase2)
         Padding(
           padding: const EdgeInsets.only(top: 12),
           child: FilledButton.tonalIcon(
@@ -249,9 +251,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           title: t('Shopping & daily use', 'కొనుగోళ్లు & రోజువారీ'),
           icon: Icons.shopping_bag_outlined,
           children: [
+            if (askodoxShownNow('profile-shop-scan'))
             row('profile-shop-scan', 'me', Icons.qr_code_scanner, 'Scan & shop in a store', 'షాప్‌లో స్కాన్ చేసి కొనండి',
                 'Scan items; show the exit code at the counter.', 'సరుకులు స్కాన్ చేసి కౌంటర్‌లో కోడ్ చూపించండి.',
                 () => context.push('/shop-scan'), words: ['scan', 'supermarket', 'స్కాన్']),
+            if (askodoxShownNow('profile-mobility'))
             row('profile-mobility', 'me', Icons.local_taxi_outlined, 'Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్',
                 'Book, track, or drive / deliver.', 'బుక్, ట్రాక్, లేదా డ్రైవ్ / డెలివర్.', () => context.push('/mobility'),
                 guide: 'screen_mobility', words: ['ride', 'parcel', 'auto', 'taxi', 'రైడ్', 'పార్సెల్']),
@@ -292,7 +296,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }),
                         ))),
           ]),
+      // Phase 1: the Business tab is hidden, so "My payment methods" (own UPI QR / bank, used to
+      // collect money) lives here. In Phase 2 it goes back to the Business tab.
+      if (!askodoxPhase2)
+        AskodoxNavSection(
+            key: const Key('askodoxProfileSection-payments'),
+            grid: true,
+            title: t('Payments', 'పేమెంట్స్'),
+            icon: Icons.account_balance_wallet_outlined,
+            children: [
+              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My payment methods',
+                  'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — people pay you directly.',
+                  'మీ UPI QR / బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
+                  words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
+            ]),
       // Personal Finance: the Personal Tax Assistant (existing /intel/* screens) + the person's money records.
+      if (askodoxPhase2)
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-finance'),
           grid: true,
@@ -310,6 +329,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 'Approve what a shop recorded for you.', 'షాప్ నమోదు చేసినవి ఆమోదించండి.',
                 () => context.push('/me/shop-advances'), words: ['advance', 'approve', 'money', 'డబ్బు', 'ఆమోదం']),
           ]),
+      // Phase 1 = one role (a customer): no role chips, role editor or opportunities.
+      if (askodoxPhase2)
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-roles'),
           mascot: AskodoxMascotRole.entro,
@@ -425,8 +446,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ]),
     ];
 
-    // ---- వ్యాపారం (business)
-    final businessSections = <Widget>[
+    // ---- వ్యాపారం (business) -- Phase 2 only. Built only then, so its rows never reach the search index.
+    final businessSections = !askodoxPhase2 ? const <Widget>[] : <Widget>[
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-business'),
           mascot: AskodoxMascotRole.bizzo,
@@ -481,9 +502,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             title: t('Account & plans', 'ఖాతా & ప్లాన్లు'),
             icon: Icons.verified_user_outlined,
             children: [
+              if (askodoxShownNow('profile-verification'))
               row('profile-verification', 'settings', Icons.verified_user_outlined, 'Verification (KYC)', 'ధృవీకరణ (KYC)',
                   'Verified sellers get more trust.', 'ధృవీకరించిన వారికి ఎక్కువ నమ్మకం.', () => context.push('/verification'),
                   guide: 'screen_kyc', words: ['kyc', 'verify', 'ధృవీకరణ']),
+              if (askodoxShownNow('profile-plans'))
               row('profile-plans', 'settings', Icons.workspace_premium_outlined, 'Plans & subscription', 'ప్లాన్లు & సబ్‌స్క్రిప్షన్',
                   'Your plan and what each plan adds.', 'మీ ప్లాన్, ప్రతి ప్లాన్‌లో ఏముంది.', () => context.push('/plans'),
                   guide: 'screen_plans', words: ['plan', 'subscription', 'ప్లాన్']),
@@ -491,6 +514,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   'Balance, recharge and what each AI use costs.', 'బ్యాలెన్స్, రీఛార్జ్, ఒక్కో AI వాడకానికి ఎంత.',
                   () => context.push('/me/ai-credits'),
                   words: ['credits', 'recharge', 'balance', 'wallet', 'రీఛార్జ్', 'క్రెడిట్స్']),
+              if (askodoxShownNow('profile-buyer-agent'))
               row('profile-buyer-agent', 'settings', Icons.smart_toy_outlined, 'My buyer agent', 'నా Buyer agent',
                   'What waits for you: shop advances, payment methods.', 'మీ కోసం ఆగినవి: shop advances, payment methods.',
                   () => context.push('/me/agent'), words: ['agent', 'assistant', 'pending', 'ఏజెంట్']),
@@ -883,12 +907,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               decoration: BoxDecoration(color: const Color(0xFFE4E9F2), borderRadius: BorderRadius.circular(14)),
               child: Row(children: [
                 tabButton(const Key('askodoxProfileTab-me'), 'me', t('Me', 'నేను'), Icons.person_outline_rounded),
-                tabButton(const Key('askodoxProfileTab-business'), 'business', t('Business', 'వ్యాపారం'), Icons.storefront_outlined),
+                if (askodoxPhase2)
+                  tabButton(const Key('askodoxProfileTab-business'), 'business', t('Business', 'వ్యాపారం'), Icons.storefront_outlined),
                 tabButton(const Key('askodoxProfileTab-settings'), 'settings', t('Settings', 'సెట్టింగ్స్'), Icons.settings_outlined),
               ]),
             ),
             ...switch (_tab) {
-              'business' => businessSections,
+              'business' when askodoxPhase2 => businessSections,
               'settings' => settingsSections,
               _ => meSections,
             },

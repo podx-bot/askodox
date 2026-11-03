@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:podx/core/auth/auth_controller.dart';
 import 'package:podx/core/auth/auth_models.dart';
+import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/core/providers/backend_providers.dart';
 import 'package:podx/features/guide/in_app_guide.dart';
 import 'package:podx/features/home/application/conversation_archive.dart';
@@ -134,9 +135,15 @@ void main() {
     expect(find.byKey(const Key('askodoxProfileName')), findsOneWidget);
     expect(find.text('Lakshmi'), findsOneWidget);
     expect(find.text('+919876543210'), findsOneWidget);
-    expect(find.text('Sri Lakshmi Kirana'), findsOneWidget);
-    expect(find.text('Not verified yet'), findsOneWidget, reason: 'verification comes from the server, never claimed');
-    expect(find.text('12'), findsOneWidget);
+    if (askodoxPhase2) {
+      expect(find.text('Sri Lakshmi Kirana'), findsOneWidget);
+      expect(find.text('Not verified yet'), findsOneWidget, reason: 'verification comes from the server, never claimed');
+      expect(find.text('12'), findsOneWidget);
+    } else {
+      // Phase 1 = one role: the business block is hidden (the stored data is untouched).
+      expect(find.text('Sri Lakshmi Kirana'), findsNothing);
+      expect(find.byKey(const Key('askodoxProfileVerification')), findsNothing);
+    }
     expect(find.text('Your ASKODOX profile'), findsNothing, reason: 'the generic placeholder header is gone');
 
     await tester.tap(find.byKey(const Key('askodoxProfileEdit')));
@@ -159,35 +166,54 @@ void main() {
       '/profile': const ProfileScreen(),
       '/': page('HOME'),
       for (final r in ['/business', '/listings/mine', '/orders/incoming', '/business/promotions', '/business/automation',
-          '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy', '/tools', '/me/finance', '/intel/tax'])
+          '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy', '/tools',
+          '/me/finance', '/intel/tax', '/me/payment-methods', '/me/ai-credits', '/radio'])
         r: page(r),
     });
-    // Three tabs instead of one long list: each tab shows its own sections.
-    expect(find.byKey(const Key('askodoxProfileSection-roles')), findsOneWidget, reason: 'Me tab first');
-    expect(find.byKey(const Key('askodoxProfileSection-business')), findsNothing, reason: 'not all at once');
+    if (askodoxPhase2) {
+      // Three tabs instead of one long list: each tab shows its own sections.
+      expect(find.byKey(const Key('askodoxProfileSection-roles')), findsOneWidget, reason: 'Me tab first');
+      expect(find.byKey(const Key('askodoxProfileSection-business')), findsNothing, reason: 'not all at once');
+    } else {
+      // Phase 1: two tabs (Me, Settings); business, roles and money tools wait for Phase 2.
+      expect(find.byKey(const Key('askodoxProfileTab-business')), findsNothing);
+      for (final hidden in ['roles', 'finance', 'business', 'studio']) {
+        expect(find.byKey(Key('askodoxProfileSection-$hidden')), findsNothing, reason: 'Phase 2: $hidden');
+      }
+      for (final hidden in askodoxPhase2ProfileKeys) {
+        expect(find.byKey(ValueKey(hidden)), findsNothing, reason: 'Phase 2 row $hidden');
+        expect(find.byKey(Key(hidden)), findsNothing, reason: 'Phase 2 row $hidden');
+      }
+    }
     for (final (tab, sections) in [
-      ('business', ['business', 'studio']),
-      ('settings', ['settings', 'help']),
-      ('me', ['shopping', 'finance', 'roles']),
+      if (askodoxPhase2) ('business', ['business', 'studio']),
+      ('settings', ['settings', 'help', 'account']),
+      ('me', askodoxPhase2 ? ['shopping', 'finance', 'roles'] : ['shopping', 'payments']),
     ]) {
       await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
       await tester.pumpAndSettle();
       for (final section in sections) {
+        if (section == 'account') continue; // shown only when signed in
         expect(find.byKey(Key('askodoxProfileSection-$section')), findsOneWidget, reason: '$tab: $section');
       }
     }
-    await tester.tap(find.byKey(const Key('askodoxProfileTab-business')));
-    await tester.pumpAndSettle();
-    expect(find.descendant(of: find.byKey(const Key('askodoxProfileSection-business')), matching: find.byType(Card)),
-        findsNothing, reason: 'one grouped card per section, not a card per row');
+    if (askodoxPhase2) {
+      await tester.tap(find.byKey(const Key('askodoxProfileTab-business')));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byKey(const Key('askodoxProfileSection-business')), matching: find.byType(Card)),
+          findsNothing, reason: 'one grouped card per section, not a card per row');
+    }
     for (final (tab, key, route) in [
-      ('business', 'profile-my-listings', '/listings/mine'),
-      ('business', 'profile-enquiries', '/orders/incoming'),
-      ('business', 'profile-native-video', '/videos/native'),
-      ('me', 'profile-mobility', '/mobility'),
+      if (askodoxPhase2) ...[
+        ('business', 'profile-my-listings', '/listings/mine'),
+        ('business', 'profile-enquiries', '/orders/incoming'),
+        ('business', 'profile-native-video', '/videos/native'),
+        ('me', 'profile-mobility', '/mobility'),
+        ('me', 'profile-tax-assistant', '/intel/tax'),
+        ('me', 'profile-personal-finance', '/me/finance'),
+      ] else
+        ('me', 'profile-payment-methods', '/me/payment-methods'),
       ('me', 'profile-smart-tools', '/tools'),
-      ('me', 'profile-tax-assistant', '/intel/tax'),
-      ('me', 'profile-personal-finance', '/me/finance'),
     ]) {
       await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
       await tester.pumpAndSettle();
@@ -219,7 +245,7 @@ void main() {
     final provider = tester.widget<FilterChip>(find.byKey(const ValueKey('profileRole-serviceProvider')));
     expect(provider.selected, isTrue);
     expect(find.widgetWithText(FilterChip, 'Buyer'), findsOneWidget);
-  });
+  }, skip: !askodoxPhase2); // Phase 1 = one role: no role chips.
 
   testWidgets('Master profile: e-mail, links and per-role details save to the ONE profile; active role switches '
       'only when picked', (tester) async {
@@ -296,7 +322,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(profiles.saves.where((m) => m['active_role'] == 'seller'), hasLength(1));
     expect(find.byKey(const Key('askodoxActiveRoleChanged')), findsOneWidget);
-  });
+  }, skip: !askodoxPhase2); // Phase 1 = one role: no roles card or role boxes in the editor.
+
+  testWidgets('Phase 1: the editor shows no roles card or role / business boxes; saving keeps stored role details',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({
+      'askodox.roles.v1': jsonEncode({'owned': ['buyer', 'seller'], 'active': 'buyer'}),
+    });
+    final profiles = _Profiles(const AskodoxUserProfile(
+      userId: 'app-phone-919876543210',
+      name: 'Lakshmi',
+      roleDetails: {
+        'seller': {'business_type': 'grocery'},
+      },
+    ));
+    await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()}, overrides: [
+      authSessionProvider.overrideWith((ref) => _SignedIn(ref.watch(sessionManagerProvider))),
+      askodoxUserProfileRepositoryProvider.overrideWithValue(profiles),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxProfileEditRoles')), findsNothing);
+    await tester.tap(find.byKey(const Key('askodoxProfileEdit')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxEditMini-personal')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxEditMini-role-seller')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxEditMini-business')), findsNothing);
+    expect(find.byKey(const ValueKey('profileRole-seller')), findsNothing);
+    tester.widget<FilledButton>(find.byKey(const Key('askodoxEditSave'))).onPressed!();
+    await tester.pumpAndSettle();
+    final saved = profiles.saves.lastWhere((m) => m.containsKey('role_details'));
+    expect(((saved['role_details'] as Map)['seller'] as Map)['business_type'], 'grocery',
+        reason: 'hidden role details are sent back unchanged, never wiped');
+  }, skip: askodoxPhase2);
 
   testWidgets('Profile editor: numbers with hours, addresses add / delete, "say or paste" fills the right boxes',
       (tester) async {
@@ -411,9 +471,13 @@ void main() {
   testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
-    for (final (tab, id) in [('business', 'screen_business'), ('business', 'screen_listings'),
+    for (final (tab, id) in [
+      if (askodoxPhase2) ...[
+        ('business', 'screen_business'), ('business', 'screen_listings'),
         ('business', 'screen_enquiries'), ('business', 'screen_videos'), ('me', 'screen_mobility'),
-        ('settings', 'screen_notifications'), ('settings', 'screen_feedback')]) {
+      ],
+      ('settings', 'screen_notifications'), ('settings', 'screen_feedback'),
+    ]) {
       await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
       await tester.pumpAndSettle();
       final button = find.byKey(ValueKey('askodoxTileGuide-$id'));

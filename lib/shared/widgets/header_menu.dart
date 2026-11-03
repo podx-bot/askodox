@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/sign_out.dart';
+import '../../core/flags/askodox_release_phase.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../features/guide/in_app_guide.dart';
 
@@ -53,7 +54,8 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * .8),
                 child: ListView(shrinkWrap: true, children: [
-                  for (final e in askodoxHeaderMenuEntries)
+                  // Phase 1 build: Phase 2 places (business, listings, rides...) are not offered.
+                  for (final e in askodoxHeaderMenuEntries.where((e) => askodoxRouteShownNow(e.route)))
                     ListTile(
                       key: ValueKey('askodoxMenu-${e.key}'),
                       dense: true,
