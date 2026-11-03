@@ -2366,6 +2366,207 @@
           "change": "Owner decision 2026-10-29 (branch claude/serper-primary); needs SERPER_API_KEY on Railway; NOT PRODUCTION VERIFIED"
         }
       ]
+    },
+    {
+      "roles": [
+        "buyer",
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant",
+          "response_model": "app.api.routes.in_app_assistant:AssistantDecision",
+          "response_keys": [
+            "app_action"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "AskodoxAppAction",
+          "askodoxIsInternalRoute"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_chat_actions.py"
+        ],
+        "flutter": [
+          "test/services/in_app_assistant_app_action_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "id": "chat_actions",
+      "name": "Open any ASKODOX feature from Main Chat (chat actions)",
+      "purpose": "Owner vision 2026-10-30: options buried in Profile / My Business open from the main chat by talking.",
+      "expected_behavior": "ONE catalog (backend chat_actions.py). For apps sending the app_actions capability the brain may return app_action {key, route, label} when the user asks to do / open one of the catalog features (searches stay searches). The app shows one button under the reply; only the user's tap opens the screen; only in-app routes are accepted; every catalog route exists in the app router.",
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner go-ahead 2026-11-03 (branch claude/askodox-chat-actions); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "roles": [
+        "buyer",
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_live_lookup_honesty.py::test_sources_footer_lists_only_the_sources_the_reply_cites"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "serper_primary_search"
+      ],
+      "status": "approved",
+      "id": "sources_footer_cited_only",
+      "name": "Sources under a reply = only the sources it cites",
+      "purpose": "Owner 2026-11-02: links unrelated to the answer must not be listed.",
+      "expected_behavior": "A verified live answer lists only the [S<n>] sources the reply cites; no citation = no sources block.",
+      "history": [
+        {
+          "pr": 260,
+          "change": "Merged 2026-11-03 (a802fd0); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/tasks/batch-links"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_staff_ai_description_batch.py::test_new_link_tasks_push_an_alert_to_each_assigned_staff_once"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "id": "staff_task_alerts",
+      "name": "Staff get a phone alert when a task is assigned",
+      "purpose": "Owner 2026-11-02: alert staff when work (product links, demand) is allotted.",
+      "expected_behavior": "A new task pushes once to the assigned staff member (or every active staff member with the role) who has a linked app account; opens Profile; a push failure never fails the task; a re-sent batch sends nothing.",
+      "history": [
+        {
+          "pr": 261,
+          "change": "Merged 2026-11-03 (0b87a43); needs Firebase push; NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "roles": [
+        "buyer",
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/videos/upload"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {
+        "videos.watermark": true
+      },
+      "tests": {
+        "backend": [
+          "tests/test_video_watermark.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "id": "video_watermark",
+      "name": "ASKODOX logo on videos posted inside ASKODOX",
+      "purpose": "Owner rule 2026-10-31: ASKODOX features and branding only on videos posted inside ASKODOX.",
+      "expected_behavior": "A native upload gets the corner logo in the background; original kept (original_url); url moves to the marked 32-hex MP4 only on success, else watermark=failed + reason; outside videos never touched. Flag videos.watermark (default on).",
+      "history": [
+        {
+          "pr": 262,
+          "change": "Merged 2026-11-03 (b59442d); NOT PHONE VERIFIED"
+        }
+      ]
+    },
+    {
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/items/{item_id}/reel"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_reel_maker.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "video_watermark"
+      ],
+      "status": "approved",
+      "id": "creations_product_reel",
+      "name": "Product reel from an item's own photos (Staff Workspace)",
+      "purpose": "Owner 2026-10-31 / 11-02: 30-second reels for affiliate / catalogue products, made by staff, reviewed before publishing.",
+      "expected_behavior": "POST /admin/cc/workspace/items/{item_id}/reel uses only photos uploaded to ASKODOX, the item's title and stated price (+ optional ElevenLabs voice), logo; DRAFT ASKODOX video -> PENDING_REVIEW when ready; never published without review; no music.",
+      "history": [
+        {
+          "pr": 263,
+          "change": "Merged 2026-11-03 (fe4b1fb); NOT PHONE VERIFIED"
+        }
+      ]
     }
   ]
 }

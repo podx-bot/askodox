@@ -43,6 +43,29 @@ class BuyingGuide {
       : const <String>[];
 }
 
+/// One app destination from the chat-actions catalog (key, in-app route,
+/// button label). Only internal routes ("/...") are ever accepted.
+class AskodoxAppAction {
+  const AskodoxAppAction({required this.key, required this.route, required this.label});
+
+  final String key;
+  final String route;
+  final String label;
+
+  static AskodoxAppAction? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final key = '${raw['key'] ?? ''}'.trim();
+    final route = '${raw['route'] ?? ''}'.trim();
+    final label = '${raw['label'] ?? ''}'.trim();
+    if (key.isEmpty || label.isEmpty || !askodoxIsInternalRoute(route)) return null;
+    return AskodoxAppAction(key: key, route: route, label: label);
+  }
+}
+
+/// An in-app path only: starts with one "/", no scheme, host, ".." or spaces.
+bool askodoxIsInternalRoute(String route) =>
+    RegExp(r'^/[A-Za-z0-9_\-/]*$').hasMatch(route) && !route.startsWith('//') && !route.contains('..');
+
 class InAppAssistantDecision {
   const InAppAssistantDecision({
     required this.reply,
@@ -70,7 +93,13 @@ class InAppAssistantDecision {
     this.groundingVerified,
     this.groundingMode,
     this.honesty = const <String>[],
+    this.appAction,
   });
+
+  /// Chat actions (backend chat_actions.py): ONE ASKODOX screen the user
+  /// asked to open or use, shown as a button under the reply (never opened
+  /// automatically). Null when the turn has none or the backend is older.
+  final AskodoxAppAction? appAction;
 
   /// Live web check for this reply (backend live_lookup.py): true = answered
   /// from live sources, false = a live check was needed but failed, null =
@@ -212,6 +241,7 @@ class InAppAssistantDecision {
       groundingVerified: json['grounding'] is Map ? (json['grounding'] as Map)['verified'] == true : null,
       groundingMode: json['grounding'] is Map ? (json['grounding'] as Map)['mode']?.toString() : null,
       honesty: names(json['honesty']),
+      appAction: AskodoxAppAction.fromJson(json['app_action']),
     );
   }
 
@@ -276,8 +306,9 @@ class InAppAssistantService {
               if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
               if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
               if (adviceGiven != null && adviceGiven.isNotEmpty) 'advice_given': adviceGiven,
-              // This build renders [ok] / [caution] / [risk] meaning tags.
-              'capabilities': const ['meaning_tags'],
+              // This build renders [ok] / [caution] / [risk] meaning tags and
+              // shows a chat-action button (app_action) under a reply.
+              'capabilities': const ['meaning_tags', 'app_actions'],
             }),
           )
           .timeout(const Duration(seconds: 15));

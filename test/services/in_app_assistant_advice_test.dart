@@ -34,7 +34,8 @@ void main() {
     final decision = await InAppAssistantService(client: client).decide(
         message: "I've decided, I'll buy it", locale: 'en', history: const [], adviceGiven: ledger);
     expect(sent!['advice_given'], ledger);
-    expect(sent!['capabilities'], ['meaning_tags'], reason: 'this build renders the meaning tags');
+    expect(sent!['capabilities'], ['meaning_tags', 'app_actions'],
+        reason: 'this build renders the meaning tags and chat-action buttons');
     expect(decision!.advice!['repeated'], isTrue);
     expect(decision.adviceLedger!.single['times'], 2);
   });

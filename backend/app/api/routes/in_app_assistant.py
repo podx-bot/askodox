@@ -86,6 +86,10 @@ class AssistantDecision(BaseModel):
     # send back next turn. None / [] for turns that raise no concern.
     advice: dict[str, Any] | None = None
     advice_ledger: list[dict[str, Any]] = Field(default_factory=list)
+    # Chat actions (chat_actions.py): ONE app destination the user asked to
+    # open / do ({key, route, label}); the app shows a button, the user taps.
+    # Only for apps that send the ``app_actions`` capability.
+    app_action: dict[str, str] | None = None
     # Master command round 2: tax / GST, fraud & market reality and smart
     # tricks attach here (intelligence_gate.py) -- deterministic, sourced,
     # only when the user's own words ask; never a separate bot.
