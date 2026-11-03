@@ -1085,6 +1085,9 @@ class _AskodoxPrimaryHomeScreenState
   /// Round 2 intelligence card (tax / GST, fraud, smart tricks) keyed by the
   /// USER turn it answers; drawn under the next assistant turn.
   final Map<int, Map<String, Object?>> _intelByTurn = {};
+  /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
+  /// to open, keyed by the USER turn; a button under the next assistant turn.
+  final Map<int, AskodoxAppAction> _appActionByTurn = {};
 
   void _clearConversationState() {
     _adviceLedger = const [];
@@ -1093,6 +1096,7 @@ class _AskodoxPrimaryHomeScreenState
     _taxonomyByTurn.clear();
     _guideByTurn.clear();
     _intelByTurn.clear();
+    _appActionByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
     _resultsHiddenFor = null;
@@ -2125,6 +2129,7 @@ class _AskodoxPrimaryHomeScreenState
     // none -- keep what we have).
     if (aiUsable && decision!.adviceLedger != null) _adviceLedger = decision.adviceLedger!;
     if (decision?.intelligence case final intel?) _intelByTurn[userTurnIndex] = intel;
+    if (aiUsable && decision!.appAction != null) _appActionByTurn[userTurnIndex] = decision.appAction!;
     // APK 1305: the deterministic conversation-relation layer (backend)
     // classifies this turn against the ACTIVE need. A replaced subject or a
     // genuine new topic retires the previous active result deck NOW: those
@@ -4775,6 +4780,18 @@ class _AskodoxPrimaryHomeScreenState
                 intelligence: intel,
                 te: te,
                 onOpen: (route) => context.push(route),
+              ),
+            if (_appActionByTurn[index - 1] case final appAction? when !turn.isUser)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Wrap(spacing: 8, children: [
+                  ActionChip(
+                    key: ValueKey('askodoxAppAction-${appAction.key}'),
+                    avatar: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: Text(te ? '${appAction.label} తెరవండి' : 'Open ${appAction.label}'),
+                    onPressed: () => context.push(appAction.route),
+                  ),
+                ]),
               ),
             if (_guideByTurn[index] case final flow?)
               Padding(

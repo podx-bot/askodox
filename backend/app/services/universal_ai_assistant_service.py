@@ -21,6 +21,7 @@ from app.services import live_lookup
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
 from app.services import advice_memory
+from app.services import chat_actions
 
 logger = logging.getLogger(__name__)
 
@@ -816,6 +817,7 @@ class UniversalAIAssistantService:
             + CONVERSATION_STATE_RULES
             + DECISION_GUIDANCE_RULES
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
+            + (chat_actions.prompt_block() if chat_actions.CAPABILITY in (capabilities or ()) else "")
             + advice_memory.prompt_block(ledger) +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
@@ -981,6 +983,8 @@ class UniversalAIAssistantService:
             if grounding is not None and not grounding["verified"]:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
+            app_action = (chat_actions.resolve(data.get("app_action"), telugu)
+                          if chat_actions.CAPABILITY in (capabilities or ()) else None)
             if verified:
                 reply = reply + live_lookup.sources_footer(
                     grounding.get("sources") or [],
@@ -1001,6 +1005,7 @@ class UniversalAIAssistantService:
                 "mode": mode,
                 "advice": advice_review,
                 "advice_ledger": advice_ledger,
+                **({"app_action": app_action} if app_action else {}),
                 **({"grounding": grounding} if grounding is not None else {}),
                 **({"honesty": honesty} if honesty else {}),
             }
