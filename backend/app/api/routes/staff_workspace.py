@@ -220,12 +220,16 @@ def _may_link(principal: dict) -> bool:
 
 def _import_one(request: Request, url: str, *, details: bool, html: str | None = None,
                 final_url: str | None = None, may_link: bool = True) -> dict:
+    # Shared text from a store app ("Check this out https://...") -> just the link.
+    found = re.search(r"https://[^\s\"'<>]+", url or "")
+    if found:
+        url = found.group(0)
     try:
         clean = ac.https_url(url)
     except ValueError:
         clean = ""
     if not clean:
-        return {"url": url, "ok": False, "error": "Only https links can be added"}
+        return {"url": url, "ok": False, "error": "Only https links can be added / https link మాత్రమే పెట్టండి"}
     store = catalog(request.app.state.container)
     out: dict[str, Any] = {"url": clean, "ok": True, "source": _detect(request, clean),
                            "duplicates": store.duplicates(clean)}

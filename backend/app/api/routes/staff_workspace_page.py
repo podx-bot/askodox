@@ -77,14 +77,17 @@ async function start(){try{ME=await api("/admin/cc/workspace/me")}catch(e){if(e.
  try{await ({add,review,items,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
 $("#out").onclick=()=>{setCred(null);signin()};
 const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Affiliate / deep link"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
-async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><h3 style="margin-top:0">Paste one link</h3>
+async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 Store link (Meesho / Flipkart / Amazon)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
+ <p class="mut" style="margin:8px 0 0">Store link = the store's own data only. Own / Brand = our photos, AI description, reel, promotions. / Store link అంటే store ఇచ్చిన data మాత్రమే. Own / Brand అంటే మన photos, AI description, reel, promotions.</p></div>
+ <div class="card" id="linkcard"><h3 style="margin-top:0">Paste one link</h3>
  <div class="row"><select id="itype">${types.map(t=>`<option ${PREFILL.type===t?"selected":""}>${t}</option>`).join("")}</select></div>
  <input id="url" type="url" placeholder="https://..." value="${esc(PREFILL.url||"")}">
  <div class="row"><button class="s" id="paste">Paste</button><button class="p" id="fetch">Fetch details</button></div><div id="res"></div></div>
- <div class="card"><h3 style="margin-top:0">Many links</h3><textarea id="bulk" rows="4" placeholder="One link per line (up to 50)"></textarea><button class="s" id="bulkgo">Check links</button><div id="bulkres"></div></div>`;
+ <div class="card" id="bulkcard"><h3 style="margin-top:0">Many links</h3><textarea id="bulk" rows="4" placeholder="One link per line (up to 50)"></textarea><button class="s" id="bulkgo">Check links</button><div id="bulkres"></div></div>`;
+ $("#m_own").onclick=()=>ownForm();$("#m_link").onclick=()=>$("#url").focus();
  $("#paste").onclick=async()=>{try{$("#url").value=await navigator.clipboard.readText()}catch(e){toast("Long-press the box and paste")}};
- $("#fetch").onclick=()=>fetchOne($("#url").value,$("#itype").value);
- $("#bulkgo").onclick=async()=>{try{const d=await api("/admin/cc/workspace/import/bulk","POST",{urls:$("#bulk").value.split(/\s+/).filter(Boolean),item_type:$("#itype").value});
+ $("#fetch").onclick=()=>fetchOne(firstLink($("#url").value),$("#itype").value);
+ $("#bulkgo").onclick=async()=>{try{const d=await api("/admin/cc/workspace/import/bulk","POST",{urls:($("#bulk").value.match(/https:\/\/[^\s"'<>]+/g)||[]),item_type:$("#itype").value});
   $("#bulkres").innerHTML=d.items.map((r,i)=>`<div class="item"><div class="grow"><b>${esc((r.fields||{}).title||r.url)}</b><div class="mut">${esc((r.source||{}).name||"")} ${r.duplicates&&r.duplicates.length?`<span class="warn">· already added (#${r.duplicates[0].id})</span>`:""}${r.ok?"":` <span class="bad">${esc(r.error)}</span>`}</div></div>${r.ok&&!(r.duplicates||[]).length?`<button class="s" data-u="${esc(r.url)}">Add</button>`:""}</div>`).join("");
   $("#bulkres").querySelectorAll("button").forEach(b=>b.onclick=()=>fetchOne(b.dataset.u,$("#itype").value))}catch(e){toast(e.message)}};
  if(PREFILL.url){const u=PREFILL.url;PREFILL={};fetchOne(u,$("#itype").value)}}
@@ -96,9 +99,12 @@ function readOnPhone(url){if(!window.AskodoxPageReader)return Promise.resolve(nu
   setTimeout(()=>{if(READS[id]){delete READS[id];res(null)}},25000);
   try{AskodoxPageReader.postMessage(JSON.stringify({id,url}))}catch(e){delete READS[id];res(null)}})}
 const MAIN_FIELDS=["title","price","description"];
-async function fetchOne(url,type){const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page… / page చదువుతోంది…</p>`;
+// Shared text ("Check this on Meesho https://...") -> just the link.
+function firstLink(t){const m=String(t||"").match(/https:\/\/[^\s"'<>]+/);return m?m[0]:String(t||"").trim()}
+async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page… / page చదువుతోంది…</p>`;
  let d,page=null;try{page=await readOnPhone(url);
   d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:type,html:page.html,final_url:page.final_url}:{url,item_type:type})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`;return}
+ if(d.ok===false){box.innerHTML=`<p class="bad">${esc(d.error||"This link could not be read")}</p>`;return}
  const f=d.fields||{},st=d.field_status||{},dup=(d.duplicates||[]);let photos=[...new Set([...(f.images||[]),...(f.image_url?[f.image_url]:[])])].slice(0,8);
  const field=([k,l,ta])=>`<label>${l} ${st[k]==="fetched"?'<span class="ok">· from page</span>':""}</label>${ta?`<textarea id="f_${k}" rows="${k==="description"?6:3}">${esc(f[k]||"")}</textarea>`:`<input id="f_${k}" value="${esc(f[k]??"")}">`}`;
  const ok=d.status==="ok";
@@ -112,7 +118,7 @@ async function fetchOne(url,type){const box=$("#res")||M;box.innerHTML=`<p class
  ${FIELDS.filter(([k])=>!MAIN_FIELDS.includes(k)).map(field).join("")}
  <label>Stock</label><select id="f_stock"><option>UNKNOWN</option><option ${d.suggested_stock==="IN_STOCK"?"selected":""}>IN_STOCK</option><option ${d.suggested_stock==="OUT_OF_STOCK"?"selected":""}>OUT_OF_STOCK</option></select>
  <div class="row"><button class="s" id="aidesc">✨ AI తో description మళ్లీ రాయి</button></div></details>
- ${type==="product"?`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mkreel" checked style="width:auto;margin:0"> 🎬 Reel కూడా తయారు చేయి (review కి వెళ్తుంది)</label>`:""}
+ <p class="mut">Store item: the store's own name, price and photos are kept as given (no AI photos / reels). / Store item: store ఇచ్చిన data మాత్రమే.</p>
  <div class="row" style="margin-top:10px"><button class="s" id="draft">Save draft</button><button class="p" id="submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>`;
  const thumbs=()=>{$("#thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">No photos yet -- add from camera / gallery</span>`};thumbs();
  const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
@@ -125,22 +131,63 @@ async function fetchOne(url,type){const box=$("#res")||M;box.innerHTML=`<p class
    $("#aidescnote").textContent=(r.unsupported_claims||[]).length?"⚠️ check: "+r.unsupported_claims.join(", "):"✓ AI description -- చదివి save చేయండి"}catch(e){$("#aidescnote").textContent=e.message}};
  $("#aidesc").onclick=describe;
  if(ok&&!dup.length)describe(); // written automatically; staff only read it
- // Page photos become our own copies (so a reel can use them); a photo that cannot be copied stays a link.
- const ownPhotos=async()=>{const out=[];for(const p of photos){if(p.includes("/media/staff/")){out.push(p);continue}
-  try{out.push((await api("/admin/cc/workspace/uploads/from-url","POST",{url:p})).url)}catch(e){out.push(p)}}return out};
+ // Store items keep the store's own photo links (their data only).
+ const ownPhotos=async()=>photos;
  const save=async action=>{const fields={original_product_url:d.url};FIELDS.forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});
   if(!fields.original_product_url||fields.original_product_url===d.url)fields.original_product_url=f.original_product_url||d.url;
   toast("Saving… / save అవుతోంది…");const kept=await ownPhotos();
   if(kept.length){fields.images=kept;fields.image_url=kept[0]}
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:type,fields,action,stock_status:$("#f_stock").value});
    let msg=r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
-   if($("#mkreel")&&$("#mkreel").checked&&r.item&&kept.some(p=>p.includes("/media/staff/"))){
-    try{await api(`/admin/cc/workspace/items/${r.item.id}/reel`,"POST",{voice_text:"",seconds:30});msg+=" · 🎬 Reel తయారవుతోంది"}catch(e){msg+=" · Reel: "+e.message}}
    toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
  $("#draft").onclick=()=>save("draft");$("#submit").onclick=()=>save("submit")}
+// Own / Brand product (owner 2026-11-04): our photos (camera / gallery or copied from the brand's
+// page), AI description, a reel, and promotions from the Command Center. Needs a "where to buy" link.
+async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style="margin-top:0">🏷️ Own / Brand product</h3>
+ <label>Product name *</label><input id="o_title">
+ <div class="row"><div><label>Price (₹)</label><input id="o_price" inputmode="decimal"></div><div><label>MRP (₹)</label><input id="o_mrp" inputmode="decimal"></div></div>
+ <label>Brand / maker</label><input id="o_brand">
+ <label>Where to buy -- brand page / WhatsApp / order form link *</label><input id="o_buy" type="url" placeholder="https://...">
+ <label>Brand's own product page (optional -- copies its photos and details)</label><div class="row"><input id="o_page" type="url" placeholder="https://..."><button class="s" id="o_copy">Copy photos</button></div>
+ <label>Photos</label><div class="thumbs" id="o_thumbs"></div>
+ <div class="row"><label class="s btn">📷 Camera<input id="o_cam" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery<input id="o_gal" type="file" accept="image/*" multiple hidden></label></div>
+ <label>Category</label><input id="o_cat">
+ <label>Description</label><textarea id="o_desc" rows="6"></textarea><div class="row"><button class="s" id="o_ai">✨ AI తో description రాయి</button></div><span class="mut" id="o_note"></span>
+ <label>Collaboration / commission note (who gives what)</label><input id="o_offer" placeholder="e.g. 10% commission from the brand, coupon ASKO10">
+ <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="o_reel" checked style="width:auto;margin:0"> 🎬 Reel కూడా తయారు చేయి (review కి వెళ్తుంది)</label>
+ <div class="row" style="margin-top:10px"><button class="s" id="o_back">← Back</button><button class="s" id="o_draft">Save draft</button><button class="p" id="o_submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>
+ <p class="mut">Promote it to users: Command Center → Growth → Promotions (campaign with review, consent and caps). / Users కి promote: Command Center → Growth → Promotions.</p></div>`;
+ const thumbs=()=>{$("#o_thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">No photos yet</span>`};thumbs();
+ const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
+  try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);thumbs()}catch(err){toast(err.message)}}};
+ $("#o_cam").onchange=addPhotos;$("#o_gal").onchange=addPhotos;$("#o_back").onclick=()=>add();
+ $("#o_copy").onclick=async()=>{const url=firstLink($("#o_page").value);if(!url)return;toast("Reading the brand page…");
+  try{const page=await readOnPhone(url);const d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:"product",html:page.html,final_url:page.final_url}:{url,item_type:"product"});
+   const f=d.fields||{};if(!$("#o_title").value&&f.title)$("#o_title").value=f.title;if(!$("#o_brand").value&&f.brand)$("#o_brand").value=f.brand;
+   if(!$("#o_cat").value&&f.category)$("#o_cat").value=f.category;if(!$("#o_desc").value&&f.description)$("#o_desc").value=f.description;
+   if(!$("#o_price").value&&f.price!=null)$("#o_price").value=f.price;if(!$("#o_mrp").value&&f.mrp!=null)$("#o_mrp").value=f.mrp;
+   for(const p of (f.images||[]).slice(0,6)){try{photos.push((await api("/admin/cc/workspace/uploads/from-url","POST",{url:p})).url);thumbs()}catch(e){}}
+   toast(photos.length?"Photos copied":"No photos found on that page")}catch(e){toast(e.message)}};
+ $("#o_ai").onclick=async()=>{const fields={title:$("#o_title").value.trim(),brand:$("#o_brand").value.trim(),price:$("#o_price").value.trim(),category:$("#o_cat").value.trim()};
+  Object.keys(fields).forEach(k=>{if(!fields[k])delete fields[k]});if(!fields.title){toast("Product name first");return}$("#o_note").textContent="✨ రాస్తోంది…";
+  try{const r=await api("/admin/cc/workspace/describe","POST",{fields,photos});if(!r.ok){$("#o_note").textContent=r.reason||"";return}
+   $("#o_desc").value=[r.description_en,r.description_te].filter(Boolean).join("\n\n");$("#o_note").textContent="✓ AI description -- చదివి save చేయండి"}catch(e){$("#o_note").textContent=e.message}};
+ const save=async action=>{const buy=firstLink($("#o_buy").value),title=$("#o_title").value.trim();
+  if(!title||!buy.startsWith("https://")){toast("Name and a https:// where-to-buy link are needed");return}
+  const fields={title,original_product_url:buy,platform:"other"};if($("#o_desc").value.trim())fields.description=$("#o_desc").value.trim();
+  const num=v=>{const n=parseFloat(String(v).replace(/[^0-9.]/g,""));return isNaN(n)?null:n};
+  if(num($("#o_price").value)!=null)fields.price=num($("#o_price").value);if(num($("#o_mrp").value)!=null)fields.mrp=num($("#o_mrp").value);
+  if($("#o_brand").value.trim()){fields.brand=$("#o_brand").value.trim();fields.seller=fields.brand}
+  if($("#o_cat").value.trim())fields.category=$("#o_cat").value.trim();if($("#o_offer").value.trim())fields.offer_text=$("#o_offer").value.trim();
+  if(photos.length){fields.images=photos;fields.image_url=photos[0]}
+  try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"product",fields,action});
+   let msg=r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
+   if($("#o_reel").checked&&r.item&&photos.length){try{await api(`/admin/cc/workspace/items/${r.item.id}/reel`,"POST",{voice_text:"",seconds:30});msg+=" · 🎬 Reel తయారవుతోంది"}catch(e){msg+=" · Reel: "+e.message}}
+   toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
+ $("#o_draft").onclick=()=>save("draft");$("#o_submit").onclick=()=>save("submit")}
 function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
  <div class="mut">${esc(i.item_type)} · ${esc(i.platform_name)} · <span class="badge">${esc(i.review_status)}</span> ${i.price!=null?"₹"+esc(i.price):""} ${i.stock_status==="OUT_OF_STOCK"?'<span class="bad">out of stock</span>':""}</div>
- ${i.review_note?`<div class="mut">Note: ${esc(i.review_note)}</div>`:""}<div class="row" style="margin-top:6px">${btns.map(([a,l])=>`<button class="s" data-a="${a}" data-id="${i.id}">${l}</button>`).join("")}${i.item_type==="product"?`<button class="s" data-reel="${i.id}">🎬 Reel తయారు చేయి</button>`:""}</div></div></div>`}
+ ${i.review_note?`<div class="mut">Note: ${esc(i.review_note)}</div>`:""}<div class="row" style="margin-top:6px">${btns.map(([a,l])=>`<button class="s" data-a="${a}" data-id="${i.id}">${l}</button>`).join("")}${i.item_type==="product"&&!["meesho","amazon","flipkart","wishlink"].includes(i.platform)?`<button class="s" data-reel="${i.id}">🎬 Reel తయారు చేయి</button>`:""}</div></div></div>`}
 function bindReel(){M.querySelectorAll("button[data-reel]").forEach(b=>b.onclick=async()=>{
  const voice=prompt("Reel లో చెప్పాల్సిన మాటలు (ఖాళీగా వదిలితే voice లేకుండా):","");if(voice===null)return;
  try{const r=await api(`/admin/cc/workspace/items/${b.dataset.reel}/reel`,"POST",{voice_text:voice,seconds:30});

@@ -492,3 +492,28 @@ def test_page_photo_is_kept_as_our_own_copy_for_reels(api, monkeypatch):
                        json={"url": "https://images.meesho.com/x.jpg"}).status_code == 415
     assert client.post("/admin/cc/workspace/uploads/from-url",
                        json={"url": "https://images.meesho.com/x.jpg"}).status_code in (401, 403)
+
+
+def test_own_brand_product_saves_with_our_photos_and_a_buy_link(api):
+    """Owner 2026-11-04: own / brand products (not a marketplace) -- our photos,
+    brand, offer note and a where-to-buy link are saved as an 'other' product."""
+    client, container, _ = api
+    jpeg = b"\xff\xd8\xff\xe0" + b"1" * 64
+    up = client.post("/admin/cc/workspace/uploads", headers=OWNER,
+                     files={"file": ("p.jpg", jpeg, "image/jpeg")}).json()
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "action": "draft",
+        "fields": {"title": "Vuyyuru handmade jaggery 1 kg", "original_product_url": "https://wa.me/919800000000",
+                   "platform": "other", "price": 180, "mrp": 220, "brand": "Sri Farms", "seller": "Sri Farms",
+                   "category": "Grocery", "offer_text": "10% commission from the brand",
+                   "images": [up["url"]], "image_url": up["url"]}})
+    assert saved.status_code == 200, saved.text
+    item = saved.json()["item"]
+    assert item["platform"] == "other" and item["image_url"].endswith(".jpg") and item["price"] == 180
+
+
+def test_shared_text_with_a_link_is_read_as_the_link(api):
+    client, *_ = api
+    got = client.post("/admin/cc/workspace/import", headers=OWNER, json={
+        "url": "​Check this product on Meesho https://www.meesho.com/s/p/bprmqt?utm_source=s_cc"}).json()
+    assert got["url"] == "https://www.meesho.com/s/p/bprmqt?utm_source=s_cc"
+    assert got["source"]["name"] == "Meesho"

@@ -7,6 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` `9c68fc3` (2026-11-04, production deployed, probe-verified `/health` commit): #265 Phase 1 hiding
+  (`askodox_release_phase.dart`), #266 centre "Ask" (one tap = voice, no companion ring), Screen Guide in the header
+  Menu, AI Credits packs only when on sale, Travel Radio on AI Credits (no pass list), Staff Workspace link read by the
+  PHONE (JS channel `AskodoxPageReader`) + short form. APK `android-1404` (prerelease, not on the update channel).
+  Nothing phone verified. Flag `radio.enabled` still off in production (owner flips it in the console).
 - `main` (2026-10-24): master command rounds 1-4 + Universal POS merged in order #220 (Smart Tools, vision inspection),
   #221 (income tax / GST / fraud / smart tricks), #222 (BLE devices, push-to-talk), #223 (photo measurement), #224 (POS
   core), #225 (restaurant tables / KOT / kitchen, held bills), POS round 3 PR (barcode from a camera photo, BLE scale reading,
@@ -188,8 +193,8 @@ this file, don't trust it blindly.
   the chat keeps real bytes (`ChatAttachment`), pickers are injectable
   (`askodoxMediaPickerProvider`); facts go in `ConversationTurnRecord.context`,
   never in the shown text.
-- Customer shell (`app_shell.dart`): Home · History · centre mic (starts
-  voice via `AskodoxChatRequest.voice()`) · Updates · Profile. No drawer.
+- Customer shell (`app_shell.dart`): Home · Explore · centre "Ask" (one tap = voice via the hub action
+  `voice`; NO companion ring -- attachments live on the composer "+") · Orders · Profile. No drawer.
   One place per function: request status lives in Updates
   (`features/notifications`); old mock alerts/communication/preferences
   routes only redirect. Don't re-add duplicate entry points.
@@ -488,9 +493,14 @@ this file, don't trust it blindly.
 - Release gate (`release_gate.py`, `/admin/cc/release-gate`): READY only when all PASS;
   device = qa_checks PHONE VERIFIED only. Image / video generation stay NOT_AVAILABLE
   until a provider is chosen and its cost approved.
-- Travel Radio = `travel_radio.py` + `routes/radio.py`: add-on plans live in `growth_plans` with audience
-  `addon_radio` (INACTIVE; `/api/subscriptions` refuses add-ons); passes in `radio_passes` (paid = PENDING_PAYMENT,
-  staff PROMOTIONAL only); segments only from geocoding / Places / LIVE content; cost model = ESTIMATE.
+- Travel Radio = `travel_radio.py` + `routes/radio.py`: NO separate package (owner 2026-11-04) -- flag `radio.enabled`
+  opens it to every signed-in person and each played segment is one AI Credits use (feature `radio`; free while
+  charging is off; empty balance -> 402 `AI_CREDITS_LOW`). Old `addon_radio` plans stay INACTIVE and hidden; existing
+  passes / testers listen free; segments only from geocoding / Places / LIVE content; cost model = ESTIMATE.
+- Staff Workspace items: store links (meesho / amazon / flipkart / wishlink) keep ONLY the store's own data (no reels,
+  no AI photos); Own / Brand products (platform `other`) get our photos, AI description, reels and promotions. Stores
+  that refuse the server are read by the staff phone (`askodoxReadStorePage`); the server only parses the HTML sent.
+  The app answers the WebView file chooser (`askodoxPickFilesForWebPage`) -- without it <input type=file> does nothing.
 - Base plans = `subscription_plans.py` (audience `base`, seeded once from `growth()`, never overwritten);
   Smart Fill = `catalogue_templates.smart_fill` (seller's own words only; app fills empty fields only).
 - Partners take jobs only with `docs_checked` complete (`delivery.docs_missing`); paid plans go on sale only
