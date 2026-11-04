@@ -2643,7 +2643,7 @@ class _AskodoxPrimaryHomeScreenState
     }
     // The reply's own price figures must agree with the cards shown with it
     // (owner 2026-11-04: "20-23 thousand" said, cards up to ₹40,000).
-    if (cardsThisTurn && results != null) {
+    if (cardsThisTurn) {
       final fixed = askodoxReconcileReplyPrices(reply, results.matches, telugu: _te, userText: text);
       if (fixed != null) reply = fixed;
     }
