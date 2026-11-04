@@ -171,6 +171,8 @@ def workspace_me(request: Request) -> dict:
             for m in command_center(container).list_staff() if m.get("active")] if can_assign else []
     return {"id": principal["id"], "name": principal["name"], "role": principal["role"], "sections": sections,
             "item_types": _types(principal), "can_publish": _can_publish(principal), "counts": counts,
+            "can_link": _can(principal, "affiliate_products:links"),
+            "can_commission": _can(principal, "affiliate_products:commission"),
             "can_assign": can_assign, "team": team}
 
 
@@ -365,15 +367,24 @@ def create_item(body: ItemBody, request: Request) -> dict:
         raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (cannot add {body.item_type} items)")
     if body.fields.get("affiliate_url") and not _can(principal, "affiliate_products:links"):
         raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs affiliate_products:links)")
-    if body.commission_status and not _can(principal, "affiliate_products:commission"):
+    rate = body.fields.get("verified_commission_rate")
+    if (body.commission_status or rate not in (None, "")) and not _can(principal, "affiliate_products:commission"):
         raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs affiliate_products:commission)")
     fields = {k: v for k, v in body.fields.items() if k in ac.EDITABLE_FIELDS}
+    commission_status = body.commission_status
+    if commission_status is None and rate not in (None, ""):
+        # Owner 2026-11-04: staff with the commission grant type the rate the
+        # partner agreed -- that is the record (manual source), never a guess.
+        try:
+            commission_status = "ACTIVE" if float(str(rate).replace("%", "")) > 0 else None
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Commission % must be a number") from None
     fields["item_type"] = body.item_type
     review = "DRAFT" if body.action == "draft" else ("LIVE" if _can_publish(principal) else "NEEDS_REVIEW")
     try:
         item = catalog(request.app.state.container).create(
             fields, actor=principal["id"], check_source="manual", stock_status=body.stock_status,
-            commission_status=body.commission_status, review_status=review)
+            commission_status=commission_status, review_status=review)
     except (ValueError, LookupError) as error:
         raise HTTPException(status_code=409 if "Already" in str(error) or "already" in str(error) else 400,
                             detail=str(error))
