@@ -14,7 +14,8 @@ from fastapi.responses import HTMLResponse
 router = APIRouter(tags=["staff-workspace"])
 
 CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-       "img-src 'self' https: data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
+       "img-src 'self' https: data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; "
+       "base-uri 'none'; "
        "form-action 'self'")
 
 PAGE = r"""<!doctype html>

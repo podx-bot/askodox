@@ -121,3 +121,12 @@ def test_workspace_reels_tab_lists_plays_and_approves(api):  # noqa: F811
     assert client.get(f"/admin/cc/workspace/reels/{row['video_id']}/file").status_code in (401, 403)
     ok = client.post(f"/admin/cc/workspace/reels/{row['video_id']}/review", headers=OWNER, json={"action": "approve"})
     assert ok.status_code == 200 and ok.json()["status"] == "ACTIVE"
+
+
+def test_staff_page_may_play_a_reel_it_fetched():
+    """Owner 2026-11-04: the reel player stayed blank -- the page's CSP had no
+    media-src, so the fetched blob: video was blocked."""
+    from app.api.routes.staff_workspace_page import CSP
+
+    media = next(p for p in CSP.split(";") if p.strip().startswith("media-src"))
+    assert "blob:" in media and "'self'" in media
