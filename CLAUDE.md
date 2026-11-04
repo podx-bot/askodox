@@ -7,8 +7,9 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` `c5dd6b2` (2026-11-04, production deployed, probe-verified): #267 Own / Brand products, store links = store
-  data only, WebView camera / gallery. Before: `9c68fc3`: #265 Phase 1 hiding
+- `main` `c65215d` (2026-11-04, production deployed, probe-verified): #268 Staff Workspace Reels tab (play / approve,
+  no browser dialogs); #267 Own / Brand products, store links = store data only, WebView camera / gallery (APK
+  `android-1406`). Before: `9c68fc3`: #265 Phase 1 hiding
   (`askodox_release_phase.dart`), #266 centre "Ask" (one tap = voice, no companion ring), Screen Guide in the header
   Menu, AI Credits packs only when on sale, Travel Radio on AI Credits (no pass list), Staff Workspace link read by the
   PHONE (JS channel `AskodoxPageReader`) + short form. APK `android-1404` (prerelease, not on the update channel).
@@ -503,7 +504,8 @@ this file, don't trust it blindly.
   that refuse the server are read by the staff phone (`askodoxReadStorePage`); the server only parses the HTML sent.
   The app answers the WebView file chooser (`askodoxPickFilesForWebPage`) -- without it <input type=file> does nothing.
   Reels: workspace tab `reels` (`/admin/cc/workspace/reels`, file + review routes). The page must never use
-  prompt() / confirm() / alert() -- Android WebView shows none of them (inline inputs instead).
+  prompt() / confirm() / alert() -- Android WebView shows none of them (inline inputs instead). Its CSP needs
+  `media-src 'self' blob:` or the fetched reel never plays.
 - Base plans = `subscription_plans.py` (audience `base`, seeded once from `growth()`, never overwritten);
   Smart Fill = `catalogue_templates.smart_fill` (seller's own words only; app fills empty fields only).
 - Partners take jobs only with `docs_checked` complete (`delivery.docs_missing`); paid plans go on sale only
