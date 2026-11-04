@@ -648,6 +648,105 @@ String askodoxStripResultClaims(String reply) {
   return kept.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
 }
 
+/// Rupee figures a reply states: "₹20,000", "Rs 23000", "20k", "1.2 lakh",
+/// "20 వేలు", and ranges whose unit is written once ("20 నుంచి 23 వేలు",
+/// "20-23k"). Figures below ₹500 are ignored (counts, sizes, years...).
+List<double> askodoxRupeeFigures(String text) {
+  double unit(String? u) {
+    final w = (u ?? '').toLowerCase();
+    if (w.isEmpty) return 1;
+    if (w == 'k' || w.startsWith('thousand') || w.startsWith('వేల') || w.startsWith('వేలు') || w.startsWith('हज़ार') ||
+        w.startsWith('हजार')) {
+      return 1000;
+    }
+    if (w.startsWith('lakh') || w.startsWith('lac') || w == 'l' || w.startsWith('లక్ష') || w.startsWith('लाख')) {
+      return 100000;
+    }
+    return 1;
+  }
+
+  double? parse(String raw) => double.tryParse(raw.replaceAll(',', ''));
+  const units = r'(k(?![a-z])|thousands?|lakhs?|lacs?|l(?![a-z])|వేల\S*|లక్ష\S*|हज़ार|हजार|लाख)';
+  final out = <double>[];
+  final taken = <int>[];
+  final range = RegExp(
+      r'(₹|rs\.?|inr)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*' + units + r'?\s*(?:-|–|to|నుంచి|నుండి|से)\s*(₹|rs\.?|inr)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*' + units + r'?',
+      caseSensitive: false);
+  for (final m in range.allMatches(text)) {
+    final rupee = m.group(1) != null || m.group(4) != null;
+    final u1 = m.group(3), u2 = m.group(6);
+    if (!rupee && u1 == null && u2 == null) continue;
+    final a = parse(m.group(2)!), b = parse(m.group(5)!);
+    if (a == null || b == null) continue;
+    out..add(a * unit(u1 ?? u2))..add(b * unit(u2 ?? u1));
+    taken.add(m.start);
+  }
+  // Without a ₹ / Rs the unit must be a word ("20 thousand", "20 వేలు"):
+  // a bare "4k" is a screen, not a price.
+  const wordUnits = r'(thousands?|lakhs?|lacs?|వేల\S*|లక్ష\S*|हज़ार|हजार|लाख)';
+  final single = RegExp(r'(₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*' + units + r'?|([0-9][0-9,]*(?:\.[0-9]+)?)\s*' + wordUnits,
+      caseSensitive: false);
+  final ranges = range.allMatches(text).where((m) => taken.contains(m.start)).toList();
+  for (final m in single.allMatches(text)) {
+    if (ranges.any((r) => m.start >= r.start && m.start < r.end)) continue;
+    final value = m.group(2) != null ? parse(m.group(2)!) : parse(m.group(4)!);
+    if (value == null) continue;
+    out.add(value * unit(m.group(2) != null ? m.group(3) : m.group(5)));
+  }
+  return out.where((v) => v >= 500).toList();
+}
+
+/// The reply's own price figures disagree with the prices on the cards
+/// shown with it (owner 2026-11-04: reply "20-23 thousand", cards up to
+/// ₹40,000 -- the reply came from the model's memory, the cards from live
+/// store pages). Sentences carrying a figure far outside the cards' range
+/// are dropped and one line with the cards' real range is added. Figures the
+/// customer said themselves (their budget) are never touched. Null = no change.
+String? askodoxReconcileReplyPrices(String reply, List<UniversalMatch> cards,
+    {required bool telugu, String userText = ''}) {
+  final prices = [
+    for (final c in cards)
+      if (c.source != 'content' && (c.price ?? 0) >= 500) c.price!,
+  ]..sort();
+  if (prices.isEmpty) return null;
+  final low = prices.first, high = prices.last;
+  // Their own figures: "₹25,000", "25 వేలు", or a bare "25000" in their words.
+  final said = [
+    ...askodoxRupeeFigures(userText),
+    for (final m in RegExp(r'[0-9][0-9,]*(?:\.[0-9]+)?').allMatches(userText))
+      if ((double.tryParse(m.group(0)!.replaceAll(',', '')) ?? 0) >= 500) double.parse(m.group(0)!.replaceAll(',', '')),
+  ];
+  bool theirs(double v) => said.any((s) => (s - v).abs() <= s * 0.02);
+  bool off(double v) => !theirs(v) && (v < low * 0.7 || v > high * 1.4);
+  if (!askodoxRupeeFigures(reply).any(off)) return null;
+  final kept = <String>[];
+  for (final line in reply.split('\n')) {
+    final sentences = line.split(RegExp(r'(?<=[.!?।])\s+'));
+    final clean = sentences.where((s) => !askodoxRupeeFigures(s).any(off)).join(' ').trimRight();
+    if (clean.trim().isNotEmpty || line.trim().isEmpty) kept.add(clean);
+  }
+  String rupees(double v) {
+    final digits = v.round().toString();
+    if (digits.length <= 3) return '₹$digits';
+    final last3 = digits.substring(digits.length - 3);
+    var rest = digits.substring(0, digits.length - 3);
+    final groups = <String>[];
+    while (rest.length > 2) {
+      groups.insert(0, rest.substring(rest.length - 2));
+      rest = rest.substring(0, rest.length - 2);
+    }
+    if (rest.isNotEmpty) groups.insert(0, rest);
+    return '₹${groups.join(',')},$last3';
+  }
+
+  final range = low == high ? rupees(low) : '${rupees(low)} – ${rupees(high)}';
+  final line = telugu
+      ? 'కింద చూపిన listings లో ఇప్పటి ధర: **$range** (store pages ప్రకారం; మారవచ్చు).'
+      : 'Prices on the listings below right now: **$range** (from the store pages; they can change).';
+  final rest = kept.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  return rest.isEmpty ? line : '$rest\n\n$line';
+}
+
 /// The reply names a size other than the one the customer gave ("Size 8
 /// or 9" when they said 9) -- an explicit constraint must never change.
 bool askodoxReplyAltersSize(String reply, String? size) {

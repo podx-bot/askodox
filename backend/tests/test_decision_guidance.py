@@ -92,3 +92,11 @@ def test_assistant_route_passes_capabilities_only_when_sent(monkeypatch):
     client.post("/api/in-app/assistant", json={"message": "hello"})
     client.post("/api/in-app/assistant", json={"message": "hello", "capabilities": ["meaning_tags"]})
     assert seen == [None, ["meaning_tags"]]
+
+
+def test_named_models_never_get_a_price_from_memory():
+    """Owner 2026-11-04: the reply said '20-23 thousand' for a phone whose live
+    listings were ~₹40,000 -- the brain must leave model prices to the listings."""
+    from app.services.universal_ai_assistant_service import DECISION_GUIDANCE_RULES
+
+    assert "never gets a price from memory" in DECISION_GUIDANCE_RULES
