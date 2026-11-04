@@ -266,15 +266,17 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxNavUpdates')));
     await tester.pumpAndSettle();
     expect(find.text('UPDATES'), findsOneWidget);
-    // The centre item is the companion's face (not a mic): a tap opens its
-    // actions on Main Chat; a double tap closes them.
-    expect(find.byKey(const Key('askodoxNavCompanion')), findsOneWidget);
-    expect(find.byIcon(Icons.mic_rounded), findsNothing, reason: 'no microphone in the navigation');
+    // The centre item is "Ask" (owner, 2026-11-04): ONE tap starts voice on
+    // Main Chat -- no ring of actions; a tap while listening stops it.
+    expect(find.byKey(const Key('askodoxNavAsk')), findsOneWidget);
+    expect(find.text('Ask'), findsOneWidget);
     await tester.tap(find.byKey(const Key('askodoxNavSpeak')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.text('HOME'), findsOneWidget);
-    expect(container.read(askodoxCompanionHubOpenProvider), isTrue);
+    expect(container.read(askodoxCompanionHubOpenProvider), isFalse);
+    expect(container.read(askodoxChatRequestProvider)?.hubAction, AskodoxHubAction.voice);
+    container.read(askodoxChatRequestProvider.notifier).state = null;
     // While listening, the same tap stops listening in the SAME chat.
     container.read(askodoxCompanionLiveProvider.notifier).state =
         const AskodoxCompanionLive(mood: AskodoxCompanionMood.listening, listening: true);

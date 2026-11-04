@@ -1,4 +1,4 @@
-"""Travel Radio add-on: separate billing (never replaces the base plan),
+"""Travel Radio (owner 2026-11-04: runs on AI Credits, no separate package; older passes still honoured): separate billing (never replaces the base plan),
 plans stored INACTIVE, no access without an ACTIVE pass, segments built only
 from real facts, cached audio, no repeats, metering + daily cap, and an
 ESTIMATE cost model for light / medium / heavy listeners."""
@@ -76,7 +76,8 @@ def test_plans_are_seeded_inactive_and_never_replace_the_base_plan(env):
     assert {(p["code"], p["price"], p["period_days"]) for p in status["plans"]} == {
         ("radio_1d", 29, 1), ("radio_7d", 149, 7), ("radio_30d", 399, 30)}
     assert all(p["available"] is False for p in status["plans"]), "proposed prices are NOT activated"
-    assert status["access"] is False and status["billing"] == "not_available"
+    # Owner 2026-11-04: no separate package -- with the flag on Radio runs on AI Credits.
+    assert status["access"] is True and status["billing"] == "ai_credits"
     assert client.post("/api/radio/pass", headers=me, json={"plan_code": "radio_7d"}).status_code == 409
     # Even if staff activate a plan, the base subscription route refuses an add-on.
     from app.api.routes.growth import growth
@@ -89,8 +90,7 @@ def test_plans_are_seeded_inactive_and_never_replace_the_base_plan(env):
         assert client.post("/api/subscriptions", headers=me, json={"plan_code": "radio_7d"}).status_code == 409
         assert all(p["code"] != "radio_7d" for p in client.get("/api/plans").json()["items"])
         asked = client.post("/api/radio/pass", headers=me, json={"plan_code": "radio_7d"}).json()
-        assert asked["pass"]["status"] == "PENDING_PAYMENT", "no gateway: a paid pass never grants access"
-        assert client.post("/api/radio/next", headers=me, json=_spot()).status_code == 402
+        assert asked["pass"]["status"] == "PENDING_PAYMENT", "no gateway: a paid pass never activates"
     finally:
         repo.upsert_plan("radio_7d", name=plan["name"], audience=plan["audience"], price=plan["price"],
                          period_days=plan["period_days"], entitlements=plan["entitlements"], active=False)
@@ -244,3 +244,27 @@ def test_tester_kill_switch_audit_and_plan_limit(env):
     finally:
         repo.upsert_plan("radio_1d", name=plan["name"], audience=plan["audience"], price=plan["price"],
                          period_days=1, entitlements={"travel_radio": True}, active=False)
+
+
+def test_radio_runs_on_ai_credits_not_a_separate_pass(env):
+    """Flag on: any signed-in person listens; free while AI Credits charging is
+    OFF; with charging ON each segment is one 'radio' use and an empty balance
+    is refused with AI_CREDITS_LOW (nothing played, nothing charged)."""
+    client, container, *_ = env
+    from app.api.routes.ai_credits import ai_credits
+
+    service = ai_credits(container)
+    before = service.settings()
+    uid, me = _user(container)
+    free = client.post("/api/radio/next", headers=me, json=_spot()).json()
+    assert free["status"] == "ok" and free["credits"] == {"charged": False, "paise": 0}
+    try:
+        service.update_settings({"charging": True, "rates_paise": {"radio": 50}}, actor="test")
+        status = client.get("/api/radio/status", headers=me).json()
+        assert status["credits"] == {"charging": True, "rate_paise": 50}
+        poor, me_poor = _user(container)
+        low = client.post("/api/radio/next", headers=me_poor, json=_spot())
+        assert low.status_code == 402 and low.json()["detail"] == "AI_CREDITS_LOW"
+        assert service.balance(poor)["live"] == 0
+    finally:
+        service.update_settings({"charging": before["charging"], "rates_paise": before["rates_paise"]}, actor="test")

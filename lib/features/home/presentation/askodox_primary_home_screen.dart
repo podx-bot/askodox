@@ -3875,7 +3875,6 @@ class _AskodoxPrimaryHomeScreenState
         Navigator.of(context).popUntil((r) => r == route || r.isFirst);
       }
     });
-    final hubOpen = ref.watch(askodoxCompanionHubOpenProvider);
     return ColoredBox(
         color: const Color(0xFFF9FBFF),
         child: Stack(children: [
@@ -3910,16 +3909,6 @@ class _AskodoxPrimaryHomeScreenState
               _composer(te)
             ]);
           }),
-          // The companion's actions appear only while the user is
-          // interacting with it -- never as a permanent row of buttons.
-          if (hubOpen)
-            Positioned.fill(
-              child: AskodoxCompanionHub(
-                lang: _lang,
-                onAction: _companionAction,
-                onClose: () => ref.read(askodoxCompanionHubOpenProvider.notifier).state = false,
-              ),
-            ),
         ]));
   }
 
@@ -3938,20 +3927,27 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   /// A tap on the companion: while listening it stops listening ("tap
-  /// again to stop"); otherwise it opens / closes its actions.
+  /// again to stop"); otherwise it starts listening.
   void _onCompanionTap() {
     if (_voicePhase == _VoicePhase.recording) {
       unawaited(_startVoice()); // stop and send
       return;
     }
-    final hub = ref.read(askodoxCompanionHubOpenProvider.notifier);
-    hub.state = !hub.state;
+    // One tap = speak (owner, 2026-11-04): no ring of actions in between --
+    // attachments are on the "+", typing is the message box.
+    if (!_sending) unawaited(_startVoice());
   }
 
   /// Voice, Chat, Camera, Photos, Video, Files, Location -- from the ring,
   /// the nav avatar or the floating companion -- into THIS conversation.
   Future<void> _companionAction(AskodoxHubAction action) async {
     ref.read(askodoxCompanionHubOpenProvider.notifier).state = false;
+    // "Ask" from the nav while a video / details page sits on top of Main
+    // Chat: close it first so the voice controls are visible.
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) {
+      Navigator.of(context).popUntil((r) => r == route || r.isFirst);
+    }
     switch (action) {
       case AskodoxHubAction.voice:
         if (!_sending) await _startVoice();
@@ -4104,9 +4100,9 @@ class _AskodoxPrimaryHomeScreenState
                   const SizedBox(height: 6),
                   Text(
                       switch (_lang) {
-                        'te' => 'నన్ను నొక్కండి -- మాట్లాడండి, ఫోటో లేదా ఫైల్ పంపండి, లేదా కింద టైప్ చేయండి.',
-                        'hi' => 'मुझे दबाएँ -- बोलें, फ़ोटो या फ़ाइल भेजें, या नीचे लिखें।',
-                        _ => 'Tap me to talk, send a photo or file -- or type below.',
+                        'te' => 'నన్ను నొక్కి మాట్లాడండి, లేదా కింద టైప్ చేయండి. ఫోటో / ఫైల్ కోసం + నొక్కండి.',
+                        'hi' => 'मुझे दबाकर बोलें, या नीचे लिखें। फ़ोटो / फ़ाइल के लिए + दबाएँ।',
+                        _ => 'Tap me and talk, or type below. Photos and files: tap +.',
                       },
                       style: const TextStyle(color: _muted, fontSize: 13, height: 1.35, fontWeight: FontWeight.w600)),
                 ]),

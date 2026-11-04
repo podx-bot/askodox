@@ -50,6 +50,7 @@ const _features = {
   'voice': ('Voice', 'వాయిస్'),
   'web_search': ('Web search', 'వెబ్ సెర్చ్'),
   'image': ('Photo understanding', 'ఫోటో విశ్లేషణ'),
+  'radio': ('Travel Radio', 'ట్రావెల్ రేడియో'),
 };
 
 class AskodoxAiCreditsScreen extends ConsumerWidget {
@@ -113,9 +114,12 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
                     trailing: Text('${askodoxRupees((s.rates()[e.key] as num).toInt())} ${t('per use', 'ఒక్కసారికి')}'),
                   ),
             ],
+            // Recharge packs show only once at least one is really on sale
+            // (owner, 2026-11-04: no list of "Not on sale yet" rows).
+            if (s.packs().any((p) => p['payable'] == true)) ...[
             const SizedBox(height: 8),
             Text(t('Recharge', 'రీఛార్జ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
-            for (final p in s.packs())
+            for (final p in s.packs().where((p) => p['payable'] == true))
               ListTile(
                 key: ValueKey('askodoxAiPack-${p['plan_code']}'),
                 title: Text('₹${(p['price'] as num?)?.toInt() ?? 0}'),
@@ -130,6 +134,7 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
                         child: Text(t('Pay', 'చెల్లించు')))
                     : null,
               ),
+            ],
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(

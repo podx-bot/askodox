@@ -7,11 +7,10 @@ import '../../home/domain/conversation_language.dart';
 import '../../location/application/location_controller.dart';
 import '../data/travel_radio_repository.dart';
 
-/// ASKODOX Travel Radio (add-on, billed separately from the base plan).
-/// Plays short segments built ONLY from real facts for where the person is
-/// (place name, nearby places, staff-approved news). Plans show their
-/// proposed price but stay "not available yet" until the Owner activates
-/// billing; nothing here takes money.
+/// ASKODOX Travel Radio. Plays short segments built ONLY from real facts for
+/// where the person is (place name, nearby places, staff-approved news).
+/// Owner, 2026-11-04: NO separate radio package -- each segment is one AI
+/// Credits use (free while AI Credits charging is off).
 class TravelRadioScreen extends ConsumerStatefulWidget {
   const TravelRadioScreen({super.key, this.device = const MethodChannel('com.askodox.app/device')});
   final MethodChannel device;
@@ -99,6 +98,19 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                               ? 'మీరు ఉన్న ప్రదేశం, దగ్గరలోని ప్రదేశాలు, తాజా సమాచారం -- నిజమైన సమాచారం మాత్రమే.'
                               : 'Where you are, places nearby and fresh updates -- real information only.',
                         ),
+                        const SizedBox(height: 6),
+                        Text(
+                            s.internalTesting
+                                ? (te ? 'అంతర్గత పరీక్ష -- ఏమీ కట్ అవ్వదు.' : 'Internal testing -- nothing is deducted.')
+                                : s.creditsCharging && s.creditRatePaise > 0
+                                    ? (te
+                                        ? 'ప్రతి భాగానికి AI Credits నుండి ₹${(s.creditRatePaise / 100).toStringAsFixed(2)} కట్ అవుతుంది. వేరే ప్యాకేజ్ అవసరం లేదు.'
+                                        : 'Each segment uses ₹${(s.creditRatePaise / 100).toStringAsFixed(2)} of your AI Credits. No separate package.')
+                                    : (te
+                                        ? 'మీ AI Credits తోనే పనిచేస్తుంది -- ఇప్పుడు ఉచితం. వేరే ప్యాకేజ్ అవసరం లేదు.'
+                                        : 'Runs on your AI Credits -- free right now. No separate package.'),
+                            key: const Key('askodoxRadioCredits'),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
                         if (s.internalTesting) ...[
                           const SizedBox(height: 6),
                           Text(te ? 'అంతర్గత పరీక్ష -- ధర / బిల్లింగ్ లేదు' : 'Internal testing -- no price, no billing',
@@ -131,7 +143,7 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                         ]),
                         if (!s.enabled || !s.access) ...[
                           const SizedBox(height: 8),
-                          Text(askodoxRadioProblemText(s.enabled ? 'RADIO_ADDON_REQUIRED' : 'RADIO_DISABLED', te),
+                          Text(askodoxRadioProblemText(s.enabled ? 'AI_CREDITS_LOW' : 'RADIO_DISABLED', te),
                               key: const Key('askodoxRadioLocked')),
                         ],
                         if (_segment != null) ...[
@@ -146,27 +158,6 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                         ],
                       ]),
                     ),
-                  ],
-                ),
-                AskodoxNavSection(
-                  title: te ? 'రేడియో పాస్ (వేరుగా)' : 'Radio pass (separate add-on)',
-                  icon: Icons.confirmation_number_outlined,
-                  children: [
-                    for (final p in s.plans)
-                      ListTile(
-                        key: ValueKey('askodoxRadioPlan-${p.code}'),
-                        dense: true,
-                        title: Text(p.name),
-                        subtitle: Text(p.available
-                            ? (te ? '${p.days} రోజులు' : '${p.days} days')
-                            : (te ? 'ఇంకా అందుబాటులో లేదు' : 'Not available yet')),
-                        trailing: Text('₹${p.price}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      ),
-                    if (s.passStatus == 'PENDING_PAYMENT')
-                      ListTile(
-                        dense: true,
-                        title: Text(te ? 'చెల్లింపు ఇంకా అందుబాటులో లేదు' : 'Payment is not available in the app yet'),
-                      ),
                   ],
                 ),
               ]),

@@ -38,6 +38,9 @@ void main() {
     expect(find.byKey(const Key('askodoxAiCreditsBalance')), findsOneWidget);
     expect(find.textContaining('nothing is deducted'), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxAiPackPay-ai_credits_100')), findsNothing);
+    // 2026-11-04: no "Not on sale yet" list at all until a pack is on sale.
+    expect(find.byKey(const ValueKey('askodoxAiPack-ai_credits_100')), findsNothing);
+    expect(find.textContaining('Not on sale yet'), findsNothing);
     expect(find.byKey(const Key('askodoxAiCreditsTest')), findsNothing);
     expect(find.textContaining('never used to pay a seller'), findsOneWidget);
   });

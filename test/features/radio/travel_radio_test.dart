@@ -46,7 +46,7 @@ void main() {
         TravelRadioRepository(c, authToken: 't').next(latitude: 16.3, longitude: 80.8, lang: 'te');
 
     test('locked / disabled / capped map to their reasons', () async {
-      expect((await next(_FakeClient(402))).problem, 'RADIO_ADDON_REQUIRED');
+      expect((await next(_FakeClient(402))).problem, 'AI_CREDITS_LOW');
       expect((await next(_FakeClient(503))).problem, 'RADIO_DISABLED');
       expect((await next(_FakeClient(429))).problem, 'RADIO_DAILY_LIMIT');
       expect((await next(_FakeClient(500))).problem, 'unavailable');
@@ -67,29 +67,37 @@ void main() {
     });
   });
 
-  testWidgets('plans show the proposed prices but are NOT sold until billing is activated', (tester) async {
+  testWidgets('no separate radio package: no pass list, runs on AI Credits; off = locked', (tester) async {
     const status = AskodoxRadioStatus(enabled: false, access: false, plans: [
       AskodoxRadioPlan(code: 'radio_1d', name: 'Travel Radio · 1 day', price: 29, days: 1, available: false),
-      AskodoxRadioPlan(code: 'radio_7d', name: 'Travel Radio · 7 days', price: 149, days: 7, available: false),
-      AskodoxRadioPlan(code: 'radio_30d', name: 'Travel Radio · 30 days', price: 399, days: 30, available: false),
     ]);
     await tester.pumpWidget(ProviderScope(
       overrides: [travelRadioStatusProvider.overrideWith((ref) async => status)],
       child: const MaterialApp(home: TravelRadioScreen()),
     ));
     await tester.pumpAndSettle();
-    for (final code in ['radio_1d', 'radio_7d', 'radio_30d']) {
-      expect(find.byKey(ValueKey('askodoxRadioPlan-$code')), findsOneWidget);
-    }
-    expect(find.text('₹29'), findsOneWidget);
-    expect(find.text('₹399'), findsOneWidget);
-    expect(find.text('Not available yet'), findsNWidgets(3));
+    expect(find.byKey(const ValueKey('askodoxRadioPlan-radio_1d')), findsNothing);
+    expect(find.text('₹29'), findsNothing);
+    expect(find.textContaining('Radio pass'), findsNothing);
+    expect(find.textContaining('free right now'), findsOneWidget);
     final play = tester.widget<ButtonStyleButton>(find.byKey(const Key('askodoxRadioPlay')));
-    expect(play.onPressed, isNull, reason: 'switched off / no pass: nothing plays');
+    expect(play.onPressed, isNull, reason: 'switched off: nothing plays');
     expect(find.byKey(const Key('askodoxRadioLocked')), findsOneWidget);
   });
 
-  testWidgets('internal testers see the testing label; plans stay unavailable', (tester) async {
+  testWidgets('switched on: plays; credit rate shown when charging is on', (tester) async {
+    const status = AskodoxRadioStatus(enabled: true, access: true, plans: [], creditsCharging: true, creditRatePaise: 50);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [travelRadioStatusProvider.overrideWith((ref) async => status)],
+      child: const MaterialApp(home: TravelRadioScreen()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxRadioLocked')), findsNothing);
+    expect(tester.widget<ButtonStyleButton>(find.byKey(const Key('askodoxRadioPlay'))).onPressed, isNotNull);
+    expect(find.textContaining('₹0.50 of your AI Credits'), findsOneWidget);
+  });
+
+  testWidgets('internal testers see the testing label', (tester) async {
     const status = AskodoxRadioStatus(enabled: true, access: true, internalTesting: true, plans: [
       AskodoxRadioPlan(code: 'radio_1d', name: 'Travel Radio · 1 day', price: 29, days: 1, available: false),
     ]);
@@ -101,6 +109,5 @@ void main() {
     expect(find.byKey(const Key('askodoxRadioInternalTesting')), findsOneWidget);
     expect(find.byKey(const Key('askodoxRadioLocked')), findsNothing);
     expect(tester.widget<ButtonStyleButton>(find.byKey(const Key('askodoxRadioPlay'))).onPressed, isNotNull);
-    expect(find.text('Not available yet'), findsOneWidget);
   });
 }

@@ -441,3 +441,54 @@ def test_news_link_from_content_staff_goes_live_in_content_and_in_results(api):
     found = _discover(client)
     content = [s for s in found["sections"] if s["kind"] == "content"]
     assert content and content[0]["item_ids"] == [f"content-{item_id}"]
+
+
+def test_phone_read_meesho_invite_link_fills_everything_and_keeps_the_commission_link(api, monkeypatch):
+    """Owner 2026-11-04: Meesho refuses our server (HTTPError). Inside the app the
+    staff PHONE reads the page and sends the HTML; the server only parses it.
+    An af_invite link lands on the product page: the product page is read and
+    the pasted link stays the affiliate (commission) link."""
+    import json as _json
+
+    client, container, _ = api
+
+    def blocked(url):
+        raise RuntimeError("HTTP Error 403: Forbidden")
+
+    monkeypatch.setattr(container, "affiliate_page_fetch", blocked, raising=False)
+    invite = "https://www.meesho.com/af_invite/142910812?utm_source=aff"
+    server_only = client.post("/admin/cc/workspace/import", headers=OWNER, json={"url": invite}).json()
+    assert server_only["status"] == "unavailable" and "ASKODOX app" in server_only["note"]
+    product = {"name": "Cotton Saree with Blouse", "min_product_price": 349, "original_price": 999,
+               "images": ["https://images.meesho.com/images/products/1/a.jpg",
+                          "https://images.meesho.com/images/products/1/b.jpg"],
+               "supplier_name": "Sri Textiles", "category_name": "Sarees"}
+    html = ('<html><head><title>Cotton Saree with Blouse | Meesho</title></head><body><script id="__NEXT_DATA__" '
+            'type="application/json">' + _json.dumps({"props": {"pageProps": {"product": product}}}) +
+            "</script></body></html>")
+    got = client.post("/admin/cc/workspace/import", headers=OWNER, json={
+        "url": invite, "html": html, "final_url": "https://www.meesho.com/cotton-saree/p/4abcd"}).json()
+    f = got["fields"]
+    assert got["status"] == "ok" and got["read_by"] == "phone"
+    assert f["title"] == "Cotton Saree with Blouse" and f["price"] == 349 and f["mrp"] == 999
+    assert f["images"][0].startswith("https://images.meesho.com/") and f["seller"] == "Sri Textiles"
+    assert f["affiliate_url"].startswith("https://www.meesho.com/af_invite/142910812")
+    assert f["original_product_url"] == "https://www.meesho.com/cotton-saree/p/4abcd"
+    # A landing page on ANOTHER store is never trusted as this product's page.
+    other = client.post("/admin/cc/workspace/import", headers=OWNER, json={
+        "url": invite, "html": html, "final_url": "https://evil.example/p/1"}).json()
+    assert other["fields"]["original_product_url"].startswith("https://www.meesho.com/af_invite/")
+
+
+def test_page_photo_is_kept_as_our_own_copy_for_reels(api, monkeypatch):
+    client, container, _ = api
+    jpeg = b"\xff\xd8\xff\xe0" + b"0" * 64
+    monkeypatch.setattr(container, "affiliate_image_fetch", lambda url: jpeg, raising=False)
+    got = client.post("/admin/cc/workspace/uploads/from-url", headers=OWNER,
+                      json={"url": "https://images.meesho.com/images/products/1/a.jpg"}).json()
+    assert got["url"].endswith(".jpg") and "/media/staff/" in got["url"]
+    monkeypatch.setattr(container, "affiliate_image_fetch", lambda url: b"<html>not a photo</html>", raising=False)
+    assert client.post("/admin/cc/workspace/uploads/from-url", headers=OWNER,
+                       json={"url": "https://images.meesho.com/x.jpg"}).status_code == 415
+    assert client.post("/admin/cc/workspace/uploads/from-url",
+                       json={"url": "https://images.meesho.com/x.jpg"}).status_code in (401, 403)
