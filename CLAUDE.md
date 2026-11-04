@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` `c65215d` (2026-11-04, production deployed, probe-verified): #268 Staff Workspace Reels tab (play / approve,
+- `main` `1e4531e` (2026-11-04, production deployed, probe-verified): #269 reels play (CSP media-src blob:); #268 Staff Workspace Reels tab (play / approve,
   no browser dialogs); #267 Own / Brand products, store links = store data only, WebView camera / gallery (APK
   `android-1406`). Before: `9c68fc3`: #265 Phase 1 hiding
   (`askodox_release_phase.dart`), #266 centre "Ask" (one tap = voice, no companion ring), Screen Guide in the header
@@ -457,6 +457,9 @@ this file, don't trust it blindly.
   skips local sources + forces the web search; local-only skips the web search;
   remembered as deal `dynamicFields['channel']`; a channel switch archives the old
   deck. Never per-category.
+- Reply prices = card prices: `askodoxReconcileReplyPrices` (chat_result_policy.dart) drops reply sentences whose rupee
+  figures are far outside the shown cards' range and adds the cards' real range; the brain never prices a named model
+  from memory (DECISION_GUIDANCE_RULES). The customer's own figures are never touched.
 - Assistant replies render through `AskodoxRichReply` (headings / points / bold /
   tables / links); speech gets `askodoxPlainReply`. Never show raw markup.
 - Voice ends on the user's Stop; `AskodoxVoiceEndpointer` silence (8 s) and 2 min

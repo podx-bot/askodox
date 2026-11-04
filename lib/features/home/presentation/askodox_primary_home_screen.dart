@@ -2641,6 +2641,12 @@ class _AskodoxPrimaryHomeScreenState
       final notice = askodoxNoCardsReply(results: results, question: detailQuestion, telugu: _te);
       reply = kept.isEmpty ? notice : '$kept\n\n$notice';
     }
+    // The reply's own price figures must agree with the cards shown with it
+    // (owner 2026-11-04: "20-23 thousand" said, cards up to ₹40,000).
+    if (cardsThisTurn) {
+      final fixed = askodoxReconcileReplyPrices(reply, results.matches, telugu: _te, userText: text);
+      if (fixed != null) reply = fixed;
+    }
 
     // Dynamic questions: an unfinished requirement always ends with the NEXT
     // question it needs (e.g. area for local results), even when the AI's
