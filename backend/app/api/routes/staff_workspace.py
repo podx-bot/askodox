@@ -811,6 +811,9 @@ def make_item_reel(item_id: int, body: ReelBody, request: Request) -> dict:
         "products": [title[:80]], "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
     }, actor=f"staff:{principal.get('id')}", status="DRAFT")
     repo = pf.resources.repo
+    # Marked at once so the workspace "Reels" tab shows it as MAKING.
+    repo.update(record["id"], actor="system:reel", action="reel",
+                data={**(record.get("data") or {}), "reel": {"item_id": item_id, "status": "MAKING"}})
 
     def work() -> None:
         audio = _reel_audio(container, body.voice_text, folder, stem)
@@ -831,3 +834,72 @@ def make_item_reel(item_id: int, body: ReelBody, request: Request) -> dict:
     threading.Thread(target=work, name=f"reel-{record['id']}", daemon=True).start()
     return {"video_id": record["id"], "status": "MAKING", "photos": len(photos), "price_shown": price,
             "voice": bool(body.voice_text.strip())}
+
+
+# ------------------------------------------------------------------ reels --
+# Owner 2026-11-04: "where do I see the ready video?" -- reels are platform
+# `videos` records; the workspace lists them, plays them (staff only, any status)
+# and lets a publisher approve / reject (same lifecycle as the console review).
+
+def _reel_records(request: Request) -> list[dict[str, Any]]:
+    out = []
+    for r in _pf(request).resources.repo.list("videos"):
+        data = r.get("data") or {}
+        reel = data.get("reel")
+        if not isinstance(reel, dict) or r.get("archived"):
+            continue
+        out.append({"video_id": r["id"], "title": data.get("title") or r.get("name") or "",
+                    "status": r.get("status"), "reel_status": reel.get("status") or "MAKING",
+                    "reason": reel.get("reason"), "item_id": reel.get("item_id"),
+                    "price_shown": reel.get("price_shown"), "voice": bool(reel.get("voice")),
+                    "file": str(data.get("url") or "").rsplit("/", 1)[-1],
+                    "created_at": r.get("created_at"), "updated_at": r.get("updated_at")})
+    out.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return out
+
+
+@router.get("/admin/cc/workspace/reels")
+def list_reels(request: Request, item_id: int | None = None) -> dict:
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    rows = _reel_records(request)
+    if item_id is not None:
+        rows = [r for r in rows if str(r.get("item_id")) == str(item_id)]
+    return {"items": rows[:100], "can_publish": _can_publish(principal)}
+
+
+@router.get("/admin/cc/workspace/reels/{video_id}/file")
+def reel_file(video_id: str, request: Request) -> FileResponse:
+    """The reel's mp4 for staff preview (before approval too)."""
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    row = next((r for r in _reel_records(request) if r["video_id"] == video_id), None)
+    name = (row or {}).get("file") or ""
+    if not row or not re.fullmatch(r"[0-9a-f]{32}\.mp4", name):
+        raise HTTPException(status_code=404, detail="Reel not found")
+    folder = os.path.join(os.path.dirname(os.path.abspath(request.app.state.container.settings.database_path)),
+                          "video_uploads")
+    path = os.path.join(folder, name)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="The reel file is not ready yet")
+    return FileResponse(path, media_type="video/mp4", headers={"Cache-Control": "no-store"})
+
+
+class ReelReviewBody(BaseModel):
+    action: str = Field(pattern="^(approve|reject)$")
+
+
+@router.post("/admin/cc/workspace/reels/{video_id}/review")
+def review_reel(video_id: str, body: ReelReviewBody, request: Request) -> dict:
+    principal = _workspace(request)
+    if not _can_publish(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs workspace:approve)")
+    if not any(r["video_id"] == video_id for r in _reel_records(request)):
+        raise HTTPException(status_code=404, detail="Reel not found")
+    try:
+        item = _pf(request).resources.action("videos", video_id, body.action, actor=f"staff:{principal.get('id')}")
+    except Exception as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    return {"video_id": video_id, "status": item.get("status")}

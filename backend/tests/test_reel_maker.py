@@ -79,7 +79,7 @@ def test_workspace_reel_from_own_photos_goes_to_review(api):  # noqa: F811
     record = None
     while time.time() < deadline:
         record = platform(container).resources.repo.get(got["video_id"])
-        if (record.get("data") or {}).get("reel"):
+        if ((record.get("data") or {}).get("reel") or {}).get("status") not in (None, "MAKING"):
             break
         time.sleep(0.5)
     assert record["data"]["reel"]["status"] == "READY", record["data"]
@@ -94,3 +94,30 @@ def test_reel_needs_own_photos(api):  # noqa: F811
         "image_url": "https://images.meesho.com/kurta.jpg"}}).json()
     got = client.post(f"/admin/cc/workspace/items/{saved['item']['id']}/reel", headers=OWNER, json={})
     assert got.status_code == 422
+
+
+@pytest.mark.skipif(not wm.ffmpeg_exe(), reason="ffmpeg not available")
+def test_workspace_reels_tab_lists_plays_and_approves(api):  # noqa: F811
+    """Owner 2026-11-04: 'where do I see the ready video?' -- the workspace lists
+    the reel (MAKING at once, then READY), plays its file and approves it."""
+    client, container, _ = api
+    up = client.post("/admin/cc/workspace/uploads", headers=OWNER,
+                     files={"file": ("a.jpg", _jpeg((90, 30, 160)), "image/jpeg")}).json()
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Red colour saree", "price": 799, "platform": "other",
+        "original_product_url": "https://wa.me/919800000001", "image_url": up["url"], "images": [up["url"]]}})
+    item_id = saved.json()["item"]["id"]
+    made = client.post(f"/admin/cc/workspace/items/{item_id}/reel", headers=OWNER, json={"seconds": 6}).json()
+    first = client.get(f"/admin/cc/workspace/reels?item_id={item_id}", headers=OWNER).json()["items"]
+    assert first and first[0]["video_id"] == made["video_id"]
+    deadline = time.time() + 60
+    row = first[0]
+    while time.time() < deadline and row["reel_status"] == "MAKING":
+        time.sleep(0.5)
+        row = client.get(f"/admin/cc/workspace/reels?item_id={item_id}", headers=OWNER).json()["items"][0]
+    assert row["reel_status"] == "READY" and row["status"] == "PENDING_REVIEW", row
+    played = client.get(f"/admin/cc/workspace/reels/{row['video_id']}/file", headers=OWNER)
+    assert played.status_code == 200 and played.headers["content-type"] == "video/mp4" and len(played.content) > 1000
+    assert client.get(f"/admin/cc/workspace/reels/{row['video_id']}/file").status_code in (401, 403)
+    ok = client.post(f"/admin/cc/workspace/reels/{row['video_id']}/review", headers=OWNER, json={"action": "approve"})
+    assert ok.status_code == 200 and ok.json()["status"] == "ACTIVE"

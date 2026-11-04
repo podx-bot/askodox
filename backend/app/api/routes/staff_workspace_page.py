@@ -68,13 +68,13 @@ function signin(note){$("#nav").style.display="none";$("#out").style.display="no
  $("#verify").onclick=async()=>{try{const v=await api("/onboarding/otp/verify","POST",{mobile:$("#mob").value,otp:$("#otp").value});
   setCred({bearer:v.token});const s=await api("/api/staff/session","POST");setCred({session:s.session});start()}catch(e){setCred(null);toast(e.message)}};
  $("#usetok").onclick=()=>{setCred({token:$("#tok").value.trim()});start()}}
-const TABS=[["add","Add"],["review","Review"],["items","My items"],["tasks","Tasks"],["support","Support"],["feedback","Feedback"],["demand","Demand"],["sources","Sources"],["analytics","Stats"]];
+const TABS=[["add","Add"],["review","Review"],["items","My items"],["reels","🎬 Reels"],["tasks","Tasks"],["support","Support"],["feedback","Feedback"],["demand","Demand"],["sources","Sources"],["analytics","Stats"]];
 async function start(){try{ME=await api("/admin/cc/workspace/me")}catch(e){if(e.message!=="signed out")signin(e.message);return}
  $("#who").textContent=ME.name+" · "+ME.role;$("#out").style.display="inline-block";
- const tabs=TABS.filter(([k])=>ME.sections[k===`items`?"items":k]);if(!tabs.find(t=>t[0]===TAB))TAB=(tabs[0]||["add"])[0];
+ const tabs=TABS.filter(([k])=>ME.sections[k==="reels"?"items":k]);if(!tabs.find(t=>t[0]===TAB))TAB=(tabs[0]||["add"])[0];
  $("#nav").innerHTML=tabs.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?"on":""}">${l}${ME.counts[k]?` (${ME.counts[k]})`:""}</button>`).join("");
  $("#nav").style.display="flex";$("#nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;start()});
- try{await ({add,review,items,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
+ try{await ({add,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
 $("#out").onclick=()=>{setCred(null);signin()};
 const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Affiliate / deep link"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
 async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 Store link (Meesho / Flipkart / Amazon)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
@@ -182,18 +182,40 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
   if(photos.length){fields.images=photos;fields.image_url=photos[0]}
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"product",fields,action});
    let msg=r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
-   if($("#o_reel").checked&&r.item&&photos.length){try{await api(`/admin/cc/workspace/items/${r.item.id}/reel`,"POST",{voice_text:"",seconds:30});msg+=" · 🎬 Reel తయారవుతోంది"}catch(e){msg+=" · Reel: "+e.message}}
+   if($("#o_reel").checked&&r.item&&photos.length){try{await api(`/admin/cc/workspace/items/${r.item.id}/reel`,"POST",{voice_text:"",seconds:30});msg+=" · 🎬 Reel తయారవుతోంది -- Reels tab లో చూడండి"}catch(e){msg+=" · Reel: "+e.message}}
    toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
  $("#o_draft").onclick=()=>save("draft");$("#o_submit").onclick=()=>save("submit")}
 function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
  <div class="mut">${esc(i.item_type)} · ${esc(i.platform_name)} · <span class="badge">${esc(i.review_status)}</span> ${i.price!=null?"₹"+esc(i.price):""} ${i.stock_status==="OUT_OF_STOCK"?'<span class="bad">out of stock</span>':""}</div>
  ${i.review_note?`<div class="mut">Note: ${esc(i.review_note)}</div>`:""}<div class="row" style="margin-top:6px">${btns.map(([a,l])=>`<button class="s" data-a="${a}" data-id="${i.id}">${l}</button>`).join("")}${i.item_type==="product"&&!["meesho","amazon","flipkart","wishlink"].includes(i.platform)?`<button class="s" data-reel="${i.id}">🎬 Reel తయారు చేయి</button>`:""}</div></div></div>`}
-function bindReel(){M.querySelectorAll("button[data-reel]").forEach(b=>b.onclick=async()=>{
- const voice=prompt("Reel లో చెప్పాల్సిన మాటలు (ఖాళీగా వదిలితే voice లేకుండా):","");if(voice===null)return;
- try{const r=await api(`/admin/cc/workspace/items/${b.dataset.reel}/reel`,"POST",{voice_text:voice,seconds:30});
-  toast(`Reel తయారవుతోంది (${r.photos} photos${r.price_shown?", "+r.price_shown:""}). తయారైన తర్వాత Videos review లో కనిపిస్తుంది.`)}catch(e){toast(e.message)}})}
-function bindReview(){bindReel();M.querySelectorAll("button[data-a]").forEach(b=>b.onclick=async()=>{let note="";if(b.dataset.a==="reject"){note=prompt("What needs fixing?")||"";if(!note)return}
- try{await api(`/admin/cc/workspace/items/${b.dataset.id}/review`,"POST",{action:b.dataset.a,note});toast("Done");start()}catch(e){toast(e.message)}})}
+// Android WebView shows no prompt() / confirm() dialogs: everything is inline.
+function bindReel(){M.querySelectorAll("button[data-reel]").forEach(b=>b.onclick=()=>{
+ const box=document.createElement("div");box.className="row";box.style.marginTop="6px";
+ box.innerHTML=`<input placeholder="Reel లో చెప్పాల్సిన మాటలు (optional)"><button class="p">🎬 Make reel</button>`;b.replaceWith(box);
+ box.querySelector("button").onclick=async()=>{try{const r=await api(`/admin/cc/workspace/items/${b.dataset.reel}/reel`,"POST",{voice_text:box.querySelector("input").value.trim(),seconds:30});
+  toast(`Reel తయారవుతోంది (${r.photos} photos). 🎬 Reels tab లో చూడండి.`);box.innerHTML=`<span class="mut">🎬 Reel తయారవుతోంది -- Reels tab లో చూడండి</span>`}catch(e){toast(e.message)}}})}
+function bindReview(){bindReel();M.querySelectorAll("button[data-a]").forEach(b=>b.onclick=async()=>{
+ const send=async note=>{try{await api(`/admin/cc/workspace/items/${b.dataset.id}/review`,"POST",{action:b.dataset.a,note});toast("Done");start()}catch(e){toast(e.message)}};
+ if(b.dataset.a!=="reject")return send("");
+ const box=document.createElement("div");box.className="row";box.innerHTML=`<input placeholder="What needs fixing?"><button class="p">Send back</button>`;b.replaceWith(box);
+ box.querySelector("button").onclick=()=>{const n=box.querySelector("input").value.trim();if(!n){toast("Write what needs fixing");return}send(n)}})}
+// Owner 2026-11-04: "where do I see the ready video?" -- every reel, its state, a player, approve / reject.
+async function reels(){const d=await api("/admin/cc/workspace/reels");
+ const label={MAKING:"⏳ తయారవుతోంది",READY:"✓ Ready",FAILED:"✗ Failed"};
+ M.innerHTML=`<div class="card"><h3 style="margin-top:0">🎬 Reels (${d.items.length})</h3>${d.items.map(r=>`<div class="item"><div class="grow"><b>${esc(r.title)}</b>
+  <div class="mut">${label[r.reel_status]||esc(r.reel_status)} · <span class="badge">${esc(r.status)}</span>${r.price_shown?" · "+esc(r.price_shown):""}${r.reason?` · <span class="bad">${esc(r.reason)}</span>`:""}</div>
+  <div id="v_${esc(r.video_id)}"></div><div class="row" style="margin-top:6px">${r.reel_status==="READY"?`<button class="s" data-play="${esc(r.video_id)}">▶ Play</button>`:""}
+  ${d.can_publish&&r.status==="PENDING_REVIEW"?`<button class="p" data-rv="approve" data-id="${esc(r.video_id)}">Approve -- users చూస్తారు</button><button class="s" data-rv="reject" data-id="${esc(r.video_id)}">Reject</button>`:""}</div></div></div>`).join("")
+  ||'<p class="mut">No reels yet. Own / Brand product save చేసేటప్పుడు "Reel కూడా తయారు చేయి" tick చేయండి, లేదా My items లో 🎬 నొక్కండి.</p>'}
+  ${d.items.some(r=>r.reel_status==="MAKING")?'<button class="s" id="rrefresh">↻ Refresh</button>':""}</div>`;
+ if($("#rrefresh"))$("#rrefresh").onclick=()=>reels();
+ M.querySelectorAll("button[data-play]").forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent="Loading…";
+  try{const c=cred()||{},h={};if(c.session)h["X-ASKODOX-Staff-Session"]=c.session;if(c.token)h["X-ASKODOX-Staff-Token"]=c.token;if(c.bearer)h["Authorization"]="Bearer "+c.bearer;
+   const r=await fetch(`/admin/cc/workspace/reels/${b.dataset.play}/file`,{headers:h});if(!r.ok)throw new Error("Could not load the reel ("+r.status+")");
+   const url=URL.createObjectURL(await r.blob());$("#v_"+b.dataset.play).innerHTML=`<video src="${url}" controls playsinline style="width:100%;max-width:320px;border-radius:12px;margin-top:8px"></video>`;b.remove()}
+  catch(e){toast(e.message);b.disabled=false;b.textContent="▶ Play"}});
+ M.querySelectorAll("button[data-rv]").forEach(b=>b.onclick=async()=>{try{const r=await api(`/admin/cc/workspace/reels/${b.dataset.id}/review`,"POST",{action:b.dataset.rv});
+  toast(r.status==="ACTIVE"?"Approved -- users ఇప్పుడు చూస్తారు":"Rejected");reels()}catch(e){toast(e.message)}})}
 async function review(){const d=await api("/admin/cc/workspace/items?status=NEEDS_REVIEW");
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">Waiting for review (${d.items.length})</h3>${d.items.map(i=>itemRow(i,[["approve","Approve & publish"],["reject","Send back"]])).join("")||'<p class="mut">Nothing waiting.</p>'}</div>`;bindReview()}
 async function items(){const d=await api("/admin/cc/workspace/items?mine=true");
