@@ -34,6 +34,10 @@ const askodoxHeaderMenuEntries = <AskodoxMenuEntry>[
 /// Menu value that is not a route: the ONE secure sign-out flow.
 const askodoxSignOutMenuValue = '__sign_out__';
 
+/// Menu value that opens the Screen Guide (moved here from its own header
+/// icon -- owner, 2026-11-04: a cleaner header).
+const askodoxGuideMenuValue = '__screen_guide__';
+
 class AskodoxHeaderMenuButton extends ConsumerWidget {
   const AskodoxHeaderMenuButton({super.key, required this.te});
   final bool te;
@@ -54,6 +58,13 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * .8),
                 child: ListView(shrinkWrap: true, children: [
+                  ListTile(
+                    key: const ValueKey('askodoxMenu-guide'),
+                    dense: true,
+                    leading: const Icon(Icons.assistant_navigation),
+                    title: Text(te ? 'స్క్రీన్ గైడ్ -- ఎక్కడ నొక్కాలో చూపిస్తాను' : 'Screen Guide -- where to tap'),
+                    onTap: () => Navigator.pop(sheet, askodoxGuideMenuValue),
+                  ),
                   // Phase 1 build: Phase 2 places (business, listings, rides...) are not offered.
                   for (final e in askodoxHeaderMenuEntries.where((e) => askodoxRouteShownNow(e.route)))
                     ListTile(
@@ -79,6 +90,10 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
             ),
           );
           if (route == null || !context.mounted) return;
+          if (route == askodoxGuideMenuValue) {
+            askodoxShowScreenGuide(context, te: te);
+            return;
+          }
           if (route == askodoxSignOutMenuValue) {
             if (await askodoxConfirmSignOut(context, te: te) && context.mounted) {
               await askodoxSignOut(ref, restartFrom: context);
@@ -107,42 +122,48 @@ class AskodoxHeaderGuideButton extends StatelessWidget {
         tooltip: te ? 'స్క్రీన్ గైడ్' : 'Screen Guide',
         visualDensity: VisualDensity.compact,
         icon: const Icon(Icons.assistant_navigation, color: Color(0xFF10204A)),
-        onPressed: () => showModalBottomSheet<void>(
-          context: context,
-          showDragHandle: true,
-          isScrollControlled: true,
-          builder: (sheet) => SafeArea(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * .8),
-              child: SingleChildScrollView(
-                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                    child: Text(te ? 'స్క్రీన్ గైడ్ -- ఏం చేయాలో చూపిస్తాను' : 'Screen Guide -- I will show you where to tap',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Text(
-                        te
-                            ? 'ప్రచురించడం, తొలగించడం, చెల్లించడం లేదా సున్నితమైన వివరాలు పంపే ముందు మీ నిర్ధారణ అడుగుతాను. OTP / కార్డ్ / ఆధార్ / PAN స్క్రీన్లలో గైడ్ ఆగుతుంది.'
-                            : 'I ask before publishing, deleting, paying or sending sensitive details. The guide pauses on OTP, card, Aadhaar and PAN screens.',
-                        style: const TextStyle(color: Color(0xFF5B6475), fontSize: 12.5)),
-                  ),
-                  AskodoxGuideList(te: te, onStarted: () => Navigator.of(sheet).pop()),
-                  ListTile(
-                    key: const Key('askodoxHeaderGuideOtherApps'),
-                    leading: const Icon(Icons.phone_android_rounded),
-                    title: Text(te ? 'ఇతర యాప్‌లలో సహాయం (అనుమతితో)' : 'Help in other apps (with permission)'),
-                    onTap: () {
-                      Navigator.of(sheet).pop();
-                      context.push('/companion/screen-guide');
-                    },
-                  ),
-                ]),
-              ),
-            ),
-          ),
-        ),
+        onPressed: () => askodoxShowScreenGuide(context, te: te),
       );
+}
+
+/// The Screen Guide sheet: walkthroughs inside ASKODOX + the consented
+/// cross-app guide. Opened from the header Menu.
+void askodoxShowScreenGuide(BuildContext context, {required bool te}) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (sheet) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * .8),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(te ? 'స్క్రీన్ గైడ్ -- ఏం చేయాలో చూపిస్తాను' : 'Screen Guide -- I will show you where to tap',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                  te
+                      ? 'ప్రచురించడం, తొలగించడం, చెల్లించడం లేదా సున్నితమైన వివరాలు పంపే ముందు మీ నిర్ధారణ అడుగుతాను. OTP / కార్డ్ / ఆధార్ / PAN స్క్రీన్లలో గైడ్ ఆగుతుంది.'
+                      : 'I ask before publishing, deleting, paying or sending sensitive details. The guide pauses on OTP, card, Aadhaar and PAN screens.',
+                  style: const TextStyle(color: Color(0xFF5B6475), fontSize: 12.5)),
+            ),
+            AskodoxGuideList(te: te, onStarted: () => Navigator.of(sheet).pop()),
+            ListTile(
+              key: const Key('askodoxHeaderGuideOtherApps'),
+              leading: const Icon(Icons.phone_android_rounded),
+              title: Text(te ? 'ఇతర యాప్‌లలో సహాయం (అనుమతితో)' : 'Help in other apps (with permission)'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                context.push('/companion/screen-guide');
+              },
+            ),
+          ]),
+        ),
+      ),
+    ),
+  );
 }

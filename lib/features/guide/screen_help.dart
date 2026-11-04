@@ -194,8 +194,10 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ]),
   '/radio': _H('Travel Radio', 'ట్రావెల్ రేడియో', [
     'Hear short updates about the places on your route.',
+    'Tap Play next. It runs on your AI Credits -- no separate package.',
   ], [
     'మీ దారిలోని ప్రదేశాల గురించి చిన్న అప్‌డేట్స్ వినండి.',
+    '"తర్వాతది వినండి" నొక్కండి. మీ AI Credits తోనే పనిచేస్తుంది -- వేరే ప్యాకేజ్ లేదు.',
   ]),
   '/plans': _H('Plans', 'ప్లాన్లు', [
     'Compare plans and what each includes.',

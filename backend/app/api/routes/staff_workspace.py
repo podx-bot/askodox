@@ -10,6 +10,8 @@ Sign-in (no extra passwords):
 Work (any Command Center credential; each route checks its own permission):
   GET  /admin/cc/workspace/me                  sections + counts this person may see
   POST /admin/cc/workspace/import              paste ONE link -> source, duplicates, auto-filled fields
+                                               (html = the page as the staff phone read it)
+  POST /admin/cc/workspace/uploads/from-url    keep a page photo as our own copy (for reels)
   POST /admin/cc/workspace/import/bulk         up to 50 links (detect + duplicates; details for the first 10)
   POST /admin/cc/workspace/items               save as draft / submit / publish (if allowed)
   GET  /admin/cc/workspace/items               my items (reviewers: all) by status / type
@@ -177,6 +179,16 @@ def workspace_me(request: Request) -> dict:
 class ImportBody(BaseModel):
     url: str = Field(min_length=8, max_length=2000)
     item_type: str = Field(default="product", max_length=20)
+    # Read by the staff member's PHONE (ASKODOX app, Staff Workspace): stores
+    # such as Meesho refuse our server, not a phone. Parsed only -- the server
+    # never fetches anything for it.
+    html: str | None = Field(default=None, max_length=2_000_000)
+    final_url: str | None = Field(default=None, max_length=2000)
+
+STORE_BLOCKED_HINT = ("This store does not let our server read its pages. Open Staff Workspace inside the "
+                      "ASKODOX app (Profile → Staff Workspace) and paste the link there -- your phone reads the "
+                      "page and everything fills in (or enter the details by hand). / ఈ store మన server ని page చదవనివ్వదు. ASKODOX app లో "
+                      "Staff Workspace తెరిచి link పెట్టండి -- phone page చదివి అన్నీ నింపుతుంది.")
 
 
 def _detect(request: Request, url: str) -> dict:
@@ -198,7 +210,16 @@ def _detect(request: Request, url: str) -> dict:
             "note": "Not a configured source yet -- it can still be saved; an admin can add the source later."}
 
 
-def _import_one(request: Request, url: str, *, details: bool) -> dict:
+def _same_store(a: str, b: str) -> bool:
+    return bool(a) and ac.detect_platform(a) == ac.detect_platform(b) and ac.detect_platform(a) != "other"
+
+
+def _may_link(principal: dict) -> bool:
+    return _can(principal, "affiliate_products:links") or gov.is_super(principal)
+
+
+def _import_one(request: Request, url: str, *, details: bool, html: str | None = None,
+                final_url: str | None = None, may_link: bool = True) -> dict:
     try:
         clean = ac.https_url(url)
     except ValueError:
@@ -210,12 +231,39 @@ def _import_one(request: Request, url: str, *, details: bool) -> dict:
                            "duplicates": store.duplicates(clean)}
     if details:
         fetch = getattr(request.app.state.container, "affiliate_page_fetch", None)
+        page_url = clean
+        if html:
+            fetch = lambda _url: html  # noqa: E731 -- the phone already read it
+            try:
+                landed = ac.https_url(final_url or "")
+            except ValueError:
+                landed = ""
+            # A short / invite link (af_invite, msho.in) lands on the product page:
+            # read the product page, keep the pasted link as the commission link.
+            if landed and landed != clean and _same_store(landed, clean):
+                page_url = landed
         try:
-            meta = ac.extract_metadata(clean, fetch=fetch)
+            from app.services import affiliate_providers
+
+            # Same extractor as the Affiliate Hub: schema.org + the store's own
+            # embedded product data (Meesho __NEXT_DATA__: price, MRP, photos, seller).
+            meta = affiliate_providers.extract(page_url, fetch=fetch)
         except ValueError as error:
             return {**out, "ok": False, "error": str(error)}
-        out.update(fields=meta.get("fields") or {}, field_status=meta.get("field_status") or {},
-                   status=meta.get("status"), note=meta.get("note"), suggested_stock=meta.get("suggested_stock"))
+        fields = dict(meta.get("fields") or {})
+        if page_url != clean:
+            fields["affiliate_url"] = clean  # the pasted (commission) link
+        if not may_link:
+            fields.pop("affiliate_url", None)  # saving one needs affiliate_products:links
+        status = meta.get("status")
+        note = meta.get("note")
+        if status == "unavailable" and not html:
+            note = STORE_BLOCKED_HINT
+        if status == "nothing_found" and fields.get("title"):
+            status = "ok"  # the store's embedded data had it
+            note = "Filled from the store's page -- check and save. / Store page నుండి నింపాం -- చూసి save చేయండి."
+        out.update(fields=fields, field_status=ac.field_status(fields), status=status, note=note,
+                   suggested_stock=meta.get("suggested_stock"), read_by="phone" if html else "server")
     return out
 
 
@@ -227,7 +275,8 @@ def import_link(body: ImportBody, request: Request) -> dict:
     from app.services import rate_limit
 
     rate_limit.check(request, "workspace_import", limit=60)
-    return _import_one(request, body.url, details=True)
+    return _import_one(request, body.url, details=True, html=body.html, final_url=body.final_url,
+                       may_link=_may_link(principal))
 
 
 class DescribeBody(BaseModel):
@@ -291,7 +340,8 @@ def import_bulk(body: BulkImportBody, request: Request) -> dict:
 
     rate_limit.check(request, "workspace_import", limit=60)
     urls = list(dict.fromkeys(u.strip() for u in body.urls if u.strip()))
-    return {"items": [_import_one(request, u, details=i < 10) for i, u in enumerate(urls)]}
+    may_link = _may_link(principal)
+    return {"items": [_import_one(request, u, details=i < 10, may_link=may_link) for i, u in enumerate(urls)]}
 
 
 # ----------------------------------------------------------------- items --
@@ -394,6 +444,32 @@ async def upload_photo(request: Request, file: UploadFile = File(...)) -> dict:
     if not _types(principal):
         raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
     data = await file.read(MAX_UPLOAD + 1)
+    return _save_photo(request, data)
+
+
+class PhotoFromUrlBody(BaseModel):
+    url: str = Field(min_length=12, max_length=2000)
+
+
+@router.post("/admin/cc/workspace/uploads/from-url")
+def upload_photo_from_url(body: PhotoFromUrlBody, request: Request) -> dict:
+    """Keep a product page's photo as our own copy (so a reel can be made
+    from it). Public https images only, 5 MB, real JPEG / PNG / WebP."""
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    from app.services import rate_limit
+
+    rate_limit.check(request, "workspace_photo_url", limit=120)
+    fetch = getattr(request.app.state.container, "affiliate_image_fetch", None) or ac.fetch_image
+    try:
+        data = fetch(body.url)
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=f"Could not copy that photo ({type(error).__name__})") from None
+    return _save_photo(request, data)
+
+
+def _save_photo(request: Request, data: bytes) -> dict:
     if len(data) > MAX_UPLOAD:
         raise HTTPException(status_code=413, detail="Photos up to 5 MB")
     ext = next((e for magic, e in _IMAGE_MAGIC.items() if data.startswith(magic)), None)

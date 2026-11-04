@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -161,6 +165,9 @@ class StaffWorkspaceScreen extends StatefulWidget {
 class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
   late final WebViewController _controller = WebViewController()
     ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    // Stores such as Meesho refuse our server but not a phone: the workspace
+    // page asks the app to read a product page with THIS phone's connection.
+    ..addJavaScriptChannel('AskodoxPageReader', onMessageReceived: (m) => unawaited(_readForPage(m.message)))
     ..setNavigationDelegate(NavigationDelegate(onNavigationRequest: (request) {
       // Stay on the ASKODOX workspace; other links are not opened inside it.
       final target = Uri.tryParse(request.url);
@@ -170,6 +177,21 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
     }))
     ..loadRequest(widget.uri);
 
+  Future<void> _readForPage(String message) async {
+    Object? id;
+    Map<String, Object?> result;
+    try {
+      final ask = jsonDecode(message) as Map<String, dynamic>;
+      id = ask['id'];
+      final page = await askodoxReadStorePage(Uri.parse('${ask['url']}'));
+      result = {'ok': true, 'html': page.html, 'final_url': page.finalUrl.toString()};
+    } catch (error) {
+      result = {'ok': false, 'error': error.runtimeType.toString()};
+    }
+    if (!mounted) return;
+    await _controller.runJavaScript('window.askodoxPageRead && window.askodoxPageRead(${jsonEncode(id)}, ${jsonEncode(result)})');
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = Localizations.localeOf(context).languageCode == 'te';
@@ -178,6 +200,62 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
       body: SafeArea(child: WebViewWidget(controller: _controller)),
     );
   }
+}
+
+/// A product page as THIS phone reads it (a normal mobile browser request,
+/// redirects and one meta-refresh followed). https only, 2 MB, 15 s.
+class AskodoxStorePage {
+  const AskodoxStorePage(this.html, this.finalUrl);
+  final String html;
+  final Uri finalUrl;
+}
+
+const _phoneBrowserAgent =
+    'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36';
+
+Future<AskodoxStorePage> askodoxReadStorePage(Uri url,
+    {HttpClient Function()? client, int maxBytes = 2000000}) async {
+  var target = url;
+  final http = (client ?? HttpClient.new)()..connectionTimeout = const Duration(seconds: 10);
+  try {
+    for (var hop = 0; hop < 2; hop++) {
+      if (target.scheme != 'https') throw const FormatException('https only');
+      final request = await http.getUrl(target);
+      request.followRedirects = true;
+      request.maxRedirects = 6;
+      request.headers
+        ..set(HttpHeaders.userAgentHeader, _phoneBrowserAgent)
+        ..set(HttpHeaders.acceptHeader, 'text/html,application/xhtml+xml')
+        ..set(HttpHeaders.acceptLanguageHeader, 'en-IN,en;q=0.9');
+      final response = await request.close().timeout(const Duration(seconds: 15));
+      for (final hopInfo in response.redirects) {
+        target = target.resolveUri(hopInfo.location);
+      }
+      if (response.statusCode >= 400) throw HttpException('HTTP ${response.statusCode}', uri: target);
+      final bytes = <int>[];
+      await for (final chunk in response.timeout(const Duration(seconds: 15))) {
+        bytes.addAll(chunk);
+        if (bytes.length > maxBytes) break;
+      }
+      final html = utf8.decode(bytes.length > maxBytes ? bytes.sublist(0, maxBytes) : bytes, allowMalformed: true);
+      final refresh = askodoxMetaRefreshTarget(html, target);
+      if (refresh == null || hop == 1) return AskodoxStorePage(html, target);
+      target = refresh; // an invite page that forwards to the product page
+    }
+    throw StateError('unreachable');
+  } finally {
+    http.close(force: true);
+  }
+}
+
+/// `<meta http-equiv="refresh" content="0; url=...">` -> the https target.
+Uri? askodoxMetaRefreshTarget(String html, Uri base) {
+  final tag = RegExp(r'''<meta[^>]+http-equiv=["']?refresh["']?[^>]*>''', caseSensitive: false).firstMatch(html);
+  if (tag == null) return null;
+  final url = RegExp(r'''url\s*=\s*['"]?([^'">\s]+)''', caseSensitive: false).firstMatch(tag.group(0)!);
+  if (url == null) return null;
+  final target = base.resolve(url.group(1)!.replaceAll('&amp;', '&'));
+  return target.scheme == 'https' ? target : null;
 }
 
 /// Opens the workspace (optionally with a shared link). Returns false when

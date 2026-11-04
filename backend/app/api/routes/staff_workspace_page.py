@@ -88,28 +88,55 @@ async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><h
   $("#bulkres").innerHTML=d.items.map((r,i)=>`<div class="item"><div class="grow"><b>${esc((r.fields||{}).title||r.url)}</b><div class="mut">${esc((r.source||{}).name||"")} ${r.duplicates&&r.duplicates.length?`<span class="warn">· already added (#${r.duplicates[0].id})</span>`:""}${r.ok?"":` <span class="bad">${esc(r.error)}</span>`}</div></div>${r.ok&&!(r.duplicates||[]).length?`<button class="s" data-u="${esc(r.url)}">Add</button>`:""}</div>`).join("");
   $("#bulkres").querySelectorAll("button").forEach(b=>b.onclick=()=>fetchOne(b.dataset.u,$("#itype").value))}catch(e){toast(e.message)}};
  if(PREFILL.url){const u=PREFILL.url;PREFILL={};fetchOne(u,$("#itype").value)}}
-async function fetchOne(url,type){const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page…</p>`;
- let d;try{d=await api("/admin/cc/workspace/import","POST",{url,item_type:type})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`;return}
- const f=d.fields||{},st=d.field_status||{},dup=(d.duplicates||[]);let photos=[];
- box.innerHTML=`<p><span class="badge">${esc((d.source||{}).name||"Unknown source")}</span> <span class="mut">${esc(d.note||"")}</span></p>
+// Owner 2026-11-04: paste a link -> everything fills by itself. Only Title, Price and the
+// AI description are shown; the rest waits under "More details".
+const READS={};window.askodoxPageRead=(id,r)=>{const f=READS[id];if(f){delete READS[id];f(r&&r.ok?r:null)}};
+function readOnPhone(url){if(!window.AskodoxPageReader)return Promise.resolve(null);
+ return new Promise(res=>{const id=String(Date.now())+Math.random();READS[id]=res;
+  setTimeout(()=>{if(READS[id]){delete READS[id];res(null)}},25000);
+  try{AskodoxPageReader.postMessage(JSON.stringify({id,url}))}catch(e){delete READS[id];res(null)}})}
+const MAIN_FIELDS=["title","price","description"];
+async function fetchOne(url,type){const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page… / page చదువుతోంది…</p>`;
+ let d,page=null;try{page=await readOnPhone(url);
+  d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:type,html:page.html,final_url:page.final_url}:{url,item_type:type})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`;return}
+ const f=d.fields||{},st=d.field_status||{},dup=(d.duplicates||[]);let photos=[...new Set([...(f.images||[]),...(f.image_url?[f.image_url]:[])])].slice(0,8);
+ const field=([k,l,ta])=>`<label>${l} ${st[k]==="fetched"?'<span class="ok">· from page</span>':""}</label>${ta?`<textarea id="f_${k}" rows="${k==="description"?6:3}">${esc(f[k]||"")}</textarea>`:`<input id="f_${k}" value="${esc(f[k]??"")}">`}`;
+ const ok=d.status==="ok";
+ box.innerHTML=`<p><span class="badge">${esc((d.source||{}).name||"Unknown source")}</span> <span class="${ok?"ok":"mut"}">${ok?"✓ Details filled -- check and save / వివరాలు నిండాయి -- చూసి save చేయండి":esc(d.note||"")}</span></p>
  ${dup.length?`<p class="warn">Already in ASKODOX: ${dup.map(x=>`#${x.id} ${esc(x.title)} (${esc(x.review_status)})`).join(", ")}</p>`:""}
- ${FIELDS.map(([k,l,ta])=>`<label>${l} ${st[k]==="fetched"?'<span class="ok">· from page</span>':st[k]?'<span class="mut">· '+esc(st[k])+"</span>":""}</label>${ta?`<textarea id="f_${k}" rows="3">${esc(f[k]||"")}</textarea>`:`<input id="f_${k}" value="${esc(f[k]??"")}">`}`).join("")}
+ <label>Photos</label><div class="thumbs" id="thumbs"></div>
+ <div class="row"><label class="s btn">📷 Camera<input id="photo" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery<input id="photos" type="file" accept="image/*" multiple hidden></label></div>
+ ${FIELDS.filter(([k])=>MAIN_FIELDS.includes(k)).map(field).join("")}
+ <span class="mut" id="aidescnote"></span>
+ <details style="margin:6px 0 10px"><summary class="mut">More details (optional) / మరిన్ని వివరాలు</summary>
+ ${FIELDS.filter(([k])=>!MAIN_FIELDS.includes(k)).map(field).join("")}
  <label>Stock</label><select id="f_stock"><option>UNKNOWN</option><option ${d.suggested_stock==="IN_STOCK"?"selected":""}>IN_STOCK</option><option ${d.suggested_stock==="OUT_OF_STOCK"?"selected":""}>OUT_OF_STOCK</option></select>
- <label>Photos</label><div class="row"><label class="s btn">📷 Camera<input id="photo" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery (many)<input id="photos" type="file" accept="image/*" multiple hidden></label></div><div class="thumbs" id="thumbs"></div>
- <div class="row" style="margin-top:6px"><button class="s" id="aidesc">✨ AI తో description రాయి</button><span class="mut" id="aidescnote"></span></div>
+ <div class="row"><button class="s" id="aidesc">✨ AI తో description మళ్లీ రాయి</button></div></details>
+ ${type==="product"?`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mkreel" checked style="width:auto;margin:0"> 🎬 Reel కూడా తయారు చేయి (review కి వెళ్తుంది)</label>`:""}
  <div class="row" style="margin-top:10px"><button class="s" id="draft">Save draft</button><button class="p" id="submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>`;
+ const thumbs=()=>{$("#thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">No photos yet -- add from camera / gallery</span>`};thumbs();
  const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
-  try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);$("#thumbs").innerHTML=photos.map(p=>`<img src="${esc(p)}">`).join("")}catch(err){toast(err.message)}}};
+  try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);thumbs()}catch(err){toast(err.message)}}};
  $("#photo").onchange=addPhotos;$("#photos").onchange=addPhotos;
  if(PREFILL_AFF&&$("#f_affiliate_url")&&!$("#f_affiliate_url").value){$("#f_affiliate_url").value=PREFILL_AFF;PREFILL_AFF=""}
- $("#aidesc").onclick=async()=>{const fields={};FIELDS.forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});$("#aidescnote").textContent="రాస్తోంది…";
-  try{const r=await api("/admin/cc/workspace/describe","POST",{fields,photos});if(!r.ok){$("#aidescnote").textContent=r.reason||"";return}
+ const describe=async()=>{const fields={};FIELDS.forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});if(!fields.title)return;$("#aidescnote").textContent="✨ description రాస్తోంది…";
+  try{const r=await api("/admin/cc/workspace/describe","POST",{fields,photos:photos.filter(p=>p.includes("/media/staff/"))});if(!r.ok){$("#aidescnote").textContent=r.reason||"";return}
    $("#f_description").value=[r.description_en,r.description_te].filter(Boolean).join("\n\n");
-   $("#aidescnote").textContent=(r.unsupported_claims||[]).length?"⚠️ check: "+r.unsupported_claims.join(", "):"✓ AI draft -- చదివి save చేయండి"}catch(e){$("#aidescnote").textContent=e.message}};
+   $("#aidescnote").textContent=(r.unsupported_claims||[]).length?"⚠️ check: "+r.unsupported_claims.join(", "):"✓ AI description -- చదివి save చేయండి"}catch(e){$("#aidescnote").textContent=e.message}};
+ $("#aidesc").onclick=describe;
+ if(ok&&!dup.length)describe(); // written automatically; staff only read it
+ // Page photos become our own copies (so a reel can use them); a photo that cannot be copied stays a link.
+ const ownPhotos=async()=>{const out=[];for(const p of photos){if(p.includes("/media/staff/")){out.push(p);continue}
+  try{out.push((await api("/admin/cc/workspace/uploads/from-url","POST",{url:p})).url)}catch(e){out.push(p)}}return out};
  const save=async action=>{const fields={original_product_url:d.url};FIELDS.forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});
-  if(photos.length){fields.images=photos;if(!fields.image_url)fields.image_url=photos[0]}
+  if(!fields.original_product_url||fields.original_product_url===d.url)fields.original_product_url=f.original_product_url||d.url;
+  toast("Saving… / save అవుతోంది…");const kept=await ownPhotos();
+  if(kept.length){fields.images=kept;fields.image_url=kept[0]}
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:type,fields,action,stock_status:$("#f_stock").value});
-   toast(r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review");TAB="items";start()}catch(e){toast(e.message)}};
+   let msg=r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
+   if($("#mkreel")&&$("#mkreel").checked&&r.item&&kept.some(p=>p.includes("/media/staff/"))){
+    try{await api(`/admin/cc/workspace/items/${r.item.id}/reel`,"POST",{voice_text:"",seconds:30});msg+=" · 🎬 Reel తయారవుతోంది"}catch(e){msg+=" · Reel: "+e.message}}
+   toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
  $("#draft").onclick=()=>save("draft");$("#submit").onclick=()=>save("submit")}
 function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
  <div class="mut">${esc(i.item_type)} · ${esc(i.platform_name)} · <span class="badge">${esc(i.review_status)}</span> ${i.price!=null?"₹"+esc(i.price):""} ${i.stock_status==="OUT_OF_STOCK"?'<span class="bad">out of stock</span>':""}</div>

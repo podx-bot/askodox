@@ -28,8 +28,14 @@ class AskodoxRadioPlan {
 
 class AskodoxRadioStatus {
   const AskodoxRadioStatus({required this.enabled, required this.access, required this.plans,
-      this.passStatus, this.minutesToday = 0, this.dailyMinutes = 0, this.internalTesting = false});
+      this.passStatus, this.minutesToday = 0, this.dailyMinutes = 0, this.internalTesting = false,
+      this.creditsCharging = false, this.creditRatePaise = 0});
   final bool enabled, access;
+
+  /// Radio runs on AI Credits (owner, 2026-11-04 -- no separate package):
+  /// whether a segment costs credits right now, and how much.
+  final bool creditsCharging;
+  final int creditRatePaise;
 
   /// Staff-chosen internal tester: Radio plays without a pass or price.
   final bool internalTesting;
@@ -39,7 +45,7 @@ class AskodoxRadioStatus {
 }
 
 /// What `/api/radio/next` answered. [problem] is a reason code
-/// (RADIO_DISABLED / RADIO_ADDON_REQUIRED / RADIO_DAILY_LIMIT / nothing_new /
+/// (RADIO_DISABLED / AI_CREDITS_LOW / RADIO_DAILY_LIMIT / nothing_new /
 /// unavailable) -- never a made-up segment.
 class AskodoxRadioSegment {
   const AskodoxRadioSegment({this.title = '', this.text = '', this.audio, this.problem});
@@ -50,6 +56,9 @@ class AskodoxRadioSegment {
 
 String askodoxRadioProblemText(String code, bool te) => switch (code) {
       'RADIO_DISABLED' => te ? 'ట్రావెల్ రేడియో ఇంకా ప్రారంభం కాలేదు.' : 'Travel Radio is not switched on yet.',
+      'AI_CREDITS_LOW' => te
+          ? 'రేడియోకి మీ AI Credits సరిపోవు. Profile → AI Credits లో కొంచెం recharge చేయండి.'
+          : 'Your AI Credits are not enough for Radio. Recharge a little in Profile → AI Credits.',
       'RADIO_ADDON_REQUIRED' => te ? 'దీనికి ట్రావెల్ రేడియో పాస్ కావాలి.' : 'This needs a Travel Radio pass.',
       'RADIO_DAILY_LIMIT' => te ? 'ఈరోజు పరిమితి పూర్తయింది.' : "Today's listening limit is reached.",
       'nothing_new' => te ? 'ఇక్కడ కొత్త సమాచారం ఇంకా లేదు.' : 'Nothing new here yet.',
@@ -70,7 +79,10 @@ class TravelRadioRepository {
     if (result is! ApiSuccess<Map<String, Object?>>) throw StateError('radio unavailable');
     final d = result.data;
     final pass = d['pass'];
+    final credits = d['credits'] is Map ? d['credits'] as Map : const {};
     return AskodoxRadioStatus(
+      creditsCharging: credits['charging'] == true,
+      creditRatePaise: (credits['rate_paise'] as num?)?.toInt() ?? 0,
       enabled: d['enabled'] == true,
       access: d['access'] == true,
       internalTesting: d['internal_testing'] == true,
@@ -91,7 +103,7 @@ class TravelRadioRepository {
     if (result is ApiError<Map<String, Object?>>) {
       final code = switch (result.failure.statusCode) {
         503 => 'RADIO_DISABLED',
-        402 => 'RADIO_ADDON_REQUIRED',
+        402 => 'AI_CREDITS_LOW',
         429 => 'RADIO_DAILY_LIMIT',
         _ => 'unavailable',
       };

@@ -1186,9 +1186,17 @@ def _breadcrumbs(blobs: list[str]) -> list[str]:
     return []
 
 
-def fetch_page(url: str, *, timeout: float = 6.0, max_bytes: int = 1_500_000) -> str:
-    """GET one public https page (no private / local hosts, every redirect
-    re-checked, size and time bounded)."""
+# A normal phone browser: some stores answer a bot-looking client with 403.
+BROWSER_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/128.0.0.0 Mobile Safari/537.36"),
+    "Accept-Language": "en-IN,en;q=0.9",
+}
+
+
+def _open_public(url: str, *, accept: str, timeout: float):
+    """Open one public https URL (no private / local hosts, every redirect
+    re-checked)."""
     import urllib.request
 
     from app.services.universal_external_result_service import PartnerApiConnector
@@ -1206,12 +1214,27 @@ def fetch_page(url: str, *, timeout: float = 6.0, max_bytes: int = 1_500_000) ->
     if parsed.scheme != "https" or not _safe_public_host(parsed.hostname or "", {}):
         raise ValueError("Only public https pages can be read")
     opener = urllib.request.build_opener(Guard())
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; ASKODOX-catalog/1.0)",
-                                                   "Accept": "text/html"})
-    with opener.open(request, timeout=timeout) as response:
+    request = urllib.request.Request(url, headers={**BROWSER_HEADERS, "Accept": accept})
+    return opener.open(request, timeout=timeout)
+
+
+def fetch_page(url: str, *, timeout: float = 6.0, max_bytes: int = 1_500_000) -> str:
+    """GET one public https page (no private / local hosts, every redirect
+    re-checked, size and time bounded)."""
+    with _open_public(url, accept="text/html,application/xhtml+xml", timeout=timeout) as response:
         if "html" not in str(response.headers.get("content-type") or "html"):
             raise ValueError("not an HTML page")
         return response.read(max_bytes).decode("utf-8", errors="replace")
+
+
+def fetch_image(url: str, *, timeout: float = 8.0, max_bytes: int = 5 * 1024 * 1024) -> bytes:
+    """GET one public https image (same guards as fetch_page); bytes only --
+    the caller checks the real file type."""
+    with _open_public(url, accept="image/avif,image/webp,image/*", timeout=timeout) as response:
+        data = response.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValueError("image too large")
+    return data
 
 
 def extract_metadata(url: str, fetch: Callable[[str], str] | None = None) -> dict[str, Any]:

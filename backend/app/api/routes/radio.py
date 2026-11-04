@@ -5,12 +5,16 @@ Customer (signed in):  GET /api/radio/status, POST /api/radio/pass,
 Staff:                 GET /admin/cc/radio (plans, passes, usage, cost model),
                        POST /admin/cc/radio/passes (PROMOTIONAL pass only)
 
-No route here takes money or activates a plan: paid passes wait for a
-payment gateway (PENDING_PAYMENT); plans are edited in Growth -> Plans.
+No route here takes money or activates a plan. Owner decision 2026-11-04:
+Radio has NO separate package -- with the customer flag on, every signed-in
+person may listen and each segment is one AI Credits use (feature "radio";
+free while AI Credits charging is OFF). The older add-on passes still grant
+access if one exists (no new ones are sold).
 """
 from __future__ import annotations
 
 import base64
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -84,16 +88,47 @@ def radio_status(request: Request) -> dict:
     service = radio(container)
     current = service.current_pass(user)
     tester = _tester(container, service, user)
+    enabled = _enabled(container)
     return {
-        "enabled": _enabled(container) or tester,
+        "enabled": enabled or tester,
         "internal_testing": tester,
-        "access": tester or (service.current_pass(user) or {}).get("status") == "ACTIVE",
+        # Radio runs on AI Credits: the flag alone opens it to every signed-in person.
+        "access": tester or enabled or (current or {}).get("status") == "ACTIVE",
         "pass": current,
         "plans": _plan_rows(container),
         "minutes_today": round(service.seconds_today(user) / 60, 1),
         "daily_minutes": _daily_cap(container, service, user),
-        "billing": "not_available",  # no payment gateway is configured
+        "billing": "ai_credits",
+        "credits": _credits_state(container),
     }
+
+
+def _credits_state(container: Any) -> dict:
+    """Whether a segment costs AI Credits right now (never a separate pass)."""
+    try:
+        from app.api.routes.ai_credits import ai_credits
+
+        settings = ai_credits(container).settings()
+        rate = settings["rates_paise"].get("radio", 0) if settings["charging"] else 0
+        return {"charging": bool(settings["charging"]), "rate_paise": int(rate)}
+    except Exception:
+        return {"charging": False, "rate_paise": 0}
+
+
+def _reserve_radio_credit(container: Any, user: str) -> dict:
+    """One AI Credits use for one segment. Raises 402 AI_CREDITS_LOW when the
+    balance cannot cover it; free while charging is OFF."""
+    from app.api.routes.ai_credits import ai_credits
+    from app.services.ai_credits import CreditsError
+
+    ref = f"radio:{user}:{uuid.uuid4().hex}"
+    try:
+        result = ai_credits(container).reserve(user, "radio", ref)
+    except CreditsError as error:
+        if error.code == "insufficient":
+            raise HTTPException(status_code=402, detail="AI_CREDITS_LOW") from None
+        raise
+    return {**result, "ref": ref}
 
 
 class PassRequest(BaseModel):
@@ -136,8 +171,6 @@ def next_segment(payload: NextRequest, request: Request) -> dict:
     if not _enabled(container) and not tester:
         raise HTTPException(status_code=503, detail="RADIO_DISABLED")
     paid = (service.current_pass(user) or {}).get("status") == "ACTIVE"
-    if not (paid or tester):
-        raise HTTPException(status_code=402, detail="RADIO_ADDON_REQUIRED")
     if service.seconds_today(user) >= _daily_cap(container, service, user) * 60:
         raise HTTPException(status_code=429, detail="RADIO_DAILY_LIMIT")
     facts, calls = service.area_facts(getattr(container, "google_maps_service", None),
@@ -151,7 +184,9 @@ def next_segment(payload: NextRequest, request: Request) -> dict:
     candidates = TravelRadio.segments(facts, news, payload.lang, _cell(payload.latitude, payload.longitude))
     segment = service.next_segment(user, candidates)
     if segment is None:
-        return {"status": "nothing_new", "segment": None}
+        return {"status": "nothing_new", "segment": None}  # nothing played -> nothing charged
+    # Testers and old passes listen free; everyone else uses AI Credits.
+    credit = {"charged": False, "paise": 0} if (paid or tester) else _reserve_radio_credit(container, user)
     audio, mime, synthesized = (None, "", 0)
     if payload.audio:
         synthesize = getattr(getattr(container, "voice_assistant_service", None), "synthesize", None)
@@ -164,6 +199,7 @@ def next_segment(payload: NextRequest, request: Request) -> dict:
         "audio_mime": mime or None,
         "audio_cached": bool(audio) and synthesized == 0,
         "seconds": round(seconds, 1),
+        "credits": {"charged": bool(credit.get("charged")), "paise": int(credit.get("paise") or 0)},
     }
 
 

@@ -17,7 +17,7 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  testWidgets('primary home companion opens its actions; Voice starts in-app recording', (tester) async {
+  testWidgets('primary home companion: one tap starts in-app recording', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tester.view.physicalSize = const Size(1440, 2400);
     tester.view.devicePixelRatio = 3;
@@ -42,10 +42,8 @@ void main() {
     );
     await tester.pump();
 
+    // Owner 2026-11-04: ONE tap on the companion starts listening (no ring).
     await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
-    await tester.pump();
-    expect(calls, isEmpty, reason: 'the companion opens its actions first');
-    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-voice')));
     await tester.pump();
 
     // Main Chat voice records in-app for the Sarvam-first backend
@@ -56,7 +54,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('primary home companion actions include universal video input',
+  testWidgets('attachments (camera, photos, video, files) live on the chat "+" -- no companion ring',
       (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tester.view.physicalSize = const Size(1440, 2400);
@@ -74,14 +72,15 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.byTooltip('Add attachment'), findsNothing, reason: 'no separate attach button');
-    await tester.tap(find.byKey(const Key('askodoxHomeOrb')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('askodoxCompanionHub')), findsNothing);
+    await tester.tap(find.byKey(const Key('askodoxAttachButton')));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 40));
+    }
 
     expect(find.text('Camera'), findsOneWidget);
     expect(find.text('Photos'), findsOneWidget);
-    expect(find.text('Video'), findsOneWidget);
+    expect(find.text('Videos'), findsOneWidget);
     expect(find.text('Files'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

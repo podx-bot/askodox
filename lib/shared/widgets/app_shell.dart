@@ -17,7 +17,6 @@ import 'header_menu.dart';
 import '../../features/staff/askodox_staff_access.dart';
 import '../../config/theme/app_theme.dart';
 import '../../core/providers/app_settings_provider.dart';
-import '../../features/companion/askodox_companion.dart';
 import '../../features/companion/companion_floating.dart';
 import '../../features/companion/companion_hub.dart';
 
@@ -26,8 +25,7 @@ const _navAccent = Color(0xFF4F46FF);
 
 /// The customer shell. Every bottom item has ONE distinct purpose:
 /// Home (ask ASKODOX) · Explore (past conversations and saved options) ·
-/// centre companion avatar (its actions: voice, chat, camera, photos,
-/// video, files, location) · Orders (what happened to my requests) ·
+/// centre "Ask" (one tap = speak; attachments are on the chat's "+") · Orders (what happened to my requests) ·
 /// Profile (me, roles, settings). The header bell opens Orders too.
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({required this.shell, super.key});
@@ -175,7 +173,6 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                   style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
             ),
           ),
-          AskodoxHeaderGuideButton(te: isTe),
           InkWell(
             key: const Key('askodoxLocationChip'),
             borderRadius: BorderRadius.circular(18),
@@ -331,30 +328,19 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         onHome: () => shell.goBranch(0, initialLocation: true),
         onHistory: () => shell.goBranch(2, initialLocation: true),
         onCompanion: () {
-          // Listening: a tap stops it. Otherwise open / close the
-          // companion's actions on Main Chat.
-          if (ref.read(askodoxCompanionLiveProvider).listening) {
-            companionAction(AskodoxHubAction.voice);
-            return;
-          }
+          // "Ask" = ONE tap starts listening (a second tap stops and sends).
+          // No ring of buttons in between: attachments live on the chat's "+",
+          // typing is the message box (owner, 2026-11-04).
           // A screen with its own question mic (video Q&A): record into
           // it -- never close the page the user is asking about.
-          if (shell.currentIndex == 0 && ref.read(askodoxDetailPagesOpenProvider) > 0 &&
+          if (!ref.read(askodoxCompanionLiveProvider).listening &&
+              shell.currentIndex == 0 && ref.read(askodoxDetailPagesOpenProvider) > 0 &&
               ref.read(askodoxQuestionMicTargetsProvider) > 0) {
             ref.read(askodoxQuestionMicTriggerProvider.notifier).state++;
             return;
           }
-          final hub = ref.read(askodoxCompanionHubOpenProvider.notifier);
-          // A detail page (video, study, details) pushed over Main Chat:
-          // always OPEN (Main Chat closes the page first), never toggle a
-          // hub the user cannot see.
-          final onTop = shell.currentIndex == 0 && ref.read(askodoxDetailPagesOpenProvider) > 0;
-          final open = shell.currentIndex == 0 && !onTop ? !hub.state : true;
-          if (onTop && hub.state) hub.state = false; // re-fire the listener
-          shell.goBranch(0, initialLocation: true);
-          hub.state = open;
+          companionAction(AskodoxHubAction.voice);
         },
-        onCompanionClose: () => ref.read(askodoxCompanionHubOpenProvider.notifier).state = false,
         onUpdates: () => shell.goBranch(3, initialLocation: true),
         onProfile: () => shell.goBranch(4, initialLocation: true),
       ),
@@ -369,18 +355,16 @@ class _PrimaryBottomBar extends ConsumerWidget {
     required this.onHome,
     required this.onHistory,
     required this.onCompanion,
-    required this.onCompanionClose,
     required this.onUpdates,
     required this.onProfile,
   });
   final int currentBranch;
   final bool isTe;
-  final VoidCallback onHome, onHistory, onCompanion, onCompanionClose, onUpdates, onProfile;
+  final VoidCallback onHome, onHistory, onCompanion, onUpdates, onProfile;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(askodoxCompanionLiveProvider);
-    final hubOpen = ref.watch(askodoxCompanionHubOpenProvider);
     return SafeArea(top: false, child: Container(
       height: 76,
       decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE6ECF5)))),
@@ -388,30 +372,37 @@ class _PrimaryBottomBar extends ConsumerWidget {
         _item('askodoxNavHome', currentBranch == 0, Icons.home_outlined, Icons.home_rounded, isTe ? 'హోమ్' : 'Home', onHome),
         // Past conversations, saved options and requests to revisit.
         _item('askodoxNavHistory', currentBranch == 2, Icons.explore_outlined, Icons.explore_rounded, isTe ? 'ఎక్స్‌ప్లోర్' : 'Explore', onHistory),
-        // The ONE companion entry: its face (not a microphone). Tap = open
-        // its actions (or stop listening); double tap = close.
+        // The ONE "Ask" button: one tap = speak to ASKODOX (tap again to stop
+        // and send). Owner, 2026-11-04: the word "Ask" instead of a mic / a
+        // ring of actions.
         Expanded(child: Semantics(
           button: true,
-          label: isTe ? 'ASKODOX సహచరుడు' : 'ASKODOX companion',
+          label: live.listening ? (isTe ? 'ఆపి పంపండి' : 'Stop and send') : (isTe ? 'అడగండి' : 'Ask'),
           child: GestureDetector(
             key: const Key('askodoxNavSpeak'),
             onTap: onCompanion,
-            onDoubleTap: onCompanionClose,
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Container(
+                key: const Key('askodoxNavAsk'),
                 width: 58,
                 height: 58,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white,
-                  border: Border.all(
-                      color: live.listening ? const Color(0xFFE5484D) : (hubOpen ? const Color(0xFF6C4DFF) : const Color(0xFFD9D2FF)),
-                      width: live.listening || hubOpen ? 3 : 2),
+                  color: live.listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
+                  border: Border.all(color: Colors.white, width: 3),
                   boxShadow: const [BoxShadow(color: Color(0x336C4DFF), blurRadius: 12)],
                 ),
-                child: ClipOval(
-                  child: IgnorePointer(child: AskodoxCompanion(key: const Key('askodoxNavCompanion'), mood: live.mood, size: 54)),
-                ),
+                child: live.listening
+                    ? const Icon(Icons.stop_rounded, color: Colors.white, size: 30)
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Text(isTe ? 'అడగండి' : 'Ask',
+                              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+                        ),
+                      ),
               ),
             ]),
           ),

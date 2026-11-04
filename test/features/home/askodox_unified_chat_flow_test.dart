@@ -1048,8 +1048,7 @@ void main() {
     h.attachments.studyRef = 'up_jpt1';
     await h.pump(tester);
     h.picker.next = [ChatAttachment(name: 'jpt.mp4', bytes: _photoBytes, mimeType: 'video/mp4')];
-    await _openCompanionHub(tester);
-    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-video')));
+    await _companionPick(tester, 'video');
     await _Harness.settle(tester);
     await h.send(tester, 'Does this inflate bike tyres?');
     expect(h.videoAsk!.asked.single, ('up_jpt1', 'Does this inflate bike tyres?'));
@@ -2086,8 +2085,7 @@ void main() {
       final h = _Harness(matches: _FakeMatchRepository(const []));
       await h.pump(tester);
       h.picker.next = [ChatAttachment(name: 'shoe.png', bytes: _pngBytes, mimeType: 'image/png')];
-      await _openCompanionHub(tester);
-      await tester.tap(find.byKey(const ValueKey('askodoxHubAction-photos')));
+      await _companionPick(tester, 'photos');
       await _Harness.settle(tester);
       await h.send(tester, 'what is this?');
       expect(find.byKey(const ValueKey('askodoxSentImage-att_1')), findsOneWidget);
@@ -2097,11 +2095,9 @@ void main() {
   testWidgets('location screen: a searched place is used by the chat (companion ring has no Location)', (tester) async {
     final h = _Harness(matches: _FakeMatchRepository(const []))..withRouter = true;
     await h.pump(tester);
-    await _openCompanionHub(tester);
-    // APK 1312 (owner decision): Location lives in the header chip only.
-    expect(find.byKey(const ValueKey('askodoxHubAction-location')), findsNothing);
-    await tester.tapAt(const Offset(20, 20)); // close the ring
-    await _Harness.settle(tester);
+    // APK 1312 (owner decision): Location lives in the header chip only;
+    // 2026-11-04: there is no companion ring at all.
+    expect(find.byKey(const Key('askodoxCompanionHub')), findsNothing);
     // The header chip opens the same /location screen.
     GoRouter.of(tester.element(find.byType(AskodoxPrimaryHomeScreen))).push('/location');
     await _Harness.settle(tester);
@@ -2122,13 +2118,11 @@ void main() {
     await h.pump(tester);
     for (final action in ['camera', 'photos', 'video', 'files']) {
       h.picker.next = const [];
-      await _openCompanionHub(tester);
-      await tester.tap(find.byKey(ValueKey('askodoxHubAction-$action')));
+      await _companionPick(tester, action);
       await _Harness.settle(tester);
       expect(h.picker.sources.last, action, reason: '$action opens its own picker');
     }
-    await _openCompanionHub(tester);
-    await tester.tap(find.byKey(const ValueKey('askodoxHubAction-chat')));
+    await _companionPick(tester, 'chat');
     await _Harness.settle(tester);
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.focusNode?.hasFocus, isTrue, reason: 'Type puts the cursor in the message box');
@@ -2176,8 +2170,7 @@ void main() {
   group('APK 1273 phone findings: attachment intent, multi-photo, no unsolicited prompts', () {
     Future<void> attach(WidgetTester tester, _Harness h, String action, List<ChatAttachment> files) async {
       h.picker.next = files;
-      await _openCompanionHub(tester);
-      await tester.tap(find.byKey(ValueKey('askodoxHubAction-$action')));
+      await _companionPick(tester, action);
       await _Harness.settle(tester);
     }
 
@@ -2240,9 +2233,8 @@ void main() {
     Future<void> attach(WidgetTester tester, _Harness h, String menuLabel, List<ChatAttachment> files) async {
       h.picker.next = files;
       // Attachments come from the companion's actions (no separate +).
-      await _openCompanionHub(tester);
       const telugu = {'కెమెరా': 'camera', 'ఫోటోలు': 'photos', 'వీడియో': 'video', 'ఫైల్స్': 'files'};
-      await tester.tap(find.byKey(ValueKey('askodoxHubAction-${telugu[menuLabel] ?? menuLabel.toLowerCase()}')));
+      await _companionPick(tester, telugu[menuLabel] ?? menuLabel.toLowerCase());
       await _Harness.settle(tester);
     }
 
@@ -5579,11 +5571,6 @@ void main() {
     await h.send(tester, 'Can they install it tomorrow?');
     await shot('04_selected_and_chat');
 
-    await tester.tap(find.byKey(const Key('askodoxNavSpeak')));
-    await tester.pump(const Duration(milliseconds: 400));
-    await shot('05_companion_actions');
-    await tester.tap(find.byKey(const Key('askodoxHubScrim')), warnIfMissed: false);
-    await tester.pump(const Duration(milliseconds: 300));
 
     final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
     container.read(askodoxInAppFloatProvider.notifier).setEnabled(true);
@@ -5726,12 +5713,26 @@ Finder _companion() => find.byKey(const Key('askodoxCompanionStage')).evaluate()
     ? find.byKey(const Key('askodoxCompanionStage'))
     : find.byKey(const Key('askodoxHomeOrb'));
 
-Future<void> _openCompanionHub(WidgetTester tester) async {
-  await tester.ensureVisible(_companion().first);
-  await tester.pump();
-  await tester.tap(_companion().first);
-  await tester.pump();
-  expect(find.byKey(const Key('askodoxCompanionHub')), findsOneWidget);
+/// The old companion ring is gone (owner, 2026-11-04): photos / video /
+/// files / camera come from the composer's "+", Type is the message box,
+/// Voice is one tap on the companion.
+Future<void> _companionPick(WidgetTester tester, String action) async {
+  switch (action) {
+    case 'chat':
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+    case 'voice':
+      await tester.ensureVisible(_companion().first);
+      await tester.pump();
+      await tester.tap(_companion().first);
+      await tester.pump();
+    default:
+      await tester.ensureVisible(find.byKey(const Key('askodoxAttachButton')));
+      await tester.tap(find.byKey(const Key('askodoxAttachButton')));
+      await _Harness.settle(tester); // the sheet opens (Home animates forever: no pumpAndSettle)
+      await tester.tap(find.byKey(ValueKey('askodoxAttachChoice-$action')));
+      await tester.pump();
+  }
 }
 
 /// Voice is the companion's: tap it -> Voice starts listening; while
@@ -5753,8 +5754,7 @@ Future<void> _tapVoice(WidgetTester tester) async {
     await tester.pump();
     return;
   }
-  await _openCompanionHub(tester);
-  await tester.tap(find.byKey(const ValueKey('askodoxHubAction-voice')));
+  await _companionPick(tester, 'voice');
   await tester.pump();
 }
 

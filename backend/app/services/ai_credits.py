@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 AUDIENCE = "ai_credits"
-FEATURES = ("chat", "reasoning", "voice", "web_search", "image")
+FEATURES = ("chat", "reasoning", "voice", "web_search", "image", "radio")
 MODES = ("live", "test")
 PACKS = [  # proposed by the owner; price == credits until staff decide a bonus (financial viability first)
     {"code": "ai_credits_100", "name": "AI Credits ₹100", "price": 100.0},

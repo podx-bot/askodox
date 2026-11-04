@@ -112,7 +112,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(
         home: Scaffold(
-          appBar: AppBar(actions: const [AskodoxHeaderMenuButton(te: false), AskodoxHeaderGuideButton(te: false)]),
+          appBar: AppBar(actions: const [AskodoxHeaderMenuButton(te: false)]),
         ),
       ),
     ));
@@ -140,7 +140,10 @@ void main() {
         reason: 'no duplicate entry points');
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('askodoxHeaderScreenGuide')));
+    // 2026-11-04: the Screen Guide moved from its own header icon into the Menu.
+    await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('askodoxMenu-guide')));
     await tester.pumpAndSettle();
     // Uploading own videos is Phase 2; changing location is offered in every build.
     expect(find.byKey(const ValueKey('askodoxGuideStart-upload_video')), askodoxPhase2 ? findsOneWidget : findsNothing);
