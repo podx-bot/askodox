@@ -517,3 +517,33 @@ def test_shared_text_with_a_link_is_read_as_the_link(api):
         "url": "​Check this product on Meesho https://www.meesho.com/s/p/bprmqt?utm_source=s_cc"}).json()
     assert got["url"] == "https://www.meesho.com/s/p/bprmqt?utm_source=s_cc"
     assert got["source"]["name"] == "Meesho"
+
+
+def test_commission_rate_and_link_with_photos_reach_search(api):
+    """Owner 2026-11-04: no videos -- paste a link / add photos, add commission % + link,
+    and the item (with its photos) comes up in search. The rate needs the commission grant."""
+    client, container, _ = api
+    junior = _staff(client, "affiliate_product_staff", phone="919811112222")
+    h = {"X-ASKODOX-Staff-Session": client.post("/api/staff/session",
+                                                headers=_app_bearer(container, "919811112222")).json()["session"]}
+    me = client.get("/admin/cc/workspace/me", headers=h).json()
+    assert me.get("can_commission") is False, me
+    refused = client.post("/admin/cc/workspace/items", headers=h, json={"item_type": "product", "fields": {
+        "title": "Cotton saree blue", "original_product_url": "https://brand.example/saree",
+        "verified_commission_rate": 10}})
+    assert refused.status_code == 403 and junior
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Cotton saree blue", "price": 899, "platform": "other",
+        "original_product_url": "https://brand.example/saree", "affiliate_url": "https://brand.example/saree?ref=asko",
+        "verified_commission_rate": "10", "image_url": "https://brand.example/saree.jpg"}}, )
+    assert saved.status_code == 200, saved.text
+    item = saved.json()["item"]
+    assert item["commission_status"] == "ACTIVE" and float(item["verified_commission_rate"]) == 10
+    assert saved.json()["review_status"] == "LIVE"
+    from app.api.routes.affiliate_catalog import catalog
+
+    rows = catalog(container).search("cotton saree")
+    assert any(r.get("image_url") == "https://brand.example/saree.jpg" for r in rows), rows
+    bad = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Other saree", "original_product_url": "https://brand.example/s2", "verified_commission_rate": "ten"}})
+    assert bad.status_code == 400

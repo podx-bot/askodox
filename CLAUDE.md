@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` `1e4531e` (2026-11-04, production deployed, probe-verified): #269 reels play (CSP media-src blob:); #268 Staff Workspace Reels tab (play / approve,
+- `main` `89b51eb` (2026-11-04, production deployed): #270 reply prices = card prices (APK `android-1408`); `1e4531e`: #269 reels play (CSP media-src blob:); #268 Staff Workspace Reels tab (play / approve,
   no browser dialogs); #267 Own / Brand products, store links = store data only, WebView camera / gallery (APK
   `android-1406`). Before: `9c68fc3`: #265 Phase 1 hiding
   (`askodox_release_phase.dart`), #266 centre "Ask" (one tap = voice, no companion ring), Screen Guide in the header
@@ -509,6 +509,10 @@ this file, don't trust it blindly.
   Reels: workspace tab `reels` (`/admin/cc/workspace/reels`, file + review routes). The page must never use
   prompt() / confirm() / alert() -- Android WebView shows none of them (inline inputs instead). Its CSP needs
   `media-src 'self' blob:` or the fetched reel never plays.
+- NO videos for products (owner 2026-11-04: a reel costs more than the commission earns; story-reel PR #271 closed
+  unmerged). Staff page hides the Reels tab / reel buttons (routes stay). Items = link / photos + price + description +
+  commission link (`affiliate_url`, grant `links`) + Commission % (`verified_commission_rate`, grant `commission`; a rate
+  > 0 sets `commission_status` ACTIVE) -> LIVE items show in search with their own photos.
 - Base plans = `subscription_plans.py` (audience `base`, seeded once from `growth()`, never overwritten);
   Smart Fill = `catalogue_templates.smart_fill` (seller's own words only; app fills empty fields only).
 - Partners take jobs only with `docs_checked` complete (`delivery.docs_missing`); paid plans go on sale only
