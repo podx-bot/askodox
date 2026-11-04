@@ -115,10 +115,10 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
  ${dup.length?`<p class="warn">Already in ASKODOX: ${dup.map(x=>`#${x.id} ${esc(x.title)} (${esc(x.review_status)})`).join(", ")}</p>`:""}
  <label>Photos</label><div class="thumbs" id="thumbs"></div>
  <div class="row"><label class="s btn">📷 Camera<input id="photo" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery<input id="photos" type="file" accept="image/*" multiple hidden></label></div>
- ${MYFIELDS().filter(([k])=>MAIN_MYFIELDS().includes(k)).map(field).join("")}
+ ${MYFIELDS().filter(([k])=>MAIN_FIELDS.includes(k)).map(field).join("")}
  <span class="mut" id="aidescnote"></span>
  <details style="margin:6px 0 10px"><summary class="mut">More details (optional) / మరిన్ని వివరాలు</summary>
- ${MYFIELDS().filter(([k])=>!MAIN_MYFIELDS().includes(k)).map(field).join("")}
+ ${MYFIELDS().filter(([k])=>!MAIN_FIELDS.includes(k)).map(field).join("")}
  <label>Stock</label><select id="f_stock"><option>UNKNOWN</option><option ${d.suggested_stock==="IN_STOCK"?"selected":""}>IN_STOCK</option><option ${d.suggested_stock==="OUT_OF_STOCK"?"selected":""}>OUT_OF_STOCK</option></select>
  <div class="row"><button class="s" id="aidesc">✨ AI తో description మళ్లీ రాయి</button></div></details>
  <p class="mut">Store item: the store's own name, price and photos are kept as given (no AI photos / reels). / Store item: store ఇచ్చిన data మాత్రమే.</p>
