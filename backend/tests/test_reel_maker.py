@@ -68,7 +68,7 @@ def test_workspace_reel_from_own_photos_goes_to_review(api):  # noqa: F811
         "image_url": ups[0]["url"], "images": [ups[0]["url"], ups[1]["url"], "https://evil.example/x.jpg"]}})
     assert saved.status_code == 200, saved.text
     item_id = saved.json()["item"]["id"]
-    made = client.post(f"/admin/cc/workspace/items/{item_id}/reel", headers=h, json={"seconds": 6})
+    made = client.post(f"/admin/cc/workspace/items/{item_id}/reel", headers=h, json={"seconds": 6, "style": "slides"})
     assert made.status_code == 200, made.text
     got = made.json()
     assert got["status"] == "MAKING" and got["photos"] == 2, "outside photo URLs are never used"
@@ -107,7 +107,7 @@ def test_workspace_reels_tab_lists_plays_and_approves(api):  # noqa: F811
         "title": "Red colour saree", "price": 799, "platform": "other",
         "original_product_url": "https://wa.me/919800000001", "image_url": up["url"], "images": [up["url"]]}})
     item_id = saved.json()["item"]["id"]
-    made = client.post(f"/admin/cc/workspace/items/{item_id}/reel", headers=OWNER, json={"seconds": 6}).json()
+    made = client.post(f"/admin/cc/workspace/items/{item_id}/reel", headers=OWNER, json={"seconds": 6, "style": "slides"}).json()
     first = client.get(f"/admin/cc/workspace/reels?item_id={item_id}", headers=OWNER).json()["items"]
     assert first and first[0]["video_id"] == made["video_id"]
     deadline = time.time() + 60
@@ -130,3 +130,65 @@ def test_staff_page_may_play_a_reel_it_fetched():
 
     media = next(p for p in CSP.split(";") if p.strip().startswith("media-src"))
     assert "blob:" in media and "'self'" in media
+
+
+def test_story_reel_tells_a_voiced_story_in_each_language(api, monkeypatch):  # noqa: F811
+    """Owner 2026-11-04: not a slideshow -- an AI story from the item's facts + real
+    review snippets, one voice per scene, made in Telugu and translated."""
+    import json as _json
+    import struct
+    import wave
+
+    from app.api.routes import in_app_assistant, universal_deals
+    from app.api.routes.platform import platform
+
+    client, container, _ = api
+    ups = [client.post("/admin/cc/workspace/uploads", headers=OWNER,
+                       files={"file": (f"{i}.jpg", _jpeg(c), "image/jpeg")}).json()
+           for i, c in enumerate([(30, 120, 200), (200, 120, 30)])]
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Steel water bottle 1 litre", "price": 499, "currency": "INR",
+        "original_product_url": "https://brand.example/steel-bottle",
+        "image_url": ups[0]["url"], "images": [ups[0]["url"], ups[1]["url"]]}}).json()
+    assert "item" in saved, saved
+    prompts = []
+
+    class Brain:
+        def write_text(self, prompt, max_tokens=0):
+            prompts.append(prompt)
+            word = "Hello" if "Translate" in prompt else "నమస్తే"
+            return _json.dumps({"scenes": [{"say": f"{word} {i}.", "caption": f"c{i}"} for i in range(3)]})
+
+    monkeypatch.setattr(container, "universal_ai_assistant_service", Brain(), raising=False)
+    monkeypatch.setattr(universal_deals, "_web_search", lambda c: (lambda q, limit=8: [
+        {"title": "Bottle review", "url": "https://reviews.example/b", "description": "Keeps water cold for hours."}]))
+
+    def wav():
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(22050)  # noqa: E702
+            w.writeframes(b"".join(struct.pack("<h", 0) for _ in range(22050)))
+        return buf.getvalue()
+
+    class Voice:
+        def synthesize(self, text, voice="automatic", locale=""):
+            return {"success": True, "content": wav()}
+
+    monkeypatch.setattr(in_app_assistant, "_elevenlabs", lambda c: Voice())
+    made = client.post(f"/admin/cc/workspace/items/{saved['item']['id']}/reel", headers=OWNER,
+                       json={"languages": ["te", "en", "xx"]}).json()
+    assert made["style"] == "story" and made["languages"] == ["te", "en"] and len(made["video_ids"]) == 2
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        states = [((platform(container).resources.repo.get(v).get("data") or {}).get("reel") or {})
+                  for v in made["video_ids"]]
+        if all(s.get("status") not in (None, "MAKING") for s in states):
+            break
+        time.sleep(0.5)
+    assert [s["status"] for s in states] == ["READY", "READY"], states
+    assert [s["language"] for s in states] == ["te", "en"]
+    assert states[0]["script"][0]["say"].startswith("నమస్తే") and states[1]["script"][0]["say"].startswith("Hello")
+    assert states[0]["voice"] and states[0]["review_sources"] == ["reviews.example"]
+    assert "Keeps water cold" in prompts[0], "the script is written from the real review snippet"
+    rows = client.get(f"/admin/cc/workspace/reels?item_id={saved['item']['id']}", headers=OWNER).json()["items"]
+    assert {r["language"] for r in rows} == {"te", "en"} and all(r["style"] == "story" for r in rows)

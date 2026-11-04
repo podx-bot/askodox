@@ -738,8 +738,12 @@ def workspace_analytics(request: Request) -> dict:
 # --------------------------------------------------------------- reels --
 
 class ReelBody(BaseModel):
-    voice_text: str = Field(default="", max_length=600)   # spoken over the reel (ElevenLabs when configured)
+    voice_text: str = Field(default="", max_length=600)   # staff's own narration (else the AI writes the story)
     seconds: int = Field(default=30, ge=6, le=60)
+    # Owner 2026-11-04: a STORY reel (AI script from facts + real reviews, one voice,
+    # captions) is the default; "slides" keeps the old photo slideshow.
+    style: str = Field(default="story", pattern="^(story|slides)$")
+    languages: list[str] = Field(default_factory=lambda: ["te"], max_length=4)
 
 
 def _own_photo_paths(request: Request, item: dict[str, Any]) -> list[str]:
@@ -801,21 +805,41 @@ def make_item_reel(item_id: int, body: ReelBody, request: Request) -> dict:
     price = reel_maker.price_text(item.get("price"), str(item.get("currency") or "INR"))
     folder = os.path.join(os.path.dirname(os.path.abspath(container.settings.database_path)), "video_uploads")
     os.makedirs(folder, exist_ok=True)
-    stem = _hashlib.sha256(f"reel:{item_id}:{time.time_ns()}".encode()).hexdigest()[:32]
+    from app.services import reel_story
+
+    languages = [code for code in dict.fromkeys(body.languages or ["te"]) if code in reel_story.LANGUAGES] or ["te"]
+    if body.style == "slides":
+        languages = languages[:1]
     base = str(request.base_url).rstrip("/").replace("http://", "https://")
     pf = _pf(request)
-    record = pf.resources.create("videos", {
-        "title": title[:140], "platform": "askodox", "url": f"{base}/media/videos/{stem}.mp4",
-        "description": str(item.get("description") or "")[:2000],
-        "categories": [str(item.get("category") or "").lower()] if item.get("category") else [],
-        "products": [title[:80]], "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
-    }, actor=f"staff:{principal.get('id')}", status="DRAFT")
     repo = pf.resources.repo
-    # Marked at once so the workspace "Reels" tab shows it as MAKING.
-    repo.update(record["id"], actor="system:reel", action="reel",
-                data={**(record.get("data") or {}), "reel": {"item_id": item_id, "status": "MAKING"}})
+    jobs = []
+    for code in languages:
+        stem = _hashlib.sha256(f"reel:{item_id}:{code}:{time.time_ns()}".encode()).hexdigest()[:32]
+        label = "" if code == "te" else f" ({reel_story.LANGUAGES[code]})"
+        record = pf.resources.create("videos", {
+            "title": (title[:120] + label)[:140], "platform": "askodox", "url": f"{base}/media/videos/{stem}.mp4",
+            "description": str(item.get("description") or "")[:2000],
+            "categories": [str(item.get("category") or "").lower()] if item.get("category") else [],
+            "products": [title[:80]], "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
+        }, actor=f"staff:{principal.get('id')}", status="DRAFT")
+        # Marked at once so the workspace "Reels" tab shows it as MAKING.
+        repo.update(record["id"], actor="system:reel", action="reel",
+                    data={**(record.get("data") or {}),
+                          "reel": {"item_id": item_id, "status": "MAKING", "language": code, "style": body.style}})
+        jobs.append((code, stem, record))
 
-    def work() -> None:
+    def finish(record: dict, code: str, outcome: dict, extra: dict) -> None:
+        current = repo.get(record["id"]) or record
+        data = dict(current.get("data") or {})
+        data["reel"] = {"item_id": item_id, "status": "READY" if outcome.get("ok") else "FAILED",
+                        "reason": outcome.get("reason"), "price_shown": price, "language": code,
+                        "style": body.style, **extra}
+        repo.update(record["id"], actor="system:reel", action="reel",
+                    status="PENDING_REVIEW" if outcome.get("ok") else None, data=data)
+
+    def work_slides() -> None:
+        code, stem, record = jobs[0]
         audio = _reel_audio(container, body.voice_text, folder, stem)
         outcome = reel_maker.make_reel(photos, title, price, os.path.join(folder, stem + ".mp4"),
                                        seconds=body.seconds, audio=audio)
@@ -824,16 +848,79 @@ def make_item_reel(item_id: int, body: ReelBody, request: Request) -> dict:
                 os.remove(audio)
             except OSError:
                 pass
-        current = repo.get(record["id"]) or record
-        data = dict(current.get("data") or {})
-        data["reel"] = {"item_id": item_id, "status": "READY" if outcome.get("ok") else "FAILED",
-                        "reason": outcome.get("reason"), "voice": bool(audio), "price_shown": price}
-        repo.update(record["id"], actor="system:reel", action="reel",
-                    status="PENDING_REVIEW" if outcome.get("ok") else None, data=data)
+        finish(record, code, outcome, {"voice": bool(audio)})
 
-    threading.Thread(target=work, name=f"reel-{record['id']}", daemon=True).start()
-    return {"video_id": record["id"], "status": "MAKING", "photos": len(photos), "price_shown": price,
-            "voice": bool(body.voice_text.strip())}
+    def work_story() -> None:
+        brain = getattr(container, "universal_ai_assistant_service", None)
+        write = (lambda text: brain.write_text(text, max_tokens=1400)) if brain is not None else (lambda text: "")
+        first = languages[0]
+        if body.voice_text.strip():
+            script = reel_story.custom_script(body.voice_text, first)
+            reviews: list[dict] = []
+        else:
+            try:
+                from app.api.routes.universal_deals import _web_search
+
+                search = _web_search(container)
+            except Exception:
+                search = None
+            reviews = reel_story.gather_reviews(search, title, str(item.get("brand") or ""))
+            script = reel_story.write_script(write, item, language=first, photo_facts=_photo_facts_for(container, photos),
+                                             reviews=reviews)
+        tts = None
+        try:
+            from app.api.routes.in_app_assistant import _elevenlabs
+
+            tts = _elevenlabs(container)
+        except Exception:
+            tts = None
+        for code, stem, record in jobs:
+            current = script if code == first else (
+                reel_story.translate_script(write, script, code) if script.get("ok") else script)
+            if not current.get("ok"):
+                finish(record, code, {"ok": False, "reason": current.get("reason") or "script_failed"}, {})
+                continue
+
+            def voice(text: str, _code: str = code) -> bytes | None:
+                if tts is None:
+                    return None
+                spoken = tts.synthesize(text, locale=_code)
+                return spoken.get("content") if spoken.get("success") else None
+
+            outcome = reel_story.render(photos, current, title, price, os.path.join(folder, stem + ".mp4"), voice=voice)
+            finish(record, code, outcome, {
+                "voice": bool(outcome.get("voiced_scenes")), "script": current.get("scenes"),
+                "review_sources": [r["host"] for r in reviews][:6], "custom": bool(current.get("custom")),
+                "seconds": outcome.get("seconds")})
+
+    threading.Thread(target=work_slides if body.style == "slides" else work_story,
+                     name=f"reel-{item_id}", daemon=True).start()
+    return {"video_id": jobs[0][2]["id"], "video_ids": [j[2]["id"] for j in jobs], "status": "MAKING",
+            "photos": len(photos), "price_shown": price, "style": body.style, "languages": languages,
+            "voice": True if body.style == "story" else bool(body.voice_text.strip())}
+
+
+def _photo_facts_for(container: Any, paths: list[str]) -> list[str]:
+    """What the item's own photos show (same image brain as chat), for the script."""
+    from app.services.attachment_facts import attachment_facts
+
+    service = getattr(container, "universal_image_service", None)
+    if service is None:
+        return []
+    out = []
+    for path in paths[:2]:
+        ext = path.rsplit(".", 1)[-1].lower()
+        mime = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext)
+        if not mime:
+            continue
+        try:
+            with open(path, "rb") as handle:
+                facts = attachment_facts("image", service.analyze(handle.read(), mime_type=mime) or {})
+        except Exception:
+            facts = ""
+        if facts:
+            out.append(str(facts)[:600])
+    return out
 
 
 # ------------------------------------------------------------------ reels --
@@ -852,6 +939,9 @@ def _reel_records(request: Request) -> list[dict[str, Any]]:
                     "status": r.get("status"), "reel_status": reel.get("status") or "MAKING",
                     "reason": reel.get("reason"), "item_id": reel.get("item_id"),
                     "price_shown": reel.get("price_shown"), "voice": bool(reel.get("voice")),
+                    "style": reel.get("style") or "slides", "language": reel.get("language") or "te",
+                    "script": [str(s.get("say") or "") for s in (reel.get("script") or []) if isinstance(s, dict)],
+                    "review_sources": reel.get("review_sources") or [], "seconds": reel.get("seconds"),
                     "file": str(data.get("url") or "").rsplit("/", 1)[-1],
                     "created_at": r.get("created_at"), "updated_at": r.get("updated_at")})
     out.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)

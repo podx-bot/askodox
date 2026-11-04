@@ -183,7 +183,7 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
   if(photos.length){fields.images=photos;fields.image_url=photos[0]}
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"product",fields,action});
    let msg=r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
-   if($("#o_reel").checked&&r.item&&photos.length){try{await api(`/admin/cc/workspace/items/${r.item.id}/reel`,"POST",{voice_text:"",seconds:30});msg+=" · 🎬 Reel తయారవుతోంది -- Reels tab లో చూడండి"}catch(e){msg+=" · Reel: "+e.message}}
+   if($("#o_reel").checked&&r.item&&photos.length){try{await api(`/admin/cc/workspace/items/${r.item.id}/reel`,"POST",{style:"story",languages:["te","en","hi"],seconds:30});msg+=" · 🎬 Story reel (తెలుగు + English + हिंदी) తయారవుతోంది -- Reels tab లో చూడండి"}catch(e){msg+=" · Reel: "+e.message}}
    toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
  $("#o_draft").onclick=()=>save("draft");$("#o_submit").onclick=()=>save("submit")}
 function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
@@ -192,9 +192,14 @@ function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${es
 // Android WebView shows no prompt() / confirm() dialogs: everything is inline.
 function bindReel(){M.querySelectorAll("button[data-reel]").forEach(b=>b.onclick=()=>{
  const box=document.createElement("div");box.className="row";box.style.marginTop="6px";
- box.innerHTML=`<input placeholder="Reel లో చెప్పాల్సిన మాటలు (optional)"><button class="p">🎬 Make reel</button>`;b.replaceWith(box);
- box.querySelector("button").onclick=async()=>{try{const r=await api(`/admin/cc/workspace/items/${b.dataset.reel}/reel`,"POST",{voice_text:box.querySelector("input").value.trim(),seconds:30});
-  toast(`Reel తయారవుతోంది (${r.photos} photos). 🎬 Reels tab లో చూడండి.`);box.innerHTML=`<span class="mut">🎬 Reel తయారవుతోంది -- Reels tab లో చూడండి</span>`}catch(e){toast(e.message)}}})}
+ const LG=[["te","తెలుగు"],["en","English"],["hi","हिंदी"],["ta","தமிழ்"],["kn","ಕನ್ನಡ"],["ml","മലയാളം"]];
+ box.innerHTML=`<div class="mut" style="width:100%">AI story: product facts + online reviews + ఒకే voice. భాషలు (max 4):</div>
+  ${LG.map(([c,l])=>`<label style="margin-right:8px"><input type="checkbox" value="${c}" ${["te","en","hi"].includes(c)?"checked":""}> ${l}</label>`).join("")}
+  <input class="say" placeholder="మీ సొంత మాటలు (optional -- ఖాళీగా ఉంటే AI story రాస్తుంది)"><button class="p">🎬 Make story reel</button>`;b.replaceWith(box);
+ box.querySelector("button").onclick=async()=>{const langs=[...box.querySelectorAll("input[type=checkbox]:checked")].map(x=>x.value).slice(0,4);
+  if(!langs.length){toast("ఒక భాష అయినా ఎంచుకోండి");return}
+  try{const r=await api(`/admin/cc/workspace/items/${b.dataset.reel}/reel`,"POST",{style:"story",languages:langs,voice_text:box.querySelector("input.say").value.trim(),seconds:30});
+  toast(`Story reel తయారవుతోంది (${r.languages.length} భాషలు). 🎬 Reels tab లో చూడండి.`);box.innerHTML=`<span class="mut">🎬 Reel తయారవుతోంది -- Reels tab లో చూడండి</span>`}catch(e){toast(e.message)}}})}
 function bindReview(){bindReel();M.querySelectorAll("button[data-a]").forEach(b=>b.onclick=async()=>{
  const send=async note=>{try{await api(`/admin/cc/workspace/items/${b.dataset.id}/review`,"POST",{action:b.dataset.a,note});toast("Done");start()}catch(e){toast(e.message)}};
  if(b.dataset.a!=="reject")return send("");
@@ -204,7 +209,8 @@ function bindReview(){bindReel();M.querySelectorAll("button[data-a]").forEach(b=
 async function reels(){const d=await api("/admin/cc/workspace/reels");
  const label={MAKING:"⏳ తయారవుతోంది",READY:"✓ Ready",FAILED:"✗ Failed"};
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">🎬 Reels (${d.items.length})</h3>${d.items.map(r=>`<div class="item"><div class="grow"><b>${esc(r.title)}</b>
-  <div class="mut">${label[r.reel_status]||esc(r.reel_status)} · <span class="badge">${esc(r.status)}</span>${r.price_shown?" · "+esc(r.price_shown):""}${r.reason?` · <span class="bad">${esc(r.reason)}</span>`:""}</div>
+  <div class="mut">${label[r.reel_status]||esc(r.reel_status)} · <span class="badge">${esc(r.status)}</span>${r.price_shown?" · "+esc(r.price_shown):""}${r.reason?` · <span class="bad">${esc(r.reason)}</span>`:""}${r.style==="story"?` · ${esc(r.language)}${r.voice?" · 🎙️ voice":""}${r.seconds?" · "+esc(Math.round(r.seconds))+"s":""}`:" · slides"}</div>
+  ${r.script&&r.script.length?`<details><summary class="mut">Script${r.review_sources&&r.review_sources.length?" · reviews: "+esc(r.review_sources.join(", ")):""}</summary>${r.script.map((x,i)=>`<div class="mut">${i+1}. ${esc(x)}</div>`).join("")}</details>`:""}
   <div id="v_${esc(r.video_id)}"></div><div class="row" style="margin-top:6px">${r.reel_status==="READY"?`<button class="s" data-play="${esc(r.video_id)}">▶ Play</button>`:""}
   ${d.can_publish&&r.status==="PENDING_REVIEW"?`<button class="p" data-rv="approve" data-id="${esc(r.video_id)}">Approve -- users చూస్తారు</button><button class="s" data-rv="reject" data-id="${esc(r.video_id)}">Reject</button>`:""}</div></div></div>`).join("")
   ||'<p class="mut">No reels yet. Own / Brand product save చేసేటప్పుడు "Reel కూడా తయారు చేయి" tick చేయండి, లేదా My items లో 🎬 నొక్కండి.</p>'}
