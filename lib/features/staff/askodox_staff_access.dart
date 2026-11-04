@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/api_models.dart';
@@ -177,6 +179,17 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
     }))
     ..loadRequest(widget.uri);
 
+  @override
+  void initState() {
+    super.initState();
+    // Android WebView opens NO chooser for <input type=file> unless the app
+    // answers it: Camera / Gallery in the workspace did nothing (owner, 2026-11-04).
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      unawaited(platform.setOnShowFileSelector(askodoxPickFilesForWebPage));
+    }
+  }
+
   Future<void> _readForPage(String message) async {
     Object? id;
     Map<String, Object?> result;
@@ -199,6 +212,27 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
       appBar: AppBar(title: Text(te ? 'స్టాఫ్ వర్క్‌స్పేస్' : 'Staff Workspace')),
       body: SafeArea(child: WebViewWidget(controller: _controller)),
     );
+  }
+}
+
+/// Photos for an `<input type=file>` in a web page: the camera when the page
+/// asks for capture, else the gallery (several when allowed). Re-encoded as
+/// JPEG <= 2000 px so uploads stay small. Returns file:// URIs (none = cancelled).
+Future<List<String>> askodoxPickFilesForWebPage(FileSelectorParams params, {ImagePicker? picker}) async {
+  final pick = picker ?? ImagePicker();
+  try {
+    if (params.isCaptureEnabled) {
+      final shot = await pick.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 2000);
+      return shot == null ? const [] : [Uri.file(shot.path).toString()];
+    }
+    if (params.mode == FileSelectorMode.openMultiple) {
+      final many = await pick.pickMultiImage(imageQuality: 85, maxWidth: 2000);
+      return [for (final f in many) Uri.file(f.path).toString()];
+    }
+    final one = await pick.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 2000);
+    return one == null ? const [] : [Uri.file(one.path).toString()];
+  } catch (_) {
+    return const []; // permission denied / no camera: the page simply gets no file
   }
 }
 

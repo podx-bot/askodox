@@ -37,6 +37,8 @@ dependencies:
   # when the SDK updates that pin.
   intl: any
   webview_flutter: ^4.14.1
+  # Android file chooser for <input type=file> in the Staff Workspace page.
+  webview_flutter_android: ^4.0.0
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   video_player: ^2.14.1
