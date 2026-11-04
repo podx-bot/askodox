@@ -1,0 +1,13 @@
+name: Probe 272
+on:
+  push:
+    branches: [claude/probe-272]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B=https://podx-ai-connect-production-3279.up.railway.app
+          for i in $(seq 1 30); do c=$(curl -s $B/health | python3 -c 'import sys,json;print(json.load(sys.stdin).get("commit",""))'); echo "::warning::commit=$c"; case "$c" in 293b285*) break;; esac; sleep 20; done
+          curl -s $B/staff | grep -c "Commission %" | sed 's/^/::warning::commission_label_count=/'
+          curl -s $B/staff | grep -c '"reels","🎬 Reels"' | sed 's/^/::warning::reels_tab_count=/'
