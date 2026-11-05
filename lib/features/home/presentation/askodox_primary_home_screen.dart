@@ -73,6 +73,7 @@ import '../data/taxonomy_repository.dart';
 import 'video_viewer_screen.dart';
 import 'video_study_panel.dart';
 import '../../guide/in_app_guide.dart';
+import '../../staff/askodox_staff_access.dart';
 import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
@@ -4042,6 +4043,26 @@ class _AskodoxPrimaryHomeScreenState
   Widget _home(bool te) => ListView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
         children: [
+          // Staff only: one tap to the Staff Workspace (never shown to customers).
+          if (ref.watch(askodoxIsStaffProvider).valueOrNull == true)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: OutlinedButton.icon(
+                key: const ValueKey('askodoxHomeStaffShortcut'),
+                icon: const Icon(Icons.badge_outlined),
+                label: Text(te ? 'స్టాఫ్ వర్క్‌స్పేస్' : 'Staff Workspace'),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final opened = await openStaffWorkspace(context, ref);
+                  if (!opened && mounted) {
+                    messenger.showSnackBar(SnackBar(
+                        content: Text(te
+                            ? 'స్టాఫ్ వర్క్‌స్పేస్ తెరవలేకపోయాం. కనెక్షన్ చూడండి.'
+                            : 'Could not open the Staff Workspace. Check the connection.')));
+                  }
+                },
+              ),
+            ),
           if (_leads.isNotEmpty)
             Card(
               key: const Key('askodoxLeadsInbox'),
