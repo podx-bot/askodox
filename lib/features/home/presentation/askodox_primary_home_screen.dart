@@ -6568,7 +6568,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       // the conversation below stays on the same screen.
       width: compact ? askodoxCompactCardWidth : null,
       margin: compact ? const EdgeInsets.only(right: 8, bottom: 8) : const EdgeInsets.only(bottom: 10),
-      padding: EdgeInsets.all(compact ? 10 : 14),
+      padding: EdgeInsets.all(compact ? 8 : 14),
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(compact ? 14 : 18),
@@ -6712,12 +6712,16 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                               ? const Color(0xFF1B7F3B)
                               : (match.fitStatus == 'mismatch' ? const Color(0xFFB3261E) : const Color(0xFF8A5A00)))),
                 ],
-                SizedBox(height: compact ? 5 : 8),
+                SizedBox(height: compact ? 4 : 8),
                 Wrap(spacing: compact ? 5 : 8, runSpacing: compact ? 4 : 6, children: [
                   ...() {
                     final facts = <Widget>[
                   if (widget.kind == null) _meta(_sourceLabel(_match.source)),
-                  if (match.sourceName?.trim().isNotEmpty == true)
+                  // A compact card already shows the source as its subtitle
+                  // line; repeating it as a chip only pushes the actions out
+                  // of the rail box.
+                  if (match.sourceName?.trim().isNotEmpty == true &&
+                      !(compact && match.sourceName!.trim() == (match.subtitle ?? '').trim()))
                     _meta(match.sourceName!.trim()),
                   if (match.duration?.trim().isNotEmpty == true)
                     _meta(match.duration!.trim()),
@@ -6750,7 +6754,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 ]),
               ])),
         ]),
-        SizedBox(height: compact ? 6 : 12),
+        SizedBox(height: compact ? 4 : 12),
         if (_orderStatusMessage != null) ...[
           Text(
             _orderStatusMessage!,
