@@ -6673,7 +6673,9 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                     child: Text(
                         paid == 'Promoted'
                             ? (te ? 'ప్రమోట్ చేయబడింది' : 'Promoted')
-                            : (te ? 'స్పాన్సర్డ్' : 'Sponsored'),
+                            : paid == 'Affiliate'
+                                ? (te ? 'అఫిలియేట్ లింక్' : 'Affiliate link')
+                                : (te ? 'స్పాన్సర్డ్' : 'Sponsored'),
                         style: const TextStyle(
                             color: Color(0xFF7A5A00), fontSize: 11, fontWeight: FontWeight.w800)),
                   ),
