@@ -121,7 +121,7 @@ void main() {
     expect(again.relationship, 'affiliate');
     expect(again.videoAnalyzed, isTrue);
     expect(again.relatedServices, ['EV servicing']);
-    expect(again.paidPlacementLabel, 'Sponsored');
+    expect(again.paidPlacementLabel, 'Affiliate');
   });
 
   test('merchant offer on a seller result shows as the offer line', () {

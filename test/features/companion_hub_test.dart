@@ -177,7 +177,7 @@ void main() {
       const affiliate = UniversalMatch(id: 'p-1', title: 'Store', affiliate: true, segment: 'partner');
       expect(organic.paidPlacementLabel, isNull);
       expect(sponsored.paidPlacementLabel, 'Promoted');
-      expect(affiliate.paidPlacementLabel, 'Sponsored');
+      expect(affiliate.paidPlacementLabel, 'Affiliate');
       expect(askodoxSegmentOf(sponsored), AskodoxResultSegment.sponsored);
       expect(askodoxSegmentOf(organic), isNot(AskodoxResultSegment.sponsored));
     });

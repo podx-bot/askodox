@@ -260,15 +260,15 @@ class UniversalMatch {
 
   bool get isJob => segment == 'jobs' || pageType == 'job_listing';
 
-  /// The visible paid-placement badge, or null for an organic result:
-  /// sponsored campaigns show their own label, affiliate / partner links
-  /// (ASKODOX may earn a commission) show "Sponsored".
+  /// The visible badge, or null for an organic result. Paid campaigns show
+  /// "Sponsored" / "Promoted"; an affiliate / partner link (ASKODOX may earn a
+  /// commission) is labelled "Affiliate" -- it is not a paid placement.
   String? get paidPlacementLabel {
     if (sponsored) {
       final label = sponsoredLabel?.trim() ?? '';
       return label == 'Promoted' ? 'Promoted' : 'Sponsored';
     }
-    if (affiliate || segment == 'partner' || source == 'partner') return 'Sponsored';
+    if (affiliate || segment == 'partner' || source == 'partner') return 'Affiliate';
     return null;
   }
 
