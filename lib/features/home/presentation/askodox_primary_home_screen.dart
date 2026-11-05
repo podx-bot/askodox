@@ -4052,8 +4052,10 @@ class _AskodoxPrimaryHomeScreenState
                 icon: const Icon(Icons.badge_outlined),
                 label: Text(te ? 'స్టాఫ్ వర్క్‌స్పేస్' : 'Staff Workspace'),
                 onPressed: () async {
-                  if (!await openStaffWorkspace(context, ref) && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  final messenger = ScaffoldMessenger.of(context);
+                  final opened = await openStaffWorkspace(context, ref);
+                  if (!opened && mounted) {
+                    messenger.showSnackBar(SnackBar(
                         content: Text(te
                             ? 'స్టాఫ్ వర్క్‌స్పేస్ తెరవలేకపోయాం. కనెక్షన్ చూడండి.'
                             : 'Could not open the Staff Workspace. Check the connection.')));
