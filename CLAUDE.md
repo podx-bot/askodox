@@ -515,6 +515,11 @@ this file, don't trust it blindly.
   (story-reel PR #271 closed unmerged). Staff page hides the Reels tab / reel buttons (routes stay). Items = link / photos + price + description +
   commission link (`affiliate_url`, grant `links`) + Commission % (`verified_commission_rate`, grant `commission`; a rate
   > 0 sets `commission_status` ACTIVE) -> LIVE items show in search with their own photos.
+  Edit after saving = `PATCH /admin/cc/workspace/items/{id}` (My items ✏️ Edit / 🎥 Video; a non-publisher's edit of a LIVE
+  item -> NEEDS_REVIEW). Bad-item alerts = `item_health_alerts.py` via `AffiliateCatalog.on_change` (set in `catalog()`):
+  OUT_OF_STOCK / commission INACTIVE / rate < `catalog.min_commission_rate` (default 1) -> ONE staff task + push to the
+  adder (dedupe `item_health:{id}:{reason}`). It only sees RECORDED changes (Meesho has no API). Staff write the video
+  description in English only; viewers get it translated (`video_localization.py`).
 - Base plans = `subscription_plans.py` (audience `base`, seeded once from `growth()`, never overwritten);
   Smart Fill = `catalogue_templates.smart_fill` (seller's own words only; app fills empty fields only).
 - Partners take jobs only with `docs_checked` complete (`delivery.docs_missing`); paid plans go on sale only

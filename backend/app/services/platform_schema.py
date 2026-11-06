@@ -1208,6 +1208,8 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     "catalog.hide_out_of_stock": (0, 1, 1),
     "catalog.organic_when_commission_inactive": (0, 1, 1),
     "catalog.pause_on_out_of_stock": (0, 1, 0),
+    # Staff alert when an item's commission % drops below this (item_health_alerts).
+    "catalog.min_commission_rate": (0, 50, 1),
     # Universal sources: live connector timeout (s) and feed refresh (h).
     "sources.timeout_seconds": (1, 15, 4),
     "sources.feed_refresh_hours": (1, 168, 24),

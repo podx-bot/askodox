@@ -625,3 +625,82 @@ def test_video_description_translates_once_then_serves_saved_copy(api, monkeypat
     monkeypatch.setattr(video_localization, "translate", failing)
     kn = client.get(f"/api/videos/{video_id}/description?lang=kn").json()
     assert kn["text"] == "Leak-proof steel tiffin box." and kn["source"] == "unavailable", kn
+
+
+def test_staff_edit_item_and_bad_item_alerts_once(api):
+    """Owner 2026-11-06: items can be edited after saving (and a video added later); an item that
+    goes out of stock, loses its commission, or drops below the 1 % commission floor raises ONE
+    staff task (no repeats). A non-publisher's edit of a LIVE item goes back to review."""
+    from app.api.routes.platform import platform
+
+    client, container, _ = api
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Ceramic coffee mug", "price": 199, "mrp": 299, "platform": "other",
+        "original_product_url": "https://brand.example/mug", "verified_commission_rate": "8"}})
+    assert saved.status_code == 200, saved.text
+    item_id = saved.json()["item"]["id"]
+
+    def tasks():
+        return [t for t in platform(container).repo.list("staff_tasks")
+                if str((t.get("data") or {}).get("dedupe_key") or "").startswith(f"item_health:{item_id}:")]
+
+    edited = client.patch(f"/admin/cc/workspace/items/{item_id}", headers=OWNER,
+                          json={"fields": {"title": "Ceramic coffee mug 350 ml", "price": 179}})
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["item"]["title"] == "Ceramic coffee mug 350 ml" and edited.json()["item"]["price"] == 179
+    assert tasks() == [], "a normal edit raises no alert"
+
+    out = client.patch(f"/admin/cc/workspace/items/{item_id}", headers=OWNER, json={"stock_status": "OUT_OF_STOCK"})
+    assert out.status_code == 200, out.text
+    assert [t["data"]["dedupe_key"] for t in tasks()] == [f"item_health:{item_id}:out_of_stock"]
+    client.patch(f"/admin/cc/workspace/items/{item_id}", headers=OWNER, json={"stock_status": "IN_STOCK"})
+    client.patch(f"/admin/cc/workspace/items/{item_id}", headers=OWNER, json={"stock_status": "OUT_OF_STOCK"})
+    assert len(tasks()) == 1, "the open task is not repeated"
+
+    low = client.patch(f"/admin/cc/workspace/items/{item_id}", headers=OWNER,
+                       json={"fields": {"verified_commission_rate": "0.5"}})
+    assert low.status_code == 200, low.text
+    keys = sorted(t["data"]["dedupe_key"] for t in tasks())
+    assert keys == [f"item_health:{item_id}:low_commission", f"item_health:{item_id}:out_of_stock"]
+    low_task = [t for t in tasks() if t["data"]["dedupe_key"].endswith("low_commission")][0]
+    assert "0.5%" in low_task["data"]["title"] and low_task["data"]["priority"] == "high"
+
+    bad = client.patch(f"/admin/cc/workspace/items/{item_id}", headers=OWNER,
+                       json={"fields": {"verified_commission_rate": "ten"}})
+    assert bad.status_code == 400
+    assert client.patch("/admin/cc/workspace/items/999999", headers=OWNER, json={"fields": {"title": "x"}}).status_code == 404
+
+
+def test_item_health_rules_are_universal():
+    from app.services import item_health_alerts as h
+
+    base = {"id": 7, "title": "Any item", "stock_status": "IN_STOCK", "commission_status": "ACTIVE",
+            "verified_commission_rate": 5}
+    assert h.problems(base, dict(base)) == []
+    assert [p["reason"] for p in h.problems(base, {**base, "stock_status": "OUT_OF_STOCK"})] == ["out_of_stock"]
+    assert [p["reason"] for p in h.problems(base, {**base, "commission_status": "INACTIVE"})] == ["commission_stopped"]
+    assert [p["reason"] for p in h.problems(base, {**base, "verified_commission_rate": 0.9})] == ["low_commission"]
+    already_low = {**base, "verified_commission_rate": 0.5}
+    assert h.problems(already_low, {**already_low, "verified_commission_rate": 0.4}) == [], "only a NEW drop alerts"
+    assert h.problems(base, {**base, "verified_commission_rate": None}) == [], "no rate is not a low rate"
+
+
+def test_junior_staff_edit_of_live_item_goes_back_to_review_and_others_cannot_edit(api):
+    client, container, _ = api
+    _staff(client, "affiliate_product_staff", phone="919833333333")
+    junior = {"X-ASKODOX-Staff-Session": client.post("/api/staff/session",
+                                                     headers=_app_bearer(container, "919833333333")).json()["session"]}
+    _staff(client, "affiliate_product_staff", phone="919844444444")
+    other = {"X-ASKODOX-Staff-Session": client.post("/api/staff/session",
+                                                    headers=_app_bearer(container, "919844444444")).json()["session"]}
+    saved = client.post("/admin/cc/workspace/items", headers=junior, json={"item_type": "product", "fields": {
+        "title": "Cotton bedsheet", "price": 499, "original_product_url": "https://brand.example/bedsheet"}}).json()
+    item_id = saved["item"]["id"]
+    assert client.post(f"/admin/cc/workspace/items/{item_id}/review", headers=OWNER,
+                       json={"action": "approve"}).json()["item"]["review_status"] == "LIVE"
+    assert client.patch(f"/admin/cc/workspace/items/{item_id}", headers=other,
+                        json={"fields": {"title": "Not mine"}}).status_code == 403
+    edited = client.patch(f"/admin/cc/workspace/items/{item_id}", headers=junior,
+                          json={"fields": {"title": "Cotton bedsheet double"}})
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["item"]["review_status"] == "NEEDS_REVIEW", "a junior's edit is checked again"
