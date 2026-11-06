@@ -1031,3 +1031,43 @@ def review_reel(video_id: str, body: ReelReviewBody, request: Request) -> dict:
     except Exception as error:
         raise HTTPException(status_code=409, detail=str(error)) from None
     return {"video_id": video_id, "status": item.get("status")}
+
+
+class ImageEditResult(BaseModel):
+    ok: bool
+    reason: str = ""
+    model: str = ""
+    mime_type: str = ""
+    image_base64: str = ""
+
+
+_EDIT_MIME = {".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+
+
+@router.post("/admin/cc/workspace/image-edit")
+async def image_edit(request: Request, prompt: str = Form(..., min_length=3, max_length=1000),
+                     first: UploadFile = File(...), second: UploadFile = File(...)) -> dict:
+    """Edit one photo with a reference photo (OpenAI images/edits). Staff only;
+    no key -> ok=false with a reason, never a made-up image."""
+    import base64
+
+    from starlette.concurrency import run_in_threadpool
+
+    _workspace(request)
+    images: list[tuple[bytes, str]] = []
+    for upload in (first, second):
+        data = await upload.read(MAX_UPLOAD + 1)
+        if not data or len(data) > MAX_UPLOAD:
+            raise HTTPException(status_code=400, detail="each photo must be 1 byte to 5 MB")
+        ext = next((e for magic, e in _IMAGE_MAGIC.items() if data.startswith(magic)), "")
+        if not ext:
+            raise HTTPException(status_code=400, detail="photos must be JPEG, PNG or WebP")
+        images.append((data, _EDIT_MIME[ext]))
+    service = getattr(request.app.state.container, "openai_image_service", None)
+    if service is None or not getattr(service, "configured", False):
+        return ImageEditResult(ok=False, reason="OPENAI_API_KEY is not set on this deployment").model_dump()
+    result, reason = await run_in_threadpool(service.edit, images, prompt.strip())
+    if result is None:
+        return ImageEditResult(ok=False, reason=reason or "no image returned").model_dump()
+    return ImageEditResult(ok=True, model=result.model, mime_type=result.mime_type,
+                           image_base64=base64.b64encode(result.data).decode()).model_dump()

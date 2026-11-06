@@ -704,3 +704,37 @@ def test_junior_staff_edit_of_live_item_goes_back_to_review_and_others_cannot_ed
                           json={"fields": {"title": "Cotton bedsheet double"}})
     assert edited.status_code == 200, edited.text
     assert edited.json()["item"]["review_status"] == "NEEDS_REVIEW", "a junior's edit is checked again"
+
+
+def test_staff_image_edit_uses_openai_service_and_never_invents_an_image(api, monkeypatch):
+    import base64
+
+    from app.services.openai_image_service import ImageResult
+
+    client, container, _ = api
+
+    class FakeService:
+        configured = True
+
+        def edit(self, images, prompt):
+            assert len(images) == 2 and prompt == "wig on second photo"
+            return ImageResult(data=b"\x89PNG-edited", mime_type="image/png", model="gpt-image-2.5"), ""
+
+    files = {"first": ("a.jpg", b"\xff\xd8\xff" + b"x" * 20, "image/jpeg"),
+             "second": ("b.png", b"\x89PNG" + b"y" * 20, "image/png")}
+    monkeypatch.setattr(container, "openai_image_service", FakeService(), raising=False)
+    body = client.post("/admin/cc/workspace/image-edit", headers=OWNER, data={"prompt": "wig on second photo"},
+                       files=files).json()
+    assert body["ok"] is True and base64.b64decode(body["image_base64"]) == b"\x89PNG-edited"
+
+    class NoKey(FakeService):
+        configured = False
+
+    monkeypatch.setattr(container, "openai_image_service", NoKey(), raising=False)
+    no_key = client.post("/admin/cc/workspace/image-edit", headers=OWNER, data={"prompt": "wig on second photo"},
+                         files=files).json()
+    assert no_key["ok"] is False and "OPENAI_API_KEY" in no_key["reason"] and no_key["image_base64"] == ""
+
+    bad = client.post("/admin/cc/workspace/image-edit", headers=OWNER, data={"prompt": "wig on second photo"},
+                      files={"first": ("a.txt", b"hello", "text/plain"), "second": files["second"]})
+    assert bad.status_code == 400
