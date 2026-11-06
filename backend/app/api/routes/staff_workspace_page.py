@@ -250,8 +250,17 @@ async function items(){const d=await api("/admin/cc/workspace/items?mine=true");
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">My items</h3>${d.items.map(i=>itemRow(i,acts(i),edit(i))).join("")||'<p class="mut">Nothing yet -- add a link.</p>'}</div>`;bindReview();bindEdit()}
 // Owner 2026-11-06: edit a saved item (inline -- Android WebView has no prompt()) and add a video later.
 let ITEMS={};
-function bindEdit(){M.querySelectorAll("button[data-edit]").forEach(b=>b.onclick=()=>{try{openEdit(b)}catch(e){toast("Edit: "+e.message)}})}
-function openEdit(b){const i=ITEMS[b.dataset.edit];if(!i){toast("Item not found -- open My items again");return}
+// ONE click listener on the main area (event delegation): it keeps working even if
+// the list is drawn again, and every tap shows something (owner 2026-11-06: form never came).
+let EDIT_BOUND=false;
+function bindEdit(){if(EDIT_BOUND)return;EDIT_BOUND=true;
+ document.addEventListener("click",ev=>{const b=ev.target&&ev.target.closest?ev.target.closest("button[data-edit]"):null;if(!b)return;
+  ev.preventDefault();toast("✏️ Edit తెరుస్తోంది…");
+  try{openEdit(b)}catch(e){toast("Edit: "+e.message)}},true)}
+async function editItem(id){let i=ITEMS[id];if(i)return i;
+ const d=await api("/admin/cc/workspace/items?mine=true");d.items.forEach(x=>ITEMS[x.id]=x);return ITEMS[id]}
+async function openEdit(b){const old=document.getElementById("editbox");if(old)old.remove();
+ const i=await editItem(b.dataset.edit);if(!i){toast("Item not found -- open My items again");return}
  const v=x=>x==null?"":esc(String(x));const box=document.createElement("div");box.className="card";box.style.marginTop="8px";
  box.innerHTML=`<label>Title / పేరు</label><input id="e_title" value="${v(i.title)}">
  <label>Price ₹ / ధర</label><input id="e_price" inputmode="decimal" value="${v(i.price)}">
@@ -263,9 +272,9 @@ function openEdit(b){const i=ITEMS[b.dataset.edit];if(!i){toast("Item not found 
  <label>Product video (optional, 60 సెకన్ల లోపు) / వీడియో</label><input type="file" id="e_vid" accept="video/mp4,video/webm,video/quicktime"><span class="mut" id="e_vidnote"></span>
  <p class="mut">Description ఇంగ్లీష్‌లో రాస్తే చాలు -- చూసేవారి భాషలోకి ఆటోమేటిక్‌గా మారుతుంది.</p>
  <div class="row"><button class="s" id="e_cancel">Cancel</button><button class="p" id="e_save">Save</button></div>`;
- const row=b.closest(".item");row.after(box);M.querySelectorAll("button[data-edit]").forEach(x=>x.disabled=true);PVID=null;
+ box.id="editbox";const row=b.closest(".item");if(row&&row.after)row.after(box);else M.prepend(box);PVID=null;
  box.querySelector("#e_vid").onchange=e=>pickVideo(e.target,box.querySelector("#e_vidnote"));
- if(b.dataset.vid){const v=box.querySelector("#e_vid");v.scrollIntoView({block:"center"});v.click()}else box.scrollIntoView({block:"start",behavior:"smooth"});
+ if(b.dataset.vid){const v=box.querySelector("#e_vid");v.scrollIntoView({block:"center"});try{v.click()}catch(e){}}else box.scrollIntoView({block:"start"});
  box.querySelector("#e_cancel").onclick=()=>items();
  box.querySelector("#e_save").onclick=async()=>{const q=s=>box.querySelector(s),f={title:q("#e_title").value.trim(),description:q("#e_desc").value.trim()};
   const num=x=>x.trim()===""?null:Number(x.trim().replace(/[₹,]/g,""));f.price=num(q("#e_price").value);f.mrp=num(q("#e_mrp").value);
@@ -275,6 +284,7 @@ function openEdit(b){const i=ITEMS[b.dataset.edit];if(!i){toast("Item not found 
    if(PVID){try{await attachVideo(i.id,f.description,"","");toast("Saved + video uploaded")}catch(e){toast("Saved. Video: "+e.message)}}
    else toast(r.item.review_status==="NEEDS_REVIEW"?"Saved -- review కి వెళ్లింది":"Saved");items()}
   catch(e){toast(e.message);q("#e_save").disabled=false;q("#e_save").textContent="Save"}}}
+
 async function tasks(){const d=await api("/admin/cc/workspace/tasks");
  const links=x=>((x.evidence||{}).links||[]).map(l=>`<div class="item"><div class="grow mut">${esc(l.url.replace(/^https:\/\/(www\.)?/,"").slice(0,60))}${l.affiliate_url?' <span class="ok">· commission link</span>':""}</div><button class="s" data-add="${esc(l.url)}" data-aff="${esc(l.affiliate_url||"")}">Add</button></div>`).join("");
  const batch=ME.can_assign?`<div class="card"><h3 style="margin-top:0">Links staff కి పంచండి</h3><p class="mut">ఒక line కి ఒక product link. Commission link ఉంటే అదే line లో space తర్వాత పెట్టండి.</p>
