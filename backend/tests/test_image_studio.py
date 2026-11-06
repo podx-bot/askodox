@@ -36,12 +36,18 @@ class FakeProvider:
 class FakeCredits:
     def __init__(self, insufficient=False):
         self.insufficient = insufficient
+        self.charging, self.rate = False, 0
         self.reserved, self.released = [], []
+
+    def settings(self):
+        return {"charging": self.charging, "rates_paise": {"image": self.rate}, "free_per_day": {"image": 0}}
 
     def reserve(self, user, feature, ref):
         if self.insufficient:
             raise CreditsError("insufficient", 402)
         self.reserved.append((user, feature, ref))
+        if self.charging and self.rate:
+            return {"charged": True, "paise": self.rate, "mode": "live"}
         return {"charged": False, "reason": "charging_off", "paise": 0}
 
     def release(self, user, ref):
@@ -138,3 +144,22 @@ def test_photo_analysis_asks_the_model_for_the_edit_request_from_the_words():
 
     prompt = UniversalImageService._prompt("ఈ విగ్గు నాకు పెట్టండి")
     assert '"image_request":"EDIT|CREATE|NONE"' in prompt and "in any language" in prompt
+
+
+def test_pay_as_you_go_has_no_daily_cap_and_reports_the_charge(studio):
+    client, container, _, credits = studio
+    credits.charging, credits.rate = True, 1500  # Rs 15 per picture, set by staff
+    me = _bearer(container)
+    bodies = [client.post("/api/images/edit", json=_body(), headers=me).json() for _ in range(3)]
+    assert all(b["ok"] for b in bodies), "credits decide, not the free-mode cap of 2"
+    assert bodies[-1]["daily_limit"] is None and bodies[-1]["charged_paise"] == 1500
+    credits.insufficient = True
+    assert client.post("/api/images/edit", json=_body(), headers=me).status_code == 402
+
+
+def test_zero_setting_still_switches_it_off_when_paid(studio, monkeypatch):
+    client, container, provider, credits = studio
+    credits.charging, credits.rate = True, 1500
+    monkeypatch.setattr(platform_settings, "get", lambda key, default=None: 0)
+    assert client.post("/api/images/edit", json=_body(), headers=_bearer(container)).json()["code"] == "off"
+    assert provider.calls == []

@@ -199,8 +199,9 @@ this file, don't trust it blindly.
   `image_request` EDIT|CREATE|NONE from the customer's own words; EDIT/CREATE -> `_imageStudioTurn` ->
   `POST /api/images/edit` (`routes/image_studio.py`) -> `container.openai_image_service` (`openai_image_service.py`,
   env `OPENAI_API_KEY` + `OPENAI_IMAGE_MODEL`, default `gpt-image-2.5` -- unverified until the first real call).
-  Guards: rate limit, per-user daily cap `image_edit.daily_per_user` (default 5, 0 = off; table
-  `image_studio_uses`), one AI Credits `image` use (released on failure). Never a placeholder picture. Staff
+  Guards: rate limit + one AI Credits `image` use (released on failure). Pay as you go: AI Credits charging ON
+  with an `image` rate -> no daily cap (credits decide); charging OFF -> free, capped per user per day by
+  `image_edit.daily_per_user` (default 5; 0 = off in both modes; table `image_studio_uses`). Never a placeholder picture. Staff
   variant: `/admin/cc/workspace/image-edit`. Generated pictures live only in memory (`_sentImages['gen_*']`).
 - Customer shell (`app_shell.dart`): Home · Explore · centre "Ask" (one tap = voice via the hub action
   `voice`; NO companion ring -- attachments live on the composer "+") · Orders · Profile. No drawer.
