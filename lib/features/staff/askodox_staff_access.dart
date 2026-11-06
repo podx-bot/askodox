@@ -165,6 +165,10 @@ class StaffWorkspaceScreen extends StatefulWidget {
 }
 
 class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
+  /// The hidden browser that reads a store page, kept ATTACHED under the
+  /// workspace (a detached Android WebView may not finish loading).
+  WebViewController? _reader;
+
   late final WebViewController _controller = WebViewController()
     ..setJavaScriptMode(JavaScriptMode.unrestricted)
     // Stores such as Meesho refuse our server but not a phone: the workspace
@@ -197,17 +201,17 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
       final ask = jsonDecode(message) as Map<String, dynamic>;
       id = ask['id'];
       final url = Uri.parse('${ask['url']}');
-      try {
-        final page = await askodoxReadStorePage(url);
-        result = {'ok': true, 'html': page.html, 'final_url': page.finalUrl.toString()};
-      } catch (_) {
-        // Plain HTTP read refused or JavaScript-only page: let a real browser
-        // engine load it and hand back the rendered HTML instead.
-        final page = await askodoxReadStoreInBrowser(url);
-        result = {'ok': true, 'html': page.html, 'final_url': page.finalUrl.toString()};
-      }
+      final page = await askodoxReadStoreBest(url, host: (reader) {
+        if (mounted) setState(() => _reader = reader);
+      });
+      result = {
+        'ok': true,
+        'html': askodoxCompactStoreHtml(page.html),
+        'final_url': page.finalUrl.toString(),
+        'product': askodoxLooksLikeProductPage(page.html),
+      };
     } catch (error) {
-      result = {'ok': false, 'error': error.runtimeType.toString()};
+      result = {'ok': false, 'error': askodoxReadFailureText(error)};
     }
     if (!mounted) return;
     await _controller.runJavaScript('window.askodoxPageRead && window.askodoxPageRead(${jsonEncode(id)}, ${jsonEncode(result)})');
@@ -218,7 +222,14 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
     final te = Localizations.localeOf(context).languageCode == 'te';
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'స్టాఫ్ వర్క్‌స్పేస్' : 'Staff Workspace')),
-      body: SafeArea(child: WebViewWidget(controller: _controller)),
+      body: SafeArea(
+        child: Stack(children: [
+          // Under the workspace and never touchable: it only reads a store page.
+          if (_reader != null)
+            Positioned.fill(child: IgnorePointer(child: WebViewWidget(controller: _reader!))),
+          Positioned.fill(child: WebViewWidget(controller: _controller)),
+        ]),
+      ),
     );
   }
 }
@@ -255,36 +266,185 @@ class AskodoxStorePage {
 const _phoneBrowserAgent =
     'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36';
 
+/// A desktop browser: store invite links often send a PHONE browser to the
+/// store's app (intent:// / meesho://), which a WebView cannot open.
+const _desktopBrowserAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+final _ldProduct = RegExp(r'"@type"\s*:\s*"Product"');
+final _ogProduct = RegExp(r'''property=["']og:type["'][^>]*content=["']product''', caseSensitive: false);
+final _priceMeta = RegExp(r'(product:price:amount|og:price:amount)', caseSensitive: false);
+final _storeJson = RegExp(r'"(min_product_price|product_images|catalog_name|product_name)"');
+
+/// True when [html] carries the product's own data (schema.org Product,
+/// og product tags, or a store's embedded product JSON) -- not just an
+/// invite / "open in app" page.
+bool askodoxLooksLikeProductPage(String html) {
+  final h = html.length > 3000000 ? html.substring(0, 3000000) : html;
+  if (_ldProduct.hasMatch(h) || _ogProduct.hasMatch(h) || _priceMeta.hasMatch(h)) return true;
+  return h.contains('__NEXT_DATA__') && _storeJson.hasMatch(h);
+}
+
+/// The https page an Android `intent://...;S.browser_fallback_url=...;end` link offers.
+Uri? askodoxIntentFallback(String link) {
+  final m = RegExp(r'S\.browser_fallback_url=([^;]+)').firstMatch(link);
+  if (m == null) return null;
+  final target = Uri.tryParse(Uri.decodeComponent(m.group(1)!));
+  return target != null && target.scheme == 'https' ? target : null;
+}
+
+final _headTags = RegExp(r'''<title[^>]*>.*?</title>|<meta[^>]+>|<link[^>]+rel=["']canonical[^>]*>''',
+    caseSensitive: false, dotAll: true);
+final _dataScripts =
+    RegExp(r'<script[^>]*(application/ld\+json|__NEXT_DATA__)[^>]*>.*?</script>', caseSensitive: false, dotAll: true);
+
+/// Only what the server reads (meta / title / canonical / JSON-LD / embedded
+/// store JSON) when a rendered page is too big to send whole.
+String askodoxCompactStoreHtml(String html, {int max = 1800000}) {
+  if (html.length <= max) return html;
+  final out = StringBuffer('<html><head>');
+  for (final m in _headTags.allMatches(html)) {
+    out.write(m.group(0));
+  }
+  for (final m in _dataScripts.allMatches(html)) {
+    out.write(m.group(0));
+  }
+  out.write('</head><body></body></html>');
+  final compact = out.toString();
+  return compact.length <= max ? compact : compact.substring(0, max);
+}
+
+/// A short reason the staff member can act on (shown on the workspace page).
+String askodoxReadFailureText(Object error) {
+  if (error is TimeoutException) return 'timeout';
+  if (error is HttpException) return error.message;
+  if (error is SocketException) return 'no internet';
+  if (error is FormatException) return error.message;
+  return error.runtimeType.toString();
+}
+
+/// Android hands JavaScript results back JSON-encoded ("\"<html>...\"").
+Object? _jsValue(Object raw) {
+  if (raw is String && raw.startsWith('"')) {
+    try {
+      return jsonDecode(raw);
+    } catch (_) {}
+  }
+  return raw;
+}
+
+const _productLinkJs = '(function(){var a=document.querySelector(\'a[href*="/p/"]\');return a?a.href:"";})()';
+
 /// The same page loaded in a hidden browser engine (JavaScript runs, cookies
-/// and redirects behave like a phone browser). Returns the rendered DOM.
-/// https only, 25 s; the first finished load is used.
-Future<AskodoxStorePage> askodoxReadStoreInBrowser(Uri url) async {
+/// and redirects behave like a real browser). It waits, page after page, until
+/// the product's data is in the page -- an invite page that forwards by script
+/// is followed -- and app links (intent:// / meesho://) are never opened.
+/// [host] gets the browser while it reads (to keep it attached) and null after.
+Future<AskodoxStorePage> askodoxReadStoreInBrowser(Uri url,
+    {Duration limit = const Duration(seconds: 45), void Function(WebViewController? reader)? host}) async {
   if (url.scheme != 'https') throw const FormatException('https only');
   final done = Completer<AskodoxStorePage>();
+  AskodoxStorePage? last;
+  Object? lastError;
+  var followed = 0;
   late final WebViewController browser;
+
+  Future<void> look() async {
+    if (done.isCompleted) return;
+    try {
+      final raw = _jsValue(await browser.runJavaScriptReturningResult('document.documentElement.outerHTML'));
+      final html = raw is String ? raw : '$raw';
+      final current = Uri.tryParse(await browser.currentUrl() ?? '') ?? url;
+      if (current.scheme == 'https' && html.length > 200) last = AskodoxStorePage(html, current);
+      if (askodoxLooksLikeProductPage(html)) {
+        if (!done.isCompleted) done.complete(AskodoxStorePage(html, current));
+        return;
+      }
+      // An invite page that only LINKS to the product: open that link (twice at most).
+      if (followed < 2) {
+        final link = _jsValue(await browser.runJavaScriptReturningResult(_productLinkJs));
+        final target = Uri.tryParse('${link ?? ''}');
+        if (target != null && target.scheme == 'https' && target.host == current.host && target != current) {
+          followed++;
+          await browser.loadRequest(target);
+        }
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
   browser = WebViewController()
     ..setJavaScriptMode(JavaScriptMode.unrestricted)
-    ..setUserAgent(_phoneBrowserAgent)
+    ..setUserAgent(_desktopBrowserAgent)
     ..setNavigationDelegate(NavigationDelegate(
-      onPageFinished: (_) async {
-        if (done.isCompleted) return;
-        try {
-          final raw = await browser.runJavaScriptReturningResult('document.documentElement.outerHTML');
-          final html = raw is String ? jsonDecode(raw) as String : raw.toString();
-          final current = Uri.tryParse(await browser.currentUrl() ?? '') ?? url;
-          done.complete(AskodoxStorePage(html, current));
-        } catch (error) {
-          if (!done.isCompleted) done.completeError(error);
-        }
+      onNavigationRequest: (request) {
+        final target = Uri.tryParse(request.url);
+        if (target != null && target.scheme == 'https') return NavigationDecision.navigate;
+        final fallback = askodoxIntentFallback(request.url);
+        if (fallback != null) unawaited(browser.loadRequest(fallback));
+        return NavigationDecision.prevent; // never leave for the store's app / Play Store
       },
+      onPageFinished: (_) => unawaited(look()),
       onWebResourceError: (error) {
-        if (error.isForMainFrame == true && !done.isCompleted) {
-          done.completeError(HttpException('browser load failed: ${error.errorCode}', uri: url));
+        if (error.isForMainFrame == true) {
+          lastError = HttpException('page load failed: ${error.errorCode}', uri: url);
         }
       },
     ));
-  await browser.loadRequest(url);
-  return done.future.timeout(const Duration(seconds: 25));
+  host?.call(browser);
+  // Pages that fill themselves by script after "finished": look again every 2 s.
+  final poll = Timer.periodic(const Duration(seconds: 2), (_) => unawaited(look()));
+  try {
+    await browser.loadRequest(url);
+    return await done.future.timeout(limit);
+  } on TimeoutException {
+    // Not clearly a product page: hand back what loaded; the server decides.
+    final page = last;
+    if (page != null) return page;
+    throw lastError ?? TimeoutException('store page did not load', limit);
+  } finally {
+    poll.cancel();
+    host?.call(null);
+  }
+}
+
+/// Both readers at once (plain phone request + hidden browser). The first one
+/// that holds the product's data wins; otherwise the longest page that loaded.
+Future<AskodoxStorePage> askodoxReadStoreBest(Uri url,
+    {void Function(WebViewController? reader)? host,
+    Future<AskodoxStorePage> Function(Uri url)? plain,
+    Future<AskodoxStorePage> Function(Uri url)? browser}) {
+  final readers = <Future<AskodoxStorePage>>[
+    (plain ?? askodoxReadStorePage)(url),
+    (browser ?? ((u) => askodoxReadStoreInBrowser(u, host: host)))(url),
+  ];
+  final done = Completer<AskodoxStorePage>();
+  final pages = <AskodoxStorePage>[];
+  Object? lastError;
+  var left = readers.length;
+  void finishOne() {
+    left--;
+    if (left > 0 || done.isCompleted) return;
+    if (pages.isEmpty) {
+      done.completeError(lastError ?? StateError('no reader answered'));
+      return;
+    }
+    pages.sort((a, b) => b.html.length.compareTo(a.html.length));
+    done.complete(pages.first);
+  }
+
+  for (final reader in readers) {
+    unawaited(reader.then((page) {
+      pages.add(page);
+      if (!done.isCompleted && askodoxLooksLikeProductPage(page.html)) done.complete(page);
+      finishOne();
+    }, onError: (Object error) {
+      lastError = error;
+      finishOne();
+    }));
+  }
+  return done.future;
 }
 
 Future<AskodoxStorePage> askodoxReadStorePage(Uri url,

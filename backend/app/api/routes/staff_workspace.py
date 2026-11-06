@@ -25,6 +25,7 @@ Work (any Command Center credential; each route checks its own permission):
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 from typing import Any
@@ -38,6 +39,8 @@ from app.api.routes.command_center import _principal, command_center
 from app.services import affiliate_catalog as ac
 from app.services import governance as gov
 from app.services import staff_sessions
+
+_LOG = logging.getLogger("askodox.staff_workspace")
 
 router = APIRouter(tags=["staff-workspace"])
 
@@ -186,11 +189,17 @@ class ImportBody(BaseModel):
     # never fetches anything for it.
     html: str | None = Field(default=None, max_length=2_000_000)
     final_url: str | None = Field(default=None, max_length=2000)
+    # Why the phone could not read it (timeout / HTTP 403 / page load failed ...).
+    phone_error: str | None = Field(default=None, max_length=200)
 
 STORE_BLOCKED_HINT = ("This store does not let our server read its pages. Open Staff Workspace inside the "
                       "ASKODOX app (Profile → Staff Workspace) and paste the link there -- your phone reads the "
                       "page and everything fills in (or enter the details by hand). / ఈ store మన server ని page చదవనివ్వదు. ASKODOX app లో "
                       "Staff Workspace తెరిచి link పెట్టండి -- phone page చదివి అన్నీ నింపుతుంది.")
+PHONE_FAILED_HINT = ("Your phone could not open this link either ({reason}). Check the internet and tap Fetch details "
+                     "again. If it still fails, open the product in the store's app -> Share -> copy the link, and "
+                     "paste that. / ఫోన్ కూడా ఈ link తెరవలేకపోయింది ({reason}). Internet చూసి మళ్లీ Fetch details "
+                     "నొక్కండి. అయినా రాకపోతే store app లో product తెరిచి Share -> link copy చేసి ఇక్కడ పెట్టండి.")
 
 
 def _detect(request: Request, url: str) -> dict:
@@ -221,7 +230,7 @@ def _may_link(principal: dict) -> bool:
 
 
 def _import_one(request: Request, url: str, *, details: bool, html: str | None = None,
-                final_url: str | None = None, may_link: bool = True) -> dict:
+                final_url: str | None = None, may_link: bool = True, phone_error: str | None = None) -> dict:
     # Shared text from a store app ("Check this out https://...") -> just the link.
     found = re.search(r"https://[^\s\"'<>]+", url or "")
     if found:
@@ -264,7 +273,13 @@ def _import_one(request: Request, url: str, *, details: bool, html: str | None =
         status = meta.get("status")
         note = meta.get("note")
         if status == "unavailable" and not html:
-            note = STORE_BLOCKED_HINT
+            reason = re.sub(r"[^\w .:/-]", "", (phone_error or "").strip())[:80]
+            note = PHONE_FAILED_HINT.format(reason=reason) if reason else STORE_BLOCKED_HINT
+        if html or phone_error:
+            # Railway log line to see how phone reads go (no page text, no customer data).
+            _LOG.info("workspace.phone_read host=%s read=%s status=%s title=%s error=%s",
+                      ac._host(clean), "ok" if html else "failed", status, bool(fields.get("title")),
+                      (phone_error or "")[:80])
         if status == "nothing_found" and fields.get("title"):
             status = "ok"  # the store's embedded data had it
             note = "Filled from the store's page -- check and save. / Store page నుండి నింపాం -- చూసి save చేయండి."
@@ -282,7 +297,7 @@ def import_link(body: ImportBody, request: Request) -> dict:
 
     rate_limit.check(request, "workspace_import", limit=60)
     return _import_one(request, body.url, details=True, html=body.html, final_url=body.final_url,
-                       may_link=_may_link(principal))
+                       may_link=_may_link(principal), phone_error=body.phone_error)
 
 
 class DescribeBody(BaseModel):

@@ -459,6 +459,12 @@ def test_phone_read_meesho_invite_link_fills_everything_and_keeps_the_commission
     invite = "https://www.meesho.com/af_invite/142910812?utm_source=aff"
     server_only = client.post("/admin/cc/workspace/import", headers=OWNER, json={"url": invite}).json()
     assert server_only["status"] == "unavailable" and "ASKODOX app" in server_only["note"]
+    # Inside the app the phone tried too and failed: say so honestly (not "open the app").
+    phone_failed = client.post("/admin/cc/workspace/import", headers=OWNER,
+                               json={"url": invite, "phone_error": "timeout"}).json()
+    assert phone_failed["status"] == "unavailable"
+    assert "phone could not open this link" in phone_failed["note"] and "(timeout)" in phone_failed["note"]
+    assert "ASKODOX app (Profile" not in phone_failed["note"]
     product = {"name": "Cotton Saree with Blouse", "min_product_price": 349, "original_price": 999,
                "images": ["https://images.meesho.com/images/products/1/a.jpg",
                           "https://images.meesho.com/images/products/1/b.jpg"],

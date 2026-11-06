@@ -4914,7 +4914,7 @@
       "id": "staff_phone_page_reader",
       "name": "Staff link paste: the phone reads store pages; short form; page photos kept; auto description + reel",
       "purpose": "Owner 2026-11-04: Meesho refused the server (HTTPError). Paste one link and everything should fill by itself.",
-      "expected_behavior": "Inside the ASKODOX app the Staff Workspace page asks the app (JS channel AskodoxPageReader) to read the product page with the phone's own connection (https only, 2 MB, redirects + one meta refresh); the server only parses the HTML it is sent (never fetches for it). An invite / short link that lands on the same store's product page keeps the pasted link as affiliate_url (only for staff with affiliate_products:links). Extraction = affiliate_providers.extract (schema.org + Meesho __NEXT_DATA__). The form shows photos, Title, Price and an AI description written automatically; everything else is under More details. On save, page photos are copied as our own (POST /admin/cc/workspace/uploads/from-url: public https, 5 MB, JPEG/PNG/WebP only) and, when ticked, a reel is started (goes to review). A blocked server read says to use the app.",
+      "expected_behavior": "Inside the ASKODOX app the Staff Workspace page asks the app (JS channel AskodoxPageReader) to read the product page with the phone's own connection (https only, 2 MB, redirects + one meta refresh); the server only parses the HTML it is sent (never fetches for it). An invite / short link that lands on the same store's product page keeps the pasted link as affiliate_url (only for staff with affiliate_products:links). Extraction = affiliate_providers.extract (schema.org + Meesho __NEXT_DATA__). The form shows photos, Title, Price and an AI description written automatically; everything else is under More details. On save, page photos are copied as our own (POST /admin/cc/workspace/uploads/from-url: public https, 5 MB, JPEG/PNG/WebP only) and, when ticked, a reel is started (goes to review). A blocked server read says to use the app. In the app the phone runs two readers at once (plain request + an attached hidden browser that follows script redirects, never opens app links, and waits until the product's data is on the page); the page waits up to 60 s, and when the phone also fails the note gives the phone's reason (phone_error).",
       "roles": [
         "staff"
       ],
@@ -4935,7 +4935,9 @@
         "keys": [],
         "symbols": [
           "askodoxReadStorePage",
-          "askodoxMetaRefreshTarget"
+          "askodoxMetaRefreshTarget",
+          "askodoxReadStoreBest",
+          "askodoxLooksLikeProductPage"
         ]
       },
       "flags": {},
@@ -4953,7 +4955,8 @@
         {
           "pr": null,
           "change": "PR #266 merged 2026-11-04 (main 9c68fc3); NOT PHONE VERIFIED"
-        }
+        },
+        "2026-11-06: owner -- no hand filling for Meesho invite links; phone reader made robust (parallel readers, product-data wait, app links blocked, honest phone_error)"
       ]
     },
     {
