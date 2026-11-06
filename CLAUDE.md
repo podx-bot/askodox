@@ -509,8 +509,10 @@ this file, don't trust it blindly.
   Reels: workspace tab `reels` (`/admin/cc/workspace/reels`, file + review routes). The page must never use
   prompt() / confirm() / alert() -- Android WebView shows none of them (inline inputs instead). Its CSP needs
   `media-src 'self' blob:` or the fetched reel never plays.
-- NO videos for products (owner 2026-11-04: a reel costs more than the commission earns; story-reel PR #271 closed
-  unmerged). Staff page hides the Reels tab / reel buttons (routes stay). Items = link / photos + price + description +
+- Product videos (owner 2026-11-06 REVERSED the 2026-11-04 no-video rule): OPTIONAL video made OUTSIDE ASKODOX, <= 60 s
+  (checked on the staff phone), uploaded per store item, owner ASKODOX; Videos shows the item's buy link under it
+  (`store_item_id` / `buy_url` on the `videos` row; `POST /admin/cc/workspace/items/{id}/video`). No AI-generated reels
+  (story-reel PR #271 closed unmerged). Staff page hides the Reels tab / reel buttons (routes stay). Items = link / photos + price + description +
   commission link (`affiliate_url`, grant `links`) + Commission % (`verified_commission_rate`, grant `commission`; a rate
   > 0 sets `commission_status` ACTIVE) -> LIVE items show in search with their own photos.
 - Base plans = `subscription_plans.py` (audience `base`, seeded once from `growth()`, never overwritten);

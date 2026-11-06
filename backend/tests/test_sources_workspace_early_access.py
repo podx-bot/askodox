@@ -547,3 +547,31 @@ def test_commission_rate_and_link_with_photos_reach_search(api):
     bad = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
         "title": "Other saree", "original_product_url": "https://brand.example/s2", "verified_commission_rate": "ten"}})
     assert bad.status_code == 400
+
+
+def test_staff_product_video_attaches_to_item_and_shows_buy_card(api):
+    """Owner 2026-11-06: a video made outside ASKODOX is uploaded per store item (optional,
+    <= 60 s checked on the phone, max 30 MB here). Owner = ASKODOX. The feed shows the item's
+    buy link under the video. Items without a video are unaffected."""
+    client, container, _ = api
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Measuring jug 1000ml", "price": 211, "platform": "other",
+        "original_product_url": "https://brand.example/jug", "affiliate_url": "https://brand.example/jug?ref=asko",
+        "verified_commission_rate": "15"}})
+    assert saved.status_code == 200, saved.text
+    item_id = saved.json()["item"]["id"]
+    mp4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64
+    up = client.post(f"/admin/cc/workspace/items/{item_id}/video", headers=OWNER,
+                     files={"file": ("jug.mp4", mp4, "video/mp4")})
+    assert up.status_code == 200, up.text
+    assert up.json()["buy_url"] == "https://brand.example/jug?ref=asko"
+    assert up.json()["status"] == "ACTIVE"
+    bad = client.post(f"/admin/cc/workspace/items/{item_id}/video", headers=OWNER,
+                      files={"file": ("x.txt", b"hello", "text/plain")})
+    assert bad.status_code == 415
+    missing = client.post("/admin/cc/workspace/items/999999/video", headers=OWNER,
+                          files={"file": ("jug.mp4", mp4, "video/mp4")})
+    assert missing.status_code == 404
+    feed = client.get("/api/videos/feed?limit=50").json()["items"]
+    mine = [v for v in feed if (v.get("buy") or {}).get("item_id") == str(item_id)]
+    assert mine and mine[0]["buy"]["url"] == "https://brand.example/jug?ref=asko", feed

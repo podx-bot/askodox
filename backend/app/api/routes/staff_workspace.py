@@ -453,6 +453,48 @@ def review_item(item_id: int, body: ReviewBody, request: Request) -> dict:
     return {"item": updated}
 
 
+MAX_PRODUCT_VIDEO = 30 * 1024 * 1024  # bytes; the 60-second limit is checked on the staff phone
+
+
+@router.post("/admin/cc/workspace/items/{item_id}/video")
+async def attach_video(item_id: int, request: Request, file: UploadFile = File(...)) -> dict:
+    """Staff uploads a video they made outside ASKODOX for ONE store item. It
+    shows in Videos with the item's buy link under it. Optional for every item.
+    Owner: ASKODOX. Staff who may publish -> ACTIVE; others -> PENDING_REVIEW."""
+    from app.api.routes import native_video
+    from app.services import pii_mask
+
+    principal = _workspace(request)
+    store = catalog(request.app.state.container)
+    item = store.get(item_id)
+    if not item or item.get("deleted_at"):
+        raise HTTPException(status_code=404, detail="Item not found")
+    owner = item.get("submitted_by") == principal["id"]
+    if not (_can_publish(principal) or (owner and item.get("item_type") in _types(principal))):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    data = await file.read(MAX_PRODUCT_VIDEO + 1)
+    if len(data) > MAX_PRODUCT_VIDEO:
+        raise HTTPException(status_code=413, detail="Videos up to 30 MB")
+    ext = native_video._video_ext(data)
+    if ext is None:
+        raise HTTPException(status_code=415, detail="MP4 or WebM videos only")
+    name = native_video._save(request, data, ext)
+    buy_url = item.get("affiliate_url") or item.get("original_product_url") or ""
+    title = pii_mask.mask_sensitive(str(item.get("title") or "Product")).strip()[:140] or "Product"
+    pf = _pf(request)
+    record = pf.resources.create("videos", {
+        "title": title, "platform": "askodox", "url": f"{native_video._base(request)}/media/videos/{name}",
+        "thumbnail_url": item.get("image_url") or None, "description": "", "categories": [],
+        "products": [title], "keywords": [w for w in re.findall(r"[^\W_]{3,}", title.lower())][:12],
+        "language": "", "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
+        "store_item_id": str(item_id), "buy_url": buy_url, "buy_title": title,
+        "buy_price": str(item.get("price") or ""),
+    }, actor=f"staff:{principal['id']}", owner_ref=f"staff:{principal['id']}",
+        status="ACTIVE" if _can_publish(principal) else "PENDING_REVIEW")
+    _audit(request, principal, "workspace_product_video", item_id, {}, {"video_id": record.get("id")})
+    return {"video_id": record.get("id"), "status": record.get("status"), "buy_url": buy_url}
+
+
 @router.post("/admin/cc/workspace/uploads")
 async def upload_photo(request: Request, file: UploadFile = File(...)) -> dict:
     principal = _workspace(request)
