@@ -39,6 +39,7 @@ import '../domain/search_readiness.dart';
 import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
+import '../domain/image_studio.dart';
 import '../domain/result_board.dart';
 import '../../../shared/widgets/rich_reply.dart';
 import '../domain/conversation_closing.dart';
@@ -52,7 +53,9 @@ import '../../mobility/application/mobility_draft.dart' show MobilityDraft, asko
 import '../../mobility/data/mobility_repository.dart';
 import '../../growth/data/partner_tracking.dart';
 import '../../growth/presentation/benefits_widgets.dart';
+import '../../../core/share/askodox_image_share.dart';
 import '../../../services/chat_attachment_service.dart';
+import '../../../services/image_studio_service.dart';
 import '../../../services/media_picker.dart';
 import '../../location/presentation/map_pin_picker.dart';
 import '../domain/active_role.dart';
@@ -1721,6 +1724,70 @@ class _AskodoxPrimaryHomeScreenState
     }
   }
 
+  /// Photos + words asking for an edit: the edited picture comes back in the
+  /// chat (POST /api/images/edit). No picture -> one honest reason, never a
+  /// made-up image or a search.
+  Future<void> _imageStudioTurn(
+    String typed,
+    List<Uint8List> images,
+    List<Map<String, String>> sentAttachments,
+    String context,
+  ) async {
+    setState(() {
+      _sending = true;
+      _active = true;
+      _turns.add(ConversationTurnRecord(text: typed, isUser: true, attachments: sentAttachments, context: context));
+      _attachments
+        ..clear()
+        ..addAll(_keptAttachments);
+      _keptAttachments = const [];
+    });
+    _controller.clear();
+    _scrollBottom();
+    askodoxTestLog('image_studio', detail: {'images': images.length});
+    final result = await ref.read(imageStudioServiceProvider).edit(prompt: typed, images: images, language: _lang);
+    if (!mounted) return;
+    final te = _te;
+    final id = 'gen_${DateTime.now().microsecondsSinceEpoch}';
+    setState(() {
+      if (result.ok && result.bytes != null) _sentImages[id] = result.bytes!;
+      _turns.add(ConversationTurnRecord(
+        text: result.ok
+            ? askodoxImageStudioDoneText(te)
+            : askodoxImageStudioFailureText(result.code, te, dailyLimit: result.dailyLimit),
+        isUser: false,
+        attachments: result.ok ? [{'name': 'askodox-photo.png', 'kind': 'image', 'id': id}] : const [],
+      ));
+      _sending = false;
+    });
+    _scrollBottom();
+    unawaited(_saveSnapshot());
+  }
+
+  /// Full-size view of a picture ASKODOX made, with Share.
+  Future<void> _openStudioImage(Uint8List bytes, bool te) => showDialog<void>(
+        context: context,
+        builder: (context) => Dialog(
+          key: const ValueKey('askodoxStudioImageViewer'),
+          insetPadding: const EdgeInsets.all(12),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Flexible(child: InteractiveViewer(child: Image.memory(bytes, fit: BoxFit.contain))),
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              TextButton.icon(
+                key: const ValueKey('askodoxStudioImageShare'),
+                onPressed: () => askodoxShareImage(bytes),
+                icon: const Icon(Icons.share_rounded),
+                label: Text(te ? 'షేర్' : 'Share'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(te ? 'మూసివేయి' : 'Close'),
+              ),
+            ]),
+          ]),
+        ),
+      );
+
   Future<void> _sendTurn([String? preset, bool speakResponse = false]) async {
     final attachments = List<ChatAttachment>.of(_attachments);
     final typed = (preset ?? _controller.text).trim();
@@ -1747,6 +1814,10 @@ class _AskodoxPrimaryHomeScreenState
       Map<String, Object?>? imageAnalysis;
       Map<String, Object?>? videoAnalysis;
       var lowConfidence = false;
+      // Photos the customer may want edited, and whether the photo analysis
+      // (from their own words) says they asked for a picture.
+      final studioImages = <Uint8List>[];
+      var wantsImage = false;
       // Each attachment is analysed on its own: one failure never discards
       // the others. Failed ones stay in the composer for a retry.
       final failed = <ChatAttachment>[];
@@ -1762,6 +1833,8 @@ class _AskodoxPrimaryHomeScreenState
           facts.add(attachments.length > 1 ? '${attachment.name}: ${result.facts}' : result.facts);
           final study = result.videoStudy;
           if (attachment.isImage) _sentImages[result.id] = attachment.bytes;
+          if (attachment.isImage) studioImages.add(attachment.bytes);
+          if (attachment.isImage && askodoxAnalysisWantsImage(result.analysis)) wantsImage = true;
           sentAttachments.add({
             'name': attachment.name, 'kind': result.kind, 'id': result.id,
             // A short upload ASKODOX studied: open its grounded Q&A.
@@ -1803,6 +1876,10 @@ class _AskodoxPrimaryHomeScreenState
       _keptAttachments = failed;
       if (failed.isNotEmpty) _attachmentNotice('attach_partial', diagnostic: firstError?.diagnostic);
       attachmentContext = 'Attachment facts: ${facts.join('\n')}';
+      if (typed.isNotEmpty && wantsImage && studioImages.isNotEmpty) {
+        await _imageStudioTurn(typed, studioImages, sentAttachments, attachmentContext);
+        return;
+      }
       if (typed.isNotEmpty && askodoxWantsToList(typed) && (imageAnalysis != null || videoAnalysis != null)) {
         await _draftFromMedia(typed,
             imageAnalysis: imageAnalysis,
@@ -4596,6 +4673,21 @@ class _AskodoxPrimaryHomeScreenState
                   children: [
                     for (final attachment in turn.attachments)
                       if (_sentImages[attachment['id']] case final bytes?)
+                        if ('${attachment['id']}'.startsWith('gen_'))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: GestureDetector(
+                              key: ValueKey('askodoxStudioImage-${attachment['id']}'),
+                              onTap: () => _openStudioImage(bytes, te),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(bytes,
+                                    width: 260, height: 260, fit: BoxFit.cover, cacheWidth: 520,
+                                    semanticLabel: attachment['name']),
+                              ),
+                            ),
+                          )
+                        else
                         Padding(
                           key: ValueKey('askodoxSentImage-${attachment['id']}'),
                           padding: const EdgeInsets.only(bottom: 6),

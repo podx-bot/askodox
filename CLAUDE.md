@@ -195,6 +195,13 @@ this file, don't trust it blindly.
   the chat keeps real bytes (`ChatAttachment`), pickers are injectable
   (`askodoxMediaPickerProvider`); facts go in `ConversationTurnRecord.context`,
   never in the shown text.
+- Chat photo studio (owner 2026-11-07, for ALL signed-in users): the photo-analysis prompt returns
+  `image_request` EDIT|CREATE|NONE from the customer's own words; EDIT/CREATE -> `_imageStudioTurn` ->
+  `POST /api/images/edit` (`routes/image_studio.py`) -> `container.openai_image_service` (`openai_image_service.py`,
+  env `OPENAI_API_KEY` + `OPENAI_IMAGE_MODEL`, default `gpt-image-2.5` -- unverified until the first real call).
+  Guards: rate limit, per-user daily cap `image_edit.daily_per_user` (default 5, 0 = off; table
+  `image_studio_uses`), one AI Credits `image` use (released on failure). Never a placeholder picture. Staff
+  variant: `/admin/cc/workspace/image-edit`. Generated pictures live only in memory (`_sentImages['gen_*']`).
 - Customer shell (`app_shell.dart`): Home · Explore · centre "Ask" (one tap = voice via the hub action
   `voice`; NO companion ring -- attachments live on the composer "+") · Orders · Profile. No drawer.
   One place per function: request status lives in Updates
@@ -496,8 +503,8 @@ this file, don't trust it blindly.
   `admin_action_framework.CATALOG` (read-only max 2/h; changes need approval; blocked after
   two NOT_RECOVERED).
 - Release gate (`release_gate.py`, `/admin/cc/release-gate`): READY only when all PASS;
-  device = qa_checks PHONE VERIFIED only. Image / video generation stay NOT_AVAILABLE
-  until a provider is chosen and its cost approved.
+  device = qa_checks PHONE VERIFIED only. My Creations image / video generation stay NOT_AVAILABLE
+  (the chat photo studio below is separate). Video generation: no provider chosen.
 - Travel Radio = `travel_radio.py` + `routes/radio.py`: NO separate package (owner 2026-11-04) -- flag `radio.enabled`
   opens it to every signed-in person and each played segment is one AI Credits use (feature `radio`; free while
   charging is off; empty balance -> 402 `AI_CREDITS_LOW`). Old `addon_radio` plans stay INACTIVE and hidden; existing
