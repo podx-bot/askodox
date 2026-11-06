@@ -504,7 +504,7 @@ this file, don't trust it blindly.
   passes / testers listen free; segments only from geocoding / Places / LIVE content; cost model = ESTIMATE.
 - Staff Workspace items: store links (meesho / amazon / flipkart / wishlink) keep ONLY the store's own data (no reels,
   no AI photos); Own / Brand products (platform `other`) get our photos, AI description, reels and promotions. Stores
-  that refuse the server are read by the staff phone (`askodoxReadStorePage`); the server only parses the HTML sent.
+  that refuse the server are read by the staff phone (`askodoxReadStoreBest`: plain request + an ATTACHED hidden browser in parallel, waits for product data, never opens intent:// / app links; page waits 60 s, failures come back as `phone_error`); the server only parses the HTML sent.
   The app answers the WebView file chooser (`askodoxPickFilesForWebPage`) -- without it <input type=file> does nothing.
   Reels: workspace tab `reels` (`/admin/cc/workspace/reels`, file + review routes). The page must never use
   prompt() / confirm() / alert() -- Android WebView shows none of them (inline inputs instead). Its CSP needs

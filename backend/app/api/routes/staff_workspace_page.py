@@ -105,19 +105,20 @@ async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><d
  if(PREFILL.url){const u=PREFILL.url;PREFILL={};fetchOne(u,$("#itype").value)}}
 // Owner 2026-11-04: paste a link -> everything fills by itself. Only Title, Price and the
 // AI description are shown; the rest waits under "More details".
-const READS={};window.askodoxPageRead=(id,r)=>{const f=READS[id];if(f){delete READS[id];f(r&&r.ok?r:null)}};
-function readOnPhone(url){if(!window.AskodoxPageReader)return Promise.resolve(null);
+// The phone reads with two readers at once (up to ~50 s); PHONE_ERR says why it could not.
+const READS={};let PHONE_ERR=null;window.askodoxPageRead=(id,r)=>{const f=READS[id];if(f){delete READS[id];PHONE_ERR=r&&r.ok?null:String((r&&r.error)||"no answer");f(r&&r.ok?r:null)}};
+function readOnPhone(url){PHONE_ERR=null;if(!window.AskodoxPageReader)return Promise.resolve(null);
  return new Promise(res=>{const id=String(Date.now())+Math.random();READS[id]=res;
-  setTimeout(()=>{if(READS[id]){delete READS[id];res(null)}},25000);
-  try{AskodoxPageReader.postMessage(JSON.stringify({id,url}))}catch(e){delete READS[id];res(null)}})}
+  setTimeout(()=>{if(READS[id]){delete READS[id];PHONE_ERR="timeout";res(null)}},60000);
+  try{AskodoxPageReader.postMessage(JSON.stringify({id,url}))}catch(e){delete READS[id];PHONE_ERR="channel";res(null)}})}
 // Commission link / % only for staff with those grants (the server refuses them otherwise).
 const MYFIELDS=()=>FIELDS.filter(([k])=>(k!=="affiliate_url"||ME.can_link)&&(k!=="verified_commission_rate"||ME.can_commission));
 const MAIN_FIELDS=["title","price","description","affiliate_url","verified_commission_rate"];
 // Shared text ("Check this on Meesho https://...") -> just the link.
 function firstLink(t){const m=String(t||"").match(/https:\/\/[^\s"'<>]+/);return m?m[0]:String(t||"").trim()}
-async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page… / page చదువుతోంది…</p>`;
+async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page… (up to a minute) / page చదువుతోంది… (ఒక నిమిషం వరకు)</p>`;
  let d,page=null;try{page=await readOnPhone(url);
-  d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:type,html:page.html,final_url:page.final_url}:{url,item_type:type})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`;return}
+  d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:type,html:page.html,final_url:page.final_url}:{url,item_type:type,phone_error:PHONE_ERR})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`;return}
  if(d.ok===false){box.innerHTML=`<p class="bad">${esc(d.error||"This link could not be read")}</p>`;return}
  const f=d.fields||{},st=d.field_status||{},dup=(d.duplicates||[]);let photos=[...new Set([...(f.images||[]),...(f.image_url?[f.image_url]:[])])].slice(0,8);
  const field=([k,l,ta])=>`<label>${l} ${st[k]==="fetched"?'<span class="ok">· from page</span>':""}</label>${ta?`<textarea id="f_${k}" rows="${k==="description"?6:3}">${esc(f[k]||"")}</textarea>`:`<input id="f_${k}" value="${esc(f[k]??"")}">`}`;
@@ -186,7 +187,7 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
   try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);thumbs()}catch(err){toast(err.message)}}};
  $("#o_cam").onchange=addPhotos;$("#o_gal").onchange=addPhotos;$("#o_back").onclick=()=>add();
  $("#o_copy").onclick=async()=>{const url=firstLink($("#o_page").value);if(!url)return;toast("Reading the brand page…");
-  try{const page=await readOnPhone(url);const d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:"product",html:page.html,final_url:page.final_url}:{url,item_type:"product"});
+  try{const page=await readOnPhone(url);const d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:"product",html:page.html,final_url:page.final_url}:{url,item_type:"product",phone_error:PHONE_ERR});
    const f=d.fields||{};if(!$("#o_title").value&&f.title)$("#o_title").value=f.title;if(!$("#o_brand").value&&f.brand)$("#o_brand").value=f.brand;
    if(!$("#o_cat").value&&f.category)$("#o_cat").value=f.category;if(!$("#o_desc").value&&f.description)$("#o_desc").value=f.description;
    if(!$("#o_price").value&&f.price!=null)$("#o_price").value=f.price;if(!$("#o_mrp").value&&f.mrp!=null)$("#o_mrp").value=f.mrp;
