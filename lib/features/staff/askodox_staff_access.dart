@@ -323,7 +323,7 @@ String askodoxReadFailureText(Object error) {
   return error.runtimeType.toString();
 }
 
-/// Android hands JavaScript results back JSON-encoded ("\"<html>...\"").
+/// Android hands JavaScript results back JSON-encoded (`"\"<html>...\""`).
 Object? _jsValue(Object raw) {
   if (raw is String && raw.startsWith('"')) {
     try {

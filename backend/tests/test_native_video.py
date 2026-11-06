@@ -103,7 +103,7 @@ def test_native_dm_answers_only_from_the_approved_faq_else_hands_off(env):
                 json={})
     answered = client.post(f"/api/videos/{video['id']}/message", headers=buyer,
                            json={"text": "Do you deliver to Benz Circle?"}).json()
-    assert answered["status"] == "AUTO_ANSWERED" and "2 days" in answered["reply"]
+    assert answered.get("status") == "AUTO_ANSWERED" and "2 days" in answered["reply"], answered
     unknown = client.post(f"/api/videos/{video['id']}/message", headers=buyer,
                           json={"text": "What colours are there?"}).json()
     assert unknown["status"] == "WAITING_FOR_OWNER" and unknown["reply"] is None, "never a guessed answer"
