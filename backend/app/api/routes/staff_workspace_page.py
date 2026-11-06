@@ -77,7 +77,7 @@ async function start(){try{ME=await api("/admin/cc/workspace/me")}catch(e){if(e.
  $("#nav").style.display="flex";$("#nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;start()});
  try{await ({add,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
 $("#out").onclick=()=>{setCred(null);signin()};
-const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Commission link (affiliate / deep link)"],["verified_commission_rate","Commission % (partner agreed)"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
+const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Commission link (optional / ఐచ్ఛికం)"],["verified_commission_rate","Commission % (optional / ఐచ్ఛికం)"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
 async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 Store link (Meesho / Flipkart / Amazon)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
  <p class="mut" style="margin:8px 0 0">Store link = the store's own data only. Own / Brand = our photos, AI description, reel, promotions. / Store link అంటే store ఇచ్చిన data మాత్రమే. Own / Brand అంటే మన photos, AI description, reel, promotions.</p></div>
  <div class="card" id="linkcard"><h3 style="margin-top:0">Paste one link</h3>
@@ -157,8 +157,8 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
  <div class="row"><label class="s btn">📷 Camera<input id="o_cam" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery<input id="o_gal" type="file" accept="image/*" multiple hidden></label></div>
  <label>Category</label><input id="o_cat">
  <label>Description</label><textarea id="o_desc" rows="6"></textarea><div class="row"><button class="s" id="o_ai">✨ AI తో description రాయి</button></div><span class="mut" id="o_note"></span>
- ${ME.can_link?`<label>Commission link (if the brand gave one)</label><input id="o_aff" type="url" placeholder="https://...">`:""}
- ${ME.can_commission?`<div class="row"><div><label>Commission %</label><input id="o_rate" inputmode="decimal" placeholder="e.g. 10"></div></div>`:""}
+ ${ME.can_link?`<label>Commission link (optional / ఐచ్ఛికం)</label><input id="o_aff" type="url" placeholder="https://...">`:""}
+ ${ME.can_commission?`<div class="row"><div><label>Commission % (optional / ఐచ్ఛికం)</label><input id="o_rate" inputmode="decimal" placeholder="e.g. 10"></div></div>`:""}
  <label>Offer / coupon for buyers (optional)</label><input id="o_offer" placeholder="e.g. coupon ASKO10 -- 10% off">
  <div class="row" style="margin-top:10px"><button class="s" id="o_back">← Back</button><button class="s" id="o_draft">Save draft</button><button class="p" id="o_submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>
  <p class="mut">Promote it to users: Command Center → Growth → Promotions (campaign with review, consent and caps). / Users కి promote: Command Center → Growth → Promotions.</p></div>`;
