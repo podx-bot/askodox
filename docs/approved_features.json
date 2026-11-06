@@ -5180,18 +5180,26 @@
         "any"
       ],
       "api": [
-        "POST /admin/cc/workspace/items/{item_id}/video",
-        "GET /api/videos/feed"
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/items/{item_id}/video"
+        },
+        {
+          "method": "GET",
+          "path": "/api/videos/feed"
+        }
       ],
-      "ui": [
-        "Staff Workspace item form (video box) -- phase 2",
-        "Videos card buy link -- phase 3"
-      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
       "flags": [],
-      "tests": [
-        "tests/test_sources_workspace_early_access.py::test_staff_product_video_attaches_to_item_and_shows_buy_card"
-      ],
-      "health": [],
+      "tests": {
+        "backend": [
+          "tests/test_sources_workspace_early_access.py"
+        ],
+        "flutter": []
+      },
       "dependencies": [
         "native_video",
         "staff_workspace"
