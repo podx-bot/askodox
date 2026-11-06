@@ -22,8 +22,14 @@ class ImageStudioResult {
 
 abstract interface class ImageStudioService {
   /// [images] in the order the customer attached them; the words say which
-  /// photo changes. No images -> a new picture from the words.
-  Future<ImageStudioResult> edit({required String prompt, required List<Uint8List> images, required String language});
+  /// photo changes. No images -> a new picture from the words. [authToken] is
+  /// the signed-in session token (the route needs sign-in; null -> 'sign_in').
+  Future<ImageStudioResult> edit({
+    required String prompt,
+    required List<Uint8List> images,
+    required String language,
+    String? authToken,
+  });
 }
 
 class ApiImageStudioService implements ImageStudioService {
@@ -36,7 +42,9 @@ class ApiImageStudioService implements ImageStudioService {
     required String prompt,
     required List<Uint8List> images,
     required String language,
+    String? authToken,
   }) async {
+    if (authToken == null || authToken.isEmpty) return const ImageStudioResult(ok: false, code: 'sign_in');
     final result = await _client.post<Map<String, Object?>>(
       '/api/images/edit',
       body: {
@@ -46,7 +54,7 @@ class ApiImageStudioService implements ImageStudioService {
         ],
         'language': language,
       },
-      options: const ApiRequestOptions(timeout: Duration(seconds: 150)),
+      options: ApiRequestOptions(authToken: authToken, timeout: const Duration(seconds: 150)),
     );
     return askodoxImageStudioResultOf(result);
   }

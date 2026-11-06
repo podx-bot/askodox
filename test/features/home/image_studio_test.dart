@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/home/domain/image_studio.dart';
 import 'package:podx/services/image_studio_service.dart';
@@ -41,4 +43,28 @@ void main() {
     expect(askodoxImageStudioFailureText('daily_limit', false, dailyLimit: 5), contains('5'));
     expect(askodoxImageStudioDoneText(false), contains('AI'));
   });
+
+  test('the sign-in token goes with the request; no token -> sign in, no call', () async {
+    final client = _RecordingClient();
+    final service = ApiImageStudioService(client);
+    final none = await service.edit(prompt: 'wig', images: [Uint8List.fromList([1])], language: 'te');
+    expect(none.code, 'sign_in');
+    expect(client.tokens, isEmpty);
+    final ok = await service.edit(prompt: 'wig', images: [Uint8List.fromList([1])], language: 'te', authToken: 'tok');
+    expect(ok.ok, isTrue);
+    expect(client.tokens, ['tok']);
+  });
+}
+
+class _RecordingClient implements ApiClient {
+  final tokens = <String?>[];
+
+  @override
+  Future<ApiResult<T>> post<T>(String path, {Object? body, ApiRequestOptions options = const ApiRequestOptions()}) async {
+    tokens.add(options.authToken);
+    return ApiSuccess({'ok': true, 'image_base64': base64Encode([7])} as T);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError('$invocation');
 }
