@@ -237,9 +237,28 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
 /// Photos for an `<input type=file>` in a web page: the camera when the page
 /// asks for capture, else the gallery (several when allowed). Re-encoded as
 /// JPEG <= 2000 px so uploads stay small. Returns file:// URIs (none = cancelled).
+/// True when a page's file box asks for videos only (accept="video/mp4,...").
+bool askodoxWantsVideo(List<String> acceptTypes) {
+  final types = [
+    for (final t in acceptTypes)
+      for (final part in t.split(','))
+        if (part.trim().isNotEmpty) part.trim().toLowerCase()
+  ];
+  const videoFiles = {'.mp4', '.webm', '.mov', '.3gp', '.mkv'};
+  return types.isNotEmpty && types.every((t) => t.startsWith('video/') || videoFiles.contains(t));
+}
+
 Future<List<String>> askodoxPickFilesForWebPage(FileSelectorParams params, {ImagePicker? picker}) async {
   final pick = picker ?? ImagePicker();
   try {
+    // A video box (accept="video/...") must open the VIDEO gallery / camera --
+    // the image gallery cannot pick a video (owner 2026-11-06: Video did nothing).
+    if (askodoxWantsVideo(params.acceptTypes)) {
+      final clip = await pick.pickVideo(
+          source: params.isCaptureEnabled ? ImageSource.camera : ImageSource.gallery,
+          maxDuration: const Duration(seconds: 60));
+      return clip == null ? const [] : [Uri.file(clip.path).toString()];
+    }
     if (params.isCaptureEnabled) {
       final shot = await pick.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 2000);
       return shot == null ? const [] : [Uri.file(shot.path).toString()];
