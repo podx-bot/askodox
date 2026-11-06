@@ -196,8 +196,16 @@ class _StaffWorkspaceScreenState extends State<StaffWorkspaceScreen> {
     try {
       final ask = jsonDecode(message) as Map<String, dynamic>;
       id = ask['id'];
-      final page = await askodoxReadStorePage(Uri.parse('${ask['url']}'));
-      result = {'ok': true, 'html': page.html, 'final_url': page.finalUrl.toString()};
+      final url = Uri.parse('${ask['url']}');
+      try {
+        final page = await askodoxReadStorePage(url);
+        result = {'ok': true, 'html': page.html, 'final_url': page.finalUrl.toString()};
+      } catch (_) {
+        // Plain HTTP read refused or JavaScript-only page: let a real browser
+        // engine load it and hand back the rendered HTML instead.
+        final page = await askodoxReadStoreInBrowser(url);
+        result = {'ok': true, 'html': page.html, 'final_url': page.finalUrl.toString()};
+      }
     } catch (error) {
       result = {'ok': false, 'error': error.runtimeType.toString()};
     }
@@ -246,6 +254,38 @@ class AskodoxStorePage {
 
 const _phoneBrowserAgent =
     'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36';
+
+/// The same page loaded in a hidden browser engine (JavaScript runs, cookies
+/// and redirects behave like a phone browser). Returns the rendered DOM.
+/// https only, 25 s; the first finished load is used.
+Future<AskodoxStorePage> askodoxReadStoreInBrowser(Uri url) async {
+  if (url.scheme != 'https') throw const FormatException('https only');
+  final done = Completer<AskodoxStorePage>();
+  late final WebViewController browser;
+  browser = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..setUserAgent(_phoneBrowserAgent)
+    ..setNavigationDelegate(NavigationDelegate(
+      onPageFinished: (_) async {
+        if (done.isCompleted) return;
+        try {
+          final raw = await browser.runJavaScriptReturningResult('document.documentElement.outerHTML');
+          final html = raw is String ? jsonDecode(raw) as String : raw.toString();
+          final current = Uri.tryParse(await browser.currentUrl() ?? '') ?? url;
+          done.complete(AskodoxStorePage(html, current));
+        } catch (error) {
+          if (!done.isCompleted) done.completeError(error);
+        }
+      },
+      onWebResourceError: (error) {
+        if (error.isForMainFrame == true && !done.isCompleted) {
+          done.completeError(HttpException('browser load failed: ${error.errorCode}', uri: url));
+        }
+      },
+    ));
+  await browser.loadRequest(url);
+  return done.future.timeout(const Duration(seconds: 25));
+}
 
 Future<AskodoxStorePage> askodoxReadStorePage(Uri url,
     {HttpClient Function()? client, int maxBytes = 2000000}) async {
