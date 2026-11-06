@@ -79,6 +79,17 @@ void main() {
       expect(askodoxReadFailureText(TimeoutException('x')), 'timeout');
     });
   });
+
+  group('page file boxes (owner 2026-11-06: the Video box did nothing)', () {
+    test('a video box opens the video picker, photo boxes keep the photo picker', () {
+      expect(askodoxWantsVideo(['video/mp4,video/webm,video/quicktime']), isTrue);
+      expect(askodoxWantsVideo(['video/mp4', 'video/webm']), isTrue);
+      expect(askodoxWantsVideo(['.mp4']), isTrue);
+      expect(askodoxWantsVideo(['image/*']), isFalse);
+      expect(askodoxWantsVideo(['image/*', 'video/mp4']), isFalse);
+      expect(askodoxWantsVideo(const []), isFalse);
+    });
+  });
 }
 
 class HttpExceptionLike implements Exception {
