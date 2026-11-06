@@ -27,6 +27,7 @@ class Settings:
     openai_api_key: str
     openai_vision_model: str
     openai_text_model: str
+    openai_image_model: str
     image_ai_min_confidence: float
     voice_reply_enabled: bool
     voice_reply_max_chars: int
@@ -153,6 +154,7 @@ def load_settings() -> Settings:
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         openai_vision_model=os.getenv("OPENAI_VISION_MODEL", "gpt-5").strip(),
         openai_text_model=os.getenv("OPENAI_TEXT_MODEL", "gpt-5").strip(),
+        openai_image_model=os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-2.5").strip(),
         image_ai_min_confidence=_float_env("PODX_IMAGE_AI_MIN_CONFIDENCE", 0.65),
         voice_reply_enabled=_bool_env("PODX_VOICE_REPLY_ENABLED", True),
         voice_reply_max_chars=_positive_int_env(
