@@ -5290,6 +5290,54 @@
       "history": [
         "2026-11-06: owner -- no edit anywhere; ask for auto admin messages on out of stock / commission below 1 %; separate Telugu / Tamil description boxes removed (automatic translation instead)"
       ]
+    },
+    {
+      "id": "chat_image_studio",
+      "name": "Photo edit / create in the chat for every signed-in customer",
+      "purpose": "A customer attaches photos with words like 'put the wig from photo 1 on me, remove the beard' and gets the edited picture back in the chat (OpenAI images via the ONE openai_image_service).",
+      "expected_behavior": "The photo-analysis model returns image_request EDIT|CREATE|NONE from the customer's own words (no keyword lists). EDIT/CREATE -> POST /api/images/edit (sign-in required). The picture shows in the chat (tap = full view + Share). No key, switched off (image_edit.daily_per_user = 0), daily cap, low AI Credits or a provider failure -> one honest sentence, never a made-up picture. Failed pictures give the AI Credits use back and do not count toward the cap.",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/images/edit"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxStudioImageViewer",
+          "askodoxStudioImageShare"
+        ],
+        "symbols": [
+          "_imageStudioTurn",
+          "askodoxAnalysisWantsImage",
+          "askodoxImageStudioResultOf"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_image_studio.py::test_edit_returns_the_providers_picture_and_counts_one_credit_use",
+          "tests/test_image_studio.py::test_daily_cap_is_per_user_and_failures_do_not_use_it_up",
+          "tests/test_image_studio.py::test_no_key_and_switched_off_say_so_honestly"
+        ],
+        "flutter": [
+          "test/features/home/image_studio_test.dart"
+        ]
+      },
+      "dependencies": [
+        "chat_attachments",
+        "ai_credits"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-07: owner asked for photo edit / create for all users through OpenAI (key already on Railway); cost guard = daily cap + AI Credits"
+      ]
     }
   ]
 }
