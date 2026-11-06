@@ -6,10 +6,13 @@ ONE provider service (``container.openai_image_service``). Truth rules:
 * Whether a message asks for an edit is decided by the photo-analysis model from
   the customer's own words (``image_request`` in /api/attachments/analyze), never
   by keyword lists here or in the app.
-Cost guards: per-client rate limit, a per-user daily cap (platform setting
-``image_edit.daily_per_user``; 0 turns the feature off) counted from this table,
-and one AI Credits ``image`` use per picture (free while charging is OFF; given
-back when no picture comes out).
+Cost guards: per-client rate limit and one AI Credits ``image`` use per picture
+(given back when no picture comes out). Pay as you go: once staff turn AI Credits
+charging ON with an ``image`` rate, a customer makes as many pictures as their
+credits pay for (``free_per_day`` free ones first). While charging is OFF the
+pictures are free, so a per-user daily cap applies (platform setting
+``image_edit.daily_per_user``, counted from this table). That setting at 0 turns
+the feature off in both modes.
 """
 from __future__ import annotations
 
@@ -67,8 +70,9 @@ def _decode(images: list[ImageIn]) -> list[tuple[bytes, str]]:
     return out
 
 
-def _start(container: Any, user: str, kind: str, count: int, cap: int) -> tuple[str, int]:
-    """Claims one of today's uses atomically. Returns (use id, used before this one)."""
+def _start(container: Any, user: str, kind: str, count: int, cap: int | None) -> tuple[str, int]:
+    """Claims one of today's uses atomically (``cap`` None = no daily cap, credits
+    decide). Returns (use id, used before this one); no id when the cap is reached."""
     use_id = "img_" + uuid.uuid4().hex[:20]
     now = datetime.now(timezone.utc)
     with closing(_connect(container)) as conn:
@@ -76,7 +80,7 @@ def _start(container: Any, user: str, kind: str, count: int, cap: int) -> tuple[
         used = int(conn.execute("SELECT COUNT(*) FROM image_studio_uses WHERE user_id = ? AND status IN "
                                 "('pending', 'ok') AND substr(created_at, 1, 10) = ?",
                                 (user, now.date().isoformat())).fetchone()[0])
-        if used >= cap:
+        if cap is not None and used >= cap:
             conn.execute("ROLLBACK")
             return "", used
         conn.execute("INSERT INTO image_studio_uses (id, user_id, kind, status, images, created_at) VALUES "
@@ -115,14 +119,18 @@ async def edit_or_create(payload: StudioRequest, request: Request) -> dict:
     cap = int(platform_settings.get("image_edit.daily_per_user"))
     if cap <= 0:
         return _no("off", "Photo editing is switched off right now.")
+    credits = ai_credits(container)
+    pricing = credits.settings()
+    pay_as_you_go = bool(pricing["charging"]) and int(pricing["rates_paise"].get("image", 0)) > 0
+    daily_cap = None if pay_as_you_go else cap
     kind = "edit" if images else "create"
-    use_id, used = _start(container, user, kind, len(images), cap)
+    use_id, used = _start(container, user, kind, len(images), daily_cap)
     if not use_id:
         return _no("daily_limit", f"Today's limit of {cap} pictures is used up. Try again tomorrow.",
                    daily_limit=cap, used_today=used)
     ref = f"image:{use_id}"
     try:
-        ai_credits(container).reserve(user, "image", ref)
+        charge = credits.reserve(user, "image", ref)
     except CreditsError as error:
         _finish(container, use_id, "refused", reason=error.code)
         if error.code == "insufficient":
@@ -134,11 +142,12 @@ async def edit_or_create(payload: StudioRequest, request: Request) -> dict:
     else:
         result, reason = await run_in_threadpool(service.generate, prompt)
     if result is None:
-        ai_credits(container).release(user, ref)
+        credits.release(user, ref)
         _finish(container, use_id, "failed", reason=reason)
         return _no("provider_failed", "The picture could not be made this time. Please try again.",
                    detail=reason)
     _finish(container, use_id, "ok", model=result.model)
     return {"ok": True, "kind": kind, "mime_type": result.mime_type, "model": result.model,
             "image_base64": base64.b64encode(result.data).decode("ascii"),
-            "daily_limit": cap, "used_today": used + 1}
+            "daily_limit": daily_cap, "used_today": used + 1,
+            "charged_paise": int(charge.get("paise") or 0) if charge.get("charged") else 0}
