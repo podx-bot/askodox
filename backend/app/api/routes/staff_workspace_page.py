@@ -49,6 +49,17 @@ button.p{background:var(--acc);color:#fff}button.s{background:none;color:var(--a
 const $=s=>document.querySelector(s),M=$("#main");let ME=null,TAB="add",PREFILL={},PREFILL_AFF="";
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",3500)}
+let PVID=null;
+function pickVideo(input,note){const f=input.files&&input.files[0];PVID=null;if(!f){note.textContent="";return}
+ const url=URL.createObjectURL(f);const v=document.createElement("video");v.preload="metadata";
+ v.onloadedmetadata=()=>{const sec=v.duration;URL.revokeObjectURL(url);
+  if(!isFinite(sec)||sec>60){note.textContent="✗ వీడియో 60 సెకన్ల లోపే ఉండాలి (చిన్నది ఎంచుకోండి)";input.value="";PVID=null}
+  else{PVID=f;note.textContent="✓ "+Math.round(sec)+" సెకన్లు -- save చేసినప్పుడు upload అవుతుంది"}};
+ v.onerror=()=>{URL.revokeObjectURL(url);note.textContent="✗ ఈ వీడియో చదవలేం (MP4 / WebM ఎంచుకోండి)";input.value="";PVID=null};
+ v.src=url}
+async function attachVideo(itemId,en,te,ta){if(!PVID||!itemId)return null;const fd=new FormData();
+ fd.append("file",PVID,PVID.name);fd.append("description",en||"");fd.append("description_te",te||"");fd.append("description_ta",ta||"");
+ return api("/admin/cc/workspace/items/"+itemId+"/video","POST",fd,true)}
 function cred(){try{return JSON.parse(sessionStorage.getItem("askodox_staff")||"null")}catch(e){return null}}
 function setCred(c){try{c?sessionStorage.setItem("askodox_staff",JSON.stringify(c)):sessionStorage.removeItem("askodox_staff")}catch(e){}}
 async function api(path,method="GET",body,raw){const c=cred()||{},h={};
@@ -122,11 +133,15 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
  <label>Stock</label><select id="f_stock"><option>UNKNOWN</option><option ${d.suggested_stock==="IN_STOCK"?"selected":""}>IN_STOCK</option><option ${d.suggested_stock==="OUT_OF_STOCK"?"selected":""}>OUT_OF_STOCK</option></select>
  <div class="row"><button class="s" id="aidesc">✨ AI తో description మళ్లీ రాయి</button></div></details>
  <p class="mut">Store item: the store's own name, price and photos are kept as given (no AI photos / reels). / Store item: store ఇచ్చిన data మాత్రమే.</p>
+ <label>Product video (optional, 60 సెకన్ల లోపు) / వీడియో (ఐచ్ఛికం)</label><input type="file" id="pvid" accept="video/mp4,video/webm,video/quicktime"><span class="mut" id="vidnote"></span>
+ <label>Telugu description (optional) / తెలుగు వివరణ</label><textarea id="pvid_te" rows="3"></textarea>
+ <label>Tamil description (optional) / తమిళ వివరణ</label><textarea id="pvid_ta" rows="3"></textarea>
  <div class="row" style="margin-top:10px"><button class="s" id="draft">Save draft</button><button class="p" id="submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>`;
  const thumbs=()=>{$("#thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">No photos yet -- add from camera / gallery</span>`};thumbs();
  const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
   try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);thumbs()}catch(err){toast(err.message)}}};
  $("#photo").onchange=addPhotos;$("#photos").onchange=addPhotos;
+ $("#pvid").onchange=e=>pickVideo(e.target,$("#vidnote"));
  if(PREFILL_AFF&&$("#f_affiliate_url")&&!$("#f_affiliate_url").value){$("#f_affiliate_url").value=PREFILL_AFF;PREFILL_AFF=""}
  const describe=async()=>{const fields={};MYFIELDS().forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});if(!fields.title)return;$("#aidescnote").textContent="✨ description రాస్తోంది…";
   try{const r=await api("/admin/cc/workspace/describe","POST",{fields,photos:photos.filter(p=>p.includes("/media/staff/"))});if(!r.ok){$("#aidescnote").textContent=r.reason||"";return}
@@ -141,6 +156,7 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
   toast("Saving… / save అవుతోంది…");const kept=await ownPhotos();
   if(kept.length){fields.images=kept;fields.image_url=kept[0]}
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:type,fields,action,stock_status:$("#f_stock").value});
+   if(PVID&&r.item){try{await attachVideo(r.item.id,fields.description,$("#pvid_te").value.trim(),$("#pvid_ta").value.trim())}catch(e){toast("Video: "+e.message)}}
    let msg=r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
    toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
  $("#draft").onclick=()=>save("draft");$("#submit").onclick=()=>save("submit")}
@@ -160,6 +176,9 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
  ${ME.can_link?`<label>Commission link (if the brand gave one)</label><input id="o_aff" type="url" placeholder="https://...">`:""}
  ${ME.can_commission?`<div class="row"><div><label>Commission %</label><input id="o_rate" inputmode="decimal" placeholder="e.g. 10"></div></div>`:""}
  <label>Offer / coupon for buyers (optional)</label><input id="o_offer" placeholder="e.g. coupon ASKO10 -- 10% off">
+ <label>Product video (optional, 60 సెకన్ల లోపు) / వీడియో (ఐచ్ఛికం)</label><input type="file" id="o_pvid" accept="video/mp4,video/webm,video/quicktime"><span class="mut" id="o_vidnote"></span>
+ <label>Telugu description (optional) / తెలుగు వివరణ</label><textarea id="o_pvid_te" rows="3"></textarea>
+ <label>Tamil description (optional) / తమిళ వివరణ</label><textarea id="o_pvid_ta" rows="3"></textarea>
  <div class="row" style="margin-top:10px"><button class="s" id="o_back">← Back</button><button class="s" id="o_draft">Save draft</button><button class="p" id="o_submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>
  <p class="mut">Promote it to users: Command Center → Growth → Promotions (campaign with review, consent and caps). / Users కి promote: Command Center → Growth → Promotions.</p></div>`;
  const thumbs=()=>{$("#o_thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">No photos yet</span>`};thumbs();
@@ -188,8 +207,10 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
   if($("#o_aff")&&$("#o_aff").value.trim())fields.affiliate_url=firstLink($("#o_aff").value);
   if($("#o_rate")&&num($("#o_rate").value)!=null)fields.verified_commission_rate=num($("#o_rate").value);
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"product",fields,action});
+   if(PVID&&r.item){try{await attachVideo(r.item.id,fields.description,$("#o_pvid_te").value.trim(),$("#o_pvid_ta").value.trim())}catch(e){toast("Video: "+e.message)}}
    let msg=r.review_status==="LIVE"?"Published -- search లో photos తో వస్తుంది":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
    toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
+ $("#o_pvid").onchange=e=>pickVideo(e.target,$("#o_vidnote"));
  $("#o_draft").onclick=()=>save("draft");$("#o_submit").onclick=()=>save("submit")}
 function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
  <div class="mut">${esc(i.item_type)} · ${esc(i.platform_name)} · <span class="badge">${esc(i.review_status)}</span> ${i.price!=null?"₹"+esc(i.price):""} ${i.stock_status==="OUT_OF_STOCK"?'<span class="bad">out of stock</span>':""}</div>
