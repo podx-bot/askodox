@@ -373,6 +373,7 @@ _register(Resource(
         F("buy_price", "Buy card price"),
         F("description_te", "Description (Telugu)", "longtext"),
         F("description_ta", "Description (Tamil)", "longtext"),
+        F("translations", "Machine translations, saved once per language (JSON)", "longtext"),
         F("campaign_id", "Sponsored campaign id", "ref"),
         F("transcript", "Transcript / captions (only if legitimately provided)", "longtext"),
         F("featured", "Featured", "bool", list_column=True),

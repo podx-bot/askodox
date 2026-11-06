@@ -36,6 +36,9 @@ class _Repo implements NativeVideoRepository {
   final videos = <NativeVideo>[];
 
   @override
+  Future<String> describe(String id, String lang) async => '';
+
+  @override
   Future<String?> upload({required List<int> bytes, required String fileName, required String title,
       String caption = '', String category = '', String products = '', bool asBusiness = false,
       bool submit = true}) async {

@@ -5208,6 +5208,46 @@
       "history": [
         "2026-11-06: phase 1 backend (PR this branch)"
       ]
+    },
+    {
+      "id": "video_description_language",
+      "name": "Video description in the viewer's language (translate once, save for all)",
+      "purpose": "Staff's English description of an ASKODOX video is shown in the viewer's app language. Staff Telugu/Tamil text wins; otherwise one machine translation is made per video and language, saved, and served to every later viewer.",
+      "expected_behavior": "GET /api/videos/{id}/description?lang=xx returns text + source (original | staff | cached | ai | unavailable). A saved language is never translated again. Translation failure shows the English text.",
+      "roles": [
+        "customer",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/videos/{video_id}/description"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "_captionLine"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_sources_workspace_early_access.py::test_video_description_translates_once_then_serves_saved_copy"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "native_video",
+        "staff_product_video"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-06: owner asked for auto language by viewer and one-time saved translation (no ffmpeg); audio dubbing not built yet"
+      ]
     }
   ]
 }
