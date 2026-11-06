@@ -1745,7 +1745,13 @@ class _AskodoxPrimaryHomeScreenState
     _controller.clear();
     _scrollBottom();
     askodoxTestLog('image_studio', detail: {'images': images.length});
-    final result = await ref.read(imageStudioServiceProvider).edit(prompt: typed, images: images, language: _lang);
+    final session = ref.read(authSessionProvider);
+    final result = await ref.read(imageStudioServiceProvider).edit(
+          prompt: typed,
+          images: images,
+          language: _lang,
+          authToken: session.user == null ? null : session.tokenPlaceholder,
+        );
     if (!mounted) return;
     final te = _te;
     final id = 'gen_${DateTime.now().microsecondsSinceEpoch}';
