@@ -110,8 +110,9 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
  if(d.ok===false){box.innerHTML=`<p class="bad">${esc(d.error||"This link could not be read")}</p>`;return}
  const f=d.fields||{},st=d.field_status||{},dup=(d.duplicates||[]);let photos=[...new Set([...(f.images||[]),...(f.image_url?[f.image_url]:[])])].slice(0,8);
  const field=([k,l,ta])=>`<label>${l} ${st[k]==="fetched"?'<span class="ok">· from page</span>':""}</label>${ta?`<textarea id="f_${k}" rows="${k==="description"?6:3}">${esc(f[k]||"")}</textarea>`:`<input id="f_${k}" value="${esc(f[k]??"")}">`}`;
- const ok=d.status==="ok";
- box.innerHTML=`<p><span class="badge">${esc((d.source||{}).name||"Unknown source")}</span> <span class="${ok?"ok":"mut"}">${ok?"✓ Details filled -- check and save / వివరాలు నిండాయి -- చూసి save చేయండి":esc(d.note||"")}</span></p>
+ const missing=[["title","Title / పేరు"],["price","Price / ధర"]].filter(([k])=>!f[k]).map(([,l])=>l);
+ const ok=d.status==="ok"&&!missing.length;
+ box.innerHTML=`<p><span class="badge">${esc((d.source||{}).name||"Unknown source")}</span> <span class="${ok?"ok":"mut"}">${ok?"✓ Details filled -- check and save / వివరాలు నిండాయి -- చూసి save చేయండి":(missing.length?esc("Not found on the page, type them: "+missing.join(", ")+" / పేజీలో దొరకలేదు, చేతితో నమోదు చేయండి"):esc(d.note||""))}</span></p>
  ${dup.length?`<p class="warn">Already in ASKODOX: ${dup.map(x=>`#${x.id} ${esc(x.title)} (${esc(x.review_status)})`).join(", ")}</p>`:""}
  <label>Photos</label><div class="thumbs" id="thumbs"></div>
  <div class="row"><label class="s btn">📷 Camera<input id="photo" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery<input id="photos" type="file" accept="image/*" multiple hidden></label></div>
