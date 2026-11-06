@@ -468,6 +468,62 @@ def review_item(item_id: int, body: ReviewBody, request: Request) -> dict:
     return {"item": updated}
 
 
+# What staff may change on an item after saving it (owner 2026-11-06: "no edit anywhere").
+EDIT_FIELDS = ("title", "price", "mrp", "description", "image_url", "images", "affiliate_url",
+               "verified_commission_rate", "brand", "category", "offer_text")
+
+
+class EditBody(BaseModel):
+    fields: dict[str, Any] = Field(default_factory=dict)
+    stock_status: str | None = Field(default=None, pattern="^(IN_STOCK|OUT_OF_STOCK|UNKNOWN)$")
+
+
+@router.patch("/admin/cc/workspace/items/{item_id}")
+def edit_item(item_id: int, body: EditBody, request: Request) -> dict:
+    """Edit a saved item. A publisher's edit stays live; anyone else's edit of a
+    LIVE item goes back to review. A stock / commission change that makes the
+    item go bad raises a staff alert (item_health_alerts, via the catalog)."""
+    principal = _workspace(request)
+    store = catalog(request.app.state.container)
+    item = store.get(item_id)
+    if not item or item.get("deleted_at"):
+        raise HTTPException(status_code=404, detail="Item not found")
+    owner = item.get("submitted_by") == principal["id"]
+    if not (_can_publish(principal) or (owner and item.get("item_type") in _types(principal))):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    fields = {k: v for k, v in body.fields.items() if k in EDIT_FIELDS}
+    if "affiliate_url" in fields and fields["affiliate_url"] != item.get("affiliate_url") \
+            and not _can(principal, "affiliate_products:links"):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs affiliate_products:links)")
+    rate = fields.get("verified_commission_rate")
+    if "verified_commission_rate" in fields and not _can(principal, "affiliate_products:commission"):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs affiliate_products:commission)")
+    if rate not in (None, ""):
+        try:
+            rate_value = float(str(rate).replace("%", ""))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Commission % must be a number") from None
+        fields["verified_commission_rate"] = rate_value
+    before = {k: item.get(k) for k in (*fields, "stock_status", "review_status")}
+    try:
+        updated = store.update(item_id, fields, actor=principal["id"]) if fields else item
+        if "verified_commission_rate" in fields and fields["verified_commission_rate"] not in (None, "") \
+                and fields["verified_commission_rate"] > 0 and updated.get("commission_status") != "ACTIVE":
+            updated = store.set_commission(item_id, "ACTIVE", actor=principal["id"])
+        if body.stock_status and body.stock_status != item.get("stock_status"):
+            updated = store.set_stock(item_id, body.stock_status, actor=principal["id"])
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Item not found") from None
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from None
+    changed = any(updated.get(k) != item.get(k) for k in fields)
+    if changed and not _can_publish(principal) and updated.get("review_status") == "LIVE":
+        updated = store.set_review(item_id, "NEEDS_REVIEW", actor=principal["id"], note="edited")
+    _audit(request, principal, "workspace_edit", item_id, before,
+           {k: updated.get(k) for k in (*fields, "stock_status", "review_status")})
+    return {"item": updated}
+
+
 MAX_PRODUCT_VIDEO = 30 * 1024 * 1024  # bytes; the 60-second limit is checked on the staff phone
 
 

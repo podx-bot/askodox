@@ -5251,6 +5251,45 @@
       "history": [
         "2026-11-06: owner asked for auto language by viewer and one-time saved translation (no ffmpeg); audio dubbing not built yet"
       ]
+    },
+    {
+      "id": "staff_item_edit_and_health_alerts",
+      "name": "Staff Workspace: edit saved items + alerts for bad items",
+      "purpose": "Staff edit an item after saving (title, price, MRP, description, commission link / %, stock) and add a video later from My items. When an item goes out of stock, its commission stops, or its commission % drops below catalog.min_commission_rate (default 1), the staff member who added it gets one task + phone push.",
+      "expected_behavior": "PATCH /admin/cc/workspace/items/{id}: publisher or the item's own adder; affiliate_url needs links grant, commission % needs commission grant; a non-publisher's edit of a LIVE item goes back to NEEDS_REVIEW. Alerts fire on every recorded change (edit, console, feed, CSV, marketplace API) through AffiliateCatalog.on_change, once per item + problem (dedupe key item_health:{id}:{reason}).",
+      "roles": [
+        "staff",
+        "admin"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "PATCH",
+          "path": "/admin/cc/workspace/items/{item_id}"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_sources_workspace_early_access.py::test_staff_edit_item_and_bad_item_alerts_once",
+          "tests/test_sources_workspace_early_access.py::test_item_health_rules_are_universal",
+          "tests/test_sources_workspace_early_access.py::test_junior_staff_edit_of_live_item_goes_back_to_review_and_others_cannot_edit"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "staff_product_video"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-06: owner -- no edit anywhere; ask for auto admin messages on out of stock / commission below 1 %; separate Telugu / Tamil description boxes removed (automatic translation instead)"
+      ]
     }
   ]
 }

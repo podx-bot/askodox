@@ -367,6 +367,9 @@ def _public(row: dict[str, Any], sources: dict[str, dict[str, Any]] | None = Non
 @dataclass
 class AffiliateCatalog:
     db_path: str
+    # Called (before, after) after a stock / commission / field change -- staff
+    # alerts (item_health_alerts). Best effort: a failing hook never fails the change.
+    on_change: Any = None
 
     def __post_init__(self) -> None:
         from app.services.partner_revenue_hub import PartnerRevenueHub
@@ -609,7 +612,16 @@ class AffiliateCatalog:
                          list(sets.values()) + [int(product_id)])
             self._record(conn, product_id, actor, action, changes, check_source, note)
             row = self._row(conn, product_id)
+        self._changed(before, row)
         return _public(row)
+
+    def _changed(self, before: dict[str, Any] | None, after: dict[str, Any] | None) -> None:
+        if self.on_change is None or not before or not after:
+            return
+        try:
+            self.on_change(dict(before), dict(after))
+        except Exception:
+            pass
 
     def _set_state(self, product_id: int, column: str, value: str, *, actor: str, check_source: str,
                    note: str = "", extra: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -629,6 +641,7 @@ class AffiliateCatalog:
                     changes[k] = {"from": before.get(k), "to": v}
             self._record(conn, product_id, actor, prefix, changes, check_source, note)
             row = self._row(conn, product_id)
+        self._changed(before, row)
         return _public(row)
 
     def set_stock(self, product_id: int, status: Any, *, actor: str, check_source: str = "manual",

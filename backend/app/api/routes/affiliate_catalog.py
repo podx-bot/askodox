@@ -40,6 +40,10 @@ def catalog(container: Any) -> ac.AffiliateCatalog:
     if store is None:
         store = ac.AffiliateCatalog(container.settings.database_path)
         container.affiliate_catalog = store
+    if store.on_change is None:
+        from app.services import item_health_alerts
+
+        store.on_change = lambda before, after: item_health_alerts.check(container, before, after)
     return store
 
 

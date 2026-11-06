@@ -135,8 +135,7 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
  <div class="row"><button class="s" id="aidesc">✨ AI తో description మళ్లీ రాయి</button></div></details>
  <p class="mut">Store item: the store's own name, price and photos are kept as given (no AI photos / reels). / Store item: store ఇచ్చిన data మాత్రమే.</p>
  <label>Product video (optional, 60 సెకన్ల లోపు) / వీడియో (ఐచ్ఛికం)</label><input type="file" id="pvid" accept="video/mp4,video/webm,video/quicktime"><span class="mut" id="vidnote"></span>
- <label>Telugu description (optional) / తెలుగు వివరణ</label><textarea id="pvid_te" rows="3"></textarea>
- <label>Tamil description (optional) / తమిళ వివరణ</label><textarea id="pvid_ta" rows="3"></textarea>
+ <p class="mut">Description ఇంగ్లీష్‌లో రాస్తే చాలు -- వీడియో చూసేవారి భాషలోకి (తెలుగు, తమిళ్, హిందీ...) ఆటోమేటిక్‌గా మారుతుంది.</p>
  <div class="row" style="margin-top:10px"><button class="s" id="draft">Save draft</button><button class="p" id="submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>`;
  const thumbs=()=>{$("#thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">No photos yet -- add from camera / gallery</span>`};thumbs();
  const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
@@ -157,7 +156,7 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
   toast("Saving… / save అవుతోంది…");const kept=await ownPhotos();
   if(kept.length){fields.images=kept;fields.image_url=kept[0]}
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:type,fields,action,stock_status:$("#f_stock").value});
-   if(PVID&&r.item){try{await attachVideo(r.item.id,fields.description,$("#pvid_te").value.trim(),$("#pvid_ta").value.trim())}catch(e){toast("Video: "+e.message)}}
+   if(PVID&&r.item){try{await attachVideo(r.item.id,fields.description,"","")}catch(e){toast("Video: "+e.message)}}
    let msg=r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
    toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
  $("#draft").onclick=()=>save("draft");$("#submit").onclick=()=>save("submit")}
@@ -178,8 +177,7 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
  ${ME.can_commission?`<div class="row"><div><label>Commission %</label><input id="o_rate" inputmode="decimal" placeholder="e.g. 10"></div></div>`:""}
  <label>Offer / coupon for buyers (optional)</label><input id="o_offer" placeholder="e.g. coupon ASKO10 -- 10% off">
  <label>Product video (optional, 60 సెకన్ల లోపు) / వీడియో (ఐచ్ఛికం)</label><input type="file" id="o_pvid" accept="video/mp4,video/webm,video/quicktime"><span class="mut" id="o_vidnote"></span>
- <label>Telugu description (optional) / తెలుగు వివరణ</label><textarea id="o_pvid_te" rows="3"></textarea>
- <label>Tamil description (optional) / తమిళ వివరణ</label><textarea id="o_pvid_ta" rows="3"></textarea>
+ <p class="mut">Description ఇంగ్లీష్‌లో రాస్తే చాలు -- వీడియో చూసేవారి భాషలోకి (తెలుగు, తమిళ్, హిందీ...) ఆటోమేటిక్‌గా మారుతుంది.</p>
  <div class="row" style="margin-top:10px"><button class="s" id="o_back">← Back</button><button class="s" id="o_draft">Save draft</button><button class="p" id="o_submit">${ME.can_publish?"Publish":"Submit for review"}</button></div>
  <p class="mut">Promote it to users: Command Center → Growth → Promotions (campaign with review, consent and caps). / Users కి promote: Command Center → Growth → Promotions.</p></div>`;
  const thumbs=()=>{$("#o_thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">No photos yet</span>`};thumbs();
@@ -208,14 +206,14 @@ async function ownForm(){let photos=[];M.innerHTML=`<div class="card"><h3 style=
   if($("#o_aff")&&$("#o_aff").value.trim())fields.affiliate_url=firstLink($("#o_aff").value);
   if($("#o_rate")&&num($("#o_rate").value)!=null)fields.verified_commission_rate=num($("#o_rate").value);
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"product",fields,action});
-   if(PVID&&r.item){try{await attachVideo(r.item.id,fields.description,$("#o_pvid_te").value.trim(),$("#o_pvid_ta").value.trim())}catch(e){toast("Video: "+e.message)}}
+   if(PVID&&r.item){try{await attachVideo(r.item.id,fields.description,"","")}catch(e){toast("Video: "+e.message)}}
    let msg=r.review_status==="LIVE"?"Published -- search లో photos తో వస్తుంది":r.review_status==="DRAFT"?"Draft saved":"Sent for review";
    toast(msg);TAB="items";start()}catch(e){toast(e.message)}};
  $("#o_pvid").onchange=e=>pickVideo(e.target,$("#o_vidnote"));
  $("#o_draft").onclick=()=>save("draft");$("#o_submit").onclick=()=>save("submit")}
-function itemRow(i,btns){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
+function itemRow(i,btns,extra){return `<div class="item">${i.image_url?`<img src="${esc(i.image_url)}" alt="">`:""}<div class="grow"><b>${esc(i.title)}</b>
  <div class="mut">${esc(i.item_type)} · ${esc(i.platform_name)} · <span class="badge">${esc(i.review_status)}</span> ${i.price!=null?"₹"+esc(i.price):""} ${i.stock_status==="OUT_OF_STOCK"?'<span class="bad">out of stock</span>':""}</div>
- ${i.review_note?`<div class="mut">Note: ${esc(i.review_note)}</div>`:""}<div class="row" style="margin-top:6px">${btns.map(([a,l])=>`<button class="s" data-a="${a}" data-id="${i.id}">${l}</button>`).join("")}</div></div></div>`}
+ ${i.review_note?`<div class="mut">Note: ${esc(i.review_note)}</div>`:""}<div class="row" style="margin-top:6px">${btns.map(([a,l])=>`<button class="s" data-a="${a}" data-id="${i.id}">${l}</button>`).join("")}${extra||""}</div></div></div>`}
 // Android WebView shows no prompt() / confirm() dialogs: everything is inline.
 function bindReel(){M.querySelectorAll("button[data-reel]").forEach(b=>b.onclick=()=>{
  const box=document.createElement("div");box.className="row";box.style.marginTop="6px";
@@ -246,9 +244,36 @@ async function reels(){const d=await api("/admin/cc/workspace/reels");
   toast(r.status==="ACTIVE"?"Approved -- users ఇప్పుడు చూస్తారు":"Rejected");reels()}catch(e){toast(e.message)}})}
 async function review(){const d=await api("/admin/cc/workspace/items?status=NEEDS_REVIEW");
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">Waiting for review (${d.items.length})</h3>${d.items.map(i=>itemRow(i,[["approve","Approve & publish"],["reject","Send back"]])).join("")||'<p class="mut">Nothing waiting.</p>'}</div>`;bindReview()}
-async function items(){const d=await api("/admin/cc/workspace/items?mine=true");
+async function items(){const d=await api("/admin/cc/workspace/items?mine=true");ITEMS={};d.items.forEach(i=>ITEMS[i.id]=i);
  const acts=i=>({DRAFT:[["submit",ME.can_publish?"Publish":"Submit"]],LIVE:[["pause","Pause"],["expire","Expire"]],PAUSED:ME.can_publish?[["resume","Resume"]]:[]}[i.review_status]||[]);
- M.innerHTML=`<div class="card"><h3 style="margin-top:0">My items</h3>${d.items.map(i=>itemRow(i,acts(i))).join("")||'<p class="mut">Nothing yet -- add a link.</p>'}</div>`;bindReview()}
+ const edit=i=>`<button class="s" data-edit="${i.id}">✏️ Edit</button><button class="s" data-edit="${i.id}" data-vid="1">🎥 Video</button>`;
+ M.innerHTML=`<div class="card"><h3 style="margin-top:0">My items</h3>${d.items.map(i=>itemRow(i,acts(i),edit(i))).join("")||'<p class="mut">Nothing yet -- add a link.</p>'}</div>`;bindReview();bindEdit()}
+// Owner 2026-11-06: edit a saved item (inline -- Android WebView has no prompt()) and add a video later.
+let ITEMS={};
+function bindEdit(){M.querySelectorAll("button[data-edit]").forEach(b=>b.onclick=()=>{const i=ITEMS[b.dataset.edit];if(!i)return;
+ const v=x=>x==null?"":esc(String(x));const box=document.createElement("div");box.className="card";box.style.marginTop="8px";
+ box.innerHTML=`<label>Title / పేరు</label><input id="e_title" value="${v(i.title)}">
+ <label>Price ₹ / ధర</label><input id="e_price" inputmode="decimal" value="${v(i.price)}">
+ <label>MRP ₹</label><input id="e_mrp" inputmode="decimal" value="${v(i.mrp)}">
+ <label>Description</label><textarea id="e_desc" rows="3">${v(i.description)}</textarea>
+ ${ME.can_link?`<label>Commission link (optional / ఐచ్ఛికం)</label><input id="e_aff" value="${v(i.affiliate_url)}">`:""}
+ ${ME.can_commission?`<label>Commission % (optional / ఐచ్ఛికం)</label><input id="e_rate" inputmode="decimal" value="${v(i.verified_commission_rate)}">`:""}
+ <label>Stock</label><select id="e_stock">${["UNKNOWN","IN_STOCK","OUT_OF_STOCK"].map(s=>`<option ${i.stock_status===s?"selected":""}>${s}</option>`).join("")}</select>
+ <label>Product video (optional, 60 సెకన్ల లోపు) / వీడియో</label><input type="file" id="e_vid" accept="video/mp4,video/webm,video/quicktime"><span class="mut" id="e_vidnote"></span>
+ <p class="mut">Description ఇంగ్లీష్‌లో రాస్తే చాలు -- చూసేవారి భాషలోకి ఆటోమేటిక్‌గా మారుతుంది.</p>
+ <div class="row"><button class="s" id="e_cancel">Cancel</button><button class="p" id="e_save">Save</button></div>`;
+ const row=b.closest(".item");row.after(box);M.querySelectorAll("button[data-edit]").forEach(x=>x.disabled=true);PVID=null;
+ box.querySelector("#e_vid").onchange=e=>pickVideo(e.target,box.querySelector("#e_vidnote"));
+ if(b.dataset.vid)box.querySelector("#e_vid").scrollIntoView({block:"center"});
+ box.querySelector("#e_cancel").onclick=()=>items();
+ box.querySelector("#e_save").onclick=async()=>{const q=s=>box.querySelector(s),f={title:q("#e_title").value.trim(),description:q("#e_desc").value.trim()};
+  const num=x=>x.trim()===""?null:Number(x.trim().replace(/[₹,]/g,""));f.price=num(q("#e_price").value);f.mrp=num(q("#e_mrp").value);
+  if(q("#e_aff"))f.affiliate_url=q("#e_aff").value.trim();if(q("#e_rate"))f.verified_commission_rate=q("#e_rate").value.trim();
+  q("#e_save").disabled=true;q("#e_save").textContent="Saving…";
+  try{const r=await api(`/admin/cc/workspace/items/${i.id}`,"PATCH",{fields:f,stock_status:q("#e_stock").value});
+   if(PVID){try{await attachVideo(i.id,f.description,"","");toast("Saved + video uploaded")}catch(e){toast("Saved. Video: "+e.message)}}
+   else toast(r.item.review_status==="NEEDS_REVIEW"?"Saved -- review కి వెళ్లింది":"Saved");items()}
+  catch(e){toast(e.message);q("#e_save").disabled=false;q("#e_save").textContent="Save"}}})}
 async function tasks(){const d=await api("/admin/cc/workspace/tasks");
  const links=x=>((x.evidence||{}).links||[]).map(l=>`<div class="item"><div class="grow mut">${esc(l.url.replace(/^https:\/\/(www\.)?/,"").slice(0,60))}${l.affiliate_url?' <span class="ok">· commission link</span>':""}</div><button class="s" data-add="${esc(l.url)}" data-aff="${esc(l.affiliate_url||"")}">Add</button></div>`).join("");
  const batch=ME.can_assign?`<div class="card"><h3 style="margin-top:0">Links staff కి పంచండి</h3><p class="mut">ఒక line కి ఒక product link. Commission link ఉంటే అదే line లో space తర్వాత పెట్టండి.</p>
