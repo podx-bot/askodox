@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api/api_client.dart';
@@ -13,9 +14,25 @@ import '../../shared/widgets/askodox_guided_field.dart';
 /// ASKODOX-native videos: record or pick a video, add a title / caption /
 /// category / product, upload, and staff review it before anyone sees it.
 /// The feed shows only published (ACTIVE) ASKODOX videos.
+/// The product buy card shown under a staff video (store item link + price).
+class NativeBuyLink {
+  const NativeBuyLink({required this.itemId, required this.title, required this.price, required this.url});
+
+  static NativeBuyLink? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final url = '${raw['url'] ?? ''}';
+    if (!url.startsWith('https://')) return null;
+    return NativeBuyLink(itemId: '${raw['item_id'] ?? ''}', title: '${raw['title'] ?? ''}',
+        price: '${raw['price'] ?? ''}', url: url);
+  }
+
+  final String itemId, title, price, url;
+}
+
 class NativeVideo {
   const NativeVideo({required this.id, required this.status, required this.title, this.caption = '',
-      this.url = '', this.label = '', this.categories = const []});
+      this.url = '', this.label = '', this.categories = const [], this.buy, this.descriptions = const {},
+      this.thumbnail = ''});
 
   factory NativeVideo.fromJson(Map<String, Object?> j) {
     final data = (j['data'] as Map?) ?? j; // /api/merchant/videos rows wrap fields in "data"
@@ -27,10 +44,22 @@ class NativeVideo {
       url: '${data['url'] ?? ''}',
       label: '${j['label'] ?? ''}',
       categories: [for (final c in (data['categories'] as List? ?? const [])) '$c'],
+      buy: NativeBuyLink.fromJson(j['buy']),
+      descriptions: {
+        for (final e in ((j['descriptions'] as Map?) ?? const {}).entries)
+          if ('${e.value}'.trim().isNotEmpty) '${e.key}': '${e.value}'.trim(),
+      },
+      thumbnail: '${data['thumbnail_url'] ?? ''}',
     );
   }
 
-  final String id, status, title, caption, url, label;
+  /// The description in the viewer's language (te / ta / en), else English, else the caption.
+  String captionIn(String languageCode) =>
+      descriptions[languageCode] ?? descriptions['en'] ?? caption;
+
+  final String id, status, title, caption, url, label, thumbnail;
+  final NativeBuyLink? buy;
+  final Map<String, String> descriptions;
   final List<String> categories;
 }
 
@@ -359,12 +388,13 @@ class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
           const Divider(height: 32),
           Text(t('Published on ASKODOX', 'ASKODOX లో పబ్లిష్ అయినవి'), style: Theme.of(context).textTheme.titleMedium),
           if (_feed.isEmpty) Text(t('No ASKODOX videos are published yet.', 'ఇంకా ASKODOX వీడియోలు పబ్లిష్ కాలేదు.')),
-          for (final v in _feed)
+          for (final v in _feed) ...[
             Card(
               child: ListTile(
                 leading: const Icon(Icons.play_circle_outline),
                 title: Text(v.title),
-                subtitle: Text([v.label, v.caption].where((s) => s.isNotEmpty).join(' · '),
+                subtitle: Text([v.label, v.captionIn(Localizations.localeOf(context).languageCode)]
+                        .where((s) => s.isNotEmpty).join(' · '),
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                 onTap: v.url.isEmpty
                     ? null
@@ -381,7 +411,41 @@ class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
                     : null,
               ),
             ),
+            if (v.buy != null) _NativeBuyCard(buy: v.buy!, thumbnail: v.thumbnail, te: _te),
+          ],
         ]),
+      ),
+    );
+  }
+}
+
+/// Sponsor-style buy card under a product video: photo, name, price and a
+/// Buy button that opens the store (commission link when one exists).
+class _NativeBuyCard extends StatelessWidget {
+  const _NativeBuyCard({required this.buy, required this.thumbnail, required this.te});
+
+  final NativeBuyLink buy;
+  final String thumbnail;
+  final bool te;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      key: ValueKey('native-buy-${buy.itemId}'),
+      margin: const EdgeInsets.only(top: 4, bottom: 12),
+      child: ListTile(
+        leading: thumbnail.startsWith('https://')
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(thumbnail, width: 56, height: 56, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_outlined)))
+            : const Icon(Icons.shopping_bag_outlined),
+        title: Text(buy.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        subtitle: Text(buy.price.isEmpty ? '' : '₹${buy.price}'),
+        trailing: FilledButton(
+          onPressed: () => launchUrl(Uri.parse(buy.url), mode: LaunchMode.externalApplication),
+          child: Text(te ? 'కొనండి' : 'Buy'),
+        ),
       ),
     );
   }

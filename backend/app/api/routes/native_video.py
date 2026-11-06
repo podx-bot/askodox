@@ -122,6 +122,8 @@ def _public(record: Dict[str, Any]) -> Dict[str, Any]:
             "categories": d.get("categories") or [], "products": d.get("products") or [],
             "language": d.get("language") or "", "video_type": d.get("video_type") or "",
             "label": "From the business" if d.get("relationship") == "merchant" else "Shared on ASKODOX",
+            "descriptions": {"en": d.get("description") or "", "te": d.get("description_te") or "",
+                             "ta": d.get("description_ta") or ""},
             "buy": ({"item_id": d.get("store_item_id"), "title": d.get("buy_title") or "", "price": d.get("buy_price") or "",
                      "url": d.get("buy_url")} if d.get("buy_url") else None),
             "created_at": record.get("created_at")}

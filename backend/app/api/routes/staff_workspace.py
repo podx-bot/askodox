@@ -29,7 +29,7 @@ import os
 import re
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -457,7 +457,9 @@ MAX_PRODUCT_VIDEO = 30 * 1024 * 1024  # bytes; the 60-second limit is checked on
 
 
 @router.post("/admin/cc/workspace/items/{item_id}/video")
-async def attach_video(item_id: int, request: Request, file: UploadFile = File(...)) -> dict:
+async def attach_video(item_id: int, request: Request, file: UploadFile = File(...),
+                       description: str = Form("", max_length=4000), description_te: str = Form("", max_length=4000),
+                       description_ta: str = Form("", max_length=4000)) -> dict:
     """Staff uploads a video they made outside ASKODOX for ONE store item. It
     shows in Videos with the item's buy link under it. Optional for every item.
     Owner: ASKODOX. Staff who may publish -> ACTIVE; others -> PENDING_REVIEW."""
@@ -484,9 +486,11 @@ async def attach_video(item_id: int, request: Request, file: UploadFile = File(.
     pf = _pf(request)
     record = pf.resources.create("videos", {
         "title": title, "platform": "askodox", "url": f"{native_video._base(request)}/media/videos/{name}",
-        "thumbnail_url": item.get("image_url") or None, "description": "", "categories": [],
+        "thumbnail_url": item.get("image_url") or None, "categories": [],
         "products": [title], "keywords": [w for w in re.findall(r"[^\W_]{3,}", title.lower())][:12],
         "language": "", "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
+        "description": pii_mask.mask_sensitive(description.strip()) or str(item.get("description") or "")[:4000],
+        "description_te": pii_mask.mask_sensitive(description_te.strip()), "description_ta": pii_mask.mask_sensitive(description_ta.strip()),
         "store_item_id": str(item_id), "buy_url": buy_url, "buy_title": title,
         "buy_price": str(item.get("price") or ""),
     }, actor=f"staff:{principal['id']}", owner_ref=f"staff:{principal['id']}",
