@@ -81,6 +81,9 @@ String askodoxVideoStatusText(String status, bool te) => switch (status) {
     };
 
 abstract class NativeVideoRepository {
+  /// The description in [lang]: staff text, a saved copy, or a one-time translation. '' on failure.
+  Future<String> describe(String id, String lang);
+
   Future<String?> upload({required List<int> bytes, required String fileName, required String title,
       String caption, String category, String products, bool asBusiness, bool submit});
   Future<List<NativeVideo>> mine();
@@ -160,6 +163,16 @@ class ApiNativeVideoRepository implements NativeVideoRepository {
       (await _client.post<Map<String, Object?>>('/api/videos/mine/$id/$action', options: _auth())) is ApiSuccess;
 
   @override
+  Future<String> describe(String id, String lang) async {
+    final r = await _client.get<Map<String, Object?>>(
+        '/api/videos/$id/description?lang=${Uri.encodeQueryComponent(lang)}', options: _auth());
+    return switch (r) {
+      ApiSuccess(:final data) => '${data['text'] ?? ''}',
+      ApiError() => '',
+    };
+  }
+
+  @override
   Future<bool> report(String id, String reason) async => (await _client.post<Map<String, Object?>>(
       '/api/videos/$id/report', body: {'reason': reason}, options: _auth())) is ApiSuccess;
 
@@ -208,6 +221,29 @@ class NativeVideoScreen extends ConsumerStatefulWidget {
 }
 
 class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
+  final Map<String, Future<String>> _describeCache = {};
+
+  /// Caption in the viewer's app language. Staff text is used as is; otherwise
+  /// the server returns the saved (or once-made) translation. One request per video+language.
+  Widget _captionLine(NativeVideo v) {
+    final lang = Localizations.localeOf(context).languageCode;
+    final label = v.label;
+    if (lang == 'en' || v.descriptions.containsKey(lang)) {
+      return Text([label, v.captionIn(lang)].where((s) => s.isNotEmpty).join(' · '),
+          maxLines: 2, overflow: TextOverflow.ellipsis);
+    }
+    final future = _describeCache.putIfAbsent('${v.id}:$lang',
+        () => ref.read(nativeVideoRepositoryProvider).describe(v.id, lang));
+    return FutureBuilder<String>(
+      future: future,
+      builder: (context, snap) {
+        final text = (snap.data ?? '').trim().isNotEmpty ? snap.data!.trim() : v.captionIn('en');
+        return Text([label, text].where((s) => s.isNotEmpty).join(' · '),
+            maxLines: 2, overflow: TextOverflow.ellipsis);
+      },
+    );
+  }
+
   bool get _te => Localizations.localeOf(context).languageCode == 'te';
   String t(String en, String te) => _te ? te : en;
   final _title = TextEditingController();
@@ -393,9 +429,7 @@ class _NativeVideoScreenState extends ConsumerState<NativeVideoScreen> {
               child: ListTile(
                 leading: const Icon(Icons.play_circle_outline),
                 title: Text(v.title),
-                subtitle: Text([v.label, v.captionIn(Localizations.localeOf(context).languageCode)]
-                        .where((s) => s.isNotEmpty).join(' · '),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                subtitle: _captionLine(v),
                 onTap: v.url.isEmpty
                     ? null
                     : () => Navigator.of(context).push(MaterialPageRoute(

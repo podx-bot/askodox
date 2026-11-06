@@ -575,3 +575,47 @@ def test_staff_product_video_attaches_to_item_and_shows_buy_card(api):
     feed = client.get("/api/videos/feed?limit=50").json()["items"]
     mine = [v for v in feed if (v.get("buy") or {}).get("item_id") == str(item_id)]
     assert mine and mine[0]["buy"]["url"] == "https://brand.example/jug?ref=asko", feed
+
+
+def test_video_description_translates_once_then_serves_saved_copy(api, monkeypatch):
+    """Owner 2026-11-06: the English description is translated for a viewer's language once,
+    saved on the video, and every later viewer gets the saved copy (no repeat AI cost).
+    Staff's own Telugu / Tamil text always wins. Failure keeps the English text."""
+    from app.services import video_localization
+
+    client, container, _ = api
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Steel tiffin box", "price": 350, "platform": "other",
+        "original_product_url": "https://brand.example/tiffin", "affiliate_url": "https://brand.example/tiffin?ref=t",
+        "verified_commission_rate": "10"}})
+    assert saved.status_code == 200, saved.text
+    item_id = saved.json()["item"]["id"]
+    mp4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64
+    up = client.post(f"/admin/cc/workspace/items/{item_id}/video", headers=OWNER,
+                     files={"file": ("tiffin.mp4", mp4, "video/mp4")},
+                     data={"description": "Leak-proof steel tiffin box.", "description_te": "",
+                           "description_ta": ""})
+    assert up.status_code == 200, up.text
+    video_id = up.json()["video_id"]
+
+    calls = []
+
+    def fake_translate(api_key, text, lang):
+        calls.append((text, lang))
+        return "Gujarati text"
+
+    monkeypatch.setattr(video_localization, "translate", fake_translate)
+    first = client.get(f"/api/videos/{video_id}/description?lang=gu").json()
+    assert first == {"id": video_id, "lang": "gu", "text": "Gujarati text", "source": "ai"}, first
+    second = client.get(f"/api/videos/{video_id}/description?lang=gu").json()
+    assert second["source"] == "cached" and second["text"] == "Gujarati text", second
+    assert len(calls) == 1, "a saved language must never be translated again"
+    english = client.get(f"/api/videos/{video_id}/description?lang=en").json()
+    assert english["text"] == "Leak-proof steel tiffin box." and english["source"] == "original"
+
+    def failing(api_key, text, lang):
+        return None
+
+    monkeypatch.setattr(video_localization, "translate", failing)
+    kn = client.get(f"/api/videos/{video_id}/description?lang=kn").json()
+    assert kn["text"] == "Leak-proof steel tiffin box." and kn["source"] == "unavailable", kn

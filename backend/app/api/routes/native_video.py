@@ -199,6 +199,22 @@ async def upload_video(request: Request, file: UploadFile = File(...), title: st
     return _public(record)
 
 
+@router.get("/api/videos/{video_id}/description")
+def video_description(video_id: str, request: Request, lang: str = "en") -> dict:
+    """The description in the viewer's language. Staff text wins; a machine
+    translation is made once and saved for every later viewer."""
+    from app.services import rate_limit, video_localization
+
+    rate_limit.check(request, "video_description", limit=120)
+    record = _video(request, video_id)
+    if record["status"] != "ACTIVE":
+        raise HTTPException(status_code=404, detail="Video not found")
+    code = (lang or "en").strip().lower()[:5]
+    api_key = str(getattr(request.app.state.container.settings, "sarvam_api_key", "") or "").strip()
+    text, source = video_localization.describe(_pf(request), record, code, api_key)
+    return {"id": video_id, "lang": code, "text": text, "source": source}
+
+
 @router.get("/api/videos/feed")
 def video_feed(request: Request, category: str = "", limit: int = 20) -> dict:
     pf = _pf(request)
