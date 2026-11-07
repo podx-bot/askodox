@@ -37,6 +37,7 @@ import kotlin.math.sqrt
  *  - Classic Bluetooth (SPP / RFCOMM) receipt printers: bonded devices + raw ESC/POS bytes.
  *  - USB receipt printers (USB host, bulk OUT endpoint): device list + raw bytes.
  *  - Light sensor (lux) and microphone level (dBFS, uncalibrated) for the Smart Tools meters.
+ *  - Step counter (steps since the phone started) for Work Mode.
  *
  * Nothing here claims a printer model works: each call reports exactly what the radio / USB
  * stack answered. Blocking I/O runs on a background thread; results return on the main thread.
@@ -46,6 +47,7 @@ object AskodoxHardware {
     private const val USB_PERMISSION = "com.askodox.askodox.USB_PERMISSION"
     private const val BT_PERMISSION_REQUEST = 4311
     private const val MIC_PERMISSION_REQUEST = 4312
+    private const val STEP_PERMISSION_REQUEST = 4313
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private val main = Handler(Looper.getMainLooper())
 
@@ -58,6 +60,7 @@ object AskodoxHardware {
                 "sendUsb" -> sendUsb(activity, call.argument("device"), call.argument("bytes"), result)
                 "lightLevel" -> lightLevel(activity, result)
                 "soundLevel" -> soundLevel(activity, call.argument<Int>("millis") ?: 600, result)
+                "stepCount" -> stepCount(activity, result)
                 else -> result.notImplemented()
             }
         }
@@ -247,6 +250,42 @@ object AskodoxHardware {
                 result.error("no_reading", "The light sensor sent no reading", null)
             }
         }, 3000)
+    }
+
+    /** The phone's own step counter: steps since the phone last started (Work Mode). */
+    private fun stepCount(activity: Activity, result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.ACTIVITY_RECOGNITION), STEP_PERMISSION_REQUEST)
+            result.error("permission_requested", "Allow physical activity, then try again", null)
+            return
+        }
+        val sensors = activity.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val counter = sensors?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        if (sensors == null || counter == null) {
+            result.error("no_sensor", "This phone has no step counter", null)
+            return
+        }
+        var done = false
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                if (done) return
+                done = true
+                sensors.unregisterListener(this)
+                result.success(event.values.firstOrNull()?.toLong() ?: 0L)
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        sensors.registerListener(listener, counter, SensorManager.SENSOR_DELAY_NORMAL)
+        main.postDelayed({
+            if (!done) {
+                done = true
+                sensors.unregisterListener(listener)
+                result.error("no_reading", "The step counter sent no reading", null)
+            }
+        }, 4000)
     }
 
     @SuppressLint("MissingPermission")
