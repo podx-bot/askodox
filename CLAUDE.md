@@ -198,7 +198,8 @@ this file, don't trust it blindly.
 - Chat photo studio (owner 2026-11-07, for ALL signed-in users): the photo-analysis prompt returns
   `image_request` EDIT|CREATE|NONE from the customer's own words; EDIT/CREATE -> `_imageStudioTurn` ->
   `POST /api/images/edit` (`routes/image_studio.py`) -> `container.openai_image_service` (`openai_image_service.py`,
-  env `OPENAI_API_KEY` + `OPENAI_IMAGE_MODEL`, default `gpt-image-2.5` -- unverified until the first real call).
+  env `OPENAI_API_KEY` + `OPENAI_IMAGE_MODEL`, default `gpt-image-2.5-sunburst` -- `gpt-image-2.5` alone is NOT a model id;
+  edits send `image[]` per photo, size `auto` keeps the photo's shape). Failures log `image_studio.failed` with OpenAI's own code.
   Guards: rate limit + one AI Credits `image` use (released on failure). Pay as you go: AI Credits charging ON
   with an `image` rate -> no daily cap (credits decide); charging OFF -> free, capped per user per day by
   `image_edit.daily_per_user` (default 5; 0 = off in both modes; table `image_studio_uses`). Never a placeholder picture. Staff

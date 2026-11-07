@@ -46,7 +46,7 @@ def test_provider_error_is_an_honest_no_result():
     assert result is None and reason
 
 
-def test_unknown_size_falls_back_to_square_and_empty_answer_is_no_result():
+def test_unknown_size_falls_back_to_auto_and_empty_answer_is_no_result():
     seen = {}
 
     def handler(request):
@@ -56,4 +56,15 @@ def test_unknown_size_falls_back_to_square_and_empty_answer_is_no_result():
     service = OpenAIImageService(api_key="sk-test", http_client=_client(handler))
     result, reason = service.generate("a poster", size="999x999")
     assert result is None and "no image" in reason
-    assert b'"size":"1024x1024"' in seen["body"]
+    assert b'"size":"auto"' in seen["body"]
+
+
+def test_default_model_is_a_real_openai_id_and_errors_carry_openais_reason():
+    from app.services.openai_image_service import DEFAULT_MODEL
+
+    assert DEFAULT_MODEL == "gpt-image-2.5-sunburst"
+    service = OpenAIImageService(api_key="sk-test", http_client=_client(lambda r: httpx.Response(
+        400, json={"error": {"code": "invalid_value", "message": "Invalid value: 'gpt-image-2.5'."}})))
+    result, reason = service.edit([(b"one", "image/jpeg")], "wig")
+    assert result is None
+    assert reason.startswith("HTTP 400 invalid_value") and "sk-test" not in reason
