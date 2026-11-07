@@ -162,16 +162,30 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           ),
           // The full word always shows: a compact size, and on a narrow phone it shrinks to fit
           // (scaleDown) instead of fading out the last letters behind the header buttons.
-          const Expanded(
-            child: FittedBox(
-              key: Key('askodoxHeaderWordmark'),
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text('ASKODOX',
-                  maxLines: 1,
-                  softWrap: false,
-                  style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
-            ),
+          Expanded(
+            child: Row(children: [
+              const Flexible(
+                child: FittedBox(
+                  key: Key('askodoxHeaderWordmark'),
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('ASKODOX',
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                ),
+              ),
+              // Work Mode game (owner 2026-11-07): right beside the name.
+              IconButton(
+                key: const Key('askodoxHeaderGameButton'),
+                tooltip: isTe ? 'వర్క్ మోడ్ గేమ్' : 'Work Mode game',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                icon: const Icon(Icons.sports_esports_rounded, size: 22, color: _navAccent),
+                onPressed: () => context.push('/work'),
+              ),
+            ]),
           ),
           InkWell(
             key: const Key('askodoxLocationChip'),
