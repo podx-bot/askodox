@@ -22,6 +22,7 @@ import sqlite3
 import uuid
 from contextlib import closing
 from datetime import datetime, timezone
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -29,6 +30,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 router = APIRouter(prefix="/api/images", tags=["image-studio"])
+_LOG = logging.getLogger("askodox.image_studio")
 
 MAX_IMAGES = 4
 MAX_BYTES = 8 * 1024 * 1024
@@ -144,6 +146,8 @@ async def edit_or_create(payload: StudioRequest, request: Request) -> dict:
     if result is None:
         credits.release(user, ref)
         _finish(container, use_id, "failed", reason=reason)
+        _LOG.warning("image_studio.failed kind=%s images=%d model=%s reason=%s", kind, len(images),
+                     getattr(service, "model", ""), reason)
         return _no("provider_failed", "The picture could not be made this time. Please try again.",
                    detail=reason)
     _finish(container, use_id, "ok", model=result.model)
