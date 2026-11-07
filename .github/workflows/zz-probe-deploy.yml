@@ -1,0 +1,18 @@
+name: zz probe deploy
+on:
+  push:
+    branches: [claude/probe-7aa3]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - run: |
+          for i in $(seq 1 40); do
+            body="$(curl -s --max-time 20 https://podx-ai-connect-production-3279.up.railway.app/health || true)"
+            commit="$(python3 -c 'import json,sys; d=json.loads(sys.argv[1] or "{}"); print(d.get("commit") or d.get("git_commit") or d.get("version") or "")' "$body" 2>/dev/null || true)"
+            echo "try $i commit=$commit"
+            case "$commit" in 7aa31819*) echo "::warning::PRODUCTION_COMMIT=$commit"; exit 0;; esac
+            sleep 20
+          done
+          echo "::warning::NOT_YET body=$(echo "$body" | head -c 300)"
