@@ -286,7 +286,7 @@ void main() {
     expect(container.read(askodoxChatRequestProvider)?.hubAction, AskodoxHubAction.voice);
   });
 
-  testWidgets('header: the full ASKODOX name is visible on a narrow phone (never faded / cut)', (tester) async {
+  testWidgets('header: logo + game / talk / radio buttons fit on a narrow phone (owner 2026-11-08)', (tester) async {
     tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
@@ -306,13 +306,15 @@ void main() {
       child: MaterialApp.router(routerConfig: router),
     ));
     await tester.pumpAndSettle();
-    final word = find.descendant(of: find.byKey(const Key('askodoxHeaderWordmark')), matching: find.text('ASKODOX'));
-    expect(word, findsOneWidget);
-    final box = tester.getRect(find.byKey(const Key('askodoxHeaderWordmark')));
-    final text = tester.getRect(word);
-    // The drawn word fits inside its slot (scaled down if needed), so no letter is hidden.
-    expect(text.right, lessThanOrEqualTo(box.right + 0.5));
-    expect(text.left, greaterThanOrEqualTo(box.left - 0.5));
+    final box = tester.getRect(find.byKey(const Key('askodoxHeaderHub')));
+    for (final key in ['askodoxHeaderGameButton', 'askodoxHeaderTalkButton', 'askodoxHeaderRadioButton']) {
+      final button = find.byKey(Key(key));
+      expect(button, findsOneWidget, reason: key);
+      final r = tester.getRect(button);
+      // Every button is fully inside its slot (scaled down if needed), never hidden behind the header chips.
+      expect(r.right, lessThanOrEqualTo(box.right + 0.5), reason: key);
+      expect(r.left, greaterThanOrEqualTo(box.left - 0.5), reason: key);
+    }
     expect(tester.takeException(), isNull);
   });
 
