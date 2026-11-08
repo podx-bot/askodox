@@ -192,12 +192,30 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ ప్రొడక్ట్ / సర్వీస్ వీడియో అప్‌లోడ్ చేసి పబ్లిష్ చేయండి.',
     'కస్టమర్లు దాని గురించి ప్రశ్నలు అడగవచ్చు.',
   ]),
-  '/radio': _H('Travel Radio', 'ట్రావెల్ రేడియో', [
+  '/radio': _H('Radio', 'రేడియో', [
     'Hear short updates about the places on your route.',
-    'Tap Play next. It runs on your AI Credits -- no separate package.',
+    'Town news: type any town and hear its latest real headlines.',
+    'It runs on your AI Credits -- no separate package; nothing found = nothing charged.',
   ], [
     'మీ దారిలోని ప్రదేశాల గురించి చిన్న అప్‌డేట్స్ వినండి.',
-    '"తర్వాతది వినండి" నొక్కండి. మీ AI Credits తోనే పనిచేస్తుంది -- వేరే ప్యాకేజ్ లేదు.',
+    'ఊరి వార్తలు: ఏ ఊరి పేరు రాసినా ఆ ఊరి తాజా నిజమైన వార్తలు వినిపిస్తాయి.',
+    'మీ AI Credits తోనే పనిచేస్తుంది -- వేరే ప్యాకేజ్ లేదు; ఏమీ దొరకకపోతే ఏమీ కట్ కాదు.',
+  ]),
+  '/talk': _H('Talk', 'చర్చ', [
+    'Search a topic or start one, then talk with others about it.',
+    'Nobody knows who anybody is; rude words become **** and contacts are hidden.',
+    'Reading is free; hearing a message read aloud uses AI Credits.',
+  ], [
+    'ఒక విషయం వెతకండి లేదా కొత్తది మొదలుపెట్టండి, తర్వాత ఇతరులతో దాని మీద మాట్లాడండి.',
+    'ఎవరు ఎవరో ఎవరికీ తెలియదు; బూతులు **** అవుతాయి, నంబర్లు దాచేస్తాం.',
+    'చదవడం ఉచితం; message ని వినాలంటే AI Credits ఖర్చవుతాయి.',
+  ]),
+  '/talk/:id': _H('Discussion', 'చర్చ', [
+    'Write or speak your message; it is checked before others see it.',
+    'Tap the speaker to hear a message (AI Credits); ⋮ to Report or Block.',
+  ], [
+    'మీ మాట రాయండి లేదా మాట్లాడండి; ఇతరులు చూసే ముందు చెక్ అవుతుంది.',
+    'మాట వినడానికి స్పీకర్ నొక్కండి (AI Credits); Report / Block కి ⋮ నొక్కండి.',
   ]),
   '/plans': _H('Plans', 'ప్లాన్లు', [
     'Compare plans and what each includes.',

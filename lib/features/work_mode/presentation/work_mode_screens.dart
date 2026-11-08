@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/widgets/askodox_hub_icons.dart';
 import '../../native_video/video_commerce.dart' show askodoxShareTextProvider;
 import '../../smart_tools/data/phone_meters.dart';
 import '../../smart_tools/presentation/sensor_tools_screen.dart' show askodoxMotionSensorsProvider;
@@ -105,6 +106,7 @@ class AskodoxWorkModeScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          const AskodoxHubIcons(current: 'work'),
         ],
       ),
       body: body,

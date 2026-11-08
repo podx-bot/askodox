@@ -5437,6 +5437,96 @@
       "history": [
         "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva"
       ]
+    },
+    {
+      "id": "anonymous_talk_and_town_radio",
+      "name": "Talk: anonymous topic discussions with masked words; Radio: any town's news; header habit buttons",
+      "purpose": "Keep people coming back: talk about any topic with others without anyone knowing who they are, hear any town's latest news, and reach the game / Talk / Radio from the header on every tab.",
+      "expected_behavior": "Header: the ASKODOX logo stays; the word is replaced by three buttons (Work Mode game, Talk, Radio) that also appear in those screens' app bars. Talk (/talk): rules first (anonymous, rude words become ****, contacts hidden, severe messages not posted, 3 strikes = 24 h mute, report / block, 18+, reading free / listening uses AI Credits); search or start a topic; one room per topic (case / spacing ignored); a made-up name per person per room from a keyed hash; the API never returns a user id or number. Every message: contacts hidden, rude words masked (en / te / hi), a model judges threats / hate / sexual / scam / personal info / self-harm (rule fallback without a model); held messages are never shown; self-harm gets a support note (Tele-MANAS 14416, 112). Three reports hide a message for staff (/admin/cc/talk). Listening = the ASKODOX voice with \"beep\" for masked words, one AI Credits 'voice' use (free while charging is off). Radio town news (POST /api/radio/town): real headlines only (web search chain + LIVE news naming the town), cached 30 min per town, one AI Credits 'radio' use per bulletin, nothing found = nothing charged.",
+      "roles": [
+        "customer",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/talk/rooms"
+        },
+        {
+          "method": "POST",
+          "path": "/api/talk/rooms"
+        },
+        {
+          "method": "GET",
+          "path": "/api/talk/rooms/{room_id}/messages"
+        },
+        {
+          "method": "POST",
+          "path": "/api/talk/rooms/{room_id}/messages"
+        },
+        {
+          "method": "POST",
+          "path": "/api/talk/messages/{message_id}/report"
+        },
+        {
+          "method": "POST",
+          "path": "/api/talk/messages/{message_id}/block"
+        },
+        {
+          "method": "POST",
+          "path": "/api/talk/messages/{message_id}/speak"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/talk/reports"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/talk/messages/{message_id}/decision"
+        },
+        {
+          "method": "POST",
+          "path": "/api/radio/town"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxHeaderHub",
+          "askodoxHeaderTalkButton",
+          "askodoxHeaderRadioButton",
+          "askodoxTalkRules",
+          "askodoxTalkSearch",
+          "askodoxTalkRoomScreen",
+          "askodoxTalkSupport",
+          "askodoxRadioTown",
+          "askodoxRadioTownCost"
+        ],
+        "symbols": [
+          "AskodoxHubIcons",
+          "askodoxTalkRoutes",
+          "TalkRepository",
+          "AskodoxTownNews"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_anonymous_talk.py"
+        ],
+        "flutter": [
+          "test/features/talk/talk_screens_test.dart"
+        ]
+      },
+      "dependencies": [
+        "work_mode_walking_game"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-08: owner asked for an anonymous topic discussion portal with rude words beeped, cost told upfront (text cheaper than voice), town news on Radio, and game / talk / radio buttons beside the logo on every page"
+      ]
     }
   ]
 }

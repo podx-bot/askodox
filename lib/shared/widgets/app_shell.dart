@@ -1,3 +1,4 @@
+import 'askodox_hub_icons.dart';
 import 'askodox_logo.dart';
 import 'dart:async';
 
@@ -160,32 +161,18 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             padding: EdgeInsets.only(right: 6),
             child: AskodoxLogo(size: 26),
           ),
-          // The full word always shows: a compact size, and on a narrow phone it shrinks to fit
-          // (scaleDown) instead of fading out the last letters behind the header buttons.
-          Expanded(
-            child: Row(children: [
-              const Flexible(
-                child: FittedBox(
-                  key: Key('askodoxHeaderWordmark'),
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text('ASKODOX',
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
-                ),
+          // Owner 2026-11-08: the logo is enough -- the word "ASKODOX" made room for the three habit buttons
+          // (Work Mode game · Talk · Radio), shown here on every tab. On a narrow phone they shrink to fit.
+          const Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
+                key: Key('askodoxHeaderHub'),
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: AskodoxHubIcons(color: _navAccent),
               ),
-              // Work Mode game (owner 2026-11-07): right beside the name.
-              IconButton(
-                key: const Key('askodoxHeaderGameButton'),
-                tooltip: isTe ? 'వర్క్ మోడ్ గేమ్' : 'Work Mode game',
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                icon: const Icon(Icons.sports_esports_rounded, size: 22, color: _navAccent),
-                onPressed: () => context.push('/work'),
-              ),
-            ]),
+            ),
           ),
           InkWell(
             key: const Key('askodoxLocationChip'),
