@@ -139,7 +139,7 @@ class _Intro extends StatelessWidget {
       shrinkWrap: true,
       padding: const EdgeInsets.all(18),
       children: [
-        const AskodoxWorkSceneView(scene: AskodoxWorkScene.field, overall: 0.55, stageIndex: 3, stageCount: 6, height: 170),
+        AskodoxWorkSceneView(job: askodoxWorkJobs.first, stageIndex: 2, stageFraction: 0.55, height: 190),
         const SizedBox(height: 14),
         Text(te ? 'ఎలా ఆడాలి?' : 'How to play',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
@@ -330,8 +330,12 @@ class _Today extends ConsumerStatefulWidget {
   ConsumerState<_Today> createState() => _TodayState();
 }
 
-class _TodayState extends ConsumerState<_Today> {
+class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
   String? _problem;
+  Timer? _poll;
+  DateTime? _lastGain;
+  int _gain = 0;
+  int _gainId = 0;
   bool _reading = false;
   bool _live = false;
   StreamSubscription<Object?>? _sensor;
@@ -344,28 +348,77 @@ class _TodayState extends ConsumerState<_Today> {
   void initState() {
     super.initState();
     _work = ref.read(askodoxWorkControllerProvider.notifier);
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _readCounter());
+    _startPolling();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _poll?.cancel();
     _stopLive();
     super.dispose();
   }
 
-  Future<void> _readCounter() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+      // Never re-ask a permission by itself: after "Allow" the person taps again.
+      if (_problem == null) _readCounter(quiet: true);
+    } else if (state == AppLifecycleState.paused) {
+      _poll?.cancel();
+      _poll = null;
+    }
+  }
+
+  /// While the screen is open the phone's counter is read every few seconds,
+  /// so the work moves as the person walks.
+  void _startPolling() {
+    _poll?.cancel();
+    _poll = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted) return;
+      if (_problem == null && !_live) {
+        _readCounter(quiet: true);
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  void _gained(int steps) {
+    if (steps <= 0) return;
+    _lastGain = DateTime.now();
+    _gain = steps;
+    _gainId++;
+  }
+
+  bool get _walkingNow {
+    final last = _lastGain;
+    return last != null && DateTime.now().difference(last) < const Duration(seconds: 15);
+  }
+
+  Future<void> _readCounter({bool quiet = false}) async {
     if (_reading) return;
-    setState(() => _reading = true);
+    if (!quiet) setState(() => _reading = true);
+    _reading = true;
     try {
       final reading = await ref.read(askodoxStepSourceProvider).counter();
-      await ref.read(askodoxWorkControllerProvider.notifier).applyCounter(reading);
-      if (mounted) setState(() => _problem = null);
+      final added = await _work.applyCounter(reading);
+      if (mounted) {
+        setState(() {
+          _problem = null;
+          _gained(added);
+        });
+      }
     } on AskodoxMeterException catch (e) {
       if (mounted) setState(() => _problem = e.code);
     } catch (_) {
       if (mounted) setState(() => _problem = 'no_reading');
     } finally {
-      if (mounted) setState(() => _reading = false);
+      _reading = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -374,7 +427,7 @@ class _TodayState extends ConsumerState<_Today> {
     _sensor = ref.read(askodoxMotionSensorsProvider).accelerometer().listen((v) {
       if (_detector?.add(v.length, DateTime.now()) ?? false) _livePending++;
     });
-    _flush = Timer.periodic(const Duration(seconds: 5), (_) => _flushLive());
+    _flush = Timer.periodic(const Duration(seconds: 3), (_) => _flushLive());
     setState(() => _live = true);
   }
 
@@ -382,6 +435,7 @@ class _TodayState extends ConsumerState<_Today> {
     final n = _livePending;
     _livePending = 0;
     if (n > 0) unawaited(_work.addLiveSteps(n));
+    if (mounted) setState(() => _gained(n));
   }
 
   void _stopLive() {
@@ -465,12 +519,36 @@ class _TodayState extends ConsumerState<_Today> {
       padding: const EdgeInsets.all(16),
       children: [
         AskodoxWorkSceneView(
-          scene: job.scene,
-          overall: progress.overall,
+          job: job,
           stageIndex: progress.stageIndex,
-          stageCount: job.stages.length,
-          moving: !progress.done,
+          stageFraction: progress.done ? 1.0 : progress.stageFraction,
+          active: _walkingNow && !progress.done,
+          gain: _gain,
+          gainId: _gainId,
         ),
+        if (!progress.done)
+          Padding(
+            key: const Key('askodoxWorkLiveStatus'),
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(children: [
+              Icon(_walkingNow ? Icons.circle : Icons.pause_circle_outline_rounded,
+                  size: 12, color: _walkingNow ? _green : const Color(0xFF8A929A)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _walkingNow
+                      ? (te ? 'పని జరుగుతోంది — మీరు నడుస్తున్నారు' : 'Work is going on — you are walking')
+                      : (te
+                          ? 'మీరు నడిస్తేనే పని జరుగుతుంది. ఫోన్ జేబులో పెట్టి నడవండి.'
+                          : 'Work happens only while you walk. Put the phone in your pocket and walk.'),
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: _walkingNow ? _green : const Color(0xFF5B6670)),
+                ),
+              ),
+            ]),
+          ),
         const SizedBox(height: 12),
         Row(children: [
           Icon(_jobIcon(job.id), color: _ink),
@@ -523,8 +601,38 @@ class _TodayState extends ConsumerState<_Today> {
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF5B6670))),
               ),
               if (now.weekday == DateTime.sunday)
-                Text(te ? 'విశ్రాంతి రోజు' : 'Rest day',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF8A5A00))),
+                ActionChip(
+                  key: const Key('askodoxWorkRestDay'),
+                  avatar: const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF8A5A00)),
+                  label: Text(te ? 'విశ్రాంతి రోజు' : 'Rest day',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF8A5A00))),
+                  backgroundColor: const Color(0xFFFFF6E0),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    builder: (sheet) => SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(te ? 'ఆదివారం = విశ్రాంతి రోజు' : 'Sunday = rest day',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
+                          const SizedBox(height: 8),
+                          Text(
+                            te
+                                ? 'ఈ రోజు లక్ష్యం 3,000 అడుగులు మాత్రమే, శరీరానికి విశ్రాంతి కోసం. పని ఆగదు — మీరు నడిచిన ప్రతి అడుగుతో పని కొనసాగుతుంది. సోమవారం నుంచి మళ్ళీ సాధారణ లక్ష్యం.'
+                                : 'Today\u2019s goal is only 3,000 steps, to rest the body. The work does not stop — every step you walk still moves it. From Monday the normal goal is back.',
+                            style: const TextStyle(fontSize: 14, height: 1.4),
+                          ),
+                          const SizedBox(height: 14),
+                          FilledButton(
+                            onPressed: () => Navigator.of(sheet).pop(),
+                            child: Text(te ? 'సరే' : 'OK'),
+                          ),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
             ]),
             const SizedBox(height: 2),
             Text(
@@ -542,6 +650,17 @@ class _TodayState extends ConsumerState<_Today> {
                 color: _green,
               ),
             ),
+            if (now.weekday == DateTime.sunday)
+              Padding(
+                key: const Key('askodoxWorkRestNote'),
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  te
+                      ? 'ఈ రోజు విశ్రాంతి: లక్ష్యం 3,000 మాత్రమే. పని ఆగదు — నడిస్తే కొనసాగుతుంది.'
+                      : 'Rest day: the goal is only 3,000. The work does not stop — walk and it goes on.',
+                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A5A00)),
+                ),
+              ),
             if (todaySteps >= goal)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
