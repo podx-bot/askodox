@@ -7,7 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` `89b51eb` (2026-11-04, production deployed): #270 reply prices = card prices (APK `android-1408`); `1e4531e`: #269 reels play (CSP media-src blob:); #268 Staff Workspace Reels tab (play / approve,
+- `main` `de1fa3c` (2026-11-09, owner "1"): #292 Work Mode walking game (`/work`, steps -> a real job in half
+  its real time, task sizes 10/50/100, schedule, waiting scenes, hotel, day replay; native `stepCount` on
+  `com.askodox.app/hardware`, ACTIVITY_RECOGNITION; on-phone only) + #294 Talk (`/talk`, anonymous topic rooms,
+  `talk_moderation.py` masks words in any language, 18+, voice listen = one `voice` credit, self-harm -> support
+  text) + Radio town news (`POST /api/radio/town`, one `radio` credit, still behind `radio.enabled`, OFF in
+  production) + game / talk / radio buttons replace the header wordmark (`askodox_hub_icons.dart`). Talk report
+  review = API only (`/admin/cc/talk/reports`), no console view yet. Nothing phone verified. Production deploy of
+  `de1fa3c` NOT yet probe-verified.
+- Earlier `main` `89b51eb` (2026-11-04, production deployed): #270 reply prices = card prices (APK `android-1408`); `1e4531e`: #269 reels play (CSP media-src blob:); #268 Staff Workspace Reels tab (play / approve,
   no browser dialogs); #267 Own / Brand products, store links = store data only, WebView camera / gallery (APK
   `android-1406`). Before: `9c68fc3`: #265 Phase 1 hiding
   (`askodox_release_phase.dart`), #266 centre "Ask" (one tap = voice, no companion ring), Screen Guide in the header
@@ -204,6 +212,11 @@ this file, don't trust it blindly.
   with an `image` rate -> no daily cap (credits decide); charging OFF -> free, capped per user per day by
   `image_edit.daily_per_user` (default 5; 0 = off in both modes; table `image_studio_uses`). Never a placeholder picture. Staff
   variant: `/admin/cc/workspace/image-edit`. Generated pictures live only in memory (`_sentImages['gen_*']`).
+- Work Mode scenes = ONE painter (`work_mode/presentation/work_scene.dart`, `AskodoxWorkScenePainter`) drawn in a
+  250-unit-high space (canvas scaled to the real height, `_s` = 1, `_w` = logical width); every motion period must
+  divide 60 s (the clock loops every minute). Jobs live in `askodoxWorkJobs` (stage days must sum to realDays / 2).
+  Team = `AskodoxWorkCrewMember` list (each member moved by their own steps); solo shows only the person. No
+  points / rewards / money anywhere in Work Mode (owner rule).
 - Customer shell (`app_shell.dart`): Home · Explore · centre "Ask" (one tap = voice via the hub action
   `voice`; NO companion ring -- attachments live on the composer "+") · Orders · Profile. No drawer.
   One place per function: request status lives in Updates
