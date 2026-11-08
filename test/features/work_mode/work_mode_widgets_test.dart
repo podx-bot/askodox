@@ -69,11 +69,19 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('askodoxWorkJob-paddy')));
     await _frames(tester);
+    // Task size: 10 / 50 / 100 acres.
+    expect(find.text('50 acres'), findsOneWidget);
+    expect(find.text('100 acres'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('askodoxWorkSize-medium')));
+    await _frames(tester);
     expect(find.byKey(const Key('askodoxWorkToday')), findsOneWidget);
     expect(find.byKey(const Key('askodoxWorkScene')), findsWidgets);
     expect(find.textContaining('Stage 1/6: Raise the nursery'), findsOneWidget);
-    // The first reading only sets the start point.
+    // The first reading only sets the start point; nothing walked yet -> the work is waiting.
     expect(find.text('0 / 4,000 steps'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxWorkWaiting')), findsOneWidget);
+    expect(find.text('Raise the nursery: 0 / 50 acres'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxWorkReplay')), findsNothing);
 
     // Walk 4,200 steps and count again.
     steps.value = 14200;
@@ -81,7 +89,20 @@ void main() {
     await _frames(tester);
     expect(find.text('4,200 / 4,000 steps'), findsOneWidget);
     expect(find.text('Today’s goal done!'), findsOneWidget);
-    expect(find.textContaining('44,800 steps to the next stage'), findsOneWidget);
+    expect(find.text('Raise the nursery: 4 / 50 acres'), findsOneWidget);
+    expect(find.text('700 more steps → 1 more done (acres)'), findsOneWidget);
+    expect(find.textContaining('44,800 steps to finish this stage (46 acres left)'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxWorkWaiting')), findsNothing);
+    expect(find.textContaining('On schedule'), findsOneWidget);
+
+    // The day's work replays fast.
+    await tester.tap(find.byKey(const Key('askodoxWorkReplay')));
+    await _frames(tester, 10);
+    expect(find.byKey(const Key('askodoxWorkReplaySheet')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('askodoxWorkReplaySpeed-4')));
+    await tester.pump(const Duration(seconds: 5));
+    await _frames(tester);
+    expect(find.textContaining('+4,200 steps'), findsOneWidget);
   });
 
   testWidgets('treadmill steps typed by hand are labelled; a missing permission is explained', (tester) async {

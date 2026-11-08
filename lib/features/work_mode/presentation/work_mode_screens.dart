@@ -38,6 +38,7 @@ IconData _jobIcon(String id) => switch (id) {
       'house' => Icons.home_work_rounded,
       'welding' => Icons.local_fire_department_rounded,
       'chicken_shop' => Icons.storefront_rounded,
+      'hotel' => Icons.room_service_rounded,
       _ => Icons.work_rounded,
     };
 
@@ -56,7 +57,8 @@ class AskodoxWorkModeScreen extends ConsumerWidget {
     } else if (!state.introSeen) {
       body = _Intro(te: te, onStart: () => ref.read(askodoxWorkControllerProvider.notifier).seeIntro());
     } else if (state.job == null) {
-      body = _JobPicker(te: te, onPick: (id) => ref.read(askodoxWorkControllerProvider.notifier).chooseJob(id));
+      body = _JobPicker(
+          te: te, onPick: (id, size) => ref.read(askodoxWorkControllerProvider.notifier).chooseJob(id, size: size));
     } else {
       body = _Today(te: te);
     }
@@ -96,9 +98,9 @@ class AskodoxWorkModeScreen extends ConsumerWidget {
                     child: _JobPicker(
                       te: te,
                       changing: true,
-                      onPick: (id) {
+                      onPick: (id, size) {
                         Navigator.of(sheet).pop();
-                        ref.read(askodoxWorkControllerProvider.notifier).chooseJob(id);
+                        ref.read(askodoxWorkControllerProvider.notifier).chooseJob(id, size: size);
                       },
                     ),
                   ),
@@ -200,7 +202,7 @@ class _Intro extends StatelessWidget {
 class _JobPicker extends StatefulWidget {
   const _JobPicker({required this.te, required this.onPick, this.changing = false});
   final bool te;
-  final ValueChanged<String> onPick;
+  final void Function(String job, String size) onPick;
   final bool changing;
 
   @override
@@ -209,6 +211,44 @@ class _JobPicker extends StatefulWidget {
 
 class _JobPickerState extends State<_JobPicker> {
   String? _sport;
+
+  /// After a job: how big a task (10 / 50 / 100 acres = 4,000 / 7,000 / 10,000 steps a day).
+  Future<void> _pickSize(AskodoxWorkJob job) async {
+    final te = widget.te;
+    final size = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheet) => SafeArea(
+        child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(18), children: [
+          Text(te ? 'ఎంత పెద్ద పని?' : 'How big a task?',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _ink)),
+          const SizedBox(height: 4),
+          Text(
+            te ? 'పెద్ద పని అంటే రోజుకు ఎక్కువ అడుగులు. రోజులు అవే (${job.gameDays}).'
+                : 'A bigger task means more steps a day. Same ${job.gameDays} days.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF5B6670)),
+          ),
+          const SizedBox(height: 10),
+          for (final z in askodoxWorkSizes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: z.id == 'medium' ? const Color(0xFFE3F4EA) : const Color(0xFFF6F5F0),
+                borderRadius: BorderRadius.circular(14),
+                child: ListTile(
+                  key: ValueKey('askodoxWorkSize-${z.id}'),
+                  title: Text('${_n(job.units(z))} ${job.unit(te)}', style: const TextStyle(fontWeight: FontWeight.w900)),
+                  subtitle: Text(te ? '${z.name(te)} · రోజుకు ${_n(z.stepsPerDay)} అడుగులు'
+                      : '${z.name(te)} · ${_n(z.stepsPerDay)} steps a day'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(sheet).pop(z.id),
+                ),
+              ),
+            ),
+        ]),
+      ),
+    );
+    if (size != null) widget.onPick(job.id, size);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +300,7 @@ class _JobPickerState extends State<_JobPicker> {
               child: InkWell(
                 key: ValueKey('askodoxWorkJob-${job.id}'),
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => widget.onPick(job.id),
+                onTap: () => _pickSize(job),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -505,13 +545,18 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
     final job = state.job!;
     final now = ref.watch(askodoxWorkClockProvider)();
     final today = askodoxWorkDayKey(now);
-    final progress = askodoxWorkProgress(job, state.jobSteps);
+    final size = state.size;
+    final progress = state.progress!;
     final started = DateTime.tryParse(state.startedOn ?? '') ?? now;
-    final goal = askodoxWorkDailyGoal(started, now);
+    final goal = askodoxWorkDailyGoal(started, now, size: size);
     final todaySteps = state.stepsOn(today);
     final manualToday = state.manual[today] ?? 0;
     final week = askodoxWorkWeek(state, now);
-    final maxDay = week.fold<int>(askodoxWorkStepsPerDay, (m, d) => d.$2 > m ? d.$2 : m);
+    final maxDay = week.fold<int>(size.stepsPerDay, (m, d) => d.$2 > m ? d.$2 : m);
+    // Schedule: the plan's goals of the earlier days against the work done before today.
+    final lag = askodoxWorkPlannedBefore(started, now, size: size) - (state.jobSteps - todaySteps);
+    final lagDays = (lag.abs() / size.stepsPerDay).round();
+    final unit = job.unit(te);
     final title = askodoxWorkLevel(state.finished, te);
 
     return ListView(
@@ -549,12 +594,28 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
               ),
             ]),
           ),
+        if (todaySteps == 0 && !_walkingNow && !progress.done)
+          Container(
+            key: const Key('askodoxWorkWaiting'),
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFFFF6E0), borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              const Icon(Icons.hourglass_bottom_rounded, color: Color(0xFFB45309)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(job.waiting(te),
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF6B4A00))),
+              ),
+            ]),
+          ),
         const SizedBox(height: 12),
         Row(children: [
           Icon(_jobIcon(job.id), color: _ink),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(job.name(te), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _ink)),
+            child: Text('${job.name(te)} · ${_n(progress.unitsTotal)} $unit',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _ink)),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -710,27 +771,42 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           ]),
         ),
         _Card(
+          key: const Key('askodoxWorkUnits'),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(te ? 'ఈ దశ' : 'This stage',
+            Text(te ? 'పని ఎంత జరిగింది' : 'Work done',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF5B6670))),
+            const SizedBox(height: 4),
+            Text(
+              key: const Key('askodoxWorkUnitsDone'),
+              '${progress.stage.name(te)}: ${_n(progress.unitsDone)} / ${_n(progress.unitsTotal)} $unit',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ink),
+            ),
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
-                value: progress.stageFraction,
-                minHeight: 8,
+                value: progress.unitsTotal == 0 ? 0.0 : progress.unitsDone / progress.unitsTotal,
+                minHeight: 10,
                 backgroundColor: const Color(0xFFECEDE7),
                 color: const Color(0xFFE8A317),
               ),
             ),
             const SizedBox(height: 6),
-            if (!progress.done)
+            if (!progress.done) ...[
+              Text(
+                key: const Key('askodoxWorkNextUnit'),
+                te
+                    ? 'ఇంకా ${_n(progress.stepsToNextUnit)} అడుగులు నడిస్తే ఇంకో 1 $unit పూర్తి'
+                    : '${_n(progress.stepsToNextUnit)} more steps → 1 more done ($unit)',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _green),
+              ),
               Text(
                 te
-                    ? 'తర్వాతి దశకు ఇంకా ${_n(progress.stepsLeftInStage)} అడుగులు'
-                    : '${_n(progress.stepsLeftInStage)} steps to the next stage',
+                    ? 'ఈ దశ పూర్తికి (${_n(progress.unitsTotal - progress.unitsDone)} $unit) ఇంకా ${_n(progress.stepsLeftInStage)} అడుగులు'
+                    : '${_n(progress.stepsLeftInStage)} steps to finish this stage (${_n(progress.unitsTotal - progress.unitsDone)} $unit left)',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _ink),
               ),
+            ],
             const SizedBox(height: 10),
             Row(children: [
               for (var i = 0; i < job.stages.length; i++)
@@ -749,6 +825,49 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                   ),
                 ),
             ]),
+            if (!progress.done) ...[
+              const SizedBox(height: 10),
+              Text(
+                key: const Key('askodoxWorkSchedule'),
+                lag > size.stepsPerDay / 2
+                    ? (te
+                        ? 'షెడ్యూల్ కంటే సుమారు $lagDays రోజులు వెనుక ఉన్నారు — ఈ రోజు ఎక్కువ నడిస్తే అందుకోవచ్చు, లేకపోతే పని ఆలస్యం అవుతుంది.'
+                        : 'About $lagDays days behind schedule — walk more today to catch up, or the work gets late.')
+                    : lag < -size.stepsPerDay / 2
+                        ? (te ? 'షెడ్యూల్ కంటే $lagDays రోజులు ముందున్నారు!' : '$lagDays days ahead of schedule!')
+                        : (te ? 'షెడ్యూల్ ప్రకారం సాగుతోంది.' : 'On schedule.'),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: lag > size.stepsPerDay / 2 ? const Color(0xFFB45309) : _green),
+              ),
+              Text(
+                te
+                    ? 'పని పూర్తికి ఇంకా ${progress.daysLeft} రోజుల నడక (రోజుకు ${_n(size.stepsPerDay)} అడుగులు చొప్పున)'
+                    : '${progress.daysLeft} more days of walking to finish (${_n(size.stepsPerDay)} steps a day)',
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6670)),
+              ),
+            ],
+            if (todaySteps > 0) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                key: const Key('askodoxWorkReplay'),
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (sheet) => _ReplaySheet(
+                    te: te,
+                    job: job,
+                    size: size,
+                    from: state.jobSteps - todaySteps,
+                    to: state.jobSteps,
+                    times: state.walkTimes[today],
+                  ),
+                ),
+                icon: const Icon(Icons.replay_rounded, size: 18),
+                label: Text(te ? 'ఈ రోజు పని రీప్లే' : 'Replay today\u2019s work'),
+              ),
+            ],
           ]),
         ),
         _Card(
@@ -784,7 +903,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                         Container(
                           height: 70 * (d.$2 / maxDay).clamp(0.03, 1.0),
                           decoration: BoxDecoration(
-                            color: d.$2 >= askodoxWorkStepsPerDay ? _green : const Color(0xFFB8C2BC),
+                            color: d.$2 >= size.stepsPerDay ? _green : const Color(0xFFB8C2BC),
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
                           ),
                         ),
@@ -820,6 +939,142 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 24),
       ],
+    );
+  }
+}
+
+/// Today's work replayed fast (owner 2026-11-09): nobody can watch the screen
+/// while walking, so afterwards the day's work plays like a short film.
+class _ReplaySheet extends StatefulWidget {
+  const _ReplaySheet({required this.te, required this.job, required this.size, required this.from, required this.to,
+      this.times});
+  final bool te;
+  final AskodoxWorkJob job;
+  final AskodoxWorkSize size;
+  final int from;
+  final int to;
+
+  /// First and last time steps were counted today (epoch seconds).
+  final List<int>? times;
+
+  @override
+  State<_ReplaySheet> createState() => _ReplaySheetState();
+}
+
+class _ReplaySheetState extends State<_ReplaySheet> with SingleTickerProviderStateMixin {
+  static const _base = Duration(seconds: 16);
+  late final AnimationController _play = AnimationController(vsync: this, duration: _base);
+  int _speed = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _play.addStatusListener((_) {
+      if (mounted) setState(() {});
+    });
+    _play.forward();
+  }
+
+  @override
+  void dispose() {
+    _play.dispose();
+    super.dispose();
+  }
+
+  void _setSpeed(int speed) {
+    setState(() => _speed = speed);
+    _play.duration = Duration(milliseconds: _base.inMilliseconds ~/ speed);
+    if (_play.isAnimating) _play.forward();
+  }
+
+  String _clock(double t) {
+    final times = widget.times;
+    if (times == null) return '';
+    final at = DateTime.fromMillisecondsSinceEpoch(((times[0] + (times[1] - times[0]) * t) * 1000).round());
+    return '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = widget.te;
+    final unit = widget.job.unit(te);
+    final start = askodoxWorkProgress(widget.job, widget.from, size: widget.size);
+    return SafeArea(
+      child: Padding(
+        key: const Key('askodoxWorkReplaySheet'),
+        padding: const EdgeInsets.all(16),
+        child: AnimatedBuilder(
+          animation: _play,
+          builder: (context, _) {
+            final t = Curves.easeInOut.transform(_play.value);
+            final steps = (widget.from + (widget.to - widget.from) * t).round();
+            final p = askodoxWorkProgress(widget.job, steps, size: widget.size);
+            return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(te ? 'ఈ రోజు పని రీప్లే' : 'Today\u2019s work, replayed',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
+                ),
+                if (widget.times != null)
+                  Text(_clock(t), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF5B6670))),
+              ]),
+              const SizedBox(height: 10),
+              AskodoxWorkSceneView(
+                job: widget.job,
+                stageIndex: p.stageIndex,
+                stageFraction: p.done ? 1.0 : p.stageFraction,
+                active: _play.isAnimating,
+                height: 220,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${p.stage.name(te)}: ${_n(p.unitsDone)} / ${_n(p.unitsTotal)} $unit',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _ink),
+              ),
+              Text(
+                te
+                    ? '+${_n(steps - widget.from)} అడుగులు · మొదలు: ${start.stage.name(te)} ${_n(start.unitsDone)} $unit'
+                    : '+${_n(steps - widget.from)} steps · started at: ${start.stage.name(te)} ${_n(start.unitsDone)} $unit',
+                style: const TextStyle(color: Color(0xFF5B6670)),
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(value: _play.value, minHeight: 6, color: _green),
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                IconButton.filled(
+                  key: const Key('askodoxWorkReplayPlay'),
+                  style: IconButton.styleFrom(backgroundColor: _ink),
+                  onPressed: () {
+                    if (_play.isAnimating) {
+                      _play.stop();
+                    } else if (_play.value >= 1) {
+                      _play.forward(from: 0);
+                    } else {
+                      _play.forward();
+                    }
+                    setState(() {});
+                  },
+                  icon: Icon(_play.isAnimating ? Icons.pause_rounded : (_play.value >= 1 ? Icons.replay_rounded : Icons.play_arrow_rounded)),
+                ),
+                const SizedBox(width: 8),
+                for (final x in const [1, 2, 4])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      key: ValueKey('askodoxWorkReplaySpeed-$x'),
+                      label: Text('${x}x'),
+                      selected: _speed == x,
+                      onSelected: (_) => _setSpeed(x),
+                    ),
+                  ),
+              ]),
+            ]);
+          },
+        ),
+      ),
     );
   }
 }

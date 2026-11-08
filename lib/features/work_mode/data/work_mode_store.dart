@@ -23,6 +23,8 @@ class AskodoxWorkState {
     this.counted = const {},
     this.manual = const {},
     this.sevaMinutes = const {},
+    this.sizeId,
+    this.walkTimes = const {},
   });
 
   final bool loaded;
@@ -50,7 +52,18 @@ class AskodoxWorkState {
   /// Seva / meditation minutes per day.
   final Map<String, int> sevaMinutes;
 
+  /// Task size of the current job ('small' / 'medium' / 'large').
+  final String? sizeId;
+
+  /// First and last time (epoch seconds) steps were counted, per day (for the replay).
+  final Map<String, List<int>> walkTimes;
+
   AskodoxWorkJob? get job => askodoxWorkJob(jobId);
+  AskodoxWorkSize get size => askodoxWorkSize(sizeId);
+  AskodoxWorkProgress? get progress {
+    final j = job;
+    return j == null ? null : askodoxWorkProgress(j, jobSteps, size: size);
+  }
 
   int stepsOn(String day) => (counted[day] ?? 0) + (manual[day] ?? 0);
 
@@ -65,6 +78,8 @@ class AskodoxWorkState {
     Map<String, int>? counted,
     Map<String, int>? manual,
     Map<String, int>? sevaMinutes,
+    String? sizeId,
+    Map<String, List<int>>? walkTimes,
   }) =>
       AskodoxWorkState(
         loaded: loaded ?? this.loaded,
@@ -77,6 +92,8 @@ class AskodoxWorkState {
         counted: counted ?? this.counted,
         manual: manual ?? this.manual,
         sevaMinutes: sevaMinutes ?? this.sevaMinutes,
+        sizeId: sizeId ?? this.sizeId,
+        walkTimes: walkTimes ?? this.walkTimes,
       );
 
   Map<String, Object?> toJson() => {
@@ -89,6 +106,8 @@ class AskodoxWorkState {
         'counted': counted,
         'manual': manual,
         'seva_minutes': sevaMinutes,
+        'size': sizeId,
+        'walk_times': walkTimes,
       };
 
   static Map<String, int> _ints(Object? raw) {
@@ -111,7 +130,20 @@ class AskodoxWorkState {
         counted: _ints(json['counted']),
         manual: _ints(json['manual']),
         sevaMinutes: _ints(json['seva_minutes']),
+        sizeId: json['size'] is String ? json['size'] as String : null,
+        walkTimes: _times(json['walk_times']),
       );
+
+  static Map<String, List<int>> _times(Object? raw) {
+    if (raw is! Map) return const {};
+    final out = <String, List<int>>{};
+    raw.forEach((k, v) {
+      if (v is List && v.length == 2 && v.every((e) => e is num)) {
+        out['$k'] = [(v[0] as num).toInt(), (v[1] as num).toInt()];
+      }
+    });
+    return out;
+  }
 }
 
 /// The phone's step counter (counts since the phone last started), read from
@@ -184,10 +216,10 @@ class AskodoxWorkController extends StateNotifier<AskodoxWorkState> {
     await _save();
   }
 
-  /// Picks (or switches) the job: its work starts from zero today.
-  Future<void> chooseJob(String jobId) async {
+  /// Picks (or switches) the job and its task size: the work starts from zero today.
+  Future<void> chooseJob(String jobId, {String size = 'medium'}) async {
     if (askodoxWorkJob(jobId) == null) return;
-    state = state.copyWith(introSeen: true, jobId: jobId, startedOn: _today, jobSteps: 0);
+    state = state.copyWith(introSeen: true, jobId: jobId, startedOn: _today, jobSteps: 0, sizeId: askodoxWorkSize(size).id);
     await _save();
   }
 
@@ -195,7 +227,7 @@ class AskodoxWorkController extends StateNotifier<AskodoxWorkState> {
   Future<void> startAgain() async {
     final job = state.job;
     if (job == null) return;
-    final done = state.jobSteps >= job.totalSteps;
+    final done = state.jobSteps >= job.totalStepsFor(state.size);
     state = state.copyWith(finished: state.finished + (done ? 1 : 0), startedOn: _today, jobSteps: 0);
     await _save();
   }
@@ -205,6 +237,18 @@ class AskodoxWorkController extends StateNotifier<AskodoxWorkState> {
     final day = _today;
     final map = Map<String, int>.from(byHand ? state.manual : state.counted);
     map[day] = (map[day] ?? 0) + steps;
+    final at = _now().millisecondsSinceEpoch ~/ 1000;
+    final times = Map<String, List<int>>.from(state.walkTimes);
+    final was = times[day];
+    times[day] = [was == null ? at : was[0], at];
+    // Keep two weeks of times only.
+    if (times.length > 14) {
+      final keys = times.keys.toList()..sort();
+      for (final k in keys.take(times.length - 14)) {
+        times.remove(k);
+      }
+    }
+    state = state.copyWith(walkTimes: times);
     state = byHand
         ? state.copyWith(manual: map, jobSteps: state.job == null ? null : state.jobSteps + steps)
         : state.copyWith(counted: map, jobSteps: state.job == null ? null : state.jobSteps + steps);
@@ -263,13 +307,13 @@ String askodoxWorkShareText(AskodoxWorkState state, DateTime today, bool te) {
   final job = state.job;
   final week = askodoxWorkWeek(state, today);
   final steps = week.fold<int>(0, (sum, d) => sum + d.$2);
-  final goalDays = week.where((d) => d.$2 >= askodoxWorkStepsPerDay).length;
+  final goalDays = week.where((d) => d.$2 >= state.size.stepsPerDay).length;
   var manual = 0;
   for (final d in week) {
     manual += state.manual[d.$1] ?? 0;
   }
   final title = askodoxWorkLevel(state.finished, te);
-  final progress = job == null ? null : askodoxWorkProgress(job, state.jobSteps);
+  final progress = state.progress;
   final lines = <String>[
     te ? 'ASKODOX వర్క్ మోడ్' : 'ASKODOX Work Mode',
     if (job != null && progress != null)

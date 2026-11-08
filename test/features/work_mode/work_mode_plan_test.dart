@@ -123,4 +123,39 @@ void main() {
     expect(back.stepsOn('2026-11-02'), 1234);
     expect(back.sevaMinutes['2026-11-02'], 15);
   });
+
+  test('task size: units scale 10 / 50 / 100, steps a day 4,000 / 7,000 / 10,000, same days', () {
+    final paddy = askodoxWorkJob('paddy')!;
+    expect([for (final z in askodoxWorkSizes) paddy.units(z)], [10, 50, 100]);
+    expect([for (final z in askodoxWorkSizes) z.stepsPerDay], [4000, 7000, 10000]);
+    final big = askodoxWorkSize('large');
+    expect(paddy.totalStepsFor(big), 45 * 10000);
+    final p = askodoxWorkProgress(paddy, 7 * 10000 + 5 * 10000 + 4 * 10000, size: big); // 4 of 9 transplant days
+    expect(p.stage.id, 'transplant');
+    expect(p.unitsTotal, 100);
+    expect(p.unitsDone, 44);
+    expect(p.stepsPerUnit, closeTo(900, 1e-9));
+    expect(p.stepsToNextUnit, 500);
+    expect(p.daysLeft, 45 - 16);
+    final monday = DateTime(2026, 11, 2);
+    expect(askodoxWorkDailyGoal(monday, monday, size: big), 5700);
+    expect(askodoxWorkDailyGoal(monday, monday.add(const Duration(days: 21)), size: big), 10000);
+    expect(askodoxWorkDailyGoal(monday, DateTime(2026, 11, 8), size: askodoxWorkSize('small')), 1700);
+    expect(askodoxWorkSize('nope').id, 'medium');
+  });
+
+  test('the plan before today adds the daily goals of the earlier days', () {
+    final monday = DateTime(2026, 11, 2);
+    expect(askodoxWorkPlannedBefore(monday, monday), 0);
+    // Mon..Sat = 6 x 4,000, Sunday = 3,000.
+    expect(askodoxWorkPlannedBefore(monday, DateTime(2026, 11, 9)), 6 * 4000 + 3000);
+  });
+
+  test('every job says what is waiting when nobody walks, and counts work in its own unit', () {
+    for (final job in askodoxWorkJobs) {
+      expect(job.waitEn.isNotEmpty && job.waitTe.isNotEmpty, isTrue, reason: job.id);
+      expect(job.unitEn.isNotEmpty && job.unitTe.isNotEmpty && job.baseUnits > 0, isTrue, reason: job.id);
+    }
+    expect(askodoxWorkJob('hotel')!.gameDays, 15);
+  });
 }

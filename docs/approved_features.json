@@ -5412,7 +5412,10 @@
           "askodoxWorkToday",
           "askodoxWorkScene",
           "askodoxWorkShare",
-          "askodoxSevaScreen"
+          "askodoxSevaScreen",
+          "askodoxWorkUnits",
+          "askodoxWorkReplay",
+          "askodoxWorkWaiting"
         ],
         "symbols": [
           "askodoxWorkJobs",
@@ -5421,7 +5424,9 @@
           "askodoxStepCounterDelta",
           "AskodoxStepDetector",
           "askodoxWorkModeRoutes",
-          "askodoxWorkShareText"
+          "askodoxWorkShareText",
+          "askodoxWorkSizes",
+          "askodoxWorkPlannedBefore"
         ]
       },
       "flags": {},
@@ -5435,7 +5440,8 @@
       "dependencies": [],
       "status": "approved",
       "history": [
-        "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva"
+        "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva",
+        "2026-11-09: owner asked for work shown in real units (10 / 50 / 100 acres task sizes, 'N more steps = 1 more acre'), schedule ahead / behind, a waiting scene when nobody walks, hotel serving job, and a fast-forward replay of the day's work"
       ]
     }
   ]

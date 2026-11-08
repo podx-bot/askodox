@@ -22,6 +22,29 @@ const askodoxWorkRestDaySteps = 3000;
 /// about 10 % a week after the first steps) and settle at a full day.
 const askodoxWorkWeeklyRamp = <int>[4000, 5000, 6000, 7000];
 
+/// How big the task is (owner 2026-11-09): a bigger task means more steps a
+/// day for the same number of game days, and bigger numbers of work done
+/// (10 / 50 / 100 acres). Medium = [askodoxWorkStepsPerDay].
+class AskodoxWorkSize {
+  const AskodoxWorkSize(this.id, this.factor, this.stepsPerDay, this.en, this.te);
+  final String id;
+  final int factor;
+  final int stepsPerDay;
+  final String en;
+  final String te;
+
+  String name(bool te) => te ? this.te : en;
+}
+
+const askodoxWorkSizes = <AskodoxWorkSize>[
+  AskodoxWorkSize('small', 1, 4000, 'Small', 'చిన్న పని'),
+  AskodoxWorkSize('medium', 5, 7000, 'Medium', 'మధ్యస్థ పని'),
+  AskodoxWorkSize('large', 10, 10000, 'Big', 'పెద్ద పని'),
+];
+
+AskodoxWorkSize askodoxWorkSize(String? id) =>
+    askodoxWorkSizes.firstWhere((s) => s.id == id, orElse: () => askodoxWorkSizes[1]);
+
 /// How the job is drawn (one painter per scene).
 enum AskodoxWorkScene { field, houses, building, workshop }
 
@@ -53,6 +76,11 @@ class AskodoxWorkJob {
     required this.walkEn,
     required this.walkTe,
     required this.stages,
+    required this.unitEn,
+    required this.unitTe,
+    required this.baseUnits,
+    required this.waitEn,
+    required this.waitTe,
   });
 
   final String id;
@@ -68,8 +96,22 @@ class AskodoxWorkJob {
   final String walkTe;
   final List<AskodoxWorkStage> stages;
 
+  /// What the work is counted in (acres, houses, parcels ...) and how many of
+  /// them a SMALL task has; a task size multiplies it (10 / 50 / 100 acres).
+  final String unitEn;
+  final String unitTe;
+  final int baseUnits;
+
+  /// What is waiting when nobody walks today ("the field needs water").
+  final String waitEn;
+  final String waitTe;
+
   String name(bool te) => te ? this.te : en;
   String walk(bool te) => te ? walkTe : walkEn;
+  String unit(bool te) => te ? unitTe : unitEn;
+  String waiting(bool te) => te ? waitTe : waitEn;
+  int units(AskodoxWorkSize size) => baseUnits * size.factor;
+  int totalStepsFor(AskodoxWorkSize size) => gameDays * size.stepsPerDay;
 
   /// Game days = sum of the stages (half of [realDays]).
   int get gameDays => stages.fold(0, (sum, s) => sum + s.days);
@@ -88,6 +130,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 90,
     walkEn: 'Steady walking, row after row',
     walkTe: 'స్థిరమైన నడక, వరుస తర్వాత వరుస',
+    unitEn: 'acres',
+    unitTe: 'ఎకరాలు',
+    baseUnits: 10,
+    waitEn: 'The field is waiting: the crop needs water and care today. Walk a little and the work goes on.',
+    waitTe: 'పొలం ఎదురుచూస్తోంది: ఈ రోజు పంటకు నీళ్లు, సంరక్షణ కావాలి. కొంచెం నడిస్తే పని కొనసాగుతుంది.',
     stages: [
       AskodoxWorkStage('nursery', 'Raise the nursery', 'నారు పెంపకం', 7,
           'Healthy, even seedlings make the rest of the season easier.', 'ఆరోగ్యంగా, సమంగా పెరిగిన నారు ఉంటే మిగతా పని సులువు.'),
@@ -113,6 +160,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 120,
     walkEn: 'Steady walking with short stops',
     walkTe: 'స్థిరమైన నడక, మధ్యలో చిన్న విరామాలు',
+    unitEn: 'acres',
+    unitTe: 'ఎకరాలు',
+    baseUnits: 10,
+    waitEn: 'The chilli plants are waiting for water today. A short walk keeps them growing.',
+    waitTe: 'మిరప మొక్కలు ఈ రోజు నీళ్ల కోసం ఎదురుచూస్తున్నాయి. కొంచెం నడిస్తే పెరుగుతూనే ఉంటాయి.',
     stages: [
       AskodoxWorkStage('nursery', 'Raise seedlings', 'నారు పెంపకం', 10,
           'Raised nursery beds drain better.', 'ఎత్తైన నారుమడులలో నీరు బాగా పారుతుంది.'),
@@ -137,6 +189,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 60,
     walkEn: 'Easy walking, good for starting',
     walkTe: 'సులువైన నడక, మొదలుపెట్టడానికి మంచిది',
+    unitEn: 'acres',
+    unitTe: 'ఎకరాలు',
+    baseUnits: 10,
+    waitEn: 'The vegetable beds are drying. Walk a little to water them.',
+    waitTe: 'కూరగాయల మడులు ఎండిపోతున్నాయి. నీళ్లు పెట్టడానికి కొంచెం నడవండి.',
     stages: [
       AskodoxWorkStage('beds', 'Make the beds', 'మడులు చేయడం', 4,
           'Mix compost into the beds before sowing.', 'విత్తే ముందు మడులలో ఎరువు కలపండి.'),
@@ -158,6 +215,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 10,
     walkEn: 'Brisk walking between houses',
     walkTe: 'ఇళ్ల మధ్య చురుకైన నడక',
+    unitEn: 'houses',
+    unitTe: 'ఇళ్ళు',
+    baseUnits: 60,
+    waitEn: 'The paper bundles are waiting and people are waiting for their paper.',
+    waitTe: 'పేపర్ కట్టలు ఎదురుచూస్తున్నాయి, ఇళ్లలో వాళ్ళు పేపర్ కోసం ఎదురుచూస్తున్నారు.',
     stages: [
       AskodoxWorkStage('bundle', 'Pick up the bundle', 'పేపర్ కట్ట తీసుకోవడం', 1,
           'Start early; papers are expected before breakfast.', 'తొందరగా మొదలుపెట్టండి; టిఫిన్‌కి ముందే పేపర్ అందాలి.'),
@@ -177,6 +239,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 14,
     walkEn: 'Walking with stops and turns',
     walkTe: 'ఆగుతూ, మలుపులతో నడక',
+    unitEn: 'parcels',
+    unitTe: 'పార్సిళ్లు',
+    baseUnits: 25,
+    waitEn: 'Parcels are waiting to be delivered. Walk and they reach the doors.',
+    waitTe: 'పార్సిళ్లు డెలివరీ కోసం ఎదురుచూస్తున్నాయి. నడిస్తే ఇళ్లకు చేరతాయి.',
     stages: [
       AskodoxWorkStage('pickup', 'Pick up parcels', 'పార్సిళ్లు తీసుకోవడం', 1,
           'Check every parcel label before leaving.', 'బయలుదేరే ముందు ప్రతి పార్సిల్ లేబుల్ చూడండి.'),
@@ -196,6 +263,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 20,
     walkEn: 'Intervals: fast, then rest',
     walkTe: 'ఇంటర్వెల్: వేగంగా, తర్వాత విరామం',
+    unitEn: 'metres',
+    unitTe: 'మీటర్లు',
+    baseUnits: 20,
+    waitEn: 'The trench is waiting; the tools are lying idle.',
+    waitTe: 'కాలువ పని ఆగి ఉంది; పనిముట్లు అలాగే పడి ఉన్నాయి.',
     stages: [
       AskodoxWorkStage('mark', 'Mark the ground', 'గుర్తులు వేయడం', 1,
           'Mark the line with string before digging.', 'తవ్వే ముందు దారంతో గీత గుర్తించండి.'),
@@ -215,6 +287,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 60,
     walkEn: 'Intervals with carrying (bricks)',
     walkTe: 'ఇంటర్వెల్, మధ్యలో బరువు మోయడం (ఇటుకలు)',
+    unitEn: 'sq ft',
+    unitTe: 'చ.అడుగులు',
+    baseUnits: 500,
+    waitEn: 'The mason is waiting for bricks. Walk and the walls rise.',
+    waitTe: 'మేస్త్రీ ఇటుకల కోసం ఎదురుచూస్తున్నాడు. నడిస్తే గోడలు లేస్తాయి.',
     stages: [
       AskodoxWorkStage('foundation', 'Foundation', 'పునాది', 6,
           'A strong foundation is cured with water for days.', 'పునాదికి కొన్ని రోజులు నీళ్లు పడితే గట్టిపడుతుంది.'),
@@ -236,6 +313,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 30,
     walkEn: 'Short walks with many breaks',
     walkTe: 'చిన్న నడకలు, ఎక్కువ విరామాలు',
+    unitEn: 'frames',
+    unitTe: 'ఫ్రేమ్‌లు',
+    baseUnits: 4,
+    waitEn: 'The gate order is waiting on the bench.',
+    waitTe: 'గేట్ ఆర్డర్ బెంచ్ మీద ఎదురుచూస్తోంది.',
     stages: [
       AskodoxWorkStage('measure', 'Measure and cut', 'కొలత, కటింగ్', 3,
           'Measure twice, cut once.', 'రెండుసార్లు కొలిచి ఒక్కసారే కోయండి.'),
@@ -257,6 +339,11 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
     realDays: 30,
     walkEn: 'Short walks with many breaks',
     walkTe: 'చిన్న నడకలు, ఎక్కువ విరామాలు',
+    unitEn: 'customers',
+    unitTe: 'కస్టమర్లు',
+    baseUnits: 40,
+    waitEn: 'Customers are waiting at the counter.',
+    waitTe: 'కౌంటర్ దగ్గర కస్టమర్లు ఎదురుచూస్తున్నారు.',
     stages: [
       AskodoxWorkStage('market', 'Morning market', 'ఉదయం మార్కెట్', 3,
           'Buy only what you can sell fresh the same day.', 'అదే రోజు తాజాగా అమ్మగలిగినంతే కొనండి.'),
@@ -266,6 +353,30 @@ const askodoxWorkJobs = <AskodoxWorkJob>[
           'Weigh in front of the customer.', 'కస్టమర్ ముందే తూకం వేయండి.'),
       AskodoxWorkStage('close', 'Close and accounts', 'మూసివేత, లెక్కలు', 2,
           'Write down the sales of the day before you leave.', 'వెళ్లే ముందు ఆ రోజు అమ్మకాలు రాసుకోండి.'),
+    ],
+  ),
+  AskodoxWorkJob(
+    id: 'hotel',
+    en: 'Hotel serving',
+    te: 'హోటల్‌లో వడ్డించడం',
+    scene: AskodoxWorkScene.workshop,
+    realDays: 30,
+    walkEn: 'Many short walks between kitchen and tables',
+    walkTe: 'వంటగది, టేబుళ్ల మధ్య చాలా చిన్న నడకలు',
+    unitEn: 'customers',
+    unitTe: 'కస్టమర్లు',
+    baseUnits: 60,
+    waitEn: 'Tables are full and customers are waiting for their food.',
+    waitTe: 'టేబుళ్లు నిండాయి, కస్టమర్లు భోజనం కోసం ఎదురుచూస్తున్నారు.',
+    stages: [
+      AskodoxWorkStage('setup', 'Set the tables', 'టేబుళ్లు సిద్ధం', 2,
+          'Clean plates and water on every table before the doors open.', 'తలుపులు తెరిచే ముందే ప్రతి టేబుల్ మీద శుభ్రమైన ప్లేట్లు, నీళ్లు.'),
+      AskodoxWorkStage('orders', 'Take orders', 'ఆర్డర్లు తీసుకోవడం', 4,
+          'Repeat the order back so nothing is missed.', 'ఏదీ మిస్ కాకుండా ఆర్డర్ ఒకసారి తిరిగి చెప్పండి.'),
+      AskodoxWorkStage('serve', 'Serve the food', 'వడ్డించడం', 6,
+          'Carry hot dishes with a cloth and walk, never run.', 'వేడి వంటకాలను గుడ్డతో పట్టుకుని నడవండి, పరుగెత్తకండి.'),
+      AskodoxWorkStage('clear', 'Clear and bill', 'శుభ్రం, బిల్లు', 3,
+          'Clear the table quickly so the next guests can sit.', 'తర్వాతి వారు కూర్చోవడానికి టేబుల్ త్వరగా శుభ్రం చేయండి.'),
     ],
   ),
 ];
@@ -300,7 +411,7 @@ const askodoxSportMatches = <AskodoxSportMatch>[
   AskodoxSportMatch('shuttle', 'Shuttle (badminton)', 'షటిల్', ['paper', 'welding'],
       'Short fast bursts, then rest: about 30 seconds fast, 60 seconds easy.',
       'చిన్న వేగవంతమైన పరుగులు, తర్వాత విరామం: సుమారు 30 సెకన్లు వేగం, 60 సెకన్లు నెమ్మది.'),
-  AskodoxSportMatch('tennis', 'Tennis', 'టెన్నిస్', ['delivery'],
+  AskodoxSportMatch('tennis', 'Tennis', 'టెన్నిస్', ['delivery', 'hotel'],
       'Stop-and-go with turns.', 'ఆగుతూ మొదలుపెడుతూ, మలుపులతో.'),
   AskodoxSportMatch('football', 'Football', 'ఫుట్‌బాల్', ['digging', 'house'],
       'Intervals; carry something light in between if you like.', 'ఇంటర్వెల్; కావాలంటే మధ్యలో తేలికపాటి బరువు.'),
@@ -313,6 +424,7 @@ const askodoxSportMatches = <AskodoxSportMatch>[
 class AskodoxWorkProgress {
   const AskodoxWorkProgress({
     required this.job,
+    this.size = const AskodoxWorkSize('medium', 5, 7000, 'Medium', 'మధ్యస్థ పని'),
     required this.steps,
     required this.stageIndex,
     required this.stageFraction,
@@ -335,25 +447,56 @@ class AskodoxWorkProgress {
   final int gameDay;
   final bool done;
 
+  final AskodoxWorkSize size;
+
   AskodoxWorkStage get stage => job.stages[stageIndex];
 
   /// Steps still needed to finish the current stage.
   int get stepsLeftInStage {
     var end = 0;
     for (var i = 0; i <= stageIndex; i++) {
-      end += job.stages[i].days * askodoxWorkStepsPerDay;
+      end += job.stages[i].days * size.stepsPerDay;
     }
     final left = end - steps;
     return left < 0 ? 0 : left;
   }
+
+  /// The stage's work in the job's own unit: "23 of 50 acres planted".
+  int get unitsTotal => job.units(size);
+  int get unitsDone {
+    if (done) return unitsTotal;
+    final v = (stageFraction * unitsTotal).floor();
+    return v < 0 ? 0 : (v > unitsTotal ? unitsTotal : v);
+  }
+
+  /// Steps of walking that one unit (one acre, one house ...) needs in this stage.
+  double get stepsPerUnit => stage.days * size.stepsPerDay / unitsTotal;
+
+  /// Steps until the next unit is done.
+  int get stepsToNextUnit {
+    if (done) return 0;
+    final into = stageFraction * stage.days * size.stepsPerDay;
+    final next = (unitsDone + 1) * stepsPerUnit;
+    final left = (next - into).ceil();
+    return left < 1 ? 1 : left;
+  }
+
+  /// Game days of walking still needed for the whole job.
+  int get daysLeft {
+    final left = job.totalStepsFor(size) - steps;
+    return left <= 0 ? 0 : (left / size.stepsPerDay).ceil();
+  }
 }
 
-AskodoxWorkProgress askodoxWorkProgress(AskodoxWorkJob job, int steps) {
+AskodoxWorkProgress askodoxWorkProgress(AskodoxWorkJob job, int steps,
+    {AskodoxWorkSize size = const AskodoxWorkSize('medium', 5, 7000, 'Medium', 'మధ్యస్థ పని')}) {
   final s = steps < 0 ? 0 : steps;
-  final total = job.totalSteps;
+  final perDay = size.stepsPerDay;
+  final total = job.totalStepsFor(size);
   if (s >= total) {
     return AskodoxWorkProgress(
       job: job,
+      size: size,
       steps: s,
       stageIndex: job.stages.length - 1,
       stageFraction: 1,
@@ -364,15 +507,16 @@ AskodoxWorkProgress askodoxWorkProgress(AskodoxWorkJob job, int steps) {
   }
   var start = 0;
   for (var i = 0; i < job.stages.length; i++) {
-    final len = job.stages[i].days * askodoxWorkStepsPerDay;
+    final len = job.stages[i].days * perDay;
     if (s < start + len) {
       return AskodoxWorkProgress(
         job: job,
+        size: size,
         steps: s,
         stageIndex: i,
         stageFraction: (s - start) / len,
         overall: s / total,
-        gameDay: s ~/ askodoxWorkStepsPerDay + 1,
+        gameDay: s ~/ perDay + 1,
         done: false,
       );
     }
@@ -380,18 +524,32 @@ AskodoxWorkProgress askodoxWorkProgress(AskodoxWorkJob job, int steps) {
   }
   // Unreachable (s < total), kept for safety.
   return AskodoxWorkProgress(
-      job: job, steps: s, stageIndex: 0, stageFraction: 0, overall: 0, gameDay: 1, done: false);
+      job: job, size: size, steps: s, stageIndex: 0, stageFraction: 0, overall: 0, gameDay: 1, done: false);
 }
 
 /// The day's goal: a gentle weekly ramp from the day the job started, and a
 /// light goal on Sunday (rest day).
-int askodoxWorkDailyGoal(DateTime startedOn, DateTime today) {
-  if (today.weekday == DateTime.sunday) return askodoxWorkRestDaySteps;
+int askodoxWorkDailyGoal(DateTime startedOn, DateTime today,
+    {AskodoxWorkSize size = const AskodoxWorkSize('medium', 5, 7000, 'Medium', 'మధ్యస్థ పని')}) {
+  int scaled(int mediumSteps) => ((mediumSteps * size.stepsPerDay / askodoxWorkStepsPerDay) / 100).round() * 100;
+  if (today.weekday == DateTime.sunday) return scaled(askodoxWorkRestDaySteps);
   final a = DateTime(startedOn.year, startedOn.month, startedOn.day);
   final b = DateTime(today.year, today.month, today.day);
   final days = b.difference(a).inDays;
   final week = days < 0 ? 0 : days ~/ 7;
-  return week < askodoxWorkWeeklyRamp.length ? askodoxWorkWeeklyRamp[week] : askodoxWorkStepsPerDay;
+  return scaled(week < askodoxWorkWeeklyRamp.length ? askodoxWorkWeeklyRamp[week] : askodoxWorkStepsPerDay);
+}
+
+/// Steps the plan expected BEFORE today (the daily goals of the earlier days).
+int askodoxWorkPlannedBefore(DateTime startedOn, DateTime today,
+    {AskodoxWorkSize size = const AskodoxWorkSize('medium', 5, 7000, 'Medium', 'మధ్యస్థ పని')}) {
+  final a = DateTime(startedOn.year, startedOn.month, startedOn.day);
+  final b = DateTime(today.year, today.month, today.day);
+  var total = 0;
+  for (var d = a; d.isBefore(b); d = DateTime(d.year, d.month, d.day + 1)) {
+    total += askodoxWorkDailyGoal(startedOn, d, size: size);
+  }
+  return total;
 }
 
 /// Title after finishing a job this many times (no points, only a name).

@@ -164,10 +164,13 @@ class AskodoxWorkScenePainter extends CustomPainter {
       case AskodoxWorkScene.workshop:
         if (job.id == 'chicken_shop') {
           _shop(canvas);
+        } else if (job.id == 'hotel') {
+          _hotel(canvas);
         } else {
           _welding(canvas);
         }
     }
+    if (!active && !_lastStageDone) _waitingBubble(canvas);
     _gainBubble(canvas);
   }
 
@@ -1143,6 +1146,103 @@ class AskodoxWorkScenePainter extends CustomPainter {
         }
       }
     }
+  }
+
+  // ------------------------------------------------------------------ hotel
+
+  void _hotel(Canvas c) {
+    // Dining room.
+    c.drawRect(Rect.fromLTWH(0, _h * 0.3, _w, _h * 0.7), Paint()..color = const Color(0xFFF3E5D0));
+    c.drawRect(Rect.fromLTWH(0, _h * 0.9, _w, _h * 0.1), Paint()..color = const Color(0xFFB08A63));
+    for (var i = 0; i < 6; i++) {
+      c.drawCircle(Offset(_w * (0.2 + 0.13 * i), _h * 0.36), 3 * _s, Paint()..color = const Color(0xFFFFD54F));
+    }
+    // Kitchen hatch with a cook.
+    final hatch = Rect.fromLTWH(_w * 0.03, _h * 0.42, _w * 0.18, _h * 0.2);
+    c.drawRect(hatch, Paint()..color = const Color(0xFF5D4037));
+    c.drawRect(hatch.deflate(4 * _s), Paint()..color = const Color(0xFFFFE0B2));
+    c.drawCircle(hatch.center + Offset(0, -2 * _s), 6 * _s, Paint()..color = _skin);
+    c.drawRect(Rect.fromCenter(center: hatch.center + Offset(0, -9 * _s), width: 12 * _s, height: 6 * _s),
+        Paint()..color = Colors.white);
+    if (active) {
+      for (var i = 0; i < 3; i++) {
+        final t = _saw(2, i / 3);
+        c.drawCircle(hatch.center + Offset((i - 1) * 6 * _s, -16 * _s - t * 16 * _s), (2 + t * 2) * _s,
+            Paint()..color = Colors.white.withValues(alpha: 0.6 * (1 - t)));
+      }
+    }
+    const tables = 3;
+    final setDone = _stage == 'setup' ? (fraction * tables * 2).floor() : (stageIndex > _idx('setup') ? tables * 2 : 0);
+    final served = _stage == 'serve' ? (fraction * tables * 3).floor() : 0;
+    final cleared = _stage == 'clear' ? (fraction * tables).floor() : 0;
+    final guests = _stage == 'setup' ? 0 : (_stage == 'orders' ? (fraction * tables * 2).ceil() : tables * 2);
+    for (var i = 0; i < tables; i++) {
+      final cx = _w * (0.38 + 0.22 * i);
+      final top = _h * 0.72;
+      // Guests sit behind the table.
+      for (var g = 0; g < 2; g++) {
+        if (i * 2 + g >= guests || (_stage == 'clear' && i < cleared)) continue;
+        final gx = cx + (g == 0 ? -12 : 12) * _s;
+        c.drawLine(Offset(gx, top), Offset(gx, top - 16 * _s),
+            _stroke(g.isEven ? const Color(0xFF8E24AA) : const Color(0xFF00897B), 10 * _s));
+        c.drawCircle(Offset(gx, top - 24 * _s), 6 * _s, Paint()..color = _skin);
+      }
+      c.drawRect(Rect.fromCenter(center: Offset(cx, top), width: 52 * _s, height: 6 * _s),
+          Paint()..color = const Color(0xFF8D6E63));
+      c.drawLine(Offset(cx - 20 * _s, top), Offset(cx - 20 * _s, top + 22 * _s), _stroke(const Color(0xFF6D4C41), 3 * _s));
+      c.drawLine(Offset(cx + 20 * _s, top), Offset(cx + 20 * _s, top + 22 * _s), _stroke(const Color(0xFF6D4C41), 3 * _s));
+      // Plates set, then food served (steaming), then cleared.
+      for (var k = 0; k < 2; k++) {
+        if (i * 2 + k >= setDone || (_stage == 'clear' && i < cleared)) continue;
+        final plate = Offset(cx + (k == 0 ? -12 : 12) * _s, top - 4 * _s);
+        c.drawOval(Rect.fromCenter(center: plate, width: 14 * _s, height: 4 * _s), Paint()..color = Colors.white);
+        final hasFood = _stage == 'serve' ? (i * 2 + k) < served * 2 / 3 : stageIndex > _idx('serve');
+        if (hasFood) {
+          c.drawOval(Rect.fromCenter(center: plate + Offset(0, -2 * _s), width: 9 * _s, height: 4 * _s),
+              Paint()..color = const Color(0xFFFFB74D));
+          if (active) {
+            final t = _saw(1.5, k * 0.3);
+            c.drawLine(plate + Offset(-2 * _s, -5 * _s - t * 6 * _s), plate + Offset(-1 * _s, -9 * _s - t * 6 * _s),
+                _stroke(Colors.white.withValues(alpha: 1 - t), 1.2 * _s));
+          }
+        }
+      }
+    }
+    // The waiter goes back and forth between the hatch and the tables.
+    final target = _w * (0.38 + 0.22 * ((fraction * tables).floor() % tables));
+    final t = active ? (_wave(4) + 1) / 2 : 0.0;
+    final x = hatch.right + 10 * _s + (target - hatch.right - 30 * _s) * t;
+    final hand = _person(c, Offset(x, _h * 0.96), _stage == 'orders' && !active ? const _Pose(armF: 1.3) : _walk(0.75),
+        shirt: Colors.white, cap: const Color(0xFF263238));
+    if (_stage == 'orders') {
+      c.drawRect(Rect.fromCenter(center: hand + Offset(3 * _s, 0), width: 7 * _s, height: 9 * _s), Paint()..color = Colors.white);
+      c.drawRect(Rect.fromCenter(center: hand + Offset(3 * _s, 0), width: 7 * _s, height: 9 * _s), _stroke(const Color(0xFF90A4AE), 0.8));
+    } else {
+      // Tray on the raised hand.
+      c.drawLine(hand + Offset(-9 * _s, -2 * _s), hand + Offset(9 * _s, -2 * _s), _stroke(const Color(0xFF9E9E9E), 2.4 * _s));
+      if (_stage == 'serve' || _stage == 'clear') {
+        c.drawOval(Rect.fromCenter(center: hand + Offset(-3 * _s, -5 * _s), width: 8 * _s, height: 4 * _s),
+            Paint()..color = _stage == 'serve' ? const Color(0xFFFFB74D) : Colors.white);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- waiting
+
+  /// While nobody walks: a thought cloud with a clock -- the work is waiting.
+  void _waitingBubble(Canvas c) {
+    final center = Offset(_w * 0.5, _h * 0.17);
+    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.95);
+    for (final (dx, dy, r) in const [(-14.0, 2.0, 12.0), (0.0, -4.0, 15.0), (15.0, 2.0, 12.0), (0.0, 7.0, 12.0)]) {
+      c.drawCircle(center + Offset(dx * _s, dy * _s), r * _s, cloud);
+    }
+    c.drawCircle(center + Offset(-22 * _s, 20 * _s), 4 * _s, cloud);
+    c.drawCircle(center + Offset(-28 * _s, 28 * _s), 2.5 * _s, cloud);
+    final face = center + Offset(0, 1 * _s);
+    c.drawCircle(face, 9 * _s, _stroke(const Color(0xFFB45309), 1.8 * _s));
+    final a = 2 * math.pi * _saw(4);
+    c.drawLine(face, face + Offset(math.sin(a) * 6.5 * _s, -math.cos(a) * 6.5 * _s), _stroke(const Color(0xFFB45309), 1.6 * _s));
+    c.drawLine(face, face + Offset(0, -4.5 * _s), _stroke(const Color(0xFFB45309), 1.8 * _s));
   }
 
   // ------------------------------------------------------------------ bubble
