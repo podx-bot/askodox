@@ -40,6 +40,10 @@ IconData _jobIcon(String id) => switch (id) {
       'welding' => Icons.local_fire_department_rounded,
       'chicken_shop' => Icons.storefront_rounded,
       'hotel' => Icons.room_service_rounded,
+      'milk' => Icons.water_drop_rounded,
+      'veg_cart' => Icons.shopping_basket_rounded,
+      'cattle' => Icons.pets_rounded,
+      'fishing' => Icons.set_meal_rounded,
       _ => Icons.work_rounded,
     };
 
@@ -143,7 +147,7 @@ class _Intro extends StatelessWidget {
       shrinkWrap: true,
       padding: const EdgeInsets.all(18),
       children: [
-        AskodoxWorkSceneView(job: askodoxWorkJobs.first, stageIndex: 2, stageFraction: 0.55, height: 190),
+        AskodoxWorkSceneView(job: askodoxWorkJobs.first, stageIndex: 2, stageFraction: 0.55, height: 190, te: te),
         const SizedBox(height: 14),
         Text(te ? 'ఎలా ఆడాలి?' : 'How to play',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: _ink)),
@@ -572,6 +576,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           active: _walkingNow && !progress.done,
           gain: _gain,
           gainId: _gainId,
+          te: te,
         ),
         if (!progress.done)
           Padding(
@@ -1027,6 +1032,7 @@ class _ReplaySheetState extends State<_ReplaySheet> with SingleTickerProviderSta
                 stageFraction: p.done ? 1.0 : p.stageFraction,
                 active: _play.isAnimating,
                 height: 220,
+                te: te,
               ),
               const SizedBox(height: 10),
               Text(

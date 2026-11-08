@@ -19,6 +19,8 @@ class AskodoxWorkSceneView extends StatefulWidget {
     this.gain = 0,
     this.gainId = 0,
     this.height = 240,
+    this.te = false,
+    this.crew,
     super.key,
   });
 
@@ -35,6 +37,12 @@ class AskodoxWorkSceneView extends StatefulWidget {
   final int gain;
   final int gainId;
   final double height;
+
+  /// Telugu text in the scene (customers calling, people waiting ...).
+  final bool te;
+
+  /// The people working together (team); null = only you, moved by [active].
+  final List<AskodoxWorkCrewMember>? crew;
 
   @override
   State<AskodoxWorkSceneView> createState() => _AskodoxWorkSceneViewState();
@@ -83,6 +91,8 @@ class _AskodoxWorkSceneViewState extends State<AskodoxWorkSceneView> with Ticker
                 active: widget.active,
                 bubble: _bubble.isAnimating ? _bubble.value : -1,
                 gain: _shownGain,
+                te: widget.te,
+                crew: widget.crew,
               ),
             ),
           ),
@@ -91,6 +101,17 @@ class _AskodoxWorkSceneViewState extends State<AskodoxWorkSceneView> with Ticker
 }
 
 int _ci(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
+
+/// One person in a team job: you or a friend / family member, each moved by
+/// their own steps (a member who has not walked stands still).
+class AskodoxWorkCrewMember {
+  const AskodoxWorkCrewMember({required this.name, required this.active, this.wear = 'lungi'});
+  final String name;
+  final bool active;
+
+  /// 'lungi', 'saree' or 'shirt'.
+  final String wear;
+}
 
 /// A body pose: angles in radians from straight down (positive = forward).
 class _Pose {
@@ -122,6 +143,8 @@ class AskodoxWorkScenePainter extends CustomPainter {
     required this.active,
     this.bubble = -1,
     this.gain = 0,
+    this.te = false,
+    this.crew,
   });
 
   final AskodoxWorkJob job;
@@ -131,6 +154,8 @@ class AskodoxWorkScenePainter extends CustomPainter {
   final bool active;
   final double bubble;
   final int gain;
+  final bool te;
+  final List<AskodoxWorkCrewMember>? crew;
 
   late double _w;
   late double _h;
@@ -150,129 +175,221 @@ class AskodoxWorkScenePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _w = size.width;
-    _h = size.height;
-    _s = _h / 240;
-    _backdrop(canvas);
-    switch (job.scene) {
-      case AskodoxWorkScene.field:
-        _field(canvas);
-      case AskodoxWorkScene.houses:
-        _houses(canvas);
-      case AskodoxWorkScene.building:
-        if (job.id == 'digging') {
+    // Everything is drawn in a 250-unit-high space, scaled to the real height.
+    final k = size.height / 250;
+    canvas.save();
+    canvas.scale(k);
+    _w = size.width / k;
+    _h = 250;
+    _s = 1;
+    var ownProblems = false;
+    if (job.id == 'hotel') {
+      _hotel(canvas);
+      ownProblems = true;
+    } else {
+      _backdrop(canvas);
+      switch (job.id) {
+        case 'paper' || 'delivery':
+          _paperOrParcels(canvas);
+          ownProblems = true;
+        case 'milk':
+          _milk(canvas);
+          ownProblems = true;
+        case 'veg_cart':
+          _vegCart(canvas);
+          ownProblems = true;
+        case 'cattle':
+          _cattle(canvas);
+          ownProblems = true;
+        case 'fishing':
+          _fishing(canvas);
+          ownProblems = true;
+        case 'digging':
           _digging(canvas);
-        } else {
+        case 'house':
           _house(canvas);
-        }
-      case AskodoxWorkScene.workshop:
-        if (job.id == 'chicken_shop') {
+        case 'chicken_shop':
           _shop(canvas);
-        } else if (job.id == 'hotel') {
-          _hotel(canvas);
-        } else {
+        case 'welding':
           _welding(canvas);
-        }
+        default:
+          _field(canvas);
+      }
     }
-    if (!active && !_lastStageDone) _waitingBubble(canvas);
+    if (!_anyActive && !_lastStageDone && !ownProblems) _waitingBubble(canvas);
     _gainBubble(canvas);
+    canvas.restore();
+  }
+
+  // ------------------------------------------------------------------- crew
+
+  static const _crewCloth = [null, Color(0xFF6A1B9A), Color(0xFFEF6C00), Color(0xFF00838F)];
+
+  List<AskodoxWorkCrewMember> get _crew =>
+      crew == null || crew!.isEmpty ? [AskodoxWorkCrewMember(name: '', active: active)] : crew!;
+  bool get _team => _crew.length > 1;
+  bool get _anyActive => _crew.any((m) => m.active);
+
+  _Outfit _outfitOf(AskodoxWorkCrewMember m) => switch (m.wear) {
+        'saree' => _Outfit.saree,
+        'shirt' => _Outfit.shirt,
+        _ => _Outfit.lungi,
+      };
+
+  /// A rounded label; with [tail] it is a speech bubble pointing down at [at].
+  void _label(Canvas c, String text, Offset at,
+      {required Color bg, required Color fg, Color? border, bool tail = false, double size = 8.5}) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: TextStyle(color: fg, fontSize: size, fontWeight: FontWeight.w700, height: 1.1)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: _w - 16);
+    final w = tp.width + 12;
+    final h = tp.height + 5;
+    final left = (at.dx - w / 2).clamp(2.0, math.max(2.0, _w - w - 2));
+    final box = RRect.fromRectAndRadius(Rect.fromLTWH(left, at.dy - h - (tail ? 4 : 0), w, h), Radius.circular(h / 2));
+    final fill = Paint()..color = bg;
+    c.drawRRect(box, fill);
+    if (tail) {
+      c.drawPath(
+          Path()
+            ..moveTo(at.dx - 3, at.dy - 5)
+            ..lineTo(at.dx, at.dy)
+            ..lineTo(at.dx + 3, at.dy - 5)
+            ..close(),
+          fill);
+    }
+    if (border != null) c.drawRRect(box, _stroke(border, 1.1));
+    tp.paint(c, Offset(left + 6, box.top + 2.5));
+  }
+
+  void _say(Canvas c, Offset at, String en, String teText, {bool angry = false}) => _label(c, te ? teText : en, at,
+      bg: angry ? const Color(0xFFFFEBEE) : Colors.white,
+      fg: angry ? const Color(0xFFC62828) : const Color(0xFF263238),
+      border: angry ? const Color(0xFFE53935) : const Color(0x40000000),
+      tail: true);
+
+  void _nameTag(Canvas c, Offset at, AskodoxWorkCrewMember m) {
+    if (!_team) return;
+    _label(c, m.active ? m.name : '${m.name} · ${te ? 'ఆగారు' : 'stopped'}', at,
+        bg: m.active ? const Color(0xEB1F8A5B) : const Color(0xD95A6064), fg: Colors.white);
   }
 
   void _backdrop(Canvas c) {
-    final evening = _lastStageDone;
-    final sky = Rect.fromLTWH(0, 0, _w, _h);
+    final evening = _lastStageDone || _stage == 'harvest' || _stage == 'evening';
+    final sky = Rect.fromLTWH(0, 0, _w, 136);
     c.drawRect(
         sky,
         Paint()
           ..shader = LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: evening ? const [Color(0xFFF2A65A), Color(0xFFFCE3C0)] : const [Color(0xFF8CCBEB), Color(0xFFE6F5FB)],
+            colors: evening ? const [Color(0xFFF3B26B), Color(0xFFFDE7C4)] : const [Color(0xFF79BFE6), Color(0xFFFBECCC)],
           ).createShader(sky));
-    final sun = Offset(_w * 0.82, _h * (evening ? 0.34 : 0.16));
-    c.drawCircle(sun, 26 * _s, Paint()..color = (evening ? const Color(0xFFF08A24) : const Color(0xFFFFE9A6)).withValues(alpha: 0.35));
-    c.drawCircle(sun, 16 * _s, Paint()..color = evening ? const Color(0xFFF08A24) : const Color(0xFFFFE08A));
+    final sun = Offset(_w * 0.8, evening ? 70 : 46);
+    c.drawCircle(
+        sun,
+        70,
+        Paint()
+          ..shader = const RadialGradient(colors: [Color(0xF2FFF0BE), Color(0x73FFE096), Color(0x00FFE096)], stops: [0, 0.25, 1])
+              .createShader(Rect.fromCircle(center: sun, radius: 70)));
+    c.drawCircle(sun, 13, Paint()..color = evening ? const Color(0xFFF5A142) : const Color(0xFFFFF3C4));
     // Clouds drift across in 60 s.
-    for (var i = 0; i < 2; i++) {
-      final x = ((_saw(60, i * 0.5)) * (_w + 160 * _s)) - 80 * _s;
-      final y = _h * (0.12 + 0.08 * i);
-      final p = Paint()..color = Colors.white.withValues(alpha: 0.9);
-      c.drawOval(Rect.fromCenter(center: Offset(x, y), width: 54 * _s, height: 18 * _s), p);
-      c.drawOval(Rect.fromCenter(center: Offset(x + 16 * _s, y - 7 * _s), width: 34 * _s, height: 18 * _s), p);
-    }
-    // Birds.
-    final bird = Paint()
-      ..color = const Color(0xFF4A5560)
-      ..strokeWidth = 1.4 * _s
-      ..style = PaintingStyle.stroke;
+    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.85);
     for (var i = 0; i < 3; i++) {
-      final x = _w * (0.15 + 0.08 * i) + _saw(30, i * 0.2) * _w * 0.3;
-      final y = _h * (0.22 + 0.03 * (i % 2)) + _wave(5, i * 0.3) * 3 * _s;
-      final flap = 3 * _s + _wave(0.5, i * 0.3) * 2 * _s;
-      c.drawPath(
-          Path()
-            ..moveTo(x - 5 * _s, y)
-            ..quadraticBezierTo(x - 2.5 * _s, y - flap, x, y)
-            ..quadraticBezierTo(x + 2.5 * _s, y - flap, x + 5 * _s, y),
-          bird);
+      final x = _saw(60, i / 3) * (_w + 120) - 60;
+      final y = 22.0 + i * 13;
+      for (final (dx, dy, r) in const [(-14.0, 2.0, 9.0), (0.0, -3.0, 12.0), (14.0, 2.0, 9.0), (26.0, 4.0, 6.0)]) {
+        c.drawCircle(Offset(x + dx, y + dy), r, cloud);
+      }
     }
-    // Hills and trees.
+    // Two layers of hills in the haze.
     c.drawPath(
         Path()
-          ..moveTo(0, _h * 0.5)
-          ..quadraticBezierTo(_w * 0.22, _h * 0.33, _w * 0.45, _h * 0.47)
-          ..quadraticBezierTo(_w * 0.72, _h * 0.32, _w, _h * 0.46)
-          ..lineTo(_w, _h * 0.62)
-          ..lineTo(0, _h * 0.62)
+          ..moveTo(0, 112)
+          ..cubicTo(_w * 0.15, 88, _w * 0.3, 96, _w * 0.42, 104)
+          ..cubicTo(_w * 0.58, 82, _w * 0.75, 90, _w, 104)
+          ..lineTo(_w, 130)
+          ..lineTo(0, 130)
           ..close(),
-        Paint()..color = const Color(0xFFB3C9A3));
-    for (final x in [0.06, 0.93]) {
-      _palm(c, Offset(_w * x, _h * 0.6), 1.0);
+        Paint()..color = const Color(0xFFA9C2C4));
+    c.drawPath(
+        Path()
+          ..moveTo(0, 122)
+          ..cubicTo(_w * 0.2, 108, _w * 0.38, 118, _w * 0.55, 116)
+          ..cubicTo(_w * 0.72, 110, _w * 0.88, 118, _w, 114)
+          ..lineTo(_w, 132)
+          ..lineTo(0, 132)
+          ..close(),
+        Paint()..color = const Color(0xFF8FB092));
+    // A row of palms and a village at the horizon.
+    final rnd = math.Random(9);
+    for (var x = 10.0; x < _w; x += 46) {
+      _palm(c, Offset(x + rnd.nextDouble() * 20, 126), 0.55 + rnd.nextDouble() * 0.25);
     }
+    for (final (fx, w) in const [(0.37, 18.0), (0.44, 14.0), (0.65, 16.0)]) {
+      final x = _w * fx;
+      c.drawRect(Rect.fromLTWH(x, 117, w, 8), Paint()..color = const Color(0xFFE9DCC6));
+      c.drawPath(
+          Path()
+            ..moveTo(x - 2, 118)
+            ..lineTo(x + w / 2, 111)
+            ..lineTo(x + w + 2, 118)
+            ..close(),
+          Paint()..color = const Color(0xFF9C6B4A));
+    }
+    // Birds.
+    final bird = _stroke(const Color(0xFF4A5560), 1);
+    for (var i = 0; i < 3; i++) {
+      final x = _saw(30, i * 0.2) * _w * 0.5 + 60 + i * 16;
+      final y = 40 + i * 4 + _wave(5, i * 0.3) * 3;
+      final flap = 3 + _wave(0.5, i * 0.3) * 2;
+      c.drawPath(
+          Path()
+            ..moveTo(x - 5, y)
+            ..quadraticBezierTo(x - 2.5, y - flap, x, y)
+            ..quadraticBezierTo(x + 2.5, y - flap, x + 5, y),
+          bird);
+    }
+    // Ground with grass tufts that bend when a gust passes.
+    final ground = Rect.fromLTWH(0, 130, _w, _h - 130);
     c.drawRect(
-        Rect.fromLTWH(0, _h * 0.58, _w, _h * 0.42),
+        ground,
         Paint()
           ..shader = const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [Color(0xFF9CC97A), Color(0xFF6E9E4F)],
-          ).createShader(Rect.fromLTWH(0, _h * 0.58, _w, _h * 0.42)));
-    // Grass tufts that bend when a gust passes.
-    final rnd = math.Random(3);
-    final tuft = _stroke(const Color(0xFF5E8E43), 1.1 * _s);
+          ).createShader(ground));
+    final tuft = _stroke(const Color(0xFF5E8E43), 1.1);
+    final grass = math.Random(3);
     for (var i = 0; i < 40; i++) {
-      final x = rnd.nextDouble() * _w;
-      final y = _h * (0.6 + rnd.nextDouble() * 0.4);
-      final bend = _gust(x) * 2 * _s;
-      c.drawLine(Offset(x, y), Offset(x - 1.5 * _s + bend, y - 4 * _s), tuft);
-      c.drawLine(Offset(x, y), Offset(x + 1.5 * _s + bend, y - 4.5 * _s), tuft);
+      final x = grass.nextDouble() * _w;
+      final y = 134 + grass.nextDouble() * (_h - 134);
+      final bend = _gust(x) * 2;
+      c.drawLine(Offset(x, y), Offset(x - 1.5 + bend, y - 4), tuft);
+      c.drawLine(Offset(x, y), Offset(x + 1.5 + bend, y - 4.5), tuft);
     }
   }
 
-  void _palm(Canvas c, Offset base, double k) {
-    final s = _s * k;
-    final sway = _wave(4) * 2 * s;
-    final top = base + Offset(6 * s + sway, -62 * s);
+  /// A palm in the distance (one hazy colour), swaying a little.
+  void _palm(Canvas c, Offset base, double k, [Color col = const Color(0xFF5F8460)]) {
+    final sway = _wave(4, base.dx / 97) * 1.5 * k;
+    final trunk = _stroke(col, 2.6 * k);
+    final top = base + Offset(4 * k + sway, -52 * k);
     c.drawPath(
         Path()
           ..moveTo(base.dx, base.dy)
-          ..quadraticBezierTo(base.dx + 8 * s, base.dy - 30 * s, top.dx, top.dy),
-        Paint()
-          ..color = const Color(0xFF8B6B4A)
-          ..strokeWidth = 4 * s
-          ..style = PaintingStyle.stroke);
-    final leaf = Paint()
-      ..color = const Color(0xFF3F7D3A)
-      ..strokeWidth = 3 * s
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 6; i++) {
-      final a = -math.pi + i * math.pi / 5;
-      final end = top + Offset(math.cos(a) * 20 * s, math.sin(a).abs() * -4 * s + 8 * s);
+          ..quadraticBezierTo(base.dx + 6 * k, base.dy - 26 * k, top.dx, top.dy),
+        trunk);
+    final leaf = _stroke(col, 2.2 * k);
+    for (var i = 0; i < 7; i++) {
+      final a = -math.pi + i * math.pi / 6;
       c.drawPath(
           Path()
             ..moveTo(top.dx, top.dy)
-            ..quadraticBezierTo((top.dx + end.dx) / 2, top.dy - 8 * s, end.dx, end.dy),
+            ..quadraticBezierTo(top.dx + math.cos(a) * 9 * k, top.dy - 7 * k, top.dx + math.cos(a) * 17 * k + sway,
+                top.dy + math.sin(a).abs() * -3 * k + 8 * k),
           leaf);
     }
   }
@@ -283,7 +400,8 @@ class AskodoxWorkScenePainter extends CustomPainter {
   Offset _backHand = Offset.zero;
 
   /// A rounded, tapered limb from [a] (width [wa]) to [b] (width [wb]).
-  void _limb(Canvas c, Offset a, Offset b, double wa, double wb, Color col) {
+  void _limb(Canvas c, Offset a, Offset b, double wa, double wb, Color col, {bool outline = true}) {
+    if (outline && col.a > 0.9) _limb(c, a, b, wa + 1.4 * _s, wb + 1.4 * _s, const Color(0x8C342218), outline: false);
     final p = Paint()..color = col;
     final d = b - a;
     final len = d.distance;
@@ -530,15 +648,15 @@ class AskodoxWorkScenePainter extends CustomPainter {
     return math.exp(-d * d);
   }
 
-  _Pose _walk([double speed = 0.75]) {
-    if (!active) return const _Pose();
+  _Pose _walk([double speed = 0.75, bool? on]) {
+    if (!(on ?? active)) return const _Pose();
     final a = _wave(speed);
     return _Pose(lean: 0.1, legF: a * 0.45, legB: -a * 0.45, armF: -a * 0.5, armB: a * 0.5, bob: _wave(speed / 2).abs() * -1.5);
   }
 
   /// Bent over, the front hand going down into the soil / mud and back.
-  _Pose _bend([double period = 1.0, double shift = 0]) {
-    if (!active) return const _Pose(lean: 0.35, crouch: 0.2, armF: 0.2, armB: 0.1);
+  _Pose _bend([double period = 1.0, double shift = 0, bool? on]) {
+    if (!(on ?? active)) return const _Pose(lean: 0.35, crouch: 0.2, armF: 0.2, armB: 0.1);
     final t = _strike(period, shift); // 1 = hand in the mud
     return _Pose(lean: 0.95 + t * 0.12, crouch: 0.42 + t * 0.06, armF: 0.05 + t * 0.6, armB: 0.45, legF: 0.15, legB: -0.1, bob: t);
   }
@@ -727,33 +845,47 @@ class AskodoxWorkScenePainter extends CustomPainter {
       case 'plough':
         _ploughTeam(c, withOxen: true);
       case 'transplant': {
-        // A gang plants side by side along the row: each one holds a bundle of
-        // seedlings in one hand and pushes them into the mud with the other;
-        // a ripple spreads where each one goes in.
+        // Each worker (you alone, or your team side by side along the row) holds
+        // a bundle of seedlings and pushes them into the mud; a ripple spreads
+        // where each one goes in and the planter is mirrored in the water.
         final dir = row.isEven ? 1.0 : -1.0;
         final gap = (_rowRight(row) - _rowLeft(row)) / _slots;
         final k = 0.82 + 0.07 * row;
-        for (final (i, back) in const [(2, 4.4), (1, 2.2), (0, 0.0)]) {
-          final x = (spot.dx - dir * back * gap).clamp(_rowLeft(row) + 6 * _s, _rowRight(row) - 6 * _s);
-          final shift = i * 0.33;
-          final hand = _person(c, Offset(x - dir * 10 * _s, spot.dy + 6 * _s), _bend(1.0, shift),
-              k: k,
-              flip: dir < 0,
-              outfit: i == 0 ? _Outfit.lungi : _Outfit.saree,
-              cloth: i == 1 ? const Color(0xFF6A1B9A) : (i == 2 ? const Color(0xFFE65100) : null));
-          _seedlingTuft(c, _backHand, 0.9 * k);
-          c.drawLine(hand, hand + Offset(dir * 1.5 * _s, -6 * _s), _stroke(const Color(0xFF5DBB4C), 1.6 * _s));
-          final after = _afterImpact(1.0, shift);
-          if (active && after >= 0) {
-            final r = (2 + after * 12) * _s * k;
-            c.drawOval(Rect.fromCenter(center: Offset(hand.dx, spot.dy + 1 * _s), width: r * 2, height: r * 0.7),
-                _stroke(Colors.white.withValues(alpha: 0.75 * (1 - after)), 1.0 * _s));
+        _egret(c, Offset(_rowLeft(1) + (_rowRight(1) - _rowLeft(1)) * (spot.dx < _w / 2 ? 0.8 : 0.2), _rowY(1)), 0.62, 0.55, dir > 0);
+        final members = _crew;
+        for (var j = members.length - 1; j >= 0; j--) {
+          final m = members[j];
+          final x = (spot.dx - dir * j * 2.2 * gap).clamp(_rowLeft(row) + 6, _rowRight(row) - 6);
+          final shift = j * 0.33;
+          final foot = Offset(x - dir * 10, spot.dy + 6);
+          final pose = _bend(1.0, shift, m.active);
+          void draw() => _person(c, foot, pose, k: k, flip: dir < 0, outfit: _outfitOf(m), cloth: _crewCloth[j % 4]);
+          if (paddy) {
+            // Reflection in the flooded field.
+            c.save();
+            c.clipRect(Rect.fromLTWH(0, foot.dy, _w, _h - foot.dy));
+            c.saveLayer(null, Paint()..color = const Color(0x38000000));
+            c.translate(0, 2 * foot.dy);
+            c.scale(1, -1);
+            draw();
+            c.restore();
+            c.restore();
           }
+          final hand = _person(c, foot, pose, k: k, flip: dir < 0, outfit: _outfitOf(m), cloth: _crewCloth[j % 4]);
+          _seedlingTuft(c, _backHand, 0.9 * k);
+          c.drawLine(hand, hand + Offset(dir * 1.5, -6), _stroke(const Color(0xFF5DBB4C), 1.6));
+          final after = _afterImpact(1.0, shift);
+          if (m.active && after >= 0) {
+            final r = (2 + after * 12) * k;
+            c.drawOval(Rect.fromCenter(center: Offset(hand.dx, spot.dy + 1), width: r * 2, height: r * 0.7),
+                _stroke(Colors.white.withValues(alpha: 0.75 * (1 - after)), 1.0));
+          }
+          _nameTag(c, foot + Offset(0, -62 * k), m);
         }
         // Seedling bundles waiting on the bund get fewer as the planting goes.
         final bundles = ((1 - fraction) * 6).ceil();
         for (var b = 0; b < bundles; b++) {
-          _seedlingTuft(c, Offset(_rowLeft(0) + b * 14 * _s, _rowY(0) - 12 * _s), 1.3);
+          _seedlingTuft(c, Offset(_rowLeft(0) + b * 14, _rowY(0) - 12), 1.3);
         }
       }
       case 'water': {
@@ -786,41 +918,40 @@ class AskodoxWorkScenePainter extends CustomPainter {
       }
       case 'harvest': {
         // Bent low: one hand gathers a bunch, the sickle cuts it at the base and
-        // the cut bunch falls and is laid down; a helper carries the sheaves to
-        // the stack.
+        // the cut bunch falls and is laid down. A team works side by side.
         final dir = row.isEven ? 1.0 : -1.0;
+        final gap = (_rowRight(row) - _rowLeft(row)) / _slots;
         final k = 0.82 + 0.07 * row;
-        final t = active ? _strike(1.2) : 0.0;
-        final pose = active
-            ? _Pose(lean: 1.0, crouch: 0.45, armB: 0.55 + t * 0.15, armF: -0.2 + t * 1.3, legF: 0.15, legB: -0.1, bob: t)
-            : const _Pose(lean: 0.4, crouch: 0.2, armF: 0.3, armB: 0.2);
-        final hand = _person(c, spot + Offset(-dir * 12 * _s, 6 * _s), pose, k: k, flip: dir < 0);
-        _sickle(c, hand, dir, k);
-        final after = _afterImpact(1.2);
-        if (active && after >= 0) {
-          c.save();
-          c.translate(spot.dx, spot.dy);
-          c.rotate(dir * _ease(after) * 1.4);
-          for (final dx in [-1.5, 0.0, 1.5]) {
-            c.drawLine(Offset(dx * _s, 0), Offset(dx * 1.8 * _s, -18 * _s * k), _stroke(const Color(0xFFC9962E), 1.5 * _s));
+        final members = _crew;
+        for (var j = members.length - 1; j >= 0; j--) {
+          final m = members[j];
+          final shift = j * 0.4;
+          final at = Offset((spot.dx - dir * j * 2.2 * gap).clamp(_rowLeft(row) + 6, _rowRight(row) - 6), spot.dy);
+          final t = m.active ? _strike(1.2, shift) : 0.0;
+          final pose = m.active
+              ? _Pose(lean: 1.0, crouch: 0.45, armB: 0.55 + t * 0.15, armF: -0.2 + t * 1.3, legF: 0.15, legB: -0.1, bob: t)
+              : const _Pose(lean: 0.4, crouch: 0.2, armF: 0.3, armB: 0.2);
+          final foot = at + Offset(-dir * 12, 6);
+          final hand = _person(c, foot, pose, k: k, flip: dir < 0, outfit: _outfitOf(m), cloth: _crewCloth[j % 4]);
+          _sickle(c, hand, dir, k);
+          final after = _afterImpact(1.2, shift);
+          if (m.active && after >= 0) {
+            c.save();
+            c.translate(at.dx, at.dy);
+            c.rotate(dir * _ease(after) * 1.4);
+            for (final dx in [-1.5, 0.0, 1.5]) {
+              c.drawLine(Offset(dx, 0), Offset(dx * 1.8, -18 * k), _stroke(const Color(0xFFC9962E), 1.5));
+            }
+            c.drawOval(Rect.fromCenter(center: Offset(0, -18 * k), width: 4, height: 6), Paint()..color = const Color(0xFFE6B84F));
+            c.restore();
+            // Chaff in the air.
+            for (var i = 0; i < 5; i++) {
+              final a = i * 1.3;
+              c.drawCircle(at + Offset(math.cos(a) * after * 16, -10 - after * 12 + math.sin(a) * 4), 0.9,
+                  Paint()..color = const Color(0xFFE8C468).withValues(alpha: 1 - after));
+            }
           }
-          c.drawOval(Rect.fromCenter(center: Offset(0, -18 * _s * k), width: 4 * _s, height: 6 * _s),
-              Paint()..color = const Color(0xFFE6B84F));
-          c.restore();
-          // Chaff in the air.
-          for (var i = 0; i < 5; i++) {
-            final a = i * 1.3;
-            c.drawCircle(
-                spot + Offset(math.cos(a) * after * 16 * _s, -10 * _s - after * 12 * _s + math.sin(a) * 4 * _s),
-                0.9 * _s,
-                Paint()..color = const Color(0xFFE8C468).withValues(alpha: 1 - after));
-          }
-        }
-        if (cut > 6) {
-          final going = _wave(6, 0.25) > 0; // walking towards the stack
-          final at = Offset.lerp(Offset(_w * 0.55, _h * 0.97), Offset(_w * 0.85, _h * 0.97), active ? (_wave(6) + 1) / 2 : 1.0)!;
-          final top = _person(c, at, _carryHead(), outfit: _Outfit.saree, cloth: const Color(0xFF00838F), flip: !going, k: 1.05);
-          if (going || !active) _sheaf(c, top + Offset(0, -3 * _s), 1.1);
+          _nameTag(c, foot + Offset(0, -58 * k), m);
         }
       }
       case 'pick': {
@@ -962,6 +1093,9 @@ class AskodoxWorkScenePainter extends CustomPainter {
             Paint()..color = const Color(0xFF6B4A2B).withValues(alpha: 1 - t));
       }
     }
+    // Egrets follow the plough for the insects it turns up.
+    _egret(c, Offset(math.max(4, x - 60), y + 2), 0.7, 0.2, false);
+    _egret(c, Offset(math.max(4, x - 92), y - 5), 0.6, 0.7, false);
     final hand = _person(c, Offset(x - 10 * _s, y + 2 * _s), _walk(0.75));
     c.drawLine(hand, Offset(x + 4 * _s, y - 4 * _s), _stroke(const Color(0xFF7A5232), 2 * _s));
   }
@@ -1022,135 +1156,78 @@ class AskodoxWorkScenePainter extends CustomPainter {
     c.drawOval(Rect.fromCenter(center: tailEnd, width: 3 * s, height: 5 * s), Paint()..color = dark);
   }
 
-  // ----------------------------------------------------------------- houses
+  // ----------------------------------------------------------------- street
 
-  static const _doors = 6;
+  static const _edge = Color(0x8C342218);
+  static const _sareeColors = [Color(0xFF5E35B1), Color(0xFF00897B), Color(0xFFD81B60), Color(0xFF3949AB), Color(0xFFEF6C00)];
+  static const _idlePose = _Pose(lean: 0.3, crouch: 0.15, armF: 0.3, armB: 0.15);
 
-  Offset _door(int i) => Offset(_w * (0.1 + 0.15 * i) + 18 * _s, _h * 0.8);
+  List<double> get _doors => [for (var i = 0; i < 5; i++) _w * (0.13 + 0.17 * i)];
 
-  void _houses(Canvas c) {
-    // Lane.
-    c.drawRect(Rect.fromLTWH(0, _h * 0.84, _w, _h * 0.16), Paint()..color = const Color(0xFF8A8F96));
-    for (var i = 0; i < 8; i++) {
-      final x = i * _w / 7;
-      c.drawLine(Offset(x, _h * 0.93), Offset(x + 16 * _s, _h * 0.93), _stroke(Colors.white.withValues(alpha: 0.7), 2 * _s));
-    }
-    final delivering = _stage == 'rounds' || _stage == 'deliver';
-    final collecting = _stage == 'collect';
-    // A street walked three times during the stage (three rounds).
-    final lap = delivering ? (fraction * 3) % 1 : fraction;
-    final served = delivering || collecting ? (lap * _doors).floor() : 0;
-    for (var i = 0; i < _doors; i++) {
-      final x = _w * (0.1 + 0.15 * i);
-      final body = Rect.fromLTWH(x, _h * 0.6, 36 * _s, 44 * _s);
-      c.drawRect(body, Paint()..color = const [Color(0xFFF2D7B6), Color(0xFFE9C3C3), Color(0xFFCFE0F2)][i % 3]);
-      c.drawPath(
-          Path()
-            ..moveTo(x - 4 * _s, _h * 0.6)
-            ..lineTo(x + 18 * _s, _h * 0.6 - 16 * _s)
-            ..lineTo(x + 40 * _s, _h * 0.6)
-            ..close(),
-          Paint()..color = const Color(0xFFB5523B));
-      c.drawRect(Rect.fromLTWH(x + 13 * _s, _h * 0.6 + 22 * _s, 10 * _s, 22 * _s), Paint()..color = const Color(0xFF7A5232));
-      c.drawRect(Rect.fromLTWH(x + 25 * _s, _h * 0.6 + 8 * _s, 8 * _s, 8 * _s), Paint()..color = const Color(0xFFFFF3C4));
-      if (i < served) {
-        c.drawCircle(Offset(x + 30 * _s, _h * 0.6 - 6 * _s), 5 * _s, Paint()..color = const Color(0xFF1F8A5B));
-        c.drawPath(
-            Path()
-              ..moveTo(x + 27.5 * _s, _h * 0.6 - 6 * _s)
-              ..lineTo(x + 29.5 * _s, _h * 0.6 - 4 * _s)
-              ..lineTo(x + 32.5 * _s, _h * 0.6 - 8.5 * _s),
-            _stroke(Colors.white, 1.4 * _s));
-        if (job.id == 'paper') {
-          c.drawRRect(
-              RRect.fromRectAndRadius(Rect.fromLTWH(x + 8 * _s, _h * 0.6 + 40 * _s, 9 * _s, 4 * _s), Radius.circular(2 * _s)),
-              Paint()..color = const Color(0xFFF5F0E6));
-        } else {
-          c.drawRect(Rect.fromLTWH(x + 6 * _s, _h * 0.6 + 36 * _s, 7 * _s, 7 * _s), Paint()..color = const Color(0xFFC49A6C));
-        }
-      }
-    }
+  void _dot(Canvas c, Offset at, double r, Color col) => c.drawCircle(at, r, Paint()..color = col);
 
-    if (delivering) {
-      final next = _ci(served, 0, _doors - 1);
-      final from = served == 0 ? Offset(0, _h * 0.9) : _door(served - 1) + Offset(0, _h * 0.1);
-      final to = _door(next) + Offset(-12 * _s, _h * 0.1);
-      final within = (lap * _doors) - served;
-      final at = Offset.lerp(from, to, within.clamp(0.0, 1.0))!;
-      if (job.id == 'paper') {
-        _rider(c, at);
-        if (active) {
-          // The paper flies to the next door.
-          final t = _saw(1.5);
-          final start = at + Offset(10 * _s, -36 * _s);
-          final end = _door(next) + Offset(-4 * _s, 0);
-          final p = Offset.lerp(start, end, t)! + Offset(0, -math.sin(math.pi * t) * 24 * _s);
-          c.save();
-          c.translate(p.dx, p.dy);
-          c.rotate(t * 2 * math.pi);
-          c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: 10 * _s, height: 4 * _s), Radius.circular(2 * _s)),
-              Paint()..color = const Color(0xFFF5F0E6));
-          c.restore();
-        }
-      } else {
-        final hand = _person(c, at, _walk(0.75));
-        c.drawRect(Rect.fromCenter(center: hand + Offset(4 * _s, -2 * _s), width: 10 * _s, height: 9 * _s),
-            Paint()..color = const Color(0xFFC49A6C));
-      }
-      return;
-    }
-    if (collecting) {
-      final at = _door(_ci(served, 0, _doors - 1)) + Offset(-14 * _s, _h * 0.1);
-      final hand = _person(c, at, active ? _Pose(armF: 1.2 + _wave(1) * 0.15, armB: 0.2) : const _Pose(armF: 0.6));
-      c.drawRect(Rect.fromCenter(center: hand + Offset(3 * _s, 0), width: 8 * _s, height: 10 * _s), Paint()..color = Colors.white);
-      return;
-    }
-    if (_stage == 'route') {
-      final x = _w * (0.05 + 0.9 * fraction);
-      _person(c, Offset(x, _h * 0.92), _walk());
-      for (var i = 0; i < _doors; i++) {
-        if (_w * (0.1 + 0.15 * i) < x) {
-          c.drawCircle(_door(i) + Offset(0, -46 * _s), 3 * _s, Paint()..color = const Color(0xFFE8A317));
-        }
-      }
-      return;
-    }
-    // Bundle / pickup / sort / returns: moving items from one pile to another.
-    final pileA = Offset(_w * 0.12, _h * 0.98);
-    final pileB = Offset(_w * 0.32, _h * 0.98);
-    final left = _stage == 'returns' ? fraction : 1 - fraction;
-    for (var i = 0; i < (left * 8).ceil(); i++) {
-      c.drawRect(Rect.fromLTWH(pileA.dx - 8 * _s, pileA.dy - (i + 1) * 6 * _s, 16 * _s, 5.5 * _s),
-          Paint()..color = job.id == 'paper' ? const Color(0xFFF5F0E6) : const Color(0xFFC49A6C));
-    }
-    for (var i = 0; i < ((1 - left) * 8).floor(); i++) {
-      c.drawRect(Rect.fromLTWH(pileB.dx - 8 * _s, pileB.dy - (i + 1) * 6 * _s, 16 * _s, 5.5 * _s),
-          Paint()..color = job.id == 'paper' ? const Color(0xFFF5F0E6) : const Color(0xFFC49A6C));
-    }
-    final t = active ? (_wave(3) + 1) / 2 : 0.5;
-    final at = Offset.lerp(pileA + Offset(14 * _s, 0), pileB + Offset(-14 * _s, 0), t)!;
-    final hand = _person(c, at, _walk(0.75));
-    c.drawRect(Rect.fromCenter(center: hand + Offset(3 * _s, -2 * _s), width: 10 * _s, height: 7 * _s),
-        Paint()..color = job.id == 'paper' ? const Color(0xFFF5F0E6) : const Color(0xFFC49A6C));
+  void _text(Canvas c, String s, Offset center, Color col, double size) {
+    final tp = TextPainter(
+      text: TextSpan(text: s, style: TextStyle(color: col, fontSize: size, fontWeight: FontWeight.w800)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    tp.paint(c, center - Offset(tp.width / 2, tp.height / 2));
   }
 
-  void _rider(Canvas c, Offset ground) {
-    final s = _s;
-    final r = 9 * s;
-    final back = ground + Offset(-13 * s, -r);
-    final front = ground + Offset(13 * s, -r);
-    final rot = active ? 2 * math.pi * _saw(0.6) : 0.0;
+  /// A lane of village houses (with rangoli at the doors) and the road in front.
+  void _street(Canvas c) {
+    c.drawRect(Rect.fromLTWH(0, 130, _w, 70), Paint()..color = const Color(0xFFD8C7A4));
+    const walls = [Color(0xFFF2D7B6), Color(0xFFCFE0F2), Color(0xFFE9C3C3), Color(0xFFD9ECC7), Color(0xFFF5E2A0)];
+    const rangoli = [Color(0xFFE91E63), Color(0xFF3F51B5), Color(0xFFFF9800), Color(0xFF009688), Color(0xFF9C27B0)];
+    final edge = _stroke(_edge, 0.9);
+    final doors = _doors;
+    for (var i = 0; i < doors.length; i++) {
+      final x = doors[i];
+      final body = Rect.fromLTWH(x - 26, 140, 52, 56);
+      c.drawRect(body, Paint()..color = walls[i]);
+      c.drawRect(body, edge);
+      final roof = Path()
+        ..moveTo(x - 30, 142)
+        ..lineTo(x, 122)
+        ..lineTo(x + 30, 142)
+        ..close();
+      c.drawPath(roof, Paint()..color = const Color(0xFFB5523B));
+      c.drawPath(roof, edge);
+      c.drawRect(Rect.fromLTWH(x - 7, 168, 14, 28), Paint()..color = const Color(0xFF7A5232));
+      final win = Rect.fromLTWH(x + 10, 152, 10, 10);
+      c.drawRect(win, Paint()..color = const Color(0xFFFFF3C4));
+      c.drawRect(win, edge);
+      c.drawOval(Rect.fromCenter(center: Offset(x, 202), width: 14, height: 4.8), _stroke(rangoli[i], 1));
+    }
+    c.drawRect(Rect.fromLTWH(0, 206, _w, _h - 206), Paint()..color = const Color(0xFF9AA0A6));
+    c.drawRect(Rect.fromLTWH(0, 204, _w, 3), Paint()..color = const Color(0xFF7E858C));
+    for (var x = 0.0; x < _w; x += 40) {
+      c.drawLine(Offset(x, 232), Offset(x + 18, 232), _stroke(Colors.white.withValues(alpha: 0.7), 2));
+    }
+  }
+
+  /// A bicycle with its rider pedalling; [cargo] draws on the carrier
+  /// (given the back wheel and the handlebar).
+  void _cycle(Canvas c, Offset ground, double k, bool moving, {void Function(Offset back, Offset bar)? cargo}) {
+    final rot = moving ? seconds * 2 * math.pi / 0.6 : 0.0;
+    c.save();
+    c.translate(ground.dx, ground.dy);
+    c.scale(k);
+    const r = 9.0;
+    const back = Offset(-13, -r);
+    const front = Offset(13, -r);
     for (final ctr in [back, front]) {
-      c.drawCircle(ctr, r, _stroke(const Color(0xFF2D3E50), 2 * s));
-      for (var k = 0; k < 3; k++) {
-        final a = rot + k * math.pi / 3;
-        c.drawLine(ctr + Offset(math.cos(a) * r, math.sin(a) * r), ctr - Offset(math.cos(a) * r, math.sin(a) * r),
-            _stroke(const Color(0xFF8A929A), 0.8 * s));
+      c.drawCircle(ctr, r, _stroke(const Color(0xFF2D3E50), 2));
+      for (var j = 0; j < 4; j++) {
+        final a = rot + j * math.pi / 4;
+        final d = Offset(math.cos(a) * r, math.sin(a) * r);
+        c.drawLine(ctr + d, ctr - d, _stroke(const Color(0xFF8A929A), 0.6));
       }
     }
-    final seat = ground + Offset(-4 * s, -24 * s);
-    final bar = ground + Offset(10 * s, -27 * s);
-    final crank = ground + Offset(0, -r);
+    const seat = Offset(-4, -24);
+    const bar = Offset(10, -27);
+    const crank = Offset(0, -r);
     c.drawPath(
         Path()
           ..moveTo(back.dx, back.dy)
@@ -1162,37 +1239,460 @@ class AskodoxWorkScenePainter extends CustomPainter {
           ..lineTo(seat.dx, seat.dy)
           ..moveTo(crank.dx, crank.dy)
           ..lineTo(bar.dx, bar.dy),
-        _stroke(const Color(0xFFD9534F), 2.4 * s));
-    c.drawRect(Rect.fromLTWH(bar.dx + 1 * s, bar.dy - 2 * s, 10 * s, 7 * s), Paint()..color = const Color(0xFFB08850));
-    c.drawRect(Rect.fromLTWH(bar.dx + 2 * s, bar.dy - 5 * s, 8 * s, 3 * s), Paint()..color = const Color(0xFFF5F0E6));
+        _stroke(const Color(0xFF1F4E79), 2.2));
+    cargo?.call(back, bar);
     // Rider: hips on the seat, feet on the turning pedals.
-    final hip = seat + Offset(0, -3 * s);
-    for (final (shift, col) in [(math.pi, _pantsBack), (0.0, _pants)]) {
-      final pedal = crank + Offset(math.cos(rot + shift) * 5 * s, math.sin(rot + shift) * 5 * s);
-      final knee = Offset((hip.dx + pedal.dx) / 2 + 6 * s, math.min(hip.dy, pedal.dy) - 2 * s);
-      c.drawPath(
-          Path()
-            ..moveTo(hip.dx, hip.dy)
-            ..lineTo(knee.dx, knee.dy)
-            ..lineTo(pedal.dx, pedal.dy),
-          Paint()
-            ..color = col
-            ..strokeWidth = 5 * s
-            ..strokeCap = StrokeCap.round
-            ..strokeJoin = StrokeJoin.round
-            ..style = PaintingStyle.stroke);
+    final hip = seat + const Offset(0, -3);
+    for (final (shift, col) in [(math.pi, _skinBack), (0.0, _skin)]) {
+      final pedal = crank + Offset(math.cos(rot + shift) * 5, math.sin(rot + shift) * 5);
+      final knee = Offset((hip.dx + pedal.dx) / 2 + 6, math.min(hip.dy, pedal.dy) - 2);
+      _limb(c, hip, knee, 5, 4.6, col);
+      _limb(c, knee, pedal, 4.4, 3.6, col);
     }
-    final shoulder = hip + Offset(9 * s, -20 * s);
-    c.drawLine(hip, shoulder, _stroke(const Color(0xFF2F6FEB), 10 * s));
-    c.drawLine(shoulder, bar + Offset(2 * s, -2 * s), _stroke(_skin, 3.6 * s));
-    final head = shoulder + Offset(4 * s, -8 * s);
-    c.drawCircle(head, 6.5 * s, Paint()..color = _skin);
+    c.drawOval(Rect.fromCenter(center: hip + const Offset(2, 1), width: 14, height: 8), Paint()..color = const Color(0xFF3F6E9E));
+    final shoulder = hip + const Offset(9, -20);
+    _limb(c, hip, shoulder, 11, 12, const Color(0xFFF2EEE6));
+    _limb(c, shoulder, bar + const Offset(2, -2), 4, 3.6, _skin);
+    final head = shoulder + const Offset(4, -8);
+    _dot(c, head + const Offset(-1, 1), 6.8, const Color(0xFF1E1A17));
+    _dot(c, head + const Offset(1, 0), 6.2, _skin);
+    _dot(c, head + const Offset(4, -1), 0.9, const Color(0xFF1E1A17));
+    _limb(c, head + const Offset(-7, -3), head + const Offset(6, -4), 4.6, 4.2, const Color(0xFFF7F3EA));
+    c.restore();
+  }
+
+  /// Paper boy / delivery: ride the lane, the paper flies to each door (a
+  /// parcel is handed over); doors not reached yet wait and complain.
+  void _paperOrParcels(Canvas c) {
+    _street(c);
+    final parcels = job.id == 'delivery';
+    final doors = _doors;
+    final members = _crew;
+    final working = _anyActive;
+    double lapX(int j) => -30 + (_w + 60) * _saw(15, j * 0.33);
+    final served = <int>{};
+    for (var j = 0; j < members.length; j++) {
+      if (!members[j].active) continue;
+      for (var i = 0; i < doors.length; i++) {
+        if (lapX(j) > doors[i]) served.add(i);
+      }
+    }
+    if (!working) {
+      for (var i = 0; i < (fraction * doors.length).floor(); i++) {
+        served.add(i);
+      }
+    }
+    // Bundles / parcels pile up at the agent's shop until someone takes them.
+    for (var i = 0; i < (working ? 2 : 6); i++) {
+      final r = Rect.fromLTWH(4.0 + (i % 3) * 12, 190.0 - (i ~/ 3) * 6, 11, 5.5);
+      c.drawRect(r, Paint()..color = parcels ? const Color(0xFFC49A6C) : const Color(0xFFEFE7D6));
+      c.drawRect(r, _stroke(const Color(0xFFB0A58F), 0.6));
+    }
+    for (var i = 0; i < doors.length; i++) {
+      final at = Offset(doors[i] + 14, 198);
+      final wear = i.isOdd ? _Outfit.saree : _Outfit.shirt;
+      if (served.contains(i)) {
+        final hand = _person(c, at, const _Pose(lean: 0.05, armF: 1.4, armB: 1.3),
+            k: 0.9, outfit: wear, shirt: const Color(0xFF607D8B), cloth: _sareeColors[i], hat: false);
+        if (parcels) {
+          c.drawRect(Rect.fromCenter(center: hand + const Offset(3, -3), width: 10, height: 8), Paint()..color = const Color(0xFFC49A6C));
+        } else {
+          final page = Rect.fromLTWH(hand.dx - 1, hand.dy - 9, 12, 11);
+          c.drawRect(page, Paint()..color = const Color(0xFFF5F0E6));
+          c.drawRect(page, _stroke(const Color(0xFF9E9E9E), 0.6));
+        }
+      } else if (!working || i.isEven) {
+        _person(c, at, _Pose(armF: 0.2, armB: 0.1, bob: _wave(3, i * 0.2)),
+            k: 0.9, outfit: wear, shirt: const Color(0xFF607D8B), cloth: _sareeColors[i], hat: false, flip: true);
+        if (!working && (seconds ~/ 2 + i) % 3 == 0) {
+          if (parcels) {
+            _say(c, at + const Offset(0, -58), 'Where is my parcel?', 'నా పార్సిల్ ఇంకా రాలేదు!', angry: true);
+          } else {
+            _say(c, at + const Offset(0, -58), i.isOdd ? 'No paper yet!' : 'Where is the paper?',
+                i.isOdd ? 'పేపర్ ఇంకా రాలేదు!' : 'పేపర్ ఏది బాబూ?',
+                angry: true);
+          }
+        }
+      }
+    }
+    for (var j = 0; j < members.length; j++) {
+      final m = members[j];
+      final x = m.active ? lapX(j) : 30.0 + j * 48;
+      final y = 228.0 + j * 6;
+      _cycle(c, Offset(x, y), 1.15, m.active, cargo: (back, bar) {
+        c.drawRect(Rect.fromLTWH(back.dx - 8, back.dy - 15, 14, 8), Paint()..color = const Color(0xFFB08850));
+        c.drawRect(Rect.fromLTWH(back.dx - 7, back.dy - 18, 12, 4),
+            Paint()..color = parcels ? const Color(0xFFC49A6C) : const Color(0xFFF5F0E6));
+      });
+      if (m.active && !parcels) {
+        for (final d in doors) {
+          final f = (x - (d - 46)) / 40;
+          if (f <= 0 || f >= 1) continue;
+          final p = Offset.lerp(Offset(x + 10, y - 40), Offset(d + 2, 196), f)! + Offset(0, -math.sin(math.pi * f) * 26);
+          c.save();
+          c.translate(p.dx, p.dy);
+          c.rotate(f * 7);
+          c.drawRect(Rect.fromCenter(center: Offset.zero, width: 10, height: 4), Paint()..color = const Color(0xFFF5F0E6));
+          c.restore();
+        }
+      }
+      _nameTag(c, Offset(x, y - 60), m);
+    }
+    if (!working) {
+      _say(c, const Offset(30, 186), parcels ? 'Parcels have arrived!' : 'The bundles are here!',
+          parcels ? 'పార్సిళ్లు వచ్చేశాయి!' : 'బండిల్స్ వచ్చేశాయి!');
+    }
+  }
+
+  /// Milkman: ride to a door, stop and pour into the vessel held out, ride on.
+  void _milk(Canvas c) {
+    _street(c);
+    final doors = _doors;
+    final members = _crew;
+    void cans(Offset back, Offset bar) {
+      for (final dx in const [-7.0, 3.0]) {
+        final r = RRect.fromRectAndRadius(Rect.fromLTWH(back.dx + dx - 4, back.dy - 18, 8, 14), const Radius.circular(2));
+        c.drawRRect(r, Paint()..color = const Color(0xFFCFD8DC));
+        c.drawRRect(r, _stroke(const Color(0xFF78909C), 0.7));
+      }
+    }
+
+    for (var j = 0; j < members.length; j++) {
+      final m = members[j];
+      final q = _saw(20, j * 0.4) * doors.length;
+      final i = math.min(q.floor(), doors.length - 1);
+      final f = q - i;
+      final from = i == 0 ? -30.0 : doors[i - 1] - 22;
+      final to = doors[i] - 22;
+      final riding = m.active && f < 0.4;
+      final pouring = m.active && f >= 0.4;
+      final x = m.active ? (riding ? from + (to - from) * _ease(f / 0.4) : to) : 24.0 + j * 48;
+      final y = 230.0 + j * 5;
+      if (pouring) {
+        _cycle(c, Offset(x - 10, y), 1.1, false, cargo: cans);
+        final hand = _person(c, Offset(x + 10, y - 6), const _Pose(lean: 0.3, armF: 1.3, armB: 0.8),
+            k: 1.1, outfit: _outfitOf(m), cloth: _crewCloth[j % 4]);
+        c.drawRect(Rect.fromLTWH(hand.dx - 2, hand.dy - 3, 7, 6), Paint()..color = const Color(0xFFCFD8DC));
+        c.drawPath(
+            Path()
+              ..moveTo(hand.dx + 5, hand.dy)
+              ..quadraticBezierTo(hand.dx + 9, hand.dy + 6, hand.dx + 10, hand.dy + 16),
+            _stroke(Colors.white.withValues(alpha: 0.95), 1.8));
+        final vessel = _person(c, Offset(doors[i] + 4, 198), const _Pose(lean: -0.05, armF: 1.1, armB: 1),
+            k: 0.9, outfit: _Outfit.saree, cloth: _sareeColors[i], flip: true);
+        c.drawOval(Rect.fromCenter(center: vessel + const Offset(-3, 0), width: 10, height: 6), Paint()..color = const Color(0xFFB0BEC5));
+      } else {
+        _cycle(c, Offset(x, y), 1.15, riding, cargo: cans);
+      }
+      _nameTag(c, Offset(x, y - 60), m);
+    }
+    if (!_anyActive) {
+      for (var i = 0; i < doors.length; i++) {
+        final at = Offset(doors[i] + 4, 198);
+        _person(c, at, const _Pose(armF: 0.9, armB: 0.2), k: 0.9, outfit: _Outfit.saree, cloth: _sareeColors[i], flip: true);
+        if ((seconds ~/ 2 + i) % 3 == 0) {
+          _say(c, at + const Offset(0, -58), i.isOdd ? 'No milk yet!' : 'How do I make tea?',
+              i.isOdd ? 'పాలు ఇంకా రాలేదు!' : 'టీ ఎలా పెట్టాలి?',
+              angry: true);
+        }
+      }
+    }
+  }
+
+  /// Vegetable cart: push and call out, stop and weigh for the lady at the door.
+  void _vegCart(Canvas c) {
+    _street(c);
+    final doors = _doors;
+    final members = _crew;
+    final fresh = _anyActive;
+    const freshCols = [Color(0xFFE53935), Color(0xFF6A1B9A), Color(0xFF43A047), Color(0xFF7CB342)];
+    const wilted = [Color(0xFFA1887F), Color(0xFF8D7F86), Color(0xFF8D9B74), Color(0xFF9AA37A)];
+    for (var j = 0; j < members.length; j++) {
+      final m = members[j];
+      final q = _saw(30, j * 0.45) * doors.length;
+      final i = math.min(q.floor(), doors.length - 1);
+      final f = q - i;
+      final from = i == 0 ? -40.0 : doors[i - 1] + 30;
+      final to = doors[i] + 30;
+      final moving = m.active && f < 0.45;
+      final selling = m.active && f >= 0.45;
+      final x = m.active ? (moving ? from + (to - from) * _ease(f / 0.45) : to) : 40.0 + j * 70;
+      final y = 238.0 + j * 4;
+      final deck = Rect.fromLTWH(x - 4, y - 26, 52, 7);
+      c.drawRect(deck, Paint()..color = const Color(0xFF8D6E63));
+      c.drawRect(deck, _stroke(_edge, 0.9));
+      for (final wx in const [4.0, 40.0]) {
+        c.drawCircle(Offset(x + wx, y - 6), 6, _stroke(const Color(0xFF4E342E), 2));
+      }
+      for (var h = 0; h < 4; h++) {
+        for (var b = 0; b < 6; b++) {
+          _dot(c, Offset(x + 2 + h * 12 + (b % 3) * 3.5, y - 28 - (b ~/ 3) * 3), 2.2, (fresh ? freshCols : wilted)[h]);
+        }
+      }
+      if (!fresh && j == 0) _say(c, Offset(x + 22, y - 34), 'The vegetables are wilting!', 'కూరలు వాడిపోతున్నాయి!', angry: true);
+      final push = _wave(0.75);
+      final pose = moving
+          ? _Pose(lean: 0.35, legF: push * 0.45, legB: -push * 0.45, armF: 1.2, armB: 1.1, bob: -_wave(0.375).abs() * 1.5)
+          : selling
+              ? _Pose(lean: 0.1, armF: 1.6 + _strike(1.5) * 0.3, armB: 0.4)
+              : _idlePose;
+      final hand = _person(c, Offset(x - 10, y), pose, k: 1.1, outfit: _outfitOf(m), cloth: _crewCloth[j % 4]);
+      if (moving && _saw(4) < 0.5) _say(c, Offset(x + 8, y - 78), 'Vegetables! Tomato, brinjal!', 'కూరగాయలూ... టమాటా, వంకాయ!');
+      if (selling) {
+        // Hand scale, the customer at the cart.
+        final tilt = _wave(1.5) * 1.5;
+        c.drawLine(hand, hand + const Offset(0, 8), _stroke(const Color(0xFF555555), 0.8));
+        c.drawLine(hand + Offset(-6, 8 + tilt), hand + Offset(6, 8 - tilt), _stroke(const Color(0xFF555555), 0.8));
+        _person(c, Offset(x + 62, y), const _Pose(lean: -0.05, armF: 1.2, armB: 0.9),
+            outfit: _Outfit.saree, cloth: const Color(0xFF00897B), flip: true);
+      }
+      _nameTag(c, Offset(x, y - 66), m);
+    }
+  }
+
+  // ----------------------------------------------------------------- cattle
+
+  void _buffalo(Canvas c, Offset foot, double k, double shift, bool graze) {
+    c.save();
+    c.translate(foot.dx, foot.dy);
+    c.scale(k);
+    const body = Color(0xFF3E3A39);
+    const dark = Color(0xFF2A2726);
+    final ph = graze ? 0.0 : _wave(0.9, shift);
+    for (final (dx, sign) in const [(-14.0, 1.0), (-8.0, -1.0), (10.0, -1.0), (16.0, 1.0)]) {
+      final knee = Offset(dx + ph * sign * 2, -9);
+      _limb(c, Offset(dx, -18), knee, 4.6, 3.6, sign > 0 ? dark : body);
+      _limb(c, knee, Offset(dx + ph * sign * 4, 0), 3.6, 3, sign > 0 ? dark : body);
+    }
+    c.drawOval(Rect.fromCenter(center: const Offset(0, -24), width: 46, height: 20), Paint()..color = body);
+    final chew = graze ? _wave(0.6, shift) : 0.0;
+    final head = Offset(25, graze ? -6 + chew : -26);
     c.drawPath(
         Path()
-          ..moveTo(head.dx - 7 * s, head.dy - 1 * s)
-          ..quadraticBezierTo(head.dx, head.dy - 13 * s, head.dx + 7.5 * s, head.dy - 1 * s)
+          ..moveTo(14, -30)
+          ..lineTo(head.dx - 3, head.dy - 4)
+          ..lineTo(head.dx, head.dy + 4)
+          ..lineTo(15, -16)
           ..close(),
-        Paint()..color = const Color(0xFFE8C87A));
+        Paint()..color = body);
+    c.save();
+    c.translate(head.dx + 3, head.dy);
+    c.rotate(graze ? 1.1 : 0.2);
+    c.drawOval(Rect.fromCenter(center: Offset.zero, width: 12, height: 9), Paint()..color = body);
+    c.restore();
+    c.drawPath(
+        Path()
+          ..moveTo(head.dx - 1, head.dy - 3)
+          ..quadraticBezierTo(head.dx - 10, head.dy - 6, head.dx - 8, head.dy + 2),
+        _stroke(const Color(0xFF6D6159), 2.2));
+    _dot(c, head + const Offset(2, -1), 0.9, const Color(0xFFBBBBBB));
+    final swish = _wave(2, shift) * 4;
+    c.drawPath(
+        Path()
+          ..moveTo(-22, -28)
+          ..quadraticBezierTo(-28, -18, -26 + swish, -9),
+        _stroke(dark, 1.4));
+    c.restore();
+  }
+
+  /// Grazing: the herd eats together while someone walks behind it; left
+  /// alone it drifts into the neighbour's paddy.
+  void _cattle(Canvas c) {
+    final ground = Rect.fromLTWH(0, 132, _w, _h - 132);
+    c.drawRect(
+        ground,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFA6CF7A), Color(0xFF6F9E4B)],
+          ).createShader(ground));
+    c.drawRect(Rect.fromLTWH(0, 138, _w, 8), Paint()..color = const Color(0xFF9FD0E6));
+    final fence = _w * 0.82;
+    c.drawRect(Rect.fromLTWH(fence, 150, _w - fence, 100), Paint()..color = const Color(0xFF5C9C3D));
+    for (var y = 158.0; y < 250; y += 12) {
+      for (var x = fence + 6; x < _w; x += 10) {
+        _plant(c, Offset(x, y), 0.6, 0.4, false);
+      }
+    }
+    c.drawLine(Offset(fence - 2, 150), Offset(fence - 2, 250), _stroke(const Color(0xFF8B6B4A), 1.5));
+    final working = _anyActive;
+    const herd = [(0.3, 190.0, 0.95, 0.0), (0.47, 214.0, 1.1, 0.3), (0.62, 182.0, 0.85, 0.6)];
+    for (var i = 0; i < herd.length; i++) {
+      final (fx, y, k, sh) = herd[i];
+      final x = _w * fx;
+      final drift = working ? _wave(15, sh) * 10 : math.min(1.0, _saw(20, sh * 0.2) * 1.4) * (fence - x + 10);
+      _buffalo(c, Offset(x + drift, y), k, sh, working || i == 0);
+    }
+    _egret(c, Offset(_w * 0.4, 238), 0.7, 0.4, true);
+    final members = _crew;
+    for (var j = 0; j < members.length; j++) {
+      final m = members[j];
+      final x = m.active ? 60 + _wave(12, j * 0.3) * 30 + j * 30 : 40.0 + j * 30;
+      final foot = Offset(x, 232.0 - j * 16);
+      final hand = _person(c, foot, m.active ? _walk(1.0, true) : _idlePose,
+          k: 1.15 - j * 0.1, outfit: _outfitOf(m), cloth: _crewCloth[j % 4]);
+      c.drawLine(hand, hand + const Offset(6, -26), _stroke(const Color(0xFF7A5232), 1.6));
+      _nameTag(c, foot + const Offset(0, -80), m);
+    }
+    if (!working) {
+      _say(c, Offset(fence + 10, 146), 'Your buffaloes are in my field!', 'గేదెలు నా పొలంలోకి వస్తున్నాయి!', angry: true);
+    }
+  }
+
+  // ---------------------------------------------------------------- fishing
+
+  void _water(Canvas c, double top) {
+    final r = Rect.fromLTWH(0, top, _w, _h - top);
+    c.save();
+    c.clipRect(r);
+    c.drawRect(
+        r,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFCFE7EE), Color(0xFFA7C7C2), Color(0xFF7E8F6C)],
+            stops: [0, 0.35, 1],
+          ).createShader(r));
+    final glint = Offset(_w * 0.8, top + 10);
+    c.drawCircle(
+        glint,
+        60,
+        Paint()
+          ..shader = const RadialGradient(colors: [Color(0xB3FFF5C8), Color(0x00FFF5C8)])
+              .createShader(Rect.fromCircle(center: glint, radius: 60)));
+    final rnd = math.Random(4);
+    for (var i = 0; i < 40; i++) {
+      final x = ((rnd.nextDouble() + _saw(20)) % 1) * _w;
+      final y = top + 4 + rnd.nextDouble() * (_h - top - 4);
+      final len = 4 + rnd.nextDouble() * 9;
+      c.drawLine(Offset(x, y), Offset(x + len, y), _stroke(Colors.white.withValues(alpha: 0.25 + 0.2 * _wave(3, i / 40)), 0.8));
+    }
+    c.restore();
+  }
+
+  void _fishShape(Canvas c, Offset at, double angle, double len) {
+    c.save();
+    c.translate(at.dx, at.dy);
+    c.rotate(angle);
+    c.drawOval(Rect.fromCenter(center: Offset.zero, width: len, height: len * 0.45), Paint()..color = const Color(0xFFB0BEC5));
+    c.restore();
+  }
+
+  /// Cast net: wind up, throw (the net opens in the air), let it sink, pull
+  /// it in with fish flapping; the basket fills as the work goes on.
+  void _fishing(Canvas c) {
+    _water(c, 130);
+    c.drawPath(
+        Path()
+          ..moveTo(0, 218)
+          ..quadraticBezierTo(_w * 0.35, 206, _w * 0.65, 222)
+          ..lineTo(_w, 230)
+          ..lineTo(_w, _h)
+          ..lineTo(0, _h)
+          ..close(),
+        Paint()..color = const Color(0xFF8A6A45));
+    final b = Offset(_w * 0.75, 236);
+    final basket = Path()
+      ..moveTo(b.dx - 16, b.dy - 18)
+      ..lineTo(b.dx + 16, b.dy - 18)
+      ..lineTo(b.dx + 12, b.dy)
+      ..lineTo(b.dx - 12, b.dy)
+      ..close();
+    c.drawPath(basket, Paint()..color = const Color(0xFFB08850));
+    c.drawPath(basket, _stroke(_edge, 0.9));
+    final fish = (((stageIndex + fraction) / job.stages.length) * 8).round();
+    for (var i = 0; i < fish; i++) {
+      _fishShape(c, Offset(b.dx - 10 + (i % 4) * 7, b.dy - 19 - (i ~/ 4) * 3), i.isOdd ? 0.3 : -0.3, 8);
+    }
+    final members = _crew;
+    for (var j = 0; j < members.length; j++) {
+      final m = members[j];
+      final x = _w * 0.27 + j * 70;
+      final y = 214.0 - j * 6;
+      final q = m.active ? _saw(5, j * 0.37) : 0.0;
+      final _Pose pose;
+      if (!m.active) {
+        pose = _idlePose;
+      } else if (q < 0.25) {
+        pose = _Pose(lean: -0.1 - q * 0.6, armF: 1.6 + q * 2, armB: 1.2, legF: 0.25, legB: -0.2);
+      } else if (q < 0.35) {
+        pose = _Pose(lean: 0.35, armF: 2.6 - (q - 0.25) * 18, armB: 0.6, legF: 0.3, legB: -0.25);
+      } else if (q < 0.7) {
+        pose = const _Pose(lean: 0.2, armF: 0.9, armB: 0.5);
+      } else {
+        pose = _Pose(lean: -0.15 + math.sin((q - 0.7) * 40) * 0.05, armF: 1.3 + _wave(0.5) * 0.2, armB: 1.2);
+      }
+      final hand = _person(c, Offset(x, y), pose,
+          k: 1.2 - j * 0.1, outfit: m.wear == 'saree' ? _Outfit.saree : _Outfit.lungi, cloth: _crewCloth[j % 4]);
+      final net = Offset(x + 80 - j * 10, 172.0 - j * 4);
+      final cord = _stroke(const Color(0xB3505050), 0.6);
+      if (m.active && q >= 0.25 && q < 0.7) {
+        final open = q < 0.35 ? (q - 0.25) / 0.1 : 1.0;
+        final ctr = Offset.lerp(hand, net, open)! + Offset(0, -math.sin(math.pi * open) * 30);
+        final rx = 4 + open * 26;
+        final ry = 2 + open * 8;
+        c.drawLine(hand, ctr + Offset(0, -ry), cord);
+        c.drawOval(Rect.fromCenter(center: ctr, width: rx * 2, height: ry * 2), cord);
+        for (var n = 0; n < 10; n++) {
+          final a = n * math.pi / 5;
+          c.drawLine(ctr + Offset(0, -ry), ctr + Offset(math.cos(a) * rx, math.sin(a) * ry), cord);
+        }
+        if (q >= 0.35) {
+          final rr = (q - 0.35) / 0.35;
+          c.drawOval(Rect.fromCenter(center: net, width: 40 + rr * 40, height: 12 + rr * 12),
+              _stroke(Colors.white.withValues(alpha: 0.7 * (1 - rr)), 0.8));
+        }
+      }
+      if (m.active && q >= 0.7) {
+        final p = Offset.lerp(net, hand + const Offset(6, 10), (q - 0.7) / 0.3)!;
+        c.drawLine(hand, p + const Offset(0, -5), _stroke(const Color(0xCC505050), 0.7));
+        c.drawOval(Rect.fromCenter(center: p, width: 16, height: 12), Paint()..color = const Color(0x8C5A5A5A));
+        for (var f = 0; f < 3; f++) {
+          _fishShape(c, p + Offset(-4.0 + f * 4, _wave(0.2, f * 0.3) * 1.5), _wave(0.2, f * 0.3) * 0.5, 6);
+        }
+      }
+      _nameTag(c, Offset(x, y - 86), m);
+    }
+    // Fish jumping in the open water.
+    for (var i = 0; i < 3; i++) {
+      final q = _saw(4, i * 0.37);
+      if (q >= 0.3) continue;
+      final f = q / 0.3;
+      _fishShape(c, Offset(_w * 0.55 + i * 50 + f * 14, 160 + i * 10 - math.sin(math.pi * f) * 14), -0.6 + f * 1.2, 8);
+    }
+    _egret(c, Offset(_w * 0.1, 222), 0.8, 0.2, false);
+    if (!_anyActive) {
+      _say(c, Offset(_w * 0.6, 140), 'The fish are getting away!', 'చేపలు వలకు దొరక్కుండా పోతున్నాయి!', angry: true);
+    }
+  }
+
+  /// A white egret (konga) standing in the field, pecking now and then.
+  void _egret(Canvas c, Offset foot, double k, double shift, bool flip) {
+    final peck = _strike(2.4, shift);
+    c.save();
+    c.translate(foot.dx, foot.dy);
+    c.scale(flip ? -k : k, k);
+    final leg = _stroke(const Color(0xFF2B2B2B), 1);
+    c.drawLine(const Offset(-1, -9), const Offset(-2, 0), leg);
+    c.drawLine(const Offset(2, -9), const Offset(3, 0), leg);
+    c.save();
+    c.translate(0, -12);
+    c.rotate(-0.2);
+    final body = Rect.fromCenter(center: Offset.zero, width: 14, height: 8);
+    c.drawOval(body, Paint()..color = const Color(0xFFFBFBF7));
+    c.drawOval(body, _stroke(const Color(0x40000000), 0.7));
+    c.restore();
+    final head = Offset(9 + 3 * peck, -24 + 18 * peck);
+    c.drawPath(
+        Path()
+          ..moveTo(5, -14)
+          ..cubicTo(10, -16, 4, -22 + 12 * peck, head.dx, head.dy),
+        _stroke(const Color(0xFFFBFBF7), 2.2));
+    _dot(c, head, 2.2, const Color(0xFFFBFBF7));
+    c.drawLine(head + const Offset(1, 0), head + Offset(7, 3 * peck), _stroke(const Color(0xFFF2B632), 1.3));
+    c.restore();
   }
 
   // ---------------------------------------------------------------- digging
@@ -1561,86 +2061,238 @@ class AskodoxWorkScenePainter extends CustomPainter {
 
   // ------------------------------------------------------------------ hotel
 
+  static const _seats = 5;
+  double _seatX(int i) => _w * 0.365 + i * _w * 0.13;
+  double _hx(double v) => v * _w / 400;
+
+  /// Each seat runs its own 20 s visit: arrive, order and wait, eat, pay and leave, empty.
+  (String, double) _seat(int i) {
+    final q = _saw(20, i * 0.21);
+    if (q < 0.08) return ('arrive', q / 0.08);
+    if (q < 0.32) return ('wait', (q - 0.08) / 0.24);
+    if (q < 0.74) return ('eat', (q - 0.32) / 0.42);
+    if (q < 0.84) return ('leave', (q - 0.74) / 0.1);
+    return ('empty', 0.0);
+  }
+
+  /// Where waiter [j] (of [n] working waiters) is: serving at a seat the moment
+  /// its wait ends, back to the kitchen for the next plate in between.
+  /// Returns x, serving, facing left.
+  (double, bool, bool) _waiter(int j, int n) {
+    final events = <(double, double)>[
+      for (var i = 0; i < _seats; i++)
+        if (i % n == j) (((0.32 - i * 0.21) % 1) * 20, _seatX(i) - 4),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    final kitchen = _hx(112);
+    if (events.isEmpty) return (kitchen, false, false);
+    final now = seconds % 20;
+    final k = events.lastIndexWhere((e) => e.$1 <= now);
+    final prev = k < 0 ? events.last : events[k];
+    final next = events[(k + 1) % events.length];
+    var since = now - prev.$1;
+    if (since < 0) since += 20;
+    var gap = next.$1 - prev.$1;
+    if (gap <= 0) gap += 20;
+    const serve = 1.2;
+    if (since < serve) return (prev.$2, true, false);
+    final t = (since - serve) / (gap - serve);
+    if (t < 0.5) return (prev.$2 + (kitchen - prev.$2) * _ease(t / 0.5), false, true);
+    return (kitchen + (next.$2 - kitchen) * _ease((t - 0.5) / 0.5), false, false);
+  }
+
+  void _leaf(Canvas c, Offset at) {
+    final r = Rect.fromCenter(center: at, width: 32, height: 9);
+    c.drawOval(r, Paint()..color = const Color(0xFF3F9A3C));
+    c.drawOval(r, _stroke(const Color(0xFF2D6E2B), 0.7));
+    c.drawLine(at - const Offset(16, 0), at + const Offset(16, 0), _stroke(const Color(0xFF2D6E2B), 0.7));
+  }
+
+  /// Tiffin hotel: customers walk in, order, wait, eat from banana leaves, ask
+  /// for the bill and leave; the waiter (or each working team member) hurries
+  /// between the kitchen and the customers. With nobody walking the plates pile
+  /// up at the hatch and the customers get angry.
   void _hotel(Canvas c) {
-    // Dining room.
-    c.drawRect(Rect.fromLTWH(0, _h * 0.3, _w, _h * 0.7), Paint()..color = const Color(0xFFF3E5D0));
-    c.drawRect(Rect.fromLTWH(0, _h * 0.9, _w, _h * 0.1), Paint()..color = const Color(0xFFB08A63));
-    for (var i = 0; i < 6; i++) {
-      c.drawCircle(Offset(_w * (0.2 + 0.13 * i), _h * 0.36), 3 * _s, Paint()..color = const Color(0xFFFFD54F));
+    final working = _anyActive;
+    final room = Rect.fromLTWH(0, 0, _w, _h);
+    c.drawRect(
+        room,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF6E2C2), Color(0xFFECD0A6)],
+          ).createShader(room));
+    c.drawRect(Rect.fromLTWH(0, 128, _w, 6), Paint()..color = const Color(0xFFB5753E));
+    final board = RRect.fromRectAndRadius(Rect.fromLTWH(_hx(126), 30, _hx(112), 24), const Radius.circular(4));
+    c.drawRRect(board, Paint()..color = const Color(0xFF8E2B1C));
+    _text(c, te ? 'శ్రీ లక్ష్మీ టిఫిన్స్' : 'Sri Lakshmi Tiffins', board.center, const Color(0xFFFFE9A8), 10);
+    // Window with the street outside.
+    final win = Rect.fromLTWH(_hx(250), 30, _hx(100), 66);
+    c.drawRect(win, Paint()..color = const Color(0xFF9FD3EF));
+    c.drawRect(Rect.fromLTWH(win.left, 80, win.width, 16), Paint()..color = const Color(0xFFC9E6C0));
+    _palm(c, Offset(win.center.dx, 96), 0.55);
+    c.drawRect(win, _stroke(const Color(0xFF7A4A24), 4));
+    // Ceiling fan.
+    final fan = Offset(_hx(190), 16);
+    c.drawLine(Offset(fan.dx, 0), fan, _stroke(const Color(0xFF6B6B6B), 1.5));
+    for (var i = 0; i < 3; i++) {
+      final a = seconds * 2 * math.pi / 0.5 + i * 2 * math.pi / 3;
+      c.drawOval(Rect.fromCenter(center: fan + Offset(math.cos(a) * 20, math.sin(a) * 3), width: 36, height: 5),
+          Paint()..color = const Color(0xBF6E6E6E));
     }
-    // Kitchen hatch with a cook.
-    final hatch = Rect.fromLTWH(_w * 0.03, _h * 0.42, _w * 0.18, _h * 0.2);
+    _dot(c, fan, 4, const Color(0xFF555555));
+    // Door on the right, floor.
+    c.drawRect(Rect.fromLTWH(_w - 30, 92, 30, 106), Paint()..color = const Color(0xFF6D4C41));
+    c.drawRect(Rect.fromLTWH(_w - 26, 96, 26, 100), Paint()..color = const Color(0xFFFFE9C4));
+    c.drawRect(Rect.fromLTWH(0, 196, _w, _h - 196), Paint()..color = const Color(0xFFC99E6D));
+    for (var x = -40.0; x < _w + 40; x += 30) {
+      c.drawLine(Offset(x, 196), Offset(x - 30, _h), _stroke(const Color(0x40784828), 1));
+    }
+    // Kitchen hatch: the cook stirs; ready plates pile up when nobody serves.
+    final hatch = Rect.fromLTWH(_hx(14), 60, _hx(82), 64);
     c.drawRect(hatch, Paint()..color = const Color(0xFF5D4037));
-    c.drawRect(hatch.deflate(4 * _s), Paint()..color = const Color(0xFFFFE0B2));
-    c.drawCircle(hatch.center + Offset(0, -2 * _s), 6 * _s, Paint()..color = _skin);
-    c.drawRect(Rect.fromCenter(center: hatch.center + Offset(0, -9 * _s), width: 12 * _s, height: 6 * _s),
-        Paint()..color = Colors.white);
-    if (active) {
-      for (var i = 0; i < 3; i++) {
-        final t = _saw(2, i / 3);
-        c.drawCircle(hatch.center + Offset((i - 1) * 6 * _s, -16 * _s - t * 16 * _s), (2 + t * 2) * _s,
-            Paint()..color = Colors.white.withValues(alpha: 0.6 * (1 - t)));
+    c.drawRect(hatch.deflate(5), Paint()..color = const Color(0xFFFFE0B2));
+    _person(c, Offset(hatch.left + _hx(34), 130), _Pose(lean: 0.1, armF: 1.5 + _wave(1.2) * 0.3, armB: 0.9),
+        outfit: _Outfit.shirt, shirt: const Color(0xFFFAFAFA), cap: Colors.white);
+    final pot = Offset(hatch.left + _hx(58), 112);
+    c.drawOval(Rect.fromCenter(center: pot, width: 28, height: 10), Paint()..color = const Color(0xFF6D6D6D));
+    c.drawRect(Rect.fromLTWH(pot.dx - 14, pot.dy, 28, 9), Paint()..color = const Color(0xFF8A8A8A));
+    for (var i = 0; i < 4; i++) {
+      final s = _saw(2.4, i / 4);
+      _dot(c, pot + Offset(-6.0 + i * 4 + _wave(1.2, i / 4) * 2, -8 - s * 26), 2 + s * 3,
+          Colors.white.withValues(alpha: 0.6 * (1 - s)));
+    }
+    c.drawRect(Rect.fromLTWH(hatch.left - 4, 120, hatch.width + 8, 6), Paint()..color = const Color(0xFF5D4037));
+    for (var i = 0; i < (working ? 1 : 4); i++) {
+      final p = Offset(hatch.left + 12 + i * 15, 118);
+      _dot(c, p, 6, const Color(0xFFFBFAF3));
+      _dot(c, p + const Offset(0, -2), 3, const Color(0xFFE2A32A));
+    }
+    if (!working) _say(c, Offset(hatch.center.dx, 56), 'Plates ready! Nobody came!', 'ప్లేట్లు రెడీ! ఎవరూ రాలేదు!', angry: true);
+
+    // Customers, each on their own visit; without a waiter they only wait.
+    const tableY = 188.0;
+    const shirts = [Color(0xFF8E24AA), Color(0xFF00897B), Color(0xFFEF6C00), Color(0xFF3949AB), Color(0xFFC62828)];
+    const orders = [
+      ('Idli please!', 'ఇడ్లీ ప్లీజ్!'),
+      ('One dosa!', 'దోస ఒకటి!'),
+      ('Meals!', 'మీల్స్!'),
+      ('Tea please!', 'టీ ఇవ్వండి!'),
+      ('One vada!', 'వడ ఒకటి!'),
+    ];
+    final states = [for (var i = 0; i < _seats; i++) _seat(i)];
+    if (!working) {
+      for (var i = 0; i < _seats; i++) {
+        if (states[i].$1 != 'empty') states[i] = ('wait', 1.0);
       }
     }
-    const tables = 3;
-    final setDone = _stage == 'setup' ? (fraction * tables * 2).floor() : (stageIndex > _idx('setup') ? tables * 2 : 0);
-    final served = _stage == 'serve' ? (fraction * tables * 3).floor() : 0;
-    final cleared = _stage == 'clear' ? (fraction * tables).floor() : 0;
-    final guests = _stage == 'setup' ? 0 : (_stage == 'orders' ? (fraction * tables * 2).ceil() : tables * 2);
-    for (var i = 0; i < tables; i++) {
-      final cx = _w * (0.38 + 0.22 * i);
-      final top = _h * 0.72;
-      // Guests sit behind the table.
-      for (var g = 0; g < 2; g++) {
-        if (i * 2 + g >= guests || (_stage == 'clear' && i < cleared)) continue;
-        final gx = cx + (g == 0 ? -14 : 14) * _s;
-        // Seated, facing each other; once the food is there the hand goes to the mouth.
-        final eating = active && stageIndex >= _idx('serve');
-        _person(c, Offset(gx, top + 22 * _s),
-            _Pose(crouch: 0.6, lean: 0.08, armB: 0.9, armF: 1.3 + (eating ? _wave(2, (i * 2 + g) * 0.3).abs() * 1.3 : 0.0)),
-            shirt: g.isEven ? const Color(0xFF8E24AA) : const Color(0xFF00897B),
-            outfit: (i + g).isOdd ? _Outfit.saree : _Outfit.shirt,
-            hat: false,
-            flip: g == 1,
-            k: 0.9);
+    for (var i = 0; i < _seats; i++) {
+      final (phase, q) = states[i];
+      final gx = _seatX(i) - 16;
+      final wear = i.isOdd ? _Outfit.saree : _Outfit.shirt;
+      if (phase == 'empty') continue;
+      if (phase == 'arrive' || phase == 'leave') {
+        final from = phase == 'arrive' ? _w - 8 : gx;
+        final to = phase == 'arrive' ? gx : _w - 8;
+        _person(c, Offset(from + (to - from) * _ease(q), 232), _walk(0.6, true),
+            k: 1.1, outfit: wear, shirt: shirts[i], cloth: const Color(0xFFAD1457), hat: false, flip: phase == 'arrive');
+        continue;
       }
-      c.drawRect(Rect.fromCenter(center: Offset(cx, top), width: 52 * _s, height: 6 * _s),
-          Paint()..color = const Color(0xFF8D6E63));
-      c.drawLine(Offset(cx - 20 * _s, top), Offset(cx - 20 * _s, top + 22 * _s), _stroke(const Color(0xFF6D4C41), 3 * _s));
-      c.drawLine(Offset(cx + 20 * _s, top), Offset(cx + 20 * _s, top + 22 * _s), _stroke(const Color(0xFF6D4C41), 3 * _s));
-      // Plates set, then food served (steaming), then cleared.
-      for (var k = 0; k < 2; k++) {
-        if (i * 2 + k >= setDone || (_stage == 'clear' && i < cleared)) continue;
-        final plate = Offset(cx + (k == 0 ? -12 : 12) * _s, top - 4 * _s);
-        c.drawOval(Rect.fromCenter(center: plate, width: 14 * _s, height: 4 * _s), Paint()..color = Colors.white);
-        final hasFood = _stage == 'serve' ? (i * 2 + k) < served * 2 / 3 : stageIndex > _idx('serve');
-        if (hasFood) {
-          c.drawOval(Rect.fromCenter(center: plate + Offset(0, -2 * _s), width: 9 * _s, height: 4 * _s),
-              Paint()..color = const Color(0xFFFFB74D));
-          if (active) {
-            final t = _saw(1.5, k * 0.3);
-            c.drawLine(plate + Offset(-2 * _s, -5 * _s - t * 6 * _s), plate + Offset(-1 * _s, -9 * _s - t * 6 * _s),
-                _stroke(Colors.white.withValues(alpha: 1 - t), 1.2 * _s));
+      final eat = phase == 'eat' ? _wave(2, i * 0.3).abs() : 0.0;
+      final angry = phase == 'wait' && q > 0.55;
+      _person(
+          c,
+          Offset(gx, tableY + 20),
+          angry
+              ? _Pose(crouch: 0.6, lean: 0.05, armB: 0.7, armF: 2.6 + _wave(0.5, i * 0.2) * 0.3)
+              : _Pose(crouch: 0.6, lean: 0.15 + eat * 0.1, armB: 0.7, armF: 0.9 + eat * 1.5),
+          outfit: wear,
+          shirt: shirts[i],
+          cloth: const Color(0xFFAD1457),
+          hat: false);
+      if (phase == 'wait') {
+        final show = working || (seconds ~/ 2.5) % _seats == i || (seconds ~/ 2.5 + 2) % _seats == i;
+        if (show) {
+          if (q < 0.55) {
+            _say(c, Offset(gx, tableY - 52), orders[i].$1, orders[i].$2);
+          } else if (working) {
+            _say(c, Offset(gx, tableY - 52), 'Not yet?', 'ఇంకా రాలేదా?', angry: true);
+          } else {
+            _say(c, Offset(gx, tableY - 52), 'How long?!', 'ఎంతసేపు?!', angry: true);
           }
         }
       }
+      if (phase == 'eat' && q > 0.85) _say(c, Offset(gx, tableY - 52), 'Bill please', 'బిల్లు ప్లీజ్');
     }
-    // The waiter goes back and forth between the hatch and the tables.
-    final target = _w * (0.38 + 0.22 * ((fraction * tables).floor() % tables));
-    final t = active ? (_wave(4) + 1) / 2 : 0.0;
-    final x = hatch.right + 10 * _s + (target - hatch.right - 30 * _s) * t;
-    final hand = _person(c, Offset(x, _h * 0.96), _stage == 'orders' && !active ? const _Pose(armF: 1.3) : _walk(0.75),
-        shirt: Colors.white, cap: const Color(0xFF263238));
-    if (_stage == 'orders') {
-      c.drawRect(Rect.fromCenter(center: hand + Offset(3 * _s, 0), width: 7 * _s, height: 9 * _s), Paint()..color = Colors.white);
-      c.drawRect(Rect.fromCenter(center: hand + Offset(3 * _s, 0), width: 7 * _s, height: 9 * _s), _stroke(const Color(0xFF90A4AE), 0.8));
-    } else {
-      // Tray on the raised hand.
-      c.drawLine(hand + Offset(-9 * _s, -2 * _s), hand + Offset(9 * _s, -2 * _s), _stroke(const Color(0xFF9E9E9E), 2.4 * _s));
-      if (_stage == 'serve' || _stage == 'clear') {
-        c.drawOval(Rect.fromCenter(center: hand + Offset(-3 * _s, -5 * _s), width: 8 * _s, height: 4 * _s),
-            Paint()..color = _stage == 'serve' ? const Color(0xFFFFB74D) : Colors.white);
+    final table = Rect.fromLTWH(_hx(105), tableY - 2, _w - _hx(105) - 34, 7);
+    c.drawRect(table, Paint()..color = const Color(0xFF8D6E63));
+    c.drawRect(table, _stroke(_edge, 1));
+    for (final x in [table.left + 6, table.right - 10]) {
+      c.drawRect(Rect.fromLTWH(x, tableY + 5, 5, 26), Paint()..color = const Color(0xFF6D4C41));
+    }
+    for (var i = 0; i < _seats; i++) {
+      final (phase, q) = states[i];
+      if (phase == 'empty' || phase == 'arrive') continue;
+      final leaf = Offset(_seatX(i), tableY - 3);
+      _leaf(c, leaf);
+      if (phase != 'eat') continue;
+      final left = 1 - q * 0.8;
+      _dot(c, leaf + const Offset(-4, -3), 4 * left, const Color(0xFFFBFAF3));
+      _dot(c, leaf + const Offset(5, -2), 2.4 * left, const Color(0xFFE2A32A));
+      _dot(c, leaf + const Offset(9, -1.5), 1.8 * left, const Color(0xFFB5371C));
+      if (q < 0.4) {
+        final s = _saw(1.5, i * 0.2);
+        c.drawPath(
+            Path()
+              ..moveTo(leaf.dx - 5, leaf.dy - 8 - s * 6)
+              ..quadraticBezierTo(leaf.dx - 2, leaf.dy - 11 - s * 6, leaf.dx - 4, leaf.dy - 14 - s * 8),
+            _stroke(Colors.white.withValues(alpha: 0.8 * (1 - s)), 1));
       }
+    }
+
+    // Waiters: every working member serves; one who has not walked stands by the kitchen.
+    final members = _crew;
+    final workingIdx = [for (var j = 0; j < members.length; j++) if (members[j].active) j];
+    for (var j = 0; j < members.length; j++) {
+      final m = members[j];
+      final y = 236.0 + j * 4;
+      double x;
+      var serving = false;
+      var left = false;
+      var moving = false;
+      if (m.active) {
+        final (wx, ws, wl) = _waiter(workingIdx.indexOf(j), workingIdx.length);
+        x = wx;
+        serving = ws;
+        left = wl;
+        moving = !ws;
+      } else {
+        x = _hx(112) + j * 34;
+      }
+      final ladle = serving ? _strike(0.8, j * 0.3) : 0.0;
+      final pose = serving
+          ? _Pose(lean: 0.2, armB: 0.9, armF: 0.8 + ladle * 0.9)
+          : moving
+              ? _walk(0.5, true)
+              : _idlePose;
+      final hand = _person(c, Offset(x - 6, y), pose,
+          k: 1.2, outfit: _Outfit.shirt, shirt: Colors.white, cap: const Color(0xFF263238), flip: left);
+      // Steel bucket of rice in the other hand.
+      final bh = _backHand;
+      final bucket = Path()
+        ..moveTo(bh.dx - 6, bh.dy)
+        ..lineTo(bh.dx + 6, bh.dy)
+        ..lineTo(bh.dx + 5, bh.dy + 10)
+        ..lineTo(bh.dx - 5, bh.dy + 10)
+        ..close();
+      c.drawPath(bucket, Paint()..color = const Color(0xFFB0BEC5));
+      c.drawPath(bucket, _stroke(const Color(0xFF78909C), 0.8));
+      _dot(c, bh + const Offset(0, 0.5), 5.5, const Color(0xFFFBFAF3));
+      if (serving) {
+        c.drawLine(hand, hand + const Offset(8, 3), _stroke(const Color(0xFF90A4AE), 1.6));
+        _dot(c, hand + const Offset(9, 3), 2.4, const Color(0xFFFBFAF3));
+      }
+      _nameTag(c, Offset(x - 6, y - 88), m);
     }
   }
 

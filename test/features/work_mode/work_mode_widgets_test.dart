@@ -151,24 +151,35 @@ void main() {
     expect(find.byKey(const Key('askodoxWorkLiveStatus')), findsOneWidget);
   });
 
-  test('every job, every stage paints at any progress, walking or not', () {
+  test('the new jobs exist and fit their sports', () {
+    for (final id in ['milk', 'veg_cart', 'cattle', 'fishing']) {
+      expect(askodoxWorkJob(id), isNotNull, reason: id);
+      expect(askodoxSportMatches.any((s) => s.jobs.contains(id)), isTrue, reason: id);
+    }
+  });
+
+  test('every job, every stage paints at any progress, walking or not, alone or as a team', () {
     TestWidgetsFlutterBinding.ensureInitialized();
     for (final job in askodoxWorkJobs) {
       for (var i = 0; i < job.stages.length; i++) {
         for (final f in const [0.0, 0.01, 0.37, 0.5, 0.99, 1.0]) {
           for (final active in const [true, false]) {
-            for (final sec in const [0.0, 13.7, 59.9]) {
-              final recorder = ui.PictureRecorder();
-              AskodoxWorkScenePainter(
-                job: job,
-                stageIndex: i,
-                fraction: f,
-                seconds: sec,
-                active: active,
-                bubble: 0.4,
-                gain: 120,
-              ).paint(Canvas(recorder), const Size(360, 240));
-              recorder.endRecording();
+            for (final sec in const [0.0, 4.1, 13.7, 59.9]) {
+              for (final crew in [null, _team(active)]) {
+                final recorder = ui.PictureRecorder();
+                AskodoxWorkScenePainter(
+                  job: job,
+                  stageIndex: i,
+                  fraction: f,
+                  seconds: sec,
+                  active: active,
+                  bubble: 0.4,
+                  gain: 120,
+                  te: sec > 5,
+                  crew: crew,
+                ).paint(Canvas(recorder), const Size(360, 240));
+                recorder.endRecording();
+              }
             }
           }
         }
@@ -176,3 +187,10 @@ void main() {
     }
   });
 }
+
+/// A team of three: you (following [active]), one walking, one who has not walked.
+List<AskodoxWorkCrewMember> _team(bool active) => [
+      AskodoxWorkCrewMember(name: 'You', active: active),
+      const AskodoxWorkCrewMember(name: 'Lakshmi', active: true, wear: 'saree'),
+      const AskodoxWorkCrewMember(name: 'Ravi', active: false, wear: 'shirt'),
+    ];
