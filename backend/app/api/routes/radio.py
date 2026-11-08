@@ -203,6 +203,104 @@ def next_segment(payload: NextRequest, request: Request) -> dict:
     }
 
 
+class TownRequest(BaseModel):
+    place: str = Field(min_length=2, max_length=60)
+    lang: str = Field(default="te", pattern="^(en|te|hi)$")
+    voice: str = Field(default="automatic", pattern="^(automatic|male|female)$")
+    audio: bool = True
+
+
+# (place key, lang) -> (fetched at, headlines). Same town within 30 minutes =
+# no new web search for anyone (per process).
+_TOWN_CACHE: dict = {}
+_TOWN_TTL = 30 * 60
+
+
+def _town_headlines(container: Any, place: str) -> list:
+    """Real headlines only: the web-search chain's answer for the town plus
+    staff-approved LIVE news that names it. Never written by a model."""
+    import time
+    from urllib.parse import urlparse
+
+    from app.api.routes.universal_deals import _web_search
+
+    key = " ".join(place.lower().split())
+    hit = _TOWN_CACHE.get(key)
+    if hit and time.time() - hit[0] < _TOWN_TTL:
+        return hit[1]
+    rows: list = []
+    search = _web_search(container)
+    if search is not None:
+        try:
+            rows = list(search(f"{place} latest news", 8) or [])
+        except Exception:
+            rows = []
+    try:
+        from app.api.routes.affiliate_catalog import catalog
+
+        live = [r for r in catalog(container).content(limit=40) if key in str(r.get("title") or "").lower()]
+    except Exception:
+        live = []
+    out, seen = [], set()
+    for row in live + rows:
+        title = " ".join(str(row.get("title") or "").split())
+        if len(title) < 8 or title.lower() in seen:
+            continue
+        seen.add(title.lower())
+        url = str(row.get("url") or row.get("link") or "")
+        out.append({"title": title[:160], "url": url,
+                    "source": str(row.get("publisher") or "") or urlparse(url).netloc.replace("www.", ""),
+                    "published_at": row.get("published_at")})
+        if len(out) >= 5:
+            break
+    if out:
+        _TOWN_CACHE[key] = (time.time(), out)
+    return out
+
+
+@router.post("/town")
+def town_news(payload: TownRequest, request: Request) -> dict:
+    """Any town's latest news, read aloud: one bulletin = one AI Credits
+    ``radio`` use (free while charging is OFF). Nothing found -> nothing
+    played, nothing charged."""
+    from app.services import rate_limit
+
+    user = _authenticated_app_user(request)
+    rate_limit.check(request, "radio-town", limit=10)
+    container = request.app.state.container
+    service = radio(container)
+    tester = _tester(container, service, user)
+    if not _enabled(container) and not tester:
+        raise HTTPException(status_code=503, detail="RADIO_DISABLED")
+    paid = (service.current_pass(user) or {}).get("status") == "ACTIVE"
+    if service.seconds_today(user) >= _daily_cap(container, service, user) * 60:
+        raise HTTPException(status_code=429, detail="RADIO_DAILY_LIMIT")
+    place = " ".join(payload.place.split())
+    headlines = _town_headlines(container, place)
+    if not headlines:
+        return {"status": "nothing_found", "place": place, "headlines": []}
+    te = payload.lang == "te"
+    intro = f"{place} తాజా వార్తలు." if te else f"Latest news from {place}."
+    text = " ".join([intro] + [f"{i + 1}. {h['title']}." for i, h in enumerate(headlines)])
+    credit = {"charged": False, "paise": 0} if (paid or tester) else _reserve_radio_credit(container, user)
+    audio, mime, synthesized = (None, "", 0)
+    if payload.audio:
+        synthesize = getattr(getattr(container, "voice_assistant_service", None), "synthesize", None)
+        audio, mime, synthesized = service.audio_for(text, synthesize, payload.voice)
+    segment = {"key": "town:" + place.lower() + ":" + headlines[0]["title"][:40].lower(), "text": text}
+    seconds = service.record(user, segment, synthesized_chars=synthesized, places_calls=0)
+    return {
+        "status": "ok",
+        "place": place,
+        "headlines": headlines,
+        "text": text,
+        "audio_b64": base64.b64encode(audio).decode() if audio else None,
+        "audio_mime": mime or None,
+        "seconds": round(seconds, 1),
+        "credits": {"charged": bool(credit.get("charged")), "paise": int(credit.get("paise") or 0)},
+    }
+
+
 # -------------------------------------------------------------- staff --
 
 def _require(request: Request, permission: str) -> dict:

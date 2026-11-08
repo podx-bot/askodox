@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/widgets/askodox_hub_icons.dart';
 import '../../../shared/widgets/navigator_section.dart';
 import '../../home/domain/conversation_language.dart';
 import '../../location/application/location_controller.dart';
@@ -22,6 +23,43 @@ class TravelRadioScreen extends ConsumerStatefulWidget {
 class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
   AskodoxRadioSegment? _segment;
   bool _busy = false, _playing = false;
+  final _town = TextEditingController();
+  AskodoxTownNews? _news;
+
+  Future<void> _playTown() async {
+    final place = _town.text.trim();
+    if (place.length < 2 || _busy || _playing) return;
+    final lang = ref.read(askodoxReplyLanguageProvider);
+    setState(() => _busy = true);
+    final news = await ref.read(travelRadioRepositoryProvider)
+        .town(place: place, lang: const {'te', 'hi'}.contains(lang) ? lang : 'en');
+    if (!mounted) return;
+    setState(() {
+      _news = news;
+      _busy = false;
+    });
+    if (news.problem != null) return;
+    await _say(news.audio, news.text, lang);
+  }
+
+  Future<void> _say(Uint8List? audio, String text, String lang) async {
+    setState(() => _playing = true);
+    try {
+      var played = false;
+      if (audio != null) {
+        played = await widget.device.invokeMethod<bool>(
+                'playReplyAudio', <String, Object?>{'bytes': audio, 'languageCode': lang}) ==
+            true;
+      }
+      if (!played) {
+        await widget.device.invokeMethod<bool>('speakReply', <String, Object?>{'text': text, 'languageCode': lang});
+      }
+    } catch (_) {
+      // No audio on this device: the text stays on screen.
+    } finally {
+      if (mounted) setState(() => _playing = false);
+    }
+  }
 
   bool get _te => Localizations.localeOf(context).languageCode == 'te';
 
@@ -70,6 +108,7 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
 
   @override
   void dispose() {
+    _town.dispose();
     widget.device.invokeMethod<bool>('stopSpeaking').catchError((_) => false);
     super.dispose();
   }
@@ -79,7 +118,10 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
     final status = ref.watch(travelRadioStatusProvider);
     final te = _te;
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'ట్రావెల్ రేడియో' : 'Travel Radio')),
+      appBar: AppBar(
+        title: Text(te ? 'రేడియో' : 'Radio'),
+        actions: const [AskodoxHubIcons(current: 'radio')],
+      ),
       body: status.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(child: Text(askodoxRadioProblemText('unavailable', te))),
@@ -155,6 +197,71 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                             const SizedBox(height: 4),
                             Text(_segment!.text, key: const Key('askodoxRadioText')),
                           ],
+                        ],
+                      ]),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                AskodoxNavSection(
+                  title: te ? 'ఊరి వార్తలు' : 'Town news',
+                  icon: Icons.newspaper_rounded,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(te
+                            ? 'ఏ ఊరి పేరు అయినా రాయండి — ఆ ఊరి తాజా వార్తలు వెంటనే వినిపిస్తాం (నిజమైన వార్తలు మాత్రమే, ఎక్కడివో పేరుతో).'
+                            : 'Type any town — we read its latest news right away (real headlines only, with their source).'),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                            child: TextField(
+                              key: const Key('askodoxRadioTown'),
+                              controller: _town,
+                              textInputAction: TextInputAction.search,
+                              onSubmitted: (_) => _playTown(),
+                              decoration: InputDecoration(
+                                hintText: te ? 'ఉదా. ఉయ్యూరు' : 'e.g. Vuyyuru',
+                                isDense: true,
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            key: const Key('askodoxRadioTownPlay'),
+                            onPressed: _busy || _playing || !s.enabled || !s.access ? null : _playTown,
+                            icon: const Icon(Icons.play_arrow_rounded),
+                            label: Text(te ? 'వినండి' : 'Listen'),
+                          ),
+                        ]),
+                        const SizedBox(height: 6),
+                        Text(
+                          s.creditsCharging && s.creditRatePaise > 0
+                              ? (te
+                                  ? 'ఒక ఊరి బులెటిన్ = AI Credits నుండి ₹${(s.creditRatePaise / 100).toStringAsFixed(2)}. ఏమీ దొరకకపోతే ఏమీ కట్ కాదు.'
+                                  : 'One town bulletin = ₹${(s.creditRatePaise / 100).toStringAsFixed(2)} of AI Credits. Nothing found = nothing charged.')
+                              : (te
+                                  ? 'ఒక ఊరి బులెటిన్ = ఒక AI Credits ఉపయోగం — ఇప్పటికి ఛార్జ్ లేదు. ఏమీ దొరకకపోతే ఏమీ కట్ కాదు.'
+                                  : 'One town bulletin = one AI Credits use — no charge for now. Nothing found = nothing charged.'),
+                          key: const Key('askodoxRadioTownCost'),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF475467)),
+                        ),
+                        if (_news != null) ...[
+                          const SizedBox(height: 10),
+                          if (_news!.problem != null)
+                            Text(askodoxRadioProblemText(_news!.problem!, te), key: const Key('askodoxRadioTownProblem'))
+                          else
+                            for (final h in _news!.headlines)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Text.rich(TextSpan(children: [
+                                  TextSpan(text: h.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  if (h.source.isNotEmpty)
+                                    TextSpan(text: '  · ${h.source}', style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+                                ])),
+                              ),
                         ],
                       ]),
                     ),

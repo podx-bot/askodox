@@ -53,6 +53,7 @@ const askodoxAccountScopedKeys = <String>[
   'askodox.active_conversation_turns.v1',
   'askodox.greeting.seen_before',
   'askodox.work_mode.v1',
+  'askodox.talk.rules.v1',
   'askodox.greeting.last_text',
   'askodox.greeting.last_at',
   'askodox.recent_locations.v1',
