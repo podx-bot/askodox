@@ -1,9 +1,13 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/smart_tools/data/phone_meters.dart';
 import 'package:podx/features/work_mode/data/work_mode_store.dart';
+import 'package:podx/features/work_mode/domain/work_mode_plan.dart';
 import 'package:podx/features/work_mode/presentation/work_mode_screens.dart';
+import 'package:podx/features/work_mode/presentation/work_scene.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeSteps implements AskodoxStepSource {
@@ -31,7 +35,8 @@ Future<void> _frames(WidgetTester tester, [int n = 6]) async {
   }
 }
 
-Future<_FakeSteps> _open(WidgetTester tester, Widget screen, {Map<String, Object> prefs = const {}}) async {
+Future<_FakeSteps> _open(WidgetTester tester, Widget screen,
+    {Map<String, Object> prefs = const {}, DateTime? today}) async {
   SharedPreferences.setMockInitialValues(prefs);
   _tallView(tester);
   final steps = _FakeSteps();
@@ -39,7 +44,7 @@ Future<_FakeSteps> _open(WidgetTester tester, Widget screen, {Map<String, Object
     overrides: [
       askodoxStepSourceProvider.overrideWithValue(steps),
       // A Monday, the first day of the job.
-      askodoxWorkClockProvider.overrideWithValue(() => DateTime(2026, 11, 2, 7)),
+      askodoxWorkClockProvider.overrideWithValue(() => today ?? DateTime(2026, 11, 2, 7)),
     ],
     child: MaterialApp(home: screen),
   ));
@@ -109,5 +114,42 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('askodoxSevaMinutes-30')));
     await _frames(tester);
     expect(find.text('30:00'), findsOneWidget);
+  });
+
+  testWidgets('Sunday is a rest day: light goal, the work goes on, the chip explains it', (tester) async {
+    await _open(tester, const AskodoxWorkModeScreen(),
+        prefs: {askodoxWorkModePrefsKey: '{"intro_seen":true,"job":"house","started_on":"2026-11-02","job_steps":0}'},
+        today: DateTime(2026, 11, 8, 7));
+    expect(find.text('0 / 3,000 steps'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxWorkRestNote')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxWorkRestDay')));
+    await _frames(tester);
+    expect(find.text('Sunday = rest day'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxWorkLiveStatus')), findsOneWidget);
+  });
+
+  test('every job, every stage paints at any progress, walking or not', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    for (final job in askodoxWorkJobs) {
+      for (var i = 0; i < job.stages.length; i++) {
+        for (final f in const [0.0, 0.01, 0.37, 0.5, 0.99, 1.0]) {
+          for (final active in const [true, false]) {
+            for (final sec in const [0.0, 13.7, 59.9]) {
+              final recorder = ui.PictureRecorder();
+              AskodoxWorkScenePainter(
+                job: job,
+                stageIndex: i,
+                fraction: f,
+                seconds: sec,
+                active: active,
+                bubble: 0.4,
+                gain: 120,
+              ).paint(Canvas(recorder), const Size(360, 240));
+              recorder.endRecording();
+            }
+          }
+        }
+      }
+    }
   });
 }
