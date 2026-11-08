@@ -5387,6 +5387,56 @@
       "history": [
         "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva"
       ]
+    },
+    {
+      "id": "smart_answer_chips",
+      "name": "Smart Answer chips: tap-able next steps under the latest chat reply",
+      "purpose": "Users skim and tap rather than type (owner 2026-11-08). The ONE brain returns 2-5 short things the user could say next; the app draws them as chips under the latest reply and a tap sends that text as the user's message.",
+      "expected_behavior": "Only app builds sending the 'suggestions' capability get the prompt rules and the field (older builds see no change; the field defaults to []). Chips are cleaned universally: 2-5, distinct, <= 40 characters / 6 words, no links, no phone-like numbers, never a 'booked / ordered / sent' claim, never a copy of the reply; fewer than two -> none. No chips for clarify_need (it has its own options) or when a fixed reply replaces the brain's text (video search, where-to-get, separate advice call). The reply rules also ask for a one-line reason when recommending and at most one extra tip, only when live web evidence supports it. Chips show only under the latest assistant turn and are disabled while a reply is being prepared.",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant",
+          "response_model": "app.api.routes.in_app_assistant:AssistantDecision",
+          "response_keys": [
+            "suggestions"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxSuggestionChips"
+        ],
+        "symbols": [
+          "askodoxSuggestionChips",
+          "_suggestionsByTurn"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_reply_suggestions.py::test_new_apps_get_the_rules_and_clean_chips",
+          "tests/test_reply_suggestions.py::test_old_apps_get_no_prompt_block_and_no_field",
+          "tests/test_reply_suggestions.py::test_clean_drops_links_numbers_long_text_and_done_claims",
+          "tests/test_reply_suggestions.py::test_route_carries_suggestions_and_defaults_to_empty"
+        ],
+        "flutter": [
+          "test/services/in_app_assistant_suggestions_test.dart"
+        ]
+      },
+      "dependencies": [
+        "decision_brain"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-08: owner approved slice 1 of the intelligence-upgrade audit (\"1\"): GenZ-style smart answers -- show, one-line why, tap chips"
+      ]
     }
   ]
 }
