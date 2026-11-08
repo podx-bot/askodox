@@ -5362,7 +5362,8 @@
           "askodoxWorkToday",
           "askodoxWorkScene",
           "askodoxWorkShare",
-          "askodoxSevaScreen"
+          "askodoxSevaScreen",
+          "askodoxHeaderGameLive"
         ],
         "symbols": [
           "askodoxWorkJobs",
@@ -5385,7 +5386,8 @@
       "dependencies": [],
       "status": "approved",
       "history": [
-        "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva"
+        "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva",
+        "2026-11-08: owner: game button a little to the right of ASKODOX with a LIVE label and the game icon under it"
       ]
     },
     {

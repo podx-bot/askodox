@@ -175,15 +175,35 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                       style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
                 ),
               ),
-              // Work Mode game (owner 2026-11-07): right beside the name.
-              IconButton(
-                key: const Key('askodoxHeaderGameButton'),
-                tooltip: isTe ? 'వర్క్ మోడ్ గేమ్' : 'Work Mode game',
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                icon: const Icon(Icons.sports_esports_rounded, size: 22, color: _navAccent),
-                onPressed: () => context.push('/work'),
+              // Work Mode game (owner 2026-11-07 / 11-08): a little to the right of the name,
+              // a small "LIVE" label with the game icon under it. Part of the shell header, so it
+              // stays on every screen and through the whole chat.
+              const SizedBox(width: 10),
+              Tooltip(
+                message: isTe ? 'వర్క్ మోడ్ గేమ్' : 'Work Mode game',
+                child: InkWell(
+                  key: const Key('askodoxHeaderGameButton'),
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => context.push('/work'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                        key: const Key('askodoxHeaderGameLive'),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE53935),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(isTe ? 'లైవ్' : 'LIVE',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                      ),
+                      const SizedBox(height: 1),
+                      const Icon(Icons.sports_esports_rounded, size: 20, color: _navAccent),
+                    ]),
+                  ),
+                ),
               ),
             ]),
           ),
