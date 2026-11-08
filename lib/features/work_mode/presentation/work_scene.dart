@@ -246,7 +246,7 @@ class AskodoxWorkScenePainter extends CustomPainter {
     )..layout(maxWidth: _w - 16);
     final w = tp.width + 12;
     final h = tp.height + 5;
-    final left = (at.dx - w / 2).clamp(2.0, math.max(2.0, _w - w - 2));
+    final double left = math.min(math.max(2.0, at.dx - w / 2), math.max(2.0, _w - w - 2));
     final box = RRect.fromRectAndRadius(Rect.fromLTWH(left, at.dy - h - (tail ? 4 : 0), w, h), Radius.circular(h / 2));
     final fill = Paint()..color = bg;
     c.drawRRect(box, fill);
@@ -1030,23 +1030,6 @@ class AskodoxWorkScenePainter extends CustomPainter {
         _stroke(const Color(0xFF9AA0A6), 1.8 * s));
     c.drawArc(Rect.fromCircle(center: ctr, radius: 4 * s), dir > 0 ? -math.pi / 3 : math.pi * 2 / 3, math.pi / 2, false,
         _stroke(Colors.white.withValues(alpha: 0.7), 0.7 * s));
-  }
-
-  /// A tied sheaf of cut paddy.
-  void _sheaf(Canvas c, Offset at, double k) {
-    final s = _s * k;
-    c.drawPath(
-        Path()
-          ..moveTo(at.dx - 10 * s, at.dy)
-          ..lineTo(at.dx + 10 * s, at.dy)
-          ..lineTo(at.dx + 7 * s, at.dy - 6 * s)
-          ..lineTo(at.dx - 7 * s, at.dy - 6 * s)
-          ..close(),
-        Paint()..color = const Color(0xFFD9A441));
-    for (var i = -3; i <= 3; i++) {
-      c.drawLine(at + Offset(i * 2.4 * s, 0), at + Offset(i * 2 * s, -6 * s), _stroke(const Color(0xFFB8862E), 0.7 * s));
-    }
-    c.drawLine(at + Offset(-1 * s, -6.5 * s), at + Offset(-1 * s, 0.5 * s), _stroke(const Color(0xFF7A5232), 1.4 * s));
   }
 
   /// Dragonflies over the paddy water, butterflies over the other crops.
