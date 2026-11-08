@@ -1,0 +1,28 @@
+name: tmp flutter diag
+on:
+  push:
+    branches: [claude/tmp-flutter-diag]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: analyze (all lines as warnings)
+        shell: bash
+        run: |
+          flutter analyze > a.log 2>&1 || true
+          grep -E "(info|warning|error) •" a.log | head -40 | sed 's/^/::warning::A /' || true
+          tail -2 a.log | sed 's/^/::warning::A /'
+      - name: test (failures as warnings)
+        shell: bash
+        run: |
+          flutter test --reporter expanded > t.log 2>&1 || true
+          grep -nE "\[E\]|Expected:|  Actual:|Which:|EXCEPTION CAUGHT|The following|was thrown|Test failed|══" t.log | head -60 | sed 's/^/::warning::T /' || true
+          tail -3 t.log | sed 's/^/::warning::T /'
