@@ -113,7 +113,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.textContaining('was not posted'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 5));
+    // The notice is a snack bar over the composer: clear it before the next message.
+    tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger)).removeCurrentSnackBar();
+    await tester.pump();
     await tester.enterText(find.byKey(const Key('askodoxTalkInput')), 'I want to end my life');
     await tester.tap(find.byKey(const Key('askodoxTalkSend')));
     await tester.pump();
