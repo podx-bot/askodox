@@ -299,6 +299,23 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీరు నిజంగా ఇచ్చిన / ఒప్పుకున్నవి మాత్రమే ఆమోదించండి; లేదంటే "కాదు" నొక్కండి.',
     'ASKODOX రికార్డు మాత్రమే ఉంచుతుంది — డబ్బు షాప్ దగ్గర ఉంటుంది.',
   ]),
+  // ------------------------------------------------------------- work mode
+  '/work': _H('Work Mode', 'వర్క్ మోడ్', [
+    'Pick a job, then walk: every step your phone counts does a little of that job.',
+    '7,000 steps = one full work day. Jobs follow the real order, in half the real time.',
+    'No points or prizes. Use "Add by hand" for treadmill steps; Sunday is a rest day.',
+  ], [
+    'ఒక పని ఎంచుకుని నడవండి: ఫోన్ లెక్కించే ప్రతి అడుగుతో ఆ పని కొంచెం జరుగుతుంది.',
+    '7,000 అడుగులు = ఒక రోజు పూర్తి పని. పని అసలు క్రమంలో, నిజ సమయంలో సగంలో జరుగుతుంది.',
+    'పాయింట్లు, బహుమతులు లేవు. ట్రెడ్‌మిల్ అడుగులకు "చేతితో నమోదు" వాడండి; ఆదివారం విశ్రాంతి.',
+  ]),
+  '/work/seva': _H('Seva / meditation', 'సేవ / ధ్యానం', [
+    'Optional. Choose a practice and a time, then tap Start in a walking break.',
+    'Only the minutes are kept on your phone; your choice is never stored.',
+  ], [
+    'ఐచ్ఛికం. ఒక పద్ధతి, సమయం ఎంచుకుని నడక విరామంలో "మొదలు" నొక్కండి.',
+    'నిమిషాలు మాత్రమే మీ ఫోన్‌లో ఉంటాయి; మీ ఎంపిక ఎక్కడా నిల్వ చేయము.',
+  ]),
   // ------------------------------------------------------------- smart tools
   '/tools': _H('Smart Tools', 'స్మార్ట్ టూల్స్', [
     'Tap a tool to open it. Faded tiles are not built yet — tap to see what they need.',

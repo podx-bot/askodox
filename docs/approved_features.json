@@ -5390,6 +5390,59 @@
       "history": [
         "2026-11-08: owner approved slice 1 of the intelligence-upgrade audit (\"1\"): GenZ-style smart answers -- show, one-line why, tap chips"
       ]
+    },
+    {
+      "id": "work_mode_walking_game",
+      "name": "Work Mode: walking does a chosen job (no points or rewards)",
+      "purpose": "A daily-habit game for walkers, joggers and players: the person picks a job (paddy / chilli / vegetables, paper boy, delivery, digging, house building, welding, chicken shop) and every step the phone counts does a little of that job, in the job's real stage order and in half its real-world time.",
+      "expected_behavior": "A game button beside the ASKODOX wordmark in the header opens /work. First open explains how to play (no points, prizes or money; phone in pocket; Sunday rest; stop if anything hurts). A sport choice (walk, jogging, shuttle, tennis, football, treadmill) highlights fitting jobs. 7,000 steps = one work day; the daily goal ramps 4,000 -> 7,000 over four weeks and is 3,000 on Sunday. Steps come from the phone's own step counter (native stepCount on com.askodox.app/hardware, ACTIVITY_RECOGNITION asked on Android 10+); the first reading only sets the start point; phones without a counter use a live accelerometer count while the screen is open; treadmill steps typed by hand are labelled separately. The animated scene follows the real progress. Share sends a text the person posts wherever they like; every number is the phone's own count. /work/seva is an optional timed peace meditation or own prayer in a walking break; tradition-specific prayers stay locked until reviewed by scholars of that tradition, and the chosen practice is never stored. Everything stays on the phone (prefs key askodox.work_mode.v1, account-scoped).",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxHeaderGameButton",
+          "askodoxWorkModeScreen",
+          "askodoxWorkIntro",
+          "askodoxWorkJobPicker",
+          "askodoxWorkToday",
+          "askodoxWorkScene",
+          "askodoxWorkShare",
+          "askodoxSevaScreen",
+          "askodoxWorkUnits",
+          "askodoxWorkReplay",
+          "askodoxWorkWaiting"
+        ],
+        "symbols": [
+          "askodoxWorkJobs",
+          "askodoxWorkProgress",
+          "askodoxWorkDailyGoal",
+          "askodoxStepCounterDelta",
+          "AskodoxStepDetector",
+          "askodoxWorkModeRoutes",
+          "askodoxWorkShareText",
+          "askodoxWorkSizes",
+          "askodoxWorkPlannedBefore"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/work_mode/work_mode_plan_test.dart",
+          "test/features/work_mode/work_mode_widgets_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva",
+        "2026-11-09: owner asked for work shown in real units (10 / 50 / 100 acres task sizes, 'N more steps = 1 more acre'), schedule ahead / behind, a waiting scene when nobody walks, hotel serving job, and a fast-forward replay of the day's work"
+      ]
     }
   ]
 }
