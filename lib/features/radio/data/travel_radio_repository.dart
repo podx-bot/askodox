@@ -62,9 +62,20 @@ String askodoxRadioProblemText(String code, bool te) => switch (code) {
       'RADIO_ADDON_REQUIRED' => te ? 'దీనికి ట్రావెల్ రేడియో పాస్ కావాలి.' : 'This needs a Travel Radio pass.',
       'RADIO_DAILY_LIMIT' => te ? 'ఈరోజు పరిమితి పూర్తయింది.' : "Today's listening limit is reached.",
       'nothing_new' => te ? 'ఇక్కడ కొత్త సమాచారం ఇంకా లేదు.' : 'Nothing new here yet.',
+      'nothing_found' => te ? 'ఈ ఊరి తాజా వార్తలు దొరకలేదు. పేరు మార్చి చూడండి.' : 'No fresh news found for this town. Try another spelling.',
       'no_location' => te ? 'ముందు మీ లొకేషన్ ఎంచుకోండి.' : 'Choose your location first.',
       _ => te ? 'ఇప్పుడు అందుబాటులో లేదు.' : 'Not available right now.',
     };
+
+/// One town's news bulletin from `/api/radio/town`: real headlines only (web
+/// search + staff-approved news), read aloud. [problem] = a reason code.
+class AskodoxTownNews {
+  const AskodoxTownNews({this.place = '', this.headlines = const [], this.text = '', this.audio, this.problem});
+  final String place, text;
+  final List<({String title, String source})> headlines;
+  final Uint8List? audio;
+  final String? problem;
+}
 
 class TravelRadioRepository {
   const TravelRadioRepository(this._client, {this.authToken});
@@ -117,6 +128,32 @@ class TravelRadioRepository {
       title: '${seg['title'] ?? ''}',
       text: '${seg['text'] ?? ''}',
       audio: b64 is String && b64.isNotEmpty ? base64Decode(b64) : null,
+    );
+  }
+
+  Future<AskodoxTownNews> town({required String place, required String lang, String voice = 'automatic'}) async {
+    final result = await _client.post<Map<String, Object?>>('/api/radio/town',
+        body: {'place': place, 'lang': lang, 'voice': voice}, options: _auth);
+    if (result is ApiError<Map<String, Object?>>) {
+      final code = switch (result.failure.statusCode) {
+        503 => 'RADIO_DISABLED',
+        402 => 'AI_CREDITS_LOW',
+        429 => 'RADIO_DAILY_LIMIT',
+        _ => 'unavailable',
+      };
+      return AskodoxTownNews(place: place, problem: code);
+    }
+    final d = (result as ApiSuccess<Map<String, Object?>>).data;
+    if (d['status'] != 'ok') return AskodoxTownNews(place: place, problem: 'nothing_found');
+    final b64 = d['audio_b64'];
+    return AskodoxTownNews(
+      place: '${d['place'] ?? place}',
+      text: '${d['text'] ?? ''}',
+      audio: b64 is String && b64.isNotEmpty ? base64Decode(b64) : null,
+      headlines: [
+        for (final h in (d['headlines'] as List?) ?? const [])
+          if (h is Map) (title: '${h['title'] ?? ''}', source: '${h['source'] ?? ''}'),
+      ],
     );
   }
 }
