@@ -20,7 +20,7 @@ from google.genai import types
 from app.services import live_lookup
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
-from app.services import advice_memory
+from app.services import advice_memory, reply_suggestions
 from app.services import chat_actions
 
 logger = logging.getLogger(__name__)
@@ -822,6 +822,7 @@ class UniversalAIAssistantService:
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (chat_actions.prompt_block(chat_actions.PHASE1_CAPABILITY in (capabilities or ()))
                if chat_actions.CAPABILITY in (capabilities or ()) else "")
+            + reply_suggestions.prompt_block(capabilities)
             + advice_memory.prompt_block(ledger) +
             "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
@@ -873,6 +874,10 @@ class UniversalAIAssistantService:
                 reply = self._strip_location_question(reply, locale)
             if not reply:
                 return None
+            # Smart Answer chips: only the brain's own words for THIS reply; any
+            # path below that replaces the reply text drops them.
+            chips_wanted = reply_suggestions.wanted(capabilities)
+            suggestions_raw: Any = data.get("suggestions") if chips_wanted else None
             user_text, _app_context, about_shown = self.split_app_context(clean)
             if grounding is None and not about_shown:
                 # The user's words named no model in Latin letters (Telugu-script
@@ -889,6 +894,8 @@ class UniversalAIAssistantService:
                         again_reply = str((again or {}).get("reply") or "").strip()
                         if again_reply:
                             reply = self._strip_location_question(again_reply, locale) if clean_location else again_reply
+                            if chips_wanted:
+                                suggestions_raw = (again or {}).get("suggestions")
             mode = "commerce" if transactional else "chat"
             if about_shown:
                 # A follow-up about options already on screen: answer it from
@@ -906,6 +913,7 @@ class UniversalAIAssistantService:
                 if advice:
                     reply = advice
                     data["advice"] = advice_meta
+                    suggestions_raw = None  # chips were written for a different reply
             elif self._asks_for_videos(user_text) and self._video_search_wanted(
                     user_text, entities, transactional, searched_for):
                 # Deterministic: a video / review ask is a real search. The
@@ -916,6 +924,7 @@ class UniversalAIAssistantService:
                 if domain in {"GENERAL", "UNKNOWN"}:
                     domain = "PRODUCT"
                 reply = self._video_search_reply(locale)
+                suggestions_raw = None
             elif self._asks_where_to_get(user_text):
                 # Deterministic: "where can I get it here" is a real search.
                 # Shop / dealer names come only from real results, never
@@ -926,6 +935,7 @@ class UniversalAIAssistantService:
                 if domain in {"GENERAL", "UNKNOWN"}:
                     domain = "PRODUCT"
                 reply = self._local_search_reply(locale)
+                suggestions_raw = None
             brain = self.brain_state(data, transactional=transactional, mode=mode, action=action)
             # APK 1305: deterministic conversation-relation layer. The model
             # stays the primary judge; this engine corrects its probabilistic
@@ -997,6 +1007,9 @@ class UniversalAIAssistantService:
                     telugu,
                     cited=live_lookup.cited_source_ids(reply),
                 )
+            # clarify_need already shows its own option chips in the app.
+            suggestions = ([] if action == "clarify_need" or suggestions_raw is None
+                           else reply_suggestions.clean(suggestions_raw, reply=reply))
             return {
                 **brain,
                 "conversation_relation": relation_name,
@@ -1013,6 +1026,7 @@ class UniversalAIAssistantService:
                 **({"app_action": app_action} if app_action else {}),
                 **({"grounding": grounding} if grounding is not None else {}),
                 **({"honesty": honesty} if honesty else {}),
+                **({"suggestions": suggestions} if suggestions else {}),
             }
         except Exception:
             # Previously silent -- this made every AI-call failure (bad API
