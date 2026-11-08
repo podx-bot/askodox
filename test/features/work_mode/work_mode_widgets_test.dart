@@ -100,6 +100,8 @@ void main() {
     await _frames(tester, 10);
     expect(find.byKey(const Key('askodoxWorkReplaySheet')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('askodoxWorkReplaySpeed-4')));
+    // The restarted ticker takes its start time on the first frame after the tap.
+    await tester.pump();
     await tester.pump(const Duration(seconds: 5));
     await _frames(tester);
     expect(find.textContaining('+4,200 steps'), findsOneWidget);

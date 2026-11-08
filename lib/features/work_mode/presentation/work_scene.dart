@@ -104,6 +104,10 @@ class _Pose {
   final double bob;
 }
 
+/// What a worker wears: shirt and trousers, a lungi folded up to the knees
+/// with a towel on the head (field / digging), or a saree tucked up for work.
+enum _Outfit { shirt, lungi, saree }
+
 const _skin = Color(0xFFC68B59);
 const _skinBack = Color(0xFFA9744A);
 const _pants = Color(0xFF2D3E50);
@@ -233,6 +237,16 @@ class AskodoxWorkScenePainter extends CustomPainter {
             end: Alignment.bottomCenter,
             colors: [Color(0xFF9CC97A), Color(0xFF6E9E4F)],
           ).createShader(Rect.fromLTWH(0, _h * 0.58, _w, _h * 0.42)));
+    // Grass tufts that bend when a gust passes.
+    final rnd = math.Random(3);
+    final tuft = _stroke(const Color(0xFF5E8E43), 1.1 * _s);
+    for (var i = 0; i < 40; i++) {
+      final x = rnd.nextDouble() * _w;
+      final y = _h * (0.6 + rnd.nextDouble() * 0.4);
+      final bend = _gust(x) * 2 * _s;
+      c.drawLine(Offset(x, y), Offset(x - 1.5 * _s + bend, y - 4 * _s), tuft);
+      c.drawLine(Offset(x, y), Offset(x + 1.5 * _s + bend, y - 4.5 * _s), tuft);
+    }
   }
 
   void _palm(Canvas c, Offset base, double k) {
@@ -265,83 +279,255 @@ class AskodoxWorkScenePainter extends CustomPainter {
 
   // ----------------------------------------------------------------- people
 
-  /// Draws a worker standing on [foot], facing right. Returns the front hand.
+  /// The back hand of the last worker drawn (holds the seedling bundle ...).
+  Offset _backHand = Offset.zero;
+
+  /// A rounded, tapered limb from [a] (width [wa]) to [b] (width [wb]).
+  void _limb(Canvas c, Offset a, Offset b, double wa, double wb, Color col) {
+    final p = Paint()..color = col;
+    final d = b - a;
+    final len = d.distance;
+    if (len > 0.01) {
+      final n = Offset(-d.dy / len, d.dx / len);
+      c.drawPath(
+          Path()
+            ..moveTo(a.dx + n.dx * wa / 2, a.dy + n.dy * wa / 2)
+            ..lineTo(b.dx + n.dx * wb / 2, b.dy + n.dy * wb / 2)
+            ..lineTo(b.dx - n.dx * wb / 2, b.dy - n.dy * wb / 2)
+            ..lineTo(a.dx - n.dx * wa / 2, a.dy - n.dy * wa / 2)
+            ..close(),
+          p);
+    }
+    c.drawCircle(a, wa / 2, p);
+    c.drawCircle(b, wb / 2, p);
+  }
+
+  _Outfit get _defaultOutfit =>
+      job.scene == AskodoxWorkScene.field || job.id == 'digging' ? _Outfit.lungi : _Outfit.shirt;
+
+  /// Draws a worker standing on [foot], facing right ([flip] = facing left).
+  /// Returns the front hand; the back hand is left in [_backHand].
   Offset _person(Canvas c, Offset foot, _Pose p,
-      {Color shirt = const Color(0xFF2F6FEB), Color cap = const Color(0xFFE8C87A), bool mask = false, double k = 1}) {
+      {Color? shirt,
+      Color cap = const Color(0xFFE8C87A),
+      bool mask = false,
+      double k = 1,
+      _Outfit? outfit,
+      bool? towel,
+      bool hat = true,
+      bool flip = false,
+      Color? cloth}) {
+    final wear = outfit ?? _defaultOutfit;
+    if (flip) {
+      c.save();
+      c.translate(foot.dx, 0);
+      c.scale(-1, 1);
+      c.translate(-foot.dx, 0);
+    }
+    final hand = _body(c, foot, p,
+        shirt: shirt,
+        cap: cap,
+        mask: mask,
+        k: k,
+        outfit: wear,
+        towel: towel ?? wear == _Outfit.lungi,
+        hat: hat,
+        cloth: cloth);
+    if (!flip) return hand;
+    c.restore();
+    _backHand = Offset(2 * foot.dx - _backHand.dx, _backHand.dy);
+    return Offset(2 * foot.dx - hand.dx, hand.dy);
+  }
+
+  Offset _body(Canvas c, Offset foot, _Pose p,
+      {required Color? shirt,
+      required Color cap,
+      required bool mask,
+      required double k,
+      required _Outfit outfit,
+      required bool towel,
+      required bool hat,
+      required Color? cloth}) {
     final s = _s * k;
+    final top = shirt ??
+        switch (outfit) {
+          _Outfit.shirt => const Color(0xFF2F6FEB),
+          _Outfit.lungi => const Color(0xFFF2EEE6),
+          _Outfit.saree => const Color(0xFF2E7D32),
+        };
+    final wrapCol = cloth ?? (outfit == _Outfit.saree ? const Color(0xFFC2185B) : const Color(0xFF3F6E9E));
+    // A resting worker still breathes.
+    final bob = p.bob + (active ? 0.0 : _wave(4) * 0.5);
     final down = 1 - 0.38 * p.crouch;
-    final hip = foot + Offset(0, -31 * s * down + p.bob * s);
-    void leg(double a, Color col) {
+    final hip = foot + Offset(0, -31 * s * down + bob * s);
+    (Offset, Offset) legAt(double a) {
       final knee = hip + Offset(math.sin(a) * 15 * s + p.crouch * 8 * s, math.cos(a) * 15 * s * down);
       final ankle = knee + Offset(math.sin(a) * 14 * s - p.crouch * 6 * s, 15 * s * down);
-      c.drawPath(
-          Path()
-            ..moveTo(hip.dx, hip.dy)
-            ..lineTo(knee.dx, knee.dy)
-            ..lineTo(ankle.dx, ankle.dy),
-          Paint()
-            ..color = col
-            ..strokeWidth = 5.5 * s
-            ..strokeCap = StrokeCap.round
-            ..strokeJoin = StrokeJoin.round
-            ..style = PaintingStyle.stroke);
-      c.drawLine(
-          ankle,
-          ankle + Offset(5 * s, 0),
-          Paint()
-            ..color = const Color(0xFF3B2A20)
-            ..strokeWidth = 4 * s
-            ..strokeCap = StrokeCap.round);
+      return (knee, ankle);
     }
 
-    final shoulder = hip + Offset(math.sin(p.lean) * 24 * s, -math.cos(p.lean) * 24 * s);
-    Offset arm(double a, Color col) {
+    final up = Offset(math.sin(p.lean), -math.cos(p.lean));
+    final fwd = Offset(math.cos(p.lean), math.sin(p.lean));
+    final shoulder = hip + up * (24 * s);
+    (Offset, Offset) armAt(double a) {
       final elbow = shoulder + Offset(math.sin(a) * 11 * s, math.cos(a) * 11 * s);
       final hand = elbow + Offset(math.sin(a + 0.35) * 11 * s, math.cos(a + 0.35) * 11 * s);
-      c.drawPath(
-          Path()
-            ..moveTo(shoulder.dx, shoulder.dy)
-            ..lineTo(elbow.dx, elbow.dy)
-            ..lineTo(hand.dx, hand.dy),
-          Paint()
-            ..color = col
-            ..strokeWidth = 4 * s
-            ..strokeCap = StrokeCap.round
-            ..strokeJoin = StrokeJoin.round
-            ..style = PaintingStyle.stroke);
-      return hand;
+      return (elbow, hand);
     }
 
+    final trousers = outfit == _Outfit.shirt;
+    final sleeves = outfit != _Outfit.lungi;
     c.drawOval(Rect.fromCenter(center: foot + Offset(2 * s, 2 * s), width: 30 * s, height: 6 * s),
-        Paint()..color = Colors.black.withValues(alpha: 0.16));
-    leg(p.legB, _pantsBack);
-    arm(p.armB, _skinBack);
-    c.drawLine(
-        hip,
-        shoulder,
-        Paint()
-          ..color = shirt
-          ..strokeWidth = 11 * s
-          ..strokeCap = StrokeCap.round);
-    final head = shoulder + Offset(math.sin(p.lean) * 9 * s, -math.cos(p.lean) * 9 * s);
-    c.drawCircle(head, 6.8 * s, Paint()..color = _skin);
+        Paint()..color = Colors.black.withValues(alpha: 0.18));
+
+    // Back arm (behind everything).
+    final (eB, hB) = armAt(p.armB);
+    _limb(c, shoulder, eB, 4.6 * s, 4 * s, _skinBack);
+    _limb(c, eB, hB, 4 * s, 3.4 * s, _skinBack);
+    if (sleeves) _limb(c, shoulder, Offset.lerp(shoulder, eB, 0.55)!, 6 * s, 5.2 * s, Color.lerp(top, Colors.black, 0.2)!);
+    c.drawCircle(hB, 2.4 * s, Paint()..color = _skinBack);
+    _backHand = hB;
+
+    void leg(double a, bool front) {
+      final (knee, ankle) = legAt(a);
+      final col = trousers ? (front ? _pants : _pantsBack) : (front ? _skin : _skinBack);
+      _limb(c, hip, knee, 7.5 * s, 6 * s, col);
+      _limb(c, knee, ankle, 5.8 * s, 4.2 * s, col);
+      c.drawOval(Rect.fromCenter(center: ankle + Offset(2.6 * s, 1.2 * s), width: 8 * s, height: 3.4 * s),
+          Paint()..color = trousers ? const Color(0xFF3B2A20) : col);
+    }
+
+    leg(p.legB, false);
+    leg(p.legF, true);
+
+    if (!trousers) {
+      // Lungi / saree tucked up to the knees for field work.
+      final (kB, _) = legAt(p.legB);
+      final (kF, _) = legAt(p.legF);
+      final side = fwd * (6 * s);
+      final hemB = kB + Offset(-3 * s, 2 * s);
+      final hemF = kF + Offset(3 * s, 2 * s);
+      final waistB = hip - side + Offset(0, -3 * s);
+      final waistF = hip + side + Offset(0, -3 * s);
+      final wrap = Path()
+        ..moveTo(waistB.dx, waistB.dy)
+        ..lineTo(waistF.dx, waistF.dy)
+        ..quadraticBezierTo(math.max(hemF.dx, hemB.dx) + 3 * s, (waistF.dy + hemF.dy) / 2, hemF.dx + 2 * s, hemF.dy)
+        ..lineTo(hemB.dx - 2 * s, hemB.dy)
+        ..quadraticBezierTo(math.min(hemF.dx, hemB.dx) - 3 * s, (waistB.dy + hemB.dy) / 2, waistB.dx, waistB.dy)
+        ..close();
+      c.drawPath(wrap, Paint()..color = wrapCol);
+      final fold = _stroke(Colors.black.withValues(alpha: 0.16), 0.8 * s);
+      c.drawLine(Offset.lerp(waistB, hemB, 0.5)!, Offset.lerp(waistF, hemF, 0.5)!, fold);
+      c.drawLine(hip, Offset.lerp(hemB, hemF, 0.5)!, fold);
+      c.drawLine(waistB, waistF, _stroke(Color.lerp(wrapCol, Colors.black, 0.25)!, 1.6 * s));
+    }
+
+    // Body with a soft highlight on the sunny side.
+    _limb(c, hip, shoulder, 12 * s, 13.5 * s, top);
+    _limb(c, hip + fwd * (2.6 * s), shoulder + fwd * (3 * s), 3.6 * s, 4.2 * s, Colors.white.withValues(alpha: 0.2));
+    _limb(c, hip - fwd * (3.4 * s), shoulder - fwd * (3.8 * s), 3 * s, 3.4 * s, Colors.black.withValues(alpha: 0.12));
+    if (outfit == _Outfit.saree) {
+      // Pallu across the body from the back shoulder to the front of the waist.
+      final a = shoulder - fwd * (6.5 * s);
+      final b = shoulder - fwd * (0.5 * s);
+      final cc = hip + fwd * (6 * s);
+      final d = hip + fwd * (0.5 * s);
+      c.drawPath(
+          Path()
+            ..moveTo(a.dx, a.dy)
+            ..lineTo(b.dx, b.dy)
+            ..lineTo(cc.dx, cc.dy)
+            ..lineTo(d.dx, d.dy)
+            ..close(),
+          Paint()..color = wrapCol);
+      c.drawLine(b, cc, _stroke(const Color(0xFFFFC107), 1 * s));
+    }
+
+    // Neck and head.
+    final head = shoulder + up * (9 * s) + fwd * (1 * s);
+    _limb(c, shoulder, shoulder + up * (4 * s), 4.4 * s, 4.4 * s, _skinBack);
+    const hair = Color(0xFF1E1A17);
+    c.drawCircle(head - fwd * (1.2 * s) + up * (1 * s), 6.9 * s, Paint()..color = hair);
+    c.drawCircle(head + fwd * (1.1 * s) - up * (0.6 * s), 6.3 * s, Paint()..color = _skin);
+    c.drawCircle(head + fwd * (6.6 * s) - up * (0.6 * s), 1.4 * s, Paint()..color = _skin); // nose
+    c.drawCircle(head - fwd * (0.6 * s), 1.6 * s, Paint()..color = _skinBack); // ear
     if (mask) {
       c.drawRRect(
-          RRect.fromRectAndRadius(Rect.fromCenter(center: head + Offset(3 * s, 0), width: 10 * s, height: 13 * s),
+          RRect.fromRectAndRadius(Rect.fromCenter(center: head + fwd * (3 * s), width: 10 * s, height: 13 * s),
               Radius.circular(2 * s)),
           Paint()..color = const Color(0xFF263238));
-      c.drawRect(Rect.fromCenter(center: head + Offset(5 * s, -1 * s), width: 5 * s, height: 2.4 * s),
+      c.drawRect(Rect.fromCenter(center: head + fwd * (5 * s) + up * (1 * s), width: 5 * s, height: 2.4 * s),
           Paint()..color = const Color(0xFF7CB342));
     } else {
+      c.drawCircle(head + fwd * (4 * s) + up * (1 * s), 0.95 * s, Paint()..color = hair); // eye
+      if (outfit != _Outfit.saree) {
+        c.drawLine(head + fwd * (3.6 * s) - up * (2.4 * s), head + fwd * (6.2 * s) - up * (2.2 * s),
+            _stroke(hair, 1.2 * s)); // moustache
+      }
+    }
+    if (outfit == _Outfit.saree) {
+      // Hair bun with jasmine.
+      final bun = head - fwd * (6.2 * s) + up * (0.5 * s);
+      c.drawCircle(bun, 3.3 * s, Paint()..color = hair);
+      for (final dy in [-2.4, 0.0, 2.4]) {
+        c.drawCircle(bun - fwd * (2.6 * s) + up * (dy * s), 1 * s, Paint()..color = Colors.white);
+      }
+    } else if (towel) {
+      // Towel tied round the head (talapaga), its end hanging at the back.
+      const towelCol = Color(0xFFF7F3EA);
+      _limb(c, head - fwd * (6.8 * s) + up * (3.2 * s), head + fwd * (5.8 * s) + up * (3.8 * s), 5.4 * s, 4.6 * s, towelCol);
+      c.drawLine(head - fwd * (6 * s) + up * (3 * s), head + fwd * (5.2 * s) + up * (3.6 * s),
+          _stroke(const Color(0xFFD84343).withValues(alpha: 0.7), 0.8 * s));
+      final sway = _wave(3) * 0.8 * s;
+      _limb(c, head - fwd * (7 * s) + up * (3 * s), head - fwd * (10.5 * s) - up * (1.5 * s) + Offset(sway, 0), 3 * s,
+          2 * s, towelCol);
+    } else if (hat && !mask) {
       c.drawPath(
           Path()
             ..moveTo(head.dx - 7.5 * s, head.dy - 1 * s)
             ..quadraticBezierTo(head.dx, head.dy - 14 * s, head.dx + 8 * s, head.dy - 1 * s)
+            ..lineTo(head.dx + 10.5 * s, head.dy - 0.5 * s)
             ..close(),
           Paint()..color = cap);
     }
-    leg(p.legF, _pants);
-    return arm(p.armF, _skin);
+
+    // Front arm.
+    final (eF, hF) = armAt(p.armF);
+    _limb(c, shoulder, eF, 4.8 * s, 4.2 * s, _skin);
+    _limb(c, eF, hF, 4.2 * s, 3.6 * s, _skin);
+    if (sleeves) _limb(c, shoulder, Offset.lerp(shoulder, eF, 0.55)!, 6.2 * s, 5.4 * s, top);
+    c.drawCircle(hF, 2.5 * s, Paint()..color = _skin);
+    return hF;
+  }
+
+  double _ease(double t) => t * t * (3 - 2 * t);
+
+  /// Work rhythm 0 (raised / ready) .. 1 (impact): a slow lift, a quick
+  /// strike and a short hold -- like a real tool, not a pendulum.
+  double _strike(double period, [double shift = 0]) {
+    final p = _saw(period, shift);
+    if (p < 0.5) return 1 - _ease(p / 0.5);
+    if (p < 0.72) {
+      final q = (p - 0.5) / 0.22;
+      return q * q;
+    }
+    return 1.0;
+  }
+
+  /// 0..1 during the moments after an impact of [_strike] (dust, splash,
+  /// ripple, falling bunch); -1 the rest of the time.
+  double _afterImpact(double period, [double shift = 0]) {
+    final p = _saw(period, shift);
+    if (p >= 0.72) return (p - 0.72) / 0.48;
+    if (p < 0.2) return (p + 0.28) / 0.48;
+    return -1;
+  }
+
+  /// A gust of wind that sweeps across the picture every 10 s (0..1 at x).
+  double _gust(double x) {
+    final d = (x / _w - (_saw(10) * 1.6 - 0.3)) * 5;
+    return math.exp(-d * d);
   }
 
   _Pose _walk([double speed = 0.75]) {
@@ -350,16 +536,18 @@ class AskodoxWorkScenePainter extends CustomPainter {
     return _Pose(lean: 0.1, legF: a * 0.45, legB: -a * 0.45, armF: -a * 0.5, armB: a * 0.5, bob: _wave(speed / 2).abs() * -1.5);
   }
 
-  _Pose _bend() {
+  /// Bent over, the front hand going down into the soil / mud and back.
+  _Pose _bend([double period = 1.0, double shift = 0]) {
     if (!active) return const _Pose(lean: 0.35, crouch: 0.2, armF: 0.2, armB: 0.1);
-    final reach = (_wave(1.0) + 1) / 2;
-    return _Pose(lean: 1.0, crouch: 0.45, armF: 0.1 + reach * 0.5, armB: 0.2, legF: 0.15, legB: -0.1);
+    final t = _strike(period, shift); // 1 = hand in the mud
+    return _Pose(lean: 0.95 + t * 0.12, crouch: 0.42 + t * 0.06, armF: 0.05 + t * 0.6, armB: 0.45, legF: 0.15, legB: -0.1, bob: t);
   }
 
   _Pose _swing([double period = 1.0]) {
     if (!active) return const _Pose(lean: 0.15, armF: 0.4, armB: 0.3);
-    final t = (_wave(period) + 1) / 2; // 0 = raised, 1 = struck
-    return _Pose(lean: 0.25 + t * 0.35, crouch: 0.2, armF: -2.2 + t * 2.7, armB: -2.0 + t * 2.5, legF: 0.25, legB: -0.2);
+    final t = _strike(period); // 0 = raised, 1 = struck
+    return _Pose(
+        lean: 0.25 + t * 0.4, crouch: 0.15 + t * 0.12, armF: -2.3 + t * 2.8, armB: -2.1 + t * 2.6, legF: 0.28, legB: -0.22);
   }
 
   _Pose _carryHead() {
@@ -403,9 +591,43 @@ class AskodoxWorkScenePainter extends CustomPainter {
       ..lineTo(_rowLeft(_rows - 1) - 16 * _s, _h)
       ..close();
     c.drawPath(plot, Paint()..color = tilledAll ? const Color(0xFF8C6A45) : const Color(0xFF93A866));
+    final box = plot.getBounds();
     if (paddy && stageIndex > plough) {
-      // Flooded paddy: a sky-coloured sheen that ripples.
-      c.drawPath(plot, Paint()..color = const Color(0xFF9FD3F0).withValues(alpha: 0.35 + 0.05 * _wave(3)));
+      // Flooded paddy: the sky reflected in the water, small ripples drifting with the breeze.
+      c.save();
+      c.clipPath(plot);
+      c.drawRect(
+          box,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFFCDEBF8).withValues(alpha: 0.6),
+                const Color(0xFF7FB8D6).withValues(alpha: 0.38),
+              ],
+            ).createShader(box));
+      final rnd = math.Random(11);
+      for (var i = 0; i < 28; i++) {
+        final x = box.left + ((rnd.nextDouble() + _saw(20)) % 1) * box.width;
+        final y = box.top + rnd.nextDouble() * box.height;
+        final len = (4 + rnd.nextDouble() * 7) * _s;
+        c.drawLine(Offset(x, y), Offset(x + len, y),
+            _stroke(Colors.white.withValues(alpha: 0.3 + 0.25 * _wave(3, i / 28)), 0.9 * _s));
+      }
+      c.restore();
+    } else if (tilledAll) {
+      // Turned soil: clods.
+      c.save();
+      c.clipPath(plot);
+      final rnd = math.Random(5);
+      for (var i = 0; i < 46; i++) {
+        final x = box.left + rnd.nextDouble() * box.width;
+        final y = box.top + rnd.nextDouble() * box.height;
+        c.drawOval(Rect.fromCenter(center: Offset(x, y), width: 4 * _s, height: 2 * _s),
+            Paint()..color = (i.isEven ? const Color(0xFF6E5034) : const Color(0xFFA0805A)).withValues(alpha: 0.8));
+      }
+      c.restore();
     }
     c.drawPath(plot, _stroke(const Color(0xFFB59A72), 4 * _s));
 
@@ -477,6 +699,8 @@ class AskodoxWorkScenePainter extends CustomPainter {
       }
     }
 
+    _flyers(c);
+
     // The worker and the live work of this stage.
     final cursor = _ci(stageIndex == plantAt ? planted : (_stage == 'harvest' ? cut : (fraction * total).floor()), 0, total - 1);
     final row = _ci(cursor ~/ _slots, 0, _rows - 1);
@@ -503,8 +727,34 @@ class AskodoxWorkScenePainter extends CustomPainter {
       case 'plough':
         _ploughTeam(c, withOxen: true);
       case 'transplant': {
-        final hand = _person(c, spot + Offset(-12 * _s, 6 * _s), _bend());
-        c.drawLine(hand, hand + Offset(2 * _s, -7 * _s), _stroke(const Color(0xFF5DBB4C), 1.6 * _s));
+        // A gang plants side by side along the row: each one holds a bundle of
+        // seedlings in one hand and pushes them into the mud with the other;
+        // a ripple spreads where each one goes in.
+        final dir = row.isEven ? 1.0 : -1.0;
+        final gap = (_rowRight(row) - _rowLeft(row)) / _slots;
+        final k = 0.82 + 0.07 * row;
+        for (final (i, back) in const [(2, 4.4), (1, 2.2), (0, 0.0)]) {
+          final x = (spot.dx - dir * back * gap).clamp(_rowLeft(row) + 6 * _s, _rowRight(row) - 6 * _s);
+          final shift = i * 0.33;
+          final hand = _person(c, Offset(x - dir * 10 * _s, spot.dy + 6 * _s), _bend(1.0, shift),
+              k: k,
+              flip: dir < 0,
+              outfit: i == 0 ? _Outfit.lungi : _Outfit.saree,
+              cloth: i == 1 ? const Color(0xFF6A1B9A) : (i == 2 ? const Color(0xFFE65100) : null));
+          _seedlingTuft(c, _backHand, 0.9 * k);
+          c.drawLine(hand, hand + Offset(dir * 1.5 * _s, -6 * _s), _stroke(const Color(0xFF5DBB4C), 1.6 * _s));
+          final after = _afterImpact(1.0, shift);
+          if (active && after >= 0) {
+            final r = (2 + after * 12) * _s * k;
+            c.drawOval(Rect.fromCenter(center: Offset(hand.dx, spot.dy + 1 * _s), width: r * 2, height: r * 0.7),
+                _stroke(Colors.white.withValues(alpha: 0.75 * (1 - after)), 1.0 * _s));
+          }
+        }
+        // Seedling bundles waiting on the bund get fewer as the planting goes.
+        final bundles = ((1 - fraction) * 6).ceil();
+        for (var b = 0; b < bundles; b++) {
+          _seedlingTuft(c, Offset(_rowLeft(0) + b * 14 * _s, _rowY(0) - 12 * _s), 1.3);
+        }
       }
       case 'water': {
         // Channel with running water along the left bund.
@@ -535,10 +785,43 @@ class AskodoxWorkScenePainter extends CustomPainter {
         _person(c, Offset(active ? x : spot.dx, _rowY(row) + 6 * _s), _walk(1.0));
       }
       case 'harvest': {
-        final hand = _person(c, spot + Offset(-12 * _s, 6 * _s), _swing(1.0));
-        // Sickle.
-        c.drawArc(Rect.fromCircle(center: hand + Offset(4 * _s, 0), radius: 5 * _s), -math.pi / 2, math.pi,
-            false, _stroke(const Color(0xFF9AA0A6), 1.8 * _s));
+        // Bent low: one hand gathers a bunch, the sickle cuts it at the base and
+        // the cut bunch falls and is laid down; a helper carries the sheaves to
+        // the stack.
+        final dir = row.isEven ? 1.0 : -1.0;
+        final k = 0.82 + 0.07 * row;
+        final t = active ? _strike(1.2) : 0.0;
+        final pose = active
+            ? _Pose(lean: 1.0, crouch: 0.45, armB: 0.55 + t * 0.15, armF: -0.2 + t * 1.3, legF: 0.15, legB: -0.1, bob: t)
+            : const _Pose(lean: 0.4, crouch: 0.2, armF: 0.3, armB: 0.2);
+        final hand = _person(c, spot + Offset(-dir * 12 * _s, 6 * _s), pose, k: k, flip: dir < 0);
+        _sickle(c, hand, dir, k);
+        final after = _afterImpact(1.2);
+        if (active && after >= 0) {
+          c.save();
+          c.translate(spot.dx, spot.dy);
+          c.rotate(dir * _ease(after) * 1.4);
+          for (final dx in [-1.5, 0.0, 1.5]) {
+            c.drawLine(Offset(dx * _s, 0), Offset(dx * 1.8 * _s, -18 * _s * k), _stroke(const Color(0xFFC9962E), 1.5 * _s));
+          }
+          c.drawOval(Rect.fromCenter(center: Offset(0, -18 * _s * k), width: 4 * _s, height: 6 * _s),
+              Paint()..color = const Color(0xFFE6B84F));
+          c.restore();
+          // Chaff in the air.
+          for (var i = 0; i < 5; i++) {
+            final a = i * 1.3;
+            c.drawCircle(
+                spot + Offset(math.cos(a) * after * 16 * _s, -10 * _s - after * 12 * _s + math.sin(a) * 4 * _s),
+                0.9 * _s,
+                Paint()..color = const Color(0xFFE8C468).withValues(alpha: 1 - after));
+          }
+        }
+        if (cut > 6) {
+          final going = _wave(6, 0.25) > 0; // walking towards the stack
+          final at = Offset.lerp(Offset(_w * 0.55, _h * 0.97), Offset(_w * 0.85, _h * 0.97), active ? (_wave(6) + 1) / 2 : 1.0)!;
+          final top = _person(c, at, _carryHead(), outfit: _Outfit.saree, cloth: const Color(0xFF00838F), flip: !going, k: 1.05);
+          if (going || !active) _sheaf(c, top + Offset(0, -3 * _s), 1.1);
+        }
       }
       case 'pick': {
         final hand = _person(c, spot + Offset(-12 * _s, 6 * _s), _bend());
@@ -556,14 +839,32 @@ class AskodoxWorkScenePainter extends CustomPainter {
 
   void _plant(Canvas c, Offset at, double scale, double growth, bool ripe) {
     final hgt = (6 + 18 * growth) * _s * scale;
-    final sway = active ? _wave(3, at.dx / 300) * 1.5 * growth * _s : 0.0;
-    final stem = ripe && job.id == 'paddy' ? const Color(0xFFC9962E) : const Color(0xFF2F7A32);
-    for (final dx in [-2.5, 0.0, 2.5]) {
-      c.drawLine(at + Offset(dx * _s * scale, 0), at + Offset(dx * 1.6 * _s * scale + sway, -hgt), _stroke(stem, 1.5 * _s));
+    // A light breeze always, a stronger bend when a gust passes.
+    final sway = (0.6 * _wave(3, at.dx / 300) + 2.4 * _gust(at.dx)) * growth * _s;
+    final golden = ripe && job.id == 'paddy';
+    final stem = golden ? const Color(0xFFC9962E) : const Color(0xFF2F7A32);
+    final tip = golden ? const Color(0xFFE8C468) : const Color(0xFF6CC24A);
+    for (var b = -2; b <= 2; b++) {
+      final base = at + Offset(b * 1.0 * _s * scale, 0);
+      final end = at + Offset(b * 2.6 * _s * scale + sway * (1 + b.abs() * 0.2), -hgt * (1 - b.abs() * 0.12));
+      final ctrl = Offset((base.dx + end.dx) / 2 + b * 0.8 * _s, base.dy - hgt * 0.6);
+      c.drawPath(
+          Path()
+            ..moveTo(base.dx, base.dy)
+            ..quadraticBezierTo(ctrl.dx, ctrl.dy, end.dx, end.dy),
+          _stroke(b.isEven ? stem : Color.lerp(stem, tip, 0.6)!, 1.4 * _s));
     }
-    if (ripe && job.id == 'paddy') {
-      c.drawOval(Rect.fromCenter(center: at + Offset(sway + 2 * _s, -hgt), width: 5 * _s, height: 3 * _s),
-          Paint()..color = const Color(0xFFE6B84F));
+    if (golden) {
+      // Heavy grain heads droop with their weight.
+      for (final d in [-1.0, 1.0]) {
+        final top = at + Offset(d * 2.6 * _s * scale + sway, -hgt);
+        final hang = top + Offset(d * 4 * _s + sway * 0.5, 4 * _s);
+        c.drawPath(
+            Path()
+              ..moveTo(top.dx, top.dy)
+              ..quadraticBezierTo(top.dx + d * 3 * _s, top.dy - 2 * _s, hang.dx, hang.dy),
+            _stroke(const Color(0xFFE6B84F), 2.2 * _s));
+      }
     }
     if (job.id == 'chilli' && (_stage == 'flower' || _stage == 'pick')) {
       final top = at + Offset(sway, -hgt);
@@ -578,6 +879,66 @@ class AskodoxWorkScenePainter extends CustomPainter {
     }
   }
 
+  /// A bundle of seedlings with mud on the roots, tied in the middle.
+  void _seedlingTuft(Canvas c, Offset at, double k) {
+    final s = _s * k;
+    for (var b = -2; b <= 2; b++) {
+      c.drawLine(at, at + Offset(b * 1.6 * s + _wave(3) * 0.4 * s, -7 * s + b.abs() * 1.2 * s),
+          _stroke(const Color(0xFF5DBB4C), 1.2 * s));
+    }
+    c.drawLine(at, at + Offset(0, 3 * s), _stroke(const Color(0xFF6E5034), 1.8 * s));
+    c.drawLine(at + Offset(-1.6 * s, -1 * s), at + Offset(1.6 * s, -1 * s), _stroke(const Color(0xFFB08850), 1.2 * s));
+  }
+
+  /// A sickle in the hand, the blade curving forward.
+  void _sickle(Canvas c, Offset hand, double dir, double k) {
+    final s = _s * k;
+    c.drawLine(hand, hand + Offset(dir * 3 * s, 1 * s), _stroke(const Color(0xFF6D4C2F), 2.4 * s));
+    final ctr = hand + Offset(dir * 7.5 * s, -1 * s);
+    c.drawArc(Rect.fromCircle(center: ctr, radius: 5 * s), dir > 0 ? -math.pi / 2 : math.pi / 2, math.pi, false,
+        _stroke(const Color(0xFF9AA0A6), 1.8 * s));
+    c.drawArc(Rect.fromCircle(center: ctr, radius: 4 * s), dir > 0 ? -math.pi / 3 : math.pi * 2 / 3, math.pi / 2, false,
+        _stroke(Colors.white.withValues(alpha: 0.7), 0.7 * s));
+  }
+
+  /// A tied sheaf of cut paddy.
+  void _sheaf(Canvas c, Offset at, double k) {
+    final s = _s * k;
+    c.drawPath(
+        Path()
+          ..moveTo(at.dx - 10 * s, at.dy)
+          ..lineTo(at.dx + 10 * s, at.dy)
+          ..lineTo(at.dx + 7 * s, at.dy - 6 * s)
+          ..lineTo(at.dx - 7 * s, at.dy - 6 * s)
+          ..close(),
+        Paint()..color = const Color(0xFFD9A441));
+    for (var i = -3; i <= 3; i++) {
+      c.drawLine(at + Offset(i * 2.4 * s, 0), at + Offset(i * 2 * s, -6 * s), _stroke(const Color(0xFFB8862E), 0.7 * s));
+    }
+    c.drawLine(at + Offset(-1 * s, -6.5 * s), at + Offset(-1 * s, 0.5 * s), _stroke(const Color(0xFF7A5232), 1.4 * s));
+  }
+
+  /// Dragonflies over the paddy water, butterflies over the other crops.
+  void _flyers(Canvas c) {
+    for (var i = 0; i < 2; i++) {
+      final x = _w * (0.4 + 0.28 * math.sin(2 * math.pi * (seconds / 12 + i * 0.4)));
+      final y = _h * (0.55 + 0.05 * math.sin(2 * math.pi * (seconds / 6 + i * 0.3)));
+      final flap = _wave(0.1, i * 0.5);
+      if (job.id == 'paddy') {
+        c.drawLine(Offset(x - 5 * _s, y), Offset(x + 4 * _s, y), _stroke(const Color(0xFF1565C0), 1.3 * _s));
+        final wing = Paint()..color = Colors.white.withValues(alpha: 0.6);
+        c.drawOval(Rect.fromCenter(center: Offset(x + 1 * _s, y - 2 * _s - flap * _s), width: 7 * _s, height: 2.2 * _s), wing);
+        c.drawOval(Rect.fromCenter(center: Offset(x + 1 * _s, y + 2 * _s + flap * _s), width: 7 * _s, height: 2.2 * _s), wing);
+      } else {
+        final col = i == 0 ? const Color(0xFFFFB300) : const Color(0xFFE91E63);
+        final wy = 3.4 * _s * (0.3 + 0.7 * flap.abs());
+        c.drawOval(Rect.fromCenter(center: Offset(x - 2 * _s, y - wy / 2), width: 4 * _s, height: wy), Paint()..color = col);
+        c.drawOval(Rect.fromCenter(center: Offset(x + 2 * _s, y - wy / 2), width: 4 * _s, height: wy), Paint()..color = col);
+        c.drawLine(Offset(x, y - 2 * _s), Offset(x, y + 1 * _s), _stroke(const Color(0xFF3E2723), 0.9 * _s));
+      }
+    }
+  }
+
   void _ploughTeam(Canvas c, {required bool withOxen}) {
     final pos = fraction * _rows;
     final row = _ci(pos.floor(), 0, _rows - 1);
@@ -585,17 +946,19 @@ class AskodoxWorkScenePainter extends CustomPainter {
     final x = _rowLeft(row) + (_rowRight(row) - _rowLeft(row)) * along;
     final y = _rowY(row) + 4 * _s;
     if (withOxen) {
-      _ox(c, Offset(x + 40 * _s, y - 2 * _s));
+      _ox(c, Offset(x + 40 * _s, y - 2 * _s), 0.05);
       _ox(c, Offset(x + 46 * _s, y + 4 * _s));
       // Yoke and plough.
       c.drawLine(Offset(x + 20 * _s, y - 14 * _s), Offset(x + 4 * _s, y - 2 * _s), _stroke(const Color(0xFF7A5232), 2.4 * _s));
       c.drawLine(Offset(x + 4 * _s, y - 2 * _s), Offset(x + 8 * _s, y + 3 * _s), _stroke(const Color(0xFF555555), 2.4 * _s));
     }
-    // Soil kicked up behind the blade.
+    // A fresh dark furrow behind the blade, soil thrown aside.
+    c.drawLine(Offset(math.max(_rowLeft(row), x - 30 * _s), y + 1 * _s), Offset(x + 4 * _s, y + 1 * _s),
+        _stroke(const Color(0xFF4A3220), 2.6 * _s));
     if (active) {
-      for (var i = 0; i < 4; i++) {
-        final t = _saw(0.75, i / 4);
-        c.drawCircle(Offset(x + 2 * _s - t * 10 * _s, y - math.sin(math.pi * t) * 8 * _s), 1.6 * _s,
+      for (var i = 0; i < 6; i++) {
+        final t = _saw(0.75, i / 6);
+        c.drawCircle(Offset(x + 2 * _s - t * 12 * _s, y - math.sin(math.pi * t) * 9 * _s), (1.2 + 0.8 * (i % 2)) * _s,
             Paint()..color = const Color(0xFF6B4A2B).withValues(alpha: 1 - t));
       }
     }
@@ -603,21 +966,60 @@ class AskodoxWorkScenePainter extends CustomPainter {
     c.drawLine(hand, Offset(x + 4 * _s, y - 4 * _s), _stroke(const Color(0xFF7A5232), 2 * _s));
   }
 
-  void _ox(Canvas c, Offset foot) {
+  /// A white Ongole-style bullock: hump, dewlap, lowered nodding head, tail swish.
+  void _ox(Canvas c, Offset foot, [double shift = 0]) {
     final s = _s;
-    final ph = active ? _wave(0.75) : 0.0;
-    final body = Paint()..color = const Color(0xFFEDE6DA);
-    final legP = _stroke(const Color(0xFFCFC6B6), 3.4 * s);
+    final ph = active ? _wave(0.75, shift) : 0.0;
+    final nod = active ? _wave(0.375, shift) * 1.2 * s : 0.0;
+    const white = Color(0xFFF1ECE2);
+    const shade = Color(0xFFD3CABB);
+    const dark = Color(0xFF5D4E40);
+    final body = foot + Offset(0, -23 * s);
     for (final (dx, sign) in const [(-14.0, 1.0), (-8.0, -1.0), (10.0, -1.0), (16.0, 1.0)]) {
-      c.drawLine(foot + Offset(dx * s, -18 * s), foot + Offset(dx * s + ph * sign * 4 * s, 0), legP);
+      final top = foot + Offset(dx * s, -18 * s);
+      final knee = top + Offset(ph * sign * 2 * s, 9 * s);
+      final hoof = foot + Offset(dx * s + ph * sign * 4 * s, 0);
+      final col = sign > 0 ? shade : white;
+      _limb(c, top, knee, 4.6 * s, 3.6 * s, col);
+      _limb(c, knee, hoof, 3.6 * s, 3 * s, col);
+      c.drawCircle(hoof + Offset(0, 0.5 * s), 1.8 * s, Paint()..color = dark);
     }
-    c.drawOval(Rect.fromCenter(center: foot + Offset(0, -23 * s), width: 42 * s, height: 17 * s), body);
-    c.drawOval(Rect.fromCenter(center: foot + Offset(9 * s, -31 * s), width: 12 * s, height: 9 * s), body);
-    c.drawOval(Rect.fromCenter(center: foot + Offset(24 * s, -25 * s), width: 12 * s, height: 10 * s), body);
-    final horn = _stroke(const Color(0xFF6B5B4B), 2 * s);
-    c.drawLine(foot + Offset(22 * s, -30 * s), foot + Offset(19 * s, -37 * s), horn);
-    c.drawLine(foot + Offset(26 * s, -30 * s), foot + Offset(29 * s, -37 * s), horn);
-    c.drawLine(foot + Offset(-21 * s, -25 * s), foot + Offset(-24 * s - ph * 2 * s, -12 * s), horn);
+    final trunk = Rect.fromCenter(center: body, width: 44 * s, height: 18 * s);
+    c.drawOval(
+        trunk,
+        Paint()
+          ..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [white, shade])
+              .createShader(trunk));
+    c.drawOval(Rect.fromCenter(center: body + Offset(10 * s, -9 * s), width: 13 * s, height: 10 * s), Paint()..color = white);
+    final head = body + Offset(25 * s, -1 * s + nod);
+    c.drawPath(
+        Path()
+          ..moveTo(body.dx + 13 * s, body.dy - 8 * s)
+          ..lineTo(head.dx - 2 * s, head.dy - 4 * s)
+          ..lineTo(head.dx, head.dy + 3 * s)
+          ..quadraticBezierTo(body.dx + 20 * s, body.dy + 11 * s, body.dx + 13 * s, body.dy + 6 * s)
+          ..close(),
+        Paint()..color = white);
+    c.drawOval(Rect.fromCenter(center: head + Offset(3 * s, 1 * s), width: 12 * s, height: 8 * s), Paint()..color = white);
+    c.drawOval(Rect.fromCenter(center: head + Offset(8 * s, 2.6 * s), width: 4.6 * s, height: 4 * s), Paint()..color = dark);
+    c.drawCircle(head + Offset(3 * s, -0.6 * s), 0.9 * s, Paint()..color = dark);
+    c.drawOval(Rect.fromCenter(center: head + Offset(-2.5 * s, -1 * s), width: 5 * s, height: 2.4 * s), Paint()..color = shade);
+    final horn = _stroke(dark, 2.2 * s);
+    for (final dx in [-0.5, 1.8]) {
+      c.drawPath(
+          Path()
+            ..moveTo(head.dx + dx * s, head.dy - 3 * s)
+            ..quadraticBezierTo(head.dx - 2 * s + dx * s, head.dy - 10 * s, head.dx - 6 * s + dx * s, head.dy - 9 * s),
+          horn);
+    }
+    final swish = _wave(2, shift) * 4 * s;
+    final tailEnd = body + Offset(-25 * s + swish, 14 * s);
+    c.drawPath(
+        Path()
+          ..moveTo(body.dx - 21 * s, body.dy - 4 * s)
+          ..quadraticBezierTo(body.dx - 27 * s, body.dy + 4 * s, tailEnd.dx, tailEnd.dy),
+        _stroke(shade, 1.6 * s));
+    c.drawOval(Rect.fromCenter(center: tailEnd, width: 3 * s, height: 5 * s), Paint()..color = dark);
   }
 
   // ----------------------------------------------------------------- houses
@@ -854,6 +1256,15 @@ class AskodoxWorkScenePainter extends CustomPainter {
         final hand = _person(c, Offset(pitL + (pitR - pitL) * 0.55, ground + depth * 0.6), _swing(1.0));
         c.drawLine(hand, hand + Offset(6 * _s, 16 * _s), _stroke(const Color(0xFF7A5232), 2.4 * _s));
         c.drawLine(hand + Offset(6 * _s, 16 * _s), hand + Offset(10 * _s, 21 * _s), _stroke(const Color(0xFF9AA0A6), 4 * _s));
+        // A puff of dust where the blade bites.
+        final after = _afterImpact(1.0);
+        if (active && after >= 0) {
+          for (var i = 0; i < 4; i++) {
+            final a = math.pi * (0.15 + 0.23 * i);
+            c.drawCircle(hand + Offset(10 * _s + math.cos(a) * after * 12 * _s, 21 * _s - math.sin(a) * after * 8 * _s),
+                (2 + after * 5) * _s, Paint()..color = const Color(0xFFB89470).withValues(alpha: 0.4 * (1 - after)));
+          }
+        }
         if (active) {
           for (var i = 0; i < 5; i++) {
             final t = _saw(1.0, i / 5);
@@ -1129,7 +1540,7 @@ class AskodoxWorkScenePainter extends CustomPainter {
         for (var i = 0; i < 2; i++) {
           final t = active ? _saw(6, i * 0.5) : 0.5;
           final x = t < 0.4 ? _w * (0.02 + t * 0.6) : t < 0.6 ? _w * 0.26 : _w * (0.26 - (t - 0.6) * 0.6);
-          _person(c, Offset(x, _h * 0.98), _walk(0.75), shirt: i == 0 ? const Color(0xFF8E24AA) : const Color(0xFF00897B), cap: const Color(0xFF3E2723));
+          _person(c, Offset(x, _h * 0.98), _walk(0.75), shirt: i == 0 ? const Color(0xFF8E24AA) : const Color(0xFF00897B), hat: false);
         }
         for (var i = 0; i < served; i++) {
           c.drawCircle(Offset(_w * 0.1 + i * 7 * _s, _h * 0.52), 2.4 * _s, Paint()..color = const Color(0xFF1F8A5B));
@@ -1182,10 +1593,16 @@ class AskodoxWorkScenePainter extends CustomPainter {
       // Guests sit behind the table.
       for (var g = 0; g < 2; g++) {
         if (i * 2 + g >= guests || (_stage == 'clear' && i < cleared)) continue;
-        final gx = cx + (g == 0 ? -12 : 12) * _s;
-        c.drawLine(Offset(gx, top), Offset(gx, top - 16 * _s),
-            _stroke(g.isEven ? const Color(0xFF8E24AA) : const Color(0xFF00897B), 10 * _s));
-        c.drawCircle(Offset(gx, top - 24 * _s), 6 * _s, Paint()..color = _skin);
+        final gx = cx + (g == 0 ? -14 : 14) * _s;
+        // Seated, facing each other; once the food is there the hand goes to the mouth.
+        final eating = active && stageIndex >= _idx('serve');
+        _person(c, Offset(gx, top + 22 * _s),
+            _Pose(crouch: 0.6, lean: 0.08, armB: 0.9, armF: 1.3 + (eating ? _wave(2, (i * 2 + g) * 0.3).abs() * 1.3 : 0.0)),
+            shirt: g.isEven ? const Color(0xFF8E24AA) : const Color(0xFF00897B),
+            outfit: (i + g).isOdd ? _Outfit.saree : _Outfit.shirt,
+            hat: false,
+            flip: g == 1,
+            k: 0.9);
       }
       c.drawRect(Rect.fromCenter(center: Offset(cx, top), width: 52 * _s, height: 6 * _s),
           Paint()..color = const Color(0xFF8D6E63));
