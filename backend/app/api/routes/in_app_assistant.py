@@ -96,6 +96,9 @@ class AssistantDecision(BaseModel):
     intelligence: dict[str, Any] | None = None
     # AI Credits (pay-as-you-go, OFF until staff set rates): what this answer cost, or why it was not answered.
     credits: dict[str, Any] | None = None
+    # Smart Answer chips (reply_suggestions.py): 2-5 short things the user can tap to say next.
+    # Only for apps that send the ``suggestions`` capability; [] otherwise.
+    suggestions: list[str] = Field(default_factory=list)
 
 
 @router.post("/assistant", response_model=AssistantDecision)

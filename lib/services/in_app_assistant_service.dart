@@ -96,7 +96,13 @@ class InAppAssistantDecision {
     this.groundingMode,
     this.honesty = const <String>[],
     this.appAction,
+    this.suggestions = const <String>[],
   });
+
+  /// Smart Answer chips (backend reply_suggestions.py): 2-5 short things the
+  /// user can tap to say next, drawn under the latest reply. A tap sends the
+  /// chip's text as the user's message. Empty for older backends.
+  final List<String> suggestions;
 
   /// Chat actions (backend chat_actions.py): ONE ASKODOX screen the user
   /// asked to open or use, shown as a button under the reply (never opened
@@ -244,6 +250,7 @@ class InAppAssistantDecision {
       groundingMode: json['grounding'] is Map ? (json['grounding'] as Map)['mode']?.toString() : null,
       honesty: names(json['honesty']),
       appAction: AskodoxAppAction.fromJson(json['app_action']),
+      suggestions: names(json['suggestions']).take(5).toList(growable: false),
     );
   }
 
@@ -311,7 +318,8 @@ class InAppAssistantService {
               // This build renders [ok] / [caution] / [risk] meaning tags and
               // shows a chat-action button (app_action) under a reply. A Phase 1
               // build opens only Phase 1 screens, so the brain offers only those.
-              'capabilities': ['meaning_tags', 'app_actions', if (!askodoxPhase2) 'phase1_only'],
+              // 'suggestions' = this build draws tap chips under the reply.
+              'capabilities': ['meaning_tags', 'app_actions', 'suggestions', if (!askodoxPhase2) 'phase1_only'],
             }),
           )
           .timeout(const Duration(seconds: 15));

@@ -40,6 +40,7 @@ import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
 import '../domain/image_studio.dart';
+import '../domain/reply_suggestions.dart';
 import '../domain/result_board.dart';
 import '../../../shared/widgets/rich_reply.dart';
 import '../domain/conversation_closing.dart';
@@ -1093,6 +1094,9 @@ class _AskodoxPrimaryHomeScreenState
   /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
   /// to open, keyed by the USER turn; a button under the next assistant turn.
   final Map<int, AskodoxAppAction> _appActionByTurn = {};
+  /// Smart Answer chips (backend reply_suggestions.py) keyed by the USER turn;
+  /// drawn under the next assistant turn only while it is the latest turn.
+  final Map<int, List<String>> _suggestionsByTurn = {};
 
   void _clearConversationState() {
     _adviceLedger = const [];
@@ -1102,6 +1106,7 @@ class _AskodoxPrimaryHomeScreenState
     _guideByTurn.clear();
     _intelByTurn.clear();
     _appActionByTurn.clear();
+    _suggestionsByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
     _resultsHiddenFor = null;
@@ -2219,6 +2224,8 @@ class _AskodoxPrimaryHomeScreenState
     if (aiUsable && decision!.appAction != null && askodoxRouteShownNow(decision.appAction!.route)) {
       _appActionByTurn[userTurnIndex] = decision.appAction!;
     }
+    final chips = aiUsable ? askodoxSuggestionChips(decision!.suggestions) : const <String>[];
+    if (chips.isNotEmpty) _suggestionsByTurn[userTurnIndex] = chips;
     // APK 1305: the deterministic conversation-relation layer (backend)
     // classifies this turn against the ACTIVE need. A replaced subject or a
     // genuine new topic retires the previous active result deck NOW: those
@@ -4906,6 +4913,20 @@ class _AskodoxPrimaryHomeScreenState
                 intelligence: intel,
                 te: te,
                 onOpen: (route) => context.push(route),
+              ),
+            if (_suggestionsByTurn[index - 1] case final chips?
+                when !turn.isUser && index == _turns.length - 1 && _clarificationByTurn[index] == null)
+              Padding(
+                key: const Key('askodoxSuggestionChips'),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Wrap(spacing: 8, runSpacing: 6, children: [
+                  for (final (i, chip) in chips.indexed)
+                    ActionChip(
+                      key: ValueKey('askodoxSuggestionChip-$i'),
+                      label: Text(chip, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      onPressed: _sending ? null : () => _send(chip),
+                    ),
+                ]),
               ),
             if (_appActionByTurn[index - 1] case final appAction? when !turn.isUser)
               Padding(
