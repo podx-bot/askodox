@@ -1,0 +1,32 @@
+name: tmp flutter diag
+on:
+  push:
+    branches: [claude/tmp-flutter-diag2]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: analyze
+        shell: bash
+        run: |
+          set +e
+          flutter analyze > an.txt 2>&1
+          msg=$(grep -E "^ *(info|warning|error) " an.txt | head -40 | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::warning title=ANALYZE::${msg:-clean}"
+      - name: test
+        shell: bash
+        run: |
+          set +e
+          flutter test > t.txt 2>&1
+          tail -1 t.txt | cut -c1-200
+          msg=$( (grep -E "\[E\]$" t.txt | head -25; grep -nE "Expected:|Actual:|Which:|was thrown|Error:" t.txt | head -40)  | cut -c1-220 | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::warning title=TEST1::${msg:-none}"
+          echo "::warning title=TESTTAIL::$(tail -1 t.txt | cut -c1-200)"
