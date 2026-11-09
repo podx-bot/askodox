@@ -206,7 +206,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/business',
           builder: (context, state) => const BusinessCenterScreen()),
-      GoRoute(path: '/profile/memory', builder: (context, state) => const ProfileMemoryScreen()),
       GoRoute(path: '/profile/roles', builder: (context, state) => const MyRolesScreen()),
       GoRoute(path: '/business/promotions', builder: (context, state) => const BusinessPromotionsScreen()),
       GoRoute(path: '/business/creations', builder: (context, state) => const BusinessCreationsScreen()),
@@ -240,6 +239,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/radio', builder: (context, state) => const TravelRadioScreen()),
       ...askodoxSmartToolRoutes,
       ...askodoxWorkModeRoutes,
+      GoRoute(path: '/profile/memory', builder: (context, state) => const ProfileMemoryScreen()),
+      ...askodoxPaymentMethodRoutes,
       GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
       if (askodoxPhase2) ...[
         GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
