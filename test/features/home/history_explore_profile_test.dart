@@ -162,7 +162,7 @@ void main() {
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     Widget page(String name) => Scaffold(body: Text('PAGE $name'));
-    await _pumpRouted(tester, initial: '/profile', screens: {
+    final container = await _pumpRouted(tester, initial: '/profile', screens: {
       '/profile': const ProfileScreen(),
       '/': page('HOME'),
       for (final r in ['/business', '/listings/mine', '/orders/incoming', '/business/promotions', '/business/automation',
@@ -187,11 +187,10 @@ void main() {
     }
     for (final (tab, sections) in [
       if (askodoxPhase2) ('business', ['business', 'studio']),
-      ('settings', ['settings', 'help', 'account']),
-      ('me', askodoxPhase2 ? ['shopping', 'finance', 'roles'] : ['shopping', 'payments']),
+      ('settings', askodoxPhase2 ? ['settings', 'help', 'account'] : ['settings', 'account']),
+      ('me', askodoxPhase2 ? ['shopping', 'finance', 'roles'] : ['shopping', 'payments', 'help']),
     ]) {
-      await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
-      await tester.pumpAndSettle();
+      await _openProfileView(tester, container, tab);
       for (final section in sections) {
         if (section == 'account') continue; // shown only when signed in
         expect(find.byKey(Key('askodoxProfileSection-$section')), findsOneWidget, reason: '$tab: $section');
@@ -215,8 +214,7 @@ void main() {
         ('me', 'profile-payment-methods', '/me/payment-methods'),
       ('me', 'profile-smart-tools', '/tools'),
     ]) {
-      await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
-      await tester.pumpAndSettle();
+      await _openProfileView(tester, container, tab);
       final row = find.byKey(ValueKey(key));
       await tester.ensureVisible(row);
       await tester.tap(row);
@@ -476,10 +474,9 @@ void main() {
         ('business', 'screen_business'), ('business', 'screen_listings'),
         ('business', 'screen_enquiries'), ('business', 'screen_videos'), ('me', 'screen_mobility'),
       ],
-      ('settings', 'screen_notifications'), ('settings', 'screen_feedback'),
+      ('settings', 'screen_notifications'), (askodoxPhase2 ? 'settings' : 'me', 'screen_feedback'),
     ]) {
-      await tester.tap(find.byKey(Key('askodoxProfileTab-$tab')));
-      await tester.pumpAndSettle();
+      await _openProfileView(tester, container, tab);
       final button = find.byKey(ValueKey('askodoxTileGuide-$id'));
       await tester.ensureVisible(button);
       await tester.pump();
@@ -489,6 +486,7 @@ void main() {
       container.read(askodoxGuideProvider.notifier).stop();
       await tester.pump();
     }
+    await _openProfileView(tester, container, 'me');
     await tester.ensureVisible(find.byKey(const Key('askodoxProfileGuide')));
     await tester.tap(find.byKey(const Key('askodoxProfileGuide')));
     await tester.pump();
@@ -583,4 +581,15 @@ class _RejectedProfiles extends _Profiles {
 
   @override
   Future<AskodoxUserProfile?> load() async => throw const AskodoxSessionInvalid();
+}
+
+/// Opens a part of Profile: a tab in Phase 2; in Phase 1 the one page, or
+/// Settings as the header Menu opens it.
+Future<void> _openProfileView(WidgetTester tester, ProviderContainer container, String view) async {
+  if (askodoxPhase2) {
+    await tester.tap(find.byKey(Key('askodoxProfileTab-$view')));
+  } else {
+    container.read(askodoxProfileViewProvider.notifier).state = view;
+  }
+  await tester.pumpAndSettle();
 }

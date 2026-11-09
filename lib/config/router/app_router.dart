@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/flags/askodox_release_phase.dart';
+
 import '../../core/auth/route_guard.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../features/home/presentation/chat_first_home_host.dart';
@@ -186,6 +188,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
       GoRoute(
           path: '/deals', builder: (context, state) => const DealInboxScreen()),
+      // Phase 2 screens are compiled into a Phase 2 build only: in Phase 1 they are left out of the
+      // app entirely (owner 2026-11-09: a smaller, faster install), not just hidden.
+      if (askodoxPhase2) ...[
       GoRoute(
           path: '/listings/mine',
           builder: (context, state) => const MyListingsScreen()),
@@ -208,6 +213,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/business/automation',
           builder: (context, state) => BusinessAutomationScreen(section: state.uri.queryParameters['section'])),
+      ],
       GoRoute(
           path: '/deal/:requestId',
           builder: (context, state) => DealThreadScreen(
@@ -231,23 +237,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/beta-feedback',
           builder: (context, state) => const BetaFeedbackScreen()),
-      GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
       GoRoute(path: '/radio', builder: (context, state) => const TravelRadioScreen()),
       ...askodoxSmartToolRoutes,
       ...askodoxWorkModeRoutes,
-      ...askodoxTalkRoutes,
-      ...askodoxPosRoutes,
-      GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
       GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
-      GoRoute(path: '/verification', builder: (context, state) => const AskodoxKycScreen()),
-      GoRoute(
-          path: '/mobility',
-          builder: (context, state) =>
-              MobilityScreen(
-                  initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
-                  initialKind: state.uri.queryParameters['kind'],
-                  initialFrom: state.uri.queryParameters['from'],
-                  initialTo: state.uri.queryParameters['to'])),
+      if (askodoxPhase2) ...[
+        GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
+        ...askodoxTalkRoutes,
+        ...askodoxPosRoutes,
+        GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
+        GoRoute(path: '/verification', builder: (context, state) => const AskodoxKycScreen()),
+        GoRoute(
+            path: '/mobility',
+            builder: (context, state) =>
+                MobilityScreen(
+                    initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+                    initialKind: state.uri.queryParameters['kind'],
+                    initialFrom: state.uri.queryParameters['from'],
+                    initialTo: state.uri.queryParameters['to'])),
+      ],
       if (kDebugMode)
         GoRoute(
             path: '/developer/feedback',

@@ -266,6 +266,32 @@ jobs:
             --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
             --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
 
+      - name: Build smaller phone APKs (one per phone CPU)
+        # The universal APK carries the app three times (arm64, arm 32-bit, x86_64 for emulators) -- about
+        # 93 MB. A phone needs only its own CPU's copy: arm64 (almost every phone since 2017) is about a third.
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk "$RUNNER_TEMP/app-release-universal.apk"
+          flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 \
+            --build-number="${BUILD_NUMBER}" \
+            --dart-define=APP_ENV=production \
+            --dart-define=BACKEND_PROVIDER=rest \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
+            --dart-define=ASKODOX_ENABLE_UPDATES=true \
+            --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}" \
+            --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY}" \
+            --dart-define=FIREBASE_APP_ID="${FIREBASE_APP_ID}" \
+            --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
+            --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
+          cp "$RUNNER_TEMP/app-release-universal.apk" build/app/outputs/flutter-apk/app-release.apk
+          ls -la build/app/outputs/flutter-apk/
+
       - name: Build Play Store bundle (.aab, internal testing)
         if: steps.signing.outputs.configured == 'true' && inputs.build_play_bundle
         env:
@@ -324,6 +350,12 @@ jobs:
           cp build/app/outputs/flutter-apk/app-debug.apk "dist/askodox-live-${BUILD_NUMBER}-debug.apk"
           if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
             cp build/app/outputs/flutter-apk/app-release.apk "dist/askodox-live-${BUILD_NUMBER}.apk"
+          fi
+          if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "dist/askodox-live-${BUILD_NUMBER}-arm64.apk"
+          fi
+          if [ -f build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "dist/askodox-live-${BUILD_NUMBER}-arm32.apk"
           fi
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
           # Measured size report (exact bytes + the largest parts of each APK).
@@ -515,8 +547,13 @@ jobs:
         shell: bash
         run: |
           TAG="test-${BUILD_NUMBER}"
-          gh release create "$TAG" "dist/askodox-live-${BUILD_NUMBER}.apk" dist/SHA256SUMS.txt --prerelease --target "$GITHUB_SHA" --title "ASKODOX TEST ${BUILD_NUMBER} (${GITHUB_REF_NAME}, not merged)" --notes "Phone-test build of an unmerged branch (${GITHUB_REF_NAME} @ ${GITHUB_SHA}). Not on the in-app update channel."
+          extra=""
+          for f in "dist/askodox-live-${BUILD_NUMBER}-arm64.apk" "dist/askodox-live-${BUILD_NUMBER}-arm32.apk"; do
+            [ -f "$f" ] && extra="$extra $f"
+          done
+          gh release create "$TAG" "dist/askodox-live-${BUILD_NUMBER}.apk" $extra dist/SHA256SUMS.txt --prerelease --target "$GITHUB_SHA" --title "ASKODOX TEST ${BUILD_NUMBER} (${GITHUB_REF_NAME}, not merged)" --notes "Phone-test build of an unmerged branch (${GITHUB_REF_NAME} @ ${GITHUB_SHA}). Not on the in-app update channel."
           echo "::notice::Test APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-live-${BUILD_NUMBER}.apk"
+          echo "::notice::Small phone APK (arm64): https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-live-${BUILD_NUMBER}-arm64.apk"
 
       - name: Publish prerelease download link
         if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'

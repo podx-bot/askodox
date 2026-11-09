@@ -5574,7 +5574,7 @@ void main() {
 
     final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
     container.read(askodoxInAppFloatProvider.notifier).setEnabled(true);
-    await tester.tap(find.byKey(const Key('askodoxNavUpdates')));
+    await tester.tap(find.byKey(const Key('askodoxHeaderBell')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.byKey(const Key('askodoxFloatingCompanion')));
     await shot('06_floating_companion');

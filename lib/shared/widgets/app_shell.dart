@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/flags/askodox_release_phase.dart';
+import '../../features/profile/presentation/profile_screen.dart' show askodoxProfileViewProvider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -187,6 +188,17 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                   child: AskodoxHubIcons(color: _navAccent),
                 ),
               ),
+              // New chat, right on Home (owner 2026-11-09: it used to need an app restart).
+              if (shell.currentIndex == 0)
+                IconButton(
+                  key: const Key('askodoxHeaderNewChat'),
+                  tooltip: isTe ? 'కొత్త చాట్' : 'New chat',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.add_comment_outlined, size: 21, color: _navInk),
+                  onPressed: () => askodoxStartNewChat(ref, context),
+                ),
             ]),
           ),
           InkWell(
@@ -358,7 +370,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           companionAction(AskodoxHubAction.voice);
         },
         onUpdates: () => shell.goBranch(3, initialLocation: true),
-        onProfile: () => shell.goBranch(4, initialLocation: true),
+        onProfile: () {
+          ref.read(askodoxProfileViewProvider.notifier).state = 'me';
+          shell.goBranch(4, initialLocation: true);
+        },
       ),
     );
   }
@@ -423,7 +438,10 @@ class _PrimaryBottomBar extends ConsumerWidget {
             ]),
           ),
         )),
-        _item('askodoxNavUpdates', currentBranch == 3, Icons.receipt_long_outlined, Icons.receipt_long_rounded, isTe ? 'ఆర్డర్లు' : 'Orders', onUpdates),
+        // Phase 1 (owner 2026-11-09): ASKODOX neither sells nor buys, so no "Orders" tab; request
+        // updates stay one tap away on the header bell.
+        if (askodoxPhase2)
+          _item('askodoxNavUpdates', currentBranch == 3, Icons.receipt_long_outlined, Icons.receipt_long_rounded, isTe ? 'ఆర్డర్లు' : 'Orders', onUpdates),
         _item('askodoxNavProfile', currentBranch == 4, Icons.person_outline_rounded, Icons.person_rounded, isTe ? 'ప్రొఫైల్' : 'Profile', onProfile),
       ]),
     ));

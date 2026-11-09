@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/features/companion/askodox_companion.dart';
 import 'package:podx/features/companion/companion_hub.dart';
 import 'package:go_router/go_router.dart';
@@ -260,10 +261,12 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.byType(Drawer), findsNothing);
-    for (final key in ['askodoxNavHome', 'askodoxNavHistory', 'askodoxNavSpeak', 'askodoxNavUpdates', 'askodoxNavProfile']) {
+    for (final key in ['askodoxNavHome', 'askodoxNavHistory', 'askodoxNavSpeak', 'askodoxNavProfile']) {
       expect(find.byKey(Key(key)), findsOneWidget);
     }
-    await tester.tap(find.byKey(const Key('askodoxNavUpdates')));
+    // Phase 1: no Orders tab (ASKODOX neither sells nor buys); the header bell opens request updates.
+    expect(find.byKey(const Key('askodoxNavUpdates')), askodoxPhase2 ? findsOneWidget : findsNothing);
+    await tester.tap(find.byKey(const Key('askodoxHeaderBell')));
     await tester.pumpAndSettle();
     expect(find.text('UPDATES'), findsOneWidget);
     // The centre item is "Ask" (owner, 2026-11-04): ONE tap starts voice on

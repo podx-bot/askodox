@@ -52,7 +52,7 @@ void main() {
     addTearDown(container.dispose);
     final router = container.read(appRouterProvider);
     final paths = _screenPaths(router.configuration.routes).toSet();
-    expect(paths.length, greaterThan(60), reason: 'the walk found the app routes');
+    expect(paths.length, greaterThan(askodoxPhase2 ? 60 : 40), reason: 'the walk found the app routes');
     final missing = [
       for (final p in paths)
         if (askodoxScreenHelpFor(p) == null && !askodoxScreenHelpIsExempt(p)) p,
@@ -64,7 +64,11 @@ void main() {
       expect(h.stepsTe.length, h.stepsEn.length, reason: '${entry.key}: Telugu steps match English');
       expect(h.titleTe.trim(), isNotEmpty, reason: entry.key);
     }
-    final stale = [for (final k in askodoxScreenHelp.keys) if (!paths.contains(k)) k];
+    // Phase 2 screens are left out of a Phase 1 build; their help waits for them.
+    final stale = [
+      for (final k in askodoxScreenHelp.keys)
+        if (!paths.contains(k) && (askodoxPhase2 || askodoxRouteShownNow(k))) k,
+    ];
     expect(stale, isEmpty, reason: 'help for routes that no longer exist');
   });
 
