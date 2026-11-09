@@ -3,6 +3,9 @@ import 'askodox_logo.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../core/flags/askodox_release_phase.dart';
+import '../../features/profile/presentation/profile_screen.dart' show askodoxProfileViewProvider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -161,18 +164,42 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             padding: EdgeInsets.only(right: 6),
             child: AskodoxLogo(size: 26),
           ),
-          // Owner 2026-11-08: the logo is enough -- the word "ASKODOX" made room for the three habit buttons
-          // (Work Mode game · Talk · Radio), shown here on every tab. On a narrow phone they shrink to fit.
-          const Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FittedBox(
-                key: Key('askodoxHeaderHub'),
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: AskodoxHubIcons(color: _navAccent),
+          // Phase 1 (owner 2026-11-09): the ASKODOX word + the Work Mode game button. A Phase 2 build adds Talk and
+          // Radio beside it and drops the word to make room (owner 2026-11-08). On a narrow phone they shrink to fit.
+          Expanded(
+            child: Row(children: [
+              if (!askodoxPhase2)
+                const Flexible(
+                  child: FittedBox(
+                    key: Key('askodoxHeaderWordmark'),
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text('ASKODOX',
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                  ),
+                ),
+              const Flexible(
+                child: FittedBox(
+                  key: Key('askodoxHeaderHub'),
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: AskodoxHubIcons(color: _navAccent),
+                ),
               ),
-            ),
+              // New chat, right on Home (owner 2026-11-09: it used to need an app restart).
+              if (shell.currentIndex == 0)
+                IconButton(
+                  key: const Key('askodoxHeaderNewChat'),
+                  tooltip: isTe ? 'కొత్త చాట్' : 'New chat',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.add_comment_outlined, size: 21, color: _navInk),
+                  onPressed: () => askodoxStartNewChat(ref, context),
+                ),
+            ]),
           ),
           InkWell(
             key: const Key('askodoxLocationChip'),
@@ -343,7 +370,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           companionAction(AskodoxHubAction.voice);
         },
         onUpdates: () => shell.goBranch(3, initialLocation: true),
-        onProfile: () => shell.goBranch(4, initialLocation: true),
+        onProfile: () {
+          ref.read(askodoxProfileViewProvider.notifier).state = 'me';
+          shell.goBranch(4, initialLocation: true);
+        },
       ),
     );
   }
@@ -408,7 +438,10 @@ class _PrimaryBottomBar extends ConsumerWidget {
             ]),
           ),
         )),
-        _item('askodoxNavUpdates', currentBranch == 3, Icons.receipt_long_outlined, Icons.receipt_long_rounded, isTe ? 'ఆర్డర్లు' : 'Orders', onUpdates),
+        // Phase 1 (owner 2026-11-09): ASKODOX neither sells nor buys, so no "Orders" tab; request
+        // updates stay one tap away on the header bell.
+        if (askodoxPhase2)
+          _item('askodoxNavUpdates', currentBranch == 3, Icons.receipt_long_outlined, Icons.receipt_long_rounded, isTe ? 'ఆర్డర్లు' : 'Orders', onUpdates),
         _item('askodoxNavProfile', currentBranch == 4, Icons.person_outline_rounded, Icons.person_rounded, isTe ? 'ప్రొఫైల్' : 'Profile', onProfile),
       ]),
     ));

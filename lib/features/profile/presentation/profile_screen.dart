@@ -26,6 +26,11 @@ import '../../settings/developer_diagnostics_screen.dart';
 import '../../guide/in_app_guide.dart';
 import '../../home/presentation/question_mic.dart';
 
+/// Which part of Profile is open: 'me' (default), 'settings' (opened from the
+/// header Menu in Phase 1 -- owner 2026-11-09: settings live in the Menu so
+/// Profile stays clean) or 'business' (Phase 2).
+final askodoxProfileViewProvider = StateProvider<String>((ref) => 'me');
+
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -145,7 +150,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // Profile = a talk / search bar (type or SPEAK: "notifications", "my shop", "నా వీడియోలు"), then three
   // tabs -- నేను (me) / వ్యాపారం (business) / సెట్టింగ్స్ -- instead of one long list. Recently opened
   // rows come first. A running walkthrough switches to the tab that holds its next button.
-  String _tab = 'me';
+  String get _tab => ref.read(askodoxProfileViewProvider);
+  set _tab(String value) => ref.read(askodoxProfileViewProvider.notifier).state = value;
   final _search = TextEditingController();
   String _query = '';
   List<String> _recent = const [];
@@ -568,6 +574,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 'See, download or delete your data.', 'మీ డేటా చూడండి, డౌన్‌లోడ్ లేదా తొలగించండి.', () => context.push('/privacy'),
                 guide: 'screen_privacy', words: ['privacy', 'delete', 'data', 'గోప్యత']),
           ]),
+    ];
+
+    // ---- Help & app (Phase 1: at the bottom of Profile itself; Phase 2: in the Settings tab)
+    final helpSections = <Widget>[
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-help'),
           mascot: AskodoxMascotRole.suppo,
@@ -729,9 +739,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ]),
     ];
 
-    // Help lives in Settings; saying "help" / "సహాయం" finds it too.
-    entries.add(_ProfileEntry('profile-help', 'settings', Icons.support_agent_rounded, 'Help & Customer Care',
-        'సహాయం & కస్టమర్ కేర్', const ['help', 'support', 'care', 'సహాయం', 'కస్టమర్'], () => setState(() => _tab = 'settings')));
+    // Help lives in Settings (Phase 2) / on Profile (Phase 1); saying "help" / "సహాయం" finds it too.
+    entries.add(_ProfileEntry('profile-help', askodoxPhase2 ? 'settings' : 'me', Icons.support_agent_rounded, 'Help & Customer Care',
+        'సహాయం & కస్టమర్ కేర్', const ['help', 'support', 'care', 'సహాయం', 'కస్టమర్'],
+        () => setState(() => _tab = askodoxPhase2 ? 'settings' : 'me')));
     // A running walkthrough whose next button sits in another tab: open that tab.
     final guide = ref.watch(askodoxGuideProvider);
     if (guide != null && !guide.done) {
@@ -776,6 +787,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       );
+    }
+
+    final view = ref.watch(askodoxProfileViewProvider);
+    final List<Widget> shown;
+    if (askodoxPhase2) {
+      shown = switch (view) {
+        'business' => businessSections,
+        'settings' => [...settingsSections, ...helpSections],
+        _ => meSections,
+      };
+    } else if (view == 'settings') {
+      shown = [
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(children: [
+            IconButton(
+              key: const Key('askodoxProfileSettingsBack'),
+              tooltip: t('Back to Profile', 'ప్రొఫైల్‌కు'),
+              onPressed: () => setState(() => _tab = 'me'),
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+            Text(t('Settings', 'సెట్టింగ్స్'),
+                key: const Key('askodoxProfileSettingsTitle'),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF10204A))),
+          ]),
+        ),
+        ...settingsSections,
+      ];
+    } else {
+      shown = [...meSections, ...helpSections];
     }
 
     return Scaffold(
@@ -902,21 +943,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ]),
               ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: const Color(0xFFE4E9F2), borderRadius: BorderRadius.circular(14)),
-              child: Row(children: [
-                tabButton(const Key('askodoxProfileTab-me'), 'me', t('Me', 'నేను'), Icons.person_outline_rounded),
-                if (askodoxPhase2)
+            // Phase 2 has three tabs; Phase 1 shows one clean page (Settings open from the header Menu).
+            if (askodoxPhase2)
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: const Color(0xFFE4E9F2), borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  tabButton(const Key('askodoxProfileTab-me'), 'me', t('Me', 'నేను'), Icons.person_outline_rounded),
                   tabButton(const Key('askodoxProfileTab-business'), 'business', t('Business', 'వ్యాపారం'), Icons.storefront_outlined),
-                tabButton(const Key('askodoxProfileTab-settings'), 'settings', t('Settings', 'సెట్టింగ్స్'), Icons.settings_outlined),
-              ]),
-            ),
-            ...switch (_tab) {
-              'business' when askodoxPhase2 => businessSections,
-              'settings' => settingsSections,
-              _ => meSections,
-            },
+                  tabButton(const Key('askodoxProfileTab-settings'), 'settings', t('Settings', 'సెట్టింగ్స్'), Icons.settings_outlined),
+                ]),
+              ),
+            ...shown,
           ],
         ]),
       ),

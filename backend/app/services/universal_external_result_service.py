@@ -238,7 +238,14 @@ PAGE_VIDEO = "video"
 # (no price, nothing to buy/book on it) -- neither is shown as a shop.
 PAGE_JOB = "job_listing"
 PAGE_INFO = "info"
+# A page where the customer can DO the thing they asked for without buying a
+# product: apply / open an account / register / book an appointment (banks,
+# insurance, loans, courses, government services ...), or the named
+# organisation's own website. Shown as a link, never as a shop with a price.
+PAGE_APPLY = "apply"
+PAGE_OFFICIAL = "official"
 BUYABLE_PAGES = {PAGE_PRODUCT, PAGE_LISTING, PAGE_STORE}
+ACTIONABLE_PAGES = BUYABLE_PAGES | {PAGE_APPLY, PAGE_OFFICIAL}
 
 _REVIEW_HOSTS = ("tripadvisor.", "trustpilot.", "mouthshut.com", "gadgets360.", "91mobiles.com",
                  "smartprix.com", "rtings.com", "techradar.com", "gsmarena.com", "zigwheels.com/news")
@@ -269,6 +276,47 @@ def _host_matches(url: str, hosts: tuple[str, ...]) -> bool:
     return any(item in host or item in low for item in hosts)
 
 
+_APPLY_WORDS = re.compile(
+    r"\b(apply( now| online)?|application form|open (an? |your )?(\w+ )?(account|a/c)|account opening|"
+    r"sign ?up|register( now| online)?|registration|get started|enrol(l|ment)?|enquire|enquiry|"
+    r"request a call ?back|book (an? )?(appointment|slot|test drive|demo|visit)|schedule (a )?visit|"
+    r"get a quote|instant (approval|account))\b",
+    re.IGNORECASE,
+)
+_APPLY_SUBJECT = re.compile(
+    r"\b(accounts?|a/c|loans?|insurance|polic(y|ies)|credit cards?|debit cards?|admissions?|courses?|registration|"
+    r"apply|application|open(ing)?|licen[cs]e|passport|aadhaar|pan card|membership|subscription|appointment)\b",
+    re.IGNORECASE,
+)
+_GENERIC_SUBJECT_WORDS = {
+    "bank", "banks", "banking", "account", "accounts", "current", "savings", "saving", "online", "india", "indian",
+    "store", "shop", "shops", "service", "services", "insurance", "loan", "loans", "open", "opening", "apply",
+    "best", "near", "home", "care", "center", "centre", "official", "website", "price", "prices", "cheap",
+    "free", "card", "cards", "credit", "debit", "policy", "course", "courses", "school", "college", "hospital",
+    "clinic", "hotel", "hotels", "booking", "travel", "tickets", "ticket", "mobile", "phone", "phones",
+    "market", "mart", "world", "city", "local", "global", "group", "company", "limited", "ltd",
+}
+_GENERIC_HOST_PARTS = {"www", "com", "co", "in", "org", "net", "gov", "nic", "online", "india", "the", "and"}
+
+
+def is_official_site(url: str, subject: str) -> bool:
+    """The page belongs to the organisation the customer named: a distinctive
+    word of the request (4+ letters) is part of the site's own host name
+    ("ICICI current account" -> icicibank.com). Never for marketplaces,
+    directories or listing sites, which carry everybody's names."""
+    host = _host(url).removeprefix("www.")
+    if not host or _host_matches(url, _STORE_HOSTS + _DIRECTORY_HOSTS + _LISTING_HOSTS + _FORUM_HOSTS + _REVIEW_HOSTS):
+        return False
+    labels = [part for part in re.split(r"[.-]", host) if part and part not in _GENERIC_HOST_PARTS]
+    name = "".join(labels[:-1] or labels)
+    for word in re.findall(r"[a-z0-9]+", str(subject or "").casefold()):
+        # The site's name starts with the organisation's own name; everyday
+        # words ("bank", "account", "insurance") name no one in particular.
+        if len(word) >= 4 and not word.isdigit() and word not in _GENERIC_SUBJECT_WORDS and name.startswith(word):
+            return True
+    return False
+
+
 _BUY_WORDS = re.compile(
     r"\b(buy|shop|order|add to cart|in stock|price|prices|emi|book now|booking|for sale|sell(ing)?|store|"
     r"offers?|deals?|discount|sale|clearance|open box|second hand|used)\b|₹|% off",
@@ -276,8 +324,11 @@ _BUY_WORDS = re.compile(
 )
 
 
-def classify_page(url: str, title: Any = "", snippet: Any = "") -> str:
-    """What kind of page a web result is (never guessed as buyable)."""
+def classify_page(url: str, title: Any = "", snippet: Any = "", *, subject: str = "") -> str:
+    """What kind of page a web result is (never guessed as buyable). With the
+    request's [subject], the named organisation's own pages (and pages where
+    one applies / opens an account / registers) are recognised as actionable
+    links instead of being dropped as plain information."""
     if _is_video_host(url):
         return PAGE_VIDEO
     if _host_matches(url, JOB_HOSTS) or re.search(r"/jobs?/|/careers?/|job-listings?", url, re.IGNORECASE):
@@ -294,6 +345,10 @@ def classify_page(url: str, title: Any = "", snippet: Any = "") -> str:
     # Amazon.in") is a store page; only its blog / stories pages are articles.
     if _host_matches(url, _STORE_HOSTS) and not _STORE_EDITORIAL_PATH.search(url):
         return PAGE_PRODUCT if _PRODUCT_PATH.search(url) else PAGE_STORE
+    # The named organisation's own "how to open / apply" page is the place to
+    # act, even when its title reads like a guide.
+    if subject and is_official_site(url, subject) and _APPLY_WORDS.search(f"{title or ''} {snippet or ''}"):
+        return PAGE_OFFICIAL
     if _ARTICLE_WORDS.search(str(title or "")):
         return PAGE_ARTICLE
     if _PRODUCT_PATH.search(url):
@@ -302,8 +357,13 @@ def classify_page(url: str, title: Any = "", snippet: Any = "") -> str:
         return PAGE_ARTICLE
     # Unknown site: a shop only when the page itself offers something to
     # buy/book or states a price; otherwise it is information, not an option.
-    if price_from_text(title, snippet) is not None or _BUY_WORDS.search(f"{title or ''} {snippet or ''}"):
+    text = f"{title or ''} {snippet or ''}"
+    if subject and _APPLY_WORDS.search(text):
+        return PAGE_OFFICIAL if is_official_site(url, subject) else PAGE_APPLY
+    if price_from_text(title, snippet) is not None or _BUY_WORDS.search(text):
         return PAGE_STORE
+    if subject and is_official_site(url, subject):
+        return PAGE_OFFICIAL
     return PAGE_INFO
 
 
@@ -515,7 +575,10 @@ class UniversalOnlineFallbackService:
         # Always anchored to the customer's geography (India by default).
         where = location_text.strip() or "India"
         results: list[dict[str, Any]] = []
-        rows = self._search(query or f"{subject} price buy online {where}", limit * 3)
+        # Something one applies for (an account, a loan, admission ...) is
+        # searched as "apply online", not "price buy online".
+        wants = "apply online" if _APPLY_SUBJECT.search(subject) else "price buy online"
+        rows = self._search(query or f"{subject} {wants} {where}", limit * 3)
         if getattr(self.web_search, "last_error", False) or getattr(self, "_search_failed", False):
             self.status["online"] = failure_kind(self.web_search) or STATUS_ERROR
             return []
@@ -528,6 +591,8 @@ class UniversalOnlineFallbackService:
             if len(results) >= limit:
                 break
         self.status["online"] = STATUS_OK if results else STATUS_NO_RESULTS
+        # The organisation the customer named comes first (its own site).
+        results.sort(key=lambda item: 0 if item.get("page_type") == PAGE_OFFICIAL else 1)
         return results
 
     def _accept(self, row: dict[str, Any], index: int, *, subject: str, category: str, location_text: str,
@@ -551,8 +616,8 @@ class UniversalOnlineFallbackService:
         if region_mismatch(url, title, snippet, country=self.country, wanted_place=location_text):
             self._drop("wrong_region")
             return None
-        page_type = classify_page(url, title, snippet)
-        if page_type not in BUYABLE_PAGES and not (allow_directories and page_type == PAGE_DIRECTORY):
+        page_type = classify_page(url, title, snippet, subject=subject)
+        if page_type not in ACTIONABLE_PAGES and not (allow_directories and page_type == PAGE_DIRECTORY):
             self._drop("not_purchasable")  # review / article / forum / video
             return None
         item = self._row(kind, index, title, snippet, url)

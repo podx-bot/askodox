@@ -6,6 +6,8 @@ import '../../core/auth/sign_out.dart';
 import '../../core/flags/askodox_release_phase.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../features/guide/in_app_guide.dart';
+import '../../features/home/application/conversation_archive.dart' show AskodoxChatRequest, askodoxChatRequestProvider;
+import '../../features/profile/presentation/profile_screen.dart' show askodoxProfileViewProvider;
 
 /// Header Menu: ONE list of the places that already exist (no new screens,
 /// no duplicate entry points -- each item opens the existing route).
@@ -28,7 +30,7 @@ const askodoxHeaderMenuEntries = <AskodoxMenuEntry>[
   AskodoxMenuEntry('orders', '/orders/mine', Icons.receipt_long_outlined, 'My requests & orders', 'నా అభ్యర్థనలు & ఆర్డర్లు'),
   AskodoxMenuEntry('saved', '/watchlist', Icons.bookmark_border_rounded, 'Saved & history', 'సేవ్ చేసినవి & చరిత్ర'),
   AskodoxMenuEntry('mobility', '/mobility', Icons.local_shipping_outlined, 'Rides, parcels & delivery', 'రైడ్స్, పార్సెల్స్ & డెలివరీ'),
-  AskodoxMenuEntry('more', '/profile', Icons.grid_view_rounded, 'Everything else · Profile', 'మిగతావన్నీ · ప్రొఫైల్'),
+  AskodoxMenuEntry('more', '/profile', Icons.person_outline_rounded, 'My profile', 'నా ప్రొఫైల్'),
 ];
 
 /// Menu value that is not a route: the ONE secure sign-out flow.
@@ -37,6 +39,14 @@ const askodoxSignOutMenuValue = '__sign_out__';
 /// Menu value that opens the Screen Guide (moved here from its own header
 /// icon -- owner, 2026-11-04: a cleaner header).
 const askodoxGuideMenuValue = '__screen_guide__';
+
+/// Menu value that opens Settings (location, voice, notifications, memory,
+/// privacy, AI Credits). Owner 2026-11-09: settings live in the Menu so the
+/// Profile page stays clean.
+const askodoxSettingsMenuValue = '__settings__';
+
+/// Menu value that starts a clean conversation (the old one stays in History).
+const askodoxNewChatMenuValue = '__new_chat__';
 
 class AskodoxHeaderMenuButton extends ConsumerWidget {
   const AskodoxHeaderMenuButton({super.key, required this.te});
@@ -64,6 +74,20 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
                     leading: const Icon(Icons.assistant_navigation),
                     title: Text(te ? 'స్క్రీన్ గైడ్ -- ఎక్కడ నొక్కాలో చూపిస్తాను' : 'Screen Guide -- where to tap'),
                     onTap: () => Navigator.pop(sheet, askodoxGuideMenuValue),
+                  ),
+                  ListTile(
+                    key: const ValueKey('askodoxMenu-newchat'),
+                    dense: true,
+                    leading: const Icon(Icons.add_comment_outlined),
+                    title: Text(te ? 'కొత్త చాట్' : 'New chat'),
+                    onTap: () => Navigator.pop(sheet, askodoxNewChatMenuValue),
+                  ),
+                  ListTile(
+                    key: const ValueKey('askodoxMenu-settings'),
+                    dense: true,
+                    leading: const Icon(Icons.settings_outlined),
+                    title: Text(te ? 'సెట్టింగ్స్ — లొకేషన్, వాయిస్, నోటిఫికేషన్స్, గోప్యత' : 'Settings — location, voice, notifications, privacy'),
+                    onTap: () => Navigator.pop(sheet, askodoxSettingsMenuValue),
                   ),
                   // Phase 1 build: Phase 2 places (business, listings, rides...) are not offered.
                   for (final e in askodoxHeaderMenuEntries.where((e) => askodoxRouteShownNow(e.route)))
@@ -100,8 +124,13 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
             }
             return;
           }
-          if (route == '/profile') {
-            context.go(route); // a bottom-bar tab, not a page on top
+          if (route == askodoxNewChatMenuValue) {
+            askodoxStartNewChat(ref, context);
+            return;
+          }
+          if (route == askodoxSettingsMenuValue || route == '/profile') {
+            ref.read(askodoxProfileViewProvider.notifier).state = route == askodoxSettingsMenuValue ? 'settings' : 'me';
+            context.go('/profile'); // a bottom-bar tab, not a page on top
           } else {
             context.push(route);
           }
@@ -166,4 +195,10 @@ void askodoxShowScreenGuide(BuildContext context, {required bool te}) {
       ),
     ),
   );
+}
+
+/// Starts a clean conversation in Main Chat right away (no app restart).
+void askodoxStartNewChat(WidgetRef ref, BuildContext context) {
+  ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.newConversation();
+  context.go('/');
 }
