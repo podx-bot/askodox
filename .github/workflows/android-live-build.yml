@@ -378,8 +378,8 @@ jobs:
           HOST="${API_BASE_URL#https://}"; HOST="${HOST%%/*}"
           for apk in dist/*.apk; do
             case "$apk" in *-debug.apk) continue ;; esac  # debug builds carry no AOT libapp.so
-            n=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o "$HOST" | wc -l || true)
-            p=$(unzip -p "$apk" 'lib/arm64-v8a/libapp.so' 2>/dev/null | grep -a -o 'podx-ai-connect-production-3279.up.railway.app' | wc -l || true)
+            n=$(unzip -p "$apk" 'lib/*/libapp.so' 2>/dev/null | grep -a -o "$HOST" | wc -l || true)
+            p=$(unzip -p "$apk" 'lib/*/libapp.so' 2>/dev/null | grep -a -o 'podx-ai-connect-production-3279.up.railway.app' | wc -l || true)
             # Accessibility service only when explicitly requested (Play builds).
             BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
             a=$("$BT/aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -c 'BIND_ACCESSIBILITY_SERVICE' || true)
