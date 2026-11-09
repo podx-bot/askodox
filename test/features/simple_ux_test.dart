@@ -307,7 +307,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
     final box = tester.getRect(find.byKey(const Key('askodoxHeaderHub')));
-    for (final key in ['askodoxHeaderGameButton', 'askodoxHeaderTalkButton', 'askodoxHeaderRadioButton']) {
+    // Phase 1: the word ASKODOX + the game button; Talk / Radio wait for Phase 2.
+    expect(find.byKey(const Key('askodoxHeaderWordmark')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxHeaderTalkButton')), findsNothing);
+    expect(find.byKey(const Key('askodoxHeaderRadioButton')), findsNothing);
+    for (final key in ['askodoxHeaderGameButton']) {
       final button = find.byKey(Key(key));
       expect(button, findsOneWidget, reason: key);
       final r = tester.getRect(button);

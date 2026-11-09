@@ -10,8 +10,10 @@ import '../../native_video/video_commerce.dart' show askodoxShareTextProvider;
 import '../../smart_tools/data/phone_meters.dart';
 import '../../smart_tools/presentation/sensor_tools_screen.dart' show askodoxMotionSensorsProvider;
 import '../data/work_mode_store.dart';
+import '../data/work_team_repository.dart';
 import '../domain/work_mode_plan.dart';
 import 'work_scene.dart';
+import 'work_team_widgets.dart';
 
 const _ink = Color(0xFF10204A);
 const _green = Color(0xFF1F8A5B);
@@ -132,15 +134,17 @@ class _Intro extends StatelessWidget {
     final steps = te
         ? const [
             ('పని ఎంచుకోండి', 'పొలం, పేపర్ బాయ్, డెలివరీ, ఇల్లు కట్టడం... మీకు నచ్చిన పని. మీరు ఆడే ఆట చెబితే సరిపడే పని సూచిస్తాం.'),
-            ('నడవండి', 'మీ ఫోన్ లెక్కించే ప్రతి అడుగుతో ఆ పని కొంచెం జరుగుతుంది. 7,000 అడుగులు = ఒక రోజు పూర్తి పని.'),
+            ('రోజంతా కదలండి', 'నడక, ఇంటి పని, ఆట, షాపింగ్ — ఫోన్ చేతిలో లేదా జేబులో ఉంటే చాలు. ఫోన్ లెక్కించే ప్రతి అడుగుతో ఆ పని కొంచెం జరుగుతుంది; యాప్ మూసి ఉన్నా లెక్క ఆగదు. 7,000 అడుగులు = ఒక రోజు పూర్తి పని.'),
+            ('కలిసి ఆడండి', 'ఇంట్లోవాళ్ళు, స్నేహితులను code తో టీమ్‌లోకి పిలవండి. ఎవరి అడుగులు వాళ్ళ పనివాడిని నడుపుతాయి; సాయంత్రం ఎవరు ఎంత చేశారో ఫలితం కార్డ్‌లో.'),
             ('పని ముందుకు', 'పని అసలు క్రమంలోనే జరుగుతుంది (నారు → నాట్లు → కోత). నిజ జీవితంలో కంటే సగం సమయంలో పూర్తవుతుంది.'),
-            ('పంచుకోండి', 'వారం పని రికార్డును మీకు నచ్చిన చోట షేర్ చేయండి. ప్రతి సంఖ్య మీ నిజమైన అడుగుల నుంచే.'),
+            ('పంచుకోండి', 'ఈ రోజు ఫలితం కార్డ్‌ని బొమ్మగా మీకు నచ్చిన చోట షేర్ చేయండి. ప్రతి సంఖ్య మీ నిజమైన అడుగుల నుంచే.'),
           ]
         : const [
             ('Pick a job', 'Paddy field, paper boy, delivery, house building... Tell us what you play and we suggest a fitting job.'),
-            ('Walk', 'Every step your phone counts does a little of that job. 7,000 steps = one full work day.'),
+            ('Move through the day', 'Walking, housework, play, shopping — just keep the phone in your hand or pocket. Every step it counts does a little of the job, even while the app is closed. 7,000 steps = one full work day.'),
+            ('Play together', 'Invite family or friends to your team with a code. Each person\'s steps move their own worker; the evening result card shows who did how much.'),
             ('Watch it grow', 'The work follows the real order (nursery → transplant → harvest), in half the real time.'),
-            ('Share', 'Share your week of work wherever you like. Every number comes from your real steps.'),
+            ('Share', 'Share today\'s result card as a picture wherever you like. Every number comes from your real steps.'),
           ];
     return ListView(
       key: const Key('askodoxWorkIntro'),
@@ -389,13 +393,32 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
   int _livePending = 0;
   Timer? _flush;
   late final AskodoxWorkController _work;
+  int _ticks = 0;
+
+  String get _today => askodoxWorkDayKey(ref.read(askodoxWorkClockProvider)());
+
+  /// Sends today's total to the team (when in one) and keeps the others fresh.
+  void _syncTeam({bool refresh = false}) {
+    final team = ref.read(askodoxWorkTeamProvider.notifier);
+    if (!team.signedIn) return;
+    final day = _today;
+    final steps = ref.read(askodoxWorkControllerProvider).stepsOn(day);
+    if (refresh || ref.read(askodoxWorkTeamProvider).team == null) {
+      unawaited(team.refresh(day).then((_) => team.report(day, steps)));
+    } else {
+      unawaited(team.report(day, steps));
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _work = ref.read(askodoxWorkControllerProvider.notifier);
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _readCounter());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _readCounter();
+      _syncTeam(refresh: true);
+    });
     _startPolling();
   }
 
@@ -430,6 +453,8 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
       } else {
         setState(() {});
       }
+      // Every minute: send this phone's total, see the team's.
+      if (++_ticks % 10 == 0) _syncTeam(refresh: true);
     });
   }
 
@@ -457,6 +482,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           _problem = null;
           _gained(added);
         });
+        if (added > 0) _syncTeam();
       }
     } on AskodoxMeterException catch (e) {
       if (mounted) setState(() => _problem = e.code);
@@ -564,6 +590,8 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
     final lagDays = (lag.abs() / size.stepsPerDay).round();
     final unit = job.unit(te);
     final title = askodoxWorkLevel(state.finished, te);
+    final crew = askodoxWorkCrewOf(ref.watch(askodoxWorkTeamProvider).team, meWalking: _walkingNow && !progress.done);
+    final perUnit = progress.stepsPerUnit <= 0 ? 1.0 : progress.stepsPerUnit;
 
     return ListView(
       key: const Key('askodoxWorkToday'),
@@ -577,6 +605,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           gain: _gain,
           gainId: _gainId,
           te: te,
+          crew: crew,
         ),
         if (!progress.done)
           Padding(
@@ -591,8 +620,8 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                   _walkingNow
                       ? (te ? 'పని జరుగుతోంది — మీరు నడుస్తున్నారు' : 'Work is going on — you are walking')
                       : (te
-                          ? 'మీరు నడిస్తేనే పని జరుగుతుంది. ఫోన్ జేబులో పెట్టి నడవండి.'
-                          : 'Work happens only while you walk. Put the phone in your pocket and walk.'),
+                          ? 'మీరు కదిలితేనే పని జరుగుతుంది — నడక, ఇంటి పని, ఏదైనా. ఫోన్ చేతిలో లేదా జేబులో ఉంచండి.'
+                          : 'Work happens when you move — walking, housework, anything. Keep the phone in your hand or pocket.'),
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -876,6 +905,23 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
               ),
             ],
           ]),
+        ),
+        AskodoxWorkResultCard(
+          te: te,
+          job: job,
+          stageIndex: progress.stageIndex,
+          stageFraction: progress.done ? 1.0 : progress.stageFraction,
+          todaySteps: todaySteps,
+          stepsPerUnit: perUnit,
+          now: now,
+          crew: crew,
+        ),
+        AskodoxWorkTeamCard(
+          te: te,
+          job: job,
+          sizeId: size.id,
+          stepsPerUnit: perUnit,
+          onTeamJob: (jobId, sizeId) => _work.chooseJob(jobId, size: sizeId),
         ),
         _Card(
           key: const Key('askodoxWorkTip'),

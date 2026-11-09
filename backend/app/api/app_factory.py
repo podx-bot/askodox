@@ -345,6 +345,9 @@ def create_app() -> FastAPI:
 
     app.include_router(talk_router)
     app.include_router(talk_admin_router)
+    from app.api.routes.work_team import router as work_team_router
+
+    app.include_router(work_team_router)
     from app.api.routes.push_admin import admin_router as push_admin_router
 
     app.include_router(push_admin_router)

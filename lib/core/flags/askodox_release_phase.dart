@@ -57,6 +57,7 @@ const askodoxPhase2Routes = <String>{
   '/shop-scan',
   '/plans',
   '/me/agent',
+  '/talk',
 };
 
 /// Whether a Profile row with this key is shown in this build.

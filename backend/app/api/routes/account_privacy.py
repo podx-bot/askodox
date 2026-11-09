@@ -156,6 +156,9 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
         for memory_table in ("profile_memory_items", "profile_memory_history", "profile_memory_settings"):
             if memory_table in tables:  # conversation memory goes with the account
                 conn.execute(f"DELETE FROM {memory_table} WHERE user_id=?", (user_id,))
+        for team_table in ("work_team_members", "work_team_steps"):
+            if team_table in tables:  # Work Mode team: the person leaves; the others keep their team
+                conn.execute(f"DELETE FROM {team_table} WHERE user_id=?", (user_id,))
         conn.execute("INSERT OR REPLACE INTO account_deletions(user_id, deleted_at) VALUES(?,?)", (user_id, now))
         conn.commit()
     return {"deleted": True, **done,

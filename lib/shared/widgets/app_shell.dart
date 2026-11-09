@@ -3,6 +3,8 @@ import 'askodox_logo.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../core/flags/askodox_release_phase.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -161,18 +163,31 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             padding: EdgeInsets.only(right: 6),
             child: AskodoxLogo(size: 26),
           ),
-          // Owner 2026-11-08: the logo is enough -- the word "ASKODOX" made room for the three habit buttons
-          // (Work Mode game · Talk · Radio), shown here on every tab. On a narrow phone they shrink to fit.
-          const Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FittedBox(
-                key: Key('askodoxHeaderHub'),
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: AskodoxHubIcons(color: _navAccent),
+          // Phase 1 (owner 2026-11-09): the ASKODOX word + the Work Mode game button. A Phase 2 build adds Talk and
+          // Radio beside it and drops the word to make room (owner 2026-11-08). On a narrow phone they shrink to fit.
+          Expanded(
+            child: Row(children: [
+              if (!askodoxPhase2)
+                const Flexible(
+                  child: FittedBox(
+                    key: Key('askodoxHeaderWordmark'),
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text('ASKODOX',
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                  ),
+                ),
+              const Flexible(
+                child: FittedBox(
+                  key: Key('askodoxHeaderHub'),
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: AskodoxHubIcons(color: _navAccent),
+                ),
               ),
-            ),
+            ]),
           ),
           InkWell(
             key: const Key('askodoxLocationChip'),

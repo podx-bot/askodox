@@ -5395,14 +5395,35 @@
       "id": "work_mode_walking_game",
       "name": "Work Mode: walking does a chosen job (no points or rewards)",
       "purpose": "A daily-habit game for walkers, joggers and players: the person picks a job (paddy / chilli / vegetables, paper boy, delivery, digging, house building, welding, chicken shop, hotel serving, milkman, vegetable cart, grazing cattle, net fishing) and every step the phone counts does a little of that job, in the job's real stage order and in half its real-world time.",
-      "expected_behavior": "A game button beside the ASKODOX wordmark in the header opens /work. First open explains how to play (no points, prizes or money; phone in pocket; Sunday rest; stop if anything hurts). A sport choice (walk, jogging, shuttle, tennis, football, treadmill) highlights fitting jobs. 7,000 steps = one work day; the daily goal ramps 4,000 -> 7,000 over four weeks and is 3,000 on Sunday. Steps come from the phone's own step counter (native stepCount on com.askodox.app/hardware, ACTIVITY_RECOGNITION asked on Android 10+); the first reading only sets the start point; phones without a counter use a live accelerometer count while the screen is open; treadmill steps typed by hand are labelled separately. The animated scene follows the real progress. Share sends a text the person posts wherever they like; every number is the phone's own count. /work/seva is an optional timed peace meditation or own prayer in a walking break; tradition-specific prayers stay locked until reviewed by scholars of that tradition, and the chosen practice is never stored. Everything stays on the phone (prefs key askodox.work_mode.v1, account-scoped).",
+      "expected_behavior": "A game button beside the ASKODOX wordmark in the header opens /work. First open explains how to play (no points, prizes or money; phone in pocket; Sunday rest; stop if anything hurts). A sport choice (walk, jogging, shuttle, tennis, football, treadmill) highlights fitting jobs. 7,000 steps = one work day; the daily goal ramps 4,000 -> 7,000 over four weeks and is 3,000 on Sunday. Steps come from the phone's own step counter (native stepCount on com.askodox.app/hardware, ACTIVITY_RECOGNITION asked on Android 10+); the first reading only sets the start point; phones without a counter use a live accelerometer count while the screen is open; treadmill steps typed by hand are labelled separately. The animated scene follows the real progress. Share sends a text the person posts wherever they like; every number is the phone's own count. /work/seva is an optional timed peace meditation or own prayer in a walking break; tradition-specific prayers stay locked until reviewed by scholars of that tradition, and the chosen practice is never stored. Everything stays on the phone (prefs key askodox.work_mode.v1, account-scoped). Any movement with the phone (walking, housework, play) counts: the phone's own step counter keeps counting while the app is closed Team: make a team, invite family / friends with a 6-letter code + the app link (max 4); each member's own steps move their own worker; only names, clothes and day step totals are shared Today's result card (steps, work done, team shares) can be shared as a picture with the app link",
       "roles": [
         "customer"
       ],
       "domains": [
         "any"
       ],
-      "api": [],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/work/team"
+        },
+        {
+          "method": "POST",
+          "path": "/api/work/team"
+        },
+        {
+          "method": "POST",
+          "path": "/api/work/team/join"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/work/team/steps"
+        },
+        {
+          "method": "POST",
+          "path": "/api/work/team/leave"
+        }
+      ],
       "ui": {
         "keys": [
           "askodoxHeaderGameButton",
@@ -5415,7 +5436,13 @@
           "askodoxSevaScreen",
           "askodoxWorkUnits",
           "askodoxWorkReplay",
-          "askodoxWorkWaiting"
+          "askodoxWorkWaiting",
+          "askodoxWorkTeam",
+          "askodoxWorkTeamCreate",
+          "askodoxWorkTeamJoin",
+          "askodoxWorkTeamInvite",
+          "askodoxWorkResult",
+          "askodoxWorkResultShare"
         ],
         "symbols": [
           "askodoxWorkJobs",
@@ -5427,12 +5454,17 @@
           "askodoxWorkShareText",
           "askodoxWorkSizes",
           "askodoxWorkPlannedBefore",
-          "AskodoxWorkCrewMember"
+          "AskodoxWorkCrewMember",
+          "AskodoxWorkTeamCard",
+          "AskodoxWorkResultCard",
+          "askodoxWorkInviteText"
         ]
       },
       "flags": {},
       "tests": {
-        "backend": [],
+        "backend": [
+          "tests/test_work_teams.py"
+        ],
         "flutter": [
           "test/features/work_mode/work_mode_plan_test.dart",
           "test/features/work_mode/work_mode_widgets_test.dart"
@@ -5443,7 +5475,8 @@
       "history": [
         "2026-11-07: owner asked for a walking game linked to real jobs in half the real time, no rewards, game icon beside ASKODOX in the header, how-to-play at the start, sport-based job suggestions and optional seva",
         "2026-11-09: owner asked for work shown in real units (10 / 50 / 100 acres task sizes, 'N more steps = 1 more acre'), schedule ahead / behind, a waiting scene when nobody walks, hotel serving job, and a fast-forward replay of the day's work",
-        "2026-11-09: owner approved the code-drawn preview (no Lottie budget) and asked for the same realism in every job, new daily jobs, team play with friends / family (each moved by their own steps) and real problems when nobody walks (customers calling, paper not delivered)"
+        "2026-11-09: owner approved the code-drawn preview (no Lottie budget) and asked for the same realism in every job, new daily jobs, team play with friends / family (each moved by their own steps) and real problems when nobody walks (customers calling, paper not delivered)",
+        "2026-11-09: owner asked for invite / team play, any daily activity counting, an evening result card shared with the app link, and Talk / Radio buttons hidden in Phase 1"
       ]
     },
     {
