@@ -103,6 +103,57 @@ class AssistantDecision(BaseModel):
 
 @router.post("/assistant", response_model=AssistantDecision)
 def assistant_decision(payload: AssistantRequest, request: Request) -> AssistantDecision:
+    return _assistant_answer(payload, request)
+
+
+@router.post("/assistant/stream")
+def assistant_decision_stream(payload: AssistantRequest, request: Request) -> Any:
+    """The same answer as ``/assistant``, streamed as JSON lines so the app shows a long
+    answer (how-to guide / advice) word by word while it is written:
+    ``{"type":"delta","text":...}`` pieces, ``{"type":"reset"}`` when a started answer is
+    replaced by a fallback, and ONE final ``{"type":"final","decision":{...}}`` -- exactly
+    the ``/assistant`` JSON, which the app treats as the real answer."""
+    import json
+    import queue
+    import threading
+
+    from fastapi.responses import StreamingResponse
+
+    pieces: "queue.Queue[tuple[str, Any]]" = queue.Queue()
+    done = object()
+
+    def on_text(piece: str | None) -> None:
+        pieces.put(("reset", None) if piece is None else ("delta", piece))
+
+    def work() -> None:
+        try:
+            decision = _assistant_answer(payload, request, on_text=on_text)
+        except Exception:
+            logger.exception("in_app_assistant.stream failed")
+            decision = AssistantDecision(reply="", domain="UNKNOWN", transactional=False, action="",
+                                         confidence=0.0, source="fallback")
+        pieces.put(("final", decision))
+        pieces.put(("end", done))
+
+    threading.Thread(target=work, name="assistant-stream", daemon=True).start()
+
+    def lines():
+        while True:
+            kind, value = pieces.get()
+            if kind == "end":
+                return
+            if kind == "delta":
+                yield json.dumps({"type": "delta", "text": value}, ensure_ascii=False) + "\n"
+            elif kind == "reset":
+                yield '{"type": "reset"}\n'
+            else:
+                yield json.dumps({"type": "final", "decision": value.model_dump()}, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any = None) -> AssistantDecision:
     container: Any = request.app.state.container
     service = container.universal_ai_assistant_service
     history = [{"role": turn.role, "text": turn.text} for turn in payload.history[-12:]]
@@ -129,6 +180,8 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         lessons = _lessons(container, payload.message)
         if lessons and _accepts(service.decide, "lessons"):
             extra["lessons"] = lessons
+        if on_text is not None and _accepts(service.decide, "on_text"):
+            extra["on_text"] = on_text
         decision = service.decide(
             payload.message,
             history=history,
