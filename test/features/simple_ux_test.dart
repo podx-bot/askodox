@@ -266,6 +266,8 @@ void main() {
     }
     // Phase 1: no Orders tab (ASKODOX neither sells nor buys); the header bell opens request updates.
     expect(find.byKey(const Key('askodoxNavUpdates')), askodoxPhase2 ? findsOneWidget : findsNothing);
+    // Phase 1 (owner 2026-11-10): Payments sits beside Ask.
+    expect(find.byKey(const Key('askodoxNavPayments')), askodoxPhase2 ? findsNothing : findsOneWidget);
     await tester.tap(find.byKey(const Key('askodoxHeaderBell')));
     await tester.pumpAndSettle();
     expect(find.text('UPDATES'), findsOneWidget);
