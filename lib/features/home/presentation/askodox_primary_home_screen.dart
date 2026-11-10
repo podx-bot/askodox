@@ -255,6 +255,9 @@ class _AskodoxPrimaryHomeScreenState
   int _issueTurns = 0;
   bool _active = false;
   bool _sending = false;
+  // The long answer while the brain is still writing it (streamed); null otherwise.
+  String? _streamingReply;
+  int _streamingScrolledAt = 0;
   _VoicePhase _voicePhase = _VoicePhase.idle;
 
   /// The field the Universal Advisor asked about last turn (budget, usage,
@@ -2195,7 +2198,10 @@ class _AskodoxPrimaryHomeScreenState
     // Every turn passes the Conversation Decision Brain BEFORE any search:
     // it reads the whole conversation and says whether a search is justified
     // now (see search_readiness.dart).
-    final decision = await ref.read(askodoxAssistantServiceProvider).decide(
+    // A long answer (how-to guide / advice) appears while it is written (owner 2026-11-10:
+    // feels like 2-3 s); the decision that comes back is still the real answer.
+    _streamingScrolledAt = 0;
+    final decision = await ref.read(askodoxAssistantServiceProvider).decideStreaming(
       message: aiMessage,
       locale: _lang,
       history: history,
@@ -2203,7 +2209,9 @@ class _AskodoxPrimaryHomeScreenState
       searchedFor: _searchedFor(),
       adviceGiven: _adviceLedger,
       authToken: ref.read(authSessionProvider).user == null ? null : ref.read(authSessionProvider).tokenPlaceholder,
+      onText: _showStreamingReply,
     );
+    if (mounted && _streamingReply != null) setState(() => _streamingReply = null);
     final aiUsable = decision?.usable == true;
     askodoxTestLog('reply', detail: {
       'usable': aiUsable,
@@ -3950,6 +3958,16 @@ class _AskodoxPrimaryHomeScreenState
 
   bool _has(String text, List<String> words) => words.any(text.contains);
 
+  void _showStreamingReply(String textSoFar) {
+    if (!mounted || !_sending) return;
+    setState(() => _streamingReply = textSoFar.isEmpty ? null : textSoFar);
+    // Follow the growing answer without animating on every piece.
+    if (textSoFar.length - _streamingScrolledAt >= 80 || _streamingScrolledAt == 0) {
+      _streamingScrolledAt = textSoFar.length;
+      _scrollBottom();
+    }
+  }
+
   void _scrollBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -5035,7 +5053,23 @@ class _AskodoxPrimaryHomeScreenState
               ..._turnHead(index, turn, te),
               ..._turnFollowUps(index, turn, te),
             ],
-          if (_sending)
+          if (_sending && _streamingReply != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                key: const Key('askodoxStreamingReply'),
+                constraints: const BoxConstraints(maxWidth: 330),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE1E8F2))),
+                child: AskodoxRichReply(_streamingReply!,
+                    style: const TextStyle(color: _ink, height: 1.35, fontWeight: FontWeight.w500)),
+              ),
+            )
+          else if (_sending)
             const Align(
               alignment: Alignment.centerLeft,
               child: Padding(

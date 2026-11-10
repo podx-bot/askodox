@@ -117,6 +117,45 @@ GUIDE_ANSWER_RULES = (
     "No result cards are shown for this answer.\n"
 )
 
+class _VisibleText:
+    """Forwards streamed answer text to the app, never the machine line the advice prompt
+    asks for at the end (``ADVICE_META: {...}``). None (a broken stream) resets it."""
+
+    _MARK = "ADVICE_META"
+
+    def __init__(self, sink: Any) -> None:
+        self.sink, self.buffer, self.sent, self.stopped = sink, "", 0, False
+
+    def __call__(self, piece: str | None) -> None:
+        if piece is None:
+            self.buffer, self.sent, self.stopped = "", 0, False
+            self.sink(None)
+            return
+        if self.stopped:
+            return
+        self.buffer += piece
+        at = self.buffer.find(self._MARK)
+        if at >= 0:
+            out, self.stopped = self.buffer[self.sent:at].rstrip(), True
+        else:
+            out = self.buffer[self.sent:max(self.sent, len(self.buffer) - (len(self._MARK) - 1))]
+        if out:
+            self.sink(out)
+            self.sent += len(out)
+
+    def flush(self) -> None:
+        """The answer is complete: send the tail held back in case it began the marker."""
+        if not self.stopped:
+            out = self.buffer[self.sent:].rstrip()
+            if out:
+                self.sink(out)
+                self.sent += len(out)
+
+    @property
+    def shown(self) -> bool:
+        return self.sent > 0
+
+
 DECISION_GUIDANCE_RULES = (
     "Decision guidance (every domain, every language; you are a personal advisor and decision partner, not a "
     "search box): the reply must first genuinely help with what the user asked, whether or not options will be "
@@ -281,11 +320,17 @@ class UniversalAIAssistantService:
         return bool(self.anthropic_api_key or self.configured or self.openai_api_key)
 
     def _call_claude(self, prompt: str, *, model: str = "", max_tokens: int = 2048,
-                     temperature: float = 0.2, timeout: float = 45.0) -> str:
-        """One Claude Messages API call; "" when no key or no answer (callers fall back)."""
+                     temperature: float = 0.2, timeout: float = 45.0, on_text: Any = None) -> str:
+        """One Claude Messages API call; "" when no key or no answer (callers fall back).
+
+        ``on_text`` (per request, never stored on the service): called with each piece of
+        text as Claude writes it (the app shows the answer word by word), and with None
+        when a started stream broke -- the caller's fallback answer then replaces it."""
         if not self.anthropic_api_key:
             return ""
         chosen = model or self.anthropic_model
+        if on_text is not None and hasattr(self.http, "stream"):
+            return self._stream_claude(prompt, chosen, max_tokens, timeout, on_text)
         try:
             response = self.http.post(
                 "https://api.anthropic.com/v1/messages",
@@ -322,6 +367,65 @@ class UniversalAIAssistantService:
                     detail = str(getattr(response, "text", ""))[:200]
             logger.warning("universal_ai_assistant: claude call failed (model=%s, %s, status=%s, type=%s, message=%s)",
                            chosen, type(exc).__name__, status, kind, detail)
+            return ""
+
+    def _stream_claude(self, prompt: str, chosen: str, max_tokens: int, timeout: float, on_text: Any) -> str:
+        """Claude Messages API with ``stream: true`` (server-sent events). Same answer as the
+        plain call; each text delta goes to ``on_text`` as it arrives."""
+        parts: list[str] = []
+        stop_reason = ""
+        try:
+            with self.http.stream(
+                "POST", "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": self.anthropic_api_key, "anthropic-version": "2023-06-01",
+                         "content-type": "application/json"},
+                json={"model": chosen, "max_tokens": max_tokens, "stream": True,
+                      "messages": [{"role": "user", "content": prompt}]},
+                timeout=timeout,
+            ) as response:
+                if response.status_code >= 400:
+                    response.read()
+                    response.raise_for_status()
+                for line in response.iter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    try:
+                        event = json.loads(line[5:].strip())
+                    except ValueError:
+                        continue
+                    kind = event.get("type")
+                    if kind == "content_block_delta":
+                        delta = event.get("delta") or {}
+                        if delta.get("type") == "text_delta" and delta.get("text"):
+                            parts.append(str(delta["text"]))
+                            on_text(str(delta["text"]))
+                    elif kind == "message_delta":
+                        stop_reason = str((event.get("delta") or {}).get("stop_reason") or stop_reason)
+                    elif kind == "error":
+                        err = event.get("error") or {}
+                        raise RuntimeError(f"stream error {err.get('type')}: {str(err.get('message'))[:200]}")
+            text = "".join(parts).strip()
+            if stop_reason == "max_tokens":
+                logger.warning("universal_ai_assistant: claude answer cut at max_tokens (model=%s)", chosen)
+            _observe_ai("anthropic", ok=bool(text))
+            return text
+        except Exception as exc:
+            _observe_ai("anthropic", error=exc)
+            status, kind, detail = "", "", ""
+            response = getattr(exc, "response", None)
+            if response is not None:
+                status = str(getattr(response, "status_code", ""))
+                try:
+                    err = (response.json() or {}).get("error") or {}
+                    kind, detail = str(err.get("type") or ""), str(err.get("message") or "")[:200]
+                except Exception:
+                    detail = str(getattr(response, "text", ""))[:200]
+            else:
+                detail = str(exc)[:200]
+            logger.warning("universal_ai_assistant: claude stream failed (model=%s, %s, status=%s, type=%s, "
+                           "message=%s)", chosen, type(exc).__name__, status, kind, detail)
+            if parts:
+                on_text(None)  # what was shown is withdrawn; the fallback answer follows
             return ""
 
     @classmethod
@@ -562,7 +666,7 @@ class UniversalAIAssistantService:
                 advice_ledger: list[dict[str, Any]] | None = None,
                 capabilities: list[str] | None = None, user_memory: list[str] | None = None,
                 evidence: str = "", lessons: list[str] | None = None,
-                guide: bool = False, attachment_facts: str = "") -> tuple[str, Any]:
+                guide: bool = False, attachment_facts: str = "", on_text: Any = None) -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
@@ -605,8 +709,12 @@ class UniversalAIAssistantService:
         )
         # Guide and advice answers both use the reasoning model: quality is compulsory in
         # every language (owner 2026-11-10); Haiku gave no measurable speed gain (#307).
+        gate = _VisibleText(on_text) if on_text is not None else None
         text = self._call_claude(prompt, model=self.anthropic_reasoning_model, max_tokens=3072,
-                                 temperature=0.3, timeout=60.0)
+                                 temperature=0.3, timeout=60.0, on_text=gate)
+        if gate is not None and text:
+            gate.flush()
+        streamed = bool(text) and gate is not None and gate.shown
         if not text and self.configured:
             try:
                 client = self.client or genai.Client(api_key=self.api_key)
@@ -628,13 +736,18 @@ class UniversalAIAssistantService:
                 text = self._openai_output_text(response.json())
             except Exception:
                 logger.exception("universal_ai_assistant.advise: openai fallback failed (len=%d)", len(user_text))
+        result: tuple[str, Any] | None = None
         if text.startswith("{"):
             try:  # a model that answered JSON anyway
                 parsed = json.loads(text, strict=False)
-                return str(parsed.get("reply") or "").strip(), parsed.get("advice")
+                result = (str(parsed.get("reply") or "").strip(), parsed.get("advice"))
             except (ValueError, AttributeError):
                 pass
-        return advice_memory.split_meta(text)
+        if result is None:
+            result = advice_memory.split_meta(text)
+        if on_text is not None and result[0] and not streamed:
+            on_text(result[0])  # a fallback answer (Gemini / OpenAI) arrives in one piece
+        return result
 
     def write_text(self, prompt: str, *, max_tokens: int = 1024) -> str:
         """Plain text from the same models (Gemini, then OpenAI); "" when no
@@ -910,8 +1023,13 @@ class UniversalAIAssistantService:
         capabilities: list[str] | None = None,
         user_memory: list[str] | None = None,
         lessons: list[str] | None = None,
+        on_text: Any = None,
     ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
+
+        ``on_text`` (optional, per request): receives the long answer (guide / advice) piece
+        by piece while it is written, for the streaming route. The returned decision is the
+        final word -- its reply may differ slightly (honesty guard, sources footer).
 
         The AI extracts reusable semantic entities so downstream business logic does
         not need to re-infer the primary intent from keyword-prefixed text.
@@ -1028,7 +1146,7 @@ class UniversalAIAssistantService:
                 said_early, compact_history, locale, clean_location, ledger, capabilities,
                 user_memory=user_memory, lessons=lessons,
                 evidence=runtime_block + "\n" + (grounding_block or ""),
-                guide=True, attachment_facts=facts_early)
+                guide=True, attachment_facts=facts_early, on_text=on_text)
             answer_ms = int((time.monotonic() - t0) * 1000)
         if prepared_guide:
             path = "guide_fast"
@@ -1114,7 +1232,7 @@ class UniversalAIAssistantService:
                     answer, _meta = self._advise(said, compact_history, locale, clean_location, ledger,
                                                  capabilities, user_memory=user_memory, lessons=lessons,
                                                  evidence=runtime_block + "\n" + (grounding_block or ""),
-                                                 guide=True, attachment_facts=facts)
+                                                 guide=True, attachment_facts=facts, on_text=on_text)
                     answer_ms = int((time.monotonic() - t0) * 1000)
                 if answer:
                     reply = answer
@@ -1128,7 +1246,8 @@ class UniversalAIAssistantService:
                 action = "advise"
                 advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities,
                                                    user_memory=user_memory, lessons=lessons,
-                                                   evidence=runtime_block + "\n" + (grounding_block or ""))
+                                                   evidence=runtime_block + "\n" + (grounding_block or ""),
+                                                   on_text=on_text)
                 if advice:
                     reply = advice
                     data["advice"] = advice_meta

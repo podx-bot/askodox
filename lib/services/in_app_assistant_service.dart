@@ -303,26 +303,12 @@ class InAppAssistantService {
       final response = await client
           .post(
             Uri.parse('$_baseUrl/api/in-app/assistant'),
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              if (token != null) 'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              'message': clean,
-              'locale': locale,
-              'history': history.takeLast(12).map((turn) => turn.toJson()).toList(),
-              if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
-              if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
-              if (adviceGiven != null && adviceGiven.isNotEmpty) 'advice_given': adviceGiven,
-              // This build renders [ok] / [caution] / [risk] meaning tags and
-              // shows a chat-action button (app_action) under a reply. A Phase 1
-              // build opens only Phase 1 screens, so the brain offers only those.
-              // 'suggestions' = this build draws tap chips under the reply.
-              'capabilities': ['meaning_tags', 'app_actions', 'suggestions', if (!askodoxPhase2) 'phase1_only'],
-            }),
+            headers: _headers(token, 'application/json'),
+            body: jsonEncode(_body(clean, locale, history, cleanLocation, searchedFor, adviceGiven)),
           )
-          .timeout(const Duration(seconds: 15));
+          // A full how-to guide takes 10-30 s to write (owner probe 2026-11-10); at 15 s the
+          // phone gave up and showed the generic reply instead of the answer.
+          .timeout(const Duration(seconds: 45));
 
       if (response.statusCode < 200 || response.statusCode >= 300) return null;
       final decoded = jsonDecode(response.body);
@@ -340,6 +326,110 @@ class InAppAssistantService {
       if (ownClient) client.close();
     }
   }
+
+  Map<String, String> _headers(String? token, String accept) => {
+        'Accept': accept,
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+
+  Map<String, Object?> _body(String clean, String locale, List<InAppAssistantTurn> history, String? cleanLocation,
+          Map<String, Object?>? searchedFor, List<Map<String, Object?>>? adviceGiven) =>
+      {
+        'message': clean,
+        'locale': locale,
+        'history': history.takeLast(12).map((turn) => turn.toJson()).toList(),
+        if (cleanLocation != null && cleanLocation.isNotEmpty) 'location': cleanLocation,
+        if (searchedFor != null && searchedFor.isNotEmpty) 'searched_for': searchedFor,
+        if (adviceGiven != null && adviceGiven.isNotEmpty) 'advice_given': adviceGiven,
+        // This build renders [ok] / [caution] / [risk] meaning tags and
+        // shows a chat-action button (app_action) under a reply. A Phase 1
+        // build opens only Phase 1 screens, so the brain offers only those.
+        // 'suggestions' = this build draws tap chips under the reply.
+        'capabilities': ['meaning_tags', 'app_actions', 'suggestions', if (!askodoxPhase2) 'phase1_only'],
+      };
+
+  /// The same decision as [decide], but a long answer (how-to guide / advice) is shown
+  /// while it is written: [onText] gets the whole text so far after every piece ('' when a
+  /// started answer is withdrawn for a fallback). The returned decision is the real answer
+  /// -- callers handle it exactly like [decide]'s. An older backend without the stream
+  /// route (404 / 405) is asked through [decide].
+  Future<InAppAssistantDecision?> decideStreaming({
+    required String message,
+    required String locale,
+    required List<InAppAssistantTurn> history,
+    required void Function(String textSoFar) onText,
+    String? location,
+    Map<String, Object?>? searchedFor,
+    List<Map<String, Object?>>? adviceGiven,
+    String? authToken,
+  }) async {
+    final clean = message.trim();
+    final token = authToken == null || authToken.isEmpty || authToken == 'OTP_VERIFIED' || authToken == 'DEMO_ONLY'
+        ? null
+        : authToken;
+    if (clean.isEmpty) return null;
+    final cleanLocation = location?.trim();
+    final ownClient = _client == null;
+    final client = _client ?? http.Client();
+    var shown = '';
+    try {
+      final request = http.Request('POST', Uri.parse('$_baseUrl/api/in-app/assistant/stream'))
+        ..headers.addAll(_headers(token, 'application/x-ndjson, application/json'))
+        ..body = jsonEncode(_body(clean, locale, history, cleanLocation, searchedFor, adviceGiven));
+      final response = await client.send(request).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        await response.stream.drain<void>();
+        return decide(
+          message: message,
+          locale: locale,
+          history: history,
+          location: location,
+          searchedFor: searchedFor,
+          adviceGiven: adviceGiven,
+          authToken: authToken,
+        );
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) return null;
+      // Between two pieces at most 45 s (routing + a full answer can take that long before
+      // the first piece); the whole answer has no fixed limit while text keeps coming.
+      final lines = response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .timeout(const Duration(seconds: 45));
+      await for (final line in lines) {
+        if (line.trim().isEmpty) continue;
+        final event = jsonDecode(line);
+        if (event is! Map<String, dynamic>) continue;
+        switch (event['type']) {
+          case 'delta':
+            shown += '${event['text'] ?? ''}';
+            onText(shown);
+          case 'reset':
+            shown = '';
+            onText('');
+          case 'final':
+            final decision = event['decision'];
+            return decision is Map<String, dynamic> ? InAppAssistantDecision.fromJson(decision) : null;
+          case null when event.containsKey('reply'):
+            // A server that answered with the plain /assistant JSON.
+            return InAppAssistantDecision.fromJson(event);
+        }
+      }
+      return null;
+    } on TimeoutException {
+      return null;
+    } on http.ClientException {
+      return null;
+    } on FormatException {
+      return null;
+    } catch (_) {
+      return null;
+    } finally {
+      if (ownClient) client.close();
+    }
+  }
+
   static final Map<String, String> _localized = {};
 
   /// One deal question in the conversation language (any language the AI

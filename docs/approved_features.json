@@ -5657,6 +5657,54 @@
       "history": [
         "2026-11-10: owner asked that chosen staff also hear the payment sound, reachable in the Phase 1 app"
       ]
+    },
+    {
+      "id": "chat_answer_streaming",
+      "name": "Chat answers appear while they are written (streaming)",
+      "purpose": "A long answer (how-to guide, screenshot guide, advice) shows word by word in 2-3 s instead of after 10-30 s; quality unchanged.",
+      "expected_behavior": "POST /api/in-app/assistant/stream returns JSON lines: delta pieces, reset when a started answer is replaced by a fallback, and ONE final decision identical to /api/in-app/assistant. The app shows the growing text in the chat and then handles the final decision exactly like before; an older backend (404) is asked through /assistant. The ADVICE_META machine line is never streamed.",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant/stream"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxStreamingReply"
+        ],
+        "symbols": [
+          "decideStreaming"
+        ]
+      },
+      "flags": {
+        "ai.assistant": true
+      },
+      "tests": {
+        "backend": [
+          "tests/test_chat_answer_streaming.py"
+        ],
+        "flutter": [
+          "test/services/in_app_assistant_streaming_test.dart"
+        ]
+      },
+      "health": "conversation_intelligence",
+      "dependencies": [
+        "decision_brain"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "pr": 310,
+          "change": "owner 2026-11-10: answers appear word by word"
+        }
+      ]
     }
   ]
 }
