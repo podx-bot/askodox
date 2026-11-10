@@ -300,6 +300,9 @@ class UniversalAIAssistantService:
             data = response.json()
             text = "".join(str(block.get("text") or "") for block in (data.get("content") or [])
                            if isinstance(block, dict) and block.get("type") == "text").strip()
+            if data.get("stop_reason") == "max_tokens":
+                # The reply was cut off: a JSON decision then cannot be read.
+                logger.warning("universal_ai_assistant: claude answer cut at max_tokens (model=%s)", chosen)
             _observe_ai("anthropic", ok=bool(text))
             return text
         except Exception as exc:
@@ -1214,7 +1217,7 @@ class UniversalAIAssistantService:
         """One structured decision from Gemini, then OpenAI (None when no model answered)."""
         data: dict[str, Any] | None = None
         claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown.",
-                                        max_tokens=2048, temperature=0.15, timeout=25.0)
+                                        max_tokens=4096, temperature=0.15, timeout=25.0)
         if claude_text:
             try:
                 data = self._parse_json(claude_text)
