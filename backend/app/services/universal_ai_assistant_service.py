@@ -100,7 +100,8 @@ GUIDE_ANSWER_RULES = (
     "application -- government or private --, a form, an online portal, an app or website screen, a "
     "setting, a document, fixing a problem) or sent a screenshot / photo of a screen or document. "
     "This is NOT a request for shops or sellers.\n"
-    "Answer in the user's language, short and practical, in this order:\n"
+    "Answer in the user's language, short and practical (about 900 characters at most, at most 5 steps), "
+    "in this order:\n"
     "1. One line: what this is / what the screen in the attachment is asking (read its visible text).\n"
     "2. What to do now -- numbered steps, one action each; when a form or screen is shown, say what to choose "
     "or type in each field that matters, using the user's own situation from the conversation.\n"
@@ -112,7 +113,8 @@ GUIDE_ANSWER_RULES = (
     "Fees, limits, rules and laws can change: give them as 'usually' and say to confirm on the official site. "
     "Do not push agents, CAs, shops or sellers; at most one optional last line that a local agent can do it "
     "for a fee, only when that genuinely helps. Never invent what a screenshot shows -- if it is unreadable "
-    "say so and ask for a clearer photo. No result cards are shown for this answer.\n"
+    "say so and ask for a clearer photo. Do not repeat the screen text back; only the steps the user needs. "
+    "No result cards are shown for this answer.\n"
 )
 
 DECISION_GUIDANCE_RULES = (
