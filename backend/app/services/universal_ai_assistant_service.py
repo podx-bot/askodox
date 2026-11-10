@@ -91,6 +91,30 @@ def _reply_language_rule(locale: str) -> str:
 # Reasoning before results (APK 1311): result cards SUPPORT the answer, they
 # never replace it. One rule for every domain -- products, services, business,
 # finance, personal decisions -- never a per-category script.
+# Know-how / do-it-yourself answers (owner 2026-11-10): a process, a
+# registration, a form, an app or website screen, a screenshot -- answered
+# like an expert sitting next to the user, never turned into a seller search.
+GUIDE_ANSWER_RULES = (
+    "You are ASKODOX, a smart personal assistant for people in India, answering like an expert sitting next to "
+    "the user. The user wants to UNDERSTAND or DO something themselves (a process, a registration or "
+    "application -- government or private --, a form, an online portal, an app or website screen, a "
+    "setting, a document, fixing a problem) or sent a screenshot / photo of a screen or document. "
+    "This is NOT a request for shops or sellers.\n"
+    "Answer in the user's language, short and practical, in this order:\n"
+    "1. One line: what this is / what the screen in the attachment is asking (read its visible text).\n"
+    "2. What to do now -- numbered steps, one action each; when a form or screen is shown, say what to choose "
+    "or type in each field that matters, using the user's own situation from the conversation.\n"
+    "3. Watch out -- at most 3 short points (common mistakes, things that must match, what NOT to click).\n"
+    "4. Next -- one line: what comes after this step, or what to send next (e.g. a photo of the next screen).\n"
+    "Rules: understand the real goal from the whole conversation; use the facts the user already gave and "
+    "never ask again for them. Give a link ONLY where the user must open a site, and only an official site "
+    "you are sure of (e.g. udyamregistration.gov.in, gst.gov.in, incometax.gov.in) -- never a made-up URL. "
+    "Fees, limits, rules and laws can change: give them as 'usually' and say to confirm on the official site. "
+    "Do not push agents, CAs, shops or sellers; at most one optional last line that a local agent can do it "
+    "for a fee, only when that genuinely helps. Never invent what a screenshot shows -- if it is unreadable "
+    "say so and ask for a clearer photo. No result cards are shown for this answer.\n"
+)
+
 DECISION_GUIDANCE_RULES = (
     "Decision guidance (every domain, every language; you are a personal advisor and decision partner, not a "
     "search box): the reply must first genuinely help with what the user asked, whether or not options will be "
@@ -217,8 +241,17 @@ class UniversalAIAssistantService:
         research_service: Any | None = None,
         clock: Any | None = None,
         deep_research_service: Any | None = None,
+        anthropic_api_key: str = "",
+        anthropic_model: str = "",
+        anthropic_reasoning_model: str = "",
     ) -> None:
         self.delegate = delegate
+        # Claude is the PRIMARY brain when a key is set (owner 2026-10-30):
+        # the fast model routes every turn, the reasoning model writes full
+        # advice / step-by-step guide answers. Gemini, then OpenAI, fall back.
+        self.anthropic_api_key = str(anthropic_api_key or "").strip()
+        self.anthropic_model = str(anthropic_model or "claude-haiku-5-5").strip()
+        self.anthropic_reasoning_model = str(anthropic_reasoning_model or "claude-sonnet-5-5").strip()
         # Live evidence for time-sensitive facts (OASATLiveResearchService) and
         # the runtime clock used for "today / this year / now" grounding.
         self.research_service = research_service
@@ -240,6 +273,36 @@ class UniversalAIAssistantService:
     @property
     def configured(self) -> bool:
         return bool(self.client or self.api_key)
+
+    @property
+    def any_model(self) -> bool:
+        return bool(self.anthropic_api_key or self.configured or self.openai_api_key)
+
+    def _call_claude(self, prompt: str, *, model: str = "", max_tokens: int = 2048,
+                     temperature: float = 0.2, timeout: float = 45.0) -> str:
+        """One Claude Messages API call; "" when no key or no answer (callers fall back)."""
+        if not self.anthropic_api_key:
+            return ""
+        chosen = model or self.anthropic_model
+        try:
+            response = self.http.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": self.anthropic_api_key, "anthropic-version": "2023-06-01",
+                         "content-type": "application/json"},
+                json={"model": chosen, "max_tokens": max_tokens, "temperature": temperature,
+                      "messages": [{"role": "user", "content": prompt}]},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            text = "".join(str(block.get("text") or "") for block in (data.get("content") or [])
+                           if isinstance(block, dict) and block.get("type") == "text").strip()
+            _observe_ai("anthropic", ok=bool(text))
+            return text
+        except Exception as exc:
+            _observe_ai("anthropic", error=exc)
+            logger.warning("universal_ai_assistant: claude call failed (model=%s, %s)", chosen, type(exc).__name__)
+            return ""
 
     @classmethod
     def _clean_entities(cls, raw: Any) -> dict[str, Any]:
@@ -280,8 +343,48 @@ class UniversalAIAssistantService:
         "Compare for the user.",
         "The customer shared attachment",
         "The customer is ending the conversation",
+        "Attachment facts:",
     )
     _ABOUT_SHOWN_MARKERS = _APP_CONTEXT_MARKERS[:3]
+    # Instructions the APP writes in place of the user's words (attachment
+    # sent without a question). They are never the user's own request: the
+    # old one says "where to get it nearby or online", which made every
+    # wordless screenshot a shop search (production 2026-11-10).
+    _APP_INSTRUCTION_PREFIXES = ("The customer sent this attachment without a question",)
+
+    @classmethod
+    def own_words(cls, message: str) -> str:
+        """Only what the USER said: app context and app-written instructions removed ("" when none)."""
+        text = str(message or "")
+        cut = len(text)
+        for marker in cls._APP_CONTEXT_MARKERS:
+            at = text.find(marker)
+            if at >= 0:
+                cut = min(cut, at)
+        user = text[:cut].strip()
+        if any(user.startswith(prefix) for prefix in cls._APP_INSTRUCTION_PREFIXES):
+            return ""
+        return user
+
+    @staticmethod
+    def attachment_facts_of(message: str) -> str:
+        text = str(message or "")
+        at = text.find("Attachment facts:")
+        return text[at + len("Attachment facts:"):].strip() if at >= 0 else ""
+
+    # Do-it-yourself / know-how asks (any subject, any language): a process,
+    # an application, a registration, a form, steps. Answered as a guide.
+    _HOWTO_ASK = re.compile(
+        r"\bhow (do|can|should|to) (i|we)?\s*(apply|register|fill|file|get|do|make|set ?up|open|update|change|fix|"
+        r"complete|submit|link|add|remove|cancel|download|renew|correct)\b|\bhow to\b|\bsteps? (to|for)\b|"
+        r"\bprocess (to|for|of)\b|\bprocedure\b|\bwhat (should|do) i (do|fill|select|choose|enter)\b|"
+        r"\b(registration|application|apply|register|form|portal|certificate|licen[cs]e)\b.{0,30}\b(how|process|steps?)\b|"
+        r"\bela (cheyali|cheyyali|chesukovali|apply|register|fill|pettali|nimpali|marchali|teesukovali|pondali|open)\b|"
+        r"ఎలా (చేయాలి|చేయాల|అప్లై|రిజిస్ట|పెట్టాలి|ఫిల్|నింపాలి|మార్చాలి|తీసుకోవాలి|పొందాలి|ఓపెన్)|ఏం (చేయాలి|పెట్టాలి|ఫిల్ చేయాలి|సెలెక్ట్)"
+        r"|ఏది (పెట్టాలి|సెలెక్ట్ చేయాలి)|ప్రాసెస్|విధానం|స్టెప్స్|कैसे (करें|करना|अप्लाई|भरें|बनवाएं)|प्रक्रिया|क्या (भरें|करें)",
+        re.IGNORECASE)
+    # Screens and documents read from an attachment.
+    _GUIDE_ATTACHMENT = re.compile(r"\bType: (SCREEN|DOCUMENT)\b")
 
     @staticmethod
     def reconcile_relation(relation, model_new_need: bool, brain: dict, active_subject: str,
@@ -403,6 +506,19 @@ class UniversalAIAssistantService:
         re.IGNORECASE)
 
     @classmethod
+    def wants_guide(cls, user_text: str, attachment_facts: str = "", model_action: str = "") -> bool:
+        """A know-how answer, not a seller search: the model said so (explain_steps), the user's own words ask
+        how to do something, or a screen / document was sent -- unless the user plainly asks to buy / find now."""
+        text = user_text or ""
+        if cls._COMMERCE_NOW.search(text) or cls._asks_where_to_get(text) or cls._asks_for_videos(text):
+            return False
+        if model_action in {"explain_steps", "guide", "how_to"}:
+            return True
+        if cls._HOWTO_ASK.search(text):
+            return True
+        return bool(attachment_facts and cls._GUIDE_ATTACHMENT.search(attachment_facts))
+
+    @classmethod
     def wants_advice(cls, user_text: str) -> bool:
         text = user_text or ""
         return (bool(cls._ADVICE_ASK.search(text)) and not cls._COMMERCE_NOW.search(text)
@@ -411,12 +527,13 @@ class UniversalAIAssistantService:
     def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
                 advice_ledger: list[dict[str, Any]] | None = None,
                 capabilities: list[str] | None = None, user_memory: list[str] | None = None,
-                evidence: str = "", lessons: list[str] | None = None) -> tuple[str, Any]:
+                evidence: str = "", lessons: list[str] | None = None,
+                guide: bool = False, attachment_facts: str = "") -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
         answer and the concern it raised (one-time advice memory)."""
-        prompt = (
+        prompt = ((GUIDE_ANSWER_RULES if guide else (
             "You are ASKODOX's decision advisor for people in India. The user wants ADVICE / a DECISION, not a "
             "list of shops. Think like an experienced, honest advisor.\n"
             "Answer in this order, using short headings and bullet points, in the user's language:\n"
@@ -434,7 +551,7 @@ class UniversalAIAssistantService:
             "ranges and say they vary; recommend verifying regulated matters (loans, insurance, licences, tax, "
             "health) with a qualified professional; no result cards are shown for this answer.\n"
             "If the user has already decided, do not argue again: help them do it well (one line on any concern "
-            "that is still critical, then practical steps for the option they chose).\n"
+            "that is still critical, then practical steps for the option they chose).\n"))
             + advice_memory.prompt_block(advice_ledger or [])
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + "After the answer, end with ONE last line exactly like ADVICE_META: {\"key\": ..., \"summary\": ..., "
@@ -448,10 +565,13 @@ class UniversalAIAssistantService:
             "memory (your knowledge has a cutoff); only live evidence below may say that -- otherwise say it could not "
             "be confirmed yet. Never claim you searched or checked a website unless LIVE WEB EVIDENCE is given.\n"
             + (evidence or "")
-            + f"User's question: {user_text}"
+            + (f"What the attached photo / screenshot / file shows (read from it): {attachment_facts[:3000]}\n"
+               if attachment_facts else "")
+            + f"User's question: {user_text or '(no words -- they only sent the attachment)'}"
         )
-        text = ""
-        if self.configured:
+        text = self._call_claude(prompt, model=self.anthropic_reasoning_model, max_tokens=3072,
+                                 temperature=0.3, timeout=60.0)
+        if not text and self.configured:
             try:
                 client = self.client or genai.Client(api_key=self.api_key)
                 config = types.GenerateContentConfig(
@@ -483,8 +603,8 @@ class UniversalAIAssistantService:
     def write_text(self, prompt: str, *, max_tokens: int = 1024) -> str:
         """Plain text from the same models (Gemini, then OpenAI); "" when no
         model answered -- callers say so honestly, never fake text."""
-        text = ""
-        if self.configured:
+        text = self._call_claude(prompt, max_tokens=max_tokens, temperature=0.4, timeout=30.0)
+        if not text and self.configured:
             try:
                 client = self.client or genai.Client(api_key=self.api_key)
                 config = types.GenerateContentConfig(
@@ -765,7 +885,7 @@ class UniversalAIAssistantService:
         satisfied and must not ask the user for it again.
         """
         clean = str(message or "").strip()
-        if not clean or not (self.configured or self.openai_api_key):
+        if not clean or not self.any_model:
             return None
         clean_location = str(location or "").strip()[:300]
         ledger = advice_memory.sanitize_ledger(advice_given)
@@ -805,6 +925,11 @@ class UniversalAIAssistantService:
             "given below. "
             "Explicit constraints are sacred: repeat a size, budget, quantity, brand, colour or date EXACTLY as the user "
             "gave it (size 9 stays 'size 9' -- never 'size 8 or 9', never rounded or widened). "
+            "Know-how brain: if the user wants to understand or DO something themselves -- how to apply, register, fill a "
+            "form, use a portal / app / website screen, update details, fix a problem, what a document or screenshot "
+            "means (government registrations like Udyam, GST, PAN, Aadhaar, licences included) -- it is NOT a search "
+            "for sellers or service providers: transactional false, action explain_steps. Only when they clearly ask "
+            "for a person, agent or shop to do it for them is it a SERVICE search. "
             "Decision brain: if the message asks for advice or a decision (should I, risks, pros/cons, which is safer, how much do I need, is it worth it), it is NOT a search: transactional false, action advise. "
             "If the app lists options already shown to the user, the message is a follow-up about THOSE options (compare, which is best, reviews, deals, details, why): answer it from the listed facts only -- compare side by side, write Not verified for any fact not listed -- transactional false, action answer_about_options, never a new search. "
             "Otherwise, if the user asks for videos, reviews, unboxing, comparisons or demos of something, that is a search: "
@@ -881,6 +1006,10 @@ class UniversalAIAssistantService:
             chips_wanted = reply_suggestions.wanted(capabilities)
             suggestions_raw: Any = data.get("suggestions") if chips_wanted else None
             user_text, _app_context, about_shown = self.split_app_context(clean)
+            # Deterministic rules read ONLY the user's own words -- never the
+            # app's context / instructions / attachment facts.
+            said = self.own_words(clean)
+            facts = self.attachment_facts_of(clean)
             if grounding is None and not about_shown:
                 # The user's words named no model in Latin letters (Telugu-script
                 # voice "ఒప్పో ఫైండ్ ఎక్స్ 10"), but the model's own entities did:
@@ -899,13 +1028,32 @@ class UniversalAIAssistantService:
                             if chips_wanted:
                                 suggestions_raw = (again or {}).get("suggestions")
             mode = "commerce" if transactional else "chat"
+            guide = not about_shown and self.wants_guide(said, facts, action)
             if about_shown:
                 # A follow-up about options already on screen: answer it from
                 # those options; never a new search, never a canned reply.
                 mode = "follow_up"
                 transactional = False
                 action = "answer_about_options"
-            elif self.wants_advice(user_text):
+            elif guide:
+                # Shown like an advice answer (installed APKs keep "advice" out of the
+                # deal flow: reply only, no cards); action explain_steps tells them apart.
+                mode = "advice"
+                transactional = False
+                action = "explain_steps"
+                if domain not in {"GENERAL", "UNKNOWN"}:
+                    domain = "GENERAL"
+                answer, _meta = self._advise(said, compact_history, locale, clean_location, ledger, capabilities,
+                                             user_memory=user_memory, lessons=lessons,
+                                             evidence=runtime_block + "\n" + (grounding_block or ""),
+                                             guide=True, attachment_facts=facts)
+                if answer:
+                    reply = answer
+                    suggestions_raw = None
+                data["search_ready"] = False
+                data["next_question"] = None
+                data["search_subject"] = None
+            elif self.wants_advice(said):
                 mode = "advice"
                 transactional = False
                 action = "advise"
@@ -916,8 +1064,8 @@ class UniversalAIAssistantService:
                     reply = advice
                     data["advice"] = advice_meta
                     suggestions_raw = None  # chips were written for a different reply
-            elif self._asks_for_videos(user_text) and self._video_search_wanted(
-                    user_text, entities, transactional, searched_for):
+            elif self._asks_for_videos(said) and self._video_search_wanted(
+                    said, entities, transactional, searched_for):
                 # Deterministic: a video / review ask is a real search. The
                 # app shows the real videos; the reply never claims results
                 # or describes specs it did not get from a source.
@@ -927,7 +1075,7 @@ class UniversalAIAssistantService:
                     domain = "PRODUCT"
                 reply = self._video_search_reply(locale)
                 suggestions_raw = None
-            elif self._asks_where_to_get(user_text):
+            elif self._asks_where_to_get(said):
                 # Deterministic: "where can I get it here" is a real search.
                 # Shop / dealer names come only from real results, never
                 # from the model's memory.
@@ -1046,7 +1194,15 @@ class UniversalAIAssistantService:
     def _decision_json(self, prompt: str, clean: str, clean_location: str) -> dict[str, Any] | None:
         """One structured decision from Gemini, then OpenAI (None when no model answered)."""
         data: dict[str, Any] | None = None
-        if self.configured:
+        claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown.",
+                                        max_tokens=2048, temperature=0.15, timeout=25.0)
+        if claude_text:
+            try:
+                data = self._parse_json(claude_text)
+            except Exception:
+                logger.warning("universal_ai_assistant.decide: claude JSON unreadable; falling back")
+                data = None
+        if data is None and self.configured:
             try:
                 client = self.client or genai.Client(api_key=self.api_key)
                 config = types.GenerateContentConfig(
