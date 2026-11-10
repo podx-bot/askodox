@@ -220,6 +220,9 @@ def create_app() -> FastAPI:
         model=container.settings.gemini_text_model,
         openai_api_key=container.settings.openai_api_key,
         openai_model=container.settings.openai_text_model,
+        anthropic_api_key=getattr(container.settings, "anthropic_api_key", ""),
+        anthropic_model=getattr(container.settings, "anthropic_text_model", ""),
+        anthropic_reasoning_model=getattr(container.settings, "anthropic_reasoning_model", ""),
         research_service=live_research,
         deep_research_service=deep_research,
     )

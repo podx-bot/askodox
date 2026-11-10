@@ -38,6 +38,12 @@ class Settings:
     session_token_secret: str
     # Market the discovery engine serves first (Brave country, Places region).
     search_country: str = "IN"
+    # Claude (Anthropic) is the PRIMARY chat brain when ANTHROPIC_API_KEY is
+    # set (owner 2026-10-30: Haiku for routing, Sonnet for full answers);
+    # Gemini, then OpenAI, stay as fallbacks.
+    anthropic_api_key: str = ""
+    anthropic_text_model: str = "claude-haiku-5-5"
+    anthropic_reasoning_model: str = "claude-sonnet-5-5"
     # Public https base of this backend (tracked partner redirects, postback
     # URLs). Empty -> taken from the request (x-forwarded-proto/host).
     public_base_url: str = ""
@@ -165,6 +171,10 @@ def load_settings() -> Settings:
         brave_search_api_key=os.getenv("BRAVE_SEARCH_API_KEY", "").strip(),
         brave_search_timeout_seconds=_positive_int_env("BRAVE_SEARCH_TIMEOUT_SECONDS", 8),
         search_country=(os.getenv("ASKODOX_SEARCH_COUNTRY", "IN").strip().upper() or "IN"),
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "").strip(),
+        anthropic_text_model=os.getenv("ANTHROPIC_TEXT_MODEL", "claude-haiku-5-5").strip() or "claude-haiku-5-5",
+        anthropic_reasoning_model=(os.getenv("ANTHROPIC_REASONING_MODEL", "claude-sonnet-5-5").strip()
+                                   or "claude-sonnet-5-5"),
         admin_seed_key=os.getenv("ADMIN_SEED_KEY", "").strip(),
         session_token_secret=_session_token_secret(),
         public_base_url=os.getenv("ASKODOX_PUBLIC_BASE_URL", "").strip().rstrip("/"),
