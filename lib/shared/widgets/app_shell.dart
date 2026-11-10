@@ -355,6 +355,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         isTe: isTe,
         onHome: () => shell.goBranch(0, initialLocation: true),
         onHistory: () => shell.goBranch(2, initialLocation: true),
+        onPayments: () => context.push('/me/payment-methods'),
         onCompanion: () {
           // "Ask" = ONE tap starts listening (a second tap stops and sends).
           // No ring of buttons in between: attachments live on the chat's "+",
@@ -385,13 +386,14 @@ class _PrimaryBottomBar extends ConsumerWidget {
     required this.isTe,
     required this.onHome,
     required this.onHistory,
+    required this.onPayments,
     required this.onCompanion,
     required this.onUpdates,
     required this.onProfile,
   });
   final int currentBranch;
   final bool isTe;
-  final VoidCallback onHome, onHistory, onCompanion, onUpdates, onProfile;
+  final VoidCallback onHome, onHistory, onPayments, onCompanion, onUpdates, onProfile;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -438,6 +440,9 @@ class _PrimaryBottomBar extends ConsumerWidget {
             ]),
           ),
         )),
+        // Phase 1 (owner 2026-11-10): My payment methods sits right beside Ask.
+        if (!askodoxPhase2)
+          _item('askodoxNavPayments', false, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, isTe ? 'పేమెంట్' : 'Payments', onPayments),
         // Phase 1 (owner 2026-11-09): ASKODOX neither sells nor buys, so no "Orders" tab; request
         // updates stay one tap away on the header bell.
         if (askodoxPhase2)
