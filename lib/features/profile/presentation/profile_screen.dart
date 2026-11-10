@@ -524,6 +524,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               row('profile-buyer-agent', 'settings', Icons.smart_toy_outlined, 'My buyer agent', 'నా Buyer agent',
                   'What waits for you: shop advances, payment methods.', 'మీ కోసం ఆగినవి: shop advances, payment methods.',
                   () => context.push('/me/agent'), words: ['agent', 'assistant', 'pending', 'ఏజెంట్']),
+              // Travel Radio is Phase 2 only (owner 2026-11-09): hidden from the Phase 1 Profile.
+              if (askodoxPhase2)
+              row('profile-radio', 'settings', Icons.radio_outlined, 'Travel Radio', 'ట్రావెల్ రేడియో',
+                  'Hear about places on your route.', 'మీ దారిలోని ప్రాంతాల గురించి వినండి.', () => context.push('/radio'),
+                  guide: 'screen_radio', words: ['radio', 'రేడియో']),
             ]),
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-settings'),
