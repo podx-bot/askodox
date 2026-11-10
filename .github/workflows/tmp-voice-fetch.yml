@@ -1,0 +1,15 @@
+name: tmp voice fetch (throwaway)
+on:
+  push:
+    branches: [claude/tmp-voice-fetch]
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sSfL -o voice.mp3 "https://elevenlabsusercontent.com/database/workspace/c249b5cf8027417abd6a3ad0f8615bc9/content_generation/2Q3nrFKeTYPxfY9NENsA/bFhefiz44eVgwZ7rY38W/content.mp3?Expires=1794286800&KeyName=assets-cdn-key-1&Signature=4pPt7G5MLqLZWTlC2EPyjqLPmik="
+          ls -la voice.mp3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice
+          path: voice.mp3
