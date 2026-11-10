@@ -188,8 +188,7 @@ void main() {
     for (final (tab, sections) in [
       if (askodoxPhase2) ('business', ['business', 'studio']),
       ('settings', askodoxPhase2 ? ['settings', 'help', 'account'] : ['settings', 'account']),
-      // Phase 1 (owner 2026-11-10): payment methods sit inside the one 'shopping' list.
-      ('me', askodoxPhase2 ? ['shopping', 'finance', 'roles'] : ['shopping', 'help']),
+      ('me', askodoxPhase2 ? ['shopping', 'finance', 'roles'] : ['shopping', 'payments', 'help']),
     ]) {
       await _openProfileView(tester, container, tab);
       for (final section in sections) {

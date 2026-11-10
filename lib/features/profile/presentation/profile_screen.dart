@@ -269,12 +269,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             row('profile-smart-tools', 'me', Icons.handyman_outlined, 'Smart Tools', 'స్మార్ట్ టూల్స్',
                 'Level, compass, calculators, photo inspection.', 'లెవెల్, దిక్సూచి, లెక్కలు, ఫోటో పరిశీలన.',
                 () => context.push('/tools'), words: ['tools', 'calculator', 'compass', 'టూల్స్']),
-            // Phase 1: own UPI QR / bank sits in this one list (and on the bottom bar's Payments).
-            if (!askodoxPhase2)
-              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My payment methods',
-                  'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — people pay you directly.',
-                  'మీ UPI QR / బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
-                  words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
             if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty) KeyedSubtree(key: const Key('askodoxSavedOptionsTile'), child: ListTile(
                     leading: const Icon(Icons.bookmark_rounded),
                     title: Text('${t('Saved options', 'సేవ్ చేసినవి')} (${ref.watch(askodoxSavedOptionsProvider).length})'),
@@ -309,6 +303,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }),
                         ))),
           ]),
+      // Phase 1: the Business tab is hidden, so "My payment methods" (own UPI QR / bank, used to
+      // collect money) lives here as a plain list row (also on the bottom bar's Payments).
+      if (!askodoxPhase2)
+        AskodoxNavSection(
+            key: const Key('askodoxProfileSection-payments'),
+            title: t('Payments', 'పేమెంట్స్'),
+            icon: Icons.account_balance_wallet_outlined,
+            children: [
+              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My payment methods',
+                  'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — people pay you directly.',
+                  'మీ UPI QR / బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
+                  words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
+            ]),
       // Personal Finance: the Personal Tax Assistant (existing /intel/* screens) + the person's money records.
       if (askodoxPhase2)
       AskodoxNavSection(
