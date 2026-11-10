@@ -68,6 +68,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // analytics) is gone: sellers manage their REAL listings in one place.
       final path = state.uri.path;
       if (path == '/seller' || path.startsWith('/seller/')) return '/listings/mine';
+      // Phase 1 (Play policy): pages left out of this build are never reachable from a notification,
+      // promo or deep link either.
+      if (!askodoxRouteShownNow(path)) return '/';
       return const RouteGuard().redirect(session, state.matchedLocation);
     },
     // A rebuilt router (session changes) never re-opens onboarding for someone who finished it.

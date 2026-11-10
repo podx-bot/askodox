@@ -518,7 +518,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   'What waits for you: shop advances, payment methods.', 'మీ కోసం ఆగినవి: shop advances, payment methods.',
                   () => context.push('/me/agent'), words: ['agent', 'assistant', 'pending', 'ఏజెంట్']),
               // Travel Radio is Phase 2 only (owner 2026-11-09): hidden from the Phase 1 Profile.
-              if (askodoxPhase2)
+              if (askodoxShownNow('profile-radio'))
               row('profile-radio', 'settings', Icons.radio_outlined, 'Travel Radio', 'ట్రావెల్ రేడియో',
                   'Hear about places on your route.', 'మీ దారిలోని ప్రాంతాల గురించి వినండి.', () => context.push('/radio'),
                   guide: 'screen_radio', words: ['radio', 'రేడియో']),
@@ -638,6 +638,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ? '${early.label} · ${t('free while in testing', 'టెస్టింగ్ సమయంలో ఉచితం')}'
                         : early.label)
                     : t('Tell us what went wrong.', 'ఏం తప్పు జరిగిందో చెప్పండి.')),
+            // Play User Data policy: the privacy policy is one tap away inside the app (owner 2026-11-10).
+            row('profile-privacy-policy', 'settings', Icons.policy_outlined, 'Privacy policy & terms',
+                'గోప్యతా విధానం & నిబంధనలు', 'What ASKODOX keeps, why, and your rights.',
+                'ASKODOX ఏమి దాస్తుంది, ఎందుకు, మీ హక్కులు.',
+                () => launchUrl(Uri.parse('https://askodox.com/privacy/'), mode: LaunchMode.externalApplication),
+                words: ['privacy', 'policy', 'terms', 'గోప్యత', 'నిబంధనలు']),
             if (ref.watch(askodoxIsStaffProvider).valueOrNull == true) (ListTile(
                     key: const ValueKey('profile-staff-workspace'),
                     leading: const Icon(Icons.badge_outlined),

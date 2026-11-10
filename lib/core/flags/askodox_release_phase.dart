@@ -14,6 +14,10 @@ library;
 /// True only in a Phase 2 build.
 const bool askodoxPhase2 = bool.fromEnvironment('ASKODOX_PHASE2');
 
+/// The Google Play bundle (owner 2026-11-10). Digital goods there must go through Play Billing, so
+/// the Razorpay AI Credits recharge is not offered in this build (balance + history still show).
+const bool askodoxPlayStoreBuild = bool.fromEnvironment('ASKODOX_PLAY_STORE');
+
 /// Profile rows hidden in Phase 1 (their widget keys stay in the code).
 const askodoxPhase2ProfileKeys = <String>{
   'profile-shop-scan',
@@ -35,6 +39,7 @@ const askodoxPhase2ProfileKeys = <String>{
   'profile-verification',
   'profile-plans',
   'profile-buyer-agent',
+  'profile-radio',
 };
 
 /// App screens that belong to Phase 2. A chat action pointing at one shows no
@@ -58,6 +63,12 @@ const askodoxPhase2Routes = <String>{
   '/plans',
   '/me/agent',
   '/talk',
+  // Owner 2026-11-09 / 11-10: Radio and the cross-app screen guide are not in Phase 1; developer pages
+  // never open from a link in a customer build.
+  '/radio',
+  '/companion/screen-guide',
+  '/companion-lab',
+  '/companion-performance',
 };
 
 /// Whether a Profile row with this key is shown in this build.

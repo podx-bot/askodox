@@ -1,3 +1,4 @@
+import '../../../core/flags/askodox_release_phase.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -116,7 +117,7 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
             ],
             // Recharge packs show only once at least one is really on sale
             // (owner, 2026-11-04: no list of "Not on sale yet" rows).
-            if (s.packs().any((p) => p['payable'] == true)) ...[
+            if (!askodoxPlayStoreBuild && s.packs().any((p) => p['payable'] == true)) ...[
             const SizedBox(height: 8),
             Text(t('Recharge', 'రీఛార్జ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
             for (final p in s.packs().where((p) => p['payable'] == true))
@@ -138,7 +139,12 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                  t('AI Credits are only for ASKODOX AI features: not transferable, not cash, never used to pay a seller. '
+                  askodoxPlayStoreBuild
+                      ? t('AI Credits are only for ASKODOX AI features: not transferable, not cash, never used to pay a seller. '
+                          'Recharge is not available in this version yet.',
+                          'AI Credits ASKODOX AI కోసం మాత్రమే: వేరేవాళ్ళకు పంపలేరు, cash కాదు, seller కి కట్టడానికి వాడరు. '
+                              'ఈ వెర్షన్‌లో రీఛార్జ్ ఇంకా అందుబాటులో లేదు.')
+                      : t('AI Credits are only for ASKODOX AI features: not transferable, not cash, never used to pay a seller. '
                       'Paid through Razorpay; added only after Razorpay confirms the payment.',
                       'AI Credits ASKODOX AI కోసం మాత్రమే: వేరేవాళ్ళకు పంపలేరు, cash కాదు, seller కి కట్టడానికి వాడరు. '
                           'Razorpay ద్వారా చెల్లింపు; Razorpay confirm చేశాకే చేరతాయి.'),
