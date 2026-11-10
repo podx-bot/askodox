@@ -191,3 +191,20 @@ def test_claude_failure_logs_anthropics_reason_without_the_key(caplog):
     line = " ".join(r.getMessage() for r in caplog.records)
     assert "status=400" in line and "invalid_request_error" in line and "credit balance" in line
     assert "sk-ant" not in line
+
+
+def test_claude_request_never_sends_temperature():
+    """Production 2026-11-10: Anthropic answered 400 "temperature is deprecated for this
+    model" to every call, so Claude never answered and Gemini did. Never send it."""
+    brain, _, http = _brain(claude=True)
+    seen = []
+
+    class _Spy(_Http):
+        def post(self, url, *, headers=None, json=None, timeout=None):
+            seen.append(dict(json or {}))
+            return super().post(url, headers=headers, json=json, timeout=timeout)
+
+    brain.http = _Spy()
+    brain.decide("Udyam registration ela cheyali?", locale="te")
+    assert seen, "Claude was never called"
+    assert all("temperature" not in body for body in seen)

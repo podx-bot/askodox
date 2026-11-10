@@ -289,7 +289,10 @@ class UniversalAIAssistantService:
                 "https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": self.anthropic_api_key, "anthropic-version": "2023-06-01",
                          "content-type": "application/json"},
-                json={"model": chosen, "max_tokens": max_tokens, "temperature": temperature,
+                # No "temperature": the current Claude models reject it with a 400
+                # ("temperature is deprecated for this model"), which silently sent every
+                # answer to Gemini. The argument stays so callers do not change.
+                json={"model": chosen, "max_tokens": max_tokens,
                       "messages": [{"role": "user", "content": prompt}]},
                 timeout=timeout,
             )
