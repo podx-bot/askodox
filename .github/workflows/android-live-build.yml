@@ -300,7 +300,9 @@ jobs:
           FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
         run: |
-          # Play-installed apps update through Play only: the GitHub in-app updater is OFF here.
+          # Play-installed apps update through Play only: the GitHub in-app updater is OFF here, and the
+          # permissions Play does not allow (self-install, overlay, special-use service) are left out.
+          python3 tool/play_manifest_strip.py android/app/src/main/AndroidManifest.xml
           flutter build appbundle --release \
             --build-number="${BUILD_NUMBER}" \
             --dart-define=APP_ENV=production \
@@ -308,6 +310,7 @@ jobs:
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_ENABLE_UPDATES=false \
+            --dart-define=ASKODOX_PLAY_STORE=true \
             --dart-define=ASKODOX_BUILD_NUMBER="${BUILD_NUMBER}" \
             --dart-define=FIREBASE_API_KEY="${FIREBASE_API_KEY}" \
             --dart-define=FIREBASE_APP_ID="${FIREBASE_APP_ID}" \

@@ -302,7 +302,10 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
         ),
       if (show && nudge == null && panel == null)
         Positioned(
-          left: 0,
+          // Profile's rows start with their icon on the left; the tab sits on the right edge there
+          // so it never covers them (owner 2026-11-10).
+          left: path == '/profile' ? null : 0,
+          right: path == '/profile' ? 0 : null,
           bottom: 168,
           child: SafeArea(
             child: Semantics(
@@ -311,13 +314,17 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
               child: Material(
                 color: Colors.white,
                 elevation: 3,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.horizontal(right: Radius.circular(22)),
-                  side: BorderSide(color: Color(0xFFD0DCF5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: path == '/profile'
+                      ? const BorderRadius.horizontal(left: Radius.circular(22))
+                      : const BorderRadius.horizontal(right: Radius.circular(22)),
+                  side: const BorderSide(color: Color(0xFFD0DCF5)),
                 ),
                 child: InkWell(
                   key: const Key('askodoxScreenHelpButton'),
-                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(22)),
+                  borderRadius: path == '/profile'
+                      ? const BorderRadius.horizontal(left: Radius.circular(22))
+                      : const BorderRadius.horizontal(right: Radius.circular(22)),
                   onTap: () => _open(help, path),
                   child: const Padding(
                     padding: EdgeInsets.fromLTRB(4, 4, 6, 4),

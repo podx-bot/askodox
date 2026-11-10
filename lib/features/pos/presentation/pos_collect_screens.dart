@@ -223,6 +223,18 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
               const SizedBox(height: 6),
               const AskodoxPaymentOptionsNotice(),
               const SizedBox(height: 8),
+              // Payment sound alerts (also for staff phones) -- owner 2026-11-10.
+              Card(
+                child: ListTile(
+                  key: const Key('askodoxPayMethodsAlerts'),
+                  leading: const Icon(Icons.volume_up_rounded, color: Color(0xFF6C4DFF)),
+                  title: Text(te ? 'పేమెంట్ సౌండ్ అలర్ట్' : 'Payment sound alerts'),
+                  subtitle: Text(te ? 'డబ్బు పడగానే వినిపిస్తుంది — సిబ్బంది ఫోన్‌లలో కూడా' : 'Hear it when money arrives — on staff phones too'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/me/payment-alerts'),
+                ),
+              ),
+              const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 6, children: [
                 FilledButton.tonalIcon(
                     key: const Key('askodoxPayMethodQrPhoto'),

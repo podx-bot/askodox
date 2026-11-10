@@ -33,7 +33,7 @@ from app.services.account_identity import phone_key
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-ROLES = ("owner", "manager", "cashier", "accountant", "waiter", "kitchen")
+ROLES = ("owner", "manager", "cashier", "accountant", "waiter", "kitchen", "attendant")
 PERMISSIONS: Dict[str, frozenset] = {
     "owner": frozenset({"view", "sell", "price_override", "return", "cancel", "products", "stock", "customers",
                         "collect", "reports", "day_close", "drafts", "members", "settings", "tables", "kitchen",
@@ -46,6 +46,9 @@ PERMISSIONS: Dict[str, frozenset] = {
     # Restaurant floor staff: take orders / send KOTs (waiter), or work the kitchen screen. Neither can bill.
     "waiter": frozenset({"view", "tables"}),
     "kitchen": frozenset({"view", "kitchen"}),
+    # Counter / pump / floor attendant (owner 2026-11-10): sees the shop and hears payment alerts when the owner
+    # allows the role; cannot bill, change prices or see reports.
+    "attendant": frozenset({"view"}),
 }
 TEMPLATES = ("general", "kirana", "supermarket", "meat_fish", "restaurant", "pharmacy", "salon", "repair",
              "wholesale", "clothing", "electronics", "jewellery", "bakery", "vegetables", "hardware", "stationery")
@@ -382,7 +385,7 @@ class PosStore:
         if len(key) < 10:
             raise PosError(400, "phone", "Enter the staff member's 10-digit mobile number.")
         if role not in ROLES + ("removed",):
-            raise PosError(400, "role", "Role must be manager, cashier, accountant, waiter, kitchen or removed.")
+            raise PosError(400, "role", "Role must be manager, cashier, accountant, waiter, kitchen, attendant or removed.")
         if role == "owner":
             raise PosError(400, "role", "Ownership cannot be transferred here.")
         with self._tx() as conn:

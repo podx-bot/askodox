@@ -272,6 +272,26 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీరు అభ్యర్థనను అంగీకరించాకే కొనేవారికి ఇవి కనిపిస్తాయి; వాళ్ళు నేరుగా మీకే కడతారు.',
     'బ్యాంక్ ఖాతా నంబర్లు ఎన్‌క్రిప్ట్ చేసి దాస్తాం. ఒకదాన్ని డిఫాల్ట్ చేయండి.',
   ]),
+  '/me/payment-alerts': _H('Payment sound alerts', 'పేమెంట్ సౌండ్ అలర్ట్', [
+    'Type your shop name and State once, then press Start.',
+    'Add each staff member with their mobile number and role (manager, cashier or attendant).',
+    'Press "Sound on / who hears it" to switch alerts on and tick the roles that should hear them.',
+    'Each staff member opens this page on their own phone and switches the sound on there.',
+  ], [
+    'మీ షాప్ పేరు, రాష్ట్రం ఒకసారి ఇచ్చి "మొదలుపెట్టు" నొక్కండి.',
+    'ప్రతి సిబ్బందిని వారి మొబైల్ నంబర్, పాత్ర (మేనేజర్, క్యాషియర్ లేదా అటెండెంట్) తో జోడించండి.',
+    '"సౌండ్ ఆన్ / ఎవరికి వినిపించాలి" నొక్కి అలర్ట్స్ ఆన్ చేసి, వినాల్సిన పాత్రలను టిక్ చేయండి.',
+    'ప్రతి సిబ్బంది తమ ఫోన్‌లో ఈ పేజీ తెరిచి అక్కడ సౌండ్ ఆన్ చేసుకోవాలి.',
+  ]),
+  '/me/payment-alerts/:id': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
+    'Turn on alerts for the shop; the owner ticks which staff roles get them.',
+    'Press "Speaker test" — connect a Bluetooth speaker first if you want the voice there.',
+    'Every payment is listed with its time, source and whether the bank confirmed it — check big amounts in your bank.',
+  ], [
+    'షాపుకు అలర్ట్స్ ఆన్ చేయండి; ఏ సిబ్బంది పాత్రలకు రావాలో యజమాని టిక్ చేస్తారు.',
+    '"స్పీకర్ టెస్ట్" నొక్కండి — బ్లూటూత్ స్పీకర్‌లో కావాలంటే ముందు దాన్ని కనెక్ట్ చేయండి.',
+    'ప్రతి పేమెంట్ సమయం, ఎక్కడి నుంచి, బ్యాంక్ నిర్ధారించిందా అనే వివరాలతో కనిపిస్తుంది — పెద్ద మొత్తాలు బ్యాంకులో చూసుకోండి.',
+  ]),
   '/pos/:id/payment-alerts': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
     'Turn on alerts for the shop, then "Turn on" notification access and switch ASKODOX on in Android settings.',
     'Press "Speaker test" — connect a Bluetooth speaker first if you want the voice there.',

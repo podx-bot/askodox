@@ -80,4 +80,26 @@ def run(repo: Any, cc: Any, *, notify: Callable[..., int] | None = None, at: dat
             if notify is not None:
                 pushed += int(notify(person["app_user_id"], title="ASKODOX: మన దగ్గర లేనిది అడిగారు",
                                      body=title[:170], route="/admin", event_key=f"owner_alert:{day}:{item['key']}") or 0)
+    # Self-correction watch (owner 2026-11-10): the AI brain giving no answer again and again.
+    hour = moment.strftime("%Y%m%d%H")
+    failures = brain_failures(repo, at=moment)
+    if failures >= BRAIN_FAIL_MIN:
+        title = f"AI జవాబు ఇవ్వలేదు: గత గంటలో {failures} సార్లు. Gemini / OpenAI key, quota చూడండి (API Health)."
+        if cc.notify_once(f"brain_failure:{hour}", "brain_failure", title):
+            created += 1
+            for person in staff:
+                if notify is not None:
+                    pushed += int(notify(person["app_user_id"], title="ASKODOX: AI పని చేయట్లేదు", body=title[:170],
+                                         route="/admin", event_key=f"brain_failure:{hour}") or 0)
     return {"alerts": created, "pushed": pushed}
+
+
+BRAIN_FAIL_MIN = 3  # turns without a brain answer in the last hour
+
+
+def brain_failures(repo: Any, *, at: datetime | None = None) -> int:
+    since = ((at or _now()) - timedelta(hours=1)).isoformat()
+    try:
+        return len(repo.events(event="brain_failure", since=since, limit=5000))
+    except Exception:
+        return 0

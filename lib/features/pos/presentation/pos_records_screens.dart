@@ -1155,6 +1155,7 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
       'accountant': te ? 'అకౌంటెంట్ (నివేదికలు మాత్రమే)' : 'Accountant (reports only)',
       'waiter': te ? 'వెయిటర్ (ఆర్డర్లు, KOT)' : 'Waiter (orders, KOT)',
       'kitchen': te ? 'వంటగది (KOT స్క్రీన్)' : 'Kitchen (KOT screen)',
+      'attendant': te ? 'అటెండెంట్ (పేమెంట్ అలర్ట్ మాత్రమే)' : 'Attendant (payment alerts only)',
       'removed': te ? 'తొలగించు' : 'Remove access',
     };
     return Scaffold(

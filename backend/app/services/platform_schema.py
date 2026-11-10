@@ -910,6 +910,33 @@ _register(Resource(
     ),
 ))
 
+ANSWER_CORRECTION_REASONS = ("wrong", "outdated", "not_helpful", "other")
+
+_register(Resource(
+    name="answer_corrections", label="Wrong answers & corrections", group="Customers", prefix="acr",
+    permission="feedback", name_field="summary", initial_status="NEW",
+    statuses=("NEW", "APPROVED", "REJECTED"),
+    description="Self-correction (owner 2026-11-10): replies people marked wrong (the 'Wrong answer' button) or "
+                "corrected in their next message. Write the right answer in 'Correct answer' and Approve: from then "
+                "on the AI follows it for the same question. Question and reply are masked; never who asked.",
+    fields=(
+        F("summary", "Summary", required=True, list_column=True),
+        F("reason", "Reason", "enum", options=ANSWER_CORRECTION_REASONS, list_column=True, filter=True),
+        F("source", "How it was caught", "enum", options=("button", "typed"), list_column=True, filter=True),
+        F("question", "User's question (masked)", "longtext"),
+        F("answer", "ASKODOX reply (masked)", "longtext"),
+        F("note", "What the user said (masked)", "longtext"),
+        F("corrected", "Correct answer (staff) -- the AI follows this after Approve", "longtext"),
+        F("language", "Language", filter=True),
+        F("user_ref", "User (hashed)"),
+    ),
+    actions=(
+        _A("approve", "Approve -- AI learns it", "APPROVED", ("NEW", "REJECTED"), perm="edit"),
+        _A("reject", "Reject (the reply was fine)", "REJECTED", ("NEW", "APPROVED"), confirm=True, perm="edit"),
+        _A("reopen", "Reopen", "NEW", ("APPROVED", "REJECTED"), perm="edit"),
+    ),
+))
+
 FEEDBACK_KINDS = ("bug", "wrong_result", "idea", "praise", "other")
 
 _register(Resource(
