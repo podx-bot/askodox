@@ -181,6 +181,12 @@ def observe(provider: str, request: Any, response: Any, *, streamed: bool = Fals
     elif provider == "serper":
         row["feature"], row["model"] = "web_search", path.strip("/") or "search"
     record(**row)
+    try:  # per-turn brain trace (numbers only)
+        from app.services import brain_runs
+
+        brain_runs.note_provider_call(row)
+    except Exception:
+        pass
     return row
 
 

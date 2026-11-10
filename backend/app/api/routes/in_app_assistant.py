@@ -96,6 +96,8 @@ class AssistantDecision(BaseModel):
     intelligence: dict[str, Any] | None = None
     # AI Credits (pay-as-you-go, OFF until staff set rates): what this answer cost, or why it was not answered.
     credits: dict[str, Any] | None = None
+    # Brain trace id for this turn (numbers only on the server); the app sends it back with "wrong answer".
+    turn_id: str = ""
     # Smart Answer chips (reply_suggestions.py): 2-5 short things the user can tap to say next.
     # Only for apps that send the ``suggestions`` capability; [] otherwise.
     suggestions: list[str] = Field(default_factory=list)
@@ -110,6 +112,10 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     # app keeps working through its deterministic flow (same as model-down).
     decision = None
     metered = None
+    from app.services import brain_runs
+
+    run = brain_runs.begin()
+    used_lessons = 0
     if _feature_enabled(container, "ai.assistant"):
         metered = _reserve_credits(request, payload.locale)
         if metered and metered.get("blocked"):
@@ -129,6 +135,7 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         lessons = _lessons(container, payload.message)
         if lessons and _accepts(service.decide, "lessons"):
             extra["lessons"] = lessons
+            used_lessons = len(lessons)
         decision = service.decide(
             payload.message,
             history=history,
@@ -150,6 +157,8 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     if decision is None:
         # Safe degradation: do not invent an AI action when the model is unavailable.
         # The app can fall back to its existing deterministic flow.
+        brain_runs.finish(container.settings.database_path, run, mode="none", source="fallback", ok=False,
+                          language=payload.locale)
         return AssistantDecision(
             reply="",
             domain="UNKNOWN",
@@ -157,6 +166,7 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
             action="",
             confidence=0.0,
             source="fallback",
+            turn_id=run.turn_id,
         )
 
     entities = decision.get("entities") or {}
@@ -182,8 +192,13 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     if override:
         decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
     _record_knowledge_gap(container, decision, payload)
+    grounding = decision.get("grounding") if isinstance(decision.get("grounding"), dict) else {}
+    brain_runs.finish(container.settings.database_path, run, mode=str(decision.get("mode") or "chat"),
+                      source="universal_ai", ok=True, lessons=used_lessons,
+                      grounded=bool(grounding.get("verified")), language=payload.locale)
+    decision = {k: v for k, v in decision.items() if k != "turn_id"}
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence,
-                             credits=(metered or {}).get("credits"))
+                             credits=(metered or {}).get("credits"), turn_id=run.turn_id)
 
 
 def _corrections_platform(container: Any) -> Any:
@@ -240,6 +255,7 @@ class AnswerFeedbackIn(BaseModel):
     reason: str = Field(default="wrong", pattern="^(wrong|outdated|not_helpful|other)$")
     note: str = Field(default="", max_length=1000)
     locale: str = Field(default="", max_length=10)
+    turn_id: str = Field(default="", max_length=40)
 
 
 @router.post("/answer-feedback")
@@ -253,6 +269,10 @@ def answer_feedback(body: AnswerFeedbackIn, request: Request) -> dict[str, Any]:
     row = answer_corrections.report(_corrections_platform(container), question=body.question, answer=body.answer,
                                     reason=body.reason, note=body.note, language=body.locale,
                                     source="button", user_ref=_user_ref(request))
+    if body.turn_id:
+        from app.services import brain_runs
+
+        brain_runs.mark_reported(container.settings.database_path, body.turn_id)
     return {"ok": True, "reference": row.get("id")}
 
 
@@ -767,8 +787,15 @@ def list_support_escalations(request: Request, key: str = "", limit: int = 50) -
     """Support/Admin Command Center feed (same ADMIN_SEED_KEY gate as
     /admin/products; 404 when the key is wrong so the path isn't advertised)."""
     container: Any = request.app.state.container
+    import hmac
+
+    from app.services import rate_limit
+
+    rate_limit.check(request, "support_escalations", limit=20)
     expected = str(getattr(container.settings, "admin_seed_key", "") or "").strip()
-    if not expected or key != expected:
+    # The key may come in the X-ASKODOX-Admin-Key header (preferred: URLs end up in access logs).
+    given = str(request.headers.get("x-askodox-admin-key") or key or "")
+    if not expected or not hmac.compare_digest(given.encode(), expected.encode()):
         raise HTTPException(status_code=404)
     return {"items": _support_repository(container).list_open(limit=limit)}
 

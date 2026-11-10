@@ -26,6 +26,7 @@ class _OtpEntry:
 _lock = threading.RLock()
 _otps: dict[str, _OtpEntry] = {}
 _TTL_SECONDS = 5 * 60
+_SENDS_PER_CLIENT = 8  # OTP sends per client address in 10 minutes
 _RESEND_SECONDS = 45
 _MAX_ATTEMPTS = 5
 _TEST_OTP = "123456"
@@ -95,6 +96,11 @@ def send_otp(payload: SendOtpRequest, request: Request) -> dict:
     mobile = _mobile(payload.mobile)
     now = time.time()
     is_test = _is_test_mobile(mobile)
+    if not is_test:
+        # One phone / network cannot make ASKODOX send OTPs to many numbers (SMS-cost abuse; 2026-11-10 audit).
+        from app.services import rate_limit
+
+        rate_limit.check(request, "otp_send", limit=_SENDS_PER_CLIENT, window_seconds=600)
     with _lock:
         current = _otps.get(mobile)
         if current and now - current.last_sent_at < _RESEND_SECONDS:

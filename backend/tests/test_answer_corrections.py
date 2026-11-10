@@ -115,3 +115,30 @@ def test_below_threshold_no_brain_alert(tmp_path):
     repo = PlatformRepository(str(tmp_path / "p.db"))
     repo.record_event("brain_failure", detail={"reason": "no_answer"})
     assert owner_alerts.brain_failures(repo) == 1
+
+
+def test_every_turn_leaves_a_numbers_only_trace_and_a_report_marks_it(monkeypatch, tmp_path):
+    from app.services import brain_runs
+
+    class Brain:
+        def decide(self, message, **kwargs):
+            # what the usage meter would report for one model call in this turn
+            brain_runs.note_provider_call({"provider": "gemini", "model": "gemini-3.6-flash", "feature": "chat",
+                                           "input_tokens": 3000, "output_tokens": 400, "chars": 0, "seconds": 0.0,
+                                           "ok": True})
+            return {"reply": "ok", "domain": "GENERAL", "transactional": False, "action": "answer",
+                    "confidence": 0.9, "entities": {}, "mode": "advice"}
+
+    client, container = _app(monkeypatch, tmp_path, Brain())
+    answer = client.post("/api/in-app/assistant", json={"message": "should I buy a bike or a scooter?", "locale": "en"}).json()
+    turn = answer["turn_id"]
+    assert turn.startswith("t_")
+    db = container.settings.database_path
+    report = brain_runs.summary(db, days=1)
+    assert report["turns"] == 1 and report["answered"] == 1 and report["modes"][0]["mode"] == "advice"
+    assert report["modes"][0]["input_tokens"] == 3000 and report["cost_inr"] > 0
+    client.post("/api/in-app/answer-feedback", json={"question": "q", "answer": "ok", "turn_id": turn})
+    assert brain_runs.summary(db, days=1)["wrong_answer_reports"] == 1
+    import sqlite3
+    cols = [r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(brain_runs)")]
+    assert not {"message", "reply", "user_id", "user_ref"} & set(cols), "numbers only"

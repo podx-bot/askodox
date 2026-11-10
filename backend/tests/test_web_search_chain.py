@@ -89,8 +89,16 @@ def test_build_chain_reads_backend_only_env_names_and_stays_brave_only_without_t
 
 @pytest.fixture()
 def client(monkeypatch, tmp_path):
-    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "chain.db"))
+    import dataclasses
+
     from server import app, container
+
+    # Its own database (the env name used before was not the one the app reads, so the catalog item
+    # created below leaked into other test files -- found 2026-11-10).
+    monkeypatch.setattr(container, "settings", dataclasses.replace(container.settings,
+                                                                   database_path=str(tmp_path / "chain.db")))
+    for cached in ("platform", "affiliate_catalog"):
+        monkeypatch.setattr(container, cached, None, raising=False)  # restored / removed after the test
 
     class _NoMaps:
         enabled = False

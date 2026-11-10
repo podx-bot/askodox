@@ -18,6 +18,11 @@ _hits: dict[tuple[str, str], deque] = defaultdict(deque)
 
 
 def client_key(request: Request) -> str:
+    # The platform edge sets X-Real-IP to the address it saw; unlike the first X-Forwarded-For value, a caller
+    # cannot choose it (2026-11-10 security audit: a spoofed X-Forwarded-For bypassed every limit).
+    real = (request.headers.get("x-real-ip") or "").strip()
+    if real:
+        return real
     forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
     if forwarded:
         return forwarded

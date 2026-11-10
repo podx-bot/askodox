@@ -17,7 +17,7 @@ from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 
-from app.services import answer_corrections, live_lookup
+from app.services import answer_corrections, live_lookup, prompt_safety
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
 from app.services import advice_memory, reply_suggestions
@@ -91,6 +91,8 @@ def _reply_language_rule(locale: str) -> str:
 # Reasoning before results (APK 1311): result cards SUPPORT the answer, they
 # never replace it. One rule for every domain -- products, services, business,
 # finance, personal decisions -- never a per-category script.
+GEMINI_TIMEOUT_MS = 25_000
+
 DECISION_GUIDANCE_RULES = (
     "Decision guidance (every domain, every language; you are a personal advisor and decision partner, not a "
     "search box): the reply must first genuinely help with what the user asked, whether or not options will be "
@@ -228,7 +230,8 @@ class UniversalAIAssistantService:
         self.clock = clock
         self.api_key = str(api_key or "").strip()
         self.model = str(model or "gemini-3.6-flash").strip()
-        self.client = client or (genai.Client(api_key=self.api_key) if self.api_key else None)
+        # An explicit timeout: a stuck provider call must not hold a server thread (the app gives up at 15 s).
+        self.client = client or (self._new_client() if self.api_key else None)
         self.openai_api_key = str(openai_api_key or "").strip()
         self.openai_model = str(openai_model or "gpt-5").strip()
         self.http = http_client or httpx.Client(timeout=20.0)
@@ -443,6 +446,7 @@ class UniversalAIAssistantService:
             + (f"Known user location: {location}\n" if location else "")
             + _user_memory_block(user_memory)
             + answer_corrections.prompt_block(lessons)
+            + prompt_safety.RULE
             + f"Conversation so far JSON: {json.dumps(history, ensure_ascii=False)}\n"
             + "Knowledge honesty: never call a product, model or event fake, non-existent or not released from "
             "memory (your knowledge has a cutoff); only live evidence below may say that -- otherwise say it could not "
@@ -453,7 +457,7 @@ class UniversalAIAssistantService:
         text = ""
         if self.configured:
             try:
-                client = self.client or genai.Client(api_key=self.api_key)
+                client = self.client or self._new_client()
                 config = types.GenerateContentConfig(
                     temperature=0.3, max_output_tokens=3072,
                     thinking_config=types.ThinkingConfig(thinking_budget=0))
@@ -486,7 +490,7 @@ class UniversalAIAssistantService:
         text = ""
         if self.configured:
             try:
-                client = self.client or genai.Client(api_key=self.api_key)
+                client = self.client or self._new_client()
                 config = types.GenerateContentConfig(
                     temperature=0.4, max_output_tokens=max_tokens,
                     thinking_config=types.ThinkingConfig(thinking_budget=0))
@@ -665,7 +669,7 @@ class UniversalAIAssistantService:
                 return {"ok": False, "state": provider_health.NEEDS_CONFIGURATION, "status_code": None,
                         "detail": "Gemini API key is not set on this deployment"}
             try:
-                client = self.client or genai.Client(api_key=self.api_key)
+                client = self.client or self._new_client()
                 config = types.GenerateContentConfig(
                     temperature=0, max_output_tokens=8, thinking_config=types.ThinkingConfig(thinking_budget=0))
                 client.models.generate_content(model=self.model, contents="Reply with OK.", config=config)
@@ -741,6 +745,12 @@ class UniversalAIAssistantService:
         if not isinstance(data, dict):
             raise ValueError("model reply JSON was not an object")
         return data
+
+    def _new_client(self) -> Any:
+        try:
+            return genai.Client(api_key=self.api_key, http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS))
+        except Exception:  # an SDK without http_options: keep working as before
+            return genai.Client(api_key=self.api_key)
 
     def decide(
         self,
@@ -833,7 +843,7 @@ class UniversalAIAssistantService:
             "known one. You may still copy the known location into entities.location when relevant.\n"
             + _reply_language_rule(locale) +
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
-            + _user_memory_block(user_memory) + answer_corrections.prompt_block(lessons) +
+            + _user_memory_block(user_memory) + answer_corrections.prompt_block(lessons) + prompt_safety.RULE +
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
             + (f"Already searched for (the options now on screen): "
                f"{json.dumps(searched_for, ensure_ascii=False)[:1500]}\n" if searched_for else "")
@@ -1048,7 +1058,7 @@ class UniversalAIAssistantService:
         data: dict[str, Any] | None = None
         if self.configured:
             try:
-                client = self.client or genai.Client(api_key=self.api_key)
+                client = self.client or self._new_client()
                 config = types.GenerateContentConfig(
                     temperature=0.15,
                     max_output_tokens=2048,
