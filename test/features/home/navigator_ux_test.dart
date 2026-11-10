@@ -148,7 +148,8 @@ void main() {
     // Uploading own videos is Phase 2; changing location is offered in every build.
     expect(find.byKey(const ValueKey('askodoxGuideStart-upload_video')), askodoxPhase2 ? findsOneWidget : findsNothing);
     expect(find.byKey(const ValueKey('askodoxGuideStart-change_location')), findsOneWidget);
-    expect(find.byKey(const Key('askodoxHeaderGuideOtherApps')), findsOneWidget);
+    // 2026-11-09: the other-apps guide is off for now (owner); the in-app walkthroughs stay.
+    expect(find.byKey(const Key('askodoxHeaderGuideOtherApps')), findsNothing);
   });
 
   group('Result Board attribute chips (seller-given details, views of the deck)', () {
