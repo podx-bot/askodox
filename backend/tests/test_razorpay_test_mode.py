@@ -400,3 +400,18 @@ def test_shared_demo_login_is_never_a_tester_and_radio_testers_match_by_phone(en
     assert not radio(container).is_tester("app-phone-919999999999")
     assert client.delete("/admin/cc/radio/testers/9876500007", headers=OWNER).json()["removed"] is True
     assert not radio(container).is_tester("app-phone-919876500007")
+
+
+def test_a_webhook_secret_pasted_with_spaces_still_verifies(env):
+    """Owner 2026-11-11: four test payments were all rejected -- a secret pasted with a trailing space / newline was
+    stored as typed. Command Center secrets are trimmed like deployment variables, on save and on read."""
+    client, container, _ = env
+    container.platform = None
+    r = client.put("/admin/cc/platform/integrations/razorpay", headers=OWNER,
+                   json={"enabled": True, "mode": "test", "secrets": {"webhook_secret": "  " + WH_SECRET + " \n"}})
+    assert r.status_code == 200, r.text
+    assert r.json()["sources"]["webhook_secret"] == "command_center"
+    uid, me = _tester(client, container)
+    out, _ = _buy(client, me)
+    order_id = out["checkout"]["order_id"]
+    assert _webhook(client, _captured(order_id, "pay_T1", 49900), "evt_t1").json()["status"] == "PAID"

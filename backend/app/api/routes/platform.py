@@ -1692,6 +1692,11 @@ async def payment_webhook(provider: str, request: Request) -> dict:
             from app.services import payment_gateway_health
 
             payment_gateway_health.note_webhook_rejected()
+            try:  # which saved value was compared -- names only, never the secret
+                source = pf.razorpay.registry.status("razorpay").get("sources", {}).get("webhook_secret", "none")
+            except Exception:
+                source = "unknown"
+            print(f"razorpay.webhook rejected: {error} (webhook_secret from {source})", flush=True)
             raise HTTPException(status_code=401, detail=str(error)) from None
         except Exception as error:
             raise _err(error) from None
