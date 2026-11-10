@@ -167,3 +167,27 @@ def test_prompt_rule_is_universal():
     rule = svc.GUIDE_ANSWER_RULES
     for must in ("NOT a request for shops or sellers", "numbered steps", "official site", "Never invent what a screenshot"):
         assert must in rule, must
+
+
+def test_model_explain_steps_wins_over_a_shop_mentioned_as_context():
+    # Production probe 2026-11-10: "ఇప్పటికే చికెన్ షాప్ కి ఉదయం ఉంది" blocked the guide answer.
+    brain, _, _ = _brain(decision=_decision(transactional=False, action="explain_steps", domain="GENERAL"))
+    out = brain.decide("ఇప్పటికే చికెన్ షాప్ కి ఉదయం ఉంది, కొత్త GST బిజినెస్ add చేయాలి", locale="te")
+    assert out["mode"] == "advice" and out["action"] == "explain_steps"
+
+
+def test_claude_failure_logs_anthropics_reason_without_the_key(caplog):
+    class _Bad(_Http):
+        def post(self, url, *, headers=None, json=None, timeout=None):
+            import httpx
+            request = httpx.Request("POST", url)
+            response = httpx.Response(400, request=request, json={"type": "error", "error": {
+                "type": "invalid_request_error", "message": "Your credit balance is too low"}})
+            return response
+    brain, _, _ = _brain(claude=True)
+    brain.http = _Bad()
+    with caplog.at_level("WARNING"):
+        assert brain._call_claude("hi") == ""
+    line = " ".join(r.getMessage() for r in caplog.records)
+    assert "status=400" in line and "invalid_request_error" in line and "credit balance" in line
+    assert "sk-ant" not in line

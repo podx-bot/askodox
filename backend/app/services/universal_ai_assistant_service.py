@@ -301,7 +301,19 @@ class UniversalAIAssistantService:
             return text
         except Exception as exc:
             _observe_ai("anthropic", error=exc)
-            logger.warning("universal_ai_assistant: claude call failed (model=%s, %s)", chosen, type(exc).__name__)
+            # Anthropic's own status + error type/message (never the key), so the
+            # Railway log says WHY (401 key, 400 credit / model, 404 model, 429, 529).
+            status, kind, detail = "", "", ""
+            response = getattr(exc, "response", None)
+            if response is not None:
+                status = str(getattr(response, "status_code", ""))
+                try:
+                    err = (response.json() or {}).get("error") or {}
+                    kind, detail = str(err.get("type") or ""), str(err.get("message") or "")[:200]
+                except Exception:
+                    detail = str(getattr(response, "text", ""))[:200]
+            logger.warning("universal_ai_assistant: claude call failed (model=%s, %s, status=%s, type=%s, message=%s)",
+                           chosen, type(exc).__name__, status, kind, detail)
             return ""
 
     @classmethod
@@ -510,10 +522,14 @@ class UniversalAIAssistantService:
         """A know-how answer, not a seller search: the model said so (explain_steps), the user's own words ask
         how to do something, or a screen / document was sent -- unless the user plainly asks to buy / find now."""
         text = user_text or ""
-        if cls._COMMERCE_NOW.search(text) or cls._asks_where_to_get(text) or cls._asks_for_videos(text):
+        if cls._asks_where_to_get(text) or cls._asks_for_videos(text):
             return False
         if model_action in {"explain_steps", "guide", "how_to"}:
+            # The model read the whole conversation; a shop mentioned as context
+            # ("my chicken shop already has Udyam") is not a buy / find ask.
             return True
+        if cls._COMMERCE_NOW.search(text):
+            return False
         if cls._HOWTO_ASK.search(text):
             return True
         return bool(attachment_facts and cls._GUIDE_ATTACHMENT.search(attachment_facts))
