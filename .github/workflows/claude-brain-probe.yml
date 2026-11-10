@@ -1,4 +1,4 @@
-name: Claude brain probe
+name: Claude brain probe (new key)
 on:
   push:
     branches: [claude/probe-claude-brain]
