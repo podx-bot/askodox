@@ -392,31 +392,58 @@ class InAppAssistantService {
       }
       if (response.statusCode < 200 || response.statusCode >= 300) return null;
       // Between two pieces at most 45 s (routing + a full answer can take that long before
-      // the first piece); the whole answer has no fixed limit while text keeps coming.
-      final lines = response.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .timeout(const Duration(seconds: 45));
-      await for (final line in lines) {
-        if (line.trim().isEmpty) continue;
-        final event = jsonDecode(line);
-        if (event is! Map<String, dynamic>) continue;
-        switch (event['type']) {
-          case 'delta':
-            shown += '${event['text'] ?? ''}';
-            onText(shown);
-          case 'reset':
-            shown = '';
-            onText('');
-          case 'final':
-            final decision = event['decision'];
-            return decision is Map<String, dynamic> ? InAppAssistantDecision.fromJson(decision) : null;
-          case null when event.containsKey('reply'):
-            // A server that answered with the plain /assistant JSON.
-            return InAppAssistantDecision.fromJson(event);
-        }
+      // the first piece); no fixed limit for the whole answer while text keeps coming. Read
+      // to the end with listen + a Completer: never await a subscription cancel (it hangs
+      // fake-async widget tests -- see AskodoxScaleReader).
+      final done = Completer<InAppAssistantDecision?>();
+      InAppAssistantDecision? result;
+      Timer? idle;
+      late final StreamSubscription<String> lines;
+      void finish(InAppAssistantDecision? value) {
+        idle?.cancel();
+        if (!done.isCompleted) done.complete(value);
       }
-      return null;
+
+      void arm() {
+        idle?.cancel();
+        idle = Timer(const Duration(seconds: 45), () {
+          unawaited(lines.cancel());
+          finish(null);
+        });
+      }
+
+      lines = response.stream.transform(utf8.decoder).transform(const LineSplitter()).listen(
+        (line) {
+          arm();
+          if (line.trim().isEmpty) return;
+          final Object? event;
+          try {
+            event = jsonDecode(line);
+          } on FormatException {
+            return;
+          }
+          if (event is! Map<String, dynamic>) return;
+          switch (event['type']) {
+            case 'delta':
+              shown += '${event['text'] ?? ''}';
+              onText(shown);
+            case 'reset':
+              shown = '';
+              onText('');
+            case 'final':
+              final decision = event['decision'];
+              result = decision is Map<String, dynamic> ? InAppAssistantDecision.fromJson(decision) : null;
+            case null when event.containsKey('reply'):
+              // A server that answered with the plain /assistant JSON.
+              result = InAppAssistantDecision.fromJson(event);
+          }
+        },
+        onError: (Object _) => finish(null),
+        onDone: () => finish(result),
+        cancelOnError: true,
+      );
+      arm();
+      return await done.future;
     } on TimeoutException {
       return null;
     } on http.ClientException {
