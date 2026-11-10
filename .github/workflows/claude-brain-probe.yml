@@ -18,7 +18,7 @@ jobs:
                       live = json.loads(r.read()).get('commit', '')
               except Exception as e:
                   live = repr(e)
-              if str(live).startswith('de80d2e'):
+              if str(live).startswith('76b98c9'):
                   break
               time.sleep(30)
           print(f'::warning::DEPLOYED_COMMIT {live}')
