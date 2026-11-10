@@ -593,8 +593,11 @@ class UniversalAIAssistantService:
                if attachment_facts else "")
             + f"User's question: {user_text or '(no words -- they only sent the attachment)'}"
         )
-        text = self._call_claude(prompt, model=self.anthropic_reasoning_model, max_tokens=3072,
-                                 temperature=0.3, timeout=60.0)
+        # Guide (how-to / screenshot) answers use the fast model: Sonnet took 20-30 s for a
+        # short Telugu guide (owner 2026-11-10). Advice keeps the reasoning model.
+        text = self._call_claude(prompt,
+                                 model=self.anthropic_model if guide else self.anthropic_reasoning_model,
+                                 max_tokens=3072, temperature=0.3, timeout=60.0)
         if not text and self.configured:
             try:
                 client = self.client or genai.Client(api_key=self.api_key)

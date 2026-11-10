@@ -146,7 +146,8 @@ def test_claude_is_primary_when_key_is_set():
     out = brain.decide("Udyam registration ela cheyali?", locale="te")
     assert out["reply"] == "CLAUDE GUIDE"
     assert gemini.prompts == []  # Gemini never needed
-    assert [c["model"] for c in http.calls] == ["claude-haiku-5-5", "claude-sonnet-5-5"]
+    # Routing and the guide answer both use the fast model now (owner 2026-11-10: speed).
+    assert [c["model"] for c in http.calls] == ["claude-haiku-5-5", "claude-haiku-5-5"]
     assert all(c["url"] == "https://api.anthropic.com/v1/messages" for c in http.calls)
 
 
@@ -225,3 +226,10 @@ def test_guide_answer_is_short_so_it_comes_back_fast():
     """Owner 2026-11-10: Udyam guide answers took ~28 s. The guide asks for a short answer."""
     assert "900 characters" in svc.GUIDE_ANSWER_RULES
     assert "at most 5 steps" in svc.GUIDE_ANSWER_RULES
+
+
+def test_advice_keeps_the_reasoning_model():
+    brain, _, http = _brain(claude=True, decision=_decision(transactional=False, action="advise", domain="GENERAL"))
+    brain.decide("should I take a home loan or keep renting, I earn 80k", locale="en")
+    models = [c["model"] for c in http.calls]
+    assert "claude-sonnet-5-5" in models
