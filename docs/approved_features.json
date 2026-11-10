@@ -5612,6 +5612,51 @@
       "history": [
         "2026-11-10: owner asked for an Autonomous Intelligence & Self-Correction System and left the design to Claude"
       ]
+    },
+    {
+      "id": "payment_alerts_phase1_staff",
+      "name": "Payment sound alerts in Phase 1, shared with chosen staff",
+      "purpose": "Owner 2026-11-10: money reaches the owner's account and the chosen staff (manager / cashier / attendant) hear it on their phones too, without the POS.",
+      "expected_behavior": "/me/payment-alerts (Profile -> Payments row profile-payment-alerts, and a card on My payment methods) lets a signed-in person name the shop + State once, add staff by 10-digit mobile number and role, and open the existing payment alerts screen at /me/payment-alerts/{id}. Staff see the shop with their role and only the sound switch. A payment-alert push to /pos/{id}/payment-alerts opens /me/payment-alerts/{id} in a Phase 1 build. POS role 'attendant' has view only; it gets alerts only after the owner ticks the role; it cannot bill or manage staff. Phone-notification events stay notification_unverified; ASKODOX never holds money.",
+      "roles": [
+        "customer",
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/members"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxMyPaymentAlerts",
+          "askodoxMyPaymentAlertsSetup",
+          "askodoxPayMethodsAlerts"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_payment_alerts.py"
+        ],
+        "flutter": [
+          "test/features/pos/my_payment_alerts_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-10: owner asked that chosen staff also hear the payment sound, reachable in the Phase 1 app"
+      ]
     }
   ]
 }
