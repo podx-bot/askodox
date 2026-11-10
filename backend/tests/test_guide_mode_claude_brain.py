@@ -219,3 +219,9 @@ def test_decision_json_has_room_so_claude_is_not_cut_off():
     routing = [c for c in http.calls if "Return ONLY the JSON object" in c["prompt"]]
     assert routing, "no routing call recorded"
     assert all(c["max_tokens"] >= 4096 for c in routing)
+
+
+def test_guide_answer_is_short_so_it_comes_back_fast():
+    """Owner 2026-11-10: Udyam guide answers took ~28 s. The guide asks for a short answer."""
+    assert "900 characters" in svc.GUIDE_ANSWER_RULES
+    assert "at most 5 steps" in svc.GUIDE_ANSWER_RULES
