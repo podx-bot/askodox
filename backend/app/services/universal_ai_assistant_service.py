@@ -593,11 +593,10 @@ class UniversalAIAssistantService:
                if attachment_facts else "")
             + f"User's question: {user_text or '(no words -- they only sent the attachment)'}"
         )
-        # Guide (how-to / screenshot) answers use the fast model: Sonnet took 20-30 s for a
-        # short Telugu guide (owner 2026-11-10). Advice keeps the reasoning model.
-        text = self._call_claude(prompt,
-                                 model=self.anthropic_model if guide else self.anthropic_reasoning_model,
-                                 max_tokens=3072, temperature=0.3, timeout=60.0)
+        # Guide and advice answers both use the reasoning model: quality is compulsory in
+        # every language (owner 2026-11-10); Haiku gave no measurable speed gain (#307).
+        text = self._call_claude(prompt, model=self.anthropic_reasoning_model, max_tokens=3072,
+                                 temperature=0.3, timeout=60.0)
         if not text and self.configured:
             try:
                 client = self.client or genai.Client(api_key=self.api_key)
@@ -925,7 +924,9 @@ class UniversalAIAssistantService:
                 compact_history.append({"role": role, "text": text[:1200]})
 
         runtime_block = runtime_context_block(clean, self.clock)
+        started = time.monotonic()
         grounding, grounding_block = self._live_grounding(clean, compact_history)
+        grounding_ms = int((time.monotonic() - started) * 1000)
         prompt = (
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
             "Understand meaning from the full conversation, not keyword matching. Return ONLY one JSON object with keys: "
@@ -1001,7 +1002,33 @@ class UniversalAIAssistantService:
             + grounding_block
             + f"Current user message: {clean}"
         )
-        data = self._decision_json(prompt, clean, clean_location)
+        # Fast guide path (owner 2026-11-10: quality AND speed): when the user's OWN words
+        # (or a screenshot / document) already make this a how-to and nothing asks to buy
+        # or find, the routing call's reply would be thrown away anyway -- write the guide
+        # answer directly and skip that whole model call. Quality is unchanged (same answer
+        # call); anything unclear still goes through routing.
+        said_early = self.own_words(clean)
+        facts_early = self.attachment_facts_of(clean)
+        prepared_guide = ""
+        route_ms = answer_ms = 0
+        path = "routed"
+        if not self.split_app_context(clean)[2] and self.wants_guide(said_early, facts_early, ""):
+            t0 = time.monotonic()
+            prepared_guide, _meta = self._advise(
+                said_early, compact_history, locale, clean_location, ledger, capabilities,
+                user_memory=user_memory, lessons=lessons,
+                evidence=runtime_block + "\n" + (grounding_block or ""),
+                guide=True, attachment_facts=facts_early)
+            answer_ms = int((time.monotonic() - t0) * 1000)
+        if prepared_guide:
+            path = "guide_fast"
+            data = {"reply": prepared_guide, "domain": "GENERAL", "transactional": False,
+                    "action": "explain_steps", "confidence": 0.9, "entities": {},
+                    "search_ready": False, "next_question": None, "search_subject": None}
+        else:
+            t0 = time.monotonic()
+            data = self._decision_json(prompt, clean, clean_location)
+            route_ms = int((time.monotonic() - t0) * 1000)
         if not isinstance(data, dict):
             return None
         try:
@@ -1070,10 +1097,15 @@ class UniversalAIAssistantService:
                 action = "explain_steps"
                 if domain not in {"GENERAL", "UNKNOWN"}:
                     domain = "GENERAL"
-                answer, _meta = self._advise(said, compact_history, locale, clean_location, ledger, capabilities,
-                                             user_memory=user_memory, lessons=lessons,
-                                             evidence=runtime_block + "\n" + (grounding_block or ""),
-                                             guide=True, attachment_facts=facts)
+                if prepared_guide:
+                    answer = prepared_guide
+                else:
+                    t0 = time.monotonic()
+                    answer, _meta = self._advise(said, compact_history, locale, clean_location, ledger,
+                                                 capabilities, user_memory=user_memory, lessons=lessons,
+                                                 evidence=runtime_block + "\n" + (grounding_block or ""),
+                                                 guide=True, attachment_facts=facts)
+                    answer_ms = int((time.monotonic() - t0) * 1000)
                 if answer:
                     reply = answer
                     suggestions_raw = None
@@ -1187,6 +1219,10 @@ class UniversalAIAssistantService:
             # clarify_need already shows its own option chips in the app.
             suggestions = ([] if action == "clarify_need" or suggestions_raw is None
                            else reply_suggestions.clean(suggestions_raw, reply=reply))
+            # Where the time goes (no user text, no keys): one line per answer.
+            logger.info("universal_ai_assistant.timing path=%s action=%s grounding_ms=%d route_ms=%d "
+                        "answer_ms=%d total_ms=%d", path, action, grounding_ms, route_ms, answer_ms,
+                        int((time.monotonic() - started) * 1000))
             return {
                 **brain,
                 "conversation_relation": relation_name,
