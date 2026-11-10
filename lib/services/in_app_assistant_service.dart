@@ -380,7 +380,7 @@ class InAppAssistantService {
       final response = await client.send(request).timeout(const Duration(seconds: 30));
       if (response.statusCode == 404 || response.statusCode == 405) {
         await response.stream.drain<void>();
-        return decide(
+        return await decide(
           message: message,
           locale: locale,
           history: history,
