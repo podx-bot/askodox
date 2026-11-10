@@ -1,0 +1,46 @@
+name: Claude brain probe
+on:
+  push:
+    branches: [claude/probe-claude-brain]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe production chat brain
+        run: |
+          python3 - <<'PY'
+          import json, time, urllib.request
+          base = 'https://podx-ai-connect-production-3279.up.railway.app'
+          live = ''
+          for _ in range(40):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base + '/health', headers={'User-Agent': 'ASKODOX-probe'}), timeout=30) as r:
+                      live = json.loads(r.read()).get('commit', '')
+              except Exception as e:
+                  live = repr(e)
+              if str(live).startswith('cbf57d3'):
+                  break
+              time.sleep(30)
+          print(f'::warning::DEPLOYED_COMMIT {live}')
+          ask = ('The customer sent this attachment without a question. Say what it is and help with the likely need '
+                 '(where to get it nearby or online, a service for it, or what the document means).')
+          cases = [
+              ('udyam_te', 'నాకు ఉదయం సర్టిఫికేట్ రిజిస్ట్రేషన్ ఎలా చేయాలి? ఇప్పటికే చికెన్ షాప్ కి ఉదయం ఉంది, కొత్త GST బిజినెస్ add చేయాలి', 'te'),
+              ('screenshot', ask + '\nAttachment facts: Shows: Udyam update form\nType: SCREEN\nVisible text: Update UDYAM Detail Along with Investment & Turnover for FY 2023-24; Have you filed the ITR? Yes No; Do you have GSTIN? Yes No Exempted; Update', 'te'),
+              ('buy_ac', 'where can I buy a 1.5 ton AC', 'en'),
+          ]
+          for name, msg, loc in cases:
+              t = time.time()
+              try:
+                  req = urllib.request.Request(base + '/api/in-app/assistant', data=json.dumps(
+                      {'message': msg, 'locale': loc, 'history': [], 'location': 'Vuyyuru'}).encode(),
+                      headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST')
+                  with urllib.request.urlopen(req, timeout=120) as r:
+                      d = json.loads(r.read())
+                  reply = ' '.join(str(d.get('reply', '')).split())
+                  print(f"::warning::{name} {time.time()-t:.1f}s mode={d.get('mode')} action={d.get('action')} transactional={d.get('transactional')} source={d.get('source')} search_ready={d.get('search_ready')}")
+                  for i in range(0, min(len(reply), 1800), 450):
+                      print(f"::warning::{name} reply[{i}] {reply[i:i+450]}")
+              except Exception as e:
+                  print(f'::warning::{name} ERROR {e!r}')
+          PY
