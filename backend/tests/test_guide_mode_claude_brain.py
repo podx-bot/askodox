@@ -61,7 +61,8 @@ class _Http:
         self.fail = fail
 
     def post(self, url, *, headers=None, json=None, timeout=None):
-        self.calls.append({"url": url, "model": (json or {}).get("model"), "prompt": (json or {}).get("messages", [{}])[0].get("content", "")})
+        self.calls.append({"url": url, "model": (json or {}).get("model"), "prompt": (json or {}).get("messages", [{}])[0].get("content", ""),
+                           "max_tokens": (json or {}).get("max_tokens")})
         if self.fail:
             return _Resp({}, 529)
         prompt = self.calls[-1]["prompt"]
@@ -208,3 +209,13 @@ def test_claude_request_never_sends_temperature():
     brain.decide("Udyam registration ela cheyali?", locale="te")
     assert seen, "Claude was never called"
     assert all("temperature" not in body for body in seen)
+
+
+def test_decision_json_has_room_so_claude_is_not_cut_off():
+    """Production 2026-11-10: "claude JSON unreadable" -- a routing JSON cut at max_tokens
+    cannot be parsed, so the call fell back to Gemini. The routing budget is larger now."""
+    brain, _, http = _brain(claude=True)
+    brain.decide("Udyam registration ela cheyali?", locale="te")
+    routing = [c for c in http.calls if "Return ONLY the JSON object" in c["prompt"]]
+    assert routing, "no routing call recorded"
+    assert all(c["max_tokens"] >= 4096 for c in routing)
