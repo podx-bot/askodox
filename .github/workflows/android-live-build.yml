@@ -565,4 +565,12 @@ jobs:
         shell: bash
         run: |
           TAG="android-${BUILD_NUMBER}"
-          gh release create "$TAG" "dist/askodox-live-${BUILD_NUMBER}.apk" dist/SHA256SUMS.txt --prerelease --title "ASKODOX Android ${BUILD_NUMBER}" --notes "Live ASKODOX Android build. Existing installs can update only when the application ID and signing certificate match."
+          # The small per-CPU APKs too (owner 2026-11-10): a phone that installed a small arm64
+          # build has versionCode 2000 + build (Flutter --split-per-abi), so the universal APK
+          # (versionCode = build) is a DOWNGRADE there and Android says "App not installed".
+          extra=""
+          for f in "dist/askodox-live-${BUILD_NUMBER}-arm64.apk" "dist/askodox-live-${BUILD_NUMBER}-arm32.apk"; do
+            [ -f "$f" ] && extra="$extra $f"
+          done
+          gh release create "$TAG" "dist/askodox-live-${BUILD_NUMBER}.apk" $extra dist/SHA256SUMS.txt --prerelease --title "ASKODOX Android ${BUILD_NUMBER}" --notes "Live ASKODOX Android build. Phones: use the small -arm64 APK (a phone with a small build installed cannot take the big universal APK). Existing installs can update only when the application ID and signing certificate match."
+          echo "::notice::Small phone APK (arm64): https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-live-${BUILD_NUMBER}-arm64.apk"
