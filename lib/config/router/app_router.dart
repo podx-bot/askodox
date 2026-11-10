@@ -70,6 +70,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (path == '/seller' || path.startsWith('/seller/')) return '/listings/mine';
       // Phase 1 (Play policy): pages left out of this build are never reachable from a notification,
       // promo or deep link either.
+      // A payment-alert push names the POS page; in Phase 1 the same screen lives under /me.
+      final alert = RegExp(r'^/pos/([^/]+)/payment-alerts$').firstMatch(path);
+      if (alert != null && !askodoxPhase2) return '/me/payment-alerts/${alert.group(1)}';
       if (!askodoxRouteShownNow(path)) return '/';
       return const RouteGuard().redirect(session, state.matchedLocation);
     },

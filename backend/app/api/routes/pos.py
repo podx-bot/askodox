@@ -70,7 +70,7 @@ class SettingsIn(BaseModel):
 
 class MemberIn(BaseModel):
     phone: str = Field(min_length=10, max_length=16)
-    role: str = Field(pattern="^(manager|cashier|accountant|waiter|kitchen|removed)$")
+    role: str = Field(pattern="^(manager|cashier|accountant|waiter|kitchen|attendant|removed)$")
 
 
 class ProductIn(BaseModel):

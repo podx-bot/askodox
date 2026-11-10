@@ -269,3 +269,23 @@ def test_push_service_data_message_is_high_priority_once(tmp_path):
     assert n == 1 and push.send_data("u1", data={"type": "payalert"}, event_key="payalert:e1") == 0
     msg = client.sent[0]["message"]
     assert msg["android"]["priority"] == "high" and "notification" not in msg and msg["data"]["type"] == "payalert"
+
+
+def test_attendant_role_hears_alerts_only_when_the_owner_allows_it_and_cannot_bill(env):
+    """Owner 2026-11-10: manager / cashier / attendant chosen by the owner get the payment sound."""
+    store, alerts, biz, owner_dev, _cashier_dev, pushes, _, _ = env
+    attendant = "app-phone-9400000304"
+    store.set_member(biz, OWNER, "9400000304", "attendant")
+    store.business(biz, attendant)  # the attendant opens the shop once (links their app identity)
+    with pytest.raises(PosError) as e:
+        alerts.register_device(biz, attendant, {"device_key": "attendant-phone-1", "label": "Pump 2"})
+    assert e.value.status == 403, "not allowed until the owner ticks the role"
+    assert "attendant" in alerts.settings(biz, OWNER)["all_roles"]
+    alerts.update_settings(biz, OWNER, {"roles": ["manager", "cashier", "attendant"]})
+    alerts.register_device(biz, attendant, {"device_key": "attendant-phone-1", "label": "Pump 2"})
+    pushes.clear()
+    alerts.report(biz, OWNER, _event(owner_dev, n="7", reference="T2410269999999991"))
+    assert attendant in [p[0] for p in pushes], "the attendant's phone gets the alert"
+    with pytest.raises(PosError) as e:
+        store.members(biz, attendant)
+    assert e.value.status == 403, "an attendant cannot manage staff"

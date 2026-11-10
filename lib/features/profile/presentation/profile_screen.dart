@@ -315,6 +315,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — people pay you directly.',
                   'మీ UPI QR / బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
                   words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
+              row('profile-payment-alerts', 'me', Icons.volume_up_outlined, 'Payment sound alerts',
+                  'పేమెంట్ సౌండ్ అలర్ట్', 'Hear it when money arrives — on staff phones too.',
+                  'డబ్బు పడగానే వినిపిస్తుంది — సిబ్బంది ఫోన్‌లలో కూడా.', () => context.push('/me/payment-alerts'),
+                  words: ['alert', 'sound', 'soundbox', 'staff', 'అలర్ట్', 'సౌండ్', 'సిబ్బంది']),
             ]),
       // Personal Finance: the Personal Tax Assistant (existing /intel/* screens) + the person's money records.
       if (askodoxPhase2)

@@ -6,6 +6,7 @@ import 'pos_catalogue_screens.dart';
 import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
 import 'pos_home_screen.dart';
+import 'my_payment_alerts_screen.dart';
 import 'pos_payment_alerts_screen.dart';
 import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
@@ -17,6 +18,11 @@ import 'pos_selfshop_screens.dart';
 /// Shown in Phase 1 too: a person's own UPI QR / bank, so people pay them directly.
 final askodoxPaymentMethodRoutes = <GoRoute>[
   GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),
+  // Payment sound alerts without the POS (owner 2026-11-10): the shop, its staff and who hears the sound.
+  GoRoute(path: '/me/payment-alerts', builder: (context, state) => const AskodoxMyPaymentAlertsScreen()),
+  GoRoute(
+      path: '/me/payment-alerts/:id',
+      builder: (context, state) => AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!)),
 ];
 
 final askodoxPosRoutes = <GoRoute>[
