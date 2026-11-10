@@ -146,8 +146,9 @@ def test_claude_is_primary_when_key_is_set():
     out = brain.decide("Udyam registration ela cheyali?", locale="te")
     assert out["reply"] == "CLAUDE GUIDE"
     assert gemini.prompts == []  # Gemini never needed
-    # Routing and the guide answer both use the fast model now (owner 2026-11-10: speed).
-    assert [c["model"] for c in http.calls] == ["claude-haiku-5-5", "claude-haiku-5-5"]
+    # A plain how-to skips routing: ONE call, the reasoning model writes the guide
+    # (owner 2026-11-10: quality compulsory, and faster).
+    assert [c["model"] for c in http.calls] == ["claude-sonnet-5-5"]
     assert all(c["url"] == "https://api.anthropic.com/v1/messages" for c in http.calls)
 
 
@@ -216,7 +217,7 @@ def test_decision_json_has_room_so_claude_is_not_cut_off():
     """Production 2026-11-10: "claude JSON unreadable" -- a routing JSON cut at max_tokens
     cannot be parsed, so the call fell back to Gemini. The routing budget is larger now."""
     brain, _, http = _brain(claude=True)
-    brain.decide("Udyam registration ela cheyali?", locale="te")
+    brain.decide("where can I buy a 1.5 ton AC", locale="en")
     routing = [c for c in http.calls if "Return ONLY the JSON object" in c["prompt"]]
     assert routing, "no routing call recorded"
     assert all(c["max_tokens"] >= 4096 for c in routing)
@@ -233,3 +234,33 @@ def test_advice_keeps_the_reasoning_model():
     brain.decide("should I take a home loan or keep renting, I earn 80k", locale="en")
     models = [c["model"] for c in http.calls]
     assert "claude-sonnet-5-5" in models
+
+
+@pytest.mark.parametrize("message", [
+    "Udyam registration ela cheyali?",
+    "how do I link Aadhaar to my bank account",
+    SCREENSHOT,
+])
+def test_clear_how_to_skips_the_routing_call(message):
+    """Speed without losing quality: the routing reply was discarded for guides anyway."""
+    brain, _, http = _brain(claude=True)
+    out = brain.decide(message, locale="te")
+    assert out["action"] == "explain_steps" and out["mode"] == "advice"
+    assert out["reply"] == "CLAUDE GUIDE"
+    assert not any("Return ONLY the JSON object" in c["prompt"] for c in http.calls)
+    assert [c["model"] for c in http.calls] == ["claude-sonnet-5-5"]
+
+
+def test_buying_still_goes_through_routing():
+    brain, _, http = _brain(claude=True, decision=_decision(transactional=True, action="find_local"))
+    out = brain.decide("where can I buy a 1.5 ton AC", locale="en")
+    assert out["transactional"] is True
+    assert any("Return ONLY the JSON object" in c["prompt"] for c in http.calls)
+
+
+def test_fast_guide_falls_back_to_routing_when_no_answer():
+    """Claude and Gemini both silent on the guide: the normal routed path still answers."""
+    brain, gemini, http = _brain(claude=False)
+    gemini.text = ""
+    out = brain.decide("Udyam registration ela cheyali?", locale="te")
+    assert out is not None and out["reply"]
