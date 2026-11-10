@@ -2424,7 +2424,7 @@ void main() {
     expect(find.text('No local match yet -- online options'), findsNothing);
     expect(find.textContaining('No verified local match yet'), findsOneWidget);
     expect(find.text('Open'), findsOneWidget);
-    expect(find.text('Affiliate link'), findsOneWidget);
+    expect(find.text('Shop link · ASKODOX may earn a small commission'), findsOneWidget);
     expect(find.text('Play'), findsOneWidget);
     expect(find.text('Send request'), findsNothing);
     expect(find.text('Connect'), findsNothing);
@@ -2958,7 +2958,7 @@ void main() {
     expect(find.text('What TV screen size do you prefer?'), findsNothing);
     expect(h.matches.deals.single.size, '43 inch');
     _expectKind('local');
-    expect(find.text('Affiliate link'), findsOneWidget);
+    expect(find.text('Shop link · ASKODOX may earn a small commission'), findsOneWidget);
     expect(find.text('Play'), findsOneWidget);
 
     await h.send(tester, 'Samsung under 30000');
@@ -3053,7 +3053,7 @@ void main() {
     ]) {
       _expectKind(heading);
     }
-    expect(find.text('Affiliate link'), findsOneWidget);
+    expect(find.text('Shop link · ASKODOX may earn a small commission'), findsOneWidget);
     // AI-first: no request buttons on first results.
     expect(find.text('Send request'), findsNothing);
     // No category chips / "View all" tiles in the top workspace: every card

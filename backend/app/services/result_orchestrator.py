@@ -28,8 +28,11 @@ from app.services.provider_failure import FAILURE_STATES
 CONTRACT_VERSION = 2
 SECTION_KINDS = ("local", "deals", "online", "affiliate", "partner", "content", "videos", "shorts", "jobs",
                  "sponsored")
-DEFAULT_ORDER = ("local", "deals", "online", "affiliate", "partner", "content", "videos", "shorts", "jobs",
-                 "sponsored")
+# Owner 2026-11-10: nearby first, then shop links that earn ASKODOX a commission (affiliate, partner), then
+# paid placements (always labelled), then deals, other web pages, reviews / news, videos. Staff can still
+# fix another order in the Command Center (``result_orchestration.section_order``).
+DEFAULT_ORDER = ("local", "affiliate", "partner", "sponsored", "deals", "online", "content", "videos", "shorts",
+                 "jobs")
 LOCAL_SEGMENTS = {"registered", "individual", "nearby_external", "wider_local", "askodox", "local"}
 DEALS_SEGMENTS = {"deals", "used", "surplus", "offers"}
 # Which source_status keys feed each section (for "why is it empty").
