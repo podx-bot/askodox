@@ -525,6 +525,13 @@ class UniversalAIAssistantService:
         r"|చూపించు|చూపండి|కొనాలి|దగ్గర|షాప్|दिखाओ|दिखाइए|खरीदना|दुकान",
         re.IGNORECASE)
 
+    # A buy / find ACTION (verbs, "near me"), separate from a shop / store merely named as
+    # context ("my chicken shop already has Udyam -- how do I add GST?"). Every language.
+    _COMMERCE_ACTION = re.compile(
+        r"\b(show|find|list|search|book|order|buy now|near me|nearby|price list|deals?|offers?)\b"
+        r"|చూపించు|చూపండి|కొనాలి|దగ్గర|दिखाओ|दिखाइए|खरीदना",
+        re.IGNORECASE)
+
     @classmethod
     def wants_guide(cls, user_text: str, attachment_facts: str = "", model_action: str = "") -> bool:
         """A know-how answer, not a seller search: the model said so (explain_steps), the user's own words ask
@@ -536,10 +543,13 @@ class UniversalAIAssistantService:
             # The model read the whole conversation; a shop mentioned as context
             # ("my chicken shop already has Udyam") is not a buy / find ask.
             return True
-        if cls._COMMERCE_NOW.search(text):
+        if cls._COMMERCE_ACTION.search(text):
             return False
         if cls._HOWTO_ASK.search(text):
+            # A how-to that only NAMES a shop / store is still a how-to.
             return True
+        if cls._COMMERCE_NOW.search(text):
+            return False
         return bool(attachment_facts and cls._GUIDE_ATTACHMENT.search(attachment_facts))
 
     @classmethod
@@ -1220,9 +1230,10 @@ class UniversalAIAssistantService:
             suggestions = ([] if action == "clarify_need" or suggestions_raw is None
                            else reply_suggestions.clean(suggestions_raw, reply=reply))
             # Where the time goes (no user text, no keys): one line per answer.
-            logger.info("universal_ai_assistant.timing path=%s action=%s grounding_ms=%d route_ms=%d "
-                        "answer_ms=%d total_ms=%d", path, action, grounding_ms, route_ms, answer_ms,
-                        int((time.monotonic() - started) * 1000))
+            # print, like "ASKODOX IMAGE BRAIN": the app logger's INFO lines never reach Railway.
+            print(f"ASKODOX BRAIN TIMING: path={path} action={action} grounding_ms={grounding_ms} "
+                  f"route_ms={route_ms} answer_ms={answer_ms} "
+                  f"total_ms={int((time.monotonic() - started) * 1000)}", flush=True)
             return {
                 **brain,
                 "conversation_relation": relation_name,

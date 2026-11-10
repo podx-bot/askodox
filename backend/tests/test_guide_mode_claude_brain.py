@@ -264,3 +264,36 @@ def test_fast_guide_falls_back_to_routing_when_no_answer():
     gemini.text = ""
     out = brain.decide("Udyam registration ela cheyali?", locale="te")
     assert out is not None and out["reply"]
+
+
+TELUGU_UDYAM_WITH_SHOP = ("నాకు ఉదయం సర్టిఫికేట్ రిజిస్ట్రేషన్ ఎలా చేయాలి? ఇప్పటికే చికెన్ షాప్ కి ఉదయం ఉంది, "
+                          "కొత్త GST బిజినెస్ add చేయాలి")
+
+
+@pytest.mark.parametrize("message", [
+    TELUGU_UDYAM_WITH_SHOP,                                   # production probe 2026-11-10 (27.5 s)
+    "how do I add GST to my shop's Udyam certificate",
+    "how to open a store on Meesho as a seller",
+    "दुकान का GST रजिस्ट्रेशन कैसे करें",
+])
+def test_a_shop_named_as_context_is_still_a_how_to(message):
+    brain, _, http = _brain(claude=True)
+    out = brain.decide(message, locale="te")
+    assert out["action"] == "explain_steps", message
+    assert [c["model"] for c in http.calls] == ["claude-sonnet-5-5"], message  # one call, no routing
+
+
+@pytest.mark.parametrize("message", [
+    "how do I find a chicken shop near me",
+    "show me AC shops nearby",
+    "దగ్గరలో చికెన్ షాప్ ఎలా వెతకాలి",
+])
+def test_a_find_or_buy_action_is_never_a_guide(message):
+    assert svc.UniversalAIAssistantService.wants_guide(message) is False, message
+
+
+def test_timing_line_reaches_the_deploy_log(capsys):
+    brain, _, _ = _brain(claude=True)
+    brain.decide("Udyam registration ela cheyali?", locale="te")
+    line = capsys.readouterr().out
+    assert "ASKODOX BRAIN TIMING: path=guide_fast" in line and "answer_ms=" in line
