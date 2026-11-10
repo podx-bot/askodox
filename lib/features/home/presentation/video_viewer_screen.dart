@@ -126,6 +126,9 @@ const askodoxVideoFollowUpPrefix = 'follow:';
 /// the English wording; Telugu is shown for the ones ASKODOX writes).
 String askodoxVideoDisclosure(String? disclosure, {bool telugu = false}) {
   final text = disclosure?.trim() ?? '';
+  // Owner 2026-11-10: a commission link is called a "Shop link" (a friendlier word), and it still says
+  // plainly that ASKODOX may earn a commission -- the disclosure is never hidden.
+  if (askodoxAffiliateDisclosures.contains(text)) return askodoxShopLinkNote(telugu: telugu);
   if (!telugu) return text;
   return switch (text) {
     "Creator's opinion -- not verified by ASKODOX" => 'క్రియేటర్ అభిప్రాయం -- ASKODOX ధృవీకరించలేదు',
@@ -133,12 +136,21 @@ String askodoxVideoDisclosure(String? disclosure, {bool telugu = false}) {
     'From the business' => 'వ్యాపారం నుండి',
     "Creator's opinion" => 'క్రియేటర్ అభిప్రాయం',
     'Sponsored' => 'స్పాన్సర్డ్',
-    'Affiliate -- ASKODOX may earn a commission' => 'అఫిలియేట్ -- ASKODOXకి కమీషన్ రావచ్చు',
-    'Affiliate link' => 'Affiliate link — ASKODOX కి commission రావచ్చు',
     'Promoted' => 'ప్రమోట్ చేయబడింది',
     _ => text,
   };
 }
+
+/// The backend's wordings for a commission link (shown as one friendly "Shop link" note).
+const askodoxAffiliateDisclosures = {
+  'Affiliate link',
+  'Affiliate -- ASKODOX may earn a commission',
+  'Affiliate link -- ASKODOX may earn a commission if you buy.',
+};
+
+/// "Shop link" + the plain commission disclosure, in the conversation language.
+String askodoxShopLinkNote({bool telugu = false}) =>
+    telugu ? 'షాప్ లింక్ · ఇక్కడ కొంటే ASKODOX కి చిన్న కమిషన్ వస్తుంది' : 'Shop link · ASKODOX may earn a small commission';
 
 String _serviceAsk(String service) =>
     service.trim().toLowerCase().endsWith('service') ? service.trim() : '${service.trim()} service';

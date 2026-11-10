@@ -166,7 +166,8 @@ void main() {
     await _pump(tester, _video({'relationship': 'affiliate', 'affiliate': true,
       'disclosure': 'Affiliate -- ASKODOX may earn a commission'}));
     expect(find.byKey(const Key('askodoxVideoPaidLabel')), findsOneWidget);
-    expect(find.text('Affiliate -- ASKODOX may earn a commission'), findsOneWidget);
+    // Owner 2026-11-10: a commission link reads "Shop link" and still says ASKODOX may earn a commission.
+    expect(find.text('Shop link · ASKODOX may earn a small commission'), findsOneWidget);
   });
 
   testWidgets('a next step returns to the same chat with the follow-up and is tracked', (tester) async {
