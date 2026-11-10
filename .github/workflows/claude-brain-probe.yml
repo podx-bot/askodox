@@ -18,7 +18,7 @@ jobs:
                       live = json.loads(r.read()).get('commit', '')
               except Exception as e:
                   live = repr(e)
-              if str(live).startswith('913cbae'):
+              if str(live).startswith('01d5a93'):
                   break
               time.sleep(30)
           print(f'::warning::DEPLOYED_COMMIT {live}')
@@ -31,15 +31,31 @@ jobs:
           ]
           for name, msg, loc in cases:
               t = time.time()
+              first = None
+              deltas = 0
               try:
-                  req = urllib.request.Request(base + '/api/in-app/assistant', data=json.dumps(
+                  req = urllib.request.Request(base + '/api/in-app/assistant/stream', data=json.dumps(
                       {'message': msg, 'locale': loc, 'history': [], 'location': 'Vuyyuru'}).encode(),
                       headers={'Content-Type': 'application/json', 'User-Agent': 'ASKODOX-probe'}, method='POST')
+                  d = {}
                   with urllib.request.urlopen(req, timeout=120) as r:
-                      d = json.loads(r.read())
+                      ctype = r.headers.get('content-type')
+                      for raw in r:
+                          line = raw.decode('utf-8').strip()
+                          if not line:
+                              continue
+                          ev = json.loads(line)
+                          if ev.get('type') == 'delta':
+                              deltas += 1
+                              if first is None:
+                                  first = time.time() - t
+                          elif ev.get('type') == 'final':
+                              d = ev.get('decision') or {}
+                  total = time.time() - t
                   reply = ' '.join(str(d.get('reply', '')).split())
-                  print(f"::warning::{name} {time.time()-t:.1f}s mode={d.get('mode')} action={d.get('action')} transactional={d.get('transactional')} source={d.get('source')} search_ready={d.get('search_ready')}")
-                  for i in range(0, min(len(reply), 1800), 450):
+                  fs = f'{first:.1f}s' if first is not None else 'none'
+                  print(f"::warning::{name} STREAM first_text={fs} total={total:.1f}s pieces={deltas} type={ctype} mode={d.get('mode')} action={d.get('action')} transactional={d.get('transactional')}")
+                  for i in range(0, min(len(reply), 900), 450):
                       print(f"::warning::{name} reply[{i}] {reply[i:i+450]}")
               except Exception as e:
                   print(f'::warning::{name} ERROR {e!r}')
