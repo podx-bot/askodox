@@ -17,7 +17,7 @@ from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 
-from app.services import live_lookup
+from app.services import answer_corrections, live_lookup
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
 from app.services import advice_memory, reply_suggestions
@@ -411,7 +411,7 @@ class UniversalAIAssistantService:
     def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
                 advice_ledger: list[dict[str, Any]] | None = None,
                 capabilities: list[str] | None = None, user_memory: list[str] | None = None,
-                evidence: str = "") -> tuple[str, Any]:
+                evidence: str = "", lessons: list[str] | None = None) -> tuple[str, Any]:
         """A full advisory answer (decision mode): goal, decision-critical
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
@@ -442,6 +442,7 @@ class UniversalAIAssistantService:
             + _reply_language_rule(locale)
             + (f"Known user location: {location}\n" if location else "")
             + _user_memory_block(user_memory)
+            + answer_corrections.prompt_block(lessons)
             + f"Conversation so far JSON: {json.dumps(history, ensure_ascii=False)}\n"
             + "Knowledge honesty: never call a product, model or event fake, non-existent or not released from "
             "memory (your knowledge has a cutoff); only live evidence below may say that -- otherwise say it could not "
@@ -752,6 +753,7 @@ class UniversalAIAssistantService:
         advice_given: list[dict[str, Any]] | None = None,
         capabilities: list[str] | None = None,
         user_memory: list[str] | None = None,
+        lessons: list[str] | None = None,
     ) -> dict[str, Any] | None:
         """Return a semantic decision for the in-app conversation.
 
@@ -831,7 +833,7 @@ class UniversalAIAssistantService:
             "known one. You may still copy the known location into entities.location when relevant.\n"
             + _reply_language_rule(locale) +
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
-            + _user_memory_block(user_memory) +
+            + _user_memory_block(user_memory) + answer_corrections.prompt_block(lessons) +
             f"Conversation history JSON: {json.dumps(compact_history, ensure_ascii=False)}\n"
             + (f"Already searched for (the options now on screen): "
                f"{json.dumps(searched_for, ensure_ascii=False)[:1500]}\n" if searched_for else "")
@@ -908,7 +910,7 @@ class UniversalAIAssistantService:
                 transactional = False
                 action = "advise"
                 advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities,
-                                                   user_memory=user_memory,
+                                                   user_memory=user_memory, lessons=lessons,
                                                    evidence=runtime_block + "\n" + (grounding_block or ""))
                 if advice:
                     reply = advice

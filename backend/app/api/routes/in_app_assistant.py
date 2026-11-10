@@ -125,6 +125,10 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         memory = _user_memory(request)
         if memory and _accepts(service.decide, "user_memory"):
             extra["user_memory"] = memory
+        # Self-correction: staff-approved corrections about the same thing go to the brain.
+        lessons = _lessons(container, payload.message)
+        if lessons and _accepts(service.decide, "lessons"):
+            extra["lessons"] = lessons
         decision = service.decide(
             payload.message,
             history=history,
@@ -136,6 +140,10 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
         from app.services import assistant_health
         assistant_health.observe("conversation_intelligence", decision is not None,
                                  "" if decision is not None else "brain_unavailable_fallback")
+        if decision is None:
+            _brain_failed(container)
+        # The user's message says the last reply was wrong -> it goes to staff review.
+        _capture_typed_correction(container, request, payload)
 
     if decision is None and metered:
         _release_credits(request, metered)  # no answer -> nothing spent
@@ -176,6 +184,76 @@ def assistant_decision(payload: AssistantRequest, request: Request) -> Assistant
     _record_knowledge_gap(container, decision, payload)
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence,
                              credits=(metered or {}).get("credits"))
+
+
+def _corrections_platform(container: Any) -> Any:
+    from app.api.routes.platform import platform
+
+    return platform(container)
+
+
+def _lessons(container: Any, message: str) -> list[str]:
+    """Approved corrections for this question (self-correction). Never raises."""
+    try:
+        from app.services import answer_corrections
+
+        return answer_corrections.lessons_for(_corrections_platform(container), str(message or "").split("\n\n")[0])
+    except Exception:
+        return []
+
+
+def _brain_failed(container: Any) -> None:
+    try:
+        from app.services import answer_corrections
+
+        answer_corrections.brain_failed(_corrections_platform(container))
+    except Exception:
+        pass
+
+
+def _user_ref(request: Request) -> str:
+    import hashlib
+
+    try:
+        user = _optional_app_user(request)
+    except Exception:
+        user = ""
+    if not user or user == "guest":
+        return ""
+    return hashlib.sha256(f"acr:{user}".encode()).hexdigest()[:16]
+
+
+def _capture_typed_correction(container: Any, request: Request, payload: Any) -> None:
+    try:
+        from app.services import answer_corrections
+
+        answer_corrections.capture_typed(_corrections_platform(container), message=payload.message,
+                                         history=list(payload.history or []), language=payload.locale[:10],
+                                         user_ref=_user_ref(request))
+    except Exception:
+        pass
+
+
+class AnswerFeedbackIn(BaseModel):
+    question: str = Field(default="", max_length=2000)
+    answer: str = Field(min_length=1, max_length=6000)
+    reason: str = Field(default="wrong", pattern="^(wrong|outdated|not_helpful|other)$")
+    note: str = Field(default="", max_length=1000)
+    locale: str = Field(default="", max_length=10)
+
+
+@router.post("/answer-feedback")
+def answer_feedback(body: AnswerFeedbackIn, request: Request) -> dict[str, Any]:
+    """The 'Wrong answer' button on a reply (self-correction): masked question + reply go to staff
+    review (Command Center -> Wrong answers & corrections). Anyone may report; a few per minute."""
+    from app.services import answer_corrections, rate_limit
+
+    rate_limit.check(request, "answer_feedback", limit=10)
+    container: Any = request.app.state.container
+    row = answer_corrections.report(_corrections_platform(container), question=body.question, answer=body.answer,
+                                    reason=body.reason, note=body.note, language=body.locale,
+                                    source="button", user_ref=_user_ref(request))
+    return {"ok": True, "reference": row.get("id")}
 
 
 def _record_knowledge_gap(container: Any, decision: dict[str, Any], payload: Any) -> None:

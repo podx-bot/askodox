@@ -173,6 +173,19 @@ def client_error(body: ClientErrorBody, request: Request) -> dict:
     return {"ok": True, "stored": True}
 
 
+@router.get("/admin/cc/corrections/regression")
+def correction_cases(request: Request) -> dict:
+    """Self-correction proof list: every APPROVED correction as a test case (question -> what the answer
+    must follow). Staff re-ask these after a model / prompt change."""
+    principal = _principal(request)
+    if not gov.has_permission(principal["permissions"], "feedback:view"):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs feedback:view)")
+    from app.services import answer_corrections
+
+    cases = answer_corrections.regression_cases(_pf(request))
+    return {"count": len(cases), "cases": cases}
+
+
 @router.get("/admin/cc/early-access/dashboard")
 def dashboard(request: Request, days: int = 30) -> dict:
     principal = _principal(request)

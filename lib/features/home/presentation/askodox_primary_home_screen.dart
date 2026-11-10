@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/environment.dart';
+import '../../../core/api/api_models.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../services/in_app_assistant_service.dart';
@@ -4668,7 +4669,7 @@ class _AskodoxPrimaryHomeScreenState
                   turn.isUser ? Alignment.centerRight : Alignment.centerLeft,
               child: GestureDetector(
                key: ValueKey('askodoxBubble-$index'),
-               onLongPress: turn.text.trim().isEmpty ? null : () => _messageActions(turn, te),
+               onLongPress: turn.text.trim().isEmpty ? null : () => _messageActions(turn, te, index: index),
                child: Container(
                 constraints: const BoxConstraints(maxWidth: 330),
                 margin: const EdgeInsets.only(bottom: 10),
@@ -5268,7 +5269,7 @@ class _AskodoxPrimaryHomeScreenState
   /// Long-press on any message: copy, select text, share (the Android share
   /// sheet -- the user picks where; nothing is posted by ASKODOX), and for
   /// replies: replay aloud and mute / unmute voice replies.
-  Future<void> _messageActions(ConversationTurnRecord turn, bool te) async {
+  Future<void> _messageActions(ConversationTurnRecord turn, bool te, {int? index}) async {
     final text = turn.isUser ? turn.text.trim() : askodoxPlainReply(turn.text).trim();
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -5307,6 +5308,14 @@ class _AskodoxPrimaryHomeScreenState
                   : (te ? 'వాయిస్ జవాబులు మ్యూట్' : 'Mute voice replies')),
               onTap: () => Navigator.pop(sheet, 'mute'),
             ),
+            // Self-correction (owner 2026-11-10): staff see it, write the right answer, and the AI
+            // follows it from then on.
+            ListTile(
+              key: const Key('askodoxMessageWrong'),
+              leading: const Icon(Icons.report_gmailerrorred_rounded, color: Color(0xFFB42318)),
+              title: Text(te ? 'ఈ జవాబు తప్పు' : 'This answer is wrong'),
+              onTap: () => Navigator.pop(sheet, 'wrong'),
+            ),
           ],
         ]),
       ),
@@ -5341,7 +5350,82 @@ class _AskodoxPrimaryHomeScreenState
         await _replayReply(turn.text);
       case 'mute':
         await _toggleMute();
+      case 'wrong':
+        await _reportWrongAnswer(turn, te, index: index);
     }
+  }
+
+  /// "This answer is wrong": the reply + the question before it go (masked by the server) to staff
+  /// review. Nothing changes for others until staff approve a correct answer.
+  Future<void> _reportWrongAnswer(ConversationTurnRecord turn, bool te, {int? index}) async {
+    var question = '';
+    final at = index ?? _turns.indexOf(turn);
+    for (var i = at - 1; i >= 0 && i < _turns.length; i--) {
+      if (_turns[i].isUser) {
+        question = _turns[i].text.trim();
+        break;
+      }
+    }
+    final reasons = <(String, String, String)>[
+      ('wrong', 'Wrong / not true', 'తప్పు సమాచారం'),
+      ('outdated', 'Old information', 'పాత సమాచారం'),
+      ('not_helpful', 'Did not answer my question', 'నా ప్రశ్నకు జవాబు కాదు'),
+    ];
+    final note = TextEditingController();
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheet) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheet).bottom),
+        child: SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+              child: Text(te ? 'ఏం తప్పు?' : 'What was wrong?',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                key: const Key('askodoxWrongAnswerNote'),
+                controller: note,
+                maxLength: 300,
+                decoration: InputDecoration(
+                    hintText: te ? 'సరైనది తెలిస్తే రాయండి (ఐచ్ఛికం)' : 'The right answer, if you know it (optional)'),
+              ),
+            ),
+            for (final r in reasons)
+              ListTile(
+                key: ValueKey('askodoxWrongAnswer-${r.$1}'),
+                title: Text(te ? r.$3 : r.$2),
+                trailing: const Icon(Icons.send_rounded, size: 18),
+                onTap: () => Navigator.pop(sheet, r.$1),
+              ),
+          ]),
+        ),
+      ),
+    );
+    if (reason == null || !mounted) return;
+    final result = await ref.read(apiClientProvider).post<Map<String, Object?>>(
+      '/api/in-app/answer-feedback',
+      body: {
+        'question': question.length > 2000 ? question.substring(0, 2000) : question,
+        'answer': () {
+          final plain = askodoxPlainReply(turn.text).trim();
+          return plain.length > 6000 ? plain.substring(0, 6000) : plain;
+        }(),
+        'reason': reason,
+        'note': note.text.trim(),
+        'locale': _lang,
+      },
+    );
+    if (!mounted) return;
+    final ok = result is ApiSuccess<Map<String, Object?>>;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        key: const Key('askodoxWrongAnswerSent'),
+        content: Text(ok
+            ? (te ? 'ధన్యవాదాలు! మా టీమ్ చూసి సరిచేస్తుంది.' : 'Thanks! Our team will check and correct it.')
+            : (te ? 'ఇప్పుడు పంపలేకపోయాం. మళ్ళీ ప్రయత్నించండి.' : 'Could not send now. Please try again.'))));
   }
 
   /// Level for bar [i]; the newest sample is the right-most bar.

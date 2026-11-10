@@ -113,6 +113,8 @@ EVENTS = (
     # 2026-10-29 knowledge gaps (AI could not confirm / user corrected) and
     # "tell me when it is available" alerts.
     "knowledge_gap", "availability_watch", "availability_alert",
+    # 2026-11-10 self-correction: a reply marked wrong, and turns the AI brain could not answer.
+    "answer_reported", "brain_failure",
 )
 EVENT_IDS = ("user_ref", "session_id", "search_id", "result_id", "merchant_id", "partner_id", "campaign_id",
              "offer_id", "coupon_id", "click_id", "order_id", "transaction_id", "conversion_id", "video_id",

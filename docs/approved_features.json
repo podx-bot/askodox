@@ -5571,6 +5571,47 @@
       "history": [
         "2026-11-08: owner asked for an anonymous topic discussion portal with rude words beeped, cost told upfront (text cheaper than voice), town news on Radio, and game / talk / radio buttons beside the logo on every page"
       ]
+    },
+    {
+      "id": "answer_self_correction",
+      "name": "Self-correction: wrong answers reviewed, approved corrections followed",
+      "purpose": "Owner 2026-11-10 (Autonomous Intelligence & Self-Correction System): a wrong AI reply is caught, reviewed by staff and never repeated.",
+      "expected_behavior": "A reply long-press offers 'This answer is wrong' (askodoxMessageWrong) -> POST /api/in-app/answer-feedback stores the masked question + reply in the answer_corrections resource (NEW). A user message that corrects the last reply ('that's wrong', 'తప్పు') is stored the same way (source typed). Staff write the correct answer and Approve; from then on questions sharing its content words carry it into the brain prompt (STAFF-CHECKED CORRECTIONS) for decide() and advice. Nothing is learned without staff approval. /admin/cc/corrections/regression lists approved corrections as test cases. Turns the brain could not answer are recorded (brain_failure); 3+ in an hour -> one Command Center notification + push to demand staff per hour.",
+      "roles": [
+        "customer",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/answer-feedback"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/corrections/regression"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxMessageWrong",
+          "askodoxWrongAnswerNote"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_answer_corrections.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-10: owner asked for an Autonomous Intelligence & Self-Correction System and left the design to Claude"
+      ]
     }
   ]
 }
