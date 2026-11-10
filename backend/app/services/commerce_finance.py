@@ -278,7 +278,9 @@ class IntegrationRegistry:
         out = {}
         for name, token in stored.items():
             try:
-                out[name] = self.box.decrypt(token) if self.box else ""
+                # Trimmed like deployment variables (env_value): a secret pasted with a trailing space / newline
+                # was stored as typed and every Razorpay webhook signature failed (owner 2026-11-11).
+                out[name] = (self.box.decrypt(token) if self.box else "").strip()
             except Exception:
                 out[name] = ""
         return out
@@ -471,8 +473,8 @@ class IntegrationRegistry:
                     problem = validate_field(provider, name, str(value))
                     if problem:
                         raise ValueError(problem)
-                if value:
-                    stored[name] = self.box.encrypt(str(value))
+                if str(value or "").strip():
+                    stored[name] = self.box.encrypt(str(value).strip())
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO pf_integrations (provider, enabled, mode, config_json, secrets_json, updated_by, "
