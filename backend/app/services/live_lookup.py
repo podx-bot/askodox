@@ -27,6 +27,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from app.services.runtime_time_context import needs_live_verification
+from app.services import prompt_safety
 
 # --------------------------------------------------------------- detection --
 
@@ -198,7 +199,7 @@ def evidence_block(sources: list[dict[str, Any]], *, deep: bool) -> str:
         "cite source ids like [S1]. Keep labels apart: state OFFICIAL facts plainly; say NEWS facts are reported by that "
         "source; give a RUMOR / LEAK only as unconfirmed, naming the source and its date. If the evidence does not settle "
         "it, say so instead of guessing -- and never call the thing fake or non-existent because a source is missing.\n"
-        + "\n".join(lines) + "\n"
+        + prompt_safety.fence("web search results", "\n".join(lines), limit=12000)
     )
 
 

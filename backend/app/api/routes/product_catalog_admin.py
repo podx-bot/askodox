@@ -21,8 +21,10 @@ router = APIRouter(prefix="/admin/products", tags=["admin-products"])
 
 
 def _check_key(container: Any, key: str) -> None:
+    import hmac
+
     expected = str(getattr(container.settings, "admin_seed_key", "") or "").strip()
-    if not expected or key != expected:
+    if not expected or not hmac.compare_digest(str(key or "").encode(), expected.encode()):
         # 404 rather than 403 so this path doesn't advertise its own existence.
         raise HTTPException(status_code=404)
 

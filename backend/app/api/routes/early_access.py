@@ -173,6 +173,18 @@ def client_error(body: ClientErrorBody, request: Request) -> dict:
     return {"ok": True, "stored": True}
 
 
+@router.get("/admin/cc/brain/summary")
+def brain_summary(request: Request, days: int = 7) -> dict:
+    """Brain Dashboard numbers: turns, failure rate, cost per turn, latency, wrong-answer rate, per mode.
+    Numbers only -- no message text, no user identity."""
+    principal = _principal(request)
+    if not gov.has_permission(principal["permissions"], "feedback:view"):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (needs feedback:view)")
+    from app.services import brain_runs
+
+    return brain_runs.summary(request.app.state.container.settings.database_path, days=days)
+
+
 @router.get("/admin/cc/corrections/regression")
 def correction_cases(request: Request) -> dict:
     """Self-correction proof list: every APPROVED correction as a test case (question -> what the answer
