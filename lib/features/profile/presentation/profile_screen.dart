@@ -253,8 +253,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-shopping'),
-          grid: true,
-          title: t('Shopping & daily use', 'కొనుగోళ్లు & రోజువారీ'),
+          // Phase 1 (owner 2026-11-10): one plain list, not half-width tiles.
+          grid: askodoxPhase2,
+          title: askodoxPhase2 ? t('Shopping & daily use', 'కొనుగోళ్లు & రోజువారీ') : t('Everyday', 'రోజువారీ'),
           icon: Icons.shopping_bag_outlined,
           children: [
             if (askodoxShownNow('profile-shop-scan'))
@@ -268,6 +269,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             row('profile-smart-tools', 'me', Icons.handyman_outlined, 'Smart Tools', 'స్మార్ట్ టూల్స్',
                 'Level, compass, calculators, photo inspection.', 'లెవెల్, దిక్సూచి, లెక్కలు, ఫోటో పరిశీలన.',
                 () => context.push('/tools'), words: ['tools', 'calculator', 'compass', 'టూల్స్']),
+            // Phase 1: own UPI QR / bank sits in this one list (and on the bottom bar's Payments).
+            if (!askodoxPhase2)
+              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My payment methods',
+                  'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — people pay you directly.',
+                  'మీ UPI QR / బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
+                  words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
             if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty) KeyedSubtree(key: const Key('askodoxSavedOptionsTile'), child: ListTile(
                     leading: const Icon(Icons.bookmark_rounded),
                     title: Text('${t('Saved options', 'సేవ్ చేసినవి')} (${ref.watch(askodoxSavedOptionsProvider).length})'),
@@ -302,20 +309,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }),
                         ))),
           ]),
-      // Phase 1: the Business tab is hidden, so "My payment methods" (own UPI QR / bank, used to
-      // collect money) lives here. In Phase 2 it goes back to the Business tab.
-      if (!askodoxPhase2)
-        AskodoxNavSection(
-            key: const Key('askodoxProfileSection-payments'),
-            grid: true,
-            title: t('Payments', 'పేమెంట్స్'),
-            icon: Icons.account_balance_wallet_outlined,
-            children: [
-              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My payment methods',
-                  'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — people pay you directly.',
-                  'మీ UPI QR / బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
-                  words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
-            ]),
       // Personal Finance: the Personal Tax Assistant (existing /intel/* screens) + the person's money records.
       if (askodoxPhase2)
       AskodoxNavSection(
@@ -583,7 +576,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-help'),
           mascot: AskodoxMascotRole.suppo,
-          grid: true,
+          grid: askodoxPhase2,
           title: t('Help & Support', 'సహాయం & సపోర్ట్'),
           icon: Icons.support_agent_rounded,
           children: [
@@ -862,7 +855,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   onChanged: (v) => setState(() => _query = v),
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: t('What do you need? e.g. notifications, my shop', 'ఏది కావాలి? ఉదా: నోటిఫికేషన్లు, నా షాప్'),
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    hintText: askodoxPhase2
+                        ? t('What do you need? e.g. notifications, my shop', 'ఏది కావాలి? ఉదా: నోటిఫికేషన్లు, నా షాప్')
+                        : t('Search settings, tools, help', 'సెట్టింగ్స్, టూల్స్, సహాయం వెతకండి'),
                   ),
                 ),
               ),
@@ -930,19 +930,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             if (recent.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                  Text(t('Recent:', 'ఇటీవల:'), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF475467))),
-                  for (final e in recent)
-                    ActionChip(
-                      key: ValueKey('askodoxProfileRecent-${e.id}'),
-                      avatar: Icon(e.icon, size: 16, color: const Color(0xFF1769FF)),
-                      label: Text(t(e.en, e.te)),
-                      onPressed: () {
-                        _remember(e.id);
-                        e.go();
-                      },
-                    ),
-                ]),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    Text(t('Recent', 'ఇటీవల'),
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF667085))),
+                    for (final e in recent)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: ActionChip(
+                          key: ValueKey('askodoxProfileRecent-${e.id}'),
+                          visualDensity: VisualDensity.compact,
+                          avatar: Icon(e.icon, size: 15, color: const Color(0xFF1769FF)),
+                          label: Text(t(e.en, e.te), style: const TextStyle(fontSize: 12.5)),
+                          onPressed: () {
+                            _remember(e.id);
+                            e.go();
+                          },
+                        ),
+                      ),
+                  ]),
+                ),
               ),
             const SizedBox(height: 12),
             // Phase 2 has three tabs; Phase 1 shows one clean page (Settings open from the header Menu).
