@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Work Mode sound (owner 2026-11-10): background music per job, a work sound when steps come in
 /// (grass cut, paper thrown, mud, digging, welding ...) and a short Telugu call when nobody walks.
-/// All files are small and ship with the app (assets/work_audio/<name>.ogg): music and effects are
+/// All files are small and ship with the app (`assets/work_audio/NAME.ogg`): music and effects are
 /// code-made, the voices were recorded once -- nothing is generated while playing, so it costs nothing.
 typedef AskodoxWorkSoundSet = ({String music, List<String> effects, String voice, String? call});
 
