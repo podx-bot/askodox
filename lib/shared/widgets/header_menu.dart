@@ -181,15 +181,6 @@ void askodoxShowScreenGuide(BuildContext context, {required bool te}) {
                   style: const TextStyle(color: Color(0xFF5B6475), fontSize: 12.5)),
             ),
             AskodoxGuideList(te: te, onStarted: () => Navigator.of(sheet).pop()),
-            ListTile(
-              key: const Key('askodoxHeaderGuideOtherApps'),
-              leading: const Icon(Icons.phone_android_rounded),
-              title: Text(te ? 'ఇతర యాప్‌లలో సహాయం (అనుమతితో)' : 'Help in other apps (with permission)'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                context.push('/companion/screen-guide');
-              },
-            ),
           ]),
         ),
       ),
