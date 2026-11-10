@@ -9,6 +9,7 @@ import '../../../shared/widgets/askodox_hub_icons.dart';
 import '../../native_video/video_commerce.dart' show askodoxShareTextProvider;
 import '../../smart_tools/data/phone_meters.dart';
 import '../../smart_tools/presentation/sensor_tools_screen.dart' show askodoxMotionSensorsProvider;
+import '../data/work_audio.dart';
 import '../data/work_mode_store.dart';
 import '../data/work_team_repository.dart';
 import '../domain/work_mode_plan.dart';
@@ -393,6 +394,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
   int _livePending = 0;
   Timer? _flush;
   late final AskodoxWorkController _work;
+  late final AskodoxWorkAudioDirector _audio;
   int _ticks = 0;
 
   String get _today => askodoxWorkDayKey(ref.read(askodoxWorkClockProvider)());
@@ -414,6 +416,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _work = ref.read(askodoxWorkControllerProvider.notifier);
+    _audio = AskodoxWorkAudioDirector(ref.read(askodoxGameAudioOutProvider));
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _readCounter();
@@ -427,16 +430,19 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     _stopLive();
+    unawaited(_audio.close());
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(_audio.resume());
       _startPolling();
       // Never re-ask a permission by itself: after "Allow" the person taps again.
       if (_problem == null) _readCounter(quiet: true);
     } else if (state == AppLifecycleState.paused) {
+      unawaited(_audio.pause());
       _poll?.cancel();
       _poll = null;
     }
@@ -455,11 +461,15 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
       }
       // Every minute: send this phone's total, see the team's.
       if (++_ticks % 10 == 0) _syncTeam(refresh: true);
+      // Nobody walking for a while: the waiting customer calls out (Telugu voice, owner 2026-11-10).
+      final done = ref.read(askodoxWorkControllerProvider).progress?.done ?? false;
+      unawaited(_audio.tick(walking: _walkingNow, telugu: widget.te, done: done));
     });
   }
 
   void _gained(int steps) {
     if (steps <= 0) return;
+    unawaited(_audio.steps(telugu: widget.te));
     _lastGain = DateTime.now();
     _gain = steps;
     _gainId++;
@@ -575,6 +585,10 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
     final te = widget.te;
     final state = ref.watch(askodoxWorkControllerProvider);
     final job = state.job!;
+    // Sound (owner 2026-11-10): the job's music, work sounds and calls; one switch turns it all off.
+    final soundOn = ref.watch(askodoxWorkSoundOnProvider);
+    ref.listen<bool>(askodoxWorkSoundOnProvider, (_, on) => unawaited(_audio.setSound(on)));
+    unawaited(_audio.open(job.id, soundOn: soundOn));
     final now = ref.watch(askodoxWorkClockProvider)();
     final today = askodoxWorkDayKey(now);
     final size = state.size;
@@ -627,6 +641,14 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                       fontWeight: FontWeight.w700,
                       color: _walkingNow ? _green : const Color(0xFF5B6670)),
                 ),
+              ),
+              IconButton(
+                key: const Key('askodoxWorkSoundToggle'),
+                visualDensity: VisualDensity.compact,
+                tooltip: soundOn ? (te ? 'శబ్దం ఆపు' : 'Sound off') : (te ? 'శబ్దం పెట్టు' : 'Sound on'),
+                onPressed: () => ref.read(askodoxWorkSoundOnProvider.notifier).toggle(),
+                icon: Icon(soundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    size: 20, color: soundOn ? _green : const Color(0xFF8A929A)),
               ),
             ]),
           ),
