@@ -18,7 +18,7 @@ import '../../../core/persistence/startup_prefs.dart';
 import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
-import '../../../shared/widgets/askodox_mascot.dart';
+import '../../../shared/widgets/askodox_logo.dart';
 import '../../home/domain/active_role.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../../core/startup/startup_hint.dart';
@@ -914,7 +914,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(child: AskodoxMascot(role: AskodoxMascotRole.onbo, size: 88)),
+                    const Center(child: AskodoxLogo(size: 88)),
                     const SizedBox(height: 16),
                     const Text('ASKODOX', textAlign: TextAlign.center, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 8),
