@@ -587,10 +587,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           const SizedBox(height: 4),
           Text(
               te
-                  ? 'బ్లూటూత్ స్పీకర్ కనెక్ట్ అయి మీడియా కోసం ఎంచుకుంటే వాయిస్ దానిలో వస్తుంది; లేకపోతే ఫోన్ స్పీకర్‌లో. స్పీకర్ డిస్‌కనెక్ట్ అయితే ఫోన్‌లోనే చెబుతుంది. '
-                      'ఫోన్ కొన్నిసార్లు బ్యాక్‌గ్రౌండ్ యాప్‌లను ఆపుతుంది — "బ్యాటరీ అనుమతి" ఇవ్వండి.'
-                  : 'If a Bluetooth speaker is connected for media, the voice plays there; otherwise on the phone speaker. If the speaker '
-                      'disconnects, the phone speaks. Some phones stop background apps — use "Battery: allow".',
+                  ? 'పేమెంట్ వచ్చినప్పుడు ఈ ఫోన్ మాట్లాడుతుంది. బ్లూటూత్ స్పీకర్ కనెక్ట్ అయి ఉంటే అక్కడ వస్తుంది. '
+                      'ఫోన్ బ్యాక్‌గ్రౌండ్ యాప్‌లను ఆపితే "బ్యాటరీ అనుమతి" ఇవ్వండి.'
+                  : 'When a payment comes, this phone speaks. If a Bluetooth speaker is connected, it plays there. '
+                      'If the phone stops background apps, tap "Battery: allow".',
               style: const TextStyle(fontSize: 11.5)),
         ]),
       ),
