@@ -464,4 +464,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/listening'], {'source': 'r2', 'pause_minutes': 60});
   });
+
+  testWidgets('wording the phone does not know is asked once: received / sent is remembered on the phone', (tester) async {
+    tester.view.physicalSize = const Size(900, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, (call) async {
+      native.add(call);
+      return switch (call.method) {
+        'status' || 'configure' => {'listenerAllowed': true, 'audio': {'output': 'phone', 'mediaVolumePct': 70}},
+        'unknowns' => jsonEncode([
+            {'id': 'u-1', 'package': 'com.phonepe.app.business', 'template': 'payment of ₹# done to you', 'amount_paise': 20000}
+          ]),
+        'learnUnknown' => {'ok': true},
+        'events' => '[]',
+        _ => true,
+      };
+    });
+    final api = _Api((m, p, b) {
+      if (p.endsWith('/payment-alerts/settings')) {
+        return {..._settings(), 'phrases': {'incoming': ['money received'], 'reject': <Object?>[]}};
+      }
+      if (p.endsWith('/payment-alerts/devices')) return {'device_id': 'pad_1', 'devices': <Object?>[]};
+      if (p.endsWith('/payment-alerts/events')) return {'events': <Object?>[], 'last_24h': {'count': 0, 'notified_total_paise': 0}};
+      return <String, Object?>{};
+    });
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
+    await tester.pumpAndSettle();
+
+    final cfg = jsonDecode('${(native.lastWhere((c) => c.method == 'configure').arguments as Map)['config']}') as Map;
+    expect(cfg['phrases'], {'incoming': ['money received'], 'reject': <Object?>[]}, reason: 'server wording reaches the phone');
+    expect(find.byKey(const Key('askodoxPayAlertUnknown')), findsOneWidget);
+    expect(find.textContaining('PhonePe Business'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('askodoxPayAlertUnknownYes-u-1')));
+    await tester.pumpAndSettle();
+    final learn = native.lastWhere((c) => c.method == 'learnUnknown');
+    expect(learn.arguments, {'id': 'u-1', 'received': true});
+  });
 }

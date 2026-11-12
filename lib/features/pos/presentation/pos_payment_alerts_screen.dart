@@ -198,6 +198,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   final _announced = <String>{};
   // One-question-at-a-time setup (domain/payment_alert_setup.dart).
   List<AskodoxJson> _apps = const [];
+  List<AskodoxJson> _unknowns = const [];
   Set<String> _confirmed = {};
   final _putOff = <String>{};
   bool _askHeard = false;
@@ -247,8 +248,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     final prefs = await SharedPreferences.getInstance();
     final status = await _bridge.status();
     final apps = await _bridge.paymentApps(_appPackages);
+    final unknowns = await _bridge.unknowns();
     if (!mounted) return;
     setState(() {
+      _unknowns = unknowns;
       if (status.isNotEmpty && status['error'] == null) _status = {..._status, ...status};
       _apps = apps;
       _confirmed = (prefs.getStringList(askodoxPayAlertSetupConfirmedKey) ?? const <String>[]).toSet();
@@ -328,6 +331,63 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     final t = DateTime.tryParse(iso)?.toLocal();
     if (t == null) return '';
     return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Payment-app messages the phone could not read as money in / money out: the person answers once and the
+  /// phone remembers that wording (only on this phone).
+  Widget _unknownCard(bool te) {
+    if (_unknowns.isEmpty) return const SizedBox.shrink();
+    final labels = askodoxPosMap(_settings['apps']);
+    Future<void> answer(AskodoxJson u, bool received) async {
+      await _bridge.learnUnknown('${u['id']}', received: received);
+      _unknowns = await _bridge.unknowns();
+      if (!mounted) return;
+      setState(() {});
+      askodoxPosSnack(
+          context,
+          received
+              ? (te ? 'సరే. ఇలాంటి మెసేజ్ వస్తే ఇకపై ఫోన్ మాట్లాడుతుంది.' : 'OK. The phone will speak for messages like this from now on.')
+              : (te ? 'సరే. ఇలాంటి మెసేజ్ కి ఇకపై సౌండ్ రాదు.' : 'OK. Messages like this will stay silent from now on.'));
+    }
+
+    return Card(
+      key: const Key('askodoxPayAlertUnknown'),
+      color: const Color(0xFFFFFBEB),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(te ? 'ఈ మెసేజ్ లు అర్థం కాలేదు' : 'Messages the phone did not understand',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          for (final u in _unknowns.reversed.take(5))
+            Padding(
+              key: ValueKey('askodoxPayAlertUnknown-${u['id']}'),
+              padding: const EdgeInsets.only(top: 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text('${askodoxRupees(askodoxPosInt(u['amount_paise']))} · ${labels[u['package']] ?? u['package']}',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text('"${u['template']}"', style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                Text(te ? 'ఇది మీకు వచ్చిన డబ్బా?' : 'Is this money you received?'),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Expanded(
+                    child: FilledButton(
+                        key: ValueKey('askodoxPayAlertUnknownYes-${u['id']}'),
+                        onPressed: () => answer(u, true),
+                        child: Text(te ? 'అవును, వచ్చింది' : 'Yes, received')),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                        key: ValueKey('askodoxPayAlertUnknownNo-${u['id']}'),
+                        onPressed: () => answer(u, false),
+                        child: Text(te ? 'కాదు, నేను పంపాను' : 'No, I sent it')),
+                  ),
+                ]),
+              ]),
+            ),
+        ]),
+      ),
+    );
   }
 
   /// Who hears MY payments (my choice) and whose payments I hear (mute / pause on my phone).
@@ -487,6 +547,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'quiet_start': _settings['quiet_start'] ?? '',
       'quiet_end': _settings['quiet_end'] ?? '',
       'apps': askodoxPosMap(_settings['apps']),
+      if (_settings['phrases'] is Map) 'phrases': _settings['phrases'],
       'business_id': _id,
       'speaks_remote': _devices.where((d) => d['id'] == _deviceId).firstOrNull?['speaks_remote'] != false,
       'device_id': _deviceId ?? '',
@@ -505,6 +566,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       await askodoxSyncPaymentAlerts(_repo, _bridge, _id, _deviceId);
       final data = await _repo.paymentEvents(_id, status: _filter, q: _query);
       _local = await _bridge.localEvents();
+      _unknowns = await _bridge.unknowns();
       if (!mounted) return;
       setState(() {
         _events = askodoxPosList(data['events']);
@@ -733,6 +795,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                         ),
                       ),
                     _setupCard(te),
+                    _unknownCard(te),
                     _statusCard(te),
                     const SizedBox(height: 8),
                     _shareCard(te),

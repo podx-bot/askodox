@@ -305,6 +305,8 @@ def test_razorpay_partner_signup_link_only_from_a_razorpay_https_url(env, monkey
     assert alerts.settings(biz, OWNER)["razorpay_signup_url"] == ""
     monkeypatch.setenv("ASKODOX_RAZORPAY_PARTNER_URL", ok)
     assert alerts.settings(biz, CASHIER)["razorpay_signup_url"] == ok
+    phrases = alerts.settings(biz, OWNER)["phrases"]
+    assert "money received" in phrases["incoming"] and isinstance(phrases["reject"], list)
 
 
 def test_sender_chooses_who_hears_and_listener_can_mute_or_pause(env):

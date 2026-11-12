@@ -63,6 +63,10 @@ DEFAULT_APPS: Dict[str, str] = {
     "in.org.npci.upiapp": "BHIM",
 }
 DEFAULT_ROLES = ("owner", "manager", "cashier")
+# Extra wording the phones use on top of the phrases built into the app (PaymentAlertParser.kt), so new
+# payment-app wording is fixed with a server deploy instead of a new app build. Lower case.
+EXTRA_INCOMING_PHRASES = ("money received", "has sent you", "transferred to your")
+EXTRA_REJECT_PHRASES: tuple = ()
 # Bank / provider confirmation comes ONLY through pos_payment_providers (signed webhook + API re-check),
 # which calls record_verified(). A phone can never mark an event verified.
 VERIFIED_PROVIDERS: Dict[str, str] = {"razorpay": "Razorpay"}
@@ -220,7 +224,8 @@ class PosPaymentAlerts:
         out.update({"my_role": role, "feature_on": self.feature_on(), "can_edit": role == "owner",
                     "all_roles": [r for r in ROLES if r != "owner"],
                     "verified_provider": self._provider_connected(business_id),
-                    "razorpay_signup_url": _razorpay_signup_url()})
+                    "razorpay_signup_url": _razorpay_signup_url(),
+                    "phrases": {"incoming": list(EXTRA_INCOMING_PHRASES), "reject": list(EXTRA_REJECT_PHRASES)}})
         return out
 
     # ------------------------------------------------------------- sharing

@@ -103,6 +103,9 @@ object AskodoxPaymentAlerts {
                     "speakRemote" -> result.success(speakRemote(app, call.argument<String>("eventId") ?: "",
                         call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, false, null))
                     "events" -> result.success(events(app).toString())
+                    "unknowns" -> result.success(unknowns(app).toString())
+                    "learnUnknown" -> result.success(learnUnknown(app, call.argument<String>("id") ?: "",
+                        call.argument<Boolean>("received") == true))
                     "markUploaded" -> {
                         markUploaded(app, call.argument<String>("localId") ?: "", call.argument<String>("serverId"),
                             call.argument<String>("error"))
@@ -325,13 +328,61 @@ object AskodoxPaymentAlerts {
         }
     }
 
+    // ------------------------------------------------------- learned wording
+    private fun strings(a: JSONArray?): List<String> =
+        if (a == null) emptyList() else (0 until a.length()).mapNotNull { a.optString(it).takeIf { s -> s.isNotBlank() } }
+
+    fun learned(context: Context, key: String): List<String> =
+        try { strings(JSONArray(prefs(context).getString(key, "[]") ?: "[]")) } catch (_: Exception) { emptyList() }
+
+    fun unknowns(context: Context): JSONArray =
+        try { JSONArray(prefs(context).getString("unknown", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+
+    /** A payment-app message with one amount whose wording we do not know yet: kept ON THIS PHONE (max 20) for
+     * the person to answer "did you receive this?". Only the shape (amount as ₹#) + amount + app + time. */
+    @Synchronized
+    private fun rememberUnknown(context: Context, pkg: String, u: PaymentAlertParser.Result.Unknown) {
+        val list = unknowns(context)
+        for (i in 0 until list.length()) if (list.getJSONObject(i).optString("template") == u.template) return
+        val now = System.currentTimeMillis()
+        list.put(JSONObject().put("id", "u-$now").put("package", pkg).put("template", u.template)
+            .put("amount_paise", u.amountPaise).put("at", isoUtc(now)))
+        val trimmed = JSONArray()
+        for (i in maxOf(0, list.length() - 20) until list.length()) trimmed.put(list.getJSONObject(i))
+        prefs(context).edit().putString("unknown", trimmed.toString()).apply()
+        main.post { channel?.invokeMethod("paymentEvent", "{}") }
+    }
+
+    /** The person's answer: received -> this wording speaks from now on; sent -> it is ignored from now on. */
+    @Synchronized
+    private fun learnUnknown(context: Context, id: String, received: Boolean): Map<String, Any?> {
+        val list = unknowns(context)
+        val keep = JSONArray()
+        var template = ""
+        for (i in 0 until list.length()) {
+            val item = list.getJSONObject(i)
+            if (item.optString("id") == id) template = item.optString("template") else keep.put(item)
+        }
+        if (template.isEmpty()) return mapOf("ok" to false)
+        val key = if (received) "learned_in" else "learned_out"
+        val learned = learned(context, key).filter { it != template }.takeLast(49) + template
+        prefs(context).edit().putString("unknown", keep.toString()).putString(key, JSONArray(learned).toString()).apply()
+        return mapOf("ok" to true, "template" to template, "received" to received)
+    }
+
     // -------------------------------------------------------------- pipeline
     /** Returns a small map describing what happened (for tests / the simulate button). */
     fun handle(context: Context, pkg: String, title: String?, text: String?, notificationKey: String, whenMillis: Long,
                test: Boolean = false): Map<String, Any?> {
         val cfg = config(context)
         if (!test && !cfg.optBoolean("enabled", false)) return mapOf("result" to "disabled")
-        val parsed = PaymentAlertParser.parse(title, text)
+        val phrases = cfg.optJSONObject("phrases")
+        val parsed = PaymentAlertParser.parse(title, text, strings(phrases?.optJSONArray("incoming")),
+            strings(phrases?.optJSONArray("reject")), learned(context, "learned_in"), learned(context, "learned_out"))
+        if (parsed is PaymentAlertParser.Result.Unknown) {
+            if (!test) rememberUnknown(context, pkg, parsed)
+            return mapOf("result" to "unknown", "template" to parsed.template)
+        }
         if (parsed is PaymentAlertParser.Result.Ignored) return mapOf("result" to "ignored")
         val amount = (parsed as? PaymentAlertParser.Result.Accepted)?.amountPaise
         val reference = (parsed as? PaymentAlertParser.Result.Accepted)?.reference
