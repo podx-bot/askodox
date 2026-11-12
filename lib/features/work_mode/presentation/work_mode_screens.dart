@@ -15,6 +15,7 @@ import '../data/work_team_repository.dart';
 import '../domain/work_mode_plan.dart';
 import 'work_scene.dart';
 import 'work_team_widgets.dart';
+import 'work_test_stage.dart';
 
 const _ink = Color(0xFF10204A);
 const _green = Color(0xFF1F8A5B);
@@ -611,15 +612,25 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
       key: const Key('askodoxWorkToday'),
       padding: const EdgeInsets.all(16),
       children: [
-        AskodoxWorkSceneView(
-          job: job,
-          stageIndex: progress.stageIndex,
-          stageFraction: progress.done ? 1.0 : progress.stageFraction,
-          active: _walkingNow && !progress.done,
-          gain: _gain,
-          gainId: _gainId,
-          te: te,
-          crew: crew,
+        ValueListenableBuilder<int?>(
+          valueListenable: askodoxWorkTestStage,
+          builder: (context, forced, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AskodoxWorkSceneView(
+                job: job,
+                stageIndex: forced ?? progress.stageIndex,
+                stageFraction: forced != null ? 0.5 : (progress.done ? 1.0 : progress.stageFraction),
+                active: _walkingNow && !progress.done,
+                gain: _gain,
+                gainId: _gainId,
+                te: te,
+                crew: crew,
+              ),
+              if (askodoxWorkTestPickerVisible) AskodoxWorkTestStagePicker(stages: [for (final s in job.stages) s.en]),
+            ],
+          ),
         ),
         if (!progress.done)
           Padding(
