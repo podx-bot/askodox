@@ -17,6 +17,9 @@ object PaymentAlertParser {
 
     private val incoming = listOf(
         "received", "credited", "paid you", "sent you", "has paid", "have paid you", "payment of", "added to your",
+        // PhonePe: "Bhagya sent ₹1 to you." -- the amount sits between "sent" and "to you", so "sent you" never matched.
+        // Outgoing texts still say "you sent" / "sent to" / "paid to" and stay rejected below.
+        " to you",
         "deposited", "జమ", "అందింది", "అందాయి", "स्वीकार", "प्राप्त", "मिले", "मिला", "जमा",
     )
     private val reject = listOf(
