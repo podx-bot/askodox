@@ -129,8 +129,8 @@ class AskodoxPosRepository {
   Future<AskodoxJson> gstReport(String id, String from, String to) =>
       _send('GET', '${_b(id)}/reports/gst', query: {'date_from': from, 'date_to': to});
   Future<List<AskodoxJson>> members(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/members'))['members']);
-  Future<AskodoxJson> setMember(String id, String phone, String role) =>
-      _send('POST', '${_b(id)}/members', body: {'phone': phone, 'role': role});
+  Future<AskodoxJson> setMember(String id, String phone, String role, {String? label}) => _send('POST', '${_b(id)}/members',
+      body: {'phone': phone, 'role': role, if (label != null && label.trim().isNotEmpty) 'label': label.trim()});
   // restaurant
   Future<List<AskodoxJson>> tables(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/tables'))['tables']);
   Future<AskodoxJson> addTable(String id, String name, {String area = '', int seats = 4}) =>
@@ -328,6 +328,13 @@ class AskodoxPosRepository {
   Future<AskodoxJson> paymentAlertSettings(String id) => _send('GET', '${_pa(id)}/settings');
   Future<AskodoxJson> updatePaymentAlertSettings(String id, AskodoxJson body) => _send('PUT', '${_pa(id)}/settings', body: body);
   Future<AskodoxJson> registerAlertDevice(String id, AskodoxJson body) => _send('POST', '${_pa(id)}/devices', body: body);
+  /// Who hears MY payments: mode all / none / some (+ chosen people refs). Returns the settings.
+  Future<AskodoxJson> setAlertShare(String id, String mode, {List<String> listeners = const []}) =>
+      _send('PUT', '${_pa(id)}/share', body: {'mode': mode, 'listeners': listeners});
+  /// What I hear from one person (ref) or everyone ('*'): mute, or pause for N minutes (0 = resume).
+  Future<AskodoxJson> setAlertListening(String id, String source, {bool? muted, int? pauseMinutes}) =>
+      _send('PUT', '${_pa(id)}/listening',
+          body: {'source': source, if (muted != null) 'muted': muted, if (pauseMinutes != null) 'pause_minutes': pauseMinutes});
   Future<List<AskodoxJson>> alertDevices(String id) async => askodoxPosList((await _send('GET', '${_pa(id)}/devices'))['devices']);
   Future<List<AskodoxJson>> revokeAlertDevice(String id, String deviceId) async =>
       askodoxPosList((await _send('POST', '${_pa(id)}/devices/$deviceId/revoke'))['devices']);

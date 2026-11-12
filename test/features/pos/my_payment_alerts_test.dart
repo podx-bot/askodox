@@ -91,6 +91,7 @@ void main() {
     expect(created['registration_type'], 'unregistered');
     expect(find.byKey(const ValueKey('askodoxMyPaymentAlertsShop-b1')), findsOneWidget);
 
+    await tester.enterText(find.byKey(const ValueKey('askodoxMyPaymentAlertsLabel-b1')), 'Bhagya');
     await tester.enterText(find.byKey(const ValueKey('askodoxMyPaymentAlertsPhone-b1')), '9400000304');
     await tester.tap(find.byKey(const ValueKey('askodoxMyPaymentAlertsRole-b1')));
     await tester.pumpAndSettle();
@@ -99,7 +100,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('askodoxMyPaymentAlertsAdd-b1')));
     await tester.tap(find.byKey(const ValueKey('askodoxMyPaymentAlertsAdd-b1')));
     await tester.pumpAndSettle();
-    expect(api.bodies['POST /api/pos/businesses/b1/members'], {'phone': '9400000304', 'role': 'attendant'});
+    expect(api.bodies['POST /api/pos/businesses/b1/members'], {'phone': '9400000304', 'role': 'attendant', 'label': 'Bhagya'});
     expect(find.byKey(const ValueKey('askodoxMyPaymentAlertsStaff-b1-0304')), findsOneWidget);
     expect(find.text('••••••0304'), findsOneWidget, reason: 'only the last four digits are shown');
     expect(find.byKey(const Key('askodoxMyPaymentAlertsMessage')), findsOneWidget);

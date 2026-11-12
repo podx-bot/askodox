@@ -42,6 +42,7 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
   final _name = TextEditingController();
   String? _state;
   final _phone = TextEditingController();
+  final _label = TextEditingController();
   String _role = 'cashier';
 
   @override
@@ -54,6 +55,7 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _label.dispose();
     super.dispose();
   }
 
@@ -122,8 +124,9 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
       });
 
   Future<void> _addStaff(String shopId, bool te) => _run((repo) async {
-        await repo.setMember(shopId, _phone.text.trim(), _role);
+        await repo.setMember(shopId, _phone.text.trim(), _role, label: _label.text);
         _phone.clear();
+        _label.clear();
       }, done: te ? 'జోడించాం. వాళ్ళు తమ ఫోన్‌లో ASKODOX తెరిచి ఇదే పేజీలో సౌండ్ ఆన్ చేసుకోవాలి.' : 'Added. They open ASKODOX on their phone and switch the sound on from this same page.');
 
   @override
@@ -219,10 +222,19 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.person_outline_rounded),
-                title: Text('••••••${m['phone_last4']}'),
+                title: Text('${m['label'] ?? ''}'.isEmpty ? '••••••${m['phone_last4']}' : '${m['label']} · ••••••${m['phone_last4']}'),
                 subtitle: Text(askodoxStaffRoleLabel('${m['role']}', te)),
               ),
             const SizedBox(height: 6),
+            TextField(
+              key: ValueKey('askodoxMyPaymentAlertsLabel-$id'),
+              controller: _label,
+              maxLength: 40,
+              decoration: InputDecoration(
+                  counterText: '',
+                  labelText: te ? 'పేరు (మీకు నచ్చినది, ఉదా. భార్య / స్టాఫ్ 1)' : 'Name (any, e.g. Wife / Staff 1)',
+                  helperText: te ? 'పేమెంట్ వచ్చినప్పుడు ఈ పేరు చెబుతుంది.' : 'This name is spoken with their payments.'),
+            ),
             Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Expanded(
                 flex: 3,
