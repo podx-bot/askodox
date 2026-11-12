@@ -12,7 +12,7 @@ typedef AskodoxSetupJson = Map<String, Object?>;
 class AskodoxPayAlertSetupStep {
   const AskodoxPayAlertSetupStep(this.id, {required this.done, this.package, this.appLabel = '', this.ownerOnly = false});
 
-  /// shop_on | access | battery | app_notifications:<package> | app_battery:<package> | sound
+  /// `shop_on` | `access` | `battery` | `app_notifications:PACKAGE` | `app_battery:PACKAGE` | `sound`
   final String id;
   final bool done;
 
