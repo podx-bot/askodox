@@ -5,12 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
+import '../domain/payment_alert_setup.dart';
 import 'pos_common.dart';
+import 'pos_payment_alerts_setup.dart';
 
 /// Short time "10:21 AM" (local) from an ISO timestamp.
 String askodoxPayAlertTime(Object? iso) {
@@ -175,7 +178,8 @@ class AskodoxPosPaymentAlertsScreen extends ConsumerStatefulWidget {
   ConsumerState<AskodoxPosPaymentAlertsScreen> createState() => _AskodoxPosPaymentAlertsScreenState();
 }
 
-class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymentAlertsScreen> {
+class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymentAlertsScreen>
+    with WidgetsBindingObserver {
   AskodoxJson _settings = const {};
   AskodoxJson _status = const {};
   List<AskodoxJson> _events = const [];
@@ -191,6 +195,12 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   bool _phoneOnly = false;
   Timer? _timer;
   final _announced = <String>{};
+  // One-question-at-a-time setup (domain/payment_alert_setup.dart).
+  List<AskodoxJson> _apps = const [];
+  Set<String> _confirmed = {};
+  final _putOff = <String>{};
+  bool _askHeard = false;
+  bool _notHeard = false;
   final _search = TextEditingController();
 
   String get _id => widget.businessId;
@@ -200,12 +210,20 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _bridge.onEvent((_) => _refresh());
     _start();
   }
 
+  /// Back from Android settings: check again what the person just switched on.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_loadSetup());
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _bridge.onEvent(null);
     _search.dispose();
@@ -214,8 +232,104 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
 
   Future<void> _start() async {
     await _refresh(first: true);
+    await _loadSetup();
     if (!mounted || widget.pollEvery == Duration.zero) return;
     _timer = Timer.periodic(widget.pollEvery, (_) => _poll());
+  }
+
+  Iterable<String> get _appPackages {
+    final apps = askodoxPosMap(_settings['apps']);
+    return apps.isEmpty ? askodoxDefaultPaymentApps.keys : apps.keys;
+  }
+
+  Future<void> _loadSetup() async {
+    final prefs = await SharedPreferences.getInstance();
+    final status = await _bridge.status();
+    final apps = await _bridge.paymentApps(_appPackages);
+    if (!mounted) return;
+    setState(() {
+      if (status.isNotEmpty && status['error'] == null) _status = {..._status, ...status};
+      _apps = apps;
+      _confirmed = (prefs.getStringList(askodoxPayAlertSetupConfirmedKey) ?? const <String>[]).toSet();
+    });
+  }
+
+  Future<void> _confirm(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    _confirmed = {..._confirmed, id};
+    await prefs.setStringList(askodoxPayAlertSetupConfirmedKey, _confirmed.toList()..sort());
+  }
+
+  List<AskodoxPayAlertSetupStep> get _setupSteps => askodoxPayAlertSetupSteps(
+      status: _status, settings: _settings, apps: _apps, confirmed: _confirmed, phoneOnly: _phoneOnly);
+
+  Future<void> _setupOk(AskodoxPayAlertSetupStep step) async {
+    final samsung = '${_status['maker'] ?? ''}'.contains('samsung');
+    switch (step.kind) {
+      case 'shop_on':
+        await (_phoneOnly ? _enterPhoneOnly(enable: true) : _save({'enabled': true}));
+      case 'access':
+        await _turnOnAccess();
+      case 'battery':
+        await (samsung ? _bridge.openAppDetails() : _bridge.openBatterySettings());
+      case 'app_notifications':
+        // Android cannot tell another app's notification switch: opening its page and coming back counts.
+        await _confirm(step.id);
+        await _bridge.openAppNotificationSettings(step.package);
+      case 'app_battery':
+        await _bridge.openAppDetails(step.package);
+      case 'sound':
+        await _speakerTest();
+        if (mounted) setState(() => _askHeard = true);
+    }
+    if (step.kind != 'sound') await _loadSetup();
+  }
+
+  Future<void> _setupHeard(bool heard) async {
+    if (heard) await _confirm('sound');
+    if (mounted) {
+      setState(() {
+        _askHeard = false;
+        _notHeard = !heard;
+      });
+    }
+  }
+
+  Widget _setupCard(bool te) {
+    final steps = _setupSteps;
+    return AskodoxPayAlertSetupCard(
+      steps: steps,
+      next: askodoxPayAlertNextStep(steps, _putOff),
+      te: te,
+      maker: '${_status['maker'] ?? ''}',
+      askHeard: _askHeard,
+      notHeard: _notHeard,
+      busy: _busy,
+      onOk: _setupOk,
+      onLater: (step) => setState(() => _putOff.add(step.id)),
+      onHeard: _setupHeard,
+    );
+  }
+
+  /// ASKODOX's Razorpay partner link (server setting): a shop that wants bank-confirmed alerts opens its own
+  /// Razorpay account through it; money still goes from Razorpay straight to the shop.
+  Widget _razorpaySignup(bool te) {
+    final url = '${_settings['razorpay_signup_url'] ?? ''}';
+    if (url.isEmpty || _settings['can_edit'] != true || _settings['verified_provider'] == true || _phoneOnly) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      key: const Key('askodoxPayAlertRazorpaySignup'),
+      child: ListTile(
+        leading: const Icon(Icons.verified_outlined),
+        title: Text(te ? 'బ్యాంక్ నిర్ధారణ కావాలా? Razorpay ఖాతా తెరవండి' : 'Want bank-confirmed alerts? Open a Razorpay account'),
+        subtitle: Text(te
+            ? 'Razorpay QR కి వచ్చిన డబ్బును Razorpay నే నిర్ధారిస్తుంది, డబ్బు నేరుగా మీ బ్యాంక్ కి. ఖాతా తెరిచాక కింద "కనెక్ట్ చేయి".'
+            : 'Razorpay itself confirms money paid to its QR; money goes straight to your bank. After opening it, use "Connect" below.'),
+        trailing: const Icon(Icons.open_in_new),
+        onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      ),
+    );
   }
 
   Future<void> _registerDevice() async {
@@ -389,11 +503,11 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         key: const Key('askodoxPayAlertConsent'),
         title: Text(te ? 'నోటిఫికేషన్ యాక్సెస్' : 'Notification access'),
         content: Text(te
-            ? 'ASKODOX మీరు ఎంచుకున్న పేమెంట్ యాప్‌ల (PhonePe Business, Google Pay, Paytm, BHIM…) నోటిఫికేషన్‌లలో '
+            ? 'ASKODOX పేమెంట్ యాప్‌ల (PhonePe Business, Google Pay, Paytm, BHIM…) నోటిఫికేషన్‌లలో '
                 'మొత్తం, యాప్ పేరు, రిఫరెన్స్ చివరి 4 అంకెలు మాత్రమే చదువుతుంది. ఇతర యాప్‌లు, మెసేజ్‌లు, OTP లు చదవదు, '
                 'నోటిఫికేషన్ టెక్స్ట్ సేవ్ చేయదు. ఇది బ్యాంక్ నిర్ధారణ కాదు. తర్వాతి స్క్రీన్‌లో ASKODOX ను ఆన్ చేయండి.'
             : 'ASKODOX reads only the amount, app name and last 4 characters of the reference from notifications of the '
-                'payment apps you allow (PhonePe Business, Google Pay, Paytm, BHIM…). It never reads other apps, messages '
+                'payment apps (PhonePe Business, Google Pay, Paytm, BHIM…). It never reads other apps, messages '
                 'or OTPs and never stores the notification text. A notification is not a bank confirmation. '
                 'On the next screen, switch ASKODOX on.'),
         actions: [
@@ -497,11 +611,13 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                               : 'Server not reachable / not updated yet. Voice works on this phone; history stays on this phone; staff phones are not alerted.'),
                         ),
                       ),
+                    _setupCard(te),
                     _statusCard(te),
                     const SizedBox(height: 8),
                     _historyCard(te),
                     const SizedBox(height: 8),
                     if (_settings['can_edit'] == true) _settingsCard(te),
+                    _razorpaySignup(te),
                     if (_settings['can_edit'] == true && !_phoneOnly) AskodoxPosProviderCard(businessId: _id),
                     _devicesCard(te),
                     const SizedBox(height: 8),

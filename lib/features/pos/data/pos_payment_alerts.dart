@@ -51,6 +51,19 @@ class AskodoxPaymentAlertsBridge {
       return 'unavailable'; // not on a phone / older native side
     }
   }
+  /// Installed? / battery unrestricted? / last time a notification from it reached this phone -- per payment app.
+  Future<List<AskodoxJson>> paymentApps(Iterable<String> packages) async {
+    try {
+      final out = await _ch.invokeMethod<Object?>('paymentApps', {'packages': packages.toList()});
+      return out is List ? askodoxPosList(out) : const [];
+    } catch (_) {
+      return const []; // not on a phone / older native side
+    }
+  }
+
+  Future<void> openAppNotificationSettings([String? package]) =>
+      _call('openAppNotificationSettings', {if (package != null) 'package': package});
+  Future<void> openAppDetails([String? package]) => _call('openAppDetails', {if (package != null) 'package': package});
   Future<void> openListenerSettings() => _call('openListenerSettings');
   Future<void> openBatterySettings() => _call('openBatterySettings');
   Future<void> openBluetoothSettings() => _call('openBluetoothSettings');

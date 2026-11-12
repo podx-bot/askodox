@@ -119,6 +119,8 @@ ENV_ALIASES: Dict[str, Dict[str, tuple[str, ...]]] = {
     "elevenlabs": {"api_key": ("ELEVENLABS_API_KEY", "XI_API_KEY")},
     # Primary web search (Google results) since 2026-10-29; Brave is second.
     "serper": {"api_key": ("SERPER_API_KEY",)},
+    # ASKODOX's own Razorpay partner / referral sign-up link (razorpay_partner_signup_url).
+    "razorpay_partner": {"signup_url": ("ASKODOX_RAZORPAY_PARTNER_URL",)},
 }
 
 
@@ -142,6 +144,28 @@ def env_value(env: Dict[str, str], provider: str, name: str) -> str:
 def youtube_api_key(env: Dict[str, str] | None = None) -> str:
     """The one place every YouTube caller reads the deployment key from."""
     return env_value(dict(os.environ) if env is None else env, "youtube_data", "api_key")
+
+
+_RAZORPAY_PARTNER_HOSTS = ("razorpay.com", "rzp.io")
+
+
+def razorpay_partner_signup_url(env: Dict[str, str] | None = None) -> str:
+    """ASKODOX's own Razorpay partner (referral) sign-up link, set by the owner in Railway as
+    ASKODOX_RAZORPAY_PARTNER_URL once ASKODOX is a Razorpay partner. A shop that opens its Razorpay account
+    through this link is credited to ASKODOX by Razorpay (commission terms are Razorpay's). Money still goes
+    from Razorpay straight to the shop -- ASKODOX never holds it. Only an https link on a Razorpay host is
+    returned; anything else (or nothing set) gives "" and the app hides the button."""
+    from urllib.parse import urlparse
+
+    raw = env_value(dict(os.environ) if env is None else env, "razorpay_partner", "signup_url")
+    try:
+        parsed = urlparse(raw)
+    except ValueError:
+        return ""
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not any(host == h or host.endswith("." + h) for h in _RAZORPAY_PARTNER_HOSTS):
+        return ""
+    return raw
 
 
 # Providers the runtime uses the moment a key is present: their callers

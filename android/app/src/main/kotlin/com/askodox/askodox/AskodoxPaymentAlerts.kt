@@ -8,10 +8,12 @@ import android.content.SharedPreferences
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -66,6 +68,16 @@ object AskodoxPaymentAlerts {
                     }
                     "openBatterySettings" -> {
                         activity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        result.success(true)
+                    }
+                    "paymentApps" -> result.success(paymentApps(app, call.argument<List<String>>("packages") ?: emptyList()))
+                    "openAppNotificationSettings" -> {
+                        activity.startActivity(appNotificationSettings(app, call.argument<String>("package") ?: app.packageName))
+                        result.success(true)
+                    }
+                    "openAppDetails" -> {
+                        activity.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:" + (call.argument<String>("package") ?: app.packageName))))
                         result.success(true)
                     }
                     "openBluetoothSettings" -> {
@@ -149,7 +161,51 @@ object AskodoxPaymentAlerts {
             "ttsLanguageOk" to Speaker.languageOk,
             "pending" to events(context).let { list -> (0 until list.length()).count { !list.getJSONObject(it).has("server_id") } },
             "audio" to audioRoute(context),
+            "maker" to (Build.MANUFACTURER ?: "").lowercase(Locale.ROOT),
+            "batteryUnrestricted" to batteryUnrestricted(context, context.packageName),
+            "notificationsEnabled" to NotificationManagerCompat.from(context).areNotificationsEnabled(),
         )
+    }
+
+    /** True when Android will not put this package to sleep (battery "Unrestricted" / not optimised). */
+    fun batteryUnrestricted(context: Context, pkg: String): Boolean = try {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+            (context.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(pkg)
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
+     * The setup flow's view of the allowed payment apps on this phone: installed?, battery unrestricted?, and when
+     * the listener last saw ANY notification from it (proof its notifications reach this phone). Only package
+     * names and times -- never notification content.
+     */
+    private fun paymentApps(context: Context, packages: List<String>): List<Map<String, Any?>> =
+        packages.take(20).map { pkg ->
+            val installed = try {
+                context.packageManager.getPackageInfo(pkg, 0)
+                true
+            } catch (_: Exception) {
+                false
+            }
+            mapOf(
+                "package" to pkg,
+                "installed" to installed,
+                "batteryUnrestricted" to (installed && batteryUnrestricted(context, pkg)),
+                "lastSeenAt" to prefs(context).getLong("seen:$pkg", 0L),
+            )
+        }
+
+    private fun appNotificationSettings(context: Context, pkg: String): Intent {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
+        }
+        if (context.packageManager.resolveActivity(intent, 0) == null) {
+            return Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
+        }
+        return intent
     }
 
     fun audioRoute(context: Context): Map<String, Any?> {
@@ -549,6 +605,8 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
             if (!cfg.optBoolean("enabled", false)) return
             val apps = cfg.optJSONObject("apps") ?: return
             if (!apps.has(n.packageName)) return // not an allowed payment app: never read
+            // Only the time (no content): lets the setup flow show this app's notifications reach the phone.
+            AskodoxPaymentAlerts.prefs(this).edit().putLong("seen:${n.packageName}", System.currentTimeMillis()).apply()
             if (n.isOngoing) return
             val notification = n.notification ?: return
             if (notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0) return
