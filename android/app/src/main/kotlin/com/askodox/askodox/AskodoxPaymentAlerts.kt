@@ -261,8 +261,6 @@ object AskodoxPaymentAlerts {
             if (error != null) e.put("upload_error", error)
         }
 
-    /** Seen keys (pkg + notification + amount + its own time) survive restarts; older than 2 days are dropped. */
-    @Synchronized
     /** No UPI reference: the same app + amount inside 20 s is one payment reported again. Accepted ones are remembered. */
     @Synchronized
     private fun recentSameAmount(context: Context, pkg: String, amountPaise: Long, now: Long): Boolean {
@@ -277,6 +275,8 @@ object AskodoxPaymentAlerts {
         return true
     }
 
+    /** Seen keys (pkg + notification + amount + its own time) survive restarts; older than 2 days are dropped. */
+    @Synchronized
     private fun firstTime(context: Context, key: String, now: Long): Boolean {
         val seen = try { JSONObject(prefs(context).getString("seen", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
         if (seen.has(key)) return false
