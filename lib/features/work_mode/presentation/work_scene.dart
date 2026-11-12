@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../domain/work_mode_plan.dart';
+import 'work_scene_images.dart';
 
 /// The live picture of the job. What is drawn follows the REAL progress of the
 /// current stage (rows ploughed, seedlings planted, bricks laid, doors served,
@@ -56,6 +57,15 @@ class _AskodoxWorkSceneViewState extends State<AskodoxWorkSceneView> with Ticker
   late final AnimationController _bubble =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
   int _shownGain = 0;
+  AskodoxWorkSceneImages? _images;
+
+  @override
+  void initState() {
+    super.initState();
+    AskodoxWorkSceneImages.load().then((loaded) {
+      if (mounted && loaded != null) setState(() => _images = loaded);
+    });
+  }
 
   @override
   void didUpdateWidget(covariant AskodoxWorkSceneView oldWidget) {
@@ -93,6 +103,7 @@ class _AskodoxWorkSceneViewState extends State<AskodoxWorkSceneView> with Ticker
                 gain: _shownGain,
                 te: widget.te,
                 crew: widget.crew,
+                images: _images,
               ),
             ),
           ),
@@ -145,6 +156,7 @@ class AskodoxWorkScenePainter extends CustomPainter {
     this.gain = 0,
     this.te = false,
     this.crew,
+    this.images,
   });
 
   final AskodoxWorkJob job;
@@ -156,6 +168,9 @@ class AskodoxWorkScenePainter extends CustomPainter {
   final int gain;
   final bool te;
   final List<AskodoxWorkCrewMember>? crew;
+
+  /// Hand-made pictures; null until loaded (the code-made scene is used then).
+  final AskodoxWorkSceneImages? images;
 
   late double _w;
   late double _h;
@@ -183,7 +198,9 @@ class AskodoxWorkScenePainter extends CustomPainter {
     _h = 250;
     _s = 1;
     var ownProblems = false;
-    if (job.id == 'hotel') {
+    if (_useImageScene) {
+      _imageScene(canvas, images!);
+    } else if (job.id == 'hotel') {
       _hotel(canvas);
       ownProblems = true;
     } else {
@@ -219,6 +236,49 @@ class AskodoxWorkScenePainter extends CustomPainter {
     if (!_anyActive && !_lastStageDone && !ownProblems) _waitingBubble(canvas);
     _gainBubble(canvas);
     canvas.restore();
+  }
+
+  // ----------------------------------------------------------- hand-made scene
+
+  /// Paddy transplanting uses the hand-made picture while one person works
+  /// (team jobs and the other paddy stages keep the code-made scene).
+  bool get _useImageScene =>
+      images != null &&
+      job.id == 'paddy' &&
+      _stage == 'transplant' &&
+      (crew == null || crew!.length <= 1);
+
+  /// Background (cover-fit) + the farmer. While walking, the six frames play
+  /// (3 s loop, 0.5 s per frame); when still, the standing frame is shown.
+  /// The farmer moves across the field as the stage progresses.
+  void _imageScene(Canvas c, AskodoxWorkSceneImages pics) {
+    final bg = pics.paddyBackground;
+    final scale = math.max(_w / bg.width, 250 / bg.height);
+    final dw = bg.width * scale;
+    final dh = bg.height * scale;
+    c.save();
+    c.clipRect(Rect.fromLTWH(0, 0, _w, 250));
+    c.drawImageRect(
+      bg,
+      Rect.fromLTWH(0, 0, bg.width.toDouble(), bg.height.toDouble()),
+      Rect.fromLTWH((_w - dw) / 2, (250 - dh) / 2, dw, dh),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    c.restore();
+
+    final frames = pics.paddyTransplantFrames;
+    final index = active ? math.min(((seconds % 3) / 0.5).floor(), frames.length - 1) : 3;
+    final sprite = frames[index];
+    const spriteHeight = 200.0;
+    final spriteScale = spriteHeight / sprite.height;
+    final spriteWidth = sprite.width * spriteScale;
+    final x = _w * 0.2 + fraction.clamp(0.0, 1.0) * _w * 0.5 - spriteWidth / 2;
+    c.drawImageRect(
+      sprite,
+      Rect.fromLTWH(0, 0, sprite.width.toDouble(), sprite.height.toDouble()),
+      Rect.fromLTWH(x, 228 - spriteHeight, spriteWidth, spriteHeight),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
   }
 
   // ------------------------------------------------------------------- crew
@@ -2323,5 +2383,6 @@ class AskodoxWorkScenePainter extends CustomPainter {
       old.stageIndex != stageIndex ||
       old.job != job ||
       old.active != active ||
-      old.bubble != bubble;
+      old.bubble != bubble ||
+      old.images != images;
 }
