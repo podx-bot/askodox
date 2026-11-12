@@ -21,8 +21,13 @@ class AskodoxWorkSceneView extends StatefulWidget {
     this.height = 240,
     this.te = false,
     this.crew,
+    this.onBeat,
     super.key,
   });
+
+  /// Called with a sound name at the exact moment the worker's tool lands
+  /// (hammer hits, spade bites, net hits the water ...). See [askodoxWorkBeat].
+  final void Function(String sound)? onBeat;
 
   final AskodoxWorkJob job;
   final int stageIndex;
@@ -56,6 +61,34 @@ class _AskodoxWorkSceneViewState extends State<AskodoxWorkSceneView> with Ticker
   late final AnimationController _bubble =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
   int _shownGain = 0;
+  double? _lastPhase;
+  AskodoxWorkBeat? _lastBeat;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock.addListener(_beatTick);
+  }
+
+  /// Fires [AskodoxWorkSceneView.onBeat] when the drawn tool lands, using the
+  /// same clock and timing the painter uses -- the sound matches the picture.
+  void _beatTick() {
+    final cb = widget.onBeat;
+    final stages = widget.job.stages;
+    final beat = cb == null || stages.isEmpty
+        ? null
+        : askodoxWorkBeat(widget.job.id, stages[_ci(widget.stageIndex, 0, stages.length - 1)].id);
+    final working = widget.active || (widget.crew?.any((m) => m.active) ?? false);
+    if (beat == null || !working || beat != _lastBeat) {
+      _lastBeat = beat;
+      _lastPhase = null;
+      if (beat == null || !working) return;
+    }
+    final phase = (_clock.value * 60 / beat.period) % 1;
+    final prev = _lastPhase;
+    _lastPhase = phase;
+    if (prev != null && askodoxBeatCrossed(prev, phase, beat.hit)) cb!(beat.sound);
+  }
 
   @override
   void didUpdateWidget(covariant AskodoxWorkSceneView oldWidget) {
@@ -68,6 +101,7 @@ class _AskodoxWorkSceneViewState extends State<AskodoxWorkSceneView> with Ticker
 
   @override
   void dispose() {
+    _clock.removeListener(_beatTick);
     _clock.dispose();
     _bubble.dispose();
     super.dispose();
@@ -101,6 +135,79 @@ class _AskodoxWorkSceneViewState extends State<AskodoxWorkSceneView> with Ticker
 }
 
 int _ci(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
+
+/// One work sound tied to the drawing: [period] seconds per stroke (the same
+/// period the painter uses for that stage), [hit] = the moment in the stroke
+/// (0..1) the tool lands, [sound] = the file in `assets/work_audio`.
+typedef AskodoxWorkBeat = ({double period, double hit, String sound});
+
+/// `_strike()` lands at 0.72 of its stroke; a `_wave()` peaks at 0.25.
+const _strikeHit = 0.72;
+const _wavePeak = 0.25;
+
+/// The work sound for what the worker is DOING in this stage, or null when the
+/// stage has no tool hitting anything (carrying, walking, waiting customers).
+/// Periods mirror [AskodoxWorkScenePainter]: change both together.
+AskodoxWorkBeat? askodoxWorkBeat(String job, String stage) {
+  switch (job) {
+    case 'paddy' || 'chilli' || 'vegetables':
+      switch (stage) {
+        case 'nursery' || 'beds' || 'sow' || 'weed' || 'pick' || 'plough' || 'transplant':
+          return (period: 1.0, hit: _strikeHit, sound: job == 'paddy' ? 'sfx_mud' : 'sfx_swish');
+        case 'harvest':
+          return (period: 1.2, hit: _strikeHit, sound: 'sfx_swish');
+        case 'water':
+          return (period: 1.5, hit: _strikeHit, sound: 'sfx_splash');
+      }
+    case 'digging':
+      switch (stage) {
+        case 'mark':
+          return (period: 1.0, hit: _strikeHit, sound: 'sfx_hammer');
+        case 'dig':
+          return (period: 1.0, hit: _strikeHit, sound: 'sfx_dig');
+        case 'level':
+          return (period: 0.75, hit: _strikeHit, sound: 'sfx_dig');
+      }
+    case 'house':
+      switch (stage) {
+        case 'plaster':
+          return (period: 1.0, hit: _strikeHit, sound: 'sfx_swish');
+        case 'finish':
+          return (period: 1.0, hit: _strikeHit, sound: 'sfx_hammer');
+      }
+    case 'welding':
+      switch (stage) {
+        case 'tack' || 'weld' || 'grind':
+          return (period: 2.0, hit: 0.0, sound: 'sfx_weld');
+      }
+    case 'chicken_shop':
+      switch (stage) {
+        case 'clean':
+          return (period: 1.5, hit: _wavePeak, sound: 'sfx_swish');
+        case 'serve':
+          return (period: 1.0, hit: _wavePeak, sound: 'sfx_chop');
+      }
+    case 'hotel':
+      if (stage == 'serve') return (period: 0.8, hit: _strikeHit, sound: 'sfx_chop');
+    case 'fishing':
+      // The cast net lands on the water at 0.35 of its 5 s throw (the ripple starts).
+      return (period: 5.0, hit: 0.35, sound: 'sfx_splash');
+    case 'cattle':
+      if (stage == 'out' || stage == 'home') return (period: 2.0, hit: _wavePeak, sound: 'sfx_cowbell');
+    case 'veg_cart':
+      if (stage == 'street') return (period: 3.0, hit: _wavePeak, sound: 'sfx_cart');
+    case 'paper' || 'delivery' || 'milk':
+      if (stage == 'route' || stage == 'rounds' || stage == 'deliver' || stage == 'morning' || stage == 'evening') {
+        return (period: 6.0, hit: 0.0, sound: 'sfx_bell');
+      }
+  }
+  return null;
+}
+
+/// True when a stroke moving from [prev] to [phase] (both 0..1, wrapping at 1)
+/// passed the [hit] moment.
+bool askodoxBeatCrossed(double prev, double phase, double hit) =>
+    prev <= phase ? (prev < hit && phase >= hit) : (prev < hit || phase >= hit);
 
 /// One person in a team job: you or a friend / family member, each moved by
 /// their own steps (a member who has not walked stands still).
