@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` `8b5ec95` (2026-11-12, server deployed SUCCESS on Railway): payment alerts round -- #315 CI pins Flutter 3.47.9
+  (stable 3.50.0 broke analyze + AGP); #316 parser reads PhonePe "X sent ₹N to you"; #317 one-question setup card
+  (`domain/payment_alert_setup.dart`, payment-app notifications + battery, Samsung wording) + `razorpay_signup_url`
+  (env `ASKODOX_RAZORPAY_PARTNER_URL`, NOT set yet); #319 sender share (`/payment-alerts/share`), listener mute/pause
+  (`/payment-alerts/listening`), `pos_members.label` spoken, server `phrases`, phone-learned wording. Play bundle
+  `askodox-play-1464.aab` (run 43151344437) built, NOT yet uploaded. `otp-autofill-e2e` "no Android consent prompt" is
+  a known flaky emulator failure (rerun). Nothing phone verified.
 - `main` `700833e` (2026-11-12): #313 onboarding header shows the ASKODOX logo (`AskodoxLogo`) instead of the robot
   mascot; payment alerts status card explanation shortened (keys unchanged). Play bundle `askodox-play-1458.aab` built
   from the branch (Live Build run 43042339260, payment alerts listener ON) -- NOT yet uploaded to Play. Not phone verified.
