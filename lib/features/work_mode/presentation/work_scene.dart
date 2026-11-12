@@ -248,8 +248,8 @@ class AskodoxWorkScenePainter extends CustomPainter {
       _stage == 'transplant' &&
       (crew == null || crew!.length <= 1);
 
-  /// Background (cover-fit) + the farmer. While walking, the six frames play
-  /// (3 s loop, 0.5 s per frame); when still, the standing frame is shown.
+  /// Background (cover-fit) + the farmer. While walking, the frames play in a
+  /// 6 s loop (period divides 60 s); when still, a standing frame is shown.
   /// The farmer moves across the field as the stage progresses.
   void _imageScene(Canvas c, AskodoxWorkSceneImages pics) {
     final bg = pics.paddyBackground;
@@ -267,7 +267,10 @@ class AskodoxWorkScenePainter extends CustomPainter {
     c.restore();
 
     final frames = pics.paddyTransplantFrames;
-    final index = active ? math.min(((seconds % 3) / 0.5).floor(), frames.length - 1) : 3;
+    const loop = 6.0;
+    final index = active
+        ? math.min(((seconds % loop) / (loop / frames.length)).floor(), frames.length - 1)
+        : frames.length - 2;
     final sprite = frames[index];
     const spriteHeight = 200.0;
     final spriteScale = spriteHeight / sprite.height;

@@ -13,7 +13,7 @@ class AskodoxWorkSceneImages {
   /// The paddy field background (no people, 3:2).
   final ui.Image paddyBackground;
 
-  /// The transplanting farmer, six transparent frames: bend, plant, stand, walk.
+  /// The planting farmer, nine transparent frames: bend, plant, press, rise, stand.
   final List<ui.Image> paddyTransplantFrames;
 
   static Future<AskodoxWorkSceneImages?>? _cached;
@@ -25,8 +25,8 @@ class AskodoxWorkSceneImages {
     try {
       final background = await _image('assets/work_scenes/paddy_field.jpg');
       final frames = <ui.Image>[];
-      for (var i = 1; i <= 6; i++) {
-        frames.add(await _image('assets/work_sprites/paddy_transplant_${i.toString().padLeft(2, '0')}.png'));
+      for (var i = 1; i <= 9; i++) {
+        frames.add(await _image('assets/work_sprites/paddy_plant_${i.toString().padLeft(2, '0')}.png'));
       }
       return AskodoxWorkSceneImages(paddyBackground: background, paddyTransplantFrames: frames);
     } catch (_) {
