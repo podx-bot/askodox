@@ -8,6 +8,7 @@ import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/pos/data/pos_payment_alerts.dart';
 import 'package:podx/features/pos/data/pos_repository.dart';
+import 'package:podx/features/pos/domain/payment_alert_setup.dart';
 import 'package:podx/features/pos/presentation/pos_payment_alerts_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -319,5 +320,105 @@ void main() {
     expect(line, contains(' → Phone got '));
     expect(askodoxPayAlertClock('2026-10-27T01:31:05Z'), matches(RegExp(r'^\d{1,2}:\d{2}:05 (AM|PM)$')));
     expect(askodoxPayAlertTimeline({'detected_at': '2026-10-27T01:31:05Z'}, false), isEmpty);
+  });
+
+  test('setup steps: only what this phone can do, in order, re-checked from the phone', () {
+    const phonepe = 'com.phonepe.app.business';
+    final apps = [
+      {'package': phonepe, 'installed': true, 'batteryUnrestricted': false, 'lastSeenAt': 0},
+      {'package': 'net.one97.paytm', 'installed': false},
+    ];
+    final steps = askodoxPayAlertSetupSteps(
+        status: {'listenerAllowed': false, 'batteryUnrestricted': false}, settings: _settings(enabled: false), apps: apps, confirmed: {});
+    expect(steps.map((s) => s.id), ['shop_on', 'access', 'battery', 'app_notifications:$phonepe', 'app_battery:$phonepe', 'sound']);
+    expect(steps.where((s) => s.done), isEmpty);
+    expect(askodoxPayAlertNextStep(steps, {'shop_on'})!.id, 'access', reason: '"Not now" moves to the next question');
+
+    final later = askodoxPayAlertSetupSteps(
+        status: {'listenerAllowed': true},
+        settings: _settings(),
+        apps: [
+          {'package': phonepe, 'installed': true, 'batteryUnrestricted': true, 'lastSeenAt': 1762900000000}
+        ],
+        confirmed: {'sound'});
+    expect(later.every((s) => s.done), isTrue, reason: 'a notification already seen from the app proves it reaches the phone');
+    expect(askodoxPayAlertNextStep(later, {}), isNull);
+
+    final sideloaded = askodoxPayAlertSetupSteps(
+        status: {'listenerDeclared': false}, settings: _settings(), apps: apps, confirmed: {});
+    expect(sideloaded.map((s) => s.kind), ['shop_on', 'battery', 'sound'], reason: 'no reading steps without the listener');
+    expect(askodoxPayAlertSetupSteps(status: {'unavailable': true}, settings: _settings(), apps: apps, confirmed: {}), isEmpty);
+    final staff = askodoxPayAlertSetupSteps(
+        status: {}, settings: {..._settings(enabled: false), 'can_edit': false}, apps: const [], confirmed: {});
+    expect(staff.first.ownerOnly, isTrue);
+    final (q, how) = askodoxPayAlertStepText(steps[4], te: false, maker: 'samsung');
+    expect(q, contains('PhonePe Business'));
+    expect(how, contains('Manage app if unused'));
+  });
+
+  testWidgets('setup asks one thing at a time and opens exactly that Android page', (tester) async {
+    tester.view.physicalSize = const Size(900, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    const phonepe = 'com.phonepe.app.business';
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, (call) async {
+      native.add(call);
+      return switch (call.method) {
+        'status' || 'configure' => {
+            'listenerAllowed': true,
+            'batteryUnrestricted': false,
+            'maker': 'samsung',
+            'audio': {'output': 'phone', 'mediaVolumePct': 70},
+          },
+        'paymentApps' => [
+            {'package': phonepe, 'installed': true, 'batteryUnrestricted': false, 'lastSeenAt': 0}
+          ],
+        'events' => '[]',
+        'speakTest' || 'audioRoute' => {'output': 'phone', 'mediaVolumePct': 70},
+        _ => true,
+      };
+    });
+    final api = _Api((m, p, b) {
+      if (p.endsWith('/payment-alerts/settings')) {
+        return {..._settings(), 'razorpay_signup_url': 'https://razorpay.com/partners/signup/?ref=askodox'};
+      }
+      if (p.endsWith('/payment-alerts/devices')) return {'device_id': 'pad_1', 'devices': <Object?>[]};
+      if (p.endsWith('/payment-alerts/events')) return {'events': <Object?>[], 'last_24h': {'count': 0, 'notified_total_paise': 0}};
+      return <String, Object?>{};
+    });
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('askodoxPayAlertRazorpaySignup')), findsOneWidget, reason: 'owner sees ASKODOX partner sign-up');
+    expect(find.text('Stop the phone from putting ASKODOX to sleep'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSetupOk')));
+    await tester.pumpAndSettle();
+    final own = native.lastWhere((c) => c.method == 'openAppDetails');
+    expect((own.arguments as Map).containsKey('package'), isFalse, reason: 'Samsung: ASKODOX own app page');
+
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSetupLater')));
+    await tester.pumpAndSettle();
+    expect(find.text('Keep PhonePe Business notifications on'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSetupOk')));
+    await tester.pumpAndSettle();
+    expect((native.lastWhere((c) => c.method == 'openAppNotificationSettings').arguments as Map)['package'], phonepe);
+
+    expect(find.text('Stop the phone from putting PhonePe Business to sleep'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSetupOk')));
+    await tester.pumpAndSettle();
+    expect((native.lastWhere((c) => c.method == 'openAppDetails').arguments as Map)['package'], phonepe);
+
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSetupLater')));
+    await tester.pumpAndSettle();
+    expect(find.text('Sound test'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSetupOk')));
+    await tester.pumpAndSettle();
+    expect(native.where((c) => c.method == 'speakTest'), hasLength(1));
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSetupHeardYes')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPayAlertSetupDone')), findsOneWidget);
+    expect(find.textContaining('Setup 4/6'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList(askodoxPayAlertSetupConfirmedKey), ['app_notifications:$phonepe', 'sound']);
   });
 }

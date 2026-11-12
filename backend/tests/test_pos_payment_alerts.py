@@ -289,3 +289,19 @@ def test_attendant_role_hears_alerts_only_when_the_owner_allows_it_and_cannot_bi
     with pytest.raises(PosError) as e:
         store.members(biz, attendant)
     assert e.value.status == 403, "an attendant cannot manage staff"
+
+
+def test_razorpay_partner_signup_link_only_from_a_razorpay_https_url(env, monkeypatch):
+    from app.services.commerce_finance import razorpay_partner_signup_url
+
+    ok = "https://razorpay.com/partners/signup/?ref=askodox"
+    assert razorpay_partner_signup_url({"ASKODOX_RAZORPAY_PARTNER_URL": ok}) == ok
+    assert razorpay_partner_signup_url({"ASKODOX_RAZORPAY_PARTNER_URL": "https://rzp.io/l/askodox"}) == "https://rzp.io/l/askodox"
+    for bad in ("", "http://razorpay.com/x", "https://evil.example/razorpay.com", "https://razorpay.com.evil.in/x",
+                "javascript:alert(1)"):
+        assert razorpay_partner_signup_url({"ASKODOX_RAZORPAY_PARTNER_URL": bad}) == ""
+    _, alerts, biz, *_ = env
+    monkeypatch.delenv("ASKODOX_RAZORPAY_PARTNER_URL", raising=False)
+    assert alerts.settings(biz, OWNER)["razorpay_signup_url"] == ""
+    monkeypatch.setenv("ASKODOX_RAZORPAY_PARTNER_URL", ok)
+    assert alerts.settings(biz, CASHIER)["razorpay_signup_url"] == ok

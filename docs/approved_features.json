@@ -4020,6 +4020,10 @@
         {
           "pr": null,
           "change": "Owner command 2026-10-26 (branch claude/pos-payment-voice-alerts); NOT PHONE VERIFIED"
+        },
+        {
+          "pr": null,
+          "change": "Owner 2026-11-12: one-question setup (shop on, read access, ASKODOX battery, each installed payment app's notifications + battery, sound test with 'did you hear it?'), re-checked on return from Android settings; settings carry razorpay_signup_url (ASKODOX Razorpay partner link, env ASKODOX_RAZORPAY_PARTNER_URL, https Razorpay hosts only). NOT PHONE VERIFIED"
         }
       ]
     },

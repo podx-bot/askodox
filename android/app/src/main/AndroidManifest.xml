@@ -128,6 +128,14 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Payment alerts setup: is this payment app installed? (pos_payment_alerts DEFAULT_APPS) -->
+        <package android:name="com.phonepe.app.business" />
+        <package android:name="com.phonepe.app" />
+        <package android:name="com.google.android.apps.nbu.paisa.merchant" />
+        <package android:name="com.google.android.apps.nbu.paisa.user" />
+        <package android:name="com.paytm.business" />
+        <package android:name="net.one97.paytm" />
+        <package android:name="in.org.npci.upiapp" />
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

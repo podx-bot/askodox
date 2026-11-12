@@ -36,6 +36,16 @@ from typing import Any, Callable, Dict, List, Optional
 
 from app.services.pos_store import ROLES, PosError, PosStore
 
+
+def _razorpay_signup_url() -> str:
+    """ASKODOX's Razorpay partner sign-up link for the setup flow ("" when not configured)."""
+    try:
+        from app.services.commerce_finance import razorpay_partner_signup_url
+
+        return razorpay_partner_signup_url()
+    except Exception:
+        return ""
+
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
@@ -186,7 +196,8 @@ class PosPaymentAlerts:
             out = self._settings_row(conn, business_id)
         out.update({"my_role": role, "feature_on": self.feature_on(), "can_edit": role == "owner",
                     "all_roles": [r for r in ROLES if r != "owner"],
-                    "verified_provider": self._provider_connected(business_id)})
+                    "verified_provider": self._provider_connected(business_id),
+                    "razorpay_signup_url": _razorpay_signup_url()})
         return out
 
     def update_settings(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
