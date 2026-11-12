@@ -305,3 +305,63 @@ def test_razorpay_partner_signup_link_only_from_a_razorpay_https_url(env, monkey
     assert alerts.settings(biz, OWNER)["razorpay_signup_url"] == ""
     monkeypatch.setenv("ASKODOX_RAZORPAY_PARTNER_URL", ok)
     assert alerts.settings(biz, CASHIER)["razorpay_signup_url"] == ok
+
+
+def test_sender_chooses_who_hears_and_listener_can_mute_or_pause(env):
+    store, alerts, biz, owner_dev, cashier_dev, pushes, _feature, clock = env
+    cashier_dev2 = alerts.register_device(biz, CASHIER, {"device_key": "cashier-phone-1"})["device_id"]
+    assert cashier_dev2 == cashier_dev
+    store.set_member(biz, OWNER, "9400000302", "cashier", "Ravi")
+    view = alerts.settings(biz, OWNER)
+    people = {p["role"]: p for p in view["people"]}
+    assert people["cashier"]["name"] == "Ravi" and people["owner"]["me"] is True
+    assert all(CASHIER not in str(p) and "9400000302" not in str(p) for p in view["people"]), "refs never leak ids"
+    ravi = people["cashier"]["ref"]
+
+    # default: everyone allowed hears, and the spoken text says whose payment it is
+    alerts.report(biz, OWNER, _event(owner_dev, "11"))
+    assert [p[0] for p in pushes] == [CASHIER]
+    assert pushes[-1][5]["text"].startswith("యజమాని: 500 రూపాయల")
+    alerts.report(biz, CASHIER, _event(cashier_dev, "12"))
+    assert pushes[-1][0] == OWNER and pushes[-1][5]["text"].startswith("Ravi: ")
+
+    # the cashier keeps their own payments to themselves
+    pushes.clear()
+    assert alerts.set_share(biz, CASHIER, {"mode": "none"})["my_share"]["mode"] == "none"
+    alerts.report(biz, CASHIER, _event(cashier_dev, "13"))
+    assert pushes == []
+    # the owner shares only with chosen people (refs outside the shop are dropped)
+    out = alerts.set_share(biz, OWNER, {"mode": "some", "listeners": [ravi, "nope"]})
+    assert out["my_share"] == {"mode": "some", "listeners": [ravi]}
+    alerts.report(biz, OWNER, _event(owner_dev, "14"))
+    assert [p[0] for p in pushes] == [CASHIER]
+    alerts.set_share(biz, OWNER, {"mode": "some", "listeners": []})
+    alerts.report(biz, OWNER, _event(owner_dev, "15"))
+    assert len(pushes) == 1
+
+    # the listener mutes / pauses on their own phone; resuming brings it back
+    alerts.set_share(biz, OWNER, {"mode": "all"})
+    owner_ref = people["owner"]["ref"]
+    alerts.set_listening(biz, CASHIER, {"source": owner_ref, "muted": True})
+    alerts.report(biz, OWNER, _event(owner_dev, "16"))
+    assert len(pushes) == 1
+    alerts.set_listening(biz, CASHIER, {"source": owner_ref, "muted": False})
+    view = alerts.set_listening(biz, CASHIER, {"source": "*", "pause_minutes": 30})
+    assert view["my_listening"]["*"]["paused_until"]
+    alerts.report(biz, OWNER, _event(owner_dev, "17"))
+    assert len(pushes) == 1
+    clock.now += timedelta(minutes=31)
+    alerts.report(biz, OWNER, _event(owner_dev, "18"))
+    assert len(pushes) == 2 and pushes[-1][0] == CASHIER
+    with pytest.raises(PosError):
+        alerts.set_listening(biz, CASHIER, {"source": "unknownref"})
+    with pytest.raises(PosError):
+        alerts.set_share(biz, CASHIER, {"mode": "everyone"})
+
+
+def test_member_label_is_kept_when_role_changes_without_one(env):
+    store, alerts, biz, *_ = env
+    store.set_member(biz, OWNER, "9400000302", "cashier", "  Ravi   Kumar ")
+    store.set_member(biz, OWNER, "9400000302", "manager")
+    member = [m for m in store.members(biz, OWNER) if m["phone_last4"] == "0302"][0]
+    assert member["label"] == "Ravi Kumar" and member["role"] == "manager"
