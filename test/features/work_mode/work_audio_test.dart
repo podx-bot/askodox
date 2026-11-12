@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/work_mode/data/work_audio.dart';
 import 'package:podx/features/work_mode/domain/work_mode_plan.dart';
+import 'package:podx/features/work_mode/presentation/work_scene.dart';
 
 class _FakeOut implements AskodoxGameAudioOut {
   final prepared = <String>{};
@@ -103,5 +104,52 @@ void main() {
     now = now.add(const Duration(minutes: 5));
     await audio.tick(walking: false, telugu: false, done: false);
     expect(out.calls.where((c) => c.startsWith('voice')), isEmpty);
+  });
+
+  test('work sounds follow the picture: every beat names a shipped file and lands inside its stroke', () {
+    var beats = 0;
+    for (final job in askodoxWorkJobs) {
+      for (final stage in job.stages) {
+        final beat = askodoxWorkBeat(job.id, stage.id);
+        if (beat == null) continue;
+        beats++;
+        expect(File('assets/work_audio/${beat.sound}.ogg').existsSync(), isTrue, reason: '${job.id}/${stage.id}');
+        expect(beat.hit, inInclusiveRange(0.0, 0.999), reason: '${job.id}/${stage.id}');
+        // Every motion loops inside the 60 s scene clock.
+        expect((60 / beat.period - (60 / beat.period).round()).abs(), lessThan(1e-9), reason: '${job.id}/${stage.id}');
+      }
+    }
+    expect(beats, greaterThan(20));
+    expect(askodoxWorkBeat('digging', 'dig')?.sound, 'sfx_dig');
+    expect(askodoxWorkBeat('house', 'walls'), isNull, reason: 'carrying bricks: no tool hits anything');
+  });
+
+  test('a beat fires once when the stroke passes the hit moment, also across the wrap', () {
+    expect(askodoxBeatCrossed(0.70, 0.74, 0.72), isTrue);
+    expect(askodoxBeatCrossed(0.72, 0.80, 0.72), isFalse, reason: 'already played at 0.72');
+    expect(askodoxBeatCrossed(0.10, 0.30, 0.72), isFalse);
+    expect(askodoxBeatCrossed(0.95, 0.05, 0.0), isTrue, reason: 'hit 0 = the start of each stroke');
+    expect(askodoxBeatCrossed(0.95, 0.80, 0.72), isTrue, reason: 'wrapped past the hit');
+  });
+
+  test('a beat plays at once, louder than music, and takes over the step sounds', () async {
+    var now = DateTime(2026, 11, 12, 7);
+    final out = _FakeOut();
+    final audio = AskodoxWorkAudioDirector(out, clock: () => now, bundle: _Bundle());
+    await audio.open('digging', soundOn: true);
+    await audio.beat('sfx_dig');
+    expect(out.calls.last, 'play sfx_dig');
+    now = now.add(const Duration(milliseconds: 800));
+    await audio.beat('sfx_dig');
+    expect(out.calls.where((c) => c == 'play sfx_dig').length, 2, reason: 'one sound per spade stroke');
+    final before = out.calls.length;
+    await audio.steps(telugu: false);
+    expect(out.calls.length, before, reason: 'no second, out-of-time work sound');
+    expect(AskodoxWorkAudioDirector.beatVolume, greaterThan(AskodoxWorkAudioDirector.musicVolume * 3));
+
+    await audio.setSound(false);
+    final off = out.calls.length;
+    await audio.beat('sfx_dig');
+    expect(out.calls.length, off, reason: 'sound off = silent');
   });
 }

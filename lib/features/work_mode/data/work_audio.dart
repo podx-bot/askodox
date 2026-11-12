@@ -104,7 +104,10 @@ class AskodoxWorkAudioDirector {
   final DateTime Function() _clock;
   final AssetBundle _bundle;
 
-  static const musicVolume = 0.22;
+  // Music sits under the work sounds (owner 2026-11-12: only the music was heard).
+  static const musicVolume = 0.16;
+  static const beatVolume = 0.95;
+  static const beatOwnsEffects = Duration(seconds: 5);
   static const effectGap = Duration(seconds: 3);
   static const quietBeforeCall = Duration(seconds: 60);
   static const callGap = Duration(minutes: 3);
@@ -114,7 +117,7 @@ class AskodoxWorkAudioDirector {
   bool _on = true;
   bool _paused = false;
   final _prepared = <String>{};
-  DateTime? _lastEffect, _lastVoice, _lastSellerCall, _lastStep;
+  DateTime? _lastEffect, _lastVoice, _lastSellerCall, _lastStep, _lastBeat;
   late DateTime _openedAt = _clock();
   int _effectTurn = 0;
 
@@ -189,10 +192,22 @@ class AskodoxWorkAudioDirector {
       if (await _out.voice(call, 0.9)) played.add(call);
       return;
     }
+    // The picture is already playing its own work sounds in time with the tool.
+    if (_lastBeat != null && now.difference(_lastBeat!) < beatOwnsEffects) return;
     if (_lastEffect != null && now.difference(_lastEffect!) < effectGap) return;
     _lastEffect = now;
     final name = set.effects[_effectTurn++ % set.effects.length];
     if (await _out.play(name, 0.75)) played.add(name);
+  }
+
+  /// The worker's tool just landed in the picture (hammer, spade, net ...):
+  /// play that sound now, in time with the drawing. Files load on first use.
+  Future<void> beat(String name) async {
+    if (_set == null || !_on || _paused) return;
+    _lastBeat = _clock();
+    await _ready(name, short: true);
+    if (!_prepared.contains(name)) return;
+    if (await _out.play(name, beatVolume)) played.add(name);
   }
 
   /// Called every few seconds: nobody walking for a while -> the waiting customer calls out.

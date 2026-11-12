@@ -620,6 +620,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           gainId: _gainId,
           te: te,
           crew: crew,
+          onBeat: (sound) => unawaited(_audio.beat(sound)),
         ),
         if (!progress.done)
           Padding(
