@@ -79,10 +79,28 @@ def test_duplicate_by_reference_and_by_event_id(env):
 
 def test_repeated_same_amount_different_payments_are_separate(env):
     _, alerts, biz, owner_dev, _, _, _, _ = env
-    a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
-    b = alerts.report(biz, OWNER, _event(owner_dev, "2"))
+    a = alerts.report(biz, OWNER, _event(owner_dev, "1", reference="T2410261234000001"))
+    b = alerts.report(biz, OWNER, _event(owner_dev, "2", reference="T2410261234000002"))
     assert a["id"] != b["id"] and not b["duplicate"]
     assert alerts.events(biz, OWNER)["last_24h"]["count"] == 2
+
+
+def test_no_reference_repeat_within_20s_is_one_payment(env):
+    """PhonePe shows no UPI reference and repeats the notification a few seconds later with a new time."""
+    _, alerts, biz, owner_dev, _, _, _, clock = env
+    a = alerts.report(biz, OWNER, _event(owner_dev, "21", detected_at=None))
+    clock.now += timedelta(seconds=7)
+    b = alerts.report(biz, OWNER, _event(owner_dev, "22", detected_at=None))
+    assert b["duplicate"] is True and b["id"] == a["id"]
+    assert alerts.events(biz, OWNER)["last_24h"]["count"] == 1
+
+
+def test_no_reference_same_amount_after_20s_is_a_new_payment(env):
+    _, alerts, biz, owner_dev, _, _, _, clock = env
+    a = alerts.report(biz, OWNER, _event(owner_dev, "31"))
+    clock.now += timedelta(seconds=30)
+    b = alerts.report(biz, OWNER, _event(owner_dev, "32"))
+    assert a["id"] != b["id"] and b["duplicate"] is False
 
 
 def test_missing_amount_is_ambiguous_and_unsupported_app_refused(env):
@@ -321,24 +339,24 @@ def test_sender_chooses_who_hears_and_listener_can_mute_or_pause(env):
     ravi = people["cashier"]["ref"]
 
     # default: everyone allowed hears, and the spoken text says whose payment it is
-    alerts.report(biz, OWNER, _event(owner_dev, "11"))
+    alerts.report(biz, OWNER, _event(owner_dev, "11", reference="T2410261234110000"))
     assert [p[0] for p in pushes] == [CASHIER]
     assert pushes[-1][5]["text"].startswith("యజమాని: 500 రూపాయల")
-    alerts.report(biz, CASHIER, _event(cashier_dev, "12"))
+    alerts.report(biz, CASHIER, _event(cashier_dev, "12", reference="T2410261234120000"))
     assert pushes[-1][0] == OWNER and pushes[-1][5]["text"].startswith("Ravi: ")
 
     # the cashier keeps their own payments to themselves
     pushes.clear()
     assert alerts.set_share(biz, CASHIER, {"mode": "none"})["my_share"]["mode"] == "none"
-    alerts.report(biz, CASHIER, _event(cashier_dev, "13"))
+    alerts.report(biz, CASHIER, _event(cashier_dev, "13", reference="T2410261234130000"))
     assert pushes == []
     # the owner shares only with chosen people (refs outside the shop are dropped)
     out = alerts.set_share(biz, OWNER, {"mode": "some", "listeners": [ravi, "nope"]})
     assert out["my_share"] == {"mode": "some", "listeners": [ravi]}
-    alerts.report(biz, OWNER, _event(owner_dev, "14"))
+    alerts.report(biz, OWNER, _event(owner_dev, "14", reference="T2410261234140000"))
     assert [p[0] for p in pushes] == [CASHIER]
     alerts.set_share(biz, OWNER, {"mode": "some", "listeners": []})
-    alerts.report(biz, OWNER, _event(owner_dev, "15"))
+    alerts.report(biz, OWNER, _event(owner_dev, "15", reference="T2410261234150000"))
     assert len(pushes) == 1
 
     # the listener mutes / pauses on their own phone; resuming brings it back
