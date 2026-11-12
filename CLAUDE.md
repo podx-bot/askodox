@@ -7,6 +7,9 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` `700833e` (2026-11-12): #313 onboarding header shows the ASKODOX logo (`AskodoxLogo`) instead of the robot
+  mascot; payment alerts status card explanation shortened (keys unchanged). Play bundle `askodox-play-1458.aab` built
+  from the branch (Live Build run 43042339260, payment alerts listener ON) -- NOT yet uploaded to Play. Not phone verified.
 - `main` `de1fa3c` (2026-11-09, owner "1"): #292 Work Mode walking game (`/work`, steps -> a real job in half
   its real time, task sizes 10/50/100, schedule, waiting scenes, hotel, day replay; native `stepCount` on
   `com.askodox.app/hardware`, ACTIVITY_RECOGNITION; on-phone only) + #294 Talk (`/talk`, anonymous topic rooms,
