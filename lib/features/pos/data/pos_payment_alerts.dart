@@ -71,6 +71,19 @@ class AskodoxPaymentAlertsBridge {
   Future<void> markUploaded(String localId, {String? serverId, String? error}) =>
       _call('markUploaded', {'localId': localId, 'serverId': serverId, 'error': error});
 
+  /// Payment-app messages with an amount in wording the phone does not know yet (kept on this phone only).
+  Future<List<AskodoxJson>> unknowns() async {
+    try {
+      final raw = await _ch.invokeMethod<String>('unknowns');
+      return askodoxPosList(jsonDecode(raw ?? '[]'));
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// The person's answer for one unknown message: received (speak this wording from now on) or sent (ignore it).
+  Future<AskodoxJson> learnUnknown(String id, {required bool received}) => _map('learnUnknown', {'id': id, 'received': received});
+
   Future<List<AskodoxJson>> localEvents() async {
     try {
       final raw = await _ch.invokeMethod<String>('events');

@@ -12,6 +12,7 @@ import '../../../core/providers/backend_providers.dart';
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import '../domain/payment_alert_setup.dart';
+import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import 'pos_common.dart';
 import 'pos_payment_alerts_setup.dart';
 
@@ -197,6 +198,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   final _announced = <String>{};
   // One-question-at-a-time setup (domain/payment_alert_setup.dart).
   List<AskodoxJson> _apps = const [];
+  List<AskodoxJson> _unknowns = const [];
   Set<String> _confirmed = {};
   final _putOff = <String>{};
   bool _askHeard = false;
@@ -246,8 +248,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     final prefs = await SharedPreferences.getInstance();
     final status = await _bridge.status();
     final apps = await _bridge.paymentApps(_appPackages);
+    final unknowns = await _bridge.unknowns();
     if (!mounted) return;
     setState(() {
+      _unknowns = unknowns;
       if (status.isNotEmpty && status['error'] == null) _status = {..._status, ...status};
       _apps = apps;
       _confirmed = (prefs.getStringList(askodoxPayAlertSetupConfirmedKey) ?? const <String>[]).toSet();
@@ -311,6 +315,183 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     );
   }
 
+  Future<void> _applySettings(Future<AskodoxJson> Function() call) async {
+    setState(() => _busy = true);
+    try {
+      final out = await call();
+      if (mounted) setState(() => _settings = {..._settings, ...out});
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(askodoxPosTe(context)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  static String _clock(String iso) {
+    final t = DateTime.tryParse(iso)?.toLocal();
+    if (t == null) return '';
+    return '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Payment-app messages the phone could not read as money in / money out: the person answers once and the
+  /// phone remembers that wording (only on this phone).
+  Widget _unknownCard(bool te) {
+    if (_unknowns.isEmpty) return const SizedBox.shrink();
+    final labels = askodoxPosMap(_settings['apps']);
+    Future<void> answer(AskodoxJson u, bool received) async {
+      await _bridge.learnUnknown('${u['id']}', received: received);
+      _unknowns = await _bridge.unknowns();
+      if (!mounted) return;
+      setState(() {});
+      askodoxPosSnack(
+          context,
+          received
+              ? (te ? 'సరే. ఇలాంటి మెసేజ్ వస్తే ఇకపై ఫోన్ మాట్లాడుతుంది.' : 'OK. The phone will speak for messages like this from now on.')
+              : (te ? 'సరే. ఇలాంటి మెసేజ్ కి ఇకపై సౌండ్ రాదు.' : 'OK. Messages like this will stay silent from now on.'));
+    }
+
+    return Card(
+      key: const Key('askodoxPayAlertUnknown'),
+      color: const Color(0xFFFFFBEB),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(te ? 'ఈ మెసేజ్ లు అర్థం కాలేదు' : 'Messages the phone did not understand',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          for (final u in _unknowns.reversed.take(5))
+            Padding(
+              key: ValueKey('askodoxPayAlertUnknown-${u['id']}'),
+              padding: const EdgeInsets.only(top: 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text('${askodoxRupees(askodoxPosInt(u['amount_paise']))} · ${labels[u['package']] ?? u['package']}',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text('"${u['template']}"', style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                Text(te ? 'ఇది మీకు వచ్చిన డబ్బా?' : 'Is this money you received?'),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Expanded(
+                    child: FilledButton(
+                        key: ValueKey('askodoxPayAlertUnknownYes-${u['id']}'),
+                        onPressed: () => answer(u, true),
+                        child: Text(te ? 'అవును, వచ్చింది' : 'Yes, received')),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                        key: ValueKey('askodoxPayAlertUnknownNo-${u['id']}'),
+                        onPressed: () => answer(u, false),
+                        child: Text(te ? 'కాదు, నేను పంపాను' : 'No, I sent it')),
+                  ),
+                ]),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  /// Who hears MY payments (my choice) and whose payments I hear (mute / pause on my phone).
+  Widget _shareCard(bool te) {
+    final people = askodoxPosList(_settings['people']);
+    final others = people.where((p) => p['me'] != true).toList();
+    if (others.isEmpty || _phoneOnly) return const SizedBox.shrink();
+    final share = askodoxPosMap(_settings['my_share']);
+    final mode = '${share['mode'] ?? 'all'}';
+    final chosen = share['listeners'] is List ? (share['listeners'] as List).map((e) => '$e').toSet() : <String>{};
+    final listening = askodoxPosMap(_settings['my_listening']);
+    String name(AskodoxJson p) => '${p['name'] ?? ''}'.isNotEmpty ? '${p['name']}' : askodoxStaffRoleLabel('${p['role']}', te);
+    Widget modeChip(String value, String label) => ChoiceChip(
+          key: ValueKey('askodoxPayAlertShare-$value'),
+          label: Text(label),
+          selected: mode == value,
+          onSelected: _busy ? null : (_) => _applySettings(() => _repo.setAlertShare(_id, value, listeners: chosen.toList())),
+        );
+    final endOfDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1);
+    final todayMinutes = endOfDay.difference(DateTime.now()).inMinutes.clamp(1, 1440);
+    return Card(
+      key: const Key('askodoxPayAlertSharing'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(te ? 'ఎవరు వినాలి' : 'Who hears what', style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(te ? 'నా ఫోన్ కి వచ్చే పేమెంట్లు ఎవరికి వినిపించాలి?' : 'Who should hear the payments that reach my phone?'),
+          const SizedBox(height: 6),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            modeChip('all', te ? 'అందరికీ' : 'Everyone'),
+            modeChip('none', te ? 'నాకు మాత్రమే' : 'Only me'),
+            modeChip('some', te ? 'నేను ఎంచుకున్నవాళ్ళకు' : 'People I choose'),
+          ]),
+          if (mode == 'some')
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              for (final p in others)
+                FilterChip(
+                  key: ValueKey('askodoxPayAlertShareTo-${p['ref']}'),
+                  label: Text(name(p)),
+                  selected: chosen.contains('${p['ref']}'),
+                  onSelected: _busy
+                      ? null
+                      : (on) {
+                          final next = {...chosen};
+                          if (on) {
+                            next.add('${p['ref']}');
+                          } else {
+                            next.remove('${p['ref']}');
+                          }
+                          _applySettings(() => _repo.setAlertShare(_id, 'some', listeners: next.toList()));
+                        },
+                ),
+            ]),
+          const Divider(height: 20),
+          Text(te ? 'నేను వినేవి (ఈ ఫోన్ లో)' : 'What I hear (on my phones)', style: const TextStyle(fontWeight: FontWeight.w700)),
+          for (final p in others)
+            Builder(builder: (context) {
+              final ref = '${p['ref']}';
+              final mine = askodoxPosMap(listening[ref]);
+              final muted = mine['muted'] == true;
+              final paused = '${mine['paused_until'] ?? ''}';
+              return ListTile(
+                key: ValueKey('askodoxPayAlertHearRow-$ref'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.person_outline_rounded),
+                title: Text(name(p)),
+                subtitle: Text(muted
+                    ? (te ? 'మ్యూట్' : 'Muted')
+                    : paused.isNotEmpty
+                        ? (te ? '${_clock(paused)} వరకు పాజ్' : 'Paused until ${_clock(paused)}')
+                        : (te ? 'వినిపిస్తుంది' : 'You hear it')),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  PopupMenuButton<int>(
+                    key: ValueKey('askodoxPayAlertPause-$ref'),
+                    icon: const Icon(Icons.pause_circle_outline),
+                    tooltip: te ? 'పాజ్' : 'Pause',
+                    onSelected: (m) => _applySettings(() => _repo.setAlertListening(_id, ref, pauseMinutes: m)),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(value: 30, child: Text(te ? '30 నిమిషాలు' : '30 minutes')),
+                      PopupMenuItem(value: 60, child: Text(te ? '1 గంట' : '1 hour')),
+                      PopupMenuItem(value: todayMinutes, child: Text(te ? 'ఈ రోజు' : 'Today')),
+                      if (paused.isNotEmpty) PopupMenuItem(value: 0, child: Text(te ? 'పాజ్ తీసేయి' : 'Resume')),
+                    ],
+                  ),
+                  Switch(
+                    key: ValueKey('askodoxPayAlertHear-$ref'),
+                    value: !muted,
+                    onChanged: _busy ? null : (on) => _applySettings(() => _repo.setAlertListening(_id, ref, muted: !on)),
+                  ),
+                ]),
+              );
+            }),
+          Text(
+              te
+                  ? 'ఎవరి పేమెంట్ ఎవరికి వెళ్ళాలో ఆ వ్యక్తే నిర్ణయిస్తారు. మీరు వినేవాటిని మీరు మ్యూట్ / పాజ్ చేసుకోవచ్చు.'
+                  : 'Each person decides who hears their payments. You can mute / pause what you hear.',
+              style: const TextStyle(fontSize: 11.5)),
+        ]),
+      ),
+    );
+  }
+
   /// ASKODOX's Razorpay partner link (server setting): a shop that wants bank-confirmed alerts opens its own
   /// Razorpay account through it; money still goes from Razorpay straight to the shop.
   Widget _razorpaySignup(bool te) {
@@ -366,6 +547,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'quiet_start': _settings['quiet_start'] ?? '',
       'quiet_end': _settings['quiet_end'] ?? '',
       'apps': askodoxPosMap(_settings['apps']),
+      if (_settings['phrases'] is Map) 'phrases': _settings['phrases'],
       'business_id': _id,
       'speaks_remote': _devices.where((d) => d['id'] == _deviceId).firstOrNull?['speaks_remote'] != false,
       'device_id': _deviceId ?? '',
@@ -384,6 +566,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       await askodoxSyncPaymentAlerts(_repo, _bridge, _id, _deviceId);
       final data = await _repo.paymentEvents(_id, status: _filter, q: _query);
       _local = await _bridge.localEvents();
+      _unknowns = await _bridge.unknowns();
       if (!mounted) return;
       setState(() {
         _events = askodoxPosList(data['events']);
@@ -612,8 +795,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                         ),
                       ),
                     _setupCard(te),
+                    _unknownCard(te),
                     _statusCard(te),
                     const SizedBox(height: 8),
+                    _shareCard(te),
                     _historyCard(te),
                     const SizedBox(height: 8),
                     if (_settings['can_edit'] == true) _settingsCard(te),

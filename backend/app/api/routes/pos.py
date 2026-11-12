@@ -71,6 +71,7 @@ class SettingsIn(BaseModel):
 class MemberIn(BaseModel):
     phone: str = Field(min_length=10, max_length=16)
     role: str = Field(pattern="^(manager|cashier|accountant|waiter|kitchen|attendant|removed)$")
+    label: Optional[str] = Field(default=None, max_length=40)
 
 
 class ProductIn(BaseModel):
@@ -245,7 +246,7 @@ def members(business_id: str, request: Request) -> dict:
 
 @router.post("/businesses/{business_id}/members")
 def set_member(business_id: str, body: MemberIn, request: Request) -> dict:
-    return _call(_store(request).set_member, business_id, _user(request), body.phone, body.role)
+    return _call(_store(request).set_member, business_id, _user(request), body.phone, body.role, body.label)
 
 
 @router.post("/businesses/{business_id}/device-series")
@@ -1508,6 +1509,29 @@ def payment_alert_settings(business_id: str, request: Request) -> dict:
 @router.put("/businesses/{business_id}/payment-alerts/settings")
 def update_payment_alert_settings(business_id: str, body: AlertSettingsIn, request: Request) -> dict:
     return _call(_payment_alerts(request).update_settings, business_id, _user(request), _dump(body))
+
+
+class AlertShareIn(BaseModel):
+    mode: str = Field(pattern="^(all|none|some)$")
+    listeners: List[str] = Field(default_factory=list, max_length=50)
+
+
+class AlertListenIn(BaseModel):
+    source: str = Field(min_length=1, max_length=20)
+    muted: Optional[bool] = None
+    pause_minutes: Optional[int] = Field(default=None, ge=0, le=1440)
+
+
+@router.put("/businesses/{business_id}/payment-alerts/share")
+def set_payment_alert_share(business_id: str, body: AlertShareIn, request: Request) -> dict:
+    """Who hears MY payments (the caller's own detections): everyone allowed / nobody / chosen people."""
+    return _call(_payment_alerts(request).set_share, business_id, _user(request), body.model_dump())
+
+
+@router.put("/businesses/{business_id}/payment-alerts/listening")
+def set_payment_alert_listening(business_id: str, body: AlertListenIn, request: Request) -> dict:
+    """What I hear: mute / pause one person's payments (or '*' = everyone) on my phones."""
+    return _call(_payment_alerts(request).set_listening, business_id, _user(request), body.model_dump())
 
 
 @router.post("/businesses/{business_id}/payment-alerts/devices")

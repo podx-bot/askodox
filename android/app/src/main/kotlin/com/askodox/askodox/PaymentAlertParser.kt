@@ -1,5 +1,7 @@
 package com.askodox.askodox
 
+import java.util.Locale
+
 /**
  * Pure (no Android imports) reader for the incoming-payment notification of an ALLOWED payment app.
  * Only the amount and a transaction reference leave this function -- never the text, a name or a number.
@@ -12,7 +14,20 @@ object PaymentAlertParser {
     sealed class Result {
         data class Accepted(val amountPaise: Long, val reference: String?) : Result()
         data class Ambiguous(val reason: String) : Result()
+
+        /**
+         * A payment-app message with ONE amount whose wording is neither known incoming nor known outgoing: the
+         * phone asks the person once ("did you receive this?"). [template] is the message with the amount
+         * replaced by ₹# (title / names never kept).
+         */
+        data class Unknown(val amountPaise: Long, val template: String) : Result()
         object Ignored : Result()
+    }
+
+    /** The message body with amounts as ₹#, lower case, single spaces -- the shape a person can confirm. */
+    fun template(text: String?): String {
+        val t = amountRegex.replace(text ?: "", "₹#").lowercase(Locale.ROOT).replace(Regex("\\s+"), " ").trim()
+        return t.take(120)
     }
 
     private val incoming = listOf(
@@ -34,12 +49,32 @@ object PaymentAlertParser {
         RegexOption.IGNORE_CASE,
     )
 
-    fun parse(title: String?, text: String?): Result {
+    /**
+     * [moreIncoming] / [moreReject]: extra phrases the server sends (no app update needed for new wording).
+     * [learnedIn] / [learnedOut]: message templates this person confirmed as received / sent on this phone.
+     */
+    fun parse(
+        title: String?,
+        text: String?,
+        moreIncoming: Collection<String> = emptyList(),
+        moreReject: Collection<String> = emptyList(),
+        learnedIn: Collection<String> = emptyList(),
+        learnedOut: Collection<String> = emptyList(),
+    ): Result {
         val joined = listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim()
         if (joined.isEmpty()) return Result.Ignored
         val lower = " ${joined.lowercase()} "
-        if (incoming.none { lower.contains(it) }) return Result.Ignored
-        if (reject.any { lower.contains(it) }) return Result.Ignored
+        val shape = template(text)
+        if (shape.isNotEmpty() && learnedOut.any { it.isNotEmpty() && shape.contains(it) }) return Result.Ignored
+        val learned = shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) }
+        val rejected = (reject + moreReject).any { it.isNotEmpty() && lower.contains(it.lowercase()) }
+        if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
+            if (rejected) return Result.Ignored
+            val only = amountRegex.findAll(joined).mapNotNull { toPaise(it.groupValues[1]) }.filter { it > 0 }.toSet()
+            return if (only.size == 1 && shape.contains("₹#") && shape.length >= 8) Result.Unknown(only.first(), shape)
+            else Result.Ignored
+        }
+        if (!learned && rejected) return Result.Ignored
         val amounts = amountRegex.findAll(joined).mapNotNull { toPaise(it.groupValues[1]) }.filter { it > 0 }.toSet()
         if (amounts.isEmpty()) return Result.Ambiguous("amount_missing")
         if (amounts.size > 1) return Result.Ambiguous("multiple_amounts")

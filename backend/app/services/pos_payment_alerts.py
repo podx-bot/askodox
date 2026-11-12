@@ -63,6 +63,10 @@ DEFAULT_APPS: Dict[str, str] = {
     "in.org.npci.upiapp": "BHIM",
 }
 DEFAULT_ROLES = ("owner", "manager", "cashier")
+# Extra wording the phones use on top of the phrases built into the app (PaymentAlertParser.kt), so new
+# payment-app wording is fixed with a server deploy instead of a new app build. Lower case.
+EXTRA_INCOMING_PHRASES = ("money received", "has sent you", "transferred to your")
+EXTRA_REJECT_PHRASES: tuple = ()
 # Bank / provider confirmation comes ONLY through pos_payment_providers (signed webhook + API re-check),
 # which calls record_verified(). A phone can never mark an event verified.
 VERIFIED_PROVIDERS: Dict[str, str] = {"razorpay": "Razorpay"}
@@ -72,6 +76,14 @@ _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _REF = re.compile(r"^[A-Za-z0-9]{4,40}$")
 
 SCHEMA = [
+    # Who hears a person's OWN payments (sender's choice): all allowed people / none / chosen refs.
+    "CREATE TABLE IF NOT EXISTS pos_alert_share (business_id TEXT NOT NULL, source TEXT NOT NULL,"
+    " mode TEXT NOT NULL DEFAULT 'all', listeners TEXT NOT NULL DEFAULT '[]', updated_at TEXT NOT NULL,"
+    " PRIMARY KEY (business_id, source))",
+    # What a person hears (listener's choice): mute / pause one source, or '*' = everyone.
+    "CREATE TABLE IF NOT EXISTS pos_alert_listen (business_id TEXT NOT NULL, listener TEXT NOT NULL,"
+    " source TEXT NOT NULL, muted INTEGER NOT NULL DEFAULT 0, paused_until TEXT NOT NULL DEFAULT '',"
+    " updated_at TEXT NOT NULL, PRIMARY KEY (business_id, listener, source))",
     "CREATE TABLE IF NOT EXISTS pos_alert_settings (business_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 0,"
     " language TEXT NOT NULL DEFAULT 'te', voice TEXT NOT NULL DEFAULT 'female', rate_pct INTEGER NOT NULL DEFAULT 100,"
     " volume_pct INTEGER NOT NULL DEFAULT 100, quiet_start TEXT NOT NULL DEFAULT '', quiet_end TEXT NOT NULL DEFAULT '',"
@@ -111,6 +123,20 @@ def _parse_time(value: Any) -> Optional[datetime]:
     except ValueError:
         return None
     return at if at.tzinfo else None
+
+
+ROLE_NAMES = {
+    "te": {"owner": "యజమాని", "manager": "మేనేజర్", "cashier": "క్యాషియర్", "attendant": "అటెండెంట్",
+           "accountant": "అకౌంటెంట్", "waiter": "వెయిటర్", "kitchen": "వంటగది"},
+    "hi": {"owner": "मालिक", "manager": "मैनेजर", "cashier": "कैशियर"},
+}
+
+
+def spoken_name(label: str, role: str, language: str) -> str:
+    """The name spoken before a person's payment: the name the owner gave, else the role."""
+    if label:
+        return label
+    return ROLE_NAMES.get(language, {}).get(role) or role.capitalize()
 
 
 def announcement(amount_paise: Optional[int], language: str, verified: bool = False, test: bool = False) -> str:
@@ -194,11 +220,103 @@ class PosPaymentAlerts:
         with self.store._connect() as conn:
             role = self._member(conn, business_id, user)
             out = self._settings_row(conn, business_id)
+            out.update(self._sharing_view(conn, business_id, user))
         out.update({"my_role": role, "feature_on": self.feature_on(), "can_edit": role == "owner",
                     "all_roles": [r for r in ROLES if r != "owner"],
                     "verified_provider": self._provider_connected(business_id),
-                    "razorpay_signup_url": _razorpay_signup_url()})
+                    "razorpay_signup_url": _razorpay_signup_url(),
+                    "phrases": {"incoming": list(EXTRA_INCOMING_PHRASES), "reject": list(EXTRA_REJECT_PHRASES)}})
         return out
+
+    # ------------------------------------------------------------- sharing
+    @staticmethod
+    def _ref(business_id: str, user: str) -> str:
+        """An opaque per-shop id for a person (never their phone / user id)."""
+        return hashlib.sha256(f"{business_id}|{user}".encode()).hexdigest()[:12]
+
+    def _people(self, conn: sqlite3.Connection, business_id: str) -> List[Dict[str, Any]]:
+        owner = self.store._business_row(conn, business_id)["owner_user_id"]
+        people = [{"user": owner, "role": "owner", "label": ""}]
+        for r in conn.execute("SELECT app_user_id, role, label FROM pos_members WHERE business_id = ? AND active = 1"
+                              " AND app_user_id IS NOT NULL ORDER BY created_at", (business_id,)):
+            if r["app_user_id"] == owner:
+                people[0]["label"] = r["label"] or ""
+                continue
+            people.append({"user": r["app_user_id"], "role": r["role"], "label": r["label"] or ""})
+        for person in people:
+            person["ref"] = self._ref(business_id, person["user"])
+        return people
+
+    def _sharing_view(self, conn: sqlite3.Connection, business_id: str, user: str) -> Dict[str, Any]:
+        people = self._people(conn, business_id)
+        share = conn.execute("SELECT mode, listeners FROM pos_alert_share WHERE business_id = ? AND source = ?",
+                             (business_id, user)).fetchone()
+        refs = {p["ref"]: p for p in people}
+        now = self._now().isoformat()
+        listening = {}
+        for r in conn.execute("SELECT source, muted, paused_until FROM pos_alert_listen WHERE business_id = ? AND listener = ?",
+                              (business_id, user)):
+            key = "*" if r["source"] == "*" else self._ref(business_id, r["source"])
+            listening[key] = {"muted": bool(r["muted"]),
+                              "paused_until": r["paused_until"] if r["paused_until"] > now else ""}
+        return {
+            "people": [{"ref": p["ref"], "name": p["label"], "role": p["role"], "me": p["user"] == user} for p in people],
+            "my_share": {"mode": share["mode"] if share else "all",
+                         "listeners": [x for x in json.loads(share["listeners"]) if x in refs] if share else []},
+            "my_listening": listening,
+        }
+
+    def set_share(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        mode = str(data.get("mode") or "")
+        if mode not in ("all", "none", "some"):
+            raise PosError(400, "mode", "mode must be all, none or some.")
+        with self.store._tx() as conn:
+            self._member(conn, business_id, user)
+            refs = {p["ref"] for p in self._people(conn, business_id) if p["user"] != user}
+            chosen = [str(x) for x in dict.fromkeys(data.get("listeners") or []) if str(x) in refs][:50]
+            now = self._now().isoformat()
+            conn.execute("INSERT INTO pos_alert_share (business_id, source, mode, listeners, updated_at) VALUES (?,?,?,?,?)"
+                         " ON CONFLICT(business_id, source) DO UPDATE SET mode = excluded.mode,"
+                         " listeners = excluded.listeners, updated_at = excluded.updated_at",
+                         (business_id, user, mode, json.dumps(chosen if mode == "some" else []), now))
+            self.store._audit(conn, business_id, user, "payment_alerts.share", business_id,
+                              {"mode": mode, "listeners": len(chosen)}, now)
+        return self.settings(business_id, user)
+
+    def set_listening(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """The listener's own choice for one source ('*' = everyone): mute, or pause for N minutes (0 = resume).
+        A listener can always quiet their own phone; only the sender decides who may hear (set_share)."""
+        source_ref = str(data.get("source") or "")
+        with self.store._tx() as conn:
+            self._member(conn, business_id, user)
+            if source_ref == "*":
+                source = "*"
+            else:
+                match = [p for p in self._people(conn, business_id) if p["ref"] == source_ref]
+                if not match:
+                    raise PosError(404, "source", "This person is not in the shop.")
+                source = match[0]["user"]
+            row = conn.execute("SELECT muted, paused_until FROM pos_alert_listen WHERE business_id = ? AND listener = ?"
+                               " AND source = ?", (business_id, user, source)).fetchone()
+            muted = bool(row["muted"]) if row else False
+            paused = row["paused_until"] if row else ""
+            if data.get("muted") is not None:
+                muted = bool(data["muted"])
+            if data.get("pause_minutes") is not None:
+                minutes = max(0, min(1440, int(data["pause_minutes"])))
+                paused = (self._now() + timedelta(minutes=minutes)).isoformat() if minutes else ""
+            now = self._now().isoformat()
+            conn.execute("INSERT INTO pos_alert_listen (business_id, listener, source, muted, paused_until, updated_at)"
+                         " VALUES (?,?,?,?,?,?) ON CONFLICT(business_id, listener, source) DO UPDATE SET"
+                         " muted = excluded.muted, paused_until = excluded.paused_until, updated_at = excluded.updated_at",
+                         (business_id, user, source, int(muted), paused, now))
+        return self.settings(business_id, user)
+
+    def _display_name(self, conn: sqlite3.Connection, business_id: str, user: str, language: str) -> str:
+        for p in self._people(conn, business_id):
+            if p["user"] == user:
+                return spoken_name(p["label"], p["role"], language)
+        return ""
 
     def update_settings(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
         with self.store._tx() as conn:
@@ -447,11 +565,13 @@ class PosPaymentAlerts:
             self._match_request(conn, business_id, event_id, None if test else amount)
             row = conn.execute("SELECT * FROM pos_payment_events WHERE id = ?", (event_id,)).fetchone()
             event = self._event_out(conn, row, user)
-            receivers = self._receivers(conn, business_id, settings, exclude=user)
+            receivers = self._receivers(conn, business_id, settings, exclude=user, source=user)
             shop = self.store._business_row(conn, business_id)["name"]
+            who = self._display_name(conn, business_id, user, settings["language"])
         event["duplicate"] = False
-        title = f"{shop}: payment notification" + (" (test)" if test else "")
-        body = announcement(amount, settings["language"], test=test)
+        title = f"{shop}: payment notification" + (f" · {who}" if who else "") + (" (test)" if test else "")
+        # Several people's payments can reach one phone: say whose it is first.
+        body = (f"{who}: " if who else "") + announcement(amount, settings["language"], test=test)
         speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body, "title": title,
                  "language": settings["language"], "verified": "0", "test": "1" if test else "0"}
         for receiver in receivers:
@@ -461,7 +581,30 @@ class PosPaymentAlerts:
                 pass  # a push failure never fails the report; the feed still has it
         return event
 
-    def _receivers(self, conn: sqlite3.Connection, business_id: str, settings: Dict[str, Any], exclude: str) -> List[str]:
+    def _receivers(self, conn: sqlite3.Connection, business_id: str, settings: Dict[str, Any], exclude: str,
+                   source: str = "") -> List[str]:
+        """Allowed people with an active device, minus the reporter; then the SENDER's share choice (source = the
+        person whose phone detected it) and each listener's own mute / pause."""
+        people = self._allowed_with_devices(conn, business_id, settings, exclude)
+        if source:
+            share = conn.execute("SELECT mode, listeners FROM pos_alert_share WHERE business_id = ? AND source = ?",
+                                 (business_id, source)).fetchone()
+            if share and share["mode"] == "none":
+                return []
+            if share and share["mode"] == "some":
+                chosen = set(json.loads(share["listeners"] or "[]"))
+                people = [u for u in people if self._ref(business_id, u) in chosen]
+        now = self._now().isoformat()
+        out = []
+        for u in people:
+            quiet = conn.execute("SELECT 1 FROM pos_alert_listen WHERE business_id = ? AND listener = ? AND source IN (?, '*')"
+                                 " AND (muted = 1 OR paused_until > ?) LIMIT 1", (business_id, u, source or "*", now)).fetchone()
+            if not quiet:
+                out.append(u)
+        return out
+
+    def _allowed_with_devices(self, conn: sqlite3.Connection, business_id: str, settings: Dict[str, Any],
+                              exclude: str) -> List[str]:
         owner = self.store._business_row(conn, business_id)["owner_user_id"]
         allowed = {owner}
         for r in conn.execute("SELECT app_user_id, role FROM pos_members WHERE business_id = ? AND active = 1",

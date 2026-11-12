@@ -179,6 +179,8 @@ MIGRATIONS = [
     # Where items are offered (pos_online.py): shop default + per-item override (NULL = default).
     ("pos_businesses", "online_default", "TEXT NOT NULL DEFAULT 'pos'"),
     ("pos_products", "channel", "TEXT"),
+    # A name the owner gives a person (e.g. "Bhagya", "Staff 1"); spoken with their payment alerts.
+    ("pos_members", "label", "TEXT NOT NULL DEFAULT ''"),
     # Ready-made catalogue (pos_catalogue.py): the shop's catalogue template + an item's details / online price.
     ("pos_businesses", "catalogue_template", "TEXT"),
     ("pos_products", "attributes", "TEXT"),
@@ -380,8 +382,10 @@ class PosStore:
                 self._audit(conn, business_id, user, "business.settings", business_id, changes, now)
         return self.business(business_id, user)
 
-    def set_member(self, business_id: str, user: str, phone: str, role: str) -> Dict[str, Any]:
+    def set_member(self, business_id: str, user: str, phone: str, role: str,
+                   label: Optional[str] = None) -> Dict[str, Any]:
         key = phone_key(phone)
+        name = " ".join(str(label or "").split())[:40]
         if len(key) < 10:
             raise PosError(400, "phone", "Enter the staff member's 10-digit mobile number.")
         if role not in ROLES + ("removed",):
@@ -400,19 +404,20 @@ class PosStore:
                              (business_id, key))
             else:
                 conn.execute(
-                    "INSERT INTO pos_members (business_id, phone_key, role, active, added_by, created_at)"
-                    " VALUES (?, ?, ?, 1, ?, ?) ON CONFLICT(business_id, phone_key) DO UPDATE SET role = excluded.role,"
-                    " active = 1", (business_id, key, role, user, now))
+                    "INSERT INTO pos_members (business_id, phone_key, role, active, added_by, created_at, label)"
+                    " VALUES (?, ?, ?, 1, ?, ?, ?) ON CONFLICT(business_id, phone_key) DO UPDATE SET role = excluded.role,"
+                    " active = 1, label = CASE WHEN ? THEN excluded.label ELSE pos_members.label END",
+                    (business_id, key, role, user, now, name, 1 if label is not None else 0))
             self._audit(conn, business_id, user, "member.set", key[-4:], {"role": role}, now)
-        return {"phone_last4": key[-4:], "role": role}
+        return {"phone_last4": key[-4:], "role": role, "label": name}
 
     def members(self, business_id: str, user: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             self._require(conn, business_id, user, "members")
-            rows = conn.execute("SELECT phone_key, role, active, created_at FROM pos_members WHERE business_id = ?"
+            rows = conn.execute("SELECT phone_key, role, active, created_at, label FROM pos_members WHERE business_id = ?"
                                 " ORDER BY created_at", (business_id,)).fetchall()
         return [{"phone_last4": r["phone_key"][-4:], "role": r["role"], "active": bool(r["active"]),
-                 "created_at": r["created_at"]} for r in rows]
+                 "created_at": r["created_at"], "label": r["label"] or ""} for r in rows]
 
     # -------------------------------------------------------------- products
     def _product_fields(self, data: Dict[str, Any], business: sqlite3.Row, partial: bool) -> Dict[str, Any]:
