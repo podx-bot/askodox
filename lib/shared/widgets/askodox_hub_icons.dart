@@ -3,11 +3,9 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/flags/askodox_release_phase.dart';
-
-/// The three habit buttons beside the ASKODOX logo (owner 2026-11-08): Work
-/// Mode game, anonymous Talk and Radio. Shown in the main header on every tab
-/// and in the app bars of those three screens, so people get used to them.
+/// The habit button beside the ASKODOX logo: the Work Mode game only.
+/// Talk and Radio were removed from the app entry points (owner 2026-11-12); their
+/// screens stay in the code and will be recalled in a later phase.
 class AskodoxHubIcons extends StatelessWidget {
   const AskodoxHubIcons({super.key, this.current, this.color = const Color(0xFF10204A)});
 
@@ -40,12 +38,6 @@ class AskodoxHubIcons extends StatelessWidget {
             const Key('askodoxHeaderGameButton'))
       else
         AskodoxLiveGameButton(te: te, onTap: () => context.push('/work')),
-      // Talk and Radio wait for Phase 2 (owner 2026-11-09: Phase 1 is about the game).
-      if (askodoxPhase2) ...[
-        icon('talk', '/talk', Icons.forum_rounded, 'Talk (anonymous)', 'చర్చ (పేరు లేకుండా)',
-            const Key('askodoxHeaderTalkButton')),
-        icon('radio', '/radio', Icons.radio_rounded, 'Radio', 'రేడియో', const Key('askodoxHeaderRadioButton')),
-      ],
     ]);
   }
 }
