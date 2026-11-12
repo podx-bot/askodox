@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -28,6 +29,8 @@ from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 
 from app.services.pos_store import PosError, PosStore
 from app.services.secret_box import SecretBox, SecretsNotConfigured
+
+log = logging.getLogger(__name__)
 
 API = "https://api.razorpay.com/v1"
 Http = Callable[..., Tuple[int, Any]]
@@ -154,6 +157,12 @@ class PosPaymentProviders:
             "description": "Shop UPI QR (ASKODOX payment alerts)", "notes": {"askodox_business": business_id},
         })
         if status not in (200, 201) or not isinstance(body, dict) or not body.get("id"):
+            err = body.get("error") if isinstance(body, dict) else None
+            err = err if isinstance(err, dict) else {}
+            # Razorpay's own reason (code + description, never keys) so a refusal can be read in the Railway log.
+            log.warning("pos_provider.qr_failed business=%s mode=%s status=%s code=%s reason=%s", business_id,
+                        "live" if str(row["key_id"]).startswith("rzp_live_") else "test", status,
+                        str(err.get("code") or "")[:60], str(err.get("description") or "")[:200])
             raise PosError(502, "qr_failed", "Razorpay could not create the QR. Check that QR codes are enabled "
                                              "on your Razorpay account.")
         with self.store._tx() as conn:

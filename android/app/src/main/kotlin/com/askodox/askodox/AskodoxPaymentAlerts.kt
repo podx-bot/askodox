@@ -261,6 +261,20 @@ object AskodoxPaymentAlerts {
             if (error != null) e.put("upload_error", error)
         }
 
+    /** No UPI reference: the same app + amount inside 20 s is one payment reported again. Accepted ones are remembered. */
+    @Synchronized
+    private fun recentSameAmount(context: Context, pkg: String, amountPaise: Long, now: Long): Boolean {
+        val windowMs = 20_000L
+        val recent = try { JSONObject(prefs(context).getString("recent_amounts", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+        val key = "$pkg|$amountPaise"
+        if (now - recent.optLong(key, 0L) < windowMs && recent.has(key)) return false
+        val fresh = JSONObject()
+        for (n in recent.keys().asSequence().toList()) { val t = recent.optLong(n); if (now - t < windowMs) fresh.put(n, t) }
+        fresh.put(key, now)
+        prefs(context).edit().putString("recent_amounts", fresh.toString()).apply()
+        return true
+    }
+
     /** Seen keys (pkg + notification + amount + its own time) survive restarts; older than 2 days are dropped. */
     @Synchronized
     private fun firstTime(context: Context, key: String, now: Long): Boolean {
@@ -386,9 +400,12 @@ object AskodoxPaymentAlerts {
         if (parsed is PaymentAlertParser.Result.Ignored) return mapOf("result" to "ignored")
         val amount = (parsed as? PaymentAlertParser.Result.Accepted)?.amountPaise
         val reference = (parsed as? PaymentAlertParser.Result.Accepted)?.reference
-        val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$whenMillis"
         val now = System.currentTimeMillis()
-        if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$whenMillis"
+        // No reference (PhonePe): the repeat carries a new notification time, so match by app + amount in a window.
+        val fresh = if (reference == null && amount != null) recentSameAmount(context, pkg, amount, now)
+                    else firstTime(context, key, now)
+        if (!fresh) return mapOf("result" to "duplicate")
         val localId = "pa-$now-${(Math.random() * 1e6).toInt()}"
         val labels = cfg.optJSONObject("apps")
         val event = JSONObject()

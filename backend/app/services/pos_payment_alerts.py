@@ -49,6 +49,9 @@ def _razorpay_signup_url() -> str:
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
+# Notifications with no UPI reference: same app + same amount inside this window = one payment (PhonePe repeats
+# the notification a few seconds later with a new time). Reference-bearing notifications never use this window.
+NO_REFERENCE_WINDOW = timedelta(seconds=20)
 LANGUAGES = ("te", "hi", "en")
 VOICES = ("female", "male")
 # Package ids of payment apps whose incoming-payment notifications may be read. The owner can
@@ -542,6 +545,14 @@ class PosPaymentAlerts:
             fingerprint = _hash(business_id, source, "ref", ref) if ref else _hash(business_id, source, "evt", client_event_id)
             existing = conn.execute("SELECT * FROM pos_payment_events WHERE business_id = ? AND fingerprint = ?",
                                     (business_id, fingerprint)).fetchone()
+            if existing is None and not ref and amount is not None:
+                # No UPI reference (PhonePe shows none): the same app + same amount within a short window is the
+                # same payment reported again with a new notification time -- never announce it twice.
+                existing = conn.execute(
+                    "SELECT * FROM pos_payment_events WHERE business_id = ? AND source_app = ? AND amount_paise = ?"
+                    " AND ref_tail = '' AND test = ? AND received_at >= ? ORDER BY received_at DESC LIMIT 1",
+                    (business_id, source, amount, int(test),
+                     (now - NO_REFERENCE_WINDOW).isoformat())).fetchone()
             if existing is not None:
                 conn.execute("UPDATE pos_payment_events SET duplicates = duplicates + 1 WHERE id = ?", (existing["id"],))
                 event = self._event_out(conn, existing, user)
