@@ -1736,6 +1736,21 @@ class _AskodoxPrimaryHomeScreenState
   /// Photos + words asking for an edit: the edited picture comes back in the
   /// chat (POST /api/images/edit). No picture -> one honest reason, never a
   /// made-up image or a search.
+  /// "Make picture" from the + sheet: the typed words become a new picture
+  /// (no photo needed). Charged through AI Credits on the server.
+  void _makePicture() {
+    final typed = _controller.text.trim();
+    if (typed.isEmpty) {
+      final te = _te;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(te
+            ? 'ముందు ఏ చిత్రం కావాలో టైప్ చేయండి, తర్వాత + లో "చిత్రం" నొక్కండి'
+            : 'First type what picture you want, then tap "Make picture" in +')));
+      return;
+    }
+    unawaited(_imageStudioTurn(typed, const [], const [], ''));
+  }
+
   Future<void> _imageStudioTurn(
     String typed,
     List<Uint8List> images,
@@ -5112,7 +5127,7 @@ class _AskodoxPrimaryHomeScreenState
           AskodoxAttachButton(
             lang: _lang,
             enabled: !_sending,
-            onPick: (choice) => unawaited(_pickAttachment(choice)),
+            onPick: (choice) => choice == 'picture' ? _makePicture() : unawaited(_pickAttachment(choice)),
           ),
         Expanded(
           child: TextField(

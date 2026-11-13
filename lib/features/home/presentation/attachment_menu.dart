@@ -13,13 +13,16 @@ class AskodoxAttachButton extends StatelessWidget {
   /// 'camera' | 'photos' | 'video' | 'files' (the picker's own choice ids).
   final ValueChanged<String> onPick;
 
-  static const choices = ['camera', 'photos', 'video', 'files'];
+  static const choices = ['camera', 'photos', 'video', 'files', 'picture'];
 
   static String label(String choice, String lang) => switch ((lang, choice)) {
         ('te', 'camera') => 'కెమెరా',
         ('te', 'photos') => 'ఫోటోలు',
         ('te', 'video') => 'వీడియోలు',
         ('te', 'files') => 'ఫైల్స్',
+        ('te', 'picture') => 'చిత్రం',
+        ('hi', 'picture') => 'चित्र',
+        (_, 'picture') => 'Make picture',
         ('hi', 'camera') => 'कैमरा',
         ('hi', 'photos') => 'फ़ोटो',
         ('hi', 'video') => 'वीडियो',
@@ -34,6 +37,7 @@ class AskodoxAttachButton extends StatelessWidget {
         'camera' => Icons.photo_camera_outlined,
         'photos' => Icons.photo_library_outlined,
         'video' => Icons.videocam_outlined,
+        'picture' => Icons.auto_awesome_outlined,
         _ => Icons.attach_file_rounded,
       };
 
