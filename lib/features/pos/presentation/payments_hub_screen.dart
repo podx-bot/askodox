@@ -299,7 +299,12 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
     String time(Object? at) {
       final t = DateTime.tryParse('${at ?? ''}')?.toLocal();
       if (t == null) return '';
-      return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+      final clock = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+      final now = _now;
+      final days = DateTime(now.year, now.month, now.day).difference(DateTime(t.year, t.month, t.day)).inDays;
+      if (days <= 0) return clock;
+      if (days == 1) return te ? 'నిన్న · $clock' : 'Yesterday · $clock';
+      return '${t.day}/${t.month} · $clock';
     }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
