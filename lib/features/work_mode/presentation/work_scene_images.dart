@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Hand-made pictures for the Work Mode scenes (2D, from ChatGPT).
@@ -7,6 +8,9 @@ import 'package:flutter/services.dart';
 /// Loaded once from the app bundle. If anything fails to load, [load] gives
 /// null and the scene keeps drawing the code-made picture, so the game never
 /// breaks because of a missing picture.
+/// What happened when the pictures were loaded (shown on test builds only).
+final askodoxWorkImageStatus = ValueNotifier<String>('loading');
+
 class AskodoxWorkSceneImages {
   AskodoxWorkSceneImages({required this.paddyBackground, required this.paddyTransplantFrames});
 
@@ -28,8 +32,10 @@ class AskodoxWorkSceneImages {
       for (var i = 1; i <= 9; i++) {
         frames.add(await _image('assets/work_sprites/paddy_plant_${i.toString().padLeft(2, '0')}.png'));
       }
+      askodoxWorkImageStatus.value = 'loaded: ${frames.length} frames';
       return AskodoxWorkSceneImages(paddyBackground: background, paddyTransplantFrames: frames);
-    } catch (_) {
+    } catch (e) {
+      askodoxWorkImageStatus.value = 'failed: ${e.toString().split('\n').first}';
       return null;
     }
   }

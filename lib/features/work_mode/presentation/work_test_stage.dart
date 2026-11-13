@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'work_scene_images.dart';
+
 /// Test builds only: pick a stage to preview the work scene. Null = the real
 /// progress of the job. Never changes what is counted or saved.
 final askodoxWorkTestStage = ValueNotifier<int?>(null);
@@ -19,7 +21,18 @@ class AskodoxWorkTestStagePicker extends StatelessWidget {
         valueListenable: askodoxWorkTestStage,
         builder: (context, forced, _) => Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Wrap(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+          ValueListenableBuilder<String>(
+            valueListenable: askodoxWorkImageStatus,
+            builder: (context, status, _) => Text(
+              'test: picture $status · stage ${forced == null ? 'real' : forced + 1}',
+              key: const Key('askodoxWorkTestStatus'),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF5A6478)),
+            ),
+          ),
+          Wrap(
             key: const Key('askodoxWorkTestStages'),
             spacing: 6,
             runSpacing: 6,
@@ -30,6 +43,8 @@ class AskodoxWorkTestStagePicker extends StatelessWidget {
                   selected: forced == i,
                   onSelected: (_) => askodoxWorkTestStage.value = forced == i ? null : i,
                 ),
+            ],
+          ),
             ],
           ),
         ),
