@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 /// progress of the job. Never changes what is counted or saved.
 final askodoxWorkTestStage = ValueNotifier<int?>(null);
 
-/// The picker is shown in every build except APP_ENV=production.
+/// Shown in non-production builds, and in test APKs built with ASKODOX_WORK_TEST=true.
 bool get askodoxWorkTestPickerVisible =>
+    const bool.fromEnvironment('ASKODOX_WORK_TEST') ||
     const String.fromEnvironment('APP_ENV', defaultValue: 'development') != 'production';
 
 class AskodoxWorkTestStagePicker extends StatelessWidget {
