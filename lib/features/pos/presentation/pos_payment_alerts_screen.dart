@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/share/askodox_image_share.dart';
 import '../../../shared/widgets/askodox_inner_theme.dart' show AskodoxSectionLabel;
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
@@ -1295,6 +1297,30 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
 
   Future<void> _load() => _run((repo) => repo.paymentProvider(widget.businessId));
 
+  /// Download = save the shop QR picture into the gallery (Pictures/ASKODOX); Share opens the
+  /// share sheet (WhatsApp, print, Drive ...). Phones that cannot save get the share sheet.
+  Future<void> _saveQr(String url, bool te, {required bool share}) async {
+    setState(() => _busy = true);
+    try {
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode != 200 || res.bodyBytes.isEmpty) throw StateError('qr ${res.statusCode}');
+      final mime = (res.headers['content-type'] ?? '').contains('jpeg') ? 'image/jpeg' : 'image/png';
+      var saved = false;
+      if (!share) saved = await askodoxSaveImageToGallery(res.bodyBytes, name: 'askodox-shop-qr', mime: mime);
+      if (!mounted) return;
+      if (saved) {
+        askodoxPosSnack(context, te ? 'QR గ్యాలరీలో సేవ్ అయింది (Pictures › ASKODOX).' : 'QR saved to the gallery (Pictures › ASKODOX).');
+      } else {
+        final opened = await askodoxShareImage(res.bodyBytes, name: 'askodox-shop-qr');
+        if (!opened && mounted) askodoxPosSnack(context, te ? 'ఈ ఫోన్‌లో సేవ్ చేయలేకపోయాం.' : 'Could not save on this phone.');
+      }
+    } catch (_) {
+      if (mounted) askodoxPosSnack(context, te ? 'QR తెచ్చుకోలేకపోయాం — ఇంటర్నెట్ చూసి మళ్ళీ ప్రయత్నించండి.' : 'Could not fetch the QR — check the internet and try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
@@ -1332,6 +1358,29 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
                 label: Text(te ? 'URL కాపీ' : 'Copy URL')),
             if (qr.isNotEmpty)
               Center(child: Image.network(qr, key: const Key('askodoxPayAlertQr'), height: 220, errorBuilder: (context, error, stack) => SelectableText(qr))),
+            if (qr.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('askodoxPayAlertQrSave'),
+                      onPressed: _busy ? null : () => _saveQr(qr, te, share: false),
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: Text(te ? 'డౌన్‌లోడ్' : 'Download'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('askodoxPayAlertQrShare'),
+                      onPressed: _busy ? null : () => _saveQr(qr, te, share: true),
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      label: Text(te ? 'షేర్ / ప్రింట్' : 'Share / print'),
+                    ),
+                  ),
+                ]),
+              ),
             Wrap(spacing: 8, children: [
               FilledButton.tonal(
                   key: const Key('askodoxPayAlertMakeQr'),

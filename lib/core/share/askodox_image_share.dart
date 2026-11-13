@@ -28,3 +28,26 @@ Future<bool> askodoxShareImage(Uint8List bytes, {String name = 'askodox-photo', 
     return false;
   }
 }
+
+/// Saves a picture into the phone's gallery (Pictures/ASKODOX). Returns false when the phone
+/// cannot (Android 9 or older, or a build without the method) -- then offer [askodoxShareImage].
+Future<bool> askodoxSaveImageToGallery(Uint8List bytes, {String name = 'askodox-photo', String mime = 'image/png'}) async {
+  final dir = Directory('${(await getTemporaryDirectory()).path}/images');
+  await dir.create(recursive: true);
+  final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+  final ext = mime == 'image/jpeg' ? 'jpg' : 'png';
+  final file = File('${dir.path}/${safe.isEmpty ? 'askodox-photo' : safe}.$ext');
+  await file.writeAsBytes(bytes, flush: true);
+  try {
+    return await _device.invokeMethod<bool>('saveImageToGallery', <String, Object?>{
+          'path': file.path,
+          'mime': mime,
+          'name': '${safe.isEmpty ? 'askodox-photo' : safe}.$ext',
+        }) ??
+        false;
+  } on MissingPluginException {
+    return false;
+  } on PlatformException {
+    return false;
+  }
+}

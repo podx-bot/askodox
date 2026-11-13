@@ -246,6 +246,41 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    // Save a picture the app wrote to its OWN cache into the gallery (Pictures/ASKODOX),
+                    // e.g. the shop's payment QR. Android 10+ only (no storage permission needed);
+                    // older phones get false and the app offers the share sheet instead.
+                    "saveImageToGallery" -> {
+                        val path = call.argument<String>("path").orEmpty()
+                        val file = java.io.File(path)
+                        val inCache = runCatching { file.canonicalPath.startsWith(cacheDir.canonicalPath + java.io.File.separator) }
+                            .getOrDefault(false)
+                        if (path.isBlank() || !inCache || !file.isFile || file.length() == 0L ||
+                            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                            result.success(false)
+                        } else {
+                            try {
+                                val media = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                val values = android.content.ContentValues().apply {
+                                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, call.argument<String>("name") ?: file.name)
+                                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, call.argument<String>("mime") ?: "image/png")
+                                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/ASKODOX")
+                                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                                }
+                                val uri = contentResolver.insert(media, values)
+                                if (uri == null) {
+                                    result.success(false)
+                                } else {
+                                    contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                                    values.clear()
+                                    values.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                                    contentResolver.update(uri, values, null, null)
+                                    result.success(true)
+                                }
+                            } catch (e: Exception) {
+                                result.success(false)
+                            }
+                        }
+                    }
                     "getCurrentLocation" -> getCurrentLocation(result)
                     "notificationsEnabled" -> result.success(NotificationManagerCompat.from(this).areNotificationsEnabled())
                     "requestNotificationPermission" -> requestNotificationPermission(result)
