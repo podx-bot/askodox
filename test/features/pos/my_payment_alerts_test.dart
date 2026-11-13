@@ -5,6 +5,7 @@ import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/pos/data/pos_repository.dart';
 import 'package:podx/features/pos/presentation/my_payment_alerts_screen.dart';
+import 'package:podx/features/pos/presentation/pay_alert_staff_card.dart';
 
 class _Api implements ApiClient {
   _Api(this.reply);
@@ -90,7 +91,15 @@ void main() {
     expect(created['state_code'], '37');
     expect(created['registration_type'], 'unregistered');
     expect(find.byKey(const ValueKey('askodoxMyPaymentAlertsShop-b1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxMyPaymentAlertsLabel-b1')), findsNothing,
+        reason: 'staff are added on the shop alert page only (no duplicate form here)');
 
+    // The staff card on the shop's alert page.
+    await tester.pumpWidget(ProviderScope(
+      overrides: [askodoxPosRepositoryProvider.overrideWithValue(AskodoxPosRepository(api, authToken: 't'))],
+      child: const MaterialApp(home: Scaffold(body: SingleChildScrollView(child: AskodoxPayAlertStaffCard(businessId: 'b1')))),
+    ));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('askodoxMyPaymentAlertsLabel-b1')), 'Bhagya');
     await tester.enterText(find.byKey(const ValueKey('askodoxMyPaymentAlertsPhone-b1')), '9400000304');
     await tester.tap(find.byKey(const ValueKey('askodoxMyPaymentAlertsRole-b1')));

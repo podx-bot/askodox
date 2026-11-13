@@ -9,10 +9,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../shared/widgets/askodox_inner_theme.dart' show AskodoxSectionLabel;
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import '../domain/payment_alert_setup.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
+import 'pay_alert_staff_card.dart';
 import 'pos_common.dart';
 import 'pos_payment_alerts_setup.dart';
 
@@ -169,11 +171,18 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
   }
 }
 
-/// Payment Alerts: status, speaker test, history, settings, devices. Opened from the POS dashboard.
+/// Payment Alerts, ONE page per shop (redesign 2026-11-13, no duplicates): status + tests, who
+/// hears it (people, staff, roles, devices), voice & quiet time, bank-confirmed profile. The full
+/// history is its own view ([view] == 'history', route `/me/payment-alerts/:id/history`); the
+/// main page only links to it.
 class AskodoxPosPaymentAlertsScreen extends ConsumerStatefulWidget {
-  const AskodoxPosPaymentAlertsScreen({super.key, required this.businessId, this.pollEvery = const Duration(seconds: 8)});
+  const AskodoxPosPaymentAlertsScreen(
+      {super.key, required this.businessId, this.pollEvery = const Duration(seconds: 8), this.view = 'main'});
   final String businessId;
   final Duration pollEvery;
+
+  /// 'main' (settings page) or 'history' (all payment alerts with search / filters / export).
+  final String view;
 
   @override
   ConsumerState<AskodoxPosPaymentAlertsScreen> createState() => _AskodoxPosPaymentAlertsScreenState();
@@ -760,11 +769,13 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
+    final history = widget.view == 'history';
     return Scaffold(
       appBar: AppBar(
-        title: Text(te ? 'పేమెంట్ వాయిస్ అలర్ట్స్' : 'Payment voice alerts'),
+        title: Text(history ? (te ? 'పేమెంట్ హిస్టరీ' : 'Payment history') : (te ? 'పేమెంట్ అలర్ట్స్' : 'Payment alerts')),
         actions: [
-          IconButton(key: const Key('askodoxPayAlertExport'), onPressed: _events.isEmpty ? null : _export, icon: const Icon(Icons.ios_share)),
+          if (history)
+            IconButton(key: const Key('askodoxPayAlertExport'), onPressed: _events.isEmpty ? null : _export, icon: const Icon(Icons.ios_share)),
         ],
       ),
       body: _loading
@@ -773,7 +784,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
               ? AskodoxPosError(error: _error!, onRetry: () => _refresh(first: true))
               : RefreshIndicator(
                   onRefresh: _refresh,
-                  child: ListView(key: const Key('askodoxPayAlerts'), padding: const EdgeInsets.all(12), children: [
+                  child: ListView(key: const Key('askodoxPayAlerts'), padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
                     if (_settings['feature_on'] == false)
                       Card(
                         color: const Color(0xFFFEF2F2),
@@ -794,17 +805,29 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                               : 'Server not reachable / not updated yet. Voice works on this phone; history stays on this phone; staff phones are not alerted.'),
                         ),
                       ),
-                    _setupCard(te),
-                    _unknownCard(te),
-                    _statusCard(te),
-                    const SizedBox(height: 8),
-                    _shareCard(te),
-                    _historyCard(te),
-                    const SizedBox(height: 8),
-                    if (_settings['can_edit'] == true) _settingsCard(te),
-                    _razorpaySignup(te),
-                    if (_settings['can_edit'] == true && !_phoneOnly) AskodoxPosProviderCard(businessId: _id),
-                    _devicesCard(te),
+                    if (history) ...[
+                      _historyCard(te),
+                    ] else ...[
+                      _setupCard(te),
+                      _unknownCard(te),
+                      AskodoxSectionLabel(te ? 'స్థితి & టెస్ట్' : 'Status & tests'),
+                      _statusCard(te),
+                      _historyLink(te),
+                      AskodoxSectionLabel(te ? 'ఎవరు వింటారు' : 'Who hears it'),
+                      _shareCard(te),
+                      if (_settings['can_edit'] == true && !_phoneOnly) ...[
+                        AskodoxPayAlertStaffCard(businessId: _id, onChanged: _refresh),
+                        _rolesCard(te),
+                      ],
+                      _devicesCard(te),
+                      if (_settings['can_edit'] == true) ...[
+                        AskodoxSectionLabel(te ? 'వాయిస్ & సమయం' : 'Voice & quiet time'),
+                        _settingsCard(te),
+                      ],
+                      AskodoxSectionLabel(te ? 'బ్యాంక్ నిర్ధారణ (ఐచ్ఛికం)' : 'Bank-confirmed (optional)'),
+                      _razorpaySignup(te),
+                      if (_settings['can_edit'] == true && !_phoneOnly) AskodoxPosProviderCard(businessId: _id),
+                    ],
                     const SizedBox(height: 8),
                     Text(
                       te
@@ -816,6 +839,48 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                     ),
                   ]),
                 ),
+    );
+  }
+
+  /// The main page only links to the full history (its own page).
+  Widget _historyLink(bool te) => Card(
+        child: ListTile(
+          key: const Key('askodoxPayAlertHistoryOpen'),
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: Text(te ? 'పేమెంట్ హిస్టరీ' : 'Payment history'),
+          subtitle: Text(te
+              ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
+              : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/me/payment-alerts/$_id/history'),
+        ),
+      );
+
+  /// Which staff roles hear payments (owner) -- part of "who hears it".
+  Widget _rolesCard(bool te) {
+    final roles = (_settings['all_roles'] as List? ?? const []).map((e) => '$e').toList();
+    final chosen = (_settings['roles'] as List? ?? const []).map((e) => '$e').toSet();
+    if (roles.isEmpty) return const SizedBox.shrink();
+    return Card(
+      key: const Key('askodoxPayAlertRoles'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(te ? 'ఏ పాత్రల వారికి వినిపించాలి' : 'Which roles hear it', style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final r in roles)
+              FilterChip(
+                key: ValueKey('askodoxPayAlertRole-$r'),
+                label: Text(askodoxStaffRoleLabel(r, te)),
+                selected: chosen.contains(r),
+                onSelected: _busy
+                    ? null
+                    : (v) => _save({'roles': v ? [...chosen, r] : chosen.where((x) => x != r).toList()}),
+              ),
+          ]),
+        ]),
+      ),
     );
   }
 
@@ -1002,15 +1067,13 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
 
   Widget _settingsCard(bool te) {
     final lang = '${_settings['language'] ?? 'te'}';
-    final roles = (_settings['all_roles'] as List? ?? const []).map((e) => '$e').toList();
-    final chosen = (_settings['roles'] as List? ?? const []).map((e) => '$e').toSet();
     final apps = askodoxPosMap(_settings['apps']);
     return Card(
       key: const Key('askodoxPayAlertSettings'),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(te ? 'సెట్టింగ్స్ (యజమాని)' : 'Settings (owner)', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(te ? 'వాయిస్ సెట్టింగ్స్ (యజమాని)' : 'Voice settings (owner)', style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
           Text(te ? 'భాష' : 'Language'),
           Wrap(spacing: 6, children: [
@@ -1064,23 +1127,18 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                 onPressed: _busy ? null : () => _save({'quiet_start': '', 'quiet_end': ''}),
                 child: Text(te ? 'తీసివేయి' : 'Clear')),
           ]),
-          Text(te ? 'ఏ సిబ్బంది చూడవచ్చు / వినవచ్చు' : 'Which staff roles get alerts'),
-          Wrap(spacing: 6, children: [
-            for (final r in roles)
-              FilterChip(
-                key: ValueKey('askodoxPayAlertRole-$r'),
-                label: Text(r),
-                selected: chosen.contains(r),
-                onSelected: _busy
-                    ? null
-                    : (v) => _save({'roles': v ? [...chosen, r] : chosen.where((x) => x != r).toList()}),
-              ),
-          ]),
-          const SizedBox(height: 6),
-          Text(te ? 'చదవాల్సిన పేమెంట్ యాప్‌లు' : 'Payment apps to read'),
-          for (final e in apps.entries)
-            Text('• ${e.value}', style: const TextStyle(fontSize: 12.5)),
-          Text(te ? 'జాబితా ASKODOX సపోర్ట్ మార్చగలదు.' : 'ASKODOX support can adjust this list.', style: const TextStyle(fontSize: 11.5)),
+          ExpansionTile(
+            key: const Key('askodoxPayAlertApps'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            title: Text(te ? 'చదివే పేమెంట్ యాప్‌లు (${apps.length})' : 'Payment apps it reads (${apps.length})',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            children: [
+              for (final e in apps.entries) Text('• ${e.value}', style: const TextStyle(fontSize: 12.5)),
+              Text(te ? 'జాబితా ASKODOX సపోర్ట్ మార్చగలదు.' : 'ASKODOX support can adjust this list.', style: const TextStyle(fontSize: 11.5)),
+            ],
+          ),
         ]),
       ),
     );

@@ -169,11 +169,12 @@ void main() {
     expect(find.byKey(const Key('askodoxPayAlertStatus')), findsOneWidget);
     expect(find.textContaining('Bluetooth speaker: JBL Go'), findsOneWidget);
     expect(find.textContaining('Notification access off'), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsOneWidget);
-    expect(find.text('₹500 · PhonePe Business'), findsOneWidget);
-    expect(find.text('Notification detected — unverified'), findsOneWidget);
-    expect(find.textContaining('Voice: Spoken'), findsOneWidget);
+    // The main page only links to the history (its own page) -- no duplicate list here.
+    expect(find.byKey(const Key('askodoxPayAlertHistoryOpen')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsNothing);
     expect(find.textContaining('(unverified)'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertSettings')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertStaff')), findsOneWidget, reason: 'staff are managed on this page');
     final configure = native.lastWhere((c) => c.method == 'configure');
     final cfg = jsonDecode('${(configure.arguments as Map)['config']}') as Map;
     expect(cfg['enabled'], isTrue);
@@ -196,6 +197,18 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxPayAlertEnable')));
     await tester.pumpAndSettle();
     expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/settings'], {'enabled': false});
+
+    // The history page: every alert, unverified, with what the voice did.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'history')));
+    await tester.pumpAndSettle();
+    expect(find.text('Payment history'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsOneWidget);
+    expect(find.text('₹500 · PhonePe Business'), findsOneWidget);
+    expect(find.text('Notification detected — unverified'), findsOneWidget);
+    expect(find.textContaining('Voice: Spoken'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertStatus')), findsNothing);
+    expect(find.byKey(const Key('askodoxPayAlertExport')), findsOneWidget);
   });
 
   testWidgets('a staff phone speaks an alert another phone detected and acknowledges it', (tester) async {
@@ -244,14 +257,20 @@ void main() {
     await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPayAlertPhoneOnly')), findsOneWidget);
-    expect(find.text('₹200 · PhonePe Business'), findsOneWidget);
     expect(find.byKey(const Key('askodoxPayAlertStaffTest')), findsNothing);
+    expect(find.byKey(const Key('askodoxPayAlertStaff')), findsNothing, reason: 'no staff list without the server');
     await tester.tap(find.byKey(const Key('askodoxPayAlertEnable')));
     await tester.pumpAndSettle();
     final cfg = jsonDecode('${(native.lastWhere((c) => c.method == 'configure').arguments as Map)['config']}') as Map;
     expect(cfg['enabled'], isTrue);
     expect(cfg['token'], '', reason: 'phone-only never uploads');
     expect((cfg['apps'] as Map).keys, contains('com.phonepe.app.business'));
+
+    // This phone's own alerts are on the history page.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'history')));
+    await tester.pumpAndSettle();
+    expect(find.text('₹200 · PhonePe Business'), findsOneWidget);
   });
 
   testWidgets('a downloaded APK without the listener says so instead of offering access', (tester) async {

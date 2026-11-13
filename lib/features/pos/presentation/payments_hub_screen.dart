@@ -354,7 +354,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
             ),
           InkWell(
             key: const Key('askodoxPaymentsHubSeeAll'),
-            onTap: () => context.push('/me/payment-alerts/$shopId'),
+            onTap: () => context.push('/me/payment-alerts/$shopId/history'),
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),

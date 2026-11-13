@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
 
-/// Payment sound alerts without the POS (Phase 1, owner 2026-11-10): the owner names the shop,
-/// adds staff by mobile number + role (manager / cashier / attendant ...), and chooses which roles
-/// hear the payment sound; each person then switches the sound on on their own phone.
+/// Payment sound alerts without the POS (Phase 1, owner 2026-11-10): the owner names the shop;
+/// staff, who hears it, voice and history all live on the shop's ONE alert page
+/// (`/me/payment-alerts/:id`, redesign 2026-11-13). With exactly one shop this page opens that
+/// page directly, so there is no second "sound on / who hears it" step.
 /// Everything is the existing POS payment-alert system (`pos_payment_alerts.py`): this screen only
 /// gives it a Phase 1 door. ASKODOX never holds the money.
 const askodoxPaymentAlertStaffRoles = ['manager', 'cashier', 'attendant'];
@@ -33,17 +33,14 @@ class AskodoxMyPaymentAlertsScreen extends ConsumerStatefulWidget {
 
 class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentAlertsScreen> {
   List<AskodoxJson>? _shops;
-  final _members = <String, List<AskodoxJson>>{};
   Map<String, String> _states = const {};
+  bool _forwarded = false;
   AskodoxPosException? _error;
   String? _message;
   bool _busy = false;
 
   final _name = TextEditingController();
   String? _state;
-  final _phone = TextEditingController();
-  final _label = TextEditingController();
-  String _role = 'cashier';
 
   @override
   void initState() {
@@ -54,8 +51,6 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
   @override
   void dispose() {
     _name.dispose();
-    _phone.dispose();
-    _label.dispose();
     super.dispose();
   }
 
@@ -63,16 +58,6 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
     final repo = ref.read(askodoxPosRepositoryProvider);
     try {
       final shops = await repo.businesses();
-      final members = <String, List<AskodoxJson>>{};
-      for (final s in shops) {
-        if ('${s['role']}' == 'owner') {
-          try {
-            members['${s['id']}'] = await repo.members('${s['id']}');
-          } on AskodoxPosException {
-            // The list is optional; the shop row still shows.
-          }
-        }
-      }
       var states = _states;
       if (shops.isEmpty && states.isEmpty) {
         try {
@@ -85,12 +70,14 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
       if (!mounted) return;
       setState(() {
         _shops = shops;
-        _members
-          ..clear()
-          ..addAll(members);
         _states = states;
         _error = null;
       });
+      // One shop: its alert page IS the payment-alerts page (only on the first load, only in the app router).
+      if (!_forwarded && shops.length == 1 && GoRouter.maybeOf(context) != null) {
+        _forwarded = true;
+        context.pushReplacement('/me/payment-alerts/${shops.first['id']}');
+      }
     } on AskodoxPosException catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -122,12 +109,6 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
         });
         _name.clear();
       });
-
-  Future<void> _addStaff(String shopId, bool te) => _run((repo) async {
-        await repo.setMember(shopId, _phone.text.trim(), _role, label: _label.text);
-        _phone.clear();
-        _label.clear();
-      }, done: te ? 'జోడించాం. వాళ్ళు తమ ఫోన్‌లో ASKODOX తెరిచి ఇదే పేజీలో సౌండ్ ఆన్ చేసుకోవాలి.' : 'Added. They open ASKODOX on their phone and switch the sound on from this same page.');
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +171,6 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
   Widget _shop(AskodoxJson shop, bool te) {
     final id = '${shop['id']}';
     final owner = '${shop['role']}' == 'owner';
-    final staff = (_members[id] ?? const <AskodoxJson>[]).where((m) => m['active'] == true && '${m['role']}' != 'owner').toList();
     return Card(
       key: ValueKey('askodoxMyPaymentAlertsShop-$id'),
       child: Padding(
@@ -205,80 +185,9 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
             onPressed: () => context.push('/me/payment-alerts/$id'),
             icon: const Icon(Icons.volume_up_rounded),
             label: Text(owner
-                ? (te ? 'సౌండ్ ఆన్ / ఎవరికి వినిపించాలి' : 'Sound on / who hears it')
+                ? (te ? 'అలర్ట్స్, సిబ్బంది, హిస్టరీ' : 'Alerts, staff, history')
                 : (te ? 'ఈ ఫోన్‌లో సౌండ్ ఆన్ చేయి' : 'Switch the sound on on this phone')),
           ),
-          if (owner) ...[
-            const Divider(height: 24),
-            Text(te ? 'సిబ్బంది' : 'Staff', style: const TextStyle(fontWeight: FontWeight.w800)),
-            if (staff.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(te ? 'ఇంకా ఎవరినీ జోడించలేదు.' : 'Nobody added yet.', style: const TextStyle(fontSize: 12.5)),
-              ),
-            for (final m in staff)
-              ListTile(
-                key: ValueKey('askodoxMyPaymentAlertsStaff-$id-${m['phone_last4']}'),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.person_outline_rounded),
-                title: Text('${m['label'] ?? ''}'.isEmpty ? '••••••${m['phone_last4']}' : '${m['label']} · ••••••${m['phone_last4']}'),
-                subtitle: Text(askodoxStaffRoleLabel('${m['role']}', te)),
-              ),
-            const SizedBox(height: 6),
-            TextField(
-              key: ValueKey('askodoxMyPaymentAlertsLabel-$id'),
-              controller: _label,
-              maxLength: 40,
-              decoration: InputDecoration(
-                  counterText: '',
-                  labelText: te ? 'పేరు (మీకు నచ్చినది, ఉదా. భార్య / స్టాఫ్ 1)' : 'Name (any, e.g. Wife / Staff 1)',
-                  helperText: te ? 'పేమెంట్ వచ్చినప్పుడు ఈ పేరు చెబుతుంది.' : 'This name is spoken with their payments.'),
-            ),
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  key: ValueKey('askodoxMyPaymentAlertsPhone-$id'),
-                  controller: _phone,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(counterText: '', labelText: te ? 'సిబ్బంది మొబైల్ నంబర్' : 'Staff mobile number'),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey('askodoxMyPaymentAlertsRole-$id'),
-                  isExpanded: true,
-                  initialValue: _role,
-                  items: [
-                    for (final r in askodoxPaymentAlertStaffRoles)
-                      DropdownMenuItem(value: r, child: Text(askodoxStaffRoleLabel(r, te))),
-                  ],
-                  onChanged: (v) => setState(() => _role = v ?? 'cashier'),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              key: ValueKey('askodoxMyPaymentAlertsAdd-$id'),
-              onPressed: _busy || _phone.text.trim().length != 10 ? null : () => _addStaff(id, te),
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: Text(te ? 'సిబ్బందిని జోడించు' : 'Add staff'),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                  te
-                      ? 'తర్వాత పైన "ఎవరికి వినిపించాలి" లో ఆ పాత్రను టిక్ చేయండి (అటెండెంట్ ముందుగా ఆఫ్‌లో ఉంటుంది).'
-                      : 'Then tick that role under "who hears it" above (attendant starts off).',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
-            ),
-          ],
         ]),
       ),
     );
