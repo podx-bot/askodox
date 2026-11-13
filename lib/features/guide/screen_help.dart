@@ -263,6 +263,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రీఛార్జ్ Razorpay తెరుస్తుంది; Razorpay confirm చేశాకే credits చేరతాయి.',
     'Credits ASKODOX AI కి మాత్రమే — cash కాదు, వేరేవాళ్ళకు పంపలేరు, seller కి కట్టడానికి వాడరు.',
   ]),
+  '/me/payments': _H('Payments', 'పేమెంట్లు', [
+    'Today shows the payments your phone heard and how many times it spoke them.',
+    'These totals come from phone notifications, not the bank — check big amounts in your bank app.',
+    'Show my QR and My accounts open your own UPI / bank; Alerts switches the voice on.',
+  ], [
+    'ఈ రోజు ఫోన్ విన్న పేమెంట్లు, ఎన్నిసార్లు మాట్లాడిందో కనిపిస్తుంది.',
+    'ఈ లెక్క ఫోన్ నోటిఫికేషన్ల నుంచి, బ్యాంక్ నుంచి కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
+    '"నా QR చూపించు", "నా ఖాతాలు" మీ UPI / బ్యాంక్ తెరుస్తాయి; "అలర్ట్స్" వాయిస్ ఆన్ చేస్తుంది.',
+  ]),
   '/me/payment-methods': _H('My payment methods', 'నా పేమెంట్ పద్ధతులు', [
     'Add your UPI QR from ANY app or bank — pick its photo or photograph it — or type the UPI ID.',
     'Buyers see these only after you accept their request; they pay you directly.',

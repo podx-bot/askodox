@@ -355,7 +355,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         isTe: isTe,
         onHome: () => shell.goBranch(0, initialLocation: true),
         onHistory: () => shell.goBranch(2, initialLocation: true),
-        onPayments: () => context.push('/me/payment-methods'),
+        onPayments: () => context.push('/me/payments'),
         onCompanion: () {
           // "Ask" = ONE tap starts listening (a second tap stops and sends).
           // No ring of buttons in between: attachments live on the chat's "+",

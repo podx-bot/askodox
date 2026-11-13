@@ -503,10 +503,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       key: const Key('askodoxPayAlertRazorpaySignup'),
       child: ListTile(
         leading: const Icon(Icons.verified_outlined),
-        title: Text(te ? 'బ్యాంక్ నిర్ధారణ కావాలా? Razorpay ఖాతా తెరవండి' : 'Want bank-confirmed alerts? Open a Razorpay account'),
+        title: Text(te ? 'బ్యాంక్ నిర్ధారణ కావాలా? ASKODOX పేమెంట్ ప్రొఫైల్‌లో చేరండి' : 'Want bank-confirmed alerts? Join the ASKODOX payment profile'),
         subtitle: Text(te
-            ? 'Razorpay QR కి వచ్చిన డబ్బును Razorpay నే నిర్ధారిస్తుంది, డబ్బు నేరుగా మీ బ్యాంక్ కి. ఖాతా తెరిచాక కింద "కనెక్ట్ చేయి".'
-            : 'Razorpay itself confirms money paid to its QR; money goes straight to your bank. After opening it, use "Connect" below.'),
+            ? 'ప్రొఫైల్ QR కి వచ్చిన డబ్బు బ్యాంక్ నిర్ధారించాకే మాట్లాడుతుంది, డబ్బు నేరుగా మీ బ్యాంక్ కి. చేరాక కింద "కనెక్ట్ చేయి".'
+            : 'Money paid to the profile QR is spoken only after the bank confirms it; money goes straight to your bank. After joining, use "Connect" below.'),
         trailing: const Icon(Icons.open_in_new),
         onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       ),
@@ -1191,12 +1191,12 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(te ? 'బ్యాంక్-నిర్ధారణ అలర్ట్స్ (మీ Razorpay)' : 'Bank-confirmed alerts (your Razorpay)',
+          Text(te ? 'ASKODOX పేమెంట్ ప్రొఫైల్ (బ్యాంక్ నిర్ధారణ)' : 'ASKODOX payment profile (bank-confirmed)',
               style: const TextStyle(fontWeight: FontWeight.w800)),
           Text(
               te
-                  ? 'మీ స్వంత Razorpay ఖాతా QR కి కస్టమర్ కడితే, Razorpay నిర్ధారించిన తర్వాతే "మీకు ... రూపాయలు అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే; ASKODOX డబ్బు పట్టుకోదు.'
-                  : 'When a customer pays your OWN Razorpay QR, phones say "you received ..." only after Razorpay confirms it. Money goes straight to your account; ASKODOX never holds it.',
+                  ? 'మీ ప్రొఫైల్ QR కి కస్టమర్ కడితే, బ్యాంక్ నిర్ధారించిన తర్వాతే "మీకు ... రూపాయలు అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే; ASKODOX డబ్బు పట్టుకోదు.'
+                  : 'When a customer pays your profile QR, phones say "you received ..." only after the bank confirms it. Money goes straight to your account; ASKODOX never holds it.',
               style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 6),
           if (connected) ...[

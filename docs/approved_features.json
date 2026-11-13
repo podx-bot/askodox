@@ -5709,6 +5709,56 @@
           "change": "owner 2026-11-10: answers appear word by word"
         }
       ]
+    },
+    {
+      "id": "payments_hub_tab",
+      "name": "Payments tab hub (redesign)",
+      "purpose": "Owner 2026-11-13 (Redesign canvas, final): the Payments tab opens one page for money that reaches the person's own account, branded ASKODOX.",
+      "expected_behavior": "The bottom-bar Payments tab (askodoxNavPayments) opens /me/payments. Without a shop it offers to switch alerts on (/me/payment-alerts). With a shop it shows today's total and count from the shop's payment-alert events (test events left out), how many were spoken (an 'announced' ack), seven days of bars, the latest three payments, and doors to Show my QR / My accounts (/me/payment-methods) and Alerts (/me/payment-alerts/{id}). Totals are labelled as phone-notification counts, not bank-confirmed. Main payment screens say 'ASKODOX payment profile'; Razorpay is named only in technical how-to lines, errors and FAQs. ASKODOX never holds money.",
+      "roles": [
+        "customer",
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/events"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPaymentsHub",
+          "askodoxPaymentsHubStart",
+          "askodoxPaymentsHubToday",
+          "askodoxPaymentsHubQr",
+          "askodoxPaymentsHubAlerts",
+          "askodoxPaymentsHubAccounts",
+          "askodoxPaymentsHubRecent",
+          "askodoxPaymentsHubAdvanced"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/payments_hub_test.dart"
+        ]
+      },
+      "dependencies": [
+        "payment_alerts_phase1_staff"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-13: owner approved the Redesign canvas as final; part 1 = Payments"
+      ]
     }
   ]
 }
