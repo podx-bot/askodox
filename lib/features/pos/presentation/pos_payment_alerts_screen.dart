@@ -171,17 +171,18 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
   }
 }
 
-/// Payment Alerts, ONE page per shop (redesign 2026-11-13, no duplicates): status + tests, who
-/// hears it (people, staff, roles, devices), voice & quiet time, bank-confirmed profile. The full
-/// history is its own view ([view] == 'history', route `/me/payment-alerts/:id/history`); the
-/// main page only links to it.
+/// Payment Alerts for one shop (redesign 2026-11-13, owner: "headings, and each tap opens its own
+/// page"). [view] 'main' is a short menu (setup prompt + grouped rows); every row opens ONE page:
+/// 'status' (on/off + tests), 'who' (who hears, roles, devices), 'staff', 'voice' (voice + quiet
+/// time + apps), 'bank' (ASKODOX payment profile), 'history' (all alerts). Route
+/// `/me/payment-alerts/:id/:view`. Only the menu page polls and speaks other phones' alerts.
 class AskodoxPosPaymentAlertsScreen extends ConsumerStatefulWidget {
   const AskodoxPosPaymentAlertsScreen(
       {super.key, required this.businessId, this.pollEvery = const Duration(seconds: 8), this.view = 'main'});
   final String businessId;
   final Duration pollEvery;
 
-  /// 'main' (settings page) or 'history' (all payment alerts with search / filters / export).
+  /// 'main' (menu) or one of 'status' | 'who' | 'staff' | 'voice' | 'bank' | 'history'.
   final String view;
 
   @override
@@ -215,6 +216,9 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   final _search = TextEditingController();
 
   String get _id => widget.businessId;
+
+  /// The menu page listens / polls; the pages opened from it only show and change things.
+  bool get _primary => widget.view == 'main';
   late final AskodoxPosRepository _repo = ref.read(askodoxPosRepositoryProvider);
   late final AskodoxPaymentAlertsBridge _bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
 
@@ -222,7 +226,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _bridge.onEvent((_) => _refresh());
+    if (_primary) _bridge.onEvent((_) => _refresh());
     _start();
   }
 
@@ -236,7 +240,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
-    _bridge.onEvent(null);
+    if (_primary) _bridge.onEvent(null);
     _search.dispose();
     super.dispose();
   }
@@ -244,7 +248,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   Future<void> _start() async {
     await _refresh(first: true);
     await _loadSetup();
-    if (!mounted || widget.pollEvery == Duration.zero) return;
+    if (!mounted || widget.pollEvery == Duration.zero || !_primary) return;
     _timer = Timer.periodic(widget.pollEvery, (_) => _poll());
   }
 
@@ -769,10 +773,21 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
-    final history = widget.view == 'history';
+    final view = widget.view;
+    final history = view == 'history';
+    final owner = _settings['can_edit'] == true;
+    final title = switch (view) {
+      'history' => te ? 'పేమెంట్ హిస్టరీ' : 'Payment history',
+      'status' => te ? 'స్థితి & టెస్ట్' : 'Status & tests',
+      'who' => te ? 'ఎవరు వింటారు' : 'Who hears it',
+      'staff' => te ? 'సిబ్బంది' : 'Staff',
+      'voice' => te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
+      'bank' => te ? 'బ్యాంక్ నిర్ధారణ' : 'Bank confirmation',
+      _ => te ? 'పేమెంట్ అలర్ట్స్' : 'Payment alerts',
+    };
     return Scaffold(
       appBar: AppBar(
-        title: Text(history ? (te ? 'పేమెంట్ హిస్టరీ' : 'Payment history') : (te ? 'పేమెంట్ అలర్ట్స్' : 'Payment alerts')),
+        title: Text(title),
         actions: [
           if (history)
             IconButton(key: const Key('askodoxPayAlertExport'), onPressed: _events.isEmpty ? null : _export, icon: const Icon(Icons.ios_share)),
@@ -805,30 +820,25 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                               : 'Server not reachable / not updated yet. Voice works on this phone; history stays on this phone; staff phones are not alerted.'),
                         ),
                       ),
-                    if (history) ...[
-                      _historyCard(te),
-                    ] else ...[
-                      _setupCard(te),
-                      _unknownCard(te),
-                      AskodoxSectionLabel(te ? 'స్థితి & టెస్ట్' : 'Status & tests'),
-                      _statusCard(te),
-                      _historyLink(te),
-                      AskodoxSectionLabel(te ? 'ఎవరు వింటారు' : 'Who hears it'),
-                      _shareCard(te),
-                      if (_settings['can_edit'] == true && !_phoneOnly) ...[
-                        AskodoxPayAlertStaffCard(businessId: _id, onChanged: _refresh),
-                        _rolesCard(te),
-                      ],
-                      _devicesCard(te),
-                      if (_settings['can_edit'] == true) ...[
-                        AskodoxSectionLabel(te ? 'వాయిస్ & సమయం' : 'Voice & quiet time'),
-                        _settingsCard(te),
-                      ],
-                      AskodoxSectionLabel(te ? 'బ్యాంక్ నిర్ధారణ (ఐచ్ఛికం)' : 'Bank-confirmed (optional)'),
-                      _razorpaySignup(te),
-                      if (_settings['can_edit'] == true && !_phoneOnly) AskodoxPosProviderCard(businessId: _id),
-                    ],
-                    const SizedBox(height: 8),
+                    ...switch (view) {
+                      'history' => [_historyCard(te)],
+                      'status' => [_statusCard(te)],
+                      'who' => [_shareCard(te), if (owner && !_phoneOnly) _rolesCard(te), _devicesCard(te)],
+                      'staff' => [
+                          if (owner && !_phoneOnly)
+                            AskodoxPayAlertStaffCard(businessId: _id, onChanged: _refresh)
+                          else
+                            _onlyOwner(te),
+                        ],
+                      'voice' => [if (owner) _settingsCard(te) else _onlyOwner(te)],
+                      'bank' => [
+                          _razorpaySignup(te),
+                          if (owner && !_phoneOnly) AskodoxPosProviderCard(businessId: _id) else _onlyOwner(te),
+                        ],
+                      _ => [_setupCard(te), _unknownCard(te), ..._menu(te, owner)],
+                    },
+                    if (view == 'main' || history) const SizedBox(height: 8),
+                    if (view == 'main' || history)
                     Text(
                       te
                           ? 'ASKODOX డబ్బు తీసుకోదు, పంపదు. కస్టమర్లు మీ UPI ID / QR కే నేరుగా కడతారు. నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు — '
@@ -842,17 +852,64 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     );
   }
 
-  /// The main page only links to the full history (its own page).
-  Widget _historyLink(bool te) => Card(
-        child: ListTile(
-          key: const Key('askodoxPayAlertHistoryOpen'),
-          leading: const Icon(Icons.receipt_long_outlined),
-          title: Text(te ? 'పేమెంట్ హిస్టరీ' : 'Payment history'),
-          subtitle: Text(te
-              ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
-              : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)'),
+  /// The menu: headings, and each row opens its own page.
+  List<Widget> _menu(bool te, bool owner) {
+    final people = askodoxPosList(_settings['people']).where((p) => p['me'] != true).length;
+    final quietStart = '${_settings['quiet_start'] ?? ''}';
+    final lang = switch ('${_settings['language'] ?? 'te'}') { 'hi' => 'हिन्दी', 'en' => 'English', _ => 'తెలుగు' };
+    final on = _settings['enabled'] == true;
+    Widget row(String view, IconData icon, String title, String subtitle) => ListTile(
+          key: ValueKey('askodoxPayAlertOpen-$view'),
+          leading: Icon(icon),
+          title: Text(title),
+          subtitle: Text(subtitle),
           trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push('/me/payment-alerts/$_id/history'),
+          onTap: () => context.push('/me/payment-alerts/$_id/$view'),
+        );
+    Widget group(String heading, List<Widget> rows) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          AskodoxSectionLabel(heading),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(children: [
+              for (var i = 0; i < rows.length; i++) ...[if (i > 0) const Divider(height: 1), rows[i]],
+            ]),
+          ),
+        ]);
+    return [
+      group(te ? '1. ఈ ఫోన్' : '1. This phone', [
+        row('status', Icons.toggle_on_outlined, te ? 'స్థితి & టెస్ట్' : 'Status & tests',
+            '${on ? (te ? 'అలర్ట్స్ ఆన్' : 'Alerts on') : (te ? 'అలర్ట్స్ ఆఫ్' : 'Alerts off')} · ${te ? 'స్పీకర్ / గుర్తింపు టెస్ట్' : 'speaker / detection test'}'),
+      ]),
+      group(te ? '2. ఎవరు వింటారు' : '2. Who hears it', [
+        row('who', Icons.hearing_outlined, te ? 'ఎవరు వింటారు' : 'Who hears it',
+            te ? '$people మంది · పాత్రలు · పరికరాలు' : '$people people · roles · devices'),
+        if (owner && !_phoneOnly)
+          row('staff', Icons.person_add_alt_1_outlined, te ? 'సిబ్బంది' : 'Staff',
+              te ? 'మొబైల్ నంబర్‌తో జోడించండి' : 'Add by mobile number'),
+      ]),
+      if (owner)
+        group(te ? '3. సెట్టింగ్స్' : '3. Settings', [
+          row('voice', Icons.record_voice_over_outlined, te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
+              '$lang · ${quietStart.isEmpty ? (te ? 'ఎప్పుడూ మాట్లాడుతుంది' : 'always speaks') : '$quietStart – ${_settings['quiet_end']}'}'),
+          row('bank', Icons.verified_outlined, te ? 'బ్యాంక్ నిర్ధారణ (ఐచ్ఛికం)' : 'Bank confirmation (optional)',
+              te ? 'ASKODOX పేమెంట్ ప్రొఫైల్' : 'ASKODOX payment profile'),
+        ]),
+      group(owner ? (te ? '4. హిస్టరీ' : '4. History') : (te ? '3. హిస్టరీ' : '3. History'), [
+        row(
+            'history',
+            Icons.receipt_long_outlined,
+            te ? 'పేమెంట్ హిస్టరీ' : 'Payment history',
+            te
+                ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
+                : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)'),
+      ]),
+    ];
+  }
+
+  Widget _onlyOwner(bool te) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(te ? 'ఇది షాప్ యజమాని మాత్రమే మార్చగలరు.' : 'Only the shop owner can change this.'),
         ),
       );
 

@@ -26,10 +26,11 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
   GoRoute(
       path: '/me/payment-alerts/:id',
       builder: (context, state) => AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!)),
-  // The full payment history: its own page (the alert page and the Payments tab only link here).
+  // Each part of the alert menu is its own page: status | who | staff | voice | bank | history.
   GoRoute(
-      path: '/me/payment-alerts/:id/history',
-      builder: (context, state) => AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!, view: 'history')),
+      path: '/me/payment-alerts/:id/:view',
+      builder: (context, state) =>
+          AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!, view: state.pathParameters['view']!)),
 ];
 
 final askodoxPosRoutes = <GoRoute>[

@@ -466,7 +466,7 @@ void main() {
     expect(await failing.escalate(issue: 'x', category: 'GENERAL', critical: false, conversation: const []), isNull);
   });
 
-  testWidgets('Profile grid: every tile has a Guide that starts that screen\'s walkthrough', (tester) async {
+  testWidgets('Profile list: every row has a Guide that starts that screen\'s walkthrough', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = await _pumpRouted(tester, initial: '/profile', screens: {'/profile': const ProfileScreen()});
     for (final (tab, id) in [
@@ -492,7 +492,7 @@ void main() {
     await tester.pump();
     expect(container.read(askodoxGuideProvider)?.flow.id, 'screen_profile_details');
     container.read(askodoxGuideProvider.notifier).stop();
-    expect(find.byType(AskodoxNavTile), findsWidgets, reason: 'grid tiles, not long rows');
+    expect(find.byType(AskodoxNavListRow), findsWidgets, reason: 'headed list rows: each tap opens its page');
   });
 
   testWidgets('Profile search finds any row in any tab (en / te) and remembers recent ones', (tester) async {

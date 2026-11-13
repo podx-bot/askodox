@@ -291,22 +291,22 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'సిబ్బంది, ఎవరు వింటారు, వాయిస్, హిస్టరీ — అన్నీ షాప్ అలర్ట్ పేజీలోనే.',
   ]),
   '/me/payment-alerts/:id': _H('Payment alerts', 'పేమెంట్ అలర్ట్స్', [
-    'Status & tests: switch alerts on and press "Speaker test".',
-    'Who hears it: choose the people, add staff by mobile number and tick the roles that hear payments.',
-    'Voice & quiet time sets language, voice, speed, volume and night silence. "Payment history" opens the full list.',
+    'Do the setup card at the top first, one step at a time.',
+    'Each row opens its own page: 1 This phone, 2 Who hears it, 3 Settings, 4 History.',
+    'Big amounts: always check your bank app — a notification is not a bank confirmation.',
   ], [
-    'స్థితి & టెస్ట్: అలర్ట్స్ ఆన్ చేసి "స్పీకర్ టెస్ట్" నొక్కండి.',
-    'ఎవరు వింటారు: వినాల్సిన వారిని ఎంచుకోండి, మొబైల్ నంబర్‌తో సిబ్బందిని జోడించి, వినాల్సిన పాత్రలను టిక్ చేయండి.',
-    'వాయిస్ & సమయం లో భాష, గొంతు, వేగం, వాల్యూమ్, రాత్రి నిశ్శబ్దం. "పేమెంట్ హిస్టరీ" పూర్తి జాబితా తెరుస్తుంది.',
+    'ముందు పైన ఉన్న సెటప్ కార్డ్ ఒక్కో అడుగు పూర్తి చేయండి.',
+    'ప్రతి వరుస దాని పేజీ తెరుస్తుంది: 1 ఈ ఫోన్, 2 ఎవరు వింటారు, 3 సెట్టింగ్స్, 4 హిస్టరీ.',
+    'పెద్ద మొత్తాలు ఎప్పుడూ బ్యాంక్ యాప్‌లో చూసుకోండి — నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు.',
   ]),
-  '/me/payment-alerts/:id/history': _H('Payment history', 'పేమెంట్ హిస్టరీ', [
-    'Every payment notification this shop\'s phones heard, newest first.',
-    'Search by amount, app or reference; the chips filter unverified, duplicates and bank-verified.',
-    'A notification is not a bank confirmation — check big amounts in your bank app. The share button copies the list.',
+  '/me/payment-alerts/:id/:view': _H('Payment alerts — one part', 'పేమెంట్ అలర్ట్స్ — ఒక భాగం', [
+    'This page is one part of Payment alerts; the back arrow returns to the list of parts.',
+    'Status & tests switches alerts on and tests the speaker; Who hears it and Staff choose the people.',
+    'Voice & quiet time sets the voice; Payment history lists every alert — a notification is not a bank confirmation.',
   ], [
-    'ఈ షాప్ ఫోన్లు విన్న ప్రతి పేమెంట్ నోటిఫికేషన్, కొత్తది ముందు.',
-    'మొత్తం, యాప్ లేదా రిఫరెన్స్‌తో వెతకండి; చిప్స్‌తో నిర్ధారించనివి, డూప్లికేట్, నిర్ధారించినవి వేరు చేయండి.',
-    'నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి. షేర్ బటన్ జాబితాను కాపీ చేస్తుంది.',
+    'ఈ పేజీ పేమెంట్ అలర్ట్స్‌లో ఒక భాగం; వెనక బాణం భాగాల జాబితాకు తీసుకెళ్తుంది.',
+    'స్థితి & టెస్ట్ లో అలర్ట్స్ ఆన్ చేసి స్పీకర్ టెస్ట్ చేయండి; ఎవరు వింటారు, సిబ్బంది లో మనుషులను ఎంచుకోండి.',
+    'వాయిస్ & నిశ్శబ్ద సమయం లో గొంతు; పేమెంట్ హిస్టరీ లో అన్ని అలర్ట్స్ — నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు.',
   ]),
   '/pos/:id/payment-alerts': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
     'Turn on alerts for the shop, then "Turn on" notification access and switch ASKODOX on in Android settings.',
