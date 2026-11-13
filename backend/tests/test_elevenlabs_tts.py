@@ -40,6 +40,18 @@ def test_voice_choice_and_override(monkeypatch):
     assert voice_for("sat", "male") is None  # Santali: no ElevenLabs voice -> caller falls back
 
 
+def test_second_voices_for_the_payment_alert_picker(monkeypatch):
+    from app.services.elevenlabs_tts import SECOND_VOICES
+
+    monkeypatch.delenv("ELEVENLABS_VOICE_TE_FEMALE2", raising=False)
+    assert voice_for("te", "female2") == SECOND_VOICES["te"][0]
+    assert voice_for("te", "male2") == SECOND_VOICES["te"][1]
+    assert len({voice_for("te", v) for v in ("female", "male", "female2", "male2")}) == 4
+    assert voice_for("ta", "male2") == VOICES["ta"][1]  # no second voice: the first pair speaks
+    monkeypatch.setenv("ELEVENLABS_VOICE_TE_FEMALE2", "staff-picked")
+    assert voice_for("te", "female2") == "staff-picked"
+
+
 def test_synthesize_sends_the_text_voice_and_model_then_caches():
     client = _Client()
     tts = ElevenLabsTTS("k", client=client, model="eleven_v3")

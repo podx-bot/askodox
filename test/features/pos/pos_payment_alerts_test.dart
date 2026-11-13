@@ -210,6 +210,18 @@ void main() {
     await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'voice')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPayAlertSettings')), findsOneWidget);
+    // Language + voice are dropdowns (2 female + 2 male ElevenLabs voices); the name switch saves at once.
+    expect(find.byKey(const Key('askodoxPayAlertLanguage')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxPayAlertVoice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(askodoxPayAlertVoiceLabel('male2', 'te', false)).last);
+    await tester.pumpAndSettle();
+    expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/settings'], {'voice': 'male2'});
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSayName')));
+    await tester.pumpAndSettle();
+    expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/settings'], {'say_name': false});
+    final config = native.lastWhere((c) => c.method == 'configure').arguments as Map;
+    expect('${config['config'] ?? config}', contains('shop_name'));
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'staff')));
     await tester.pumpAndSettle();

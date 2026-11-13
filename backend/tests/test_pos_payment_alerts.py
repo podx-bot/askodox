@@ -198,6 +198,18 @@ def test_settings_rejects_bad_values(env):
     assert s["quiet_start"] == "22:00" and s["language"] == "hi" and s["can_edit"] is True
 
 
+def test_voice_picker_and_payer_name_switch(env):
+    _, alerts, biz, *_ = env
+    s = alerts.settings(biz, OWNER)
+    assert s["say_name"] is True and s["shop_name"]  # name spoken by default; the phone needs the shop name
+    s = alerts.update_settings(biz, OWNER, {"voice": "male2", "say_name": False})
+    assert s["voice"] == "male2" and s["say_name"] is False
+    s = alerts.update_settings(biz, OWNER, {"language": "en"})  # other changes keep both
+    assert s["voice"] == "male2" and s["say_name"] is False
+    with pytest.raises(PosError):
+        alerts.update_settings(biz, OWNER, {"voice": "robot"})
+
+
 def test_http_flow(monkeypatch):
     from fastapi.testclient import TestClient
 

@@ -5759,6 +5759,53 @@
       "history": [
         "2026-11-13: owner approved the Redesign canvas as final; part 1 = Payments"
       ]
+    },
+    {
+      "id": "payment_alert_thank_you_voice",
+      "name": "Payment thank-you by name in a chosen voice",
+      "purpose": "Owner 2026-11-13: when a payment comes the shop phone thanks the customer by name (\"Thank you <name> garu, 30 rupees reached <shop>, please visit again\") in one of 2 female + 2 male ElevenLabs voices, without asking yes / no per payment.",
+      "expected_behavior": "PaymentAlertParser reads the payer's display name (letters only) from PhonePe / Google Pay / Paytm wording; the name is spoken on the phone only, never stored in the event or uploaded. Settings say_name (default on), voice female|female2|male|male2, language te|hi|en (dropdowns). Each spoken part is fetched once from /api/in-app/voice/speak (ElevenLabs MP3 only) and kept on the phone (payvoice, max 400 files); fixed parts are fetched when settings are saved. Any failure or offline -> the phone's own voice says the whole sentence.",
+      "roles": [
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/settings"
+        },
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/speak"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPayAlertLanguage",
+          "askodoxPayAlertVoice",
+          "askodoxPayAlertSayName"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_payment_alerts.py",
+          "tests/test_elevenlabs_tts.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_payment_alerts_test.dart"
+        ]
+      },
+      "dependencies": [
+        "payment_alerts_phase1_staff"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-13: owner approved (thank-you by name, voice + language dropdowns, fixed words fetched once)"
+      ]
     }
   ]
 }

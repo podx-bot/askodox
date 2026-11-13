@@ -481,7 +481,7 @@ def _intelligence(message: str, locale: str) -> dict[str, Any] | None:
 class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2500)
     locale: str = ""
-    voice: str = Field(default="automatic", pattern="^(automatic|male|female)$")
+    voice: str = Field(default="automatic", pattern="^(automatic|male|female|male2|female2)$")
 
 
 @router.post("/voice/speak")
@@ -515,10 +515,12 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
     synthesize = getattr(container.voice_assistant_service, "synthesize", None)
     if not callable(synthesize):
         raise HTTPException(status_code=503, detail="TTS_UNAVAILABLE")
+    # Sarvam knows only male / female: the second voices fall back to their gender.
+    gender = payload.voice[:-1] if payload.voice.endswith("2") else payload.voice
     try:
-        result = synthesize(payload.text, voice=payload.voice) or {}
+        result = synthesize(payload.text, voice=gender) or {}
     except TypeError:  # an engine without voice choice: only valid for "automatic"
-        if payload.voice != "automatic":
+        if gender != "automatic":
             raise HTTPException(status_code=503, detail="TTS_VOICE_UNSUPPORTED") from None
         result = synthesize(payload.text) or {}
     path = str(result.get("tts_path") or "")

@@ -56,6 +56,16 @@ VOICES: Dict[str, tuple[str, str]] = {
     "sd": ("o85TqPN3F4P7dWae2paA", "zT03pEAEi0VHKciJODfn"),  # closest: Urdu voices
 }
 
+# A second (female, male) choice per language for the payment-alert voice picker (owner 2026-11-13: "2 male,
+# 2 female"). Picked from the ElevenLabs library (Telugu / Hindi conversational voices, most used); a language
+# missing here speaks the first pair. Staff override: ELEVENLABS_VOICE_<LANG>_FEMALE2 / _MALE2.
+SECOND_VOICES: Dict[str, tuple[str, str]] = {
+    "te": ("0UUTSkblTNnmKT570N79", "byBvnAtc0165IHbm4c7a"),  # Vijaya (clear, confident), Maddy (natural)
+    "hi": ("broqrJkktxd1CclKTudW", "iWNf11sz1GrUE4ppxTOL"),  # Anika, Viraj
+    "en": ("broqrJkktxd1CclKTudW", "iWNf11sz1GrUE4ppxTOL"),  # Anika, Viraj (Indian English)
+}
+VOICE_CHOICES = ("female", "male", "female2", "male2")
+
 # Indian scheduled languages ElevenLabs has no model for (fall back to Sarvam / device).
 UNSUPPORTED = ("brx", "doi", "ks", "kok", "mai", "mni", "sa", "sat")
 
@@ -100,17 +110,21 @@ def api_key() -> str:
 
 
 def voice_for(language: str, voice: str = "automatic") -> Optional[str]:
-    """Voice id for a language and the Profile choice (automatic | male | female)."""
+    """Voice id for a language and the choice (automatic | male | female | male2 | female2)."""
     pair = VOICES.get(language)
     if not pair:
         return None
     choice = (voice or "").strip().lower()
-    if choice not in ("male", "female"):
+    if choice not in VOICE_CHOICES:
         choice = (os.environ.get("ASKODOX_TTS_DEFAULT_GENDER", "") or "female").strip().lower()
         if choice not in ("male", "female"):
             choice = "female"
     override = os.environ.get(f"ELEVENLABS_VOICE_{language.upper()}_{choice.upper()}", "").strip()
-    return override or (pair[0] if choice == "female" else pair[1])
+    if override:
+        return override
+    second = choice.endswith("2")
+    source = SECOND_VOICES.get(language, pair) if second else pair
+    return source[0] if choice.startswith("female") else source[1]
 
 
 class ElevenLabsTTS:

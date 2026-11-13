@@ -59,6 +59,7 @@ object AskodoxPaymentAlerts {
                         val json = call.argument<String>("config") ?: "{}"
                         prefs(app).edit().putString("config", JSONObject(json).toString()).apply()
                         requestRebind(app)
+                        CloudVoice.prefetch(app, JSONObject(json)) // the fixed words, once per voice / language
                         result.success(status(app))
                     }
                     "clear" -> { prefs(app).edit().clear().apply(); result.success(true) }
@@ -293,7 +294,7 @@ object AskodoxPaymentAlerts {
             return done("quiet_hours")
         }
         if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
-        Speaker.say(context, text, language, cfg) { ok ->
+        CloudVoice.say(context, listOf(text), language, cfg) { ok ->
             if (fromPush && businessId != null) ack(context, businessId, eventId, if (ok) "announced" else "tts_failed")
             main.post { channel?.invokeMethod("paymentEvent", "{}") }
             onFinished?.invoke()
@@ -386,6 +387,8 @@ object AskodoxPaymentAlerts {
         if (parsed is PaymentAlertParser.Result.Ignored) return mapOf("result" to "ignored")
         val amount = (parsed as? PaymentAlertParser.Result.Accepted)?.amountPaise
         val reference = (parsed as? PaymentAlertParser.Result.Accepted)?.reference
+        // Spoken in the thank-you only; never put in the event, the log or the upload.
+        val payer = (parsed as? PaymentAlertParser.Result.Accepted)?.payer
         val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$whenMillis"
         val now = System.currentTimeMillis()
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
@@ -407,17 +410,19 @@ object AskodoxPaymentAlerts {
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
         event.put("spoken", if (quiet) "quiet_hours" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet) speak(context, amount, test, localId)
+        if (!quiet) speak(context, amount, test, localId, payer)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test) upload(context, localId)
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
             "amountPaise" to amount, "spoken" to !quiet)
     }
 
-    private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?) {
+    private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?, payer: String? = null) {
         val cfg = config(context)
         val language = cfg.optString("language", "te").ifEmpty { "te" }
-        Speaker.say(context, PaymentAlertParser.announcement(amount, language, test), language, cfg) { ok ->
+        val name = if (cfg.optBoolean("say_name", true)) payer else null
+        val parts = PaymentAlertParser.announcementParts(amount, language, test, name, cfg.optString("shop_name"))
+        CloudVoice.say(context, parts, language, cfg) { ok ->
             if (eventId != null) {
                 update(context, eventId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
                 main.post { channel?.invokeMethod("paymentEvent", "{}") } // the open screen refreshes "Voice: Spoken"
@@ -471,6 +476,97 @@ object AskodoxPaymentAlerts {
         val fmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
         fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
         return fmt.format(java.util.Date(millis))
+    }
+
+    /**
+     * The shop's chosen ElevenLabs voice (owner 2026-11-13): each part of the thank-you is fetched ONCE from
+     * ASKODOX (/api/in-app/voice/speak) and kept on this phone, so the fixed words (closing line, shop part) and
+     * every name / amount heard before cost nothing again. Parts are joined into one MP3 and played by [Player]
+     * (chime, loud, Bluetooth speaker). Offline, slow or any failure -> the phone's own voice says the whole
+     * sentence ([Speaker]), so a payment is never silent.
+     */
+    object CloudVoice {
+        private const val MAX_FILES = 400
+        private const val SEGMENT_TIMEOUT_MS = 6000
+        private val voiceIo = Executors.newSingleThreadExecutor() // never waits behind uploads
+
+        fun say(context: Context, parts: List<String>, language: String, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
+            val app = context.applicationContext
+            val text = parts.joinToString(" ")
+            val fallback = { Speaker.say(app, text, language, cfg, done) }
+            if (!enabled(cfg) || parts.isEmpty()) { fallback(); return }
+            voiceIo.execute {
+                val files = try { parts.map { fetch(app, it, language, cfg) } } catch (_: Exception) { null }
+                if (files == null || files.any { it == null }) { AskodoxPaymentAlerts.main.post { fallback() }; return@execute }
+                try {
+                    val dir = java.io.File(app.cacheDir, "payalert").apply { mkdirs() }
+                    val out = java.io.File(dir, "pv-${System.nanoTime()}.mp3")
+                    out.outputStream().use { o -> files.forEach { f -> f!!.inputStream().use { it.copyTo(o) } } }
+                    Player.enqueue(app, out, cfg, done)
+                } catch (_: Exception) {
+                    AskodoxPaymentAlerts.main.post { fallback() }
+                }
+            }
+        }
+
+        /** Fetch the parts that never change for this shop / voice / language, in the background. */
+        fun prefetch(context: Context, cfg: JSONObject) {
+            if (!enabled(cfg) || !cfg.optBoolean("enabled", false)) return
+            val app = context.applicationContext
+            val language = cfg.optString("language", "te").ifEmpty { "te" }
+            val parts = PaymentAlertParser.announcementParts(100, language, false, null, cfg.optString("shop_name"))
+            voiceIo.execute {
+                for (p in parts.drop(2)) try { fetch(app, p, language, cfg) } catch (_: Exception) { return@execute }
+            }
+        }
+
+        private fun enabled(cfg: JSONObject) =
+            cfg.optBoolean("cloud_voice", true) && cfg.optString("base_url").startsWith("http")
+
+        private fun voice(cfg: JSONObject) = cfg.optString("voice", "female").let {
+            if (it in setOf("female", "male", "female2", "male2")) it else "female"
+        }
+
+        private fun dir(context: Context) = java.io.File(context.filesDir, "payvoice").apply { mkdirs() }
+
+        private fun key(text: String, language: String, voice: String): String {
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest("$voice|$language|$text".toByteArray())
+            return digest.take(16).joinToString("") { "%02x".format(it) }
+        }
+
+        /** The part's MP3 on this phone (fetched once), or null when ASKODOX / ElevenLabs did not give one. */
+        private fun fetch(context: Context, text: String, language: String, cfg: JSONObject): java.io.File? {
+            val v = voice(cfg)
+            val file = java.io.File(dir(context), key(text, language, v) + ".mp3")
+            if (file.length() > 0) { file.setLastModified(System.currentTimeMillis()); return file }
+            val base = cfg.optString("base_url").trimEnd('/')
+            val conn = URL("$base/api/in-app/voice/speak").openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "POST"
+                conn.connectTimeout = SEGMENT_TIMEOUT_MS
+                conn.readTimeout = SEGMENT_TIMEOUT_MS
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", "application/json")
+                val body = JSONObject().put("text", text).put("locale", "$language-IN").put("voice", v)
+                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                if (conn.responseCode != 200) return null
+                // Only the ElevenLabs MP3 is kept: parts are joined byte-wise, which needs one format and one voice.
+                if (conn.getHeaderField("X-ASKODOX-TTS-Path") != "elevenlabs") return null
+                val tmp = java.io.File(file.path + ".part")
+                conn.inputStream.use { input -> tmp.outputStream().use { input.copyTo(it) } }
+                if (tmp.length() == 0L || !tmp.renameTo(file)) { tmp.delete(); return null }
+                prune(context)
+                return file
+            } finally {
+                conn.disconnect()
+            }
+        }
+
+        private fun prune(context: Context) {
+            val all = dir(context).listFiles { f -> f.name.endsWith(".mp3") } ?: return
+            if (all.size <= MAX_FILES) return
+            all.sortedBy { it.lastModified() }.take(all.size - MAX_FILES).forEach { it.delete() }
+        }
     }
 
     /** One TextToSpeech for alerts, on MEDIA audio (Bluetooth speaker when connected), queued (QUEUE_ADD). */
@@ -530,7 +626,7 @@ object AskodoxPaymentAlerts {
                 spoken = PaymentAlertParser.announcement(Regex("""\d+""").find(text)?.value?.toLongOrNull()?.times(100), "en",
                     text.startsWith("టెస్ట్") || text.startsWith("टेस्ट"))
             }
-            val wantMale = cfg.optString("voice") == "male"
+            val wantMale = cfg.optString("voice").startsWith("male")
             try {
                 engine.voices?.filter { it.locale.language == engine.voice?.locale?.language && !it.isNetworkConnectionRequired }
                     ?.firstOrNull { v ->
