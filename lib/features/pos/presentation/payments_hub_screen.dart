@@ -311,9 +311,11 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
       Text(te ? 'ఇప్పుడే వచ్చినవి' : 'Just came in',
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _muted, letterSpacing: .4)),
       const SizedBox(height: 8),
-      Container(
+      Material(
         key: const Key('askodoxPaymentsHubRecent'),
-        decoration: _card,
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _line)),
         child: Column(children: [
           if (latest.isEmpty)
             Padding(

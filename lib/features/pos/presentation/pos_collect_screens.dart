@@ -254,8 +254,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
               ]),
               const SizedBox(height: 16),
               // Payment sound alerts (also for staff phones) -- owner 2026-11-10.
-              Container(
-                decoration: _payCard,
+              _payPaper(
                 child: ListTile(
                   key: const Key('askodoxPayMethodsAlerts'),
                   leading: const Icon(Icons.volume_up_rounded, color: _payBlue),
@@ -392,8 +391,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         ),
       ),
     ];
-    return Container(
-      decoration: _payCard,
+    return _payPaper(
       child: Column(children: [
         for (var i = 0; i < rows.length; i++) ...[
           if (i > 0) const Divider(height: 1, color: Color(0xFFEEF0F4)),
@@ -408,6 +406,14 @@ const _payBg = Color(0xFFF4F5F7);
 const _payInk = Color(0xFF10204A);
 const _payMuted = Color(0xFF5A6478);
 const _payBlue = Color(0xFF2450C8);
+/// A white card that is also a Material, so list rows inside keep their ink.
+Widget _payPaper({required Widget child}) => Material(
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFE6E9EF))),
+      child: child,
+    );
+
 final _payCard = BoxDecoration(
   color: Colors.white,
   border: Border.all(color: const Color(0xFFE6E9EF)),
@@ -768,10 +774,12 @@ class AskodoxPaymentOptionsNotice extends StatelessWidget {
     ];
     // The payer reads all of it before paying. The receiver always sees the first (safety) line;
     // the optional ways stay folded under "More" so the page stays neat.
-    return Container(
+    return Material(
       key: Key(forBuyer ? 'askodoxPayOptionsNoticeBuyer' : 'askodoxPayOptionsNotice'),
+      color: const Color(0xFFFFFBEB),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(forBuyer ? 10 : 16)),
+      child: Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-      decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(forBuyer ? 10 : 16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         title,
         if (forBuyer) ...lines,
@@ -790,6 +798,7 @@ class AskodoxPaymentOptionsNotice extends StatelessWidget {
           ),
         ],
       ]),
+      ),
     );
   }
 }
