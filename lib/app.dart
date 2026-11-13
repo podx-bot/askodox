@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/brand/brand_config.dart';
 import 'config/router/app_router.dart';
 import 'config/theme/app_theme.dart';
+import 'shared/widgets/askodox_inner_theme.dart';
 import 'config/theme/askodox_design_tokens.dart';
 import 'core/providers/app_settings_provider.dart';
 import 'core/offline/offline_models.dart';
@@ -44,7 +45,8 @@ class PodxApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       title: BrandConfig.displayName,
       onGenerateTitle: (_) => BrandConfig.displayName,
-      theme: AppTheme.light,
+      // Inner pages (redesign 2026-11-13); the shell (Home) keeps AppTheme.light itself.
+      theme: askodoxInnerTheme(AppTheme.light),
       darkTheme: AppTheme.dark,
       // The shell is light; every pushed screen (Location, Privacy, Feedback,
       // Mobility, Videos) must match it -- dark here rendered them black.

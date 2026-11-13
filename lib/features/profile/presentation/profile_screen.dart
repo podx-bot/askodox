@@ -832,7 +832,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FC),
+      backgroundColor: const Color(0xFFF4F5F7),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

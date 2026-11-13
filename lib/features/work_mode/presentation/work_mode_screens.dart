@@ -19,7 +19,7 @@ import 'work_test_stage.dart';
 
 const _ink = Color(0xFF10204A);
 const _green = Color(0xFF1F8A5B);
-const _soft = Color(0xFFF6F5F0);
+const _soft = Color(0xFFF4F5F7); // inner-page grey (redesign 2026-11-13)
 
 bool _te(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
 
@@ -75,7 +75,8 @@ class AskodoxWorkModeScreen extends ConsumerWidget {
       key: const Key('askodoxWorkModeScreen'),
       backgroundColor: _soft,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _soft,
+        scrolledUnderElevation: 0,
         foregroundColor: _ink,
         elevation: 0,
         title: Text(te ? 'వర్క్ మోడ్' : 'Work Mode', style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -1260,7 +1261,8 @@ class _AskodoxSevaScreenState extends ConsumerState<AskodoxSevaScreen> {
       key: const Key('askodoxSevaScreen'),
       backgroundColor: _soft,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _soft,
+        scrolledUnderElevation: 0,
         foregroundColor: _ink,
         elevation: 0,
         title: Text(te ? 'సేవ / ధ్యానం' : 'Seva / meditation', style: const TextStyle(fontWeight: FontWeight.w900)),
