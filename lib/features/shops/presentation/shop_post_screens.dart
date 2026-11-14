@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/share/askodox_image_share.dart';
 import '../../pos/data/pos_repository.dart';
+import 'my_business_screens.dart' show askodoxBoxMic;
 
 bool _shopTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
 
@@ -151,7 +152,8 @@ class _AskodoxShopPostScreenState extends ConsumerState<AskodoxShopPostScreen> {
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
                 labelText: te ? 'ఏం చెప్పాలి? (తెలుగు/English)' : 'What to say? (Telugu / English)',
-                border: const OutlineInputBorder()),
+                border: const OutlineInputBorder(),
+                suffixIcon: askodoxBoxMic(context, _caption, changed: () => setState(() {}))),
           ),
           const SizedBox(height: 8),
           FilledButton(

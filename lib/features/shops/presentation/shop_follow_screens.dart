@@ -55,6 +55,13 @@ class _AskodoxShopFollowScreenState extends ConsumerState<AskodoxShopFollowScree
     }
   }
 
+  /// "Meat & fish · Chicken" in the reader's language (from the server's labels).
+  String _categoryText(AskodoxJson profile, bool te) {
+    final labels = askodoxPosMap(profile['labels']);
+    String pick(String key) => '${askodoxPosMap(labels[key])[te ? 'te' : 'en'] ?? ''}';
+    return [pick('category'), pick('subcategory')].where((x) => x.isNotEmpty).join(' · ');
+  }
+
   /// The shop's own details (the owner's words), shown before anything else.
   List<Widget> _details(AskodoxJson shop, bool te) {
     final profile = askodoxPosMap(shop['profile']);
@@ -70,7 +77,7 @@ class _AskodoxShopFollowScreenState extends ConsumerState<AskodoxShopFollowScree
           padding: const EdgeInsets.only(top: 6),
           child: Text(te ? '✓ ASKODOX నిర్ధారించింది' : '✓ Verified by ASKODOX'),
         ),
-      if (v('category').isNotEmpty) line(te ? 'ఏం దొరుకుతుంది' : 'What they offer', v('category')),
+      if (_categoryText(profile, te).isNotEmpty) line(te ? 'ఏం దొరుకుతుంది' : 'What they offer', _categoryText(profile, te)),
       if (v('description').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(v('description'))),
       if (v('hours').isNotEmpty) line(te ? 'సమయం' : 'Hours', v('hours')),
       if (v('landmark').isNotEmpty) line(te ? 'గుర్తు' : 'Landmark', v('landmark')),

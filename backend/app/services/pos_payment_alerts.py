@@ -50,7 +50,39 @@ SAME_PAYMENT_WINDOW_MIN = 2  # the same payment reported again inside this windo
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
-LANGUAGES = ("te", "hi", "en")
+# Owner 2026-11-14: every Indian language an ElevenLabs voice speaks (elevenlabs_tts.VOICES), not only te / hi / en.
+LANGUAGES = ("te", "hi", "en", "ta", "kn", "ml", "bn", "mr", "gu", "pa", "or", "ur")
+
+# (test word, unclear sentence, verified "{amount}", unverified "{amount}", rupees "{n}", paise "{n}")
+_WORDS = {
+    "ta": ("சோதனை.", "பணம் வந்ததாக அறிவிப்பு வந்தது, ஆனால் தொகை தெளிவாக இல்லை. ஆப்பில் பாருங்கள்.",
+           "உங்களுக்கு {amount} வந்தது.", "{amount} பணம் வந்ததாக அறிவிப்பு. வங்கியில் உறுதி செய்யுங்கள்.",
+           "{n} ரூபாய்", "{n} பைசா"),
+    "kn": ("ಪರೀಕ್ಷೆ.", "ಪಾವತಿ ಸೂಚನೆ ಬಂದಿದೆ, ಆದರೆ ಮೊತ್ತ ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ. ಆ್ಯಪ್‌ನಲ್ಲಿ ನೋಡಿ.",
+           "ನಿಮಗೆ {amount} ಬಂದಿದೆ.", "{amount} ಪಾವತಿ ಸೂಚನೆ ಬಂದಿದೆ. ಬ್ಯಾಂಕ್‌ನಲ್ಲಿ ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ.",
+           "{n} ರೂಪಾಯಿ", "{n} ಪೈಸೆ"),
+    "ml": ("പരീക്ഷണം.", "പേയ്‌മെന്റ് അറിയിപ്പ് വന്നു, പക്ഷേ തുക വ്യക്തമല്ല. ആപ്പിൽ നോക്കൂ.",
+           "നിങ്ങൾക്ക് {amount} ലഭിച്ചു.", "{amount} പേയ്‌മെന്റ് അറിയിപ്പ് വന്നു. ബാങ്കിൽ ഉറപ്പാക്കൂ.",
+           "{n} രൂപ", "{n} പൈസ"),
+    "bn": ("পরীক্ষা।", "পেমেন্টের নোটিফিকেশন এসেছে, কিন্তু টাকার পরিমাণ পরিষ্কার নয়। অ্যাপে দেখুন।",
+           "আপনি {amount} পেয়েছেন।", "{amount}-এর পেমেন্ট নোটিফিকেশন এসেছে। ব্যাংকে মিলিয়ে নিন।",
+           "{n} টাকা", "{n} পয়সা"),
+    "mr": ("चाचणी.", "पेमेंटची सूचना आली, पण रक्कम स्पष्ट नाही. ॲपमध्ये पहा.",
+           "तुम्हाला {amount} मिळाले.", "{amount} पेमेंटची सूचना आली आहे. बँकेत खात्री करा.",
+           "{n} रुपये", "{n} पैसे"),
+    "gu": ("ટેસ્ટ.", "પેમેન્ટની સૂચના આવી, પણ રકમ સ્પષ્ટ નથી. એપમાં જુઓ.",
+           "તમને {amount} મળ્યા.", "{amount} નું પેમેન્ટ નોટિફિકેશન આવ્યું. બેંકમાં ખાતરી કરો.",
+           "{n} રૂપિયા", "{n} પૈસા"),
+    "pa": ("ਟੈਸਟ।", "ਭੁਗਤਾਨ ਦੀ ਸੂਚਨਾ ਆਈ, ਪਰ ਰਕਮ ਸਾਫ਼ ਨਹੀਂ ਹੈ। ਐਪ ਵਿੱਚ ਦੇਖੋ।",
+           "ਤੁਹਾਨੂੰ {amount} ਮਿਲੇ।", "{amount} ਦੀ ਭੁਗਤਾਨ ਸੂਚਨਾ ਆਈ ਹੈ। ਬੈਂਕ ਵਿੱਚ ਪੱਕਾ ਕਰੋ।",
+           "{n} ਰੁਪਏ", "{n} ਪੈਸੇ"),
+    "or": ("ପରୀକ୍ଷା।", "ପେମେଣ୍ଟ ସୂଚନା ଆସିଛି, କିନ୍ତୁ ରାଶି ସ୍ପଷ୍ଟ ନାହିଁ। ଆପ୍‌ରେ ଦେଖନ୍ତୁ।",
+           "ଆପଣ {amount} ପାଇଛନ୍ତି।", "{amount} ପେମେଣ୍ଟ ସୂଚନା ଆସିଛି। ବ୍ୟାଙ୍କରେ ନିଶ୍ଚିତ କରନ୍ତୁ।",
+           "{n} ଟଙ୍କା", "{n} ପଇସା"),
+    "ur": ("ٹیسٹ۔", "ادائیگی کی اطلاع آئی ہے، لیکن رقم واضح نہیں ہے۔ ایپ میں دیکھیں۔",
+           "آپ کو {amount} ملے۔", "{amount} کی ادائیگی کی اطلاع آئی ہے۔ بینک میں تصدیق کریں۔",
+           "{n} روپے", "{n} پیسے"),
+}
 VOICES = ("female", "male", "female2", "male2")  # *2 = the second ElevenLabs voice (elevenlabs_tts)
 # Package ids of payment apps whose incoming-payment notifications may be read. The owner can
 # narrow this per shop; anything not listed is never read on the phone.
@@ -142,11 +174,18 @@ def spoken_name(label: str, role: str, language: str) -> str:
 
 def announcement(amount_paise: Optional[int], language: str, verified: bool = False, test: bool = False) -> str:
     """The sentence a phone speaks. Unverified wording always asks the shop to check the bank."""
+    words = _WORDS.get(language)
     if amount_paise is None:
+        if words:
+            return words[1]
         return {"te": "పేమెంట్ నోటిఫికేషన్ వచ్చింది, కానీ మొత్తం స్పష్టంగా లేదు. యాప్‌లో చూడండి.",
                 "hi": "पेमेंट नोटिफिकेशन आया, पर रकम साफ़ नहीं है। ऐप में देखें।",
                 "en": "A payment notification arrived but the amount is not clear. Please check the app."}.get(language, "")
     rupees, paise = divmod(int(amount_paise), 100)
+    if words:
+        amount = words[4].format(n=rupees) + (" " + words[5].format(n=paise) if paise else "")
+        text = (words[2] if verified else words[3]).format(amount=amount)
+        return (words[0] + " " + text) if test else text
     if language == "te":
         amount = f"{rupees} రూపాయల" + (f" {paise} పైసల" if paise else "")
         text = f"మీకు {amount.replace('రూపాయల', 'రూపాయలు')} అందాయి." if verified else \

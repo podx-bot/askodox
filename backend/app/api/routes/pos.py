@@ -1463,7 +1463,7 @@ def _payment_alerts(request: Request):
 
 class AlertSettingsIn(BaseModel):
     enabled: Optional[bool] = None
-    language: Optional[str] = Field(default=None, pattern="^(te|hi|en)$")
+    language: Optional[str] = Field(default=None, pattern="^(te|hi|en|ta|kn|ml|bn|mr|gu|pa|or|ur)$")
     voice: Optional[str] = Field(default=None, pattern="^(female|male|female2|male2)$")
     say_name: Optional[bool] = None
     rate_pct: Optional[int] = Field(default=None, ge=50, le=200)

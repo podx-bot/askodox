@@ -117,7 +117,7 @@ def test_owner_fills_the_shop_details_and_others_never_see_the_registration_numb
     assert saved["profile"]["status"] == "submitted", "filling the form never verifies by itself"
     assert saved["profile"]["fields"]["description"] == "తాజా చికెన్"
     assert saved["profile"]["fields"]["reg_number"] == "37ABCDE1234F1Z5" and "not_a_field" not in saved["profile"]["fields"]
-    assert saved["category"] == "చికెన్, మటన్" and saved["address"] == "Main Road, Vuyyuru"
+    assert saved["category"] == "చికెన్, మటన్" and saved["address"] == "Main Road, Vuyyuru", "typed words show as typed"
     seen = follows.get(shop, FOLLOWER)
     assert "reg_number" not in seen["profile"]["fields"] and "37ABCDE1234F1Z5" not in str(seen)
     assert seen["profile"]["fields"]["instagram"] == "https://instagram.com/x"
@@ -128,3 +128,20 @@ def test_only_the_owner_changes_the_shop_details(env):
     with pytest.raises(PosError) as other:
         follows.save_profile(shop, FOLLOWER, {"description": "not mine"})
     assert other.value.status == 403 and other.value.code == "not_owner"
+
+
+def test_ready_categories_store_keys_and_show_names_in_both_languages(env):
+    from app.services.shop_follows import shop_categories
+
+    follows, shop, _ = env
+    cats = shop_categories()
+    meat = next(c for c in cats if c["key"] == "meat_fish")
+    assert meat["te"] == "మాంసం & చేపలు" and any(s["key"] == "chicken" for s in meat["subs"])
+    assert len({c["key"] for c in cats}) == len(cats), "category keys are unique"
+    saved = follows.save_profile(shop, OWNER, {"category": "meat_fish", "subcategory": "chicken"})
+    labels = saved["profile"]["labels"]
+    assert labels["category"] == {"en": "Meat & fish", "te": "మాంసం & చేపలు"}
+    assert labels["subcategory"] == {"en": "Chicken", "te": "చికెన్"}
+    assert saved["category"] == "Meat & fish"
+    other = follows.save_profile(shop, OWNER, {"category": "meat_fish", "subcategory": "other:Country chicken"})
+    assert other["profile"]["labels"]["subcategory"] == {"en": "Country chicken", "te": "Country chicken"}

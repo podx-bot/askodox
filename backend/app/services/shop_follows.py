@@ -29,11 +29,90 @@ SCHEMA = (
 )
 # The shop's own details (owner 2026-11-14): shown before anything from Google. Text only, the owner's own words.
 PROFILE_FIELDS = {  # field -> max length
-    "category": 80, "description": 600, "address": 200, "landmark": 120, "hours": 120, "website": 200,
+    "category": 80, "subcategory": 80, "description": 600, "address": 200, "landmark": 120, "hours": 120, "website": 200,
     "facebook": 200, "instagram": 200, "youtube": 200, "whatsapp": 20, "offers": 300, "delivery": 120,
     "extra": 600, "reg_number": 40,
 }
 PROFILE_REQUIRED = ("category", "description", "address", "hours")
+
+# Ready-to-pick shop categories (owner 2026-11-14): category -> sub-categories, English + Telugu. The app shows them as
+# two dropdowns; "other" lets the owner type their own. Stored values are the keys below (or "other:<their words>").
+SHOP_CATEGORIES: List[Dict[str, Any]] = [
+    {"key": "meat_fish", "en": "Meat & fish", "te": "మాంసం & చేపలు", "subs": [
+        ("chicken", "Chicken", "చికెన్"), ("mutton", "Mutton", "మటన్"), ("fish", "Fish", "చేపలు"),
+        ("prawns", "Prawns", "రొయ్యలు"), ("eggs", "Eggs", "గుడ్లు")]},
+    {"key": "grocery", "en": "Grocery", "te": "కిరాణా", "subs": [
+        ("kirana", "Kirana store", "కిరాణా షాప్"), ("supermarket", "Supermarket", "సూపర్ మార్కెట్"),
+        ("rice_grains", "Rice & grains", "బియ్యం & ధాన్యాలు"), ("oil_ghee", "Oil & ghee", "నూనె & నెయ్యి"),
+        ("dry_fruits", "Dry fruits", "డ్రై ఫ్రూట్స్")]},
+    {"key": "veg_fruits", "en": "Vegetables & fruits", "te": "కూరగాయలు & పండ్లు", "subs": [
+        ("vegetables", "Vegetables", "కూరగాయలు"), ("fruits", "Fruits", "పండ్లు"), ("flowers", "Flowers", "పూలు")]},
+    {"key": "dairy_bakery", "en": "Dairy, sweets & bakery", "te": "పాలు, స్వీట్లు & బేకరీ", "subs": [
+        ("milk", "Milk & curd", "పాలు & పెరుగు"), ("sweets", "Sweets", "స్వీట్లు"), ("bakery", "Bakery", "బేకరీ"),
+        ("tea_snacks", "Tea & snacks", "టీ & స్నాక్స్")]},
+    {"key": "food", "en": "Restaurant & food", "te": "హోటల్ & ఆహారం", "subs": [
+        ("tiffin", "Tiffin centre", "టిఫిన్ సెంటర్"), ("meals", "Meals / restaurant", "భోజనం / రెస్టారెంట్"),
+        ("biryani", "Biryani", "బిర్యానీ"), ("fast_food", "Fast food", "ఫాస్ట్ ఫుడ్"),
+        ("juice", "Juice & ice cream", "జ్యూస్ & ఐస్ క్రీం"), ("catering", "Catering", "క్యాటరింగ్")]},
+    {"key": "clothing", "en": "Clothes & tailoring", "te": "బట్టలు & టైలరింగ్", "subs": [
+        ("clothes", "Clothes", "బట్టలు"), ("sarees", "Sarees", "చీరలు"), ("readymade", "Readymade", "రెడీమేడ్"),
+        ("footwear", "Footwear", "చెప్పులు"), ("tailor", "Tailor", "టైలర్")]},
+    {"key": "mobile_electronics", "en": "Mobile & electronics", "te": "మొబైల్ & ఎలక్ట్రానిక్స్", "subs": [
+        ("mobile_shop", "Mobile shop", "మొబైల్ షాప్"), ("mobile_repair", "Mobile repair", "మొబైల్ రిపేర్"),
+        ("electronics", "Electronics", "ఎలక్ట్రానిక్స్"), ("computer", "Computer & printing", "కంప్యూటర్ & ప్రింటింగ్")]},
+    {"key": "home_hardware", "en": "Home & hardware", "te": "ఇల్లు & హార్డ్‌వేర్", "subs": [
+        ("hardware", "Hardware", "హార్డ్‌వేర్"), ("paints", "Paints", "పెయింట్స్"),
+        ("electrical", "Electrical items", "ఎలక్ట్రికల్ సామాన్లు"), ("plumbing_items", "Plumbing items", "ప్లంబింగ్ సామాన్లు"),
+        ("furniture", "Furniture", "ఫర్నిచర్")]},
+    {"key": "beauty", "en": "Beauty & personal care", "te": "అందం & వ్యక్తిగత సంరక్షణ", "subs": [
+        ("salon", "Salon", "సెలూన్"), ("beauty_parlour", "Beauty parlour", "బ్యూటీ పార్లర్"),
+        ("cosmetics", "Cosmetics", "కాస్మెటిక్స్")]},
+    {"key": "health", "en": "Health", "te": "ఆరోగ్యం", "subs": [
+        ("medical_shop", "Medical shop", "మెడికల్ షాప్"), ("clinic", "Clinic", "క్లినిక్"),
+        ("lab", "Diagnostic lab", "ల్యాబ్"), ("optical", "Optical", "కళ్ళద్దాలు")]},
+    {"key": "vehicles", "en": "Vehicles", "te": "వాహనాలు", "subs": [
+        ("bike_repair", "Bike repair", "బైక్ రిపేర్"), ("car_repair", "Car repair", "కార్ రిపేర్"),
+        ("spare_parts", "Spare parts", "స్పేర్ పార్ట్స్"), ("tyres", "Tyres", "టైర్లు"),
+        ("wash", "Car / bike wash", "కార్ / బైక్ వాష్")]},
+    {"key": "farming", "en": "Farming", "te": "వ్యవసాయం", "subs": [
+        ("fertilizers", "Fertilizers & seeds", "ఎరువులు & విత్తనాలు"), ("pesticides", "Pesticides", "పురుగు మందులు"),
+        ("farm_tools", "Farm tools", "వ్యవసాయ పనిముట్లు"), ("dairy_farm", "Dairy farm", "డెయిరీ ఫామ్")]},
+    {"key": "services", "en": "Home services", "te": "ఇంటి సేవలు", "subs": [
+        ("electrician", "Electrician", "ఎలక్ట్రీషియన్"), ("plumber", "Plumber", "ప్లంబర్"),
+        ("carpenter", "Carpenter", "కార్పెంటర్"), ("cleaning", "Cleaning", "క్లీనింగ్"),
+        ("laundry", "Laundry", "లాండ్రీ"), ("photography", "Photography", "ఫోటోగ్రఫీ")]},
+    {"key": "education", "en": "Education", "te": "విద్య", "subs": [
+        ("tuition", "Tuition", "ట్యూషన్"), ("coaching", "Coaching", "కోచింగ్"),
+        ("school", "School / college", "స్కూల్ / కాలేజ్"), ("stationery", "Stationery & books", "స్టేషనరీ & పుస్తకాలు")]},
+    {"key": "transport", "en": "Travel & transport", "te": "ప్రయాణం & రవాణా", "subs": [
+        ("cab", "Taxi / cab", "టాక్సీ / క్యాబ్"), ("auto", "Auto", "ఆటో"), ("travels", "Travels", "ట్రావెల్స్"),
+        ("goods", "Goods transport", "సరుకు రవాణా")]},
+    {"key": "events", "en": "Events", "te": "ఈవెంట్లు", "subs": [
+        ("function_hall", "Function hall", "ఫంక్షన్ హాల్"), ("decoration", "Decoration", "డెకరేషన్"),
+        ("tent_house", "Tent house", "టెంట్ హౌస్"), ("sound_light", "Sound & lighting", "సౌండ్ & లైటింగ్")]},
+]
+_CATEGORY_BY_KEY = {c["key"]: c for c in SHOP_CATEGORIES}
+
+
+def shop_categories() -> List[Dict[str, Any]]:
+    return [{"key": c["key"], "en": c["en"], "te": c["te"],
+             "subs": [{"key": k, "en": en, "te": te} for k, en, te in c["subs"]]} for c in SHOP_CATEGORIES]
+
+
+def category_labels(category: str, subcategory: str) -> Dict[str, Dict[str, str]]:
+    """Readable names for the stored keys ("other:<words>" shows the words as typed)."""
+    out: Dict[str, Dict[str, str]] = {}
+    top = _CATEGORY_BY_KEY.get(category)
+    if top:
+        out["category"] = {"en": top["en"], "te": top["te"]}
+    elif category:
+        words = category.split(":", 1)[1] if category.startswith("other:") else category
+        out["category"] = {"en": words, "te": words}
+    if subcategory:
+        match = next(((en, te) for k, en, te in (top or {}).get("subs", ()) if k == subcategory), None)
+        words = subcategory.split(":", 1)[1] if subcategory.startswith("other:") else subcategory
+        out["subcategory"] = {"en": match[0], "te": match[1]} if match else {"en": words, "te": words}
+    return out
 PROFILE_PRIVATE = ("reg_number",)  # GST / Udyam number: for ASKODOX's check only, never shown to others
 MAX_IMAGE_BYTES = 900_000
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -76,7 +155,7 @@ class ShopFollows:
             "business_id": shop["id"],
             "name": shop["name"],
             "address": profile["fields"].get("address") or shop["address"],
-            "category": profile["fields"].get("category") or shop["template"],
+            "category": (profile["labels"].get("category") or {}).get("en") or shop["template"],
             "followers": int(followers),
             "following": following,
             "is_owner": is_owner,
@@ -97,7 +176,8 @@ class ShopFollows:
         status = "verified" if row is not None and row["verified_at"] and not missing else (
             "incomplete" if missing else "submitted")
         shown = fields if private else {k: v for k, v in fields.items() if k not in PROFILE_PRIVATE}
-        return {"fields": shown, "missing": missing, "status": status}
+        return {"fields": shown, "missing": missing, "status": status,
+                "labels": category_labels(fields.get("category", ""), fields.get("subcategory", ""))}
 
     def save_profile(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """The owner's own details. Unknown fields are dropped; a changed profile needs a fresh check."""
