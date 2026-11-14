@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` `5bac29d` (2026-11-14, server deployed SUCCESS on Railway): #323 My business desk (Phase 1, Profile > Shops >
+  My business `/me/business`: shop details `shop_profiles` + `PUT /api/shops/{id}/profile`, calculator bill with UPI QR for
+  the total + shareable bill picture -- bills are NOT stored, today's post) + shop follow / daily picture / follower feed
+  (`shop_follows.py`, `routes/shop_follows.py`, `/shops/:id` -- `/shop/:id` is a legacy redirect) + payment alerts: one
+  payment alerts once (same amount inside `SAME_PAYMENT_WINDOW_MIN` = 2 min is one event; a Razorpay copy upgrades the
+  phone row) and the thank-you by payer name in a chosen ElevenLabs voice + inner-page redesign, Payments hub, chat "Make
+  picture", ASKODOX Run scenes. The full POS stays Phase 2. NOT built: staff screen to verify shop details, finding other
+  shops from search / result cards, own-data-first result cards, scheduled 7 AM post, AI picture mode, follower push.
+  Sideload test APKs must be built with `include_payment_alerts=false` (Play Protect blocked test-1487). Nothing phone verified.
 - `main` `8b5ec95` (2026-11-12, server deployed SUCCESS on Railway): payment alerts round -- #315 CI pins Flutter 3.47.9
   (stable 3.50.0 broke analyze + AGP); #316 parser reads PhonePe "X sent ₹N to you"; #317 one-question setup card
   (`domain/payment_alert_setup.dart`, payment-app notifications + battery, Samsung wording) + `razorpay_signup_url`
