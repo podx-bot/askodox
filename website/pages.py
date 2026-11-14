@@ -940,6 +940,26 @@ def privacy(cfg: dict) -> Page:
 <li><strong>Location.</strong> Your device location only when you allow it, used to find nearby options. Others see your general area, never your exact location.</li>
 <li><strong>Listings, requests and orders.</strong> What you list, the requests you send or receive, and their status.</li>
 <li><strong>Device and notifications.</strong> Basic device information and, if you allow notifications, a notification token.</li>
+<li><strong>Voice.</strong> When you use the mic, your recording is sent to a speech-to-text provider to turn it into text. Replies can be read aloud using a text-to-speech provider.</li>
+<li><strong>Photos and pictures you make.</strong> Photos you share, and the words you use to create or edit a picture, are sent to an AI image provider to make that picture.</li>
+<li><strong>Personal memory.</strong> Your earlier requests may be used to make answers more relevant to you. You can turn this off or clear it in the app's memory settings.</li>
+<li><strong>AI Credits purchases.</strong> What you bought, when, and the credits used. Payments are handled by our payment processor; we never see or store your card number or UPI PIN.</li>
+</ul>
+<h3>For shops and businesses</h3>
+<ul>
+<li><strong>Business details.</strong> What you enter about your business: name, category, description, address and map pin, opening hours, links, offers and delivery. These are shown to people using ASKODOX. A GST or Udyam number, if you add one, is used only for ASKODOX's checks and is never shown to others.</li>
+<li><strong>Your ways to be paid.</strong> UPI IDs and QR codes you add, and bank details if you add them (stored encrypted), so customers can pay you directly. ASKODOX never holds your money.</li>
+<li><strong>Follows and posts.</strong> The shops you follow are private to you; a shop sees only how many people follow it, never who. Pictures a shop posts are shown to its followers.</li>
+<li><strong>Bills.</strong> Bills made with the quick bill are not stored by ASKODOX; they stay on your phone unless you share them.</li>
+</ul>
+<h3 id="payment-alerts">Payment alerts (optional, for shops)</h3>
+<p>If you switch on payment alerts and give the app <strong>notification access</strong> on your Android phone, ASKODOX reads notifications <strong>only from the payment apps listed in the app</strong> (for example PhonePe, Google Pay, Paytm, BHIM and the banking apps shown there), and only to detect money you received. It does not read notifications from any other app.</p>
+<ul>
+<li>From a payment notification the app takes the <strong>amount, time, the payment app and a short reference</strong>. These are saved in your payment-alert history and shared with the people you choose (for example your staff) so their phones can announce the payment.</li>
+<li>The <strong>payer's name</strong> is used only to say "thank you" aloud on your phone. It is not saved and not sent to ASKODOX.</li>
+<li>The full notification text is not uploaded.</li>
+<li>If you connect your own payment provider account (such as Razorpay) for bank-confirmed alerts, that provider sends payment events for your shop to ASKODOX.</li>
+<li>You can turn this off at any time in the app, or by removing ASKODOX from <em>Settings › Notification access</em> on your phone. Alerts are a convenience only; always check important payments in your bank or payment app.</li>
 </ul>
 <h2>How we use it</h2>
 <ul>
@@ -953,7 +973,7 @@ def privacy(cfg: dict) -> Page:
 <h2>Who we share it with</h2>
 <ul>
 <li><strong>Other users</strong>, only as described above: a request and your general area before acceptance, and contact details after acceptance.</li>
-<li><strong>Service providers</strong> that run parts of ASKODOX for us, such as cloud hosting, AI language and speech processing, web search, maps and places, and email. They process information only to provide their service to us.</li>
+<li><strong>Service providers</strong> that run parts of ASKODOX for us. Today these include cloud hosting (Railway), AI language models (Anthropic, OpenAI), speech (ElevenLabs, Sarvam), web search (Serper, Brave), maps, places, sign-in and notifications (Google and Firebase) and payments (Razorpay). They process information only to provide their service to us.</li>
 <li><strong>Authorities</strong>, when the law requires it.</li>
 </ul>
 <p>Some of these providers may process information in other countries. We use providers that protect information appropriately.</p>
@@ -999,6 +1019,25 @@ def terms(cfg: dict) -> Page:
 <p>Check items and providers before you pay. Payment is made directly to the seller or provider unless ASKODOX clearly offers otherwise.</p>
 <h2>AI answers</h2>
 <p>ASKODOX uses AI to understand requests and suggest options. Answers can be incomplete or wrong. Prices from the web are marked unverified. ASKODOX does not give professional legal, medical or financial advice; consult a qualified professional for those.</p>
+<h2>Payments between users</h2>
+<p>ASKODOX never holds money for buyers or sellers. When you pay a shop or provider, you pay them directly, for example to their own UPI ID, QR code or bank account. Disputes about goods, services or payments are between you and that shop or provider, though you can report problems to us.</p>
+<h2>AI Credits</h2>
+<ul>
+<li>Some AI features, such as creating pictures and heavier tasks, use prepaid AI Credits. Prices and what each use costs are shown in the app and include applicable taxes unless stated otherwise.</li>
+<li>Credits are used up as you use those features. They have no cash value and can't be transferred or exchanged for money.</li>
+<li>If a task fails, the credits held for it are returned automatically.</li>
+<li>If you were charged by mistake, contact us and we'll review it. Credits you have used are not refundable, except where the law requires.</li>
+</ul>
+<h2>Payment alerts for shops</h2>
+<p>Payment alerts announce money based on the notification from your payment app, or on events from a payment provider you connect. They are a convenience, not proof of payment. Always confirm important payments in your bank or payment app. ASKODOX is not responsible for an alert that is missed, late or wrong, for example because your phone was off, the payment app changed its notification, or notification access was turned off.</p>
+<h2>Business profiles, posts and bills</h2>
+<ul>
+<li>If you add a business, the details must be true and you must have the right to run it. A "verified" mark means ASKODOX checked the documents you gave at that time; it is not a guarantee of the business.</li>
+<li>You are responsible for what you post to followers. Posts must not be misleading, unlawful or infringe anyone's rights. We may remove posts or profiles that break these terms.</li>
+<li>The quick bill is a calculator to help you; it is not stored by ASKODOX and is not a tax invoice. You remain responsible for proper invoices and taxes.</li>
+</ul>
+<h2>Pictures you create</h2>
+<p>Don't use ASKODOX to create or edit pictures that are illegal, sexual, hateful, violent, deceptive, or that use another person's likeness or work without permission. We may refuse a request or remove content that breaks these rules.</p>
 <h2>Third-party links and partners</h2>
 <p>ASKODOX may show links to other websites and, once approved, partner or affiliate offers. We're not responsible for third-party sites. See the <a href="/affiliate-disclosure/">Affiliate disclosure</a>.</p>
 <h2>Our content</h2>
