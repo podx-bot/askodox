@@ -267,6 +267,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             row('profile-mobility', 'me', Icons.local_taxi_outlined, 'Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్',
                 'Book, track, or drive / deliver.', 'బుక్, ట్రాక్, లేదా డ్రైవ్ / డెలివర్.', () => context.push('/mobility'),
                 guide: 'screen_mobility', words: ['ride', 'parcel', 'auto', 'taxi', 'రైడ్', 'పార్సెల్']),
+            if (askodoxShownNow('profile-smart-tools'))
             row('profile-smart-tools', 'me', Icons.handyman_outlined, 'Smart Tools', 'స్మార్ట్ టూల్స్',
                 'Level, compass, calculators, photo inspection.', 'లెవెల్, దిక్సూచి, లెక్కలు, ఫోటో పరిశీలన.',
                 () => context.push('/tools'), words: ['tools', 'calculator', 'compass', 'టూల్స్']),

@@ -13,6 +13,7 @@ import 'package:podx/core/auth/auth_models.dart';
 import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/core/providers/backend_providers.dart';
 import 'package:podx/features/guide/in_app_guide.dart';
+import 'package:podx/features/guide/screen_help_button.dart' show askodoxGuideButtonOn;
 import 'package:podx/features/home/application/conversation_archive.dart';
 import 'package:podx/features/profile/data/user_profile_repository.dart';
 import 'package:podx/features/profile/presentation/profile_screen.dart';
@@ -167,7 +168,7 @@ void main() {
       '/': page('HOME'),
       for (final r in ['/business', '/listings/mine', '/orders/incoming', '/business/promotions', '/business/automation',
           '/videos/native', '/business/creations', '/profile/roles', '/opportunities', '/mobility', '/privacy', '/tools',
-          '/me/finance', '/intel/tax', '/me/payment-methods', '/me/ai-credits', '/radio'])
+          '/me/finance', '/intel/tax', '/me/payment-methods', '/me/ai-credits', '/radio', '/me/business'])
         r: page(r),
     });
     if (askodoxPhase2) {
@@ -210,9 +211,11 @@ void main() {
         ('me', 'profile-mobility', '/mobility'),
         ('me', 'profile-tax-assistant', '/intel/tax'),
         ('me', 'profile-personal-finance', '/me/finance'),
-      ] else
+        ('me', 'profile-smart-tools', '/tools'),
+      ] else ...[
         ('me', 'profile-payment-methods', '/me/payment-methods'),
-      ('me', 'profile-smart-tools', '/tools'),
+        ('me', 'profile-my-business', '/me/business'),
+      ],
     ]) {
       await _openProfileView(tester, container, tab);
       final row = find.byKey(ValueKey(key));
@@ -487,11 +490,16 @@ void main() {
       await tester.pump();
     }
     await _openProfileView(tester, container, 'me');
-    await tester.ensureVisible(find.byKey(const Key('askodoxProfileGuide')));
-    await tester.tap(find.byKey(const Key('askodoxProfileGuide')));
-    await tester.pump();
-    expect(container.read(askodoxGuideProvider)?.flow.id, 'screen_profile_details');
-    container.read(askodoxGuideProvider.notifier).stop();
+    if (askodoxGuideButtonOn) {
+      await tester.ensureVisible(find.byKey(const Key('askodoxProfileGuide')));
+      await tester.tap(find.byKey(const Key('askodoxProfileGuide')));
+      await tester.pump();
+      expect(container.read(askodoxGuideProvider)?.flow.id, 'screen_profile_details');
+      container.read(askodoxGuideProvider.notifier).stop();
+    } else {
+      // Owner 2026-11-14: the profile guide link is hidden with the Guide button.
+      expect(find.byKey(const Key('askodoxProfileGuide')), findsNothing);
+    }
     expect(find.byType(AskodoxNavListRow), findsWidgets, reason: 'headed list rows: each tap opens its page');
   });
 
