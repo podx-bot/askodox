@@ -303,6 +303,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }),
                         ))),
           ]),
+      AskodoxNavSection(
+          key: const Key('askodoxProfileSection-following'),
+          title: t('Shops', 'షాప్‌లు'),
+          icon: Icons.storefront_outlined,
+          children: [
+            row('profile-following', 'me', Icons.storefront_outlined, 'Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు',
+                'Updates from the shops you follow.', 'మీరు ఫాలో చేసే షాప్‌ల అప్‌డేట్స్.',
+                () => context.push('/me/following'), words: ['follow', 'shop', 'ఫాలో', 'షాప్']),
+          ]),
       // Phase 1: the Business tab is hidden, so "My payment methods" (own UPI QR / bank, used to
       // collect money) lives here as a plain list row (also on the bottom bar's Payments).
       if (!askodoxPhase2)

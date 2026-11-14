@@ -5806,6 +5806,58 @@
       "history": [
         "2026-11-13: owner approved (thank-you by name, voice + language dropdowns, fixed words fetched once)"
       ]
+    },
+    {
+      "id": "shop_follow",
+      "name": "Follow a shop (any signed-in person, shop owners included)",
+      "purpose": "Owner 2026-11-14: a shop can be followed by anyone. Shop owners can follow other shops; a shop cannot be followed by its own owner. Shops see a count only.",
+      "expected_behavior": "GET /api/shops/{id} returns name, address, category, followers count, following flag and is_owner for the caller. POST / DELETE /api/shops/{id}/follow are idempotent; the owner of a shop gets 409 own_shop. GET /api/me/follows lists the shops the caller follows. Follower identities are never returned. App: /shops/:id (follow / unfollow, owner sees 'your shop') and /me/following from Profile > Shops.",
+      "roles": [
+        "buyer",
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/shops/{business_id}"
+        },
+        {
+          "method": "POST",
+          "path": "/api/shops/{business_id}/follow"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/shops/{business_id}/follow"
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/follows"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxProfileSection-following",
+          "profile-following"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_shop_follows.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "pos_businesses"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-14: owner approved (anyone can follow a shop, owners included; own shop blocked; counts only)"
+      ]
     }
   ]
 }

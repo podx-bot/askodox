@@ -254,6 +254,20 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'అదే మొత్తం పేమెంట్ నోటిఫికేషన్ వస్తే గుర్తు పెడుతుంది — బ్యాంక్ యాప్‌లో చూసుకోండి.',
     'చూసుకున్నాకే "డబ్బు అందింది" నొక్కండి. ASKODOX డబ్బు పట్టుకోదు.',
   ]),
+  '/me/following': _H('Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు', [
+    'Shops you follow appear here. Tap one to see it and its updates.',
+    'Following is free and anyone can do it; a shop owner can follow other shops too.',
+  ], [
+    'మీరు ఫాలో చేసే షాప్‌లు ఇక్కడ ఉంటాయి. ఒకదాన్ని నొక్కి, దాని వివరాలు చూడండి.',
+    'ఫాలో చేయడం ఉచితం. ఎవరైనా చేయవచ్చు; షాప్ యజమాని ఇతర షాప్‌లనూ ఫాలో చేయవచ్చు.',
+  ]),
+  '/shops/:id': _H('Shop', 'షాప్', [
+    'See the shop and how many people follow it. Tap Follow to get its updates.',
+    'The shop owner sees its own shop here and cannot follow it.',
+  ], [
+    'షాప్ వివరాలు, దాన్ని ఎంతమంది ఫాలో చేస్తున్నారో చూడండి. అప్‌డేట్స్ కోసం ఫాలో నొక్కండి.',
+    'షాప్ యజమాని తన షాప్‌ను ఇక్కడ చూస్తారు, కానీ దాన్ని ఫాలో చేయలేరు.',
+  ]),
   '/me/ai-credits': _H('AI Credits', 'AI క్రెడిట్స్', [
     'Your AI Credits balance and what each AI use costs (only when charging is on).',
     'Recharge opens Razorpay; credits are added only after Razorpay confirms the payment.',
