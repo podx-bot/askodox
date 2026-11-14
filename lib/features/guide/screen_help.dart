@@ -261,7 +261,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీరు ఫాలో చేసే షాప్‌లు ఇక్కడ ఉంటాయి. ఒకదాన్ని నొక్కి, దాని వివరాలు చూడండి.',
     'ఫాలో చేయడం ఉచితం. ఎవరైనా చేయవచ్చు; షాప్ యజమాని ఇతర షాప్‌లనూ ఫాలో చేయవచ్చు.',
   ]),
-  '/shops/:id/post': _H('Today's post', 'ఈ రోజు పోస్ట్', [
+  '/shops/:id/post': _H("Today's post", 'ఈ రోజు పోస్ట్', [
     'Write one line in Telugu or English. The picture shows your shop name and ASKODOX.',
     'One post a day. Followers of your shop see it in their shop updates.',
   ], [
