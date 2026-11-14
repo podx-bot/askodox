@@ -24,6 +24,7 @@ import 'profile_header.dart';
 import '../../../shared/widgets/askodox_mascot.dart';
 import '../../settings/developer_diagnostics_screen.dart';
 import '../../guide/in_app_guide.dart';
+import '../../guide/screen_help_button.dart' show askodoxGuideButtonOn;
 import '../../home/presentation/question_mic.dart';
 
 /// Which part of Profile is open: 'me' (default), 'settings' (opened from the
@@ -851,6 +852,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // The user's own stored profile (photo, name, mobile, address, language, roles, business).
           AskodoxProfileHeader(telugu: te),
+          if (askodoxGuideButtonOn)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Align(

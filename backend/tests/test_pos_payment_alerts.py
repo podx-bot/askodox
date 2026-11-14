@@ -54,7 +54,7 @@ def test_valid_notification_is_unverified_and_fans_out_to_staff(env):
     assert e["verified"] is False and e["duplicate"] is False
     assert e["reference_tail"] == "7890" and e["source_label"] == "PhonePe Business"
     assert e["receiving_device"] == "Counter phone"
-    assert "బ్యాంకులో నిర్ధారించుకోండి" in e["announcement"]["te"], "unverified wording always asks to check the bank"
+    assert e["announcement"]["te"].endswith("వచ్చాయి."), "a phone alert says the money came, without a bank lecture"
     assert [p[0] for p in pushes] == [CASHIER], "staff device gets the alert; the reporter does not"
     assert pushes[0][3] == f"/pos/{biz}/payment-alerts"
     assert e["delivery_pending"] == 1, "cashier device has not acknowledged yet"
@@ -209,10 +209,12 @@ def test_push_failure_never_fails_report_and_kill_switch(env):
 
 
 def test_settings_validation_and_announcements():
-    assert announcement(50000, "te") == "500 రూపాయల పేమెంట్ నోటిఫికేషన్ వచ్చింది. బ్యాంకులో నిర్ధారించుకోండి."
+    assert announcement(50000, "te") == "500 రూపాయలు వచ్చాయి."
+    assert announcement(50050, "te") == "500 రూపాయలు 50 పైసలు వచ్చాయి."
+    assert announcement(50000, "en") == "500 rupees received."
     assert announcement(50000, "te", verified=True) == "మీకు 500 రూపాయలు అందాయి."
-    assert announcement(12550, "en").startswith("Payment notification of 125 rupees 50 paise")
-    assert "बैंक" in announcement(100, "hi")
+    assert announcement(12550, "en") == "125 rupees 50 paise received."
+    assert announcement(100, "hi") == "1 रुपये आए हैं।"
 
 
 def test_settings_rejects_bad_values(env):
@@ -281,7 +283,7 @@ def test_alert_carries_speak_data_for_closed_app(env):
     alerts.report(biz, OWNER, _event(owner_dev, "77"))
     speak = pushes[-1][5]
     assert speak["type"] == "payalert" and speak["verified"] == "0" and speak["language"] == "te"
-    assert "బ్యాంకులో నిర్ధారించుకోండి" in speak["text"]
+    assert speak["text"].endswith("వచ్చాయి.")
 
 
 def test_push_service_data_message_is_high_priority_once(tmp_path):
@@ -406,3 +408,16 @@ def test_member_label_is_kept_when_role_changes_without_one(env):
     store.set_member(biz, OWNER, "9400000302", "manager")
     member = [m for m in store.members(biz, OWNER) if m["phone_last4"] == "0302"][0]
     assert member["label"] == "Ravi Kumar" and member["role"] == "manager"
+
+
+def test_shops_on_the_first_app_list_get_the_new_payment_apps(tmp_path):
+    from app.services.pos_payment_alerts import DEFAULT_APPS, _shop_apps
+
+    first = {k: DEFAULT_APPS[k] for k in ("com.phonepe.app.business", "com.phonepe.app",
+             "com.google.android.apps.nbu.paisa.merchant", "com.google.android.apps.nbu.paisa.user",
+             "com.paytm.business", "net.one97.paytm", "in.org.npci.upiapp")}
+    upgraded = _shop_apps(first)
+    assert "in.amazon.mShop.android.shopping" in upgraded and "com.myairtelapp" in upgraded
+    assert len(DEFAULT_APPS) <= 20, "the per-shop limit is 20 apps"
+    own = {"com.phonepe.app": "PhonePe"}
+    assert _shop_apps(own) == own, "a shop that chose its own list keeps it"

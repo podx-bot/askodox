@@ -94,7 +94,30 @@ DEFAULT_APPS: Dict[str, str] = {
     "com.paytm.business": "Paytm for Business",
     "net.one97.paytm": "Paytm",
     "in.org.npci.upiapp": "BHIM",
+    # Owner 2026-11-14: the other UPI apps and the big bank apps money also arrives through (20 = the per-shop cap).
+    "in.amazon.mShop.android.shopping": "Amazon Pay",
+    "com.myairtelapp": "Airtel Thanks (Airtel Payments Bank)",
+    "com.dreamplug.androidapp": "CRED",
+    "com.mobikwik_new": "MobiKwik",
+    "com.naviapp": "Navi",
+    "money.super.payments": "super.money",
+    "com.freecharge.android": "Freecharge",
+    "com.sbi.lotusintouch": "SBI YONO",
+    "com.csam.icici.bank.imobile": "ICICI iMobile",
+    "com.snapwork.hdfc": "HDFC Bank",
+    "com.axis.mobile": "Axis Mobile",
+    "com.msf.kbank.mobile": "Kotak",
+    "com.bankofbaroda.mconnect": "bob World",
 }
+# The list shops were given before 2026-11-14: a shop still on exactly this list never chose its own,
+# so it follows the new default list.
+_FIRST_DEFAULT_APPS = frozenset({
+    "com.phonepe.app.business", "com.phonepe.app", "com.google.android.apps.nbu.paisa.merchant",
+    "com.google.android.apps.nbu.paisa.user", "com.paytm.business", "net.one97.paytm", "in.org.npci.upiapp"})
+
+
+def _shop_apps(stored: Dict[str, str]) -> Dict[str, str]:
+    return dict(DEFAULT_APPS) if frozenset(stored) == _FIRST_DEFAULT_APPS else stored
 DEFAULT_ROLES = ("owner", "manager", "cashier")
 # Extra wording the phones use on top of the phrases built into the app (PaymentAlertParser.kt), so new
 # payment-app wording is fixed with a server deploy instead of a new app build. Lower case.
@@ -184,19 +207,21 @@ def announcement(amount_paise: Optional[int], language: str, verified: bool = Fa
     rupees, paise = divmod(int(amount_paise), 100)
     if words:
         amount = words[4].format(n=rupees) + (" " + words[5].format(n=paise) if paise else "")
-        text = (words[2] if verified else words[3]).format(amount=amount)
+        text = words[2].format(amount=amount)  # same short sentence; no "check the bank" (owner 2026-11-14)
         return (words[0] + " " + text) if test else text
     if language == "te":
         amount = f"{rupees} రూపాయల" + (f" {paise} పైసల" if paise else "")
+        # Owner 2026-11-14: no "check the bank" on every alert -- the alert screen already says alerts come from
+        # the payment app's notification. Bank-confirmed = "you received"; phone notification = "came".
         text = f"మీకు {amount.replace('రూపాయల', 'రూపాయలు')} అందాయి." if verified else \
-            f"{amount} పేమెంట్ నోటిఫికేషన్ వచ్చింది. బ్యాంకులో నిర్ధారించుకోండి."
+            f"{amount.replace('రూపాయల', 'రూపాయలు').replace('పైసల', 'పైసలు')} వచ్చాయి."
         return ("టెస్ట్. " + text) if test else text
     if language == "hi":
         amount = f"{rupees} रुपये" + (f" {paise} पैसे" if paise else "")
-        text = f"आपको {amount} मिले।" if verified else f"{amount} का पेमेंट नोटिफिकेशन आया है। बैंक में पक्का कर लें।"
+        text = f"आपको {amount} मिले।" if verified else f"{amount} आए हैं।"
         return ("टेस्ट। " + text) if test else text
     amount = f"{rupees} rupees" + (f" {paise} paise" if paise else "")
-    text = f"You received {amount}." if verified else f"Payment notification of {amount} received. Please confirm in your bank."
+    text = f"You received {amount}." if verified else f"{amount} received."
     return ("Test. " + text) if test else text
 
 
@@ -237,7 +262,7 @@ class PosPaymentAlerts:
         return {"enabled": bool(row["enabled"]), "language": row["language"], "voice": row["voice"],
                 "rate_pct": row["rate_pct"], "volume_pct": row["volume_pct"], "quiet_start": row["quiet_start"],
                 "say_name": bool(row["say_name"]) if "say_name" in row.keys() else True,
-                "quiet_end": row["quiet_end"], "roles": json.loads(row["roles"]), "apps": json.loads(row["apps"]),
+                "quiet_end": row["quiet_end"], "roles": json.loads(row["roles"]), "apps": _shop_apps(json.loads(row["apps"])),
                 "updated_at": row["updated_at"]}
 
     def _member(self, conn: sqlite3.Connection, business_id: str, user: str) -> str:

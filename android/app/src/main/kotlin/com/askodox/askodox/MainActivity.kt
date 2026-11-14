@@ -224,8 +224,7 @@ class MainActivity : FlutterActivity() {
                     "shareFile" -> {
                         val path = call.argument<String>("path").orEmpty()
                         val file = java.io.File(path)
-                        val inCache = runCatching { file.canonicalPath.startsWith(cacheDir.canonicalPath + java.io.File.separator) }
-                            .getOrDefault(false)
+                        val inCache = askodoxInCache(file)
                         if (path.isBlank() || !inCache || !file.isFile || file.length() == 0L) {
                             result.success(false)
                         } else {
@@ -246,14 +245,44 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    // Save picture BYTES straight into the gallery (Pictures/ASKODOX), no file path involved
+                    // (phone 2026-11-14: "Could not save on this phone" on the bank-confirmation QR). Android 10+.
+                    "saveImageBytes" -> {
+                        val bytes = call.argument<ByteArray>("bytes")
+                        if (bytes == null || bytes.isEmpty() || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                            result.success(false)
+                        } else {
+                            try {
+                                val media = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                                val values = android.content.ContentValues().apply {
+                                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
+                                        call.argument<String>("name") ?: "askodox-${System.currentTimeMillis()}.png")
+                                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, call.argument<String>("mime") ?: "image/png")
+                                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/ASKODOX")
+                                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                                }
+                                val uri = contentResolver.insert(media, values)
+                                if (uri == null) {
+                                    result.success(false)
+                                } else {
+                                    contentResolver.openOutputStream(uri)?.use { out -> out.write(bytes) }
+                                    values.clear()
+                                    values.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                                    contentResolver.update(uri, values, null, null)
+                                    result.success(true)
+                                }
+                            } catch (e: Exception) {
+                                result.success(false)
+                            }
+                        }
+                    }
                     // Save a picture the app wrote to its OWN cache into the gallery (Pictures/ASKODOX),
                     // e.g. the shop's payment QR. Android 10+ only (no storage permission needed);
                     // older phones get false and the app offers the share sheet instead.
                     "saveImageToGallery" -> {
                         val path = call.argument<String>("path").orEmpty()
                         val file = java.io.File(path)
-                        val inCache = runCatching { file.canonicalPath.startsWith(cacheDir.canonicalPath + java.io.File.separator) }
-                            .getOrDefault(false)
+                        val inCache = askodoxInCache(file)
                         if (path.isBlank() || !inCache || !file.isFile || file.length() == 0L ||
                             Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                             result.success(false)
@@ -798,6 +827,12 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+
+    /** True when [file] is inside this app's cache folder (either spelling of the path: /data/user/0 or /data/data). */
+    private fun askodoxInCache(file: java.io.File): Boolean = runCatching {
+        val roots = listOf(cacheDir.canonicalPath, cacheDir.absolutePath).map { it + java.io.File.separator }
+        listOf(file.canonicalPath, file.absolutePath).any { p -> roots.any { p.startsWith(it) } }
+    }.getOrDefault(false)
 
     private fun getCurrentLocation(result: MethodChannel.Result) {
         if (pendingLocationResult != null) {

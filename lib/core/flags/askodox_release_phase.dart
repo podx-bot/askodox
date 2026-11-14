@@ -21,6 +21,7 @@ const bool askodoxPlayStoreBuild = bool.fromEnvironment('ASKODOX_PLAY_STORE');
 /// Profile rows hidden in Phase 1 (their widget keys stay in the code).
 const askodoxPhase2ProfileKeys = <String>{
   'profile-shop-scan',
+  'profile-smart-tools', // owner 2026-11-14: Smart Tools come back in Phase 2
   'profile-mobility',
   'profile-tax-assistant',
   'profile-personal-finance',

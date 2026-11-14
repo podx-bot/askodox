@@ -35,7 +35,7 @@ void main() {
     }
     expect(askodoxShownNow('profile-ai-credits'), isTrue);
     expect(askodoxShownNow('profile-radio'), isFalse);
-    expect(askodoxShownNow('profile-smart-tools'), isTrue);
+    expect(askodoxShownNow('profile-smart-tools'), isFalse, reason: 'Smart Tools wait for Phase 2 (owner 2026-11-14)');
     expect(askodoxShownNow('profile-privacy'), isTrue);
   });
 
