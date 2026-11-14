@@ -78,9 +78,15 @@ class _AskodoxShopFollowScreenState extends ConsumerState<AskodoxShopFollowScree
                       ? '${shop['followers']} మంది ఫాలో చేస్తున్నారు'
                       : '${shop['followers']} followers'),
                   const SizedBox(height: 16),
-                  if (shop['is_owner'] == true)
-                    Text(te ? 'ఇది మీ షాప్.' : 'This is your shop.')
-                  else
+                  if (shop['is_owner'] == true) ...[
+                    Text(te ? 'ఇది మీ షాప్.' : 'This is your shop.'),
+                    const SizedBox(height: 8),
+                    FilledButton.icon(
+                      onPressed: () => context.push('/shops/${widget.businessId}/post'),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: Text(te ? 'ఈ రోజు పోస్ట్ చేయండి' : "Post today's picture"),
+                    ),
+                  ] else
                     FilledButton(
                       onPressed: _busy ? null : _toggle,
                       child: Text(shop['following'] == true
@@ -113,7 +119,16 @@ class _AskodoxFollowingShopsScreenState extends ConsumerState<AskodoxFollowingSh
   Widget build(BuildContext context) {
     final te = _te(context);
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'నేను ఫాలో చేస్తున్న షాప్‌లు' : 'Shops I follow')),
+      appBar: AppBar(
+        title: Text(te ? 'నేను ఫాలో చేస్తున్న షాప్‌లు' : 'Shops I follow'),
+        actions: [
+          IconButton(
+            tooltip: te ? 'షాప్ అప్‌డేట్స్' : 'Shop updates',
+            icon: const Icon(Icons.dynamic_feed_outlined),
+            onPressed: () => context.push('/me/shop-feed'),
+          ),
+        ],
+      ),
       body: FutureBuilder<List<AskodoxJson>>(
         future: _follows,
         builder: (context, snapshot) {

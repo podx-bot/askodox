@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 
 from app.api.routes.pos import _store, _user
 from app.services.pos_store import PosError
@@ -47,3 +50,37 @@ def unfollow_shop(business_id: str, request: Request) -> Dict[str, Any]:
 def my_follows(request: Request) -> Dict[str, Any]:
     user = _user(request, bucket="shop_follow", limit=120)
     return {"follows": _service(request).my_follows(user)}
+
+
+class ShopPostIn(BaseModel):
+    caption: str = Field(default="", max_length=600)
+    image_base64: str = Field(default="", max_length=1_300_000)
+
+
+@router.post("/api/shops/{business_id}/posts")
+def post_shop_picture(business_id: str, body: ShopPostIn, request: Request) -> Dict[str, Any]:
+    """The owner's one picture a day for this shop (the phone draws the shop name and ASKODOX brand into it)."""
+    user = _user(request, bucket="shop_post", limit=20)
+    try:
+        image = base64.b64decode(body.image_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail={"code": "image", "message": "Picture is not valid base64."})
+    return _call(_service(request).post, business_id, user, body.caption, image)
+
+
+@router.get("/api/me/feed")
+def my_feed(request: Request) -> Dict[str, Any]:
+    """Pictures from the shops this person follows (newest first). Each picture is opened by its own id below."""
+    user = _user(request, bucket="shop_feed", limit=240)
+    return {"posts": _service(request).feed(user)}
+
+
+@router.get("/api/shop-posts/{post_id}/image")
+def shop_post_image(post_id: str, request: Request) -> Response:
+    user = _user(request, bucket="shop_feed", limit=240)
+    try:
+        data = _service(request).image(post_id, user)
+    except PosError as error:
+        raise HTTPException(status_code=error.status,
+                            detail={"code": error.code, "message": error.message})
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})

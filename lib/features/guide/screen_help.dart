@@ -261,6 +261,20 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీరు ఫాలో చేసే షాప్‌లు ఇక్కడ ఉంటాయి. ఒకదాన్ని నొక్కి, దాని వివరాలు చూడండి.',
     'ఫాలో చేయడం ఉచితం. ఎవరైనా చేయవచ్చు; షాప్ యజమాని ఇతర షాప్‌లనూ ఫాలో చేయవచ్చు.',
   ]),
+  '/shops/:id/post': _H('Today's post', 'ఈ రోజు పోస్ట్', [
+    'Write one line in Telugu or English. The picture shows your shop name and ASKODOX.',
+    'One post a day. Followers of your shop see it in their shop updates.',
+  ], [
+    'ఒక లైన్ తెలుగులో లేదా English లో రాయండి. చిత్రంలో మీ షాప్ పేరు, ASKODOX ఉంటాయి.',
+    'రోజుకు ఒక్క పోస్ట్. మీ షాప్‌ను ఫాలో చేసేవారికి షాప్ అప్‌డేట్స్‌లో కనిపిస్తుంది.',
+  ]),
+  '/me/shop-feed': _H('Shop updates', 'షాప్ అప్‌డేట్స్', [
+    'Pictures from the shops you follow. Share sends the picture and its caption.',
+    'The ASKODOX line is part of the picture, so it stays when shared.',
+  ], [
+    'మీరు ఫాలో చేసే షాప్‌ల చిత్రాలు. షేర్ చేస్తే చిత్రం, క్యాప్షన్ వెళ్తాయి.',
+    'ASKODOX లైన్ చిత్రంలోనే ఉంటుంది, షేర్ చేసినా అలాగే ఉంటుంది.',
+  ]),
   '/shops/:id': _H('Shop', 'షాప్', [
     'See the shop and how many people follow it. Tap Follow to get its updates.',
     'The shop owner sees its own shop here and cannot follow it.',

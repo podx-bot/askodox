@@ -101,6 +101,10 @@ class AskodoxPosRepository {
   Future<AskodoxJson> followShop(String id) => _send('POST', '/api/shops/$id/follow');
   Future<AskodoxJson> unfollowShop(String id) => _send('DELETE', '/api/shops/$id/follow');
   Future<List<AskodoxJson>> myFollows() async => askodoxPosList((await _send('GET', '/api/me/follows'))['follows']);
+  /// The owner's one picture a day (the phone draws the brand into it). [imageBase64] is a PNG.
+  Future<AskodoxJson> createShopPost(String id, String caption, String imageBase64) =>
+      _send('POST', '/api/shops/$id/posts', body: {'caption': caption, 'image_base64': imageBase64});
+  Future<List<AskodoxJson>> myFeed() async => askodoxPosList((await _send('GET', '/api/me/feed'))['posts']);
   Future<AskodoxJson> checkGstin(String gstin) => _send('GET', '/api/pos/gstin/${Uri.encodeComponent(gstin)}');
   Future<List<AskodoxJson>> products(String id, {String q = ''}) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/products', query: {if (q.isNotEmpty) 'q': q}))['products']);

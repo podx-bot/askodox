@@ -63,3 +63,42 @@ def test_unknown_shop_is_404(env):
     with pytest.raises(PosError) as missing:
         follows.follow("no-such-shop", FOLLOWER)
     assert missing.value.status == 404
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+
+
+def test_owner_posts_one_picture_a_day_and_followers_see_it_with_the_credit(env):
+    follows, shop, _ = env
+    post = follows.post(shop, OWNER, "సంక్రాంతి చికెన్ ఆఫర్", PNG)
+    assert post["business_id"] == shop and post["caption"]
+    with pytest.raises(PosError) as twice:
+        follows.post(shop, OWNER, "again", PNG)
+    assert twice.value.status == 409 and twice.value.code == "already_posted_today"
+    assert follows.feed(FOLLOWER) == [], "a person who does not follow the shop sees nothing"
+    follows.follow(shop, FOLLOWER)
+    rows = follows.feed(FOLLOWER)
+    assert len(rows) == 1 and rows[0]["credit"] == "Created by Sri Lakshmi Chicken Centre · ASKODOX"
+    assert follows.image(post["id"], FOLLOWER) == PNG
+
+
+def test_only_the_owner_posts_and_only_followers_or_owner_open_the_picture(env):
+    follows, shop, _ = env
+    with pytest.raises(PosError) as other:
+        follows.post(shop, FOLLOWER, "not mine", PNG)
+    assert other.value.status == 403 and other.value.code == "not_owner"
+    post = follows.post(shop, OWNER, "ఆఫర్", PNG)
+    with pytest.raises(PosError) as stranger:
+        follows.image(post["id"], PERSON_WITHOUT_SHOP)
+    assert stranger.value.status == 403
+    assert follows.image(post["id"], OWNER) == PNG
+
+
+def test_picture_must_be_png_and_small(env):
+    follows, shop, _ = env
+    with pytest.raises(PosError) as not_png:
+        follows.post(shop, OWNER, "x", b"JPEG-ish")
+    assert not_png.value.code == "image"
+    with pytest.raises(PosError) as big:
+        follows.post(shop, OWNER, "x", PNG + b"0" * 900_000)
+    assert big.value.code == "image"

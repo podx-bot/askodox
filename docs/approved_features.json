@@ -5811,7 +5811,7 @@
       "id": "shop_follow",
       "name": "Follow a shop (any signed-in person, shop owners included)",
       "purpose": "Owner 2026-11-14: a shop can be followed by anyone. Shop owners can follow other shops; a shop cannot be followed by its own owner. Shops see a count only.",
-      "expected_behavior": "GET /api/shops/{id} returns name, address, category, followers count, following flag and is_owner for the caller. POST / DELETE /api/shops/{id}/follow are idempotent; the owner of a shop gets 409 own_shop. GET /api/me/follows lists the shops the caller follows. Follower identities are never returned. App: /shops/:id (follow / unfollow, owner sees 'your shop') and /me/following from Profile > Shops.",
+      "expected_behavior": "GET /api/shops/{id} returns name, address, category, followers count, following flag and is_owner for the caller. POST / DELETE /api/shops/{id}/follow are idempotent; the owner of a shop gets 409 own_shop. GET /api/me/follows lists the shops the caller follows. Follower identities are never returned. App: /shops/:id (follow / unfollow, owner sees 'your shop') and /me/following from Profile > Shops. Owner posts one PNG per shop per UTC day (POST /api/shops/{id}/posts, 409 already_posted_today, 403 not_owner); the card (shop name + ASKODOX brand bar) is drawn on the phone and kept on the server. GET /api/me/feed (followed shops only, newest 10, picture inline as base64, credit 'Created by <shop> · ASKODOX'); GET /api/shop-posts/{id}/image (owner or follower only). App: /shops/:id/post (owner) and /me/shop-feed (share sends picture + caption).",
       "roles": [
         "buyer",
         "seller",
@@ -5836,6 +5836,18 @@
         {
           "method": "GET",
           "path": "/api/me/follows"
+        },
+        {
+          "method": "POST",
+          "path": "/api/shops/{business_id}/posts"
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/feed"
+        },
+        {
+          "method": "GET",
+          "path": "/api/shop-posts/{post_id}/image"
         }
       ],
       "ui": {
@@ -5856,7 +5868,8 @@
       ],
       "status": "approved",
       "history": [
-        "2026-11-14: owner approved (anyone can follow a shop, owners included; own shop blocked; counts only)"
+        "2026-11-14: owner approved (anyone can follow a shop, owners included; own shop blocked; counts only)",
+        "2026-11-14: owner approved daily shop picture + follower feed (phone-drawn brand, one per day)"
       ]
     }
   ]
