@@ -61,7 +61,14 @@ class _Http:
         self.fail = fail
 
     def post(self, url, *, headers=None, json=None, timeout=None):
-        self.calls.append({"url": url, "model": (json or {}).get("model"), "prompt": (json or {}).get("messages", [{}])[0].get("content", ""),
+        prompt_text = (json or {}).get("messages", [{}])[0].get("content", "")
+        if "You plan ONE turn of ASKODOX" in prompt_text:
+            # The planner (search? query? how hard?) is checked in its own tests; these count the answer calls.
+            self.plans = getattr(self, "plans", 0) + 1
+            if self.fail:
+                return _Resp({}, 529)
+            return _Resp({"content": [{"type": "text", "text": '{"search": false, "query": "", "level": "simple"}'}]})
+        self.calls.append({"url": url, "model": (json or {}).get("model"), "prompt": prompt_text,
                            "max_tokens": (json or {}).get("max_tokens")})
         if self.fail:
             return _Resp({}, 529)

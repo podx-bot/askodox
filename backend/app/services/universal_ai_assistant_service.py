@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import threading
 import time
 from typing import Any
 
@@ -105,7 +107,8 @@ GUIDE_ANSWER_RULES = (
     "1. One line: what this is / what the screen in the attachment is asking (read its visible text).\n"
     "2. What to do now -- numbered steps, one action each; when a form or screen is shown, say what to choose "
     "or type in each field that matters, using the user's own situation from the conversation.\n"
-    "3. Watch out -- at most 3 short points (common mistakes, things that must match, what NOT to click).\n"
+    "3. Watch out -- at most 3 short points (common mistakes, things that must match, what NOT to click). Write every "
+    "heading in the user's language (Telugu: 'జాగ్రత్తలు' for Watch out, 'తర్వాత' for Next).\n"
     "4. Next -- one line: what comes after this step, or what to send next (e.g. a photo of the next screen).\n"
     "Rules: understand the real goal from the whole conversation; use the facts the user already gave and "
     "never ask again for them. Give a link ONLY where the user must open a site, and only an official site "
@@ -243,6 +246,27 @@ CONVERSATION_STATE_RULES = (
 )
 
 
+# How hard the CURRENT question is (owner 2026-11-14: "quality first -- hard questions go to Sonnet / Opus").
+# Set by decide() for the request's own thread only.
+_REQUEST = threading.local()
+
+PLANNER_PROMPT = (
+    "You plan ONE turn of ASKODOX, an AI assistant used in India in many languages. Read the conversation and the "
+    "latest message (it may include text read from a photo / screenshot the user attached) and return ONLY a JSON "
+    'object: {"search": true|false, "query": "...", "level": "simple"|"medium"|"hard"}.\n'
+    "search = true when a good answer needs the live web: news or whether something really happened / is official, "
+    "a new or specific product / model / app / website / service, current prices, rules, dates or availability, why "
+    "a specific app or website is not working, or the user asks to search, check or verify. search = false for "
+    "greetings, small talk, general knowledge, maths, personal advice that needs no current facts, or a question about "
+    "options already shown in the app.\n"
+    "query = when search is true: a short ENGLISH web search query naming the REAL subject taken from the whole "
+    "conversation and the attachment text (e.g. 'India cab aggregator licence minimum 5 cars rule 2026 notification'), "
+    "never the user's literal words like 'check this' or 'is it official'. Empty when search is false.\n"
+    "level = simple for greetings, one-line facts and short replies; medium for how-to steps, fixing an app / phone / "
+    "website problem, explaining a document or screenshot, checking news, advice and comparisons; hard for multi-step "
+    "problems, money / legal / tax / business decisions, or anything where a wrong answer would really hurt the user.\n"
+)
+
 class UniversalAIAssistantService:
     GENERAL_MARKER = "OASAT domain=GENERAL;"
     ALLOWED_DOMAINS = {
@@ -318,6 +342,44 @@ class UniversalAIAssistantService:
     @property
     def any_model(self) -> bool:
         return bool(self.anthropic_api_key or self.configured or self.openai_api_key)
+
+    @property
+    def anthropic_hard_model(self) -> str:
+        """The strongest model, for the hardest questions (owner 2026-11-14). Staff override: ANTHROPIC_HARD_MODEL."""
+        return (os.environ.get("ANTHROPIC_HARD_MODEL", "") or "claude-opus-5-5").strip()
+
+    def _model_for(self, level: str, *, answer: bool = False) -> str:
+        """simple -> the fast model (routing) / reasoning model (written answers); medium -> reasoning; hard -> hard."""
+        if level == "hard":
+            return self.anthropic_hard_model
+        if level == "medium" or answer:
+            return self.anthropic_reasoning_model
+        return self.anthropic_model
+
+    def _plan(self, message: str, history: list[dict[str, str]]) -> dict[str, Any]:
+        """Search or not, the English search query, and how hard the question is -- decided by the model from the
+        whole conversation (the old word lists stay as a backup). {} when no model answered."""
+        if not self.anthropic_api_key or message.startswith("OASAT "):
+            return {}
+        user_text, context, about_shown = self.split_app_context(message)
+        if about_shown:
+            return {"search": False, "query": "", "level": "medium"}
+        lines = [f"{t['role']}: {t['text'][:400]}" for t in history[-6:]]
+        attachment = context[:1500] if "The customer shared attachment" in context else ""
+        prompt = (PLANNER_PROMPT + "\nConversation (oldest first):\n" + ("\n".join(lines) or "(none)")
+                  + ("\n\nAttachment text:\n" + attachment if attachment else "")
+                  + "\n\nLatest message:\n" + user_text[:1200])
+        raw = self._call_claude(prompt, max_tokens=200, temperature=0.0, timeout=8.0)
+        if not raw:
+            return {}
+        try:
+            data = self._parse_json(raw)
+        except Exception:
+            return {}
+        level = str(data.get("level") or "").strip().lower()
+        return {"search": bool(data.get("search")),
+                "query": " ".join(str(data.get("query") or "").split())[:200],
+                "level": level if level in ("simple", "medium", "hard") else "medium"}
 
     def _call_claude(self, prompt: str, *, model: str = "", max_tokens: int = 2048,
                      temperature: float = 0.2, timeout: float = 45.0, on_text: Any = None) -> str:
@@ -710,8 +772,8 @@ class UniversalAIAssistantService:
         # Guide and advice answers both use the reasoning model: quality is compulsory in
         # every language (owner 2026-11-10); Haiku gave no measurable speed gain (#307).
         gate = _VisibleText(on_text) if on_text is not None else None
-        text = self._call_claude(prompt, model=self.anthropic_reasoning_model, max_tokens=3072,
-                                 temperature=0.3, timeout=60.0, on_text=gate)
+        text = self._call_claude(prompt, model=self._model_for(getattr(_REQUEST, "level", ""), answer=True),
+                                 max_tokens=3072, temperature=0.3, timeout=90.0, on_text=gate)
         if gate is not None and text:
             gate.flush()
         streamed = bool(text) and gate is not None and gate.shown
@@ -1053,7 +1115,9 @@ class UniversalAIAssistantService:
 
         runtime_block = runtime_context_block(clean, self.clock)
         started = time.monotonic()
-        grounding, grounding_block = self._live_grounding(clean, compact_history)
+        plan = self._plan(clean, compact_history)
+        _REQUEST.level = plan.get("level", "")
+        grounding, grounding_block = self._live_grounding(clean, compact_history, plan=plan)
         grounding_ms = int((time.monotonic() - started) * 1000)
         prompt = (
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
@@ -1084,7 +1148,10 @@ class UniversalAIAssistantService:
             "Know-how brain: if the user wants to understand or DO something themselves -- how to apply, register, fill a "
             "form, use a portal / app / website screen, update details, fix a problem, what a document or screenshot "
             "means (government registrations like Udyam, GST, PAN, Aadhaar, licences included) -- it is NOT a search "
-            "for sellers or service providers: transactional false, action explain_steps. Only when they clearly ask "
+            "for sellers or service providers: transactional false, action explain_steps. When something does not work "
+            "(an app does not open or connect, a payment / login / OTP fails, an option is missing), give the most likely "
+            "fixes as numbered steps, best first, saying exactly where to tap (e.g. Settings > Apps > the app > ...), then "
+            "'if that does not work' alternatives -- never only 'contact support'. Only when they clearly ask "
             "for a person, agent or shop to do it for them is it a SERVICE search. "
             "Decision brain: if the message asks for advice or a decision (should I, risks, pros/cons, which is safer, how much do I need, is it worth it), it is NOT a search: transactional false, action advise. "
             "If the app lists options already shown to the user, the message is a follow-up about THOSE options (compare, which is best, reviews, deals, details, why): answer it from the listed facts only -- compare side by side, write Not verified for any fact not listed -- transactional false, action answer_about_options, never a new search. "
@@ -1387,8 +1454,11 @@ class UniversalAIAssistantService:
     def _decision_json(self, prompt: str, clean: str, clean_location: str) -> dict[str, Any] | None:
         """One structured decision from Gemini, then OpenAI (None when no model answered)."""
         data: dict[str, Any] | None = None
-        claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown.",
-                                        max_tokens=4096, temperature=0.15, timeout=25.0)
+        level = getattr(_REQUEST, "level", "")
+        brain = self._model_for(level)
+        claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown.", model=brain,
+                                        max_tokens=4096, temperature=0.15,
+                                        timeout=25.0 if brain == self.anthropic_model else 60.0)
         if claude_text:
             try:
                 data = self._parse_json(claude_text)
@@ -1441,7 +1511,8 @@ class UniversalAIAssistantService:
         return self._UNVERIFIED_NOTE["te" if telugu else "en"]
 
     def _live_grounding(self, message: str,
-                        history: list[dict[str, str]] | None = None) -> tuple[dict[str, Any] | None, str]:
+                        history: list[dict[str, str]] | None = None,
+                        plan: dict[str, Any] | None = None) -> tuple[dict[str, Any] | None, str]:
         """Live evidence when the user's words need it (live_lookup.lookup_kind):
         time-sensitive facts, a product / model name, an explicit "search /
         official website" ask (quick: one search), or leaks / rumours / "is it
@@ -1458,6 +1529,9 @@ class UniversalAIAssistantService:
             # A photo / document the user attached can carry the model name.
             probe = f"{user_text} {context}"
         kind = live_lookup.lookup_kind(probe)
+        planned = str((plan or {}).get("query") or "") if (plan or {}).get("search") else ""
+        if kind is None and planned:
+            kind = "quick"  # the model judged the answer needs the live web (owner 2026-11-14)
         if kind is None:
             return None, ""
         phrase = live_lookup.model_phrase(probe)
@@ -1472,6 +1546,9 @@ class UniversalAIAssistantService:
         official = live_lookup.wants_official(user_text)
         if phrase:
             query = f"{phrase} official" if official and kind == "quick" else phrase
+        elif planned:
+            # The subject the conversation is about (e.g. from a screenshot), not the user's literal words.
+            query = planned
         else:
             query = grounded_search_query(user_text, self.clock)
         deep = kind == "deep" and self.deep_research_service is not None

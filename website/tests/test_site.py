@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 import build  # noqa: E402
 
 ROUTES = ["", "about", "how-it-works", "discover", "sellers", "service-providers", "deals", "videos", "app", "join",
-          "partners", "support", "faq", "contact", "report-a-problem", "trust", "status", "privacy", "terms", "cookies",
+          "partners", "support", "faq", "contact", "report-a-problem", "trust", "status", "privacy", "terms", "cookies", "refunds",
           "affiliate-disclosure", "accessibility"]
 
 
@@ -100,8 +100,12 @@ class SiteBuild(unittest.TestCase):
     def test_legal_placeholders_until_configured(self):
         # Legal entity is configured (proprietor, trading as ASKODOX AI): privacy shows no placeholder.
         self.assertNotIn('class="placeholder"', self.page("privacy"))
-        # Governing law / jurisdiction is still unconfirmed: terms keeps its placeholder.
-        self.assertIn('class="placeholder"', self.page("terms"))
+        # Governing law is configured (owner 2026-11-14): no placeholder left in the terms either.
+        self.assertNotIn('class="placeholder"', self.page("terms"))
+        for page in ("privacy", "terms", "refunds"):
+            self.assertIn('id="grievance"', self.page(page), page)
+        self.assertIn('id="delete-account"', self.page("privacy"))
+        self.assertIn("notification access", self.page("privacy"))
 
     def test_forms_are_honest_without_endpoint(self):
         join = self.page("join")

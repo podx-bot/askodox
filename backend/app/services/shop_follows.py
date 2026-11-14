@@ -31,7 +31,7 @@ SCHEMA = (
 PROFILE_FIELDS = {  # field -> max length
     "category": 80, "subcategory": 80, "description": 600, "address": 200, "landmark": 120, "hours": 120, "website": 200,
     "facebook": 200, "instagram": 200, "youtube": 200, "whatsapp": 20, "offers": 300, "delivery": 120,
-    "extra": 600, "reg_number": 40,
+    "extra": 600, "reg_number": 40, "lat": 12, "lng": 12,  # map pin from the app's picker
 }
 PROFILE_REQUIRED = ("category", "description", "address", "hours")
 

@@ -210,7 +210,7 @@ FOOTER = [
     ("footer.explore", [("/discover/", "link.discover"), ("/how-it-works/", "link.how"), ("/deals/", "link.deals"), ("/videos/", "link.videos"), ("/app/", "link.app")]),
     ("footer.join", [("/join/", "link.join"), ("/sellers/", "link.sellers"), ("/service-providers/", "link.providers"), ("/videos/#creators", "link.creators"), ("/partners/", "link.partners"), ("/join/#refer", "link.refer")]),
     ("footer.help", [("/support/", "link.help"), ("/faq/", "link.faq"), ("/contact/", "link.contact"), ("/report-a-problem/", "link.report"), ("/status/", "link.status")]),
-    ("footer.company", [("/about/", "link.about"), ("/trust/", "link.trust"), ("/privacy/", "link.privacy"), ("/terms/", "link.terms"), ("/cookies/", "link.cookies"), ("/affiliate-disclosure/", "link.affiliate"), ("/accessibility/", "link.accessibility")]),
+    ("footer.company", [("/about/", "link.about"), ("/trust/", "link.trust"), ("/privacy/", "link.privacy"), ("/terms/", "link.terms"), ("/cookies/", "link.cookies"), ("/refunds/", "link.refunds"), ("/affiliate-disclosure/", "link.affiliate"), ("/accessibility/", "link.accessibility")]),
 ]
 
 

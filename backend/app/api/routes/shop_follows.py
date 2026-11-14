@@ -110,6 +110,8 @@ class ShopProfileIn(BaseModel):
     delivery: str = Field(default="", max_length=400)
     extra: str = Field(default="", max_length=2000)
     reg_number: str = Field(default="", max_length=120)
+    lat: str = Field(default="", max_length=20, pattern=r"^(-?\d{1,2}(\.\d{1,8})?)?$")
+    lng: str = Field(default="", max_length=20, pattern=r"^(-?\d{1,3}(\.\d{1,8})?)?$")
 
 
 @router.put("/api/shops/{business_id}/profile")
