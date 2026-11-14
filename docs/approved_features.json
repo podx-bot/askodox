@@ -5709,6 +5709,179 @@
           "change": "owner 2026-11-10: answers appear word by word"
         }
       ]
+    },
+    {
+      "id": "payments_hub_tab",
+      "name": "Payments tab hub (redesign)",
+      "purpose": "Owner 2026-11-13 (Redesign canvas, final): the Payments tab opens one page for money that reaches the person's own account, branded ASKODOX.",
+      "expected_behavior": "The bottom-bar Payments tab (askodoxNavPayments) opens /me/payments. Without a shop it offers to switch alerts on (/me/payment-alerts). With a shop it shows today's total and count from the shop's payment-alert events (test events left out), how many were spoken (an 'announced' ack), seven days of bars, the latest three payments, and doors to Show my QR / My accounts (/me/payment-methods) and Alerts (/me/payment-alerts/{id}). Totals are labelled as phone-notification counts, not bank-confirmed. Main payment screens say 'ASKODOX payment profile'; Razorpay is named only in technical how-to lines, errors and FAQs. ASKODOX never holds money.",
+      "roles": [
+        "customer",
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/events"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPaymentsHub",
+          "askodoxPaymentsHubStart",
+          "askodoxPaymentsHubToday",
+          "askodoxPaymentsHubQr",
+          "askodoxPaymentsHubAlerts",
+          "askodoxPaymentsHubAccounts",
+          "askodoxPaymentsHubRecent",
+          "askodoxPaymentsHubAdvanced"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/payments_hub_test.dart"
+        ]
+      },
+      "dependencies": [
+        "payment_alerts_phase1_staff"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-13: owner approved the Redesign canvas as final; part 1 = Payments"
+      ]
+    },
+    {
+      "id": "payment_alert_thank_you_voice",
+      "name": "Payment thank-you by name in a chosen voice",
+      "purpose": "Owner 2026-11-13: when a payment comes the shop phone thanks the customer by name (\"Thank you <name> garu, 30 rupees reached <shop>, please visit again\") in one of 2 female + 2 male ElevenLabs voices, without asking yes / no per payment.",
+      "expected_behavior": "PaymentAlertParser reads the payer's display name (letters only) from PhonePe / Google Pay / Paytm wording; the name is spoken on the phone only, never stored in the event or uploaded. Settings say_name (default on), voice female|female2|male|male2, language te|hi|en (dropdowns). Each spoken part is fetched once from /api/in-app/voice/speak (ElevenLabs MP3 only) and kept on the phone (payvoice, max 400 files); fixed parts are fetched when settings are saved. Any failure or offline -> the phone's own voice says the whole sentence.",
+      "roles": [
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/settings"
+        },
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/speak"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPayAlertLanguage",
+          "askodoxPayAlertVoice",
+          "askodoxPayAlertSayName"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_payment_alerts.py",
+          "tests/test_elevenlabs_tts.py"
+        ],
+        "flutter": [
+          "test/features/pos/pos_payment_alerts_test.dart"
+        ]
+      },
+      "dependencies": [
+        "payment_alerts_phase1_staff"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-13: owner approved (thank-you by name, voice + language dropdowns, fixed words fetched once)"
+      ]
+    },
+    {
+      "id": "shop_follow",
+      "name": "Follow a shop (any signed-in person, shop owners included)",
+      "purpose": "Owner 2026-11-14: a shop can be followed by anyone. Shop owners can follow other shops; a shop cannot be followed by its own owner. Shops see a count only.",
+      "expected_behavior": "GET /api/shops/{id} returns name, address, category, followers count, following flag and is_owner for the caller. POST / DELETE /api/shops/{id}/follow are idempotent; the owner of a shop gets 409 own_shop. GET /api/me/follows lists the shops the caller follows. Follower identities are never returned. App: /shops/:id (follow / unfollow, owner sees 'your shop') and /me/following from Profile > Shops. Owner posts one PNG per shop per UTC day (POST /api/shops/{id}/posts, 409 already_posted_today, 403 not_owner); the card (shop name + ASKODOX brand bar) is drawn on the phone and kept on the server. GET /api/me/feed (followed shops only, newest 10, picture inline as base64, credit 'Created by <shop> · ASKODOX'); GET /api/shop-posts/{id}/image (owner or follower only). App: /shops/:id/post (owner) and /me/shop-feed (share sends picture + caption). Shop details: PUT /api/shops/{id}/profile (owner only; category, description, address, hours required; reg_number never shown to others; status incomplete / submitted, verified only by ASKODOX staff, a change resets it); GET /api/shops/{id} carries `profile`. App Phase 1: Profile > Shops > My business (/me/business): details form, calculator bill with UPI QR for the total (own UPI from My accounts, bill not stored) and a shareable bill picture, today's post. The full POS stays Phase 2.",
+      "roles": [
+        "buyer",
+        "seller",
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/shops/{business_id}"
+        },
+        {
+          "method": "POST",
+          "path": "/api/shops/{business_id}/follow"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/shops/{business_id}/follow"
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/follows"
+        },
+        {
+          "method": "POST",
+          "path": "/api/shops/{business_id}/posts"
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/feed"
+        },
+        {
+          "method": "GET",
+          "path": "/api/shop-posts/{post_id}/image"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/shops/{business_id}/profile"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxProfileSection-following",
+          "profile-following",
+          "profile-my-business",
+          "askodoxMyBusinessDetails",
+          "askodoxMyBusinessBill",
+          "askodoxQuickBillShowQr",
+          "askodoxQuickBillShare",
+          "askodoxBusinessProfileSave"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_shop_follows.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "pos_businesses"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-14: owner approved (anyone can follow a shop, owners included; own shop blocked; counts only)",
+        "2026-11-14: owner approved daily shop picture + follower feed (phone-drawn brand, one per day)",
+        "2026-11-14: owner approved My business desk in Phase 1 (details, calculator bill + QR + share); full POS stays Phase 2"
+      ]
     }
   ]
 }

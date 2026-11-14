@@ -303,6 +303,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }),
                         ))),
           ]),
+      AskodoxNavSection(
+          key: const Key('askodoxProfileSection-following'),
+          title: t('Shops', 'షాప్‌లు'),
+          icon: Icons.storefront_outlined,
+          children: [
+            row('profile-my-business', 'me', Icons.storefront, 'My business', 'నా బిజినెస్',
+                'Your shop details, quick bill, QR payment, today\'s post.',
+                'మీ షాప్ వివరాలు, వెంటనే బిల్లు, QR పేమెంట్, ఈ రోజు పోస్ట్.',
+                () => context.push('/me/business'), words: ['business', 'shop', 'bill', 'బిజినెస్', 'షాప్', 'బిల్లు']),
+            row('profile-following', 'me', Icons.storefront_outlined, 'Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు',
+                'Updates from the shops you follow.', 'మీరు ఫాలో చేసే షాప్‌ల అప్‌డేట్స్.',
+                () => context.push('/me/following'), words: ['follow', 'shop', 'ఫాలో', 'షాప్']),
+          ]),
       // Phase 1: the Business tab is hidden, so "My payment methods" (own UPI QR / bank, used to
       // collect money) lives here as a plain list row (also on the bottom bar's Payments).
       if (!askodoxPhase2)
@@ -311,13 +324,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             title: t('Payments', 'పేమెంట్స్'),
             icon: Icons.account_balance_wallet_outlined,
             children: [
-              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My payment methods',
-                  'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — people pay you directly.',
-                  'మీ UPI QR / బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
+              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My accounts',
+                  'నా ఖాతాలు', 'Your QR, UPI and bank — people pay you directly.',
+                  'మీ QR, UPI, బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
                   words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
-              row('profile-payment-alerts', 'me', Icons.volume_up_outlined, 'Payment sound alerts',
-                  'పేమెంట్ సౌండ్ అలర్ట్', 'Hear it when money arrives — on staff phones too.',
-                  'డబ్బు పడగానే వినిపిస్తుంది — సిబ్బంది ఫోన్‌లలో కూడా.', () => context.push('/me/payment-alerts'),
+              row('profile-payment-alerts', 'me', Icons.volume_up_outlined, 'Payment alerts',
+                  'పేమెంట్ అలర్ట్స్', 'Status, who hears it, staff, voice, history.',
+                  'స్థితి, ఎవరు వింటారు, సిబ్బంది, వాయిస్, హిస్టరీ.', () => context.push('/me/payment-alerts'),
                   words: ['alert', 'sound', 'soundbox', 'staff', 'అలర్ట్', 'సౌండ్', 'సిబ్బంది']),
             ]),
       // Personal Finance: the Personal Tax Assistant (existing /intel/* screens) + the person's money records.
@@ -832,7 +845,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FC),
+      backgroundColor: const Color(0xFFF4F5F7),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

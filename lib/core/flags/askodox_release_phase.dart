@@ -45,6 +45,7 @@ const askodoxPhase2ProfileKeys = <String>{
 /// App screens that belong to Phase 2. A chat action pointing at one shows no
 /// button, and a guide that walks to one is not offered.
 const askodoxPhase2Routes = <String>{
+  // The full POS stays Phase 2. Phase 1 has the simple My business desk (/me/business), owner 2026-11-14.
   '/pos',
   '/crm',
   '/business',

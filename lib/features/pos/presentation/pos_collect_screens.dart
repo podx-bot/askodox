@@ -9,6 +9,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/media_picker.dart';
+import '../../native_video/video_commerce.dart' show askodoxShareTextProvider;
 import '../data/pos_hardware.dart';
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
@@ -211,31 +212,30 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
     final te = askodoxPosTe(context);
     final methods = _methods;
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'నా పేమెంట్ పద్ధతులు' : 'My payment methods')),
+      backgroundColor: _payBg,
+      appBar: AppBar(
+          backgroundColor: _payBg,
+          scrolledUnderElevation: 0,
+          title: Text(te ? 'నా ఖాతాలు' : 'My accounts', style: const TextStyle(fontWeight: FontWeight.w800, color: _payInk))),
       body: methods == null
           ? (_error != null ? AskodoxPosError(error: _error!, onRetry: _load) : const Center(child: CircularProgressIndicator()))
-          : ListView(key: const Key('askodoxPayMethods'), padding: const EdgeInsets.all(12), children: [
+          : ListView(key: const Key('askodoxPayMethods'), padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+              _qrCard(te, methods),
+              _sectionLabel(te ? 'డబ్బు వచ్చే మార్గాలు' : 'Ways money comes in'),
+              _methodsCard(te, methods),
+              const SizedBox(height: 8),
               Text(
                   te
-                      ? 'కొనేవారు / కస్టమర్లు మీకు నేరుగా ఇక్కడే కడతారు — PhonePe, Google Pay, Paytm, BHIM లేదా ఏ బ్యాంక్ QR అయినా. ASKODOX డబ్బు పట్టుకోదు.'
-                      : 'Buyers and customers pay you directly here — PhonePe, Google Pay, Paytm, BHIM or any bank QR. ASKODOX never holds money.',
-                  style: const TextStyle(fontSize: 12.5)),
-              const SizedBox(height: 6),
-              const AskodoxPaymentOptionsNotice(),
-              const SizedBox(height: 8),
-              // Payment sound alerts (also for staff phones) -- owner 2026-11-10.
-              Card(
-                child: ListTile(
-                  key: const Key('askodoxPayMethodsAlerts'),
-                  leading: const Icon(Icons.volume_up_rounded, color: Color(0xFF6C4DFF)),
-                  title: Text(te ? 'పేమెంట్ సౌండ్ అలర్ట్' : 'Payment sound alerts'),
-                  subtitle: Text(te ? 'డబ్బు పడగానే వినిపిస్తుంది — సిబ్బంది ఫోన్‌లలో కూడా' : 'Hear it when money arrives — on staff phones too'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/me/payment-alerts'),
+                      ? 'డబ్బు నేరుగా మీ బ్యాంక్‌కే. ASKODOX మధ్యలో పట్టుకోదు. బ్యాంక్ నంబర్ దాచి (encrypted) ఉంచుతాం.'
+                      : 'Money goes straight to your bank. ASKODOX never holds it. Bank numbers are kept encrypted.',
+                  style: const TextStyle(fontSize: 12, color: _payMuted, height: 1.4)),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(_error!, key: const Key('askodoxPayMethodError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 6, children: [
+              _sectionLabel(te ? '+ కొత్త QR / UPI చేర్చండి' : '+ Add a new QR / UPI'),
+              Wrap(spacing: 8, runSpacing: 8, children: [
                 FilledButton.tonalIcon(
                     key: const Key('askodoxPayMethodQrPhoto'),
                     onPressed: _busy ? null : () => _addUpiFromQr('photos'),
@@ -251,46 +251,174 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
                     onPressed: _busy ? null : _addUpiTyped,
                     icon: const Icon(Icons.keyboard),
                     label: Text(te ? 'UPI ID టైప్' : 'Type UPI ID')),
-                OutlinedButton.icon(
-                    key: const Key('askodoxPayMethodBank'),
-                    onPressed: _busy ? null : _addBank,
-                    icon: const Icon(Icons.account_balance_outlined),
-                    label: Text(te ? 'బ్యాంక్ ఖాతా' : 'Bank account')),
               ]),
-              if (_error != null)
-                Text(_error!, key: const Key('askodoxPayMethodError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              const SizedBox(height: 8),
-              if (methods.isEmpty)
-                Text(te ? 'ఇంకా ఏదీ లేదు.' : 'Nothing saved yet.', key: const Key('askodoxPayMethodsEmpty')),
-              for (final m in methods)
-                Card(
-                  key: ValueKey('askodoxPayMethod-${m['id']}'),
-                  child: ListTile(
-                    leading: Icon(m['kind'] == 'bank' ? Icons.account_balance : Icons.qr_code_2),
-                    title: Text(m['kind'] == 'bank'
-                        ? '${m['bank_name'] ?? ''} ••${m['account_last4']} · ${m['ifsc']}'
-                        : '${m['upi_id']}'),
-                    subtitle: Text([
-                      if ('${m['payee_name'] ?? m['account_holder'] ?? ''}'.isNotEmpty) '${m['payee_name'] ?? m['account_holder']}',
-                      if ('${m['app'] ?? ''}'.isNotEmpty) '${m['app']}',
-                      if (m['is_default'] == true) te ? 'డిఫాల్ట్' : 'Default',
-                    ].join(' · ')),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (v) => v == 'default'
-                          ? _run((repo) => repo.defaultPaymentMethod('${m['id']}'))
-                          : _run((repo) => repo.removePaymentMethod('${m['id']}')),
-                      itemBuilder: (_) => [
-                        if (m['is_default'] != true)
-                          PopupMenuItem(value: 'default', child: Text(te ? 'డిఫాల్ట్ చేయి' : 'Make default')),
-                        PopupMenuItem(value: 'remove', child: Text(te ? 'తీసివేయి' : 'Remove')),
-                      ],
-                    ),
-                  ),
+              const SizedBox(height: 16),
+              // Payment sound alerts (also for staff phones) -- owner 2026-11-10.
+              _payPaper(
+                child: ListTile(
+                  key: const Key('askodoxPayMethodsAlerts'),
+                  leading: const Icon(Icons.volume_up_rounded, color: _payBlue),
+                  title: Text(te ? 'పేమెంట్ సౌండ్ అలర్ట్' : 'Payment sound alerts',
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: _payInk)),
+                  subtitle: Text(te ? 'డబ్బు పడగానే వినిపిస్తుంది — సిబ్బంది ఫోన్‌లలో కూడా' : 'Hear it when money arrives — on staff phones too'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/me/payment-alerts'),
                 ),
+              ),
+              const SizedBox(height: 12),
+              const AskodoxPaymentOptionsNotice(),
             ]),
     );
   }
+
+  Widget _sectionLabel(String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _payMuted, letterSpacing: .4)),
+      );
+
+  /// The QR customers scan: the default UPI (or the first one), drawn from the saved UPI ID.
+  Widget _qrCard(bool te, List<AskodoxJson> methods) {
+    final upis = methods.where((m) => m['kind'] != 'bank' && '${m['upi_id'] ?? ''}'.isNotEmpty).toList();
+    if (upis.isEmpty) {
+      return Container(
+        key: const Key('askodoxPayMethodsQrEmpty'),
+        decoration: _payCard,
+        padding: const EdgeInsets.all(16),
+        child: Text(
+            te
+                ? 'మీ UPI QR ఇంకా లేదు. కింద "QR ఫోటో ఎంచుకోండి" తో మీ PhonePe / Google Pay / బ్యాంక్ QR జోడించండి — కస్టమర్ స్కాన్ చేసే QR ఇక్కడ కనిపిస్తుంది.'
+                : 'No UPI QR yet. Add your PhonePe / Google Pay / bank QR below with "Pick QR photo" — the QR customers scan shows here.',
+            style: const TextStyle(fontSize: 13, color: _payInk, height: 1.4)),
+      );
+    }
+    final m = upis.firstWhere((u) => u['is_default'] == true, orElse: () => upis.first);
+    final upi = '${m['upi_id']}';
+    final name = '${m['payee_name'] ?? ''}';
+    final link = 'upi://pay?pa=${Uri.encodeComponent(upi)}${name.isEmpty ? '' : '&pn=${Uri.encodeComponent(name)}'}&cu=INR';
+    return Container(
+      key: const Key('askodoxPayMethodsQrCard'),
+      decoration: _payCard,
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        Text(te ? 'కస్టమర్ స్కాన్ చేసే QR' : 'The QR customers scan',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _payMuted)),
+        const SizedBox(height: 10),
+        QrImageView(key: const Key('askodoxPayMethodsQr'), data: link, size: 200),
+        const SizedBox(height: 8),
+        if (name.isNotEmpty) Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _payInk)),
+        SelectableText(upi, style: const TextStyle(fontSize: 13, color: _payMuted)),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+            child: FilledButton.icon(
+              key: const Key('askodoxPayMethodsShare'),
+              style: FilledButton.styleFrom(backgroundColor: _payInk, minimumSize: const Size.fromHeight(44)),
+              onPressed: () async {
+                final shared = await ref.read(askodoxShareTextProvider)('$name — UPI: $upi\n$link', subject: 'UPI');
+                if (!shared) {
+                  await Clipboard.setData(ClipboardData(text: upi));
+                  if (mounted) askodoxPosSnack(context, te ? 'UPI ID కాపీ అయింది.' : 'UPI ID copied.');
+                }
+              },
+              icon: const Icon(Icons.share_outlined, size: 18),
+              label: Text(te ? 'షేర్' : 'Share'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('askodoxPayMethodsCopy'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: upi));
+                if (mounted) askodoxPosSnack(context, te ? 'UPI ID కాపీ అయింది.' : 'UPI ID copied.');
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: Text(te ? 'కాపీ' : 'Copy'),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  /// Every saved way to be paid in one card; a bank row offers "Add" when there is none.
+  Widget _methodsCard(bool te, List<AskodoxJson> methods) {
+    final hasBank = methods.any((m) => m['kind'] == 'bank');
+    final rows = <Widget>[
+      if (methods.isEmpty)
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Text(te ? 'ఇంకా ఏదీ లేదు.' : 'Nothing saved yet.', key: const Key('askodoxPayMethodsEmpty')),
+        ),
+      for (final m in methods)
+        ListTile(
+          key: ValueKey('askodoxPayMethod-${m['id']}'),
+          leading: CircleAvatar(
+            backgroundColor: const Color(0xFFE8EEFC),
+            child: Icon(m['kind'] == 'bank' ? Icons.account_balance : Icons.qr_code_2, color: _payBlue, size: 20),
+          ),
+          title: Text(
+              m['kind'] == 'bank' ? '${m['bank_name'] ?? ''} ••${m['account_last4']} · ${m['ifsc']}' : '${m['upi_id']}',
+              style: const TextStyle(fontWeight: FontWeight.w700, color: _payInk)),
+          subtitle: Text([
+            if ('${m['payee_name'] ?? m['account_holder'] ?? ''}'.isNotEmpty) '${m['payee_name'] ?? m['account_holder']}',
+            if ('${m['app'] ?? ''}'.isNotEmpty) '${m['app']}',
+            if (m['is_default'] == true) te ? 'ముఖ్యమైనది' : 'Default',
+          ].join(' · ')),
+          trailing: PopupMenuButton<String>(
+            onSelected: (v) => v == 'default'
+                ? _run((repo) => repo.defaultPaymentMethod('${m['id']}'))
+                : _run((repo) => repo.removePaymentMethod('${m['id']}')),
+            itemBuilder: (_) => [
+              if (m['is_default'] != true) PopupMenuItem(value: 'default', child: Text(te ? 'ముఖ్యమైనదిగా చేయి' : 'Make default')),
+              PopupMenuItem(value: 'remove', child: Text(te ? 'తీసివేయి' : 'Remove')),
+            ],
+          ),
+        ),
+      ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Color(0xFFF4F5F7),
+          child: Icon(Icons.account_balance_outlined, color: _payMuted, size: 20),
+        ),
+        title: Text(hasBank ? (te ? 'మరో బ్యాంక్ ఖాతా' : 'Another bank account') : (te ? 'బ్యాంక్ ఖాతా' : 'Bank account'),
+            style: const TextStyle(fontWeight: FontWeight.w700, color: _payInk)),
+        subtitle: hasBank ? null : Text(te ? 'ఇంకా చేర్చలేదు' : 'Not added yet'),
+        trailing: TextButton(
+          key: const Key('askodoxPayMethodBank'),
+          onPressed: _busy ? null : _addBank,
+          child: Text(te ? 'చేర్చండి' : 'Add'),
+        ),
+      ),
+    ];
+    return _payPaper(
+      child: Column(children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) const Divider(height: 1, color: Color(0xFFEEF0F4)),
+          rows[i],
+        ],
+      ]),
+    );
+  }
 }
+
+const _payBg = Color(0xFFF4F5F7);
+const _payInk = Color(0xFF10204A);
+const _payMuted = Color(0xFF5A6478);
+const _payBlue = Color(0xFF2450C8);
+/// A white card that is also a Material, so list rows inside keep their ink.
+Widget _payPaper({required Widget child}) => Material(
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFE6E9EF))),
+      child: child,
+    );
+
+final _payCard = BoxDecoration(
+  color: Colors.white,
+  border: Border.all(color: const Color(0xFFE6E9EF)),
+  borderRadius: BorderRadius.circular(20),
+);
 
 /// POS -> Collect payment: an amount QR to the shop's OWN UPI; a matching payment notification flags it,
 /// the cashier confirms (never automatic).
@@ -627,27 +755,50 @@ class AskodoxPaymentOptionsNotice extends StatelessWidget {
         : <(IconData, String, String)>[
             (Icons.notifications_none, 'Your own QR (PhonePe, Google Pay, Paytm, any bank): ASKODOX can only read the payment NOTIFICATION on your phone and say "notification received". That is not a bank confirmation — check your bank app before handing over goods.',
                 'మీ సొంత QR (PhonePe, Google Pay, Paytm, ఏ బ్యాంక్ అయినా): మీ ఫోన్‌లో వచ్చే పేమెంట్ నోటిఫికేషన్‌ని మాత్రమే ASKODOX చదివి "నోటిఫికేషన్ వచ్చింది" అని చెబుతుంది. అది బ్యాంక్ నిర్ధారణ కాదు — సరుకు ఇచ్చే ముందు బ్యాంక్ యాప్‌లో చూసుకోండి.'),
-            (Icons.verified_outlined, 'Your own Razorpay account (optional): payments to its QR are confirmed by Razorpay itself, so phones say "you received ₹…". Money still goes straight to your account.',
-                'మీ సొంత Razorpay ఖాతా (ఐచ్ఛికం): దాని QR కి వచ్చే పేమెంట్‌ని Razorpay నే నిర్ధారిస్తుంది, అందుకే ఫోన్ "మీకు ₹… అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే.'),
+            (Icons.verified_outlined, 'ASKODOX payment profile (optional): payments to its QR are confirmed by the bank before phones say "you received ₹…". Money still goes straight to your account.',
+                'ASKODOX పేమెంట్ ప్రొఫైల్ (ఐచ్ఛికం): దాని QR కి వచ్చే పేమెంట్‌ని బ్యాంక్ నిర్ధారించాకే ఫోన్ "మీకు ₹… అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే.'),
             (Icons.shield_outlined, 'Escrow (coming, optional): for online deals where the buyer wants extra safety — a licensed third-party partner holds the money and releases it to you on the agreed terms. ASKODOX never holds it.',
                 'Escrow (త్వరలో, ఐచ్ఛికం): online డీల్స్‌లో కొనేవారికి అదనపు భద్రత కావాలంటే — లైసెన్స్ ఉన్న third-party భాగస్వామి డబ్బు పట్టుకుని, ఒప్పుకున్న షరతుల ప్రకారం మీకు విడుదల చేస్తుంది. ASKODOX ఎప్పుడూ పట్టుకోదు.'),
           ];
-    return Container(
+    final title = Text(te ? 'ముందుగా తెలుసుకోండి' : 'Know this first', style: const TextStyle(fontWeight: FontWeight.w800));
+    final lines = [
+      for (final (icon, en, tel) in rows)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, size: 18, color: const Color(0xFF92400E)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(te ? tel : en, style: const TextStyle(fontSize: 12))),
+          ]),
+        ),
+    ];
+    // The payer reads all of it before paying. The receiver always sees the first (safety) line;
+    // the optional ways stay folded under "More" so the page stays neat.
+    return Material(
       key: Key(forBuyer ? 'askodoxPayOptionsNoticeBuyer' : 'askodoxPayOptionsNotice'),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(10)),
+      color: const Color(0xFFFFFBEB),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(forBuyer ? 10 : 16)),
+      child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(te ? 'ముందుగా తెలుసుకోండి' : 'Know this first', style: const TextStyle(fontWeight: FontWeight.w800)),
-        for (final (icon, en, tel) in rows)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(icon, size: 18, color: const Color(0xFF92400E)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(te ? tel : en, style: const TextStyle(fontSize: 12))),
-            ]),
+        title,
+        if (forBuyer) ...lines,
+        if (!forBuyer) ...[
+          lines.first,
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('askodoxPayOptionsNoticeMore'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              expandedCrossAxisAlignment: CrossAxisAlignment.start,
+              title: Text(te ? 'మరిన్ని' : 'More', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+              children: lines.skip(1).toList(),
+            ),
           ),
+        ],
       ]),
+      ),
     );
   }
 }

@@ -77,5 +77,7 @@ flutter:
     - assets/companion/human2d/
     - assets/mascots/
     - assets/work_audio/
+    - assets/work_scenes/
+    - assets/work_sprites/
     - assets/brand/askodox_icon.png
     - assets/brand/askodox_mark.png

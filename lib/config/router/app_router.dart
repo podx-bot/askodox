@@ -15,6 +15,7 @@ import '../../features/plans/presentation/ai_credits_screen.dart';
 import '../../features/plans/presentation/plans_screen.dart';
 import '../../features/radio/presentation/travel_radio_screen.dart';
 import '../../features/pos/presentation/pos_routes.dart';
+import '../../features/shops/presentation/shop_follow_routes.dart';
 import '../../features/smart_tools/presentation/smart_tools_routes.dart';
 import '../../features/talk/presentation/talk_routes.dart';
 import '../../features/work_mode/presentation/work_mode_routes.dart';
@@ -247,6 +248,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ...askodoxWorkModeRoutes,
       GoRoute(path: '/profile/memory', builder: (context, state) => const ProfileMemoryScreen()),
       ...askodoxPaymentMethodRoutes,
+      ...askodoxShopFollowRoutes,
       GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
       if (askodoxPhase2) ...[
         GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),

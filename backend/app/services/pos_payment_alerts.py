@@ -46,11 +46,12 @@ def _razorpay_signup_url() -> str:
     except Exception:
         return ""
 
+SAME_PAYMENT_WINDOW_MIN = 2  # the same payment reported again inside this window speaks once; the repeat is kept as a duplicate
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
 LANGUAGES = ("te", "hi", "en")
-VOICES = ("female", "male")
+VOICES = ("female", "male", "female2", "male2")  # *2 = the second ElevenLabs voice (elevenlabs_tts)
 # Package ids of payment apps whose incoming-payment notifications may be read. The owner can
 # narrow this per shop; anything not listed is never read on the phone.
 DEFAULT_APPS: Dict[str, str] = {
@@ -174,6 +175,10 @@ class PosPaymentAlerts:
         with store._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            try:  # added 2026-11-13: speak the payer's name in the thank-you (ALTER, never recreate)
+                conn.execute("ALTER TABLE pos_alert_settings ADD COLUMN say_name INTEGER NOT NULL DEFAULT 1")
+            except sqlite3.OperationalError:
+                pass
             for column in ("confirm_basis TEXT", "confirmed_at TEXT"):  # added 2026-10-27 (ALTER, never recreate)
                 try:
                     conn.execute(f"ALTER TABLE pos_payment_requests ADD COLUMN {column}")
@@ -188,10 +193,11 @@ class PosPaymentAlerts:
         row = conn.execute("SELECT * FROM pos_alert_settings WHERE business_id = ?", (business_id,)).fetchone()
         if row is None:
             return {"enabled": False, "language": "te", "voice": "female", "rate_pct": 100, "volume_pct": 100,
-                    "quiet_start": "", "quiet_end": "", "roles": list(DEFAULT_ROLES), "apps": dict(DEFAULT_APPS),
+                    "say_name": True, "quiet_start": "", "quiet_end": "", "roles": list(DEFAULT_ROLES), "apps": dict(DEFAULT_APPS),
                     "updated_at": None}
         return {"enabled": bool(row["enabled"]), "language": row["language"], "voice": row["voice"],
                 "rate_pct": row["rate_pct"], "volume_pct": row["volume_pct"], "quiet_start": row["quiet_start"],
+                "say_name": bool(row["say_name"]) if "say_name" in row.keys() else True,
                 "quiet_end": row["quiet_end"], "roles": json.loads(row["roles"]), "apps": json.loads(row["apps"]),
                 "updated_at": row["updated_at"]}
 
@@ -221,6 +227,8 @@ class PosPaymentAlerts:
             role = self._member(conn, business_id, user)
             out = self._settings_row(conn, business_id)
             out.update(self._sharing_view(conn, business_id, user))
+            # The shop name the phone speaks in "... reached <shop>" (the phone never sends the payer's name anywhere).
+            out["shop_name"] = str(self.store._business_row(conn, business_id)["name"] or "")
         out.update({"my_role": role, "feature_on": self.feature_on(), "can_edit": role == "owner",
                     "all_roles": [r for r in ROLES if r != "owner"],
                     "verified_provider": self._provider_connected(business_id),
@@ -332,8 +340,10 @@ class PosPaymentAlerts:
                 cur["language"] = data["language"]
             if data.get("voice") is not None:
                 if data["voice"] not in VOICES:
-                    raise PosError(400, "voice", "voice must be female or male.")
+                    raise PosError(400, "voice", "voice must be female, male, female2 or male2.")
                 cur["voice"] = data["voice"]
+            if data.get("say_name") is not None:
+                cur["say_name"] = bool(data["say_name"])
             for key, low, high in (("rate_pct", 50, 200), ("volume_pct", 10, 100)):
                 if data.get(key) is not None:
                     value = int(data[key])
@@ -365,13 +375,15 @@ class PosPaymentAlerts:
             now = self._now().isoformat()
             conn.execute(
                 "INSERT INTO pos_alert_settings (business_id, enabled, language, voice, rate_pct, volume_pct, quiet_start,"
-                " quiet_end, roles, apps, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+                " quiet_end, roles, apps, updated_by, updated_at, say_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
                 " ON CONFLICT(business_id) DO UPDATE SET enabled=excluded.enabled, language=excluded.language,"
                 " voice=excluded.voice, rate_pct=excluded.rate_pct, volume_pct=excluded.volume_pct,"
                 " quiet_start=excluded.quiet_start, quiet_end=excluded.quiet_end, roles=excluded.roles,"
-                " apps=excluded.apps, updated_by=excluded.updated_by, updated_at=excluded.updated_at",
+                " apps=excluded.apps, updated_by=excluded.updated_by, updated_at=excluded.updated_at,"
+                " say_name=excluded.say_name",
                 (business_id, int(cur["enabled"]), cur["language"], cur["voice"], cur["rate_pct"], cur["volume_pct"],
-                 cur["quiet_start"], cur["quiet_end"], json.dumps(cur["roles"]), json.dumps(cur["apps"]), user, now))
+                 cur["quiet_start"], cur["quiet_end"], json.dumps(cur["roles"]), json.dumps(cur["apps"]), user, now,
+                 int(cur.get("say_name", True))))
             self.store._audit(conn, business_id, user, "payment_alerts.settings", business_id,
                               {k: cur[k] for k in ("enabled", "language", "roles")}, now)
         return self.settings(business_id, user)
@@ -400,6 +412,15 @@ class PosPaymentAlerts:
             if existing is not None:
                 conn.execute("UPDATE pos_payment_events SET duplicates = duplicates + 1 WHERE id = ?", (existing["id"],))
                 event = self._event_out(conn, existing, "")
+                event["duplicate"] = True
+                return event
+            seen = self._same_payment_recent(conn, business_id, int(amount_paise), now)
+            if seen is not None and not test:
+                # The phone already reported this payment: confirm that event, speak nothing twice.
+                conn.execute("UPDATE pos_payment_events SET status = 'provider_verified', verification = ?,"
+                             " duplicates = duplicates + 1 WHERE id = ?", (f"provider:{provider}", seen["id"]))
+                event = self._event_out(conn, conn.execute("SELECT * FROM pos_payment_events WHERE id = ?",
+                                                           (seen["id"],)).fetchone(), "")
                 event["duplicate"] = True
                 return event
             event_id = f"ppe_{uuid.uuid4().hex[:20]}"
@@ -547,6 +568,13 @@ class PosPaymentAlerts:
                 event = self._event_out(conn, existing, user)
                 event["duplicate"] = True
                 return event
+            if amount is not None and not test:
+                seen = self._same_payment_recent(conn, business_id, int(amount), self._now())
+                if seen is not None:
+                    conn.execute("UPDATE pos_payment_events SET duplicates = duplicates + 1 WHERE id = ?", (seen["id"],))
+                    event = self._event_out(conn, seen, user)
+                    event["duplicate"] = True
+                    return event
             status = "notification_unverified" if amount is not None else "ambiguous"
             reason = "" if amount is not None else str(data.get("reason") or "amount_missing")[:40]
             event_id = f"ppe_{uuid.uuid4().hex[:20]}"
@@ -580,6 +608,16 @@ class PosPaymentAlerts:
             except Exception:
                 pass  # a push failure never fails the report; the feed still has it
         return event
+
+    def _same_payment_recent(self, conn: sqlite3.Connection, business_id: str, amount_paise: int, now: datetime) -> Optional[sqlite3.Row]:
+        """The same amount already seen for this shop in the last few minutes: the SAME payment reported twice
+        (the phone's PhonePe notification + the Razorpay webhook, or PhonePe re-posting one notification).
+        The repeat is never spoken or pushed again; it is counted on the one event as a duplicate."""
+        since = (now - timedelta(minutes=SAME_PAYMENT_WINDOW_MIN)).isoformat()
+        return conn.execute(
+            "SELECT * FROM pos_payment_events WHERE business_id = ? AND amount_paise = ? AND test = 0"
+            " AND received_at >= ? ORDER BY received_at DESC LIMIT 1",
+            (business_id, int(amount_paise), since)).fetchone()
 
     def _receivers(self, conn: sqlite3.Connection, business_id: str, settings: Dict[str, Any], exclude: str,
                    source: str = "") -> List[str]:

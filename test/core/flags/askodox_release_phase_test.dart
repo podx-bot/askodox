@@ -19,7 +19,10 @@ void main() {
       expect(askodoxRouteShownNow(route), isFalse, reason: route);
     }
     for (final route in ['/', '/profile', '/profile/memory', '/me/payment-methods', '/me/ai-credits',
-        '/privacy', '/settings/notifications', '/updates', '/watchlist', '/tools', '/location', '/businesses']) {
+        '/privacy', '/settings/notifications', '/updates', '/watchlist', '/tools', '/location', '/businesses',
+        // Owner 2026-11-14: the simple My business desk and the shop page are open in Phase 1 (the full POS is not).
+        '/me/business', '/me/business/b1/profile', '/me/business/b1/bill', '/shops/b1', '/shops/b1/post',
+        '/me/following', '/me/shop-feed']) {
       expect(askodoxRouteShownNow(route), isTrue, reason: route);
     }
   });

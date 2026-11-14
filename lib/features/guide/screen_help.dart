@@ -254,6 +254,59 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'అదే మొత్తం పేమెంట్ నోటిఫికేషన్ వస్తే గుర్తు పెడుతుంది — బ్యాంక్ యాప్‌లో చూసుకోండి.',
     'చూసుకున్నాకే "డబ్బు అందింది" నొక్కండి. ASKODOX డబ్బు పట్టుకోదు.',
   ]),
+  '/me/business': _H('My business', 'నా బిజినెస్', [
+    'First time: type your business name and choose your State.',
+    'Then: fill your details, make a bill, show the QR, and post one picture a day for followers.',
+  ], [
+    'మొదటిసారి: మీ బిజినెస్ పేరు రాసి, రాష్ట్రం ఎంచుకోండి.',
+    'తర్వాత: వివరాలు నింపండి, బిల్లు చేయండి, QR చూపండి, ఫాలోవర్లకు రోజుకు ఒక చిత్రం పోస్ట్ చేయండి.',
+  ]),
+  '/me/business/:id/profile': _H('Business details', 'బిజినెస్ వివరాలు', [
+    'Fill the four ★ boxes: what you sell, about, address, open hours.',
+    'The rest is optional: WhatsApp, website, social pages, offers, delivery. Tap Save.',
+    'ASKODOX checks the details before the shop shows as verified.',
+  ], [
+    '★ ఉన్న నాలుగు బాక్సులు నింపండి: ఏం అమ్ముతారు, బిజినెస్ గురించి, అడ్రస్, తెరిచి ఉండే సమయం.',
+    'మిగతావి మీ ఇష్టం: వాట్సాప్, వెబ్‌సైట్, సోషల్ పేజీలు, ఆఫర్లు, డెలివరీ. సేవ్ నొక్కండి.',
+    'ASKODOX వివరాలు చూసిన తర్వాతే షాప్ వెరిఫైడ్ గా కనిపిస్తుంది.',
+  ]),
+  '/me/business/:id/bill': _H('Bill', 'బిల్లు', [
+    'Type each amount (item name is optional). The total adds up by itself.',
+    'Show QR: the customer scans and pays the total to your own UPI.',
+    'Send the bill: shares the bill picture on WhatsApp or any app. Sending is optional.',
+  ], [
+    'ప్రతి మొత్తం టైప్ చేయండి (వస్తువు పేరు ఇష్టమైతే). మొత్తం దానంతట అదే కూడుతుంది.',
+    'QR చూపండి: కస్టమర్ స్కాన్ చేసి మొత్తాన్ని మీ సొంత UPI కి కడతారు.',
+    'బిల్లు పంపండి: బిల్లు చిత్రాన్ని వాట్సాప్ లేదా ఏ యాప్‌లోనైనా పంపుతుంది. పంపడం మీ ఇష్టం.',
+  ]),
+  '/me/following': _H('Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు', [
+    'Shops you follow appear here. Tap one to see it and its updates.',
+    'Following is free and anyone can do it; a shop owner can follow other shops too.',
+  ], [
+    'మీరు ఫాలో చేసే షాప్‌లు ఇక్కడ ఉంటాయి. ఒకదాన్ని నొక్కి, దాని వివరాలు చూడండి.',
+    'ఫాలో చేయడం ఉచితం. ఎవరైనా చేయవచ్చు; షాప్ యజమాని ఇతర షాప్‌లనూ ఫాలో చేయవచ్చు.',
+  ]),
+  '/shops/:id/post': _H("Today's post", 'ఈ రోజు పోస్ట్', [
+    'Write one line in Telugu or English. The picture shows your shop name and ASKODOX.',
+    'One post a day. Followers of your shop see it in their shop updates.',
+  ], [
+    'ఒక లైన్ తెలుగులో లేదా English లో రాయండి. చిత్రంలో మీ షాప్ పేరు, ASKODOX ఉంటాయి.',
+    'రోజుకు ఒక్క పోస్ట్. మీ షాప్‌ను ఫాలో చేసేవారికి షాప్ అప్‌డేట్స్‌లో కనిపిస్తుంది.',
+  ]),
+  '/me/shop-feed': _H('Shop updates', 'షాప్ అప్‌డేట్స్', [
+    'Pictures from the shops you follow. Share sends the picture and its caption.',
+    'The ASKODOX line is part of the picture, so it stays when shared.',
+  ], [
+    'మీరు ఫాలో చేసే షాప్‌ల చిత్రాలు. షేర్ చేస్తే చిత్రం, క్యాప్షన్ వెళ్తాయి.',
+    'ASKODOX లైన్ చిత్రంలోనే ఉంటుంది, షేర్ చేసినా అలాగే ఉంటుంది.',
+  ]),
+  '/shops/:id': _H('Shop', 'షాప్', [
+    'See the shop and how many people follow it. Tap Follow to get its updates.',
+    'The shop owner sees its own shop here and cannot follow it.',
+  ], [
+    'షాప్ వివరాలు, దాన్ని ఎంతమంది ఫాలో చేస్తున్నారో చూడండి. అప్‌డేట్స్ కోసం ఫాలో నొక్కండి.',
+    'షాప్ యజమాని తన షాప్‌ను ఇక్కడ చూస్తారు, కానీ దాన్ని ఫాలో చేయలేరు.',
+  ]),
   '/me/ai-credits': _H('AI Credits', 'AI క్రెడిట్స్', [
     'Your AI Credits balance and what each AI use costs (only when charging is on).',
     'Recharge opens Razorpay; credits are added only after Razorpay confirms the payment.',
@@ -262,6 +315,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ AI Credits బ్యాలెన్స్, ఒక్కో AI వాడకానికి ఎంత (charging on అయినప్పుడే).',
     'రీఛార్జ్ Razorpay తెరుస్తుంది; Razorpay confirm చేశాకే credits చేరతాయి.',
     'Credits ASKODOX AI కి మాత్రమే — cash కాదు, వేరేవాళ్ళకు పంపలేరు, seller కి కట్టడానికి వాడరు.',
+  ]),
+  '/me/payments': _H('Payments', 'పేమెంట్లు', [
+    'Today shows the payments your phone heard and how many times it spoke them.',
+    'These totals come from phone notifications, not the bank — check big amounts in your bank app.',
+    'Show my QR and My accounts open your own UPI / bank; Alerts switches the voice on.',
+  ], [
+    'ఈ రోజు ఫోన్ విన్న పేమెంట్లు, ఎన్నిసార్లు మాట్లాడిందో కనిపిస్తుంది.',
+    'ఈ లెక్క ఫోన్ నోటిఫికేషన్ల నుంచి, బ్యాంక్ నుంచి కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
+    '"నా QR చూపించు", "నా ఖాతాలు" మీ UPI / బ్యాంక్ తెరుస్తాయి; "అలర్ట్స్" వాయిస్ ఆన్ చేస్తుంది.',
   ]),
   '/me/payment-methods': _H('My payment methods', 'నా పేమెంట్ పద్ధతులు', [
     'Add your UPI QR from ANY app or bank — pick its photo or photograph it — or type the UPI ID.',
@@ -273,24 +335,31 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'బ్యాంక్ ఖాతా నంబర్లు ఎన్‌క్రిప్ట్ చేసి దాస్తాం. ఒకదాన్ని డిఫాల్ట్ చేయండి.',
   ]),
   '/me/payment-alerts': _H('Payment sound alerts', 'పేమెంట్ సౌండ్ అలర్ట్', [
-    'Type your shop name and State once, then press Start.',
-    'Add each staff member with their mobile number and role (manager, cashier or attendant).',
-    'Press "Sound on / who hears it" to switch alerts on and tick the roles that should hear them.',
-    'Each staff member opens this page on their own phone and switches the sound on there.',
+    'Give your shop / business name and state once, then press "Start".',
+    'With one shop, its alert page opens straight away; with several, pick the shop here.',
+    'Staff, who hears it, voice and history are all on the shop\'s alert page.',
   ], [
     'మీ షాప్ పేరు, రాష్ట్రం ఒకసారి ఇచ్చి "మొదలుపెట్టు" నొక్కండి.',
-    'ప్రతి సిబ్బందిని వారి మొబైల్ నంబర్, పాత్ర (మేనేజర్, క్యాషియర్ లేదా అటెండెంట్) తో జోడించండి.',
-    '"సౌండ్ ఆన్ / ఎవరికి వినిపించాలి" నొక్కి అలర్ట్స్ ఆన్ చేసి, వినాల్సిన పాత్రలను టిక్ చేయండి.',
-    'ప్రతి సిబ్బంది తమ ఫోన్‌లో ఈ పేజీ తెరిచి అక్కడ సౌండ్ ఆన్ చేసుకోవాలి.',
+    'ఒకే షాప్ ఉంటే దాని అలర్ట్ పేజీ నేరుగా తెరుచుకుంటుంది; ఎక్కువ ఉంటే ఇక్కడ షాప్ ఎంచుకోండి.',
+    'సిబ్బంది, ఎవరు వింటారు, వాయిస్, హిస్టరీ — అన్నీ షాప్ అలర్ట్ పేజీలోనే.',
   ]),
-  '/me/payment-alerts/:id': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
-    'Turn on alerts for the shop; the owner ticks which staff roles get them.',
-    'Press "Speaker test" — connect a Bluetooth speaker first if you want the voice there.',
-    'Every payment is listed with its time, source and whether the bank confirmed it — check big amounts in your bank.',
+  '/me/payment-alerts/:id': _H('Payment alerts', 'పేమెంట్ అలర్ట్స్', [
+    'Do the setup card at the top first, one step at a time.',
+    'Each row opens its own page: 1 This phone, 2 Who hears it, 3 Settings, 4 History.',
+    'Big amounts: always check your bank app — a notification is not a bank confirmation.',
   ], [
-    'షాపుకు అలర్ట్స్ ఆన్ చేయండి; ఏ సిబ్బంది పాత్రలకు రావాలో యజమాని టిక్ చేస్తారు.',
-    '"స్పీకర్ టెస్ట్" నొక్కండి — బ్లూటూత్ స్పీకర్‌లో కావాలంటే ముందు దాన్ని కనెక్ట్ చేయండి.',
-    'ప్రతి పేమెంట్ సమయం, ఎక్కడి నుంచి, బ్యాంక్ నిర్ధారించిందా అనే వివరాలతో కనిపిస్తుంది — పెద్ద మొత్తాలు బ్యాంకులో చూసుకోండి.',
+    'ముందు పైన ఉన్న సెటప్ కార్డ్ ఒక్కో అడుగు పూర్తి చేయండి.',
+    'ప్రతి వరుస దాని పేజీ తెరుస్తుంది: 1 ఈ ఫోన్, 2 ఎవరు వింటారు, 3 సెట్టింగ్స్, 4 హిస్టరీ.',
+    'పెద్ద మొత్తాలు ఎప్పుడూ బ్యాంక్ యాప్‌లో చూసుకోండి — నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు.',
+  ]),
+  '/me/payment-alerts/:id/:view': _H('Payment alerts — one part', 'పేమెంట్ అలర్ట్స్ — ఒక భాగం', [
+    'This page is one part of Payment alerts; the back arrow returns to the list of parts.',
+    'Status & tests switches alerts on and tests the speaker; Who hears it and Staff choose the people.',
+    'Voice & quiet time sets the voice; Payment history lists every alert — a notification is not a bank confirmation.',
+  ], [
+    'ఈ పేజీ పేమెంట్ అలర్ట్స్‌లో ఒక భాగం; వెనక బాణం భాగాల జాబితాకు తీసుకెళ్తుంది.',
+    'స్థితి & టెస్ట్ లో అలర్ట్స్ ఆన్ చేసి స్పీకర్ టెస్ట్ చేయండి; ఎవరు వింటారు, సిబ్బంది లో మనుషులను ఎంచుకోండి.',
+    'వాయిస్ & నిశ్శబ్ద సమయం లో గొంతు; పేమెంట్ హిస్టరీ లో అన్ని అలర్ట్స్ — నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు.',
   ]),
   '/pos/:id/payment-alerts': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
     'Turn on alerts for the shop, then "Turn on" notification access and switch ASKODOX on in Android settings.',

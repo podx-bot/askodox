@@ -266,7 +266,16 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
     final te = askodoxPosTe(context);
     final data = ref.watch(askodoxPosBusinessProvider(widget.businessId));
     return Scaffold(
-      appBar: AppBar(title: Text(data.valueOrNull?['name'] as String? ?? (te ? 'బిల్లింగ్' : 'Billing'))),
+      appBar: AppBar(
+        title: Text(data.valueOrNull?['name'] as String? ?? (te ? 'బిల్లింగ్' : 'Billing')),
+        actions: [
+          IconButton(
+            tooltip: te ? 'షాప్ పేజీ' : 'Shop page',
+            icon: const Icon(Icons.storefront_outlined),
+            onPressed: () => context.push('/shops/${widget.businessId}'),
+          ),
+        ],
+      ),
       body: data.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AskodoxPosError(error: e, onRetry: () => ref.invalidate(askodoxPosBusinessProvider(widget.businessId))),

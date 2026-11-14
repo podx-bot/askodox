@@ -20,6 +20,7 @@ import '../../services/push_registration.dart';
 import 'header_menu.dart';
 import '../../features/staff/askodox_staff_access.dart';
 import '../../config/theme/app_theme.dart';
+import 'askodox_inner_theme.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../features/companion/companion_floating.dart';
 import '../../features/companion/companion_hub.dart';
@@ -146,7 +147,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.action(action);
     }
 
-    return Scaffold(
+    // Header + bottom bar keep the original light look; inner pages get the redesign theme.
+    return Theme(data: AppTheme.light, child: Scaffold(
       backgroundColor: const Color(0xFFF8FBFF),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -322,7 +324,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         // every tab inside the shell uses the light theme it is drawn on.
         Positioned.fill(
           child: Theme(
-            data: AppTheme.light,
+            // Profile (branch 4) is an inner page in the redesign; Home and the rest stay as they are.
+            data: shell.currentIndex == 4 ? askodoxInnerTheme(AppTheme.light) : AppTheme.light,
             // Material re-applies the light text style (the inherited one is
             // the dark theme's white).
             child: Material(type: MaterialType.transparency, child: shell),
@@ -355,7 +358,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         isTe: isTe,
         onHome: () => shell.goBranch(0, initialLocation: true),
         onHistory: () => shell.goBranch(2, initialLocation: true),
-        onPayments: () => context.push('/me/payment-methods'),
+        onPayments: () => context.push('/me/payments'),
         onCompanion: () {
           // "Ask" = ONE tap starts listening (a second tap stops and sends).
           // No ring of buttons in between: attachments live on the chat's "+",
@@ -376,7 +379,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           shell.goBranch(4, initialLocation: true);
         },
       ),
-    );
+    ));
   }
 }
 

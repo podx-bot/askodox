@@ -166,14 +166,23 @@ void main() {
     await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
     await tester.pumpAndSettle();
 
+    // The menu: headings, one row per page; nothing is shown twice.
+    for (final v in ['status', 'who', 'staff', 'voice', 'bank', 'history']) {
+      expect(find.byKey(ValueKey('askodoxPayAlertOpen-$v')), findsOneWidget, reason: v);
+    }
+    expect(find.byKey(const Key('askodoxPayAlertStatus')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsNothing);
+    expect(find.textContaining('(unverified)'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'status')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Status & tests'), findsOneWidget);
     expect(find.byKey(const Key('askodoxPayAlertStatus')), findsOneWidget);
     expect(find.textContaining('Bluetooth speaker: JBL Go'), findsOneWidget);
     expect(find.textContaining('Notification access off'), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsOneWidget);
-    expect(find.text('₹500 · PhonePe Business'), findsOneWidget);
-    expect(find.text('Notification detected — unverified'), findsOneWidget);
-    expect(find.textContaining('Voice: Spoken'), findsOneWidget);
-    expect(find.textContaining('(unverified)'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertSettings')), findsNothing, reason: 'voice settings are their own page');
     final configure = native.lastWhere((c) => c.method == 'configure');
     final cfg = jsonDecode('${(configure.arguments as Map)['config']}') as Map;
     expect(cfg['enabled'], isTrue);
@@ -196,6 +205,39 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxPayAlertEnable')));
     await tester.pumpAndSettle();
     expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/settings'], {'enabled': false});
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'voice')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPayAlertSettings')), findsOneWidget);
+    // Language + voice are dropdowns (2 female + 2 male ElevenLabs voices); the name switch saves at once.
+    expect(find.byKey(const Key('askodoxPayAlertLanguage')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxPayAlertVoice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(askodoxPayAlertVoiceLabel('male2', 'te', false)).last);
+    await tester.pumpAndSettle();
+    expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/settings'], {'voice': 'male2'});
+    await tester.tap(find.byKey(const Key('askodoxPayAlertSayName')));
+    await tester.pumpAndSettle();
+    expect(api.bodies['PUT /api/pos/businesses/b1/payment-alerts/settings'], {'say_name': false});
+    final config = native.lastWhere((c) => c.method == 'configure').arguments as Map;
+    expect('${config['config'] ?? config}', contains('shop_name'));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'staff')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPayAlertStaff')), findsOneWidget);
+
+    // The history page: every alert, unverified, with what the voice did.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'history')));
+    await tester.pumpAndSettle();
+    expect(find.text('Payment history'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsOneWidget);
+    expect(find.text('₹500 · PhonePe Business'), findsOneWidget);
+    expect(find.text('Notification detected — unverified'), findsOneWidget);
+    expect(find.textContaining('Voice: Spoken'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertStatus')), findsNothing);
+    expect(find.byKey(const Key('askodoxPayAlertExport')), findsOneWidget);
   });
 
   testWidgets('a staff phone speaks an alert another phone detected and acknowledges it', (tester) async {
@@ -244,7 +286,10 @@ void main() {
     await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPayAlertPhoneOnly')), findsOneWidget);
-    expect(find.text('₹200 · PhonePe Business'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxPayAlertOpen-staff')), findsNothing, reason: 'no staff without the server');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'status')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPayAlertStaffTest')), findsNothing);
     await tester.tap(find.byKey(const Key('askodoxPayAlertEnable')));
     await tester.pumpAndSettle();
@@ -252,6 +297,12 @@ void main() {
     expect(cfg['enabled'], isTrue);
     expect(cfg['token'], '', reason: 'phone-only never uploads');
     expect((cfg['apps'] as Map).keys, contains('com.phonepe.app.business'));
+
+    // This phone's own alerts are on the history page.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'history')));
+    await tester.pumpAndSettle();
+    expect(find.text('₹200 · PhonePe Business'), findsOneWidget);
   });
 
   testWidgets('a downloaded APK without the listener says so instead of offering access', (tester) async {
@@ -272,7 +323,7 @@ void main() {
       if (p.endsWith('/payment-alerts/events')) return {'events': <Object?>[], 'last_24h': {'count': 0, 'notified_total_paise': 0}};
       return <String, Object?>{};
     });
-    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'status')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPayAlertNeedsPlayBuild')), findsOneWidget);
     expect(find.byKey(const Key('askodoxPayAlertGrant')), findsNothing);
@@ -389,7 +440,7 @@ void main() {
     await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('askodoxPayAlertRazorpaySignup')), findsOneWidget, reason: 'owner sees ASKODOX partner sign-up');
+    expect(find.byKey(const ValueKey('askodoxPayAlertOpen-bank')), findsOneWidget);
     expect(find.text('Stop the phone from putting ASKODOX to sleep'), findsOneWidget);
     await tester.tap(find.byKey(const Key('askodoxPayAlertSetupOk')));
     await tester.pumpAndSettle();
@@ -420,6 +471,12 @@ void main() {
     expect(find.textContaining('Setup 4/6'), findsOneWidget);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getStringList(askodoxPayAlertSetupConfirmedKey), ['app_notifications:$phonepe', 'sound']);
+
+    // Bank confirmation is its own page: the owner sees the ASKODOX payment profile sign-up there.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'bank')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPayAlertRazorpaySignup')), findsOneWidget, reason: 'owner sees ASKODOX profile sign-up');
   });
 
   testWidgets('each person picks who hears their payments; a listener mutes / pauses on their own phone', (tester) async {
@@ -440,7 +497,7 @@ void main() {
       if (p.endsWith('/payment-alerts/events')) return {'events': <Object?>[], 'last_24h': {'count': 0, 'notified_total_paise': 0}};
       return <String, Object?>{};
     });
-    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero)));
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'who')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('askodoxPayAlertSharing')), findsOneWidget);

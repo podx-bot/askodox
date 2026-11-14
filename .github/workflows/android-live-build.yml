@@ -13,6 +13,11 @@ on:
         required: false
         default: false
         type: boolean
+      work_test_picker:
+        description: Test APK only -- shows the Work Mode stage chips (never for the update channel)
+        required: false
+        default: false
+        type: boolean
       build_number:
         description: Explicit Android build number (leave empty = automatic, always above every published build)
         required: false
@@ -259,6 +264,7 @@ jobs:
           flutter build apk --release \
             --build-number="${BUILD_NUMBER}" \
             --dart-define=APP_ENV=production \
+            --dart-define=ASKODOX_WORK_TEST=${{ inputs.work_test_picker && 'true' || 'false' }} \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
@@ -283,6 +289,7 @@ jobs:
           flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 \
             --build-number="${BUILD_NUMBER}" \
             --dart-define=APP_ENV=production \
+            --dart-define=ASKODOX_WORK_TEST=${{ inputs.work_test_picker && 'true' || 'false' }} \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
@@ -309,6 +316,7 @@ jobs:
           flutter build appbundle --release \
             --build-number="${BUILD_NUMBER}" \
             --dart-define=APP_ENV=production \
+            --dart-define=ASKODOX_WORK_TEST=${{ inputs.work_test_picker && 'true' || 'false' }} \
             --dart-define=BACKEND_PROVIDER=rest \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=ASKODOX_API_BASE_URL="$API_BASE_URL" \
@@ -554,12 +562,15 @@ jobs:
         run: |
           TAG="test-${BUILD_NUMBER}"
           extra=""
-          for f in "dist/askodox-live-${BUILD_NUMBER}-arm64.apk" "dist/askodox-live-${BUILD_NUMBER}-arm32.apk"; do
+          for f in "dist/askodox-live-${BUILD_NUMBER}-arm64.apk" "dist/askodox-live-${BUILD_NUMBER}-arm32.apk" "dist/askodox-play-${BUILD_NUMBER}.aab"; do
             [ -f "$f" ] && extra="$extra $f"
           done
           gh release create "$TAG" "dist/askodox-live-${BUILD_NUMBER}.apk" $extra dist/SHA256SUMS.txt --prerelease --target "$GITHUB_SHA" --title "ASKODOX TEST ${BUILD_NUMBER} (${GITHUB_REF_NAME}, not merged)" --notes "Phone-test build of an unmerged branch (${GITHUB_REF_NAME} @ ${GITHUB_SHA}). Not on the in-app update channel."
           echo "::notice::Test APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-live-${BUILD_NUMBER}.apk"
           echo "::notice::Small phone APK (arm64): https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-live-${BUILD_NUMBER}-arm64.apk"
+          if [ -f "dist/askodox-play-${BUILD_NUMBER}.aab" ]; then
+            echo "::notice::Play Console bundle: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/askodox-play-${BUILD_NUMBER}.aab"
+          fi
 
       - name: Publish prerelease download link
         if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && steps.signing.outputs.configured == 'true' && github.ref == 'refs/heads/main'

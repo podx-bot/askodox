@@ -4,15 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/share/askodox_image_share.dart';
+import '../../../shared/widgets/askodox_inner_theme.dart' show AskodoxSectionLabel;
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import '../domain/payment_alert_setup.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
+import 'pay_alert_staff_card.dart';
 import 'pos_common.dart';
 import 'pos_payment_alerts_setup.dart';
 
@@ -169,11 +173,19 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
   }
 }
 
-/// Payment Alerts: status, speaker test, history, settings, devices. Opened from the POS dashboard.
+/// Payment Alerts for one shop (redesign 2026-11-13, owner: "headings, and each tap opens its own
+/// page"). [view] 'main' is a short menu (setup prompt + grouped rows); every row opens ONE page:
+/// 'status' (on/off + tests), 'who' (who hears, roles, devices), 'staff', 'voice' (voice + quiet
+/// time + apps), 'bank' (ASKODOX payment profile), 'history' (all alerts). Route
+/// `/me/payment-alerts/:id/:view`. Only the menu page polls and speaks other phones' alerts.
 class AskodoxPosPaymentAlertsScreen extends ConsumerStatefulWidget {
-  const AskodoxPosPaymentAlertsScreen({super.key, required this.businessId, this.pollEvery = const Duration(seconds: 8)});
+  const AskodoxPosPaymentAlertsScreen(
+      {super.key, required this.businessId, this.pollEvery = const Duration(seconds: 8), this.view = 'main'});
   final String businessId;
   final Duration pollEvery;
+
+  /// 'main' (menu) or one of 'status' | 'who' | 'staff' | 'voice' | 'bank' | 'history'.
+  final String view;
 
   @override
   ConsumerState<AskodoxPosPaymentAlertsScreen> createState() => _AskodoxPosPaymentAlertsScreenState();
@@ -206,6 +218,9 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   final _search = TextEditingController();
 
   String get _id => widget.businessId;
+
+  /// The menu page listens / polls; the pages opened from it only show and change things.
+  bool get _primary => widget.view == 'main';
   late final AskodoxPosRepository _repo = ref.read(askodoxPosRepositoryProvider);
   late final AskodoxPaymentAlertsBridge _bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
 
@@ -213,7 +228,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _bridge.onEvent((_) => _refresh());
+    if (_primary) _bridge.onEvent((_) => _refresh());
     _start();
   }
 
@@ -227,7 +242,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
-    _bridge.onEvent(null);
+    if (_primary) _bridge.onEvent(null);
     _search.dispose();
     super.dispose();
   }
@@ -235,7 +250,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   Future<void> _start() async {
     await _refresh(first: true);
     await _loadSetup();
-    if (!mounted || widget.pollEvery == Duration.zero) return;
+    if (!mounted || widget.pollEvery == Duration.zero || !_primary) return;
     _timer = Timer.periodic(widget.pollEvery, (_) => _poll());
   }
 
@@ -503,10 +518,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       key: const Key('askodoxPayAlertRazorpaySignup'),
       child: ListTile(
         leading: const Icon(Icons.verified_outlined),
-        title: Text(te ? 'బ్యాంక్ నిర్ధారణ కావాలా? Razorpay ఖాతా తెరవండి' : 'Want bank-confirmed alerts? Open a Razorpay account'),
+        title: Text(te ? 'బ్యాంక్ నిర్ధారణ కావాలా? ASKODOX పేమెంట్ ప్రొఫైల్‌లో చేరండి' : 'Want bank-confirmed alerts? Join the ASKODOX payment profile'),
         subtitle: Text(te
-            ? 'Razorpay QR కి వచ్చిన డబ్బును Razorpay నే నిర్ధారిస్తుంది, డబ్బు నేరుగా మీ బ్యాంక్ కి. ఖాతా తెరిచాక కింద "కనెక్ట్ చేయి".'
-            : 'Razorpay itself confirms money paid to its QR; money goes straight to your bank. After opening it, use "Connect" below.'),
+            ? 'ప్రొఫైల్ QR కి వచ్చిన డబ్బు బ్యాంక్ నిర్ధారించాకే మాట్లాడుతుంది, డబ్బు నేరుగా మీ బ్యాంక్ కి. చేరాక కింద "కనెక్ట్ చేయి".'
+            : 'Money paid to the profile QR is spoken only after the bank confirms it; money goes straight to your bank. After joining, use "Connect" below.'),
         trailing: const Icon(Icons.open_in_new),
         onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       ),
@@ -540,6 +555,11 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'enabled': _settings['enabled'] == true && _settings['feature_on'] != false,
       'language': _settings['language'] ?? 'te',
       'voice': _settings['voice'] ?? 'female',
+      // Thank-you with the payer's name (spoken on this phone only) + the shop name; the chosen ElevenLabs
+      // voice is fetched once per part and kept on the phone (device voice when offline).
+      'say_name': _settings['say_name'] ?? true,
+      'shop_name': _settings['shop_name'] ?? '',
+      'cloud_voice': true,
       'rate_pct': _settings['rate_pct'] ?? 100,
       'volume_pct': _settings['volume_pct'] ?? 100,
       'loud': _settings['loud'] ?? true, // chime + max media volume + voice boost while speaking
@@ -602,6 +622,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'can_edit': false,
       'language': 'te',
       'voice': 'female',
+      'say_name': true,
       'rate_pct': 100,
       'volume_pct': 100,
       'quiet_start': '',
@@ -760,11 +781,24 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
+    final view = widget.view;
+    final history = view == 'history';
+    final owner = _settings['can_edit'] == true;
+    final title = switch (view) {
+      'history' => te ? 'పేమెంట్ హిస్టరీ' : 'Payment history',
+      'status' => te ? 'స్థితి & టెస్ట్' : 'Status & tests',
+      'who' => te ? 'ఎవరు వింటారు' : 'Who hears it',
+      'staff' => te ? 'సిబ్బంది' : 'Staff',
+      'voice' => te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
+      'bank' => te ? 'బ్యాంక్ నిర్ధారణ' : 'Bank confirmation',
+      _ => te ? 'పేమెంట్ అలర్ట్స్' : 'Payment alerts',
+    };
     return Scaffold(
       appBar: AppBar(
-        title: Text(te ? 'పేమెంట్ వాయిస్ అలర్ట్స్' : 'Payment voice alerts'),
+        title: Text(title),
         actions: [
-          IconButton(key: const Key('askodoxPayAlertExport'), onPressed: _events.isEmpty ? null : _export, icon: const Icon(Icons.ios_share)),
+          if (history)
+            IconButton(key: const Key('askodoxPayAlertExport'), onPressed: _events.isEmpty ? null : _export, icon: const Icon(Icons.ios_share)),
         ],
       ),
       body: _loading
@@ -773,7 +807,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
               ? AskodoxPosError(error: _error!, onRetry: () => _refresh(first: true))
               : RefreshIndicator(
                   onRefresh: _refresh,
-                  child: ListView(key: const Key('askodoxPayAlerts'), padding: const EdgeInsets.all(12), children: [
+                  child: ListView(key: const Key('askodoxPayAlerts'), padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
                     if (_settings['feature_on'] == false)
                       Card(
                         color: const Color(0xFFFEF2F2),
@@ -794,18 +828,25 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                               : 'Server not reachable / not updated yet. Voice works on this phone; history stays on this phone; staff phones are not alerted.'),
                         ),
                       ),
-                    _setupCard(te),
-                    _unknownCard(te),
-                    _statusCard(te),
-                    const SizedBox(height: 8),
-                    _shareCard(te),
-                    _historyCard(te),
-                    const SizedBox(height: 8),
-                    if (_settings['can_edit'] == true) _settingsCard(te),
-                    _razorpaySignup(te),
-                    if (_settings['can_edit'] == true && !_phoneOnly) AskodoxPosProviderCard(businessId: _id),
-                    _devicesCard(te),
-                    const SizedBox(height: 8),
+                    ...switch (view) {
+                      'history' => [_historyCard(te)],
+                      'status' => [_statusCard(te)],
+                      'who' => [_shareCard(te), if (owner && !_phoneOnly) _rolesCard(te), _devicesCard(te)],
+                      'staff' => [
+                          if (owner && !_phoneOnly)
+                            AskodoxPayAlertStaffCard(businessId: _id, onChanged: _refresh)
+                          else
+                            _onlyOwner(te),
+                        ],
+                      'voice' => [if (owner) _settingsCard(te) else _onlyOwner(te)],
+                      'bank' => [
+                          _razorpaySignup(te),
+                          if (owner && !_phoneOnly) AskodoxPosProviderCard(businessId: _id) else _onlyOwner(te),
+                        ],
+                      _ => [_setupCard(te), _unknownCard(te), ..._menu(te, owner)],
+                    },
+                    if (view == 'main' || history) const SizedBox(height: 8),
+                    if (view == 'main' || history)
                     Text(
                       te
                           ? 'ASKODOX డబ్బు తీసుకోదు, పంపదు. కస్టమర్లు మీ UPI ID / QR కే నేరుగా కడతారు. నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు — '
@@ -816,6 +857,95 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                     ),
                   ]),
                 ),
+    );
+  }
+
+  /// The menu: headings, and each row opens its own page.
+  List<Widget> _menu(bool te, bool owner) {
+    final people = askodoxPosList(_settings['people']).where((p) => p['me'] != true).length;
+    final quietStart = '${_settings['quiet_start'] ?? ''}';
+    final lang = switch ('${_settings['language'] ?? 'te'}') { 'hi' => 'हिन्दी', 'en' => 'English', _ => 'తెలుగు' };
+    final on = _settings['enabled'] == true;
+    Widget row(String view, IconData icon, String title, String subtitle) => ListTile(
+          key: ValueKey('askodoxPayAlertOpen-$view'),
+          leading: Icon(icon),
+          title: Text(title),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/me/payment-alerts/$_id/$view'),
+        );
+    Widget group(String heading, List<Widget> rows) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          AskodoxSectionLabel(heading),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(children: [
+              for (var i = 0; i < rows.length; i++) ...[if (i > 0) const Divider(height: 1), rows[i]],
+            ]),
+          ),
+        ]);
+    return [
+      group(te ? '1. ఈ ఫోన్' : '1. This phone', [
+        row('status', Icons.toggle_on_outlined, te ? 'స్థితి & టెస్ట్' : 'Status & tests',
+            '${on ? (te ? 'అలర్ట్స్ ఆన్' : 'Alerts on') : (te ? 'అలర్ట్స్ ఆఫ్' : 'Alerts off')} · ${te ? 'స్పీకర్ / గుర్తింపు టెస్ట్' : 'speaker / detection test'}'),
+      ]),
+      group(te ? '2. ఎవరు వింటారు' : '2. Who hears it', [
+        row('who', Icons.hearing_outlined, te ? 'ఎవరు వింటారు' : 'Who hears it',
+            te ? '$people మంది · పాత్రలు · పరికరాలు' : '$people people · roles · devices'),
+        if (owner && !_phoneOnly)
+          row('staff', Icons.person_add_alt_1_outlined, te ? 'సిబ్బంది' : 'Staff',
+              te ? 'మొబైల్ నంబర్‌తో జోడించండి' : 'Add by mobile number'),
+      ]),
+      if (owner)
+        group(te ? '3. సెట్టింగ్స్' : '3. Settings', [
+          row('voice', Icons.record_voice_over_outlined, te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
+              '$lang · ${quietStart.isEmpty ? (te ? 'ఎప్పుడూ మాట్లాడుతుంది' : 'always speaks') : '$quietStart – ${_settings['quiet_end']}'}'),
+          row('bank', Icons.verified_outlined, te ? 'బ్యాంక్ నిర్ధారణ (ఐచ్ఛికం)' : 'Bank confirmation (optional)',
+              te ? 'ASKODOX పేమెంట్ ప్రొఫైల్' : 'ASKODOX payment profile'),
+        ]),
+      group(owner ? (te ? '4. హిస్టరీ' : '4. History') : (te ? '3. హిస్టరీ' : '3. History'), [
+        row(
+            'history',
+            Icons.receipt_long_outlined,
+            te ? 'పేమెంట్ హిస్టరీ' : 'Payment history',
+            te
+                ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
+                : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)'),
+      ]),
+    ];
+  }
+
+  Widget _onlyOwner(bool te) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(te ? 'ఇది షాప్ యజమాని మాత్రమే మార్చగలరు.' : 'Only the shop owner can change this.'),
+        ),
+      );
+
+  /// Which staff roles hear payments (owner) -- part of "who hears it".
+  Widget _rolesCard(bool te) {
+    final roles = (_settings['all_roles'] as List? ?? const []).map((e) => '$e').toList();
+    final chosen = (_settings['roles'] as List? ?? const []).map((e) => '$e').toSet();
+    if (roles.isEmpty) return const SizedBox.shrink();
+    return Card(
+      key: const Key('askodoxPayAlertRoles'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(te ? 'ఏ పాత్రల వారికి వినిపించాలి' : 'Which roles hear it', style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final r in roles)
+              FilterChip(
+                key: ValueKey('askodoxPayAlertRole-$r'),
+                label: Text(askodoxStaffRoleLabel(r, te)),
+                selected: chosen.contains(r),
+                onSelected: _busy
+                    ? null
+                    : (v) => _save({'roles': v ? [...chosen, r] : chosen.where((x) => x != r).toList()}),
+              ),
+          ]),
+        ]),
+      ),
     );
   }
 
@@ -1002,33 +1132,51 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
 
   Widget _settingsCard(bool te) {
     final lang = '${_settings['language'] ?? 'te'}';
-    final roles = (_settings['all_roles'] as List? ?? const []).map((e) => '$e').toList();
-    final chosen = (_settings['roles'] as List? ?? const []).map((e) => '$e').toSet();
     final apps = askodoxPosMap(_settings['apps']);
     return Card(
       key: const Key('askodoxPayAlertSettings'),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(te ? 'సెట్టింగ్స్ (యజమాని)' : 'Settings (owner)', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(te ? 'వాయిస్ సెట్టింగ్స్ (యజమాని)' : 'Voice settings (owner)', style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
-          Text(te ? 'భాష' : 'Language'),
-          Wrap(spacing: 6, children: [
-            for (final (v, label) in const [('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('en', 'English')])
-              ChoiceChip(
-                  key: ValueKey('askodoxPayAlertLang-$v'),
-                  label: Text(label),
-                  selected: lang == v,
-                  onSelected: _busy ? null : (_) => _save({'language': v})),
-          ]),
-          Text(te ? 'వాయిస్ (ఫోన్‌లో ఉంటే)' : 'Voice (when the phone has it)'),
-          Wrap(spacing: 6, children: [
-            for (final (v, en, tel) in const [('female', 'Female', 'స్త్రీ'), ('male', 'Male', 'పురుషుడు')])
-              ChoiceChip(
-                  label: Text(te ? tel : en),
-                  selected: '${_settings['voice']}' == v,
-                  onSelected: _busy ? null : (_) => _save({'voice': v})),
-          ]),
+          DropdownButtonFormField<String>(
+            key: const Key('askodoxPayAlertLanguage'),
+            isExpanded: true,
+            initialValue: askodoxPayAlertLanguages.any((l) => l.$1 == lang) ? lang : 'te',
+            decoration: InputDecoration(labelText: te ? 'భాష' : 'Language'),
+            items: [
+              for (final (v, label) in askodoxPayAlertLanguages)
+                DropdownMenuItem(value: v, child: Text(label, key: ValueKey('askodoxPayAlertLang-$v'))),
+            ],
+            onChanged: _busy ? null : (v) => v == null || v == lang ? null : _save({'language': v}),
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            key: const Key('askodoxPayAlertVoice'),
+            isExpanded: true,
+            initialValue: askodoxPayAlertVoiceIds.contains('${_settings['voice']}') ? '${_settings['voice']}' : 'female',
+            decoration: InputDecoration(
+                labelText: te ? 'వాయిస్' : 'Voice',
+                helperText: te
+                    ? 'ఎంచుకుని "స్పీకర్ టెస్ట్" నొక్కి వినండి. నెట్ లేకపోతే ఫోన్ వాయిస్.'
+                    : 'Choose, then tap "Speaker test" to hear it. Without internet the phone voice speaks.'),
+            items: [
+              for (final v in askodoxPayAlertVoiceIds)
+                DropdownMenuItem(value: v, child: Text(askodoxPayAlertVoiceLabel(v, lang, te))),
+            ],
+            onChanged: _busy ? null : (v) => v == null || v == '${_settings['voice']}' ? null : _save({'voice': v}),
+          ),
+          SwitchListTile(
+            key: const Key('askodoxPayAlertSayName'),
+            contentPadding: EdgeInsets.zero,
+            value: _settings['say_name'] != false,
+            onChanged: _busy ? null : (v) => _save({'say_name': v}),
+            title: Text(te ? 'కస్టమర్ పేరుతో థ్యాంక్ యూ' : 'Thank the customer by name'),
+            subtitle: Text(te
+                ? '"థ్యాంక్ యూ <పేరు> గారు, 30 రూపాయలు మా షాప్‌కి అందాయి, మళ్ళీ విచ్చేయండి." పేరు ఈ ఫోన్‌లో చెప్పడానికి మాత్రమే — ఎక్కడా సేవ్ కాదు.'
+                : '"Thank you <name>, 30 rupees received at our shop, please visit again." The name is only spoken on this phone, never saved.'),
+          ),
           Text('${te ? 'వేగం' : 'Speed'} ${_settings['rate_pct']}%'),
           Slider(
               key: const Key('askodoxPayAlertRate'),
@@ -1064,23 +1212,18 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                 onPressed: _busy ? null : () => _save({'quiet_start': '', 'quiet_end': ''}),
                 child: Text(te ? 'తీసివేయి' : 'Clear')),
           ]),
-          Text(te ? 'ఏ సిబ్బంది చూడవచ్చు / వినవచ్చు' : 'Which staff roles get alerts'),
-          Wrap(spacing: 6, children: [
-            for (final r in roles)
-              FilterChip(
-                key: ValueKey('askodoxPayAlertRole-$r'),
-                label: Text(r),
-                selected: chosen.contains(r),
-                onSelected: _busy
-                    ? null
-                    : (v) => _save({'roles': v ? [...chosen, r] : chosen.where((x) => x != r).toList()}),
-              ),
-          ]),
-          const SizedBox(height: 6),
-          Text(te ? 'చదవాల్సిన పేమెంట్ యాప్‌లు' : 'Payment apps to read'),
-          for (final e in apps.entries)
-            Text('• ${e.value}', style: const TextStyle(fontSize: 12.5)),
-          Text(te ? 'జాబితా ASKODOX సపోర్ట్ మార్చగలదు.' : 'ASKODOX support can adjust this list.', style: const TextStyle(fontSize: 11.5)),
+          ExpansionTile(
+            key: const Key('askodoxPayAlertApps'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            title: Text(te ? 'చదివే పేమెంట్ యాప్‌లు (${apps.length})' : 'Payment apps it reads (${apps.length})',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            children: [
+              for (final e in apps.entries) Text('• ${e.value}', style: const TextStyle(fontSize: 12.5)),
+              Text(te ? 'జాబితా ASKODOX సపోర్ట్ మార్చగలదు.' : 'ASKODOX support can adjust this list.', style: const TextStyle(fontSize: 11.5)),
+            ],
+          ),
         ]),
       ),
     );
@@ -1180,6 +1323,30 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
 
   Future<void> _load() => _run((repo) => repo.paymentProvider(widget.businessId));
 
+  /// Download = save the shop QR picture into the gallery (Pictures/ASKODOX); Share opens the
+  /// share sheet (WhatsApp, print, Drive ...). Phones that cannot save get the share sheet.
+  Future<void> _saveQr(String url, bool te, {required bool share}) async {
+    setState(() => _busy = true);
+    try {
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode != 200 || res.bodyBytes.isEmpty) throw StateError('qr ${res.statusCode}');
+      final mime = (res.headers['content-type'] ?? '').contains('jpeg') ? 'image/jpeg' : 'image/png';
+      var saved = false;
+      if (!share) saved = await askodoxSaveImageToGallery(res.bodyBytes, name: 'askodox-shop-qr', mime: mime);
+      if (!mounted) return;
+      if (saved) {
+        askodoxPosSnack(context, te ? 'QR గ్యాలరీలో సేవ్ అయింది (Pictures › ASKODOX).' : 'QR saved to the gallery (Pictures › ASKODOX).');
+      } else {
+        final opened = await askodoxShareImage(res.bodyBytes, name: 'askodox-shop-qr');
+        if (!opened && mounted) askodoxPosSnack(context, te ? 'ఈ ఫోన్‌లో సేవ్ చేయలేకపోయాం.' : 'Could not save on this phone.');
+      }
+    } catch (_) {
+      if (mounted) askodoxPosSnack(context, te ? 'QR తెచ్చుకోలేకపోయాం — ఇంటర్నెట్ చూసి మళ్ళీ ప్రయత్నించండి.' : 'Could not fetch the QR — check the internet and try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
@@ -1191,12 +1358,12 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(te ? 'బ్యాంక్-నిర్ధారణ అలర్ట్స్ (మీ Razorpay)' : 'Bank-confirmed alerts (your Razorpay)',
+          Text(te ? 'ASKODOX పేమెంట్ ప్రొఫైల్ (బ్యాంక్ నిర్ధారణ)' : 'ASKODOX payment profile (bank-confirmed)',
               style: const TextStyle(fontWeight: FontWeight.w800)),
           Text(
               te
-                  ? 'మీ స్వంత Razorpay ఖాతా QR కి కస్టమర్ కడితే, Razorpay నిర్ధారించిన తర్వాతే "మీకు ... రూపాయలు అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే; ASKODOX డబ్బు పట్టుకోదు.'
-                  : 'When a customer pays your OWN Razorpay QR, phones say "you received ..." only after Razorpay confirms it. Money goes straight to your account; ASKODOX never holds it.',
+                  ? 'మీ ప్రొఫైల్ QR కి కస్టమర్ కడితే, బ్యాంక్ నిర్ధారించిన తర్వాతే "మీకు ... రూపాయలు అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే; ASKODOX డబ్బు పట్టుకోదు.'
+                  : 'When a customer pays your profile QR, phones say "you received ..." only after the bank confirms it. Money goes straight to your account; ASKODOX never holds it.',
               style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 6),
           if (connected) ...[
@@ -1217,6 +1384,29 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
                 label: Text(te ? 'URL కాపీ' : 'Copy URL')),
             if (qr.isNotEmpty)
               Center(child: Image.network(qr, key: const Key('askodoxPayAlertQr'), height: 220, errorBuilder: (context, error, stack) => SelectableText(qr))),
+            if (qr.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('askodoxPayAlertQrSave'),
+                      onPressed: _busy ? null : () => _saveQr(qr, te, share: false),
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: Text(te ? 'డౌన్‌లోడ్' : 'Download'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('askodoxPayAlertQrShare'),
+                      onPressed: _busy ? null : () => _saveQr(qr, te, share: true),
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      label: Text(te ? 'షేర్ / ప్రింట్' : 'Share / print'),
+                    ),
+                  ),
+                ]),
+              ),
             Wrap(spacing: 8, children: [
               FilledButton.tonal(
                   key: const Key('askodoxPayAlertMakeQr'),
@@ -1255,4 +1445,24 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
       ),
     );
   }
+}
+
+
+/// Languages of the payment thank-you (the phone's built-in wording exists for these).
+const askodoxPayAlertLanguages = [('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('en', 'English')];
+
+/// Two female + two male voices (ElevenLabs, server `elevenlabs_tts.SECOND_VOICES`).
+const askodoxPayAlertVoiceIds = ['female', 'female2', 'male', 'male2'];
+
+/// "Madhavi (female)" -- the ElevenLabs voice's name for the chosen language.
+String askodoxPayAlertVoiceLabel(String voice, String language, bool te) {
+  const names = {
+    'te': {'female': 'Madhavi', 'female2': 'Vijaya', 'male': 'Jayesh', 'male2': 'Maddy'},
+    'hi': {'female': 'Sia', 'female2': 'Anika', 'male': 'Bunty', 'male2': 'Viraj'},
+    'en': {'female': 'Sia', 'female2': 'Anika', 'male': 'Bunty', 'male2': 'Viraj'},
+  };
+  final name = names[language]?[voice] ?? names['te']![voice] ?? voice;
+  final female = voice.startsWith('female');
+  final kind = te ? (female ? 'స్త్రీ' : 'పురుషుడు') : (female ? 'female' : 'male');
+  return '$name ($kind ${voice.endsWith('2') ? 2 : 1})';
 }

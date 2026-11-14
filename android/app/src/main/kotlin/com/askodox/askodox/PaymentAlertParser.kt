@@ -4,7 +4,8 @@ import java.util.Locale
 
 /**
  * Pure (no Android imports) reader for the incoming-payment notification of an ALLOWED payment app.
- * Only the amount and a transaction reference leave this function -- never the text, a name or a number.
+ * Only the amount, a transaction reference and (for the spoken thank-you ONLY) the payer's name leave this
+ * function -- never the text or a number. The name is spoken on this phone and never stored or uploaded.
  *
  * A notification is accepted only when it clearly says money came IN and carries exactly one amount.
  * Outgoing payments, requests, OTPs, cashback / rewards / offers, failures and refunds are ignored.
@@ -12,7 +13,7 @@ import java.util.Locale
  */
 object PaymentAlertParser {
     sealed class Result {
-        data class Accepted(val amountPaise: Long, val reference: String?) : Result()
+        data class Accepted(val amountPaise: Long, val reference: String?, val payer: String? = null) : Result()
         data class Ambiguous(val reason: String) : Result()
 
         /**
@@ -79,7 +80,37 @@ object PaymentAlertParser {
         if (amounts.isEmpty()) return Result.Ambiguous("amount_missing")
         if (amounts.size > 1) return Result.Ambiguous("multiple_amounts")
         val reference = refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.any(Char::isDigit) }
-        return Result.Accepted(amounts.first(), reference)
+        return Result.Accepted(amounts.first(), reference, payerName(text) ?: payerName(title))
+    }
+
+    private const val AMT = """(?:₹|rs\.?|inr)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?"""
+    private val payerPatterns = listOf(
+        Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?sent\s+$AMT\s+to\s+you""", RegexOption.IGNORE_CASE),   // PhonePe
+        Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?paid\s+you\s+$AMT""", RegexOption.IGNORE_CASE),          // Google Pay
+        Regex("""^\s*(.{2,60}?)\s+has\s+sent\s+you\s+$AMT""", RegexOption.IGNORE_CASE),
+        Regex("""received\s+$AMT\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE), // Paytm
+        Regex("""$AMT\s+received\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+    )
+    private val notAName = setOf("you", "upi", "bank", "account", "a/c", "your", "someone", "phonepe", "paytm", "google",
+        "gpay", "bhim", "money", "payment", "received")
+
+    /**
+     * The payer's display name from an incoming-payment message ("Bhagya sent ₹30 to you" -> "Bhagya"), or null.
+     * Letters only: anything with a digit or @ (a number / UPI id) is never returned.
+     */
+    fun payerName(text: String?): String? {
+        val t = (text ?: "").replace('\n', ' ').trim()
+        if (t.isEmpty()) return null
+        for (re in payerPatterns) {
+            val raw = re.find(t)?.groupValues?.get(1) ?: continue
+            val name = raw.trim().trim('.', ',', '!', ':', '-', '\'', '"').replace(Regex("\\s+"), " ")
+            if (name.length < 2 || name.length > 40) continue
+            if (name.any { it.isDigit() || it == '@' || it == '₹' || it == '/' }) continue
+            if (name.split(' ').size > 4) continue
+            if (name.lowercase().split(' ').any { it in notAName }) continue
+            return name
+        }
+        return null
     }
 
     fun toPaise(raw: String): Long? {
@@ -92,27 +123,52 @@ object PaymentAlertParser {
         return if (total in 1..1_000_000_000L) total else null
     }
 
-    /** The sentence spoken for a notification-only event: always asks to confirm in the bank. */
-    fun announcement(amountPaise: Long?, language: String, test: Boolean = false): String {
+    /** The whole sentence (device voice, or when the cloud voice is not reachable). */
+    fun announcement(amountPaise: Long?, language: String, test: Boolean = false, payer: String? = null,
+                     shop: String? = null): String = announcementParts(amountPaise, language, test, payer, shop).joinToString(" ")
+
+    /**
+     * The thank-you the shop speaks to the customer (owner 2026-11-13): "Thank you <name> garu, 30 rupees reached
+     * <shop>, thank you, please come again". Split into parts so the cloud voice can keep the parts that never
+     * change (the closing line, the shop part) on the phone and fetch only the name / amount parts once each.
+     */
+    fun announcementParts(amountPaise: Long?, language: String, test: Boolean = false, payer: String? = null,
+                          shop: String? = null): List<String> {
+        val parts = mutableListOf<String>()
+        if (test) parts += when (language) { "te" -> "టెస్ట్."; "hi" -> "टेस्ट।"; else -> "Test." }
         if (amountPaise == null) {
-            return when (language) {
+            parts += when (language) {
                 "te" -> "పేమెంట్ నోటిఫికేషన్ వచ్చింది, కానీ మొత్తం స్పష్టంగా లేదు. యాప్‌లో చూడండి."
                 "hi" -> "पेमेंट नोटिफिकेशन आया, पर रकम साफ़ नहीं है। ऐप में देखें।"
                 else -> "A payment notification arrived but the amount is not clear. Please check the app."
             }
+            return parts
         }
         val rupees = amountPaise / 100
         val paise = amountPaise % 100
-        val text = when (language) {
-            "te" -> "$rupees రూపాయల" + (if (paise > 0) " $paise పైసల" else "") +
-                " పేమెంట్ నోటిఫికేషన్ వచ్చింది. బ్యాంకులో నిర్ధారించుకోండి."
-            "hi" -> "$rupees रुपये" + (if (paise > 0) " $paise पैसे" else "") +
-                " का पेमेंट नोटिफिकेशन आया है। बैंक में पक्का कर लें।"
-            else -> "Payment notification of $rupees rupees" + (if (paise > 0) " $paise paise" else "") +
-                " received. Please confirm in your bank."
+        val name = payer?.trim()?.takeIf { it.isNotEmpty() }
+        val place = shop?.trim()?.take(40)?.takeIf { it.isNotEmpty() }
+        when (language) {
+            "te" -> {
+                parts += if (name != null) "థ్యాంక్ యూ $name గారు." else "థ్యాంక్ యూ."
+                parts += "$rupees రూపాయలు" + (if (paise > 0) " $paise పైసలు" else "")
+                parts += if (place != null) "$place కి అందాయి." else "మాకు అందాయి."
+                parts += "ధన్యవాదాలు, మళ్ళీ విచ్చేయండి."
+            }
+            "hi" -> {
+                parts += if (name != null) "धन्यवाद $name जी।" else "धन्यवाद।"
+                parts += "$rupees रुपये" + (if (paise > 0) " $paise पैसे" else "")
+                parts += if (place != null) "$place को मिल गए।" else "हमें मिल गए।"
+                parts += "फिर से पधारिए।"
+            }
+            else -> {
+                parts += if (name != null) "Thank you $name." else "Thank you."
+                parts += "$rupees rupees" + (if (paise > 0) " $paise paise" else "")
+                parts += if (place != null) "received at $place." else "received."
+                parts += "Please visit again."
+            }
         }
-        val prefix = when (language) { "te" -> "టెస్ట్. "; "hi" -> "टेस्ट। "; else -> "Test. " }
-        return if (test) prefix + text else text
+        return parts
     }
 
     /** True when "HH:mm" now falls inside [start, end) (overnight ranges allowed). Empty = never quiet. */
