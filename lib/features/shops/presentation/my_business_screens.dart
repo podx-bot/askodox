@@ -243,6 +243,9 @@ class AskodoxBusinessProfileScreen extends ConsumerStatefulWidget {
 
 class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessProfileScreen> {
   final _boxes = {for (final f in _profileFields) f.id: TextEditingController()};
+  // The shop name is typed (never spoken): a spoken name is where the wrong letters came from.
+  final _name = TextEditingController();
+  String _savedName = '';
   final _catOther = TextEditingController();
   final _subOther = TextEditingController();
   String _lat = '';
@@ -265,6 +268,7 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     for (final box in _boxes.values) {
       box.dispose();
     }
+    _name.dispose();
     _catOther.dispose();
     _subOther.dispose();
     super.dispose();
@@ -292,6 +296,8 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     } catch (_) {}
     try {
       final shop = await repo.shopState(widget.businessId);
+      _savedName = '${shop['name'] ?? ''}';
+      _name.text = _savedName;
       final fields = askodoxPosMap(askodoxPosMap(shop['profile'])['fields']);
       for (final entry in _boxes.entries) {
         entry.value.text = '${fields[entry.key] ?? ''}';
@@ -324,10 +330,21 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
       _busy = true;
       _message = null;
     });
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    final newName = _name.text.trim();
+    if (newName.isEmpty) {
+      setState(() {
+        _busy = false;
+        _message = te ? 'షాప్ పేరు ఖాళీగా ఉంచకండి.' : 'The shop name cannot be empty.';
+      });
+      return;
+    }
     try {
-      final saved = await ref
-          .read(askodoxPosRepositoryProvider)
-          .saveShopProfile(widget.businessId, {
+      if (newName != _savedName) {
+        await repo.renameBusiness(widget.businessId, newName);
+        _savedName = newName;
+      }
+      final saved = await repo.saveShopProfile(widget.businessId, {
             for (final e in _boxes.entries) e.key: e.value.text.trim(),
             'lat': _lat,
             'lng': _lng,
@@ -484,6 +501,17 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                     ? '★ ఉన్నవి తప్పనిసరి. మిగతావి మీ ఇష్టం. ఇవే కస్టమర్లకు ముందు కనిపిస్తాయి.'
                     : '★ are required. The rest is up to you. Customers see these first.'),
                 const SizedBox(height: 12),
+                TextField(
+                  key: const Key('askodoxBusinessName'),
+                  controller: _name,
+                  maxLength: 80,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                      labelText: te ? '★ షాప్ పేరు' : '★ Shop name',
+                      helperText: te ? 'టైప్ చేయండి; మైక్ ఇక్కడ లేదు' : 'Type it; no mic here',
+                      border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 10),
                 ..._categoryPickers(te),
                 for (final f in _profileFields)
                   Padding(
