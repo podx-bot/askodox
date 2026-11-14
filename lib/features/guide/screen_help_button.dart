@@ -20,6 +20,11 @@ import 'screen_help.dart';
 /// It also WATCHES: when the person sits on an empty box for a few seconds, or
 /// something they did is refused, the tab asks "Need help?" by itself (no / yes:
 /// what to write here, or explain the page) -- so fields need no "?" icons.
+/// The floating Guide button (and its nudges / welcome sheet) on every screen. Hidden for now (owner 2026-11-14:
+/// "hide the Guide button everywhere"); a build turns it back on with --dart-define=ASKODOX_GUIDE_BUTTON=true.
+/// The code, the help texts and their tests stay.
+const bool askodoxGuideButtonOn = bool.fromEnvironment('ASKODOX_GUIDE_BUTTON');
+
 class AskodoxScreenHelpLayer extends ConsumerStatefulWidget {
   const AskodoxScreenHelpLayer({super.key, required this.child, this.router});
   final Widget child;

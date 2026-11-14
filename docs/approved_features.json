@@ -5852,6 +5852,10 @@
         {
           "method": "PUT",
           "path": "/api/shops/{business_id}/profile"
+        },
+        {
+          "method": "GET",
+          "path": "/api/shops/categories"
         }
       ],
       "ui": {
@@ -5863,7 +5867,9 @@
           "askodoxMyBusinessBill",
           "askodoxQuickBillShowQr",
           "askodoxQuickBillShare",
-          "askodoxBusinessProfileSave"
+          "askodoxBusinessProfileSave",
+          "askodoxBusinessCategory",
+          "askodoxComposerMic"
         ]
       },
       "flags": {},
@@ -5880,7 +5886,8 @@
       "history": [
         "2026-11-14: owner approved (anyone can follow a shop, owners included; own shop blocked; counts only)",
         "2026-11-14: owner approved daily shop picture + follower feed (phone-drawn brand, one per day)",
-        "2026-11-14: owner approved My business desk in Phase 1 (details, calculator bill + QR + share); full POS stays Phase 2"
+        "2026-11-14: owner approved My business desk in Phase 1 (details, calculator bill + QR + share); full POS stays Phase 2",
+        "2026-11-14: category + sub-category dropdowns (Others = own words), mic in every box and in the chat box, Guide button hidden"
       ]
     }
   ]

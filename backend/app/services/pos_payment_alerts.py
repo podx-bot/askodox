@@ -50,7 +50,39 @@ SAME_PAYMENT_WINDOW_MIN = 2  # the same payment reported again inside this windo
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
-LANGUAGES = ("te", "hi", "en")
+# Owner 2026-11-14: every Indian language an ElevenLabs voice speaks (elevenlabs_tts.VOICES), not only te / hi / en.
+LANGUAGES = ("te", "hi", "en", "ta", "kn", "ml", "bn", "mr", "gu", "pa", "or", "ur")
+
+# (test word, unclear sentence, verified "{amount}", unverified "{amount}", rupees "{n}", paise "{n}")
+_WORDS = {
+    "ta": ("சோதனை.", "பணம் வந்ததாக அறிவிப்பு வந்தது, ஆனால் தொகை தெளிவாக இல்லை. ஆப்பில் பாருங்கள்.",
+           "உங்களுக்கு {amount} வந்தது.", "{amount} பணம் வந்ததாக அறிவிப்பு. வங்கியில் உறுதி செய்யுங்கள்.",
+           "{n} ரூபாய்", "{n} பைசா"),
+    "kn": ("ಪರೀಕ್ಷೆ.", "ಪಾವತಿ ಸೂಚನೆ ಬಂದಿದೆ, ಆದರೆ ಮೊತ್ತ ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ. ಆ್ಯಪ್‌ನಲ್ಲಿ ನೋಡಿ.",
+           "ನಿಮಗೆ {amount} ಬಂದಿದೆ.", "{amount} ಪಾವತಿ ಸೂಚನೆ ಬಂದಿದೆ. ಬ್ಯಾಂಕ್‌ನಲ್ಲಿ ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ.",
+           "{n} ರೂಪಾಯಿ", "{n} ಪೈಸೆ"),
+    "ml": ("പരീക്ഷണം.", "പേയ്‌മെന്റ് അറിയിപ്പ് വന്നു, പക്ഷേ തുക വ്യക്തമല്ല. ആപ്പിൽ നോക്കൂ.",
+           "നിങ്ങൾക്ക് {amount} ലഭിച്ചു.", "{amount} പേയ്‌മെന്റ് അറിയിപ്പ് വന്നു. ബാങ്കിൽ ഉറപ്പാക്കൂ.",
+           "{n} രൂപ", "{n} പൈസ"),
+    "bn": ("পরীক্ষা।", "পেমেন্টের নোটিফিকেশন এসেছে, কিন্তু টাকার পরিমাণ পরিষ্কার নয়। অ্যাপে দেখুন।",
+           "আপনি {amount} পেয়েছেন।", "{amount}-এর পেমেন্ট নোটিফিকেশন এসেছে। ব্যাংকে মিলিয়ে নিন।",
+           "{n} টাকা", "{n} পয়সা"),
+    "mr": ("चाचणी.", "पेमेंटची सूचना आली, पण रक्कम स्पष्ट नाही. ॲपमध्ये पहा.",
+           "तुम्हाला {amount} मिळाले.", "{amount} पेमेंटची सूचना आली आहे. बँकेत खात्री करा.",
+           "{n} रुपये", "{n} पैसे"),
+    "gu": ("ટેસ્ટ.", "પેમેન્ટની સૂચના આવી, પણ રકમ સ્પષ્ટ નથી. એપમાં જુઓ.",
+           "તમને {amount} મળ્યા.", "{amount} નું પેમેન્ટ નોટિફિકેશન આવ્યું. બેંકમાં ખાતરી કરો.",
+           "{n} રૂપિયા", "{n} પૈસા"),
+    "pa": ("ਟੈਸਟ।", "ਭੁਗਤਾਨ ਦੀ ਸੂਚਨਾ ਆਈ, ਪਰ ਰਕਮ ਸਾਫ਼ ਨਹੀਂ ਹੈ। ਐਪ ਵਿੱਚ ਦੇਖੋ।",
+           "ਤੁਹਾਨੂੰ {amount} ਮਿਲੇ।", "{amount} ਦੀ ਭੁਗਤਾਨ ਸੂਚਨਾ ਆਈ ਹੈ। ਬੈਂਕ ਵਿੱਚ ਪੱਕਾ ਕਰੋ।",
+           "{n} ਰੁਪਏ", "{n} ਪੈਸੇ"),
+    "or": ("ପରୀକ୍ଷା।", "ପେମେଣ୍ଟ ସୂଚନା ଆସିଛି, କିନ୍ତୁ ରାଶି ସ୍ପଷ୍ଟ ନାହିଁ। ଆପ୍‌ରେ ଦେଖନ୍ତୁ।",
+           "ଆପଣ {amount} ପାଇଛନ୍ତି।", "{amount} ପେମେଣ୍ଟ ସୂଚନା ଆସିଛି। ବ୍ୟାଙ୍କରେ ନିଶ୍ଚିତ କରନ୍ତୁ।",
+           "{n} ଟଙ୍କା", "{n} ପଇସା"),
+    "ur": ("ٹیسٹ۔", "ادائیگی کی اطلاع آئی ہے، لیکن رقم واضح نہیں ہے۔ ایپ میں دیکھیں۔",
+           "آپ کو {amount} ملے۔", "{amount} کی ادائیگی کی اطلاع آئی ہے۔ بینک میں تصدیق کریں۔",
+           "{n} روپے", "{n} پیسے"),
+}
 VOICES = ("female", "male", "female2", "male2")  # *2 = the second ElevenLabs voice (elevenlabs_tts)
 # Package ids of payment apps whose incoming-payment notifications may be read. The owner can
 # narrow this per shop; anything not listed is never read on the phone.
@@ -62,7 +94,30 @@ DEFAULT_APPS: Dict[str, str] = {
     "com.paytm.business": "Paytm for Business",
     "net.one97.paytm": "Paytm",
     "in.org.npci.upiapp": "BHIM",
+    # Owner 2026-11-14: the other UPI apps and the big bank apps money also arrives through (20 = the per-shop cap).
+    "in.amazon.mShop.android.shopping": "Amazon Pay",
+    "com.myairtelapp": "Airtel Thanks (Airtel Payments Bank)",
+    "com.dreamplug.androidapp": "CRED",
+    "com.mobikwik_new": "MobiKwik",
+    "com.naviapp": "Navi",
+    "money.super.payments": "super.money",
+    "com.freecharge.android": "Freecharge",
+    "com.sbi.lotusintouch": "SBI YONO",
+    "com.csam.icici.bank.imobile": "ICICI iMobile",
+    "com.snapwork.hdfc": "HDFC Bank",
+    "com.axis.mobile": "Axis Mobile",
+    "com.msf.kbank.mobile": "Kotak",
+    "com.bankofbaroda.mconnect": "bob World",
 }
+# The list shops were given before 2026-11-14: a shop still on exactly this list never chose its own,
+# so it follows the new default list.
+_FIRST_DEFAULT_APPS = frozenset({
+    "com.phonepe.app.business", "com.phonepe.app", "com.google.android.apps.nbu.paisa.merchant",
+    "com.google.android.apps.nbu.paisa.user", "com.paytm.business", "net.one97.paytm", "in.org.npci.upiapp"})
+
+
+def _shop_apps(stored: Dict[str, str]) -> Dict[str, str]:
+    return dict(DEFAULT_APPS) if frozenset(stored) == _FIRST_DEFAULT_APPS else stored
 DEFAULT_ROLES = ("owner", "manager", "cashier")
 # Extra wording the phones use on top of the phrases built into the app (PaymentAlertParser.kt), so new
 # payment-app wording is fixed with a server deploy instead of a new app build. Lower case.
@@ -142,22 +197,31 @@ def spoken_name(label: str, role: str, language: str) -> str:
 
 def announcement(amount_paise: Optional[int], language: str, verified: bool = False, test: bool = False) -> str:
     """The sentence a phone speaks. Unverified wording always asks the shop to check the bank."""
+    words = _WORDS.get(language)
     if amount_paise is None:
+        if words:
+            return words[1]
         return {"te": "పేమెంట్ నోటిఫికేషన్ వచ్చింది, కానీ మొత్తం స్పష్టంగా లేదు. యాప్‌లో చూడండి.",
                 "hi": "पेमेंट नोटिफिकेशन आया, पर रकम साफ़ नहीं है। ऐप में देखें।",
                 "en": "A payment notification arrived but the amount is not clear. Please check the app."}.get(language, "")
     rupees, paise = divmod(int(amount_paise), 100)
+    if words:
+        amount = words[4].format(n=rupees) + (" " + words[5].format(n=paise) if paise else "")
+        text = words[2].format(amount=amount)  # same short sentence; no "check the bank" (owner 2026-11-14)
+        return (words[0] + " " + text) if test else text
     if language == "te":
         amount = f"{rupees} రూపాయల" + (f" {paise} పైసల" if paise else "")
+        # Owner 2026-11-14: no "check the bank" on every alert -- the alert screen already says alerts come from
+        # the payment app's notification. Bank-confirmed = "you received"; phone notification = "came".
         text = f"మీకు {amount.replace('రూపాయల', 'రూపాయలు')} అందాయి." if verified else \
-            f"{amount} పేమెంట్ నోటిఫికేషన్ వచ్చింది. బ్యాంకులో నిర్ధారించుకోండి."
+            f"{amount.replace('రూపాయల', 'రూపాయలు').replace('పైసల', 'పైసలు')} వచ్చాయి."
         return ("టెస్ట్. " + text) if test else text
     if language == "hi":
         amount = f"{rupees} रुपये" + (f" {paise} पैसे" if paise else "")
-        text = f"आपको {amount} मिले।" if verified else f"{amount} का पेमेंट नोटिफिकेशन आया है। बैंक में पक्का कर लें।"
+        text = f"आपको {amount} मिले।" if verified else f"{amount} आए हैं।"
         return ("टेस्ट। " + text) if test else text
     amount = f"{rupees} rupees" + (f" {paise} paise" if paise else "")
-    text = f"You received {amount}." if verified else f"Payment notification of {amount} received. Please confirm in your bank."
+    text = f"You received {amount}." if verified else f"{amount} received."
     return ("Test. " + text) if test else text
 
 
@@ -198,7 +262,7 @@ class PosPaymentAlerts:
         return {"enabled": bool(row["enabled"]), "language": row["language"], "voice": row["voice"],
                 "rate_pct": row["rate_pct"], "volume_pct": row["volume_pct"], "quiet_start": row["quiet_start"],
                 "say_name": bool(row["say_name"]) if "say_name" in row.keys() else True,
-                "quiet_end": row["quiet_end"], "roles": json.loads(row["roles"]), "apps": json.loads(row["apps"]),
+                "quiet_end": row["quiet_end"], "roles": json.loads(row["roles"]), "apps": _shop_apps(json.loads(row["apps"])),
                 "updated_at": row["updated_at"]}
 
     def _member(self, conn: sqlite3.Connection, business_id: str, user: str) -> str:

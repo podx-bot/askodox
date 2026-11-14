@@ -33,6 +33,12 @@ final _severityTag = RegExp(
   return (severity, line.substring(m.end));
 }
 
+/// The model sometimes runs several tagged points on one line ("... - [ok] ... [caution] ..."). Each tag that is not
+/// at the start of a line starts a new bullet, so no "[ok]" / "[caution]" is ever shown as text (phone 2026-11-14).
+String askodoxSplitInlineTags(String text) => text.replaceAllMapped(
+    RegExp(r'(\S)[ \t]+(?:[-*•][ \t]+)?(\[(?:ok|good|caution|warning|risk|danger)\])', caseSensitive: false),
+    (m) => '${m.group(1)}\n- ${m.group(2)}');
+
 bool _hasSeverity(String text) => text.split('\n').any((l) => _severityTag.hasMatch(l.replaceFirst(
     RegExp(r'^\s*([-*•]|\d{1,2}[.)])\s+'), '')));
 
@@ -76,7 +82,7 @@ bool askodoxHasMarkup(String text) => _inlineMarkup.hasMatch(text) || _hasSeveri
 String askodoxWithoutSources(String text) =>
     text.replaceFirst(RegExp(r'\n\s*\*\*(?:Sources|ఆధారాలు)[^\n]*\*\*[\s\S]*$'), '').trimRight();
 
-String askodoxPlainReply(String text) => text
+String askodoxPlainReply(String text) => askodoxSplitInlineTags(text)
     .replaceAll(RegExp(r'^(\s*(?:[-*•]|\d{1,2}[.)])?\s*)(?:\[(?:ok|good|caution|warning|risk|danger)\]|✅|✔️|✔|⚠️|⚠|❌|🚫|⛔)\s*',
         multiLine: true, caseSensitive: false), r'$1')
     .replaceAllMapped(RegExp(r'\[([^\]]+)\]\((https?://[^)\s]+)\)'), (m) => m.group(1)!)
@@ -142,7 +148,7 @@ List<AskodoxReplyBlock> askodoxParseReply(String text) {
     }
   }
 
-  for (final raw in text.split('\n')) {
+  for (final raw in askodoxSplitInlineTags(text).split('\n')) {
     final line = raw.trimRight();
     if (line.trim().isEmpty) {
       flush();

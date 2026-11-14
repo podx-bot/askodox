@@ -19,11 +19,14 @@ final askodoxQuestionMicTriggerProvider = StateProvider<int>((ref) => 0);
 /// start, tap again to stop; stops by itself after [maxDuration].
 class AskodoxQuestionMic extends ConsumerStatefulWidget {
   const AskodoxQuestionMic({super.key, required this.onText, this.lang = 'en',
-      this.maxDuration = const Duration(seconds: 45)});
+      this.maxDuration = const Duration(seconds: 45), this.followCentre = true});
 
   final ValueChanged<String> onText;
   final String lang;
   final Duration maxDuration;
+
+  /// False for a mic beside one form box (several on a page): the centre Ask button never starts it.
+  final bool followCentre;
 
   @override
   ConsumerState<AskodoxQuestionMic> createState() => _AskodoxQuestionMicState();
@@ -43,6 +46,7 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
   void initState() {
     super.initState();
     _targets = ref.read(askodoxQuestionMicTargetsProvider.notifier);
+    if (!widget.followCentre) return;
     Future.microtask(() => _targets.state++);
     ref.listenManual<int>(askodoxQuestionMicTriggerProvider, (previous, next) {
       if (previous != null && next != previous && mounted) unawaited(_toggle());
@@ -56,6 +60,10 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
       _device.invokeMethod<Object?>('cancelVoiceRecording').catchError((_) => null);
     }
     final targets = _targets;
+    if (!widget.followCentre) {
+      super.dispose();
+      return;
+    }
     Future.microtask(() {
       try {
         targets.state = targets.state > 0 ? targets.state - 1 : 0;
@@ -87,7 +95,7 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
     setState(() => _phase = _MicPhase.recording);
     bool? started;
     try {
-      started = await _device.invokeMethod<bool>('startVoiceRecording', {'languageCode': _te ? 'te' : 'en'});
+      started = await _device.invokeMethod<bool>('startVoiceRecording', {'languageCode': widget.lang});
     } on PlatformException catch (error) {
       started = false;
       if (error.code == 'mic_denied') {

@@ -8,9 +8,24 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/share/askodox_image_share.dart';
+import '../../home/presentation/question_mic.dart';
 import '../../pos/data/pos_repository.dart';
 
 bool _bizTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
+
+String _bizLang(BuildContext context) => Localizations.localeOf(context).languageCode;
+
+/// A mic inside one text box (owner 2026-11-14): what you say is added to the box.
+Widget askodoxBoxMic(BuildContext context, TextEditingController box, {VoidCallback? changed}) => AskodoxQuestionMic(
+      lang: _bizLang(context),
+      followCentre: false,
+      onText: (words) {
+        final now = box.text.trim();
+        box.text = now.isEmpty ? words : '$now $words';
+        box.selection = TextSelection.collapsed(offset: box.text.length);
+        changed?.call();
+      },
+    );
 
 String _rupees(double value) => value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
 
@@ -195,7 +210,6 @@ class _ProfileField {
 }
 
 const _profileFields = <_ProfileField>[
-  _ProfileField('category', 'What you sell / do', 'ఏం అమ్ముతారు / చేస్తారు', must: true),
   _ProfileField('description', 'About your business', 'మీ బిజినెస్ గురించి', must: true, lines: 3),
   _ProfileField('address', 'Address', 'అడ్రస్', must: true, lines: 2),
   _ProfileField('hours', 'Open hours', 'తెరిచి ఉండే సమయం', must: true),
@@ -222,6 +236,11 @@ class AskodoxBusinessProfileScreen extends ConsumerStatefulWidget {
 
 class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessProfileScreen> {
   final _boxes = {for (final f in _profileFields) f.id: TextEditingController()};
+  final _catOther = TextEditingController();
+  final _subOther = TextEditingController();
+  List<AskodoxJson> _cats = const [];
+  String? _cat;
+  String? _sub;
   bool _loaded = false;
   bool _busy = false;
   String? _message;
@@ -237,19 +256,54 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     for (final box in _boxes.values) {
       box.dispose();
     }
+    _catOther.dispose();
+    _subOther.dispose();
     super.dispose();
   }
 
+  List<AskodoxJson> _subsOf(String? cat) {
+    for (final c in _cats) {
+      if (c['key'] == cat) return askodoxPosList(c['subs']);
+    }
+    return const [];
+  }
+
+  /// A stored value -> (dropdown choice, typed words). "other:words" and old free text become Others.
+  (String?, String) _choice(String stored, Iterable<String> keys) {
+    if (stored.isEmpty) return (null, '');
+    if (stored.startsWith('other:')) return ('other', stored.substring(6));
+    if (keys.contains(stored)) return (stored, '');
+    return ('other', stored);
+  }
+
   Future<void> _load() async {
+    final repo = ref.read(askodoxPosRepositoryProvider);
     try {
-      final shop = await ref.read(askodoxPosRepositoryProvider).shopState(widget.businessId);
+      _cats = await repo.shopCategories();
+    } catch (_) {}
+    try {
+      final shop = await repo.shopState(widget.businessId);
       final fields = askodoxPosMap(askodoxPosMap(shop['profile'])['fields']);
       for (final entry in _boxes.entries) {
         entry.value.text = '${fields[entry.key] ?? ''}';
       }
       if (_boxes['address']!.text.isEmpty) _boxes['address']!.text = '${shop['address'] ?? ''}';
+      final (cat, catWords) = _choice('${fields['category'] ?? ''}', [for (final c in _cats) '${c['key']}']);
+      _cat = cat;
+      _catOther.text = catWords;
+      final (sub, subWords) =
+          _choice('${fields['subcategory'] ?? ''}', [for (final x in _subsOf(cat)) '${x['key']}']);
+      _sub = sub;
+      _subOther.text = subWords;
     } catch (_) {}
     if (mounted) setState(() => _loaded = true);
+  }
+
+  String _stored(String? choice, TextEditingController words) {
+    if (choice == null) return '';
+    if (choice != 'other') return choice;
+    final typed = words.text.trim();
+    return typed.isEmpty ? '' : 'other:$typed';
   }
 
   Future<void> _save() async {
@@ -262,7 +316,11 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     try {
       final saved = await ref
           .read(askodoxPosRepositoryProvider)
-          .saveShopProfile(widget.businessId, {for (final e in _boxes.entries) e.key: e.value.text.trim()});
+          .saveShopProfile(widget.businessId, {
+            for (final e in _boxes.entries) e.key: e.value.text.trim(),
+            'category': _stored(_cat, _catOther),
+            'subcategory': _cat == null ? '' : _stored(_cat == 'other' ? 'other' : _sub, _subOther),
+          });
       final missing = askodoxPosMap(saved['profile'])['missing'];
       final left = missing is List ? missing.length : 0;
       if (mounted) {
@@ -275,6 +333,67 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Widget _otherBox(String key, TextEditingController box, String en, String teLabel, bool te) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextField(
+          key: Key(key),
+          controller: box,
+          decoration: InputDecoration(
+              labelText: te ? teLabel : en,
+              border: const OutlineInputBorder(),
+              suffixIcon: askodoxBoxMic(context, box)),
+        ),
+      );
+
+  /// What you sell: category, then sub-category, both picked from the ready list; "Others" = type your own.
+  List<Widget> _categoryPickers(bool te) {
+    String label(AskodoxJson m) => '${te ? m['te'] : m['en']}';
+    final others = te ? 'ఇతరాలు (మీరే రాయండి)' : 'Others (type your own)';
+    final subs = _subsOf(_cat);
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: DropdownButtonFormField<String>(
+          key: const Key('askodoxBusinessCategory'),
+          initialValue: _cat,
+          isExpanded: true,
+          decoration: InputDecoration(
+              labelText: te ? '★ ఏం అమ్ముతారు / చేస్తారు (కేటగిరీ)' : '★ What you sell / do (category)',
+              border: const OutlineInputBorder()),
+          items: [
+            for (final c in _cats) DropdownMenuItem(value: '${c['key']}', child: Text(label(c))),
+            DropdownMenuItem(value: 'other', child: Text(others)),
+          ],
+          onChanged: (v) => setState(() {
+            _cat = v;
+            _sub = null;
+          }),
+        ),
+      ),
+      if (_cat == 'other')
+        _otherBox('askodoxBusinessCategoryOther', _catOther, 'Your category', 'మీ కేటగిరీ', te),
+      if (_cat != null && _cat != 'other')
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey('askodoxBusinessSubcategory-$_cat'),
+            initialValue: _sub,
+            isExpanded: true,
+            decoration: InputDecoration(
+                labelText: te ? 'సబ్ కేటగిరీ' : 'Sub-category', border: const OutlineInputBorder()),
+            items: [
+              for (final x in subs) DropdownMenuItem(value: '${x['key']}', child: Text(label(x))),
+              DropdownMenuItem(value: 'other', child: Text(others)),
+            ],
+            onChanged: (v) => setState(() => _sub = v),
+          ),
+        ),
+      if (_cat == 'other' || _sub == 'other')
+        _otherBox('askodoxBusinessSubcategoryOther', _subOther, 'What exactly (e.g. country chicken)',
+            'ఏమిటి సరిగ్గా (ఉదా: నాటు కోడి)', te),
+    ];
   }
 
   @override
@@ -291,6 +410,7 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                     ? '★ ఉన్నవి తప్పనిసరి. మిగతావి మీ ఇష్టం. ఇవే కస్టమర్లకు ముందు కనిపిస్తాయి.'
                     : '★ are required. The rest is up to you. Customers see these first.'),
                 const SizedBox(height: 12),
+                ..._categoryPickers(te),
                 for (final f in _profileFields)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -300,7 +420,8 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                       maxLines: f.lines,
                       decoration: InputDecoration(
                           labelText: '${f.must ? '★ ' : ''}${te ? f.te : f.en}',
-                          border: const OutlineInputBorder()),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: askodoxBoxMic(context, _boxes[f.id]!)),
                     ),
                   ),
                 FilledButton(
@@ -452,7 +573,9 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                       controller: _lines[i].name,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                          labelText: te ? 'వస్తువు (ఇష్టమైతే)' : 'Item (optional)', border: const OutlineInputBorder()),
+                          labelText: te ? 'వస్తువు (ఇష్టమైతే)' : 'Item (optional)',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: askodoxBoxMic(context, _lines[i].name, changed: () => setState(() {}))),
                     ),
                   ),
                   const SizedBox(width: 8),

@@ -135,12 +135,14 @@ object PaymentAlertParser {
     fun announcementParts(amountPaise: Long?, language: String, test: Boolean = false, payer: String? = null,
                           shop: String? = null): List<String> {
         val parts = mutableListOf<String>()
-        if (test) parts += when (language) { "te" -> "టెస్ట్."; "hi" -> "टेस्ट।"; else -> "Test." }
+        val words = WORDS[language]
+        if (test) parts += when (language) { "te" -> "టెస్ట్."; "hi" -> "टेस्ट।"; "en" -> "Test."; else -> words?.test ?: "Test." }
         if (amountPaise == null) {
             parts += when (language) {
                 "te" -> "పేమెంట్ నోటిఫికేషన్ వచ్చింది, కానీ మొత్తం స్పష్టంగా లేదు. యాప్‌లో చూడండి."
                 "hi" -> "पेमेंट नोटिफिकेशन आया, पर रकम साफ़ नहीं है। ऐप में देखें।"
-                else -> "A payment notification arrived but the amount is not clear. Please check the app."
+                "en" -> "A payment notification arrived but the amount is not clear. Please check the app."
+                else -> words?.unclear ?: "A payment notification arrived but the amount is not clear. Please check the app."
             }
             return parts
         }
@@ -161,15 +163,51 @@ object PaymentAlertParser {
                 parts += if (place != null) "$place को मिल गए।" else "हमें मिल गए।"
                 parts += "फिर से पधारिए।"
             }
-            else -> {
+            "en" -> {
                 parts += if (name != null) "Thank you $name." else "Thank you."
                 parts += "$rupees rupees" + (if (paise > 0) " $paise paise" else "")
                 parts += if (place != null) "received at $place." else "received."
                 parts += "Please visit again."
             }
+            else -> {
+                val w = words ?: WORDS.getValue("en_fallback")
+                parts += if (name != null) w.thanksName.replace("{name}", name) else w.thanks
+                parts += w.rupees.replace("{n}", "$rupees") + (if (paise > 0) " " + w.paise.replace("{n}", "$paise") else "")
+                parts += if (place != null) w.reachedAt.replace("{place}", place) else w.reached
+                parts += w.again
+            }
         }
         return parts
     }
+
+    /** The same thank-you in the other Indian languages the ElevenLabs voices speak (owner 2026-11-14: "all languages"). */
+    private class Words(
+        val test: String, val unclear: String, val thanksName: String, val thanks: String, val rupees: String,
+        val paise: String, val reachedAt: String, val reached: String, val again: String,
+    )
+
+    private val WORDS: Map<String, Words> = mapOf(
+        "en_fallback" to Words("Test.", "A payment notification arrived but the amount is not clear. Please check the app.",
+            "Thank you {name}.", "Thank you.", "{n} rupees", "{n} paise", "received at {place}.", "received.", "Please visit again."),
+        "ta" to Words("சோதனை.", "பணம் வந்ததாக அறிவிப்பு வந்தது, ஆனால் தொகை தெளிவாக இல்லை. ஆப்பில் பாருங்கள்.",
+            "நன்றி {name} அவர்களே.", "நன்றி.", "{n} ரூபாய்", "{n} பைசா", "{place}-க்கு வந்துவிட்டது.", "எங்களுக்கு வந்துவிட்டது.", "மீண்டும் வாருங்கள்."),
+        "kn" to Words("ಪರೀಕ್ಷೆ.", "ಪಾವತಿ ಸೂಚನೆ ಬಂದಿದೆ, ಆದರೆ ಮೊತ್ತ ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ. ಆ್ಯಪ್‌ನಲ್ಲಿ ನೋಡಿ.",
+            "ಧನ್ಯವಾದಗಳು {name} ಅವರೇ.", "ಧನ್ಯವಾದಗಳು.", "{n} ರೂಪಾಯಿ", "{n} ಪೈಸೆ", "{place} ಗೆ ತಲುಪಿದೆ.", "ನಮಗೆ ತಲುಪಿದೆ.", "ಮತ್ತೆ ಬನ್ನಿ."),
+        "ml" to Words("പരീക്ഷണം.", "പേയ്‌മെന്റ് അറിയിപ്പ് വന്നു, പക്ഷേ തുക വ്യക്തമല്ല. ആപ്പിൽ നോക്കൂ.",
+            "നന്ദി {name}.", "നന്ദി.", "{n} രൂപ", "{n} പൈസ", "{place}-ൽ ലഭിച്ചു.", "ഞങ്ങൾക്ക് ലഭിച്ചു.", "വീണ്ടും വരൂ."),
+        "bn" to Words("পরীক্ষা।", "পেমেন্টের নোটিফিকেশন এসেছে, কিন্তু টাকার পরিমাণ পরিষ্কার নয়। অ্যাপে দেখুন।",
+            "ধন্যবাদ {name}।", "ধন্যবাদ।", "{n} টাকা", "{n} পয়সা", "{place}-এ পৌঁছেছে।", "আমাদের কাছে পৌঁছেছে।", "আবার আসবেন।"),
+        "mr" to Words("चाचणी.", "पेमेंटची सूचना आली, पण रक्कम स्पष्ट नाही. ॲपमध्ये पहा.",
+            "धन्यवाद {name}.", "धन्यवाद.", "{n} रुपये", "{n} पैसे", "{place} ला मिळाले.", "आम्हाला मिळाले.", "पुन्हा या."),
+        "gu" to Words("ટેસ્ટ.", "પેમેન્ટની સૂચના આવી, પણ રકમ સ્પષ્ટ નથી. એપમાં જુઓ.",
+            "આભાર {name}.", "આભાર.", "{n} રૂપિયા", "{n} પૈસા", "{place} ને મળ્યા.", "અમને મળ્યા.", "ફરી પધારજો."),
+        "pa" to Words("ਟੈਸਟ।", "ਭੁਗਤਾਨ ਦੀ ਸੂਚਨਾ ਆਈ, ਪਰ ਰਕਮ ਸਾਫ਼ ਨਹੀਂ ਹੈ। ਐਪ ਵਿੱਚ ਦੇਖੋ।",
+            "ਧੰਨਵਾਦ {name} ਜੀ।", "ਧੰਨਵਾਦ।", "{n} ਰੁਪਏ", "{n} ਪੈਸੇ", "{place} ਨੂੰ ਮਿਲ ਗਏ।", "ਸਾਨੂੰ ਮਿਲ ਗਏ।", "ਫਿਰ ਆਇਓ।"),
+        "or" to Words("ପରୀକ୍ଷା।", "ପେମେଣ୍ଟ ସୂଚନା ଆସିଛି, କିନ୍ତୁ ରାଶି ସ୍ପଷ୍ଟ ନାହିଁ। ଆପ୍‌ରେ ଦେଖନ୍ତୁ।",
+            "ଧନ୍ୟବାଦ {name}।", "ଧନ୍ୟବାଦ।", "{n} ଟଙ୍କା", "{n} ପଇସା", "{place} କୁ ପହଞ୍ଚିଛି।", "ଆମ ପାଖରେ ପହଞ୍ଚିଛି।", "ପୁଣି ଆସନ୍ତୁ।"),
+        "ur" to Words("ٹیسٹ۔", "ادائیگی کی اطلاع آئی ہے، لیکن رقم واضح نہیں ہے۔ ایپ میں دیکھیں۔",
+            "شکریہ {name} جی۔", "شکریہ۔", "{n} روپے", "{n} پیسے", "{place} کو مل گئے۔", "ہمیں مل گئے۔", "دوبارہ تشریف لائیں۔"),
+    )
 
     /** True when "HH:mm" now falls inside [start, end) (overnight ranges allowed). Empty = never quiet. */
     fun inQuietHours(start: String, end: String, minuteOfDay: Int): Boolean {

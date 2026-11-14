@@ -144,4 +144,16 @@ void main() {
     const english = 'Done.\n\n**Sources:**\n- 🌐 Web · [a.com](https://a.com)';
     expect(askodoxWithoutSources(english), 'Done.');
   });
+
+  test('tags in the middle of a line become their own points, never shown as text (phone 2026-11-14)', () {
+    final blocks = askodoxParseReply(
+        '- సులభం అవుతుంది. - [ok] ఒకే లైసెన్స్‌తో పని. - [ok] ఖర్చు తగ్గుతుంది. [caution] ఇది వార్త సారాంశం.');
+    final items = blocks.whereType<AskodoxListItem>().toList();
+    expect(items.length, 4);
+    expect(items.map((i) => i.text).join(' '), isNot(contains('[ok]')));
+    expect(items.map((i) => i.text).join(' '), isNot(contains('[caution]')));
+    expect(items[1].severity, AskodoxSeverity.ok);
+    expect(items[3].severity, AskodoxSeverity.caution);
+    expect(askodoxPlainReply('ఒకటి - [ok] రెండు [caution] మూడు'), isNot(contains('[')));
+  });
 }

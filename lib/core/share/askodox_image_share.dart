@@ -32,6 +32,21 @@ Future<bool> askodoxShareImage(Uint8List bytes, {String name = 'askodox-photo', 
 /// Saves a picture into the phone's gallery (Pictures/ASKODOX). Returns false when the phone
 /// cannot (Android 9 or older, or a build without the method) -- then offer [askodoxShareImage].
 Future<bool> askodoxSaveImageToGallery(Uint8List bytes, {String name = 'askodox-photo', String mime = 'image/png'}) async {
+  // First the bytes straight into the gallery (no file path); older builds without it use the file route below.
+  final cleanName = name.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+  try {
+    final saved = await _device.invokeMethod<bool>('saveImageBytes', <String, Object?>{
+      'bytes': bytes,
+      'mime': mime,
+      'name': '${cleanName.isEmpty ? 'askodox-photo' : cleanName}-${DateTime.now().millisecondsSinceEpoch}'
+          '.${mime == 'image/jpeg' ? 'jpg' : 'png'}',
+    });
+    if (saved == true) return true;
+  } on MissingPluginException {
+    // an older build: fall through to the file route
+  } on PlatformException {
+    // fall through to the file route
+  }
   final dir = Directory('${(await getTemporaryDirectory()).path}/images');
   await dir.create(recursive: true);
   final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');

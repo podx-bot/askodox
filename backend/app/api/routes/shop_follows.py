@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.api.routes.pos import _store, _user
 from app.services.pos_store import PosError
-from app.services.shop_follows import ShopFollows
+from app.services.shop_follows import ShopFollows, shop_categories
 
 router = APIRouter(tags=["Shop follows"])
 
@@ -26,6 +26,13 @@ def _call(fn, *args) -> Dict[str, Any]:
     except PosError as error:
         raise HTTPException(status_code=error.status,
                             detail={"code": error.code, "message": error.message})
+
+
+@router.get("/api/shops/categories")
+def categories(request: Request) -> Dict[str, Any]:
+    """Ready-to-pick shop categories + sub-categories (registered BEFORE /api/shops/{business_id})."""
+    _user(request, bucket="shop_follow", limit=240)
+    return {"categories": shop_categories()}
 
 
 @router.get("/api/shops/{business_id}")
@@ -89,6 +96,7 @@ def shop_post_image(post_id: str, request: Request) -> Response:
 class ShopProfileIn(BaseModel):
     """The shop's own details, in the owner's words. Every field is optional text; the server trims each one."""
     category: str = Field(default="", max_length=400)
+    subcategory: str = Field(default="", max_length=400)
     description: str = Field(default="", max_length=2000)
     address: str = Field(default="", max_length=600)
     landmark: str = Field(default="", max_length=400)

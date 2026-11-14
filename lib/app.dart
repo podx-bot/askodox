@@ -70,9 +70,11 @@ class PodxApp extends ConsumerWidget {
           child: AskodoxTestModeHost(child: ConnectivityBanner(
               child: AskodoxGuideOverlay(
                   router: ref.watch(appRouterProvider),
-                  // The guide button on every screen: one press = what to do here.
-                  child: AskodoxScreenHelpLayer(
-                      router: ref.watch(appRouterProvider), child: child ?? const SizedBox.shrink())))),
+                  // The guide button on every screen: one press = what to do here. Hidden for now (owner 2026-11-14).
+                  child: askodoxGuideButtonOn
+                      ? AskodoxScreenHelpLayer(
+                          router: ref.watch(appRouterProvider), child: child ?? const SizedBox.shrink())
+                      : (child ?? const SizedBox.shrink())))),
         ),
       ),
     );

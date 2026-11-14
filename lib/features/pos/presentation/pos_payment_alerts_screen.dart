@@ -1152,21 +1152,22 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
             onChanged: _busy ? null : (v) => v == null || v == lang ? null : _save({'language': v}),
           ),
           const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
+          // A new language has its own voice list: a fresh field so the old choice never lingers.
+          KeyedSubtree(key: ValueKey('askodoxPayAlertVoiceFor-$lang'), child: DropdownButtonFormField<String>(
             key: const Key('askodoxPayAlertVoice'),
             isExpanded: true,
-            initialValue: askodoxPayAlertVoiceIds.contains('${_settings['voice']}') ? '${_settings['voice']}' : 'female',
+            initialValue: askodoxPayAlertVoicesFor(lang).contains('${_settings['voice']}') ? '${_settings['voice']}' : 'female',
             decoration: InputDecoration(
                 labelText: te ? 'వాయిస్' : 'Voice',
                 helperText: te
                     ? 'ఎంచుకుని "స్పీకర్ టెస్ట్" నొక్కి వినండి. నెట్ లేకపోతే ఫోన్ వాయిస్.'
                     : 'Choose, then tap "Speaker test" to hear it. Without internet the phone voice speaks.'),
             items: [
-              for (final v in askodoxPayAlertVoiceIds)
+              for (final v in askodoxPayAlertVoicesFor(lang))
                 DropdownMenuItem(value: v, child: Text(askodoxPayAlertVoiceLabel(v, lang, te))),
             ],
             onChanged: _busy ? null : (v) => v == null || v == '${_settings['voice']}' ? null : _save({'voice': v}),
-          ),
+          )),
           SwitchListTile(
             key: const Key('askodoxPayAlertSayName'),
             contentPadding: EdgeInsets.zero,
@@ -1449,10 +1450,18 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
 
 
 /// Languages of the payment thank-you (the phone's built-in wording exists for these).
-const askodoxPayAlertLanguages = [('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('en', 'English')];
+/// Every language an ElevenLabs voice speaks (server `pos_payment_alerts.LANGUAGES`), in its own script.
+const askodoxPayAlertLanguages = [
+  ('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('en', 'English'), ('ta', 'தமிழ்'), ('kn', 'ಕನ್ನಡ'), ('ml', 'മലയാളം'),
+  ('bn', 'বাংলা'), ('mr', 'मराठी'), ('gu', 'ગુજરાતી'), ('pa', 'ਪੰਜਾਬੀ'), ('or', 'ଓଡ଼ିଆ'), ('ur', 'اردو'),
+];
 
 /// Two female + two male voices (ElevenLabs, server `elevenlabs_tts.SECOND_VOICES`).
 const askodoxPayAlertVoiceIds = ['female', 'female2', 'male', 'male2'];
+
+/// te / hi / en have two voices of each kind; the other languages have one female + one male voice.
+List<String> askodoxPayAlertVoicesFor(String language) =>
+    const {'te', 'hi', 'en'}.contains(language) ? askodoxPayAlertVoiceIds : const ['female', 'male'];
 
 /// "Madhavi (female)" -- the ElevenLabs voice's name for the chosen language.
 String askodoxPayAlertVoiceLabel(String voice, String language, bool te) {
@@ -1460,6 +1469,15 @@ String askodoxPayAlertVoiceLabel(String voice, String language, bool te) {
     'te': {'female': 'Madhavi', 'female2': 'Vijaya', 'male': 'Jayesh', 'male2': 'Maddy'},
     'hi': {'female': 'Sia', 'female2': 'Anika', 'male': 'Bunty', 'male2': 'Viraj'},
     'en': {'female': 'Sia', 'female2': 'Anika', 'male': 'Bunty', 'male2': 'Viraj'},
+    'ta': {'female': 'Meera', 'male': 'Muthu'},
+    'kn': {'female': 'Asiri', 'male': 'Srivatsa'},
+    'ml': {'female': 'Samitha', 'male': 'Manikandan'},
+    'bn': {'female': 'Madhusmita', 'male': 'Biju'},
+    'mr': {'female': 'Sayali', 'male': 'Vinayak'},
+    'gu': {'female': 'Hetalben', 'male': 'Jayesh Bhai'},
+    'pa': {'female': 'Sia', 'male': 'Yatin'},
+    'or': {'female': 'Barsha', 'male': 'Manohar'},
+    'ur': {'female': 'Reva', 'male': 'Raju'},
   };
   final name = names[language]?[voice] ?? names['te']![voice] ?? voice;
   final female = voice.startsWith('female');

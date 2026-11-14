@@ -5142,6 +5142,16 @@ class _AskodoxPrimaryHomeScreenState
           decoration: InputDecoration(
           hintText:
             te ? 'మీకు ఏమి కావాలో చెప్పండి…' : 'Tell me what you need…',
+          // The mic inside the box (owner 2026-11-14): same voice turn as the centre Ask button.
+          suffixIcon: IconButton(
+            key: const Key('askodoxComposerMic'),
+            tooltip: _voicePhase == _VoicePhase.recording
+                ? (te ? 'ఆపండి' : 'Stop')
+                : (te ? 'మాట్లాడండి' : 'Speak'),
+            onPressed: _sending ? null : () => unawaited(_startVoice()),
+            icon: Icon(
+                _voicePhase == _VoicePhase.recording ? Icons.stop_circle_rounded : Icons.mic_rounded,
+                color: _voicePhase == _VoicePhase.recording ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF))),
           hintStyle: const TextStyle(
             color: Color(0xFF7B8496), fontWeight: FontWeight.w500),
           filled: true,
