@@ -46,7 +46,7 @@ def _razorpay_signup_url() -> str:
     except Exception:
         return ""
 
-SAME_PAYMENT_WINDOW_MIN = 5  # one payment reported by two sources inside this window speaks once
+SAME_PAYMENT_WINDOW_MIN = 2  # the same payment reported again inside this window speaks once; the repeat is kept as a duplicate
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
@@ -612,7 +612,7 @@ class PosPaymentAlerts:
     def _same_payment_recent(self, conn: sqlite3.Connection, business_id: str, amount_paise: int, now: datetime) -> Optional[sqlite3.Row]:
         """The same amount already seen for this shop in the last few minutes: the SAME payment reported twice
         (the phone's PhonePe notification + the Razorpay webhook, or PhonePe re-posting one notification).
-        Two equal payments inside this window count as one -- a shop owner can see both in the feed."""
+        The repeat is never spoken or pushed again; it is counted on the one event as a duplicate."""
         since = (now - timedelta(minutes=SAME_PAYMENT_WINDOW_MIN)).isoformat()
         return conn.execute(
             "SELECT * FROM pos_payment_events WHERE business_id = ? AND amount_paise = ? AND test = 0"

@@ -106,7 +106,7 @@ def test_phone_and_razorpay_for_one_payment_are_one_event(env):
 def test_same_amount_far_apart_are_separate_payments(env):
     _, alerts, biz, owner_dev, _, _, _, clock = env
     a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
-    clock.now = clock.now + timedelta(minutes=6)  # outside the window
+    clock.now = clock.now + timedelta(minutes=3)  # outside the window
     b = alerts.report(biz, OWNER, _event(owner_dev, "2"))
     assert a["id"] != b["id"] and not b["duplicate"]
     assert alerts.events(biz, OWNER)["last_24h"]["count"] == 2
