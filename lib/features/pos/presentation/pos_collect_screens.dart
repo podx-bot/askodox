@@ -317,7 +317,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
                 final shared = await ref.read(askodoxShareTextProvider)('$name — UPI: $upi\n$link', subject: 'UPI');
                 if (!shared) {
                   await Clipboard.setData(ClipboardData(text: upi));
-                  if (context.mounted) askodoxPosSnack(context, te ? 'UPI ID కాపీ అయింది.' : 'UPI ID copied.');
+                  if (mounted) askodoxPosSnack(context, te ? 'UPI ID కాపీ అయింది.' : 'UPI ID copied.');
                 }
               },
               icon: const Icon(Icons.share_outlined, size: 18),
@@ -331,7 +331,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: upi));
-                if (context.mounted) askodoxPosSnack(context, te ? 'UPI ID కాపీ అయింది.' : 'UPI ID copied.');
+                if (mounted) askodoxPosSnack(context, te ? 'UPI ID కాపీ అయింది.' : 'UPI ID copied.');
               },
               icon: const Icon(Icons.copy_rounded, size: 18),
               label: Text(te ? 'కాపీ' : 'Copy'),
