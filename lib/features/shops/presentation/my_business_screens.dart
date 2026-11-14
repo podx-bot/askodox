@@ -3,12 +3,15 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/share/askodox_image_share.dart';
+import '../../growth/data/growth_repository.dart' show AskodoxPlace;
 import '../../home/presentation/question_mic.dart';
+import '../../location/presentation/map_pin_picker.dart';
 import '../../pos/data/pos_repository.dart';
 
 bool _bizTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
@@ -200,29 +203,34 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
   }
 }
 
+/// How a box is filled (owner 2026-11-14: a mic only where people write sentences; links are pasted;
+/// numbers use the number pad; hours come from a clock; the address from a map pin).
+enum _Fill { words, plain, link, phone, hours, place }
+
 class _ProfileField {
-  const _ProfileField(this.id, this.en, this.te, {this.must = false, this.lines = 1});
+  const _ProfileField(this.id, this.en, this.te, {this.must = false, this.lines = 1, this.fill = _Fill.plain});
   final String id;
   final String en;
   final String te;
   final bool must;
   final int lines;
+  final _Fill fill;
 }
 
 const _profileFields = <_ProfileField>[
-  _ProfileField('description', 'About your business', 'మీ బిజినెస్ గురించి', must: true, lines: 3),
-  _ProfileField('address', 'Address', 'అడ్రస్', must: true, lines: 2),
-  _ProfileField('hours', 'Open hours', 'తెరిచి ఉండే సమయం', must: true),
+  _ProfileField('description', 'About your business', 'మీ బిజినెస్ గురించి', must: true, lines: 3, fill: _Fill.words),
+  _ProfileField('address', 'Address', 'అడ్రస్', must: true, lines: 2, fill: _Fill.place),
+  _ProfileField('hours', 'Open hours', 'తెరిచి ఉండే సమయం', must: true, fill: _Fill.hours),
   _ProfileField('landmark', 'Landmark', 'గుర్తు (ల్యాండ్‌మార్క్)'),
   _ProfileField('reg_number', 'GST / Udyam number (only ASKODOX sees it)', 'GST / Udyam నంబర్ (ASKODOX మాత్రమే చూస్తుంది)'),
-  _ProfileField('whatsapp', 'WhatsApp number', 'వాట్సాప్ నంబర్'),
-  _ProfileField('website', 'Website', 'వెబ్‌సైట్'),
-  _ProfileField('facebook', 'Facebook page', 'Facebook పేజీ'),
-  _ProfileField('instagram', 'Instagram', 'Instagram'),
-  _ProfileField('youtube', 'YouTube', 'YouTube'),
-  _ProfileField('offers', 'Offers / discounts', 'ఆఫర్లు / డిస్కౌంట్లు', lines: 2),
-  _ProfileField('delivery', 'Delivery', 'డెలివరీ'),
-  _ProfileField('extra', 'Anything else', 'ఇంకేదైనా', lines: 3),
+  _ProfileField('whatsapp', 'WhatsApp number', 'వాట్సాప్ నంబర్', fill: _Fill.phone),
+  _ProfileField('website', 'Website', 'వెబ్‌సైట్', fill: _Fill.link),
+  _ProfileField('facebook', 'Facebook page', 'Facebook పేజీ', fill: _Fill.link),
+  _ProfileField('instagram', 'Instagram', 'Instagram', fill: _Fill.link),
+  _ProfileField('youtube', 'YouTube', 'YouTube', fill: _Fill.link),
+  _ProfileField('offers', 'Offers / discounts', 'ఆఫర్లు / డిస్కౌంట్లు', lines: 2, fill: _Fill.words),
+  _ProfileField('delivery', 'Delivery', 'డెలివరీ', fill: _Fill.words),
+  _ProfileField('extra', 'Anything else', 'ఇంకేదైనా', lines: 3, fill: _Fill.words),
 ];
 
 /// The shop's own details: four required boxes first, the rest optional. Nothing here comes from Google.
@@ -238,6 +246,8 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
   final _boxes = {for (final f in _profileFields) f.id: TextEditingController()};
   final _catOther = TextEditingController();
   final _subOther = TextEditingController();
+  String _lat = '';
+  String _lng = '';
   List<AskodoxJson> _cats = const [];
   String? _cat;
   String? _sub;
@@ -288,6 +298,8 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
         entry.value.text = '${fields[entry.key] ?? ''}';
       }
       if (_boxes['address']!.text.isEmpty) _boxes['address']!.text = '${shop['address'] ?? ''}';
+      _lat = '${fields['lat'] ?? ''}';
+      _lng = '${fields['lng'] ?? ''}';
       final (cat, catWords) = _choice('${fields['category'] ?? ''}', [for (final c in _cats) '${c['key']}']);
       _cat = cat;
       _catOther.text = catWords;
@@ -318,6 +330,8 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
           .read(askodoxPosRepositoryProvider)
           .saveShopProfile(widget.businessId, {
             for (final e in _boxes.entries) e.key: e.value.text.trim(),
+            'lat': _lat,
+            'lng': _lng,
             'category': _stored(_cat, _catOther),
             'subcategory': _cat == null ? '' : _stored(_cat == 'other' ? 'other' : _sub, _subOther),
           });
@@ -334,6 +348,67 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  Future<void> _paste(TextEditingController box) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (text.isNotEmpty && mounted) setState(() => box.text = text);
+  }
+
+  Future<void> _pickHours(TextEditingController box, bool te) async {
+    final open = await showTimePicker(
+        context: context, initialTime: const TimeOfDay(hour: 9, minute: 0), helpText: te ? 'తెరిచే సమయం' : 'Opens at');
+    if (open == null || !mounted) return;
+    final close = await showTimePicker(
+        context: context, initialTime: const TimeOfDay(hour: 21, minute: 0), helpText: te ? 'మూసే సమయం' : 'Closes at');
+    if (close == null || !mounted) return;
+    final fmt = MaterialLocalizations.of(context);
+    setState(() => box.text = '${fmt.formatTimeOfDay(open)} – ${fmt.formatTimeOfDay(close)}');
+  }
+
+  Future<void> _pickPlace(TextEditingController box, bool te) async {
+    final lat = double.tryParse(_lat);
+    final lng = double.tryParse(_lng);
+    final place = await AskodoxMapPinPicker.open(context,
+        title: te ? 'మీ షాప్ ఎక్కడ ఉంది?' : 'Where is your shop?',
+        initial: lat != null && lng != null ? AskodoxPlace(latitude: lat, longitude: lng, label: box.text) : null);
+    if (place == null || !mounted) return;
+    setState(() {
+      box.text = place.label;
+      _lat = place.latitude.toStringAsFixed(6);
+      _lng = place.longitude.toStringAsFixed(6);
+    });
+  }
+
+  /// The right helper inside each box: mic for sentences, paste for links, clock for hours, map for the address.
+  Widget? _suffix(_ProfileField f, bool te) {
+    final box = _boxes[f.id]!;
+    return switch (f.fill) {
+      _Fill.words => askodoxBoxMic(context, box),
+      _Fill.link => IconButton(
+          key: Key('askodoxBusinessPaste-${f.id}'),
+          tooltip: te ? 'పేస్ట్ చేయండి' : 'Paste',
+          icon: const Icon(Icons.content_paste_rounded),
+          onPressed: () => _paste(box)),
+      _Fill.hours => IconButton(
+          key: const Key('askodoxBusinessHoursPick'),
+          tooltip: te ? 'సమయం ఎంచుకోండి' : 'Pick the hours',
+          icon: const Icon(Icons.schedule_rounded),
+          onPressed: () => _pickHours(box, te)),
+      _Fill.place => IconButton(
+          key: const Key('askodoxBusinessMapPick'),
+          tooltip: te ? 'మ్యాప్‌లో ఎంచుకోండి' : 'Pick on the map',
+          icon: Icon(Icons.location_on_rounded, color: _lat.isEmpty ? null : const Color(0xFF16A34A)),
+          onPressed: () => _pickPlace(box, te)),
+      _ => null,
+    };
+  }
+
+  TextInputType _keyboard(_Fill fill, int lines) => switch (fill) {
+        _Fill.link => TextInputType.url,
+        _Fill.phone => TextInputType.phone,
+        _ => lines > 1 ? TextInputType.multiline : TextInputType.text,
+      };
 
   Widget _otherBox(String key, TextEditingController box, String en, String teLabel, bool te) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
@@ -418,10 +493,14 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                       key: Key('askodoxBusinessField-${f.id}'),
                       controller: _boxes[f.id],
                       maxLines: f.lines,
+                      keyboardType: _keyboard(f.fill, f.lines),
                       decoration: InputDecoration(
                           labelText: '${f.must ? '★ ' : ''}${te ? f.te : f.en}',
+                          helperText: f.fill == _Fill.place && _lat.isNotEmpty
+                              ? (te ? 'మ్యాప్‌లో పిన్ పెట్టారు ✓' : 'Pinned on the map ✓')
+                              : null,
                           border: const OutlineInputBorder(),
-                          suffixIcon: askodoxBoxMic(context, _boxes[f.id]!)),
+                          suffixIcon: _suffix(f, te)),
                     ),
                   ),
                 FilledButton(
