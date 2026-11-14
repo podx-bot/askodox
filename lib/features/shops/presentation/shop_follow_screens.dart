@@ -55,6 +55,36 @@ class _AskodoxShopFollowScreenState extends ConsumerState<AskodoxShopFollowScree
     }
   }
 
+  /// The shop's own details (the owner's words), shown before anything else.
+  List<Widget> _details(AskodoxJson shop, bool te) {
+    final profile = askodoxPosMap(shop['profile']);
+    final fields = askodoxPosMap(profile['fields']);
+    String v(String key) => '${fields[key] ?? ''}';
+    Widget line(String label, String value) => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text('$label: $value'),
+        );
+    return [
+      if (profile['status'] == 'verified')
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(te ? '✓ ASKODOX నిర్ధారించింది' : '✓ Verified by ASKODOX'),
+        ),
+      if (v('category').isNotEmpty) line(te ? 'ఏం దొరుకుతుంది' : 'What they offer', v('category')),
+      if (v('description').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(v('description'))),
+      if (v('hours').isNotEmpty) line(te ? 'సమయం' : 'Hours', v('hours')),
+      if (v('landmark').isNotEmpty) line(te ? 'గుర్తు' : 'Landmark', v('landmark')),
+      if (v('offers').isNotEmpty) line(te ? 'ఆఫర్లు' : 'Offers', v('offers')),
+      if (v('delivery').isNotEmpty) line(te ? 'డెలివరీ' : 'Delivery', v('delivery')),
+      if (v('whatsapp').isNotEmpty) line('WhatsApp', v('whatsapp')),
+      if (v('website').isNotEmpty) line(te ? 'వెబ్‌సైట్' : 'Website', v('website')),
+      if (v('facebook').isNotEmpty) line('Facebook', v('facebook')),
+      if (v('instagram').isNotEmpty) line('Instagram', v('instagram')),
+      if (v('youtube').isNotEmpty) line('YouTube', v('youtube')),
+      if (v('extra').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(v('extra'))),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = _te(context);
@@ -67,12 +97,12 @@ class _AskodoxShopFollowScreenState extends ConsumerState<AskodoxShopFollowScree
             ? (_error != null
                 ? Text(_errorText(_error!, te))
                 : const Center(child: CircularProgressIndicator()))
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            : ListView(
                 children: [
                   Text('${shop['name']}', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 6),
                   if ('${shop['address'] ?? ''}'.isNotEmpty) Text('${shop['address']}'),
+                  ..._details(shop, te),
                   const SizedBox(height: 12),
                   Text(te
                       ? '${shop['followers']} మంది ఫాలో చేస్తున్నారు'

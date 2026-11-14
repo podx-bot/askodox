@@ -254,6 +254,31 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'అదే మొత్తం పేమెంట్ నోటిఫికేషన్ వస్తే గుర్తు పెడుతుంది — బ్యాంక్ యాప్‌లో చూసుకోండి.',
     'చూసుకున్నాకే "డబ్బు అందింది" నొక్కండి. ASKODOX డబ్బు పట్టుకోదు.',
   ]),
+  '/me/business': _H('My business', 'నా బిజినెస్', [
+    'First time: type your business name and choose your State.',
+    'Then: fill your details, make a bill, show the QR, and post one picture a day for followers.',
+  ], [
+    'మొదటిసారి: మీ బిజినెస్ పేరు రాసి, రాష్ట్రం ఎంచుకోండి.',
+    'తర్వాత: వివరాలు నింపండి, బిల్లు చేయండి, QR చూపండి, ఫాలోవర్లకు రోజుకు ఒక చిత్రం పోస్ట్ చేయండి.',
+  ]),
+  '/me/business/:id/profile': _H('Business details', 'బిజినెస్ వివరాలు', [
+    'Fill the four ★ boxes: what you sell, about, address, open hours.',
+    'The rest is optional: WhatsApp, website, social pages, offers, delivery. Tap Save.',
+    'ASKODOX checks the details before the shop shows as verified.',
+  ], [
+    '★ ఉన్న నాలుగు బాక్సులు నింపండి: ఏం అమ్ముతారు, బిజినెస్ గురించి, అడ్రస్, తెరిచి ఉండే సమయం.',
+    'మిగతావి మీ ఇష్టం: వాట్సాప్, వెబ్‌సైట్, సోషల్ పేజీలు, ఆఫర్లు, డెలివరీ. సేవ్ నొక్కండి.',
+    'ASKODOX వివరాలు చూసిన తర్వాతే షాప్ వెరిఫైడ్ గా కనిపిస్తుంది.',
+  ]),
+  '/me/business/:id/bill': _H('Bill', 'బిల్లు', [
+    'Type each amount (item name is optional). The total adds up by itself.',
+    'Show QR: the customer scans and pays the total to your own UPI.',
+    'Send the bill: shares the bill picture on WhatsApp or any app. Sending is optional.',
+  ], [
+    'ప్రతి మొత్తం టైప్ చేయండి (వస్తువు పేరు ఇష్టమైతే). మొత్తం దానంతట అదే కూడుతుంది.',
+    'QR చూపండి: కస్టమర్ స్కాన్ చేసి మొత్తాన్ని మీ సొంత UPI కి కడతారు.',
+    'బిల్లు పంపండి: బిల్లు చిత్రాన్ని వాట్సాప్ లేదా ఏ యాప్‌లోనైనా పంపుతుంది. పంపడం మీ ఇష్టం.',
+  ]),
   '/me/following': _H('Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు', [
     'Shops you follow appear here. Tap one to see it and its updates.',
     'Following is free and anyone can do it; a shop owner can follow other shops too.',

@@ -8,6 +8,7 @@ people who follow it through the Updates feed (a later step).
 from __future__ import annotations
 
 import base64
+import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -23,7 +24,17 @@ SCHEMA = (
     "CREATE TABLE IF NOT EXISTS shop_posts (id TEXT PRIMARY KEY, business_id TEXT NOT NULL, caption TEXT NOT NULL,"
     " day TEXT NOT NULL, created_at TEXT NOT NULL, image BLOB NOT NULL)",
     "CREATE INDEX IF NOT EXISTS shop_posts_business ON shop_posts (business_id, created_at)",
+    "CREATE TABLE IF NOT EXISTS shop_profiles (business_id TEXT PRIMARY KEY, data TEXT NOT NULL,"
+    " updated_at TEXT NOT NULL, verified_at TEXT)",
 )
+# The shop's own details (owner 2026-11-14): shown before anything from Google. Text only, the owner's own words.
+PROFILE_FIELDS = {  # field -> max length
+    "category": 80, "description": 600, "address": 200, "landmark": 120, "hours": 120, "website": 200,
+    "facebook": 200, "instagram": 200, "youtube": 200, "whatsapp": 20, "offers": 300, "delivery": 120,
+    "extra": 600, "reg_number": 40,
+}
+PROFILE_REQUIRED = ("category", "description", "address", "hours")
+PROFILE_PRIVATE = ("reg_number",)  # GST / Udyam number: for ASKODOX's check only, never shown to others
 MAX_IMAGE_BYTES = 900_000
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 MAX_CAPTION = 300
@@ -59,15 +70,51 @@ class ShopFollows:
             (shop["id"], user)).fetchone() is not None
         followers = conn.execute(
             "SELECT COUNT(*) AS n FROM shop_follows WHERE business_id = ?", (shop["id"],)).fetchone()["n"]
+        is_owner = shop["owner_user_id"] == user
+        profile = self._profile(conn, shop["id"], private=is_owner)
         return {
             "business_id": shop["id"],
             "name": shop["name"],
-            "address": shop["address"],
-            "category": shop["template"],
+            "address": profile["fields"].get("address") or shop["address"],
+            "category": profile["fields"].get("category") or shop["template"],
             "followers": int(followers),
             "following": following,
-            "is_owner": shop["owner_user_id"] == user,
+            "is_owner": is_owner,
+            "profile": profile,
         }
+
+    def _profile(self, conn: sqlite3.Connection, business_id: str, private: bool) -> Dict[str, Any]:
+        row = conn.execute("SELECT data, verified_at FROM shop_profiles WHERE business_id = ?",
+                           (business_id,)).fetchone()
+        fields: Dict[str, str] = {}
+        if row is not None:
+            try:
+                fields = {k: str(v) for k, v in json.loads(row["data"]).items() if k in PROFILE_FIELDS and v}
+            except ValueError:
+                fields = {}
+        missing = [k for k in PROFILE_REQUIRED if not fields.get(k)]
+        # "verified" only after ASKODOX staff check it (verified_at); filling the form never verifies by itself.
+        status = "verified" if row is not None and row["verified_at"] and not missing else (
+            "incomplete" if missing else "submitted")
+        shown = fields if private else {k: v for k, v in fields.items() if k not in PROFILE_PRIVATE}
+        return {"fields": shown, "missing": missing, "status": status}
+
+    def save_profile(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """The owner's own details. Unknown fields are dropped; a changed profile needs a fresh check."""
+        with self._connect() as conn:
+            shop = self._shop(conn, business_id)
+            if shop["owner_user_id"] != user:
+                raise PosError(403, "not_owner", "Only the shop owner can change these details.")
+            fields = {}
+            for key, limit in PROFILE_FIELDS.items():
+                value = " ".join(str(data.get(key) or "").split())[:limit]
+                if value:
+                    fields[key] = value
+            conn.execute(
+                "INSERT INTO shop_profiles (business_id, data, updated_at, verified_at) VALUES (?, ?, ?, NULL)"
+                " ON CONFLICT(business_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at,"
+                " verified_at = NULL", (business_id, json.dumps(fields, ensure_ascii=False), _now()))
+            return self._state(conn, shop, user)
 
     def get(self, business_id: str, user: str) -> Dict[str, Any]:
         with self._connect() as conn:

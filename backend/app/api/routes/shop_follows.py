@@ -84,3 +84,27 @@ def shop_post_image(post_id: str, request: Request) -> Response:
         raise HTTPException(status_code=error.status,
                             detail={"code": error.code, "message": error.message})
     return Response(content=data, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+
+
+class ShopProfileIn(BaseModel):
+    """The shop's own details, in the owner's words. Every field is optional text; the server trims each one."""
+    category: str = Field(default="", max_length=400)
+    description: str = Field(default="", max_length=2000)
+    address: str = Field(default="", max_length=600)
+    landmark: str = Field(default="", max_length=400)
+    hours: str = Field(default="", max_length=400)
+    website: str = Field(default="", max_length=600)
+    facebook: str = Field(default="", max_length=600)
+    instagram: str = Field(default="", max_length=600)
+    youtube: str = Field(default="", max_length=600)
+    whatsapp: str = Field(default="", max_length=60)
+    offers: str = Field(default="", max_length=1000)
+    delivery: str = Field(default="", max_length=400)
+    extra: str = Field(default="", max_length=2000)
+    reg_number: str = Field(default="", max_length=120)
+
+
+@router.put("/api/shops/{business_id}/profile")
+def save_shop_profile(business_id: str, body: ShopProfileIn, request: Request) -> Dict[str, Any]:
+    user = _user(request, bucket="shop_profile", limit=60)
+    return _call(_service(request).save_profile, business_id, user, body.model_dump())

@@ -104,6 +104,8 @@ class AskodoxPosRepository {
   /// The owner's one picture a day (the phone draws the brand into it). [imageBase64] is a PNG.
   Future<AskodoxJson> createShopPost(String id, String caption, String imageBase64) =>
       _send('POST', '/api/shops/$id/posts', body: {'caption': caption, 'image_base64': imageBase64});
+  /// The shop's own details (owner only). The answer is the shop state with its `profile`.
+  Future<AskodoxJson> saveShopProfile(String id, AskodoxJson body) => _send('PUT', '/api/shops/$id/profile', body: body);
   Future<List<AskodoxJson>> myFeed() async => askodoxPosList((await _send('GET', '/api/me/feed'))['posts']);
   Future<AskodoxJson> checkGstin(String gstin) => _send('GET', '/api/pos/gstin/${Uri.encodeComponent(gstin)}');
   Future<List<AskodoxJson>> products(String id, {String q = ''}) async =>

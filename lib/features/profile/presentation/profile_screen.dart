@@ -308,9 +308,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           title: t('Shops', 'షాప్‌లు'),
           icon: Icons.storefront_outlined,
           children: [
-            row('profile-my-shop', 'me', Icons.point_of_sale_outlined, 'My shop (billing)', 'నా షాప్ (బిల్లు)',
-                'Bills, customers, payments and your shop page.', 'బిల్లులు, కస్టమర్లు, పేమెంట్లు, మీ షాప్ పేజీ.',
-                () => context.push('/pos'), words: ['shop', 'bill', 'pos', 'షాప్', 'బిల్లు']),
+            row('profile-my-business', 'me', Icons.storefront, 'My business', 'నా బిజినెస్',
+                'Your shop details, quick bill, QR payment, today\'s post.',
+                'మీ షాప్ వివరాలు, వెంటనే బిల్లు, QR పేమెంట్, ఈ రోజు పోస్ట్.',
+                () => context.push('/me/business'), words: ['business', 'shop', 'bill', 'బిజినెస్', 'షాప్', 'బిల్లు']),
             row('profile-following', 'me', Icons.storefront_outlined, 'Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు',
                 'Updates from the shops you follow.', 'మీరు ఫాలో చేసే షాప్‌ల అప్‌డేట్స్.',
                 () => context.push('/me/following'), words: ['follow', 'shop', 'ఫాలో', 'షాప్']),

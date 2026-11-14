@@ -22,7 +22,9 @@ def env(tmp_path):
 
 def test_any_signed_in_person_follows_a_shop_and_the_count_is_public(env):
     follows, shop, _ = env
-    assert follows.get(shop, PERSON_WITHOUT_SHOP) == {
+    first = follows.get(shop, PERSON_WITHOUT_SHOP)
+    assert {k: first[k] for k in ("business_id", "name", "address", "category", "followers", "following",
+                                  "is_owner")} == {
         "business_id": shop, "name": "Sri Lakshmi Chicken Centre", "address": "Vuyyuru", "category": "general",
         "followers": 0, "following": False, "is_owner": False}
     out = follows.follow(shop, PERSON_WITHOUT_SHOP)
@@ -102,3 +104,27 @@ def test_picture_must_be_png_and_small(env):
     with pytest.raises(PosError) as big:
         follows.post(shop, OWNER, "x", PNG + b"0" * 900_000)
     assert big.value.code == "image"
+
+
+def test_owner_fills_the_shop_details_and_others_never_see_the_registration_number(env):
+    follows, shop, _ = env
+    start = follows.get(shop, OWNER)["profile"]
+    assert start["status"] == "incomplete" and set(start["missing"]) == {"category", "description", "address", "hours"}
+    saved = follows.save_profile(shop, OWNER, {
+        "category": "చికెన్, మటన్", "description": "  తాజా   చికెన్  ", "address": "Main Road, Vuyyuru",
+        "hours": "6 AM - 9 PM", "instagram": "https://instagram.com/x", "reg_number": "37ABCDE1234F1Z5",
+        "not_a_field": "dropped"})
+    assert saved["profile"]["status"] == "submitted", "filling the form never verifies by itself"
+    assert saved["profile"]["fields"]["description"] == "తాజా చికెన్"
+    assert saved["profile"]["fields"]["reg_number"] == "37ABCDE1234F1Z5" and "not_a_field" not in saved["profile"]["fields"]
+    assert saved["category"] == "చికెన్, మటన్" and saved["address"] == "Main Road, Vuyyuru"
+    seen = follows.get(shop, FOLLOWER)
+    assert "reg_number" not in seen["profile"]["fields"] and "37ABCDE1234F1Z5" not in str(seen)
+    assert seen["profile"]["fields"]["instagram"] == "https://instagram.com/x"
+
+
+def test_only_the_owner_changes_the_shop_details(env):
+    follows, shop, _ = env
+    with pytest.raises(PosError) as other:
+        follows.save_profile(shop, FOLLOWER, {"description": "not mine"})
+    assert other.value.status == 403 and other.value.code == "not_owner"

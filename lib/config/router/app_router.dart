@@ -250,11 +250,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ...askodoxPaymentMethodRoutes,
       ...askodoxShopFollowRoutes,
       GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
-      // Own shop billing (POS) is open in Phase 1 (owner 2026-11-14); the routes must exist in every build.
-      ...askodoxPosRoutes,
       if (askodoxPhase2) ...[
         GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
         ...askodoxTalkRoutes,
+        ...askodoxPosRoutes,
         GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
         GoRoute(path: '/verification', builder: (context, state) => const AskodoxKycScreen()),
         GoRoute(
