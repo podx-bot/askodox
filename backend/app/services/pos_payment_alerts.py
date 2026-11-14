@@ -46,6 +46,7 @@ def _razorpay_signup_url() -> str:
     except Exception:
         return ""
 
+SAME_PAYMENT_WINDOW_MIN = 5  # one payment reported by two sources inside this window speaks once
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
@@ -413,6 +414,15 @@ class PosPaymentAlerts:
                 event = self._event_out(conn, existing, "")
                 event["duplicate"] = True
                 return event
+            seen = self._same_payment_recent(conn, business_id, int(amount_paise), now)
+            if seen is not None and not test:
+                # The phone already reported this payment: confirm that event, speak nothing twice.
+                conn.execute("UPDATE pos_payment_events SET status = 'provider_verified', verification = ?,"
+                             " duplicates = duplicates + 1 WHERE id = ?", (f"provider:{provider}", seen["id"]))
+                event = self._event_out(conn, conn.execute("SELECT * FROM pos_payment_events WHERE id = ?",
+                                                           (seen["id"],)).fetchone(), "")
+                event["duplicate"] = True
+                return event
             event_id = f"ppe_{uuid.uuid4().hex[:20]}"
             ref = re.sub(r"[^A-Za-z0-9]", "", reference or "")
             conn.execute(
@@ -558,6 +568,13 @@ class PosPaymentAlerts:
                 event = self._event_out(conn, existing, user)
                 event["duplicate"] = True
                 return event
+            if amount is not None and not test:
+                seen = self._same_payment_recent(conn, business_id, int(amount), self._now())
+                if seen is not None:
+                    conn.execute("UPDATE pos_payment_events SET duplicates = duplicates + 1 WHERE id = ?", (seen["id"],))
+                    event = self._event_out(conn, seen, user)
+                    event["duplicate"] = True
+                    return event
             status = "notification_unverified" if amount is not None else "ambiguous"
             reason = "" if amount is not None else str(data.get("reason") or "amount_missing")[:40]
             event_id = f"ppe_{uuid.uuid4().hex[:20]}"
@@ -591,6 +608,16 @@ class PosPaymentAlerts:
             except Exception:
                 pass  # a push failure never fails the report; the feed still has it
         return event
+
+    def _same_payment_recent(self, conn: sqlite3.Connection, business_id: str, amount_paise: int, now: datetime) -> Optional[sqlite3.Row]:
+        """The same amount already seen for this shop in the last few minutes: the SAME payment reported twice
+        (the phone's PhonePe notification + the Razorpay webhook, or PhonePe re-posting one notification).
+        Two equal payments inside this window count as one -- a shop owner can see both in the feed."""
+        since = (now - timedelta(minutes=SAME_PAYMENT_WINDOW_MIN)).isoformat()
+        return conn.execute(
+            "SELECT * FROM pos_payment_events WHERE business_id = ? AND amount_paise = ? AND test = 0"
+            " AND received_at >= ? ORDER BY received_at DESC LIMIT 1",
+            (business_id, int(amount_paise), since)).fetchone()
 
     def _receivers(self, conn: sqlite3.Connection, business_id: str, settings: Dict[str, Any], exclude: str,
                    source: str = "") -> List[str]:

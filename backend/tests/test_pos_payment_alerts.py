@@ -70,16 +70,43 @@ def test_duplicate_by_reference_and_by_event_id(env):
     a = alerts.report(biz, OWNER, _event(owner_dev, "1", reference="UTR998877665544"))
     b = alerts.report(biz, OWNER, _event(owner_dev, "2", reference="UTR998877665544"))  # update of same payment
     assert b["duplicate"] is True and b["id"] == a["id"]
-    c = alerts.report(biz, OWNER, _event(owner_dev, "3"))
-    d = alerts.report(biz, OWNER, _event(owner_dev, "3"))
+    c = alerts.report(biz, OWNER, _event(owner_dev, "3", amount_paise=70000))  # a different payment
+    d = alerts.report(biz, OWNER, _event(owner_dev, "3", amount_paise=70000))
     assert d["duplicate"] is True and d["id"] == c["id"]
     assert len(pushes) == 2, "a duplicate never alerts twice"
     assert alerts.events(biz, OWNER, status="duplicate")["events"][0]["duplicates"] >= 1
 
 
-def test_repeated_same_amount_different_payments_are_separate(env):
-    _, alerts, biz, owner_dev, _, _, _, _ = env
+def test_same_payment_reported_twice_speaks_once(env):
+    """Owner 2026-11-14: one payment gave 2 notifications (PhonePe re-posted it a minute later)."""
+    _, alerts, biz, owner_dev, _, pushes, _, clock = env
     a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
+    clock.now = clock.now + timedelta(minutes=1)
+    b = alerts.report(biz, OWNER, _event(owner_dev, "2"))  # same amount, new notification key
+    assert b["duplicate"] is True and b["id"] == a["id"]
+    assert len(pushes) == 1, "a second report of the same payment never alerts again"
+    assert alerts.events(biz, OWNER)["last_24h"]["count"] == 1
+
+
+def test_phone_and_razorpay_for_one_payment_are_one_event(env):
+    """Owner 2026-11-14: the Razorpay webhook and the phone's PhonePe notification gave 2 alerts."""
+    _, alerts, biz, owner_dev, _, pushes, _, clock = env
+    phone = alerts.report(biz, OWNER, _event(owner_dev, "1"))
+    clock.now = clock.now + timedelta(seconds=30)
+    verified = alerts.record_verified(biz, provider="razorpay", label="Razorpay", amount_paise=50000,
+                                      payment_id="pay_ABC123", reference="pay_ABC123")
+    assert verified["id"] == phone["id"] and verified["duplicate"] is True
+    assert verified["status"] == "provider_verified"
+    assert len(pushes) == 1, "the bank-confirmed copy does not speak again"
+    last = alerts.events(biz, OWNER)["last_24h"]
+    assert last["count"] == 0, "the one payment is no longer an unverified notification"
+    assert last["verified_count"] == 1, "it is now the single bank-confirmed event"
+
+
+def test_same_amount_far_apart_are_separate_payments(env):
+    _, alerts, biz, owner_dev, _, _, _, clock = env
+    a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
+    clock.now = clock.now + timedelta(minutes=6)  # outside the window
     b = alerts.report(biz, OWNER, _event(owner_dev, "2"))
     assert a["id"] != b["id"] and not b["duplicate"]
     assert alerts.events(biz, OWNER)["last_24h"]["count"] == 2
@@ -336,21 +363,21 @@ def test_sender_chooses_who_hears_and_listener_can_mute_or_pause(env):
     alerts.report(biz, OWNER, _event(owner_dev, "11"))
     assert [p[0] for p in pushes] == [CASHIER]
     assert pushes[-1][5]["text"].startswith("యజమాని: 500 రూపాయల")
-    alerts.report(biz, CASHIER, _event(cashier_dev, "12"))
+    alerts.report(biz, CASHIER, _event(cashier_dev, "12", amount_paise=20000))
     assert pushes[-1][0] == OWNER and pushes[-1][5]["text"].startswith("Ravi: ")
 
     # the cashier keeps their own payments to themselves
     pushes.clear()
     assert alerts.set_share(biz, CASHIER, {"mode": "none"})["my_share"]["mode"] == "none"
-    alerts.report(biz, CASHIER, _event(cashier_dev, "13"))
+    alerts.report(biz, CASHIER, _event(cashier_dev, "13", amount_paise=30000))
     assert pushes == []
     # the owner shares only with chosen people (refs outside the shop are dropped)
     out = alerts.set_share(biz, OWNER, {"mode": "some", "listeners": [ravi, "nope"]})
     assert out["my_share"] == {"mode": "some", "listeners": [ravi]}
-    alerts.report(biz, OWNER, _event(owner_dev, "14"))
+    alerts.report(biz, OWNER, _event(owner_dev, "14", amount_paise=40000))
     assert [p[0] for p in pushes] == [CASHIER]
     alerts.set_share(biz, OWNER, {"mode": "some", "listeners": []})
-    alerts.report(biz, OWNER, _event(owner_dev, "15"))
+    alerts.report(biz, OWNER, _event(owner_dev, "15", amount_paise=60000))
     assert len(pushes) == 1
 
     # the listener mutes / pauses on their own phone; resuming brings it back
