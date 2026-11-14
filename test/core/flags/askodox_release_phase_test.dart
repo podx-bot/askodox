@@ -12,14 +12,16 @@ void main() {
   });
 
   test('Phase 2 routes are closed (with their sub-screens), Phase 1 routes stay open', () {
-    for (final route in ['/pos', '/pos/b1/items', '/business/promotions', '/mobility?tab=3', '/profile/roles',
+    for (final route in ['/business/promotions', '/mobility?tab=3', '/profile/roles',
         '/listings/mine', '/orders/incoming', '/me/finance', '/intel/tax', '/videos/native', '/verification',
         // Owner 2026-11-09 / 11-10: Radio, the cross-app guide and developer pages are not in Phase 1.
         '/radio', '/talk', '/companion/screen-guide', '/companion-lab']) {
       expect(askodoxRouteShownNow(route), isFalse, reason: route);
     }
     for (final route in ['/', '/profile', '/profile/memory', '/me/payment-methods', '/me/ai-credits',
-        '/privacy', '/settings/notifications', '/updates', '/watchlist', '/tools', '/location', '/businesses']) {
+        '/privacy', '/settings/notifications', '/updates', '/watchlist', '/tools', '/location', '/businesses',
+        // Owner 2026-11-14: own shop billing (POS) and the shop page are open in Phase 1.
+        '/pos', '/pos/b1/items', '/shops/b1', '/shops/b1/post', '/me/following', '/me/shop-feed']) {
       expect(askodoxRouteShownNow(route), isTrue, reason: route);
     }
   });

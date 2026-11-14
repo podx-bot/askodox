@@ -45,7 +45,7 @@ const askodoxPhase2ProfileKeys = <String>{
 /// App screens that belong to Phase 2. A chat action pointing at one shows no
 /// button, and a guide that walks to one is not offered.
 const askodoxPhase2Routes = <String>{
-  '/pos',
+  // '/pos' (own shop billing) is open in Phase 1 from Profile > Shops > My shop (owner 2026-11-14).
   '/crm',
   '/business',
   '/listings/mine',
