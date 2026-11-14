@@ -268,7 +268,7 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     return const [];
   }
 
-  /// A stored value -> (dropdown choice, typed words). "other:<words>" and old free text become Others.
+  /// A stored value -> (dropdown choice, typed words). "other:words" and old free text become Others.
   (String?, String) _choice(String stored, Iterable<String> keys) {
     if (stored.isEmpty) return (null, '');
     if (stored.startsWith('other:')) return ('other', stored.substring(6));
