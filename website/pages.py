@@ -920,6 +920,19 @@ def legal_page(path: str, title: str, desc: str, inner: str, cfg: dict) -> Page:
     return Page(path, title, desc, body, crumb=title, priority="0.3")
 
 
+def grievance(cfg: dict) -> str:
+    """Grievance Officer (IT Rules 2021, rule 3(2); DPDP Act 2023) -- same block on every legal page."""
+    officer = e(cfg["site"].get("grievance_officer") or "")
+    address = e(cfg["site"].get("legal_address") or "")
+    mail_to = cfg["contact"]["privacy_email"]
+    who = f"<strong>{officer}</strong>, " if officer else ""
+    return (f'<h2 id="grievance">Grievance Officer</h2><p>For any complaint about ASKODOX, its content, your data or a '
+            f'payment, contact our Grievance Officer: {who}<a href="mailto:{e(mail_to)}">{e(mail_to)}</a>'
+            f'{", " + address if address else ""}. We acknowledge complaints within 24 hours and resolve them within '
+            f'15 days. If you are not satisfied with our answer about your personal data, you may approach the Data '
+            f'Protection Board of India.</p>')
+
+
 def privacy(cfg: dict) -> Page:
     p = cfg["contact"]["privacy_email"]
     inner = f"""
@@ -977,21 +990,32 @@ def privacy(cfg: dict) -> Page:
 <li><strong>Authorities</strong>, when the law requires it.</li>
 </ul>
 <p>Some of these providers may process information in other countries. We use providers that protect information appropriately.</p>
+<h2>Why we may use it</h2>
+<p>We use your information on the basis of your consent, which you give when you sign in and when you switch on optional features (location, notifications, payment alerts, memory), and for the legitimate uses the law allows, such as keeping ASKODOX safe and meeting legal duties. You can withdraw consent at any time; features that depend on it will then stop.</p>
 <h2 id="your-rights">Your choices and rights</h2>
 <ul>
 <li><strong>Access and download</strong> your data from the Privacy screen in the app, or by email.</li>
 <li><strong>Delete</strong> your account and data from the app, or by email. Records of orders you made with another person may remain on their side.</li>
 <li><strong>Location and notifications</strong> can be turned off at any time in your phone's settings.</li>
-<li>Depending on where you live, you may have further rights, such as correcting your data or objecting to some uses. Email <a href="mailto:{e(p)}">{e(p)}</a> and we'll respond.</li>
+<li><strong>Correct</strong> your details in the app, or ask us by email.</li>
+<li><strong>Nominate</strong> someone to exercise these rights for you if you die or cannot act, by emailing us.</li>
+<li>You can also <strong>complain</strong> to our Grievance Officer (below). Depending on where you live, you may have further rights. Email <a href="mailto:{e(p)}">{e(p)}</a> and we'll respond.</li>
 </ul>
+<h2 id="delete-account">Deleting your account</h2>
+<ol>
+<li>In the ASKODOX app open <strong>Profile › Settings &amp; Privacy › Privacy &amp; data › Delete my account</strong> and confirm. Your account, profile, business details, conversations, memory, follows and payment-alert settings are deleted.</li>
+<li>Without the app, email <a href="mailto:{e(p)}">{e(p)}</a> from your registered number's account or include that number, with the subject "Delete my ASKODOX account". We confirm within 7 days.</li>
+</ol>
+<p>Some records may be kept for as long as the law requires, such as purchase and tax records for AI Credits, and records of requests you made with another person may remain on their side.</p>
 <h2>How long we keep it</h2>
 <p>We keep information while your account is active and as long as needed for the purposes above. When you delete your account, we delete or anonymise your information unless we need to keep some of it to meet legal obligations or resolve disputes.</p>
-<h2>Children</h2>
-<p>ASKODOX is not intended for children under 13, or under the minimum age required where you live.</p>
+<h2>Age</h2>
+<p>ASKODOX is meant for people aged 18 and over. We do not knowingly collect information from children. If you believe a child has given us information, contact us and we will delete it.</p>
 <h2>Security</h2>
-<p>We use reasonable technical and organisational measures to protect your information. No system is perfectly secure, so please keep your phone and one-time codes safe.</p>
+<p>We use reasonable technical and organisational measures to protect your information, including encryption of bank details and signed sign-in sessions. No system is perfectly secure, so please keep your phone and one-time codes safe. If a personal data breach affects you, we will inform you and the authorities as the law requires.</p>
 <h2>Changes</h2>
 <p>We'll update this page when our practices change and show the new effective date. For significant changes, we'll let you know in the app.</p>
+{grievance(cfg)}
 """
     return legal_page("/privacy/", "Privacy policy", "How ASKODOX collects, uses and protects your information, and the choices and rights you have.", inner, cfg)
 
@@ -1005,10 +1029,11 @@ def terms(cfg: dict) -> Page:
 <p class="lead">These terms apply when you use the askodox.com website or the ASKODOX app. By using ASKODOX you agree to them.</p>
 <h2>What ASKODOX is</h2>
 <p>ASKODOX helps people discover products, services, people and information, and connect with each other. Unless we clearly say otherwise, ASKODOX is not the seller or provider of the products and services you find, and is not a party to agreements between users.</p>
+<p>For content that users post (listings, business details, posts, messages), ASKODOX acts as an intermediary under the Information Technology Act, 2000 and follows the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021. We act on valid complaints and on lawful orders.</p>
 <h2>Beta features</h2>
 <p>Features marked Beta are still being tested and may change, be interrupted or be removed. Features marked Coming soon are not available yet.</p>
 <h2>Your account</h2>
-<ul><li>Give accurate information and keep your phone and one-time codes secure.</li><li>You're responsible for activity on your account.</li><li>You must be old enough to use ASKODOX where you live.</li></ul>
+<ul><li>Give accurate information and keep your phone and one-time codes secure.</li><li>You're responsible for activity on your account.</li><li>You must be 18 or older to use ASKODOX.</li></ul>
 <h2>Using ASKODOX responsibly</h2>
 <p>You agree not to:</p>
 <ul><li>List or request anything illegal, dangerous, counterfeit or prohibited where you are.</li><li>Mislead, harass, threaten or defraud anyone.</li><li>Misuse other people's contact details or use them for spam.</li><li>Interfere with, scrape or try to break ASKODOX or its security.</li></ul>
@@ -1026,7 +1051,7 @@ def terms(cfg: dict) -> Page:
 <li>Some AI features, such as creating pictures and heavier tasks, use prepaid AI Credits. Prices and what each use costs are shown in the app and include applicable taxes unless stated otherwise.</li>
 <li>Credits are used up as you use those features. They have no cash value and can't be transferred or exchanged for money.</li>
 <li>If a task fails, the credits held for it are returned automatically.</li>
-<li>If you were charged by mistake, contact us and we'll review it. Credits you have used are not refundable, except where the law requires.</li>
+<li>If you were charged by mistake, contact us and we'll review it. Credits you have used are not refundable, except where the law requires. See <a href="/refunds/">Refunds and cancellations</a>.</li>
 </ul>
 <h2>Payment alerts for shops</h2>
 <p>Payment alerts announce money based on the notification from your payment app, or on events from a payment provider you connect. They are a convenience, not proof of payment. Always confirm important payments in your bank or payment app. ASKODOX is not responsible for an alert that is missed, late or wrong, for example because your phone was off, the payment app changed its notification, or notification access was turned off.</p>
@@ -1050,6 +1075,7 @@ def terms(cfg: dict) -> Page:
 {law}
 <h2>Changes and contact</h2>
 <p>We may update these terms and will show the new effective date here. Questions: {mail(cfg, 'general_email')}.</p>
+{grievance(cfg)}
 """
     return legal_page("/terms/", "Terms and conditions", "The terms for using the ASKODOX website and app.", inner, cfg)
 
@@ -1066,6 +1092,29 @@ def cookies(cfg: dict) -> Page:
 <p>Questions: {mail(cfg, 'privacy_email')}.</p>
 """
     return legal_page("/cookies/", "Cookie policy", "askodox.com does not use advertising cookies or third-party analytics. Learn what is stored and how that could change.", inner, cfg)
+
+
+def refunds(cfg: dict) -> Page:
+    inner = f"""
+<p class="lead">ASKODOX sells one thing itself: <strong>AI Credits</strong>, a prepaid balance for heavier AI features such as creating pictures. This page explains delivery, cancellation and refunds for them.</p>
+<h2>Delivery</h2>
+<p>AI Credits are digital. They are added to your account as soon as the payment is confirmed, usually within a minute. Nothing is shipped. If credits are not added within 24 hours of a successful payment, email {mail(cfg, 'support_email')} with your payment reference and we will add them or refund you.</p>
+<h2>Cancellation</h2>
+<p>A purchase can't be cancelled once the credits are added, because they are available to use straight away. Unused credits stay in your account; they have no cash value and can't be transferred.</p>
+<h2>Refunds</h2>
+<ul>
+<li><strong>Failed tasks:</strong> if a feature fails, the credits held for it are returned to your balance automatically.</li>
+<li><strong>Charged twice or charged without credits:</strong> we refund the extra amount in full.</li>
+<li><strong>Other cases:</strong> credits you have used are not refundable, except where the law requires. Write to us within 7 days of the purchase and we'll look at it fairly.</li>
+<li>Approved refunds go back to the original payment method, normally within 5 to 7 working days of approval, depending on your bank.</li>
+</ul>
+<h2>Payments to shops and other people</h2>
+<p>ASKODOX does not take or hold payments between buyers and sellers. Money you pay a shop or provider goes directly to them, so refunds for those purchases are between you and them. You can still report a problem to us.</p>
+<h2>How to ask</h2>
+<p>Email {mail(cfg, 'support_email')} with your registered phone number, the payment reference and what happened.</p>
+{grievance(cfg)}
+"""
+    return legal_page("/refunds/", "Refunds and cancellations", "Delivery, cancellation and refund terms for ASKODOX AI Credits, and how payments to shops work.", inner, cfg)
 
 
 def affiliate(cfg: dict) -> Page:
@@ -1118,4 +1167,4 @@ def not_found(cfg: dict) -> Page:
 def all_pages(cfg: dict) -> list[Page]:
     return [home(cfg), about(cfg), how_it_works(cfg), discover(cfg), sellers(cfg), providers(cfg), deals(cfg), videos(cfg),
             app_page(cfg), join(cfg), partners(cfg), support(cfg), faq(cfg), contact(cfg), report(cfg), trust(cfg), status(cfg),
-            privacy(cfg), terms(cfg), cookies(cfg), affiliate(cfg), accessibility(cfg), not_found(cfg)]
+            privacy(cfg), terms(cfg), cookies(cfg), refunds(cfg), affiliate(cfg), accessibility(cfg), not_found(cfg)]
