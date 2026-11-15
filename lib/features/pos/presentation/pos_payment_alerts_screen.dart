@@ -1249,7 +1249,9 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(d['revoked'] == true ? Icons.phonelink_erase : Icons.smartphone),
-              title: Text('${d['label']}${d['mine'] == true ? (te ? ' (ఈ ఫోన్)' : ' (this phone)') : ''} · ${d['role']}'),
+              // Owner 2026-11-15: "(this phone)" only for THIS device; the same person's other rows are earlier
+              // installs (each fresh install registers a new device) and can be removed.
+              title: Text('${d['label']}${d['id'] == _deviceId ? (te ? ' (ఈ ఫోన్)' : ' (this phone)') : d['mine'] == true ? (te ? ' (మీ పాత ఇన్‌స్టాల్)' : ' (your earlier install)') : ''} · ${d['role']}'),
               subtitle: Text([
                 if (d['revoked'] == true) te ? 'తీసివేశారు' : 'removed',
                 if (d['listener_on'] == true) te ? 'వింటోంది' : 'listening',
