@@ -696,13 +696,23 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     );
   }
 
-  Future<void> _share() async {
+  /// The bill as a picture: straight into WhatsApp ([whatsapp]) or the share sheet. Never silent: a phone that
+  /// cannot share gets a message (owner 2026-11-15, pani A).
+  Future<void> _share({bool whatsapp = false}) async {
+    final te = _bizTe(context);
     final boundary = _billKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 2);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     final Uint8List bytes = data!.buffer.asUint8List();
-    await askodoxShareImage(bytes,
-        name: 'askodox-bill', text: '$_shopName · ₹${_rupees(_total)} · ASKODOX');
+    final upiLine = _upi.isEmpty ? '' : '\nUPI: $_upi';
+    final ok = await askodoxShareImage(bytes,
+        name: 'askodox-bill',
+        text: '${_shopName.isEmpty ? 'Bill' : _shopName} · ₹${_rupees(_total)}$upiLine · ASKODOX',
+        packages: whatsapp ? askodoxWhatsAppPackages : const []);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(te ? 'ఈ ఫోన్‌లో షేర్ తెరుచుకోలేదు. యాప్ అప్‌డేట్ చేసి మళ్ళీ ప్రయత్నించండి.' : 'Sharing did not open on this phone. Update the app and try again.')));
+    }
   }
 
   @override
@@ -814,11 +824,18 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             label: Text(te ? 'QR చూపండి (స్కాన్ చేసి కట్టడానికి)' : 'Show QR (scan to pay)'),
           ),
           const SizedBox(height: 8),
+          FilledButton.tonalIcon(
+            key: const Key('askodoxQuickBillWhatsApp'),
+            onPressed: total > 0 ? () => _share(whatsapp: true) : null,
+            icon: const Icon(Icons.chat_rounded),
+            label: Text(te ? 'WhatsApp లో బిల్లు పంపండి' : 'Send the bill on WhatsApp'),
+          ),
+          const SizedBox(height: 8),
           OutlinedButton.icon(
             key: const Key('askodoxQuickBillShare'),
-            onPressed: total > 0 ? _share : null,
+            onPressed: total > 0 ? () => _share() : null,
             icon: const Icon(Icons.share_outlined),
-            label: Text(te ? 'బిల్లు పంపండి (WhatsApp మొదలైనవి)' : 'Send the bill (WhatsApp etc.)'),
+            label: Text(te ? 'ఇతర యాప్‌లలో పంపండి' : 'Send in another app'),
           ),
           const SizedBox(height: 8),
           Text(te

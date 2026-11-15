@@ -68,6 +68,7 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * .8),
                 child: ListView(shrinkWrap: true, children: [
+                  if (askodoxGuidesOn)
                   ListTile(
                     key: const ValueKey('askodoxMenu-guide'),
                     dense: true,

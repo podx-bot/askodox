@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/flags/askodox_release_phase.dart';
 import '../../features/guide/in_app_guide.dart';
 import 'askodox_mascot.dart';
 
@@ -37,7 +38,8 @@ class AskodoxNavSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
           child: Row(children: [
-            if (mascot != null) AskodoxMascot(role: mascot!, size: 26) else Icon(icon, size: 18, color: accent),
+            // Phase 1: no robot beside the headings (owner 2026-11-15, pani C) -- the plain icon instead.
+            if (mascot != null && askodoxGuidesOn) AskodoxMascot(role: mascot!, size: 26) else Icon(icon, size: 18, color: accent),
             const SizedBox(width: 8),
             Expanded(
               child: Text(title, style: const TextStyle(color: ink, fontSize: 15, fontWeight: FontWeight.w900)),
@@ -72,7 +74,7 @@ class AskodoxNavListRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
-    final flow = row.guide == null ? null : askodoxGuideById(row.guide!);
+    final flow = row.guide == null || !askodoxGuidesOn ? null : askodoxGuideById(row.guide!);
     return KeyedSubtree(
       key: row.key,
       child: InkWell(
@@ -129,7 +131,7 @@ class AskodoxNavTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
-    final flow = row.guide == null ? null : askodoxGuideById(row.guide!);
+    final flow = row.guide == null || !askodoxGuidesOn ? null : askodoxGuideById(row.guide!);
     return KeyedSubtree(
       key: row.key,
       child: Tooltip(

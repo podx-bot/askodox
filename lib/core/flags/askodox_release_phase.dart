@@ -14,6 +14,12 @@ library;
 /// True only in a Phase 2 build.
 const bool askodoxPhase2 = bool.fromEnvironment('ASKODOX_PHASE2');
 
+/// Every Guide in the app -- the robot Guide buttons beside Profile / Settings rows, the robot next to section
+/// headings, the header-menu Screen Guide, "Show me on screen" offers in chat and the walkthroughs they start.
+/// Owner 2026-11-15 (pani C): none of them in Phase 1; Phase 2 turns them back on. The code, help texts and
+/// walkthroughs stay (nothing deleted); ASKODOX_GUIDE_BUTTON=true also turns them on for a test build.
+const bool askodoxGuidesOn = askodoxPhase2 || bool.fromEnvironment('ASKODOX_GUIDE_BUTTON');
+
 /// The Google Play bundle (owner 2026-11-10). Digital goods there must go through Play Billing, so
 /// the Razorpay AI Credits recharge is not offered in this build (balance + history still show).
 const bool askodoxPlayStoreBuild = bool.fromEnvironment('ASKODOX_PLAY_STORE');

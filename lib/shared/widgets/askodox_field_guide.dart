@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/flags/askodox_release_phase.dart';
 import 'askodox_mascot.dart';
 
 /// The small "?" next to a field: one press and ASKO explains what to type
@@ -51,7 +52,10 @@ Future<void> askodoxShowFieldGuide(BuildContext context, {required String title,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const AskodoxMascot(size: 34),
+            if (askodoxGuidesOn)
+              const AskodoxMascot(size: 34)
+            else
+              const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF2450C8), size: 28),
             const SizedBox(width: 10),
             Expanded(child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
           ]),

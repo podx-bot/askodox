@@ -1110,6 +1110,7 @@ void main() {
     final (question, flow) = askodoxPhase2
         ? ('How do I upload a video?', 'upload_video')
         : ('How do I change my location?', 'change_location');
+    if (!askodoxGuidesOn) return; // Phase 1 (owner 2026-11-15, pani C): no on-screen guides, chat answers instead
     final h = _Harness(matches: _FakeMatchRepository(const []));
     await h.pump(tester);
     await h.send(tester, question);
@@ -3078,11 +3079,13 @@ void main() {
     await h.pump(tester);
     await h.send(tester, 'hello there');
     await h.send(tester, 'The app is not working when I upload a photo');
-    expect(find.text('Need more help? Contact ASKODOX Support'), findsNothing,
+    expect(find.text('Still not solved? Send it to the ASKODOX team'), findsNothing,
         reason: 'ASKODOX AI answers first');
 
     await h.send(tester, 'Still not working');
-    expect(find.text('Need more help? Contact ASKODOX Support'), findsOneWidget);
+    expect(find.text('Still not solved? Send it to the ASKODOX team'), findsOneWidget);
+    expect(h.assistant.requests.last['message'], contains('ASKODOX app help'),
+        reason: 'the AI tries again with what it knows about the app');
 
     await tester.ensureVisible(find.byKey(const Key('askodoxSupportChat')));
     await tester.tap(find.byKey(const Key('askodoxSupportChat')));
@@ -3097,8 +3100,8 @@ void main() {
     expect((escalation['actionsTried']! as List), isNotEmpty);
     expect(escalation['activeRole'], 'Buyer');
     expect(find.byKey(const Key('askodoxSupportCaseCreated')), findsOneWidget);
-    expect(find.text('WhatsApp Support'), findsOneWidget);
-    expect(find.text('Call Support'), findsNothing, reason: 'not configured');
+    expect(find.text('WhatsApp Support'), findsNothing, reason: 'no live chat with staff (owner 2026-11-15)');
+    expect(find.text('Call Support'), findsNothing);
 
     // Customer Care's reply comes back into the same conversation.
     await tester.tap(find.byKey(const Key('askodoxSupportCheckReply')));
@@ -3106,11 +3109,24 @@ void main() {
     expect(find.text('Support resolved it: Engineer reset your account'), findsOneWidget);
   });
 
+  testWidgets('"I want to talk to Customer Care": the AI answers from app knowledge first, then the team ticket',
+      (tester) async {
+    final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
+    await h.pump(tester);
+    await h.send(tester, 'I want to talk to Customer Care');
+    expect(find.text('Still not solved? Send it to the ASKODOX team'), findsNothing, reason: 'never straight to staff');
+    expect(h.assistant.requests.last['message'], contains('ASKODOX app help'));
+    expect(h.matches.deals, isEmpty, reason: 'no search for a Customer Care question');
+    await h.send(tester, 'Payment sound is still not coming, not solved');
+    expect(find.text('Still not solved? Send it to the ASKODOX team'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxSupportChat')), findsOneWidget);
+  });
+
   testWidgets('critical payment issue gets support immediately', (tester) async {
     final h = _Harness(matches: _FakeMatchRepository([StateError('unused')]));
     await h.pump(tester);
     await h.send(tester, 'Money deducted but order not confirmed');
-    expect(find.text('Need more help? Contact ASKODOX Support'), findsOneWidget);
+    expect(find.text('Still not solved? Send it to the ASKODOX team'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('askodoxSupportChat')));
     await tester.tap(find.byKey(const Key('askodoxSupportChat')));
     await _Harness.settle(tester);
@@ -4685,6 +4701,49 @@ void main() {
 
     tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null));
+
+    testWidgets('centre Ask = full-screen voice conversation: a short silence ends the turn, the orb interrupts, Close ends it',
+        (tester) async {
+      mockRecorder(levels: [
+        ...quiet(const Duration(milliseconds: 600)),
+        ...speech(const Duration(seconds: 2), level: 3000),
+        ...quiet(const Duration(seconds: 4)),
+      ]);
+      final h = _Harness(
+        matches: _FakeMatchRepository([StateError('unused')]),
+        voiceTranscript: 'hello askodox',
+        assistant: _Assistant((_) => {
+              'reply': 'Hi! How can I help?',
+              'domain': 'GENERAL',
+              'transactional': false,
+              'confidence': 0.9,
+              'source': 'universal_ai',
+            }),
+      );
+      await h.pump(tester);
+      final container = ProviderScope.containerOf(tester.element(find.byType(AskodoxPrimaryHomeScreen)));
+      container.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.action(AskodoxHubAction.voice);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const Key('askodoxTalkMode')), findsOneWidget, reason: 'the centre Ask opens the voice conversation');
+      expect(methods(), contains('startVoiceRecording'));
+      await runFor(tester, const Duration(seconds: 5));
+      expect(methods(), contains('stopVoiceRecording'), reason: 'a short silence after speech ends the turn by itself');
+      expect(h.voice.calls, hasLength(1));
+      expect(find.text('Hi! How can I help?'), findsWidgets);
+      expect(methods(), contains('speakReply'));
+      // Barge in: a tap on the orb stops the reply (or ends the next turn) -- the conversation goes on.
+      await tester.tap(find.byKey(const Key('askodoxTalkOrb')));
+      await runFor(tester, const Duration(seconds: 1));
+      int starts() => methods().where((m) => m == 'startVoiceRecording').length;
+      expect(starts(), greaterThanOrEqualTo(2), reason: 'ASKODOX listens again after answering');
+      await tester.tap(find.byKey(const Key('askodoxTalkClose')));
+      await _Harness.settle(tester);
+      expect(find.byKey(const Key('askodoxTalkMode')), findsNothing);
+      final atClose = starts();
+      await runFor(tester, const Duration(seconds: 2));
+      expect(starts(), atClose, reason: 'Close ends the conversation: no more listening');
+    });
 
     testWidgets('long Telugu speech with natural pauses keeps recording through silence until Stop and replies in Telugu voice',
         (tester) async {

@@ -8,7 +8,10 @@ const _device = MethodChannel('com.askodox.app/device');
 /// Writes a PNG to the app cache (the folder the share provider exposes) and
 /// opens the Android share sheet. Returns false on a build without sharing.
 /// [text] goes with the picture (a caption with a link, where the target app takes it).
-Future<bool> askodoxShareImage(Uint8List bytes, {String name = 'askodox-photo', String? text}) async {
+/// [packages]: open the first of these apps that is installed directly (e.g. [askodoxWhatsAppPackages]); none
+/// installed -> the normal share sheet.
+Future<bool> askodoxShareImage(Uint8List bytes,
+    {String name = 'askodox-photo', String? text, List<String> packages = const []}) async {
   final dir = Directory('${(await getTemporaryDirectory()).path}/images');
   await dir.create(recursive: true);
   final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
@@ -20,6 +23,7 @@ Future<bool> askodoxShareImage(Uint8List bytes, {String name = 'askodox-photo', 
           'mime': 'image/png',
           'title': name,
           if (text != null) 'text': text,
+          if (packages.isNotEmpty) 'packages': packages,
         }) ??
         false;
   } on MissingPluginException {
@@ -28,6 +32,9 @@ Future<bool> askodoxShareImage(Uint8List bytes, {String name = 'askodox-photo', 
     return false;
   }
 }
+
+/// WhatsApp first, then WhatsApp Business (a shop owner often has only the business app).
+const askodoxWhatsAppPackages = ['com.whatsapp', 'com.whatsapp.w4b'];
 
 /// Saves a picture into the phone's gallery (Pictures/ASKODOX). Returns false when the phone
 /// cannot (Android 9 or older, or a build without the method) -- then offer [askodoxShareImage].

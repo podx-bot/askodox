@@ -18,6 +18,7 @@ import '../../../services/real_product_match_service.dart';
 import '../../../services/multimodal_capture_service.dart';
 import '../../../services/reply_speech_service.dart';
 import '../../../services/support_escalation_service.dart';
+import '../domain/app_care.dart';
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
@@ -260,6 +261,14 @@ class _AskodoxPrimaryHomeScreenState
   int _streamingScrolledAt = 0;
   _VoicePhase _voicePhase = _VoicePhase.idle;
 
+  /// ChatGPT-style full-screen voice conversation from the centre "Ask" (owner 2026-11-15, pani E): listen ->
+  /// (short silence) -> transcribe -> answer -> speak -> listen again, until Close. The chat mic stays as before.
+  bool _talkMode = false;
+  bool _talkPaused = false;
+  Timer? _talkLoop;
+  // Drawn in the ROOT overlay so it covers the whole screen (header and bottom bar too).
+  final _talkPortal = OverlayPortalController();
+
   /// The field the Universal Advisor asked about last turn (budget, usage,
   /// size...): the next short reply answers THAT field only.
   String? _pendingAdvisorField;
@@ -490,8 +499,15 @@ class _AskodoxPrimaryHomeScreenState
       setState(() => _voicePhase = _VoicePhase.idle);
       return;
     }
-    // Stays on until the user's Stop (no silence / no-speech auto-stop).
-    _endpointer = AskodoxVoiceEndpointer.untilStop();
+    // Chat mic: stays on until the user's Stop (no silence / no-speech auto-stop). Voice conversation: a short
+    // silence after speech ends the turn so ASKODOX answers by itself (turn-taking).
+    _endpointer = _talkMode
+        ? AskodoxVoiceEndpointer(
+            silenceAfterSpeech: const Duration(milliseconds: 1400),
+            noSpeechTimeout: const Duration(seconds: 25),
+            maxDuration: const Duration(minutes: 1),
+          )
+        : AskodoxVoiceEndpointer.untilStop();
     _voiceFinishing = false;
     _voiceTicks = 0;
     _voiceTimer = Timer.periodic(_voiceSampleInterval, (_) => _sampleVoice());
@@ -551,6 +567,14 @@ class _AskodoxPrimaryHomeScreenState
         await _device.invokeMethod<Object?>('cancelVoiceRecording');
       } catch (_) {}
       if (!mounted) return;
+      if (_talkMode) {
+        // Nobody spoke for a while: the conversation waits for a tap on the orb (never loops on silence).
+        setState(() {
+          _voicePhase = _VoicePhase.idle;
+          _talkPaused = true;
+        });
+        return;
+      }
       setState(() => _voicePhase = _VoicePhase.idle);
       _voiceError(te
           ? 'మీ మాట వినిపించలేదు. మళ్లీ మాట్లాడండి.'
@@ -2013,6 +2037,14 @@ class _AskodoxPrimaryHomeScreenState
       _pendingDiscussOnly = true;
     }
 
+    // Customer Care is AI-first (owner 2026-11-15, pani D): the assistant answers from what it knows about the app;
+    // no search, no staff chat. "Send to ASKODOX team" comes only if it is still not solved.
+    if (_pendingAiContext == null && attachments.isEmpty &&
+        (askodoxWantsCustomerCare(typed) || (_issueTurns > 0 && askodoxLooksLikeIssue(typed)))) {
+      _pendingAiContext = askodoxAppCareGuidance();
+      _pendingDiscussOnly = true;
+    }
+
     // A question about the video attached here -> its grounded study
     // (seen / said in the video, with timestamps), never ID-47 deal text.
     final attachedStudy = sentAttachments
@@ -2033,7 +2065,8 @@ class _AskodoxPrimaryHomeScreenState
 
     // "How do I upload a video?": ASKODOX shows it on the real screen.
     // A walkthrough to a screen hidden in this release phase is not offered (the question goes to chat).
-    final guide = attachments.isEmpty ? askodoxGuideFor(typed) : null;
+    // Phase 1 has no Guides (owner 2026-11-15, pani C): the how-to question is answered by the assistant instead.
+    final guide = attachments.isEmpty && askodoxGuidesOn ? askodoxGuideFor(typed) : null;
     if (guide != null && askodoxGuideAvailable(guide)) {
       final flow = guide;
       final te = _te;
@@ -4006,7 +4039,10 @@ class _AskodoxPrimaryHomeScreenState
         Navigator.of(context).popUntil((r) => r == route || r.isFirst);
       }
     });
-    return ColoredBox(
+    return OverlayPortal.targetsRootOverlay(
+        controller: _talkPortal,
+        overlayChildBuilder: (_) => _talkOverlay(te),
+        child: ColoredBox(
         color: const Color(0xFFF9FBFF),
         child: Stack(children: [
           // ONE conversational page: the active results stay above, the
@@ -4040,7 +4076,7 @@ class _AskodoxPrimaryHomeScreenState
               _composer(te)
             ]);
           }),
-        ]));
+        ])));
   }
 
   /// The ONE companion state, shared with the nav avatar and the floating
@@ -4055,6 +4091,143 @@ class _AskodoxPrimaryHomeScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(askodoxCompanionLiveProvider.notifier).state = live;
     });
+  }
+
+  void _enterTalkMode() {
+    if (_talkMode) return;
+    setState(() {
+      _talkMode = true;
+      _talkPaused = false;
+    });
+    _talkPortal.show();
+    _talkLoop?.cancel();
+    _talkLoop = Timer.periodic(const Duration(milliseconds: 350), (_) => _talkTick());
+    _talkTick();
+  }
+
+  /// Listens again as soon as ASKODOX is idle (its reply finished, or the person barged in).
+  void _talkTick() {
+    if (!mounted || !_talkMode || _talkPaused) return;
+    if (_voicePhase == _VoicePhase.idle && !_sending && !_analyzingAttachments) unawaited(_startVoice());
+  }
+
+  Future<void> _exitTalkMode() async {
+    _talkLoop?.cancel();
+    _talkLoop = null;
+    if (_voicePhase == _VoicePhase.recording) await _cancelVoice();
+    if (_voicePhase == _VoicePhase.speaking) await _stopSpeaking();
+    if (_talkPortal.isShowing) _talkPortal.hide();
+    if (mounted) {
+      setState(() {
+        _talkMode = false;
+        _talkPaused = false;
+      });
+    }
+  }
+
+  /// Mute = stop listening (ASKODOX may still finish its sentence); unmute = listen again.
+  Future<void> _toggleTalkMute() async {
+    if (_talkPaused) {
+      setState(() => _talkPaused = false);
+      _talkTick();
+      return;
+    }
+    setState(() => _talkPaused = true);
+    if (_voicePhase == _VoicePhase.recording) await _cancelVoice();
+  }
+
+  /// The orb: while ASKODOX speaks -> interrupt and listen; while listening -> "I'm done", answer now;
+  /// when waiting -> listen again.
+  Future<void> _talkOrbTap() async {
+    switch (_voicePhase) {
+      case _VoicePhase.speaking:
+        await _stopSpeaking();
+        if (mounted) setState(() => _talkPaused = false);
+        _talkTick();
+      case _VoicePhase.recording:
+        await _finishVoice(noSpeech: false);
+      case _VoicePhase.idle:
+        if (_talkPaused) await _toggleTalkMute();
+      case _VoicePhase.transcribing:
+      case _VoicePhase.thinking:
+        break;
+    }
+  }
+
+  Widget _talkOverlay(bool te) {
+    final level = _voiceLevels.isEmpty ? 0.0 : _voiceLevels.last;
+    final (label, color) = switch (_voicePhase) {
+      _ when _talkPaused => (te ? 'ఆగింది — మాట్లాడటానికి గోళం నొక్కండి' : 'Paused — tap the orb to talk', const Color(0xFF94A3B8)),
+      _VoicePhase.recording => (te ? 'వింటున్నాను…' : 'Listening…', const Color(0xFF38BDF8)),
+      _VoicePhase.transcribing || _VoicePhase.thinking => (te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…', const Color(0xFFA78BFA)),
+      _VoicePhase.speaking => (te ? 'మాట్లాడుతున్నాను… (ఆపడానికి గోళం నొక్కండి)' : 'Speaking… (tap the orb to interrupt)', const Color(0xFF34D399)),
+      _VoicePhase.idle => (te ? 'ఒక్క క్షణం…' : 'One moment…', const Color(0xFF94A3B8)),
+    };
+    final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: true));
+    final lastReply = _turns.lastWhere((t) => !t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: false));
+    final size = 150.0 + (_voicePhase == _VoicePhase.recording ? level * 70 : 0) + (_voicePhase == _VoicePhase.speaking ? 18 : 0);
+    return Positioned.fill(
+      child: Material(
+        key: const Key('askodoxTalkMode'),
+        color: const Color(0xFF0B1220),
+        child: SafeArea(
+          child: Column(children: [
+            const SizedBox(height: 18),
+            Text(te ? 'ASKODOX తో మాట్లాడండి' : 'Talk with ASKODOX',
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+            Expanded(
+              child: Center(
+                child: GestureDetector(
+                  key: const Key('askodoxTalkOrb'),
+                  onTap: () => unawaited(_talkOrbTap()),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(colors: [Colors.white, color, color.withValues(alpha: .35)]),
+                      boxShadow: [BoxShadow(color: color.withValues(alpha: .55), blurRadius: 40, spreadRadius: 6)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Text(label, key: const Key('askodoxTalkStatus'), style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
+              child: Text(lastUser.text, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13.5)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text(askodoxPlainReply(lastReply.text), maxLines: 4, overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.35)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 22),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                IconButton.filledTonal(
+                  key: const Key('askodoxTalkMute'),
+                  iconSize: 30,
+                  tooltip: _talkPaused ? (te ? 'మళ్ళీ వినండి' : 'Listen again') : (te ? 'మైక్ ఆపు' : 'Mute'),
+                  onPressed: () => unawaited(_toggleTalkMute()),
+                  icon: Icon(_talkPaused ? Icons.mic_off_rounded : Icons.mic_rounded),
+                ),
+                IconButton.filled(
+                  key: const Key('askodoxTalkClose'),
+                  iconSize: 30,
+                  style: IconButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                  tooltip: te ? 'మూసివేయి' : 'Close',
+                  onPressed: () => unawaited(_exitTalkMode()),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   /// A tap on the companion: while listening it stops listening ("tap
@@ -4081,7 +4254,8 @@ class _AskodoxPrimaryHomeScreenState
     }
     switch (action) {
       case AskodoxHubAction.voice:
-        if (!_sending) await _startVoice();
+        // The centre "Ask": the full-screen voice conversation (owner 2026-11-15, pani E).
+        _enterTalkMode();
       case AskodoxHubAction.chat:
         _focusNode.requestFocus();
       case AskodoxHubAction.camera:
@@ -5588,6 +5762,7 @@ class _AskodoxPrimaryHomeScreenState
     // (No ref use while disposing.)
     _voiceTimer?.cancel();
     _voiceTimer = null;
+    _talkLoop?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
@@ -5880,8 +6055,8 @@ class _SupportCardState extends State<_SupportCard> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-                te ? 'ఇంకా సహాయం కావాలా? ASKODOX సపోర్ట్‌ను సంప్రదించండి'
-                    : 'Need more help? Contact ASKODOX Support',
+                te ? 'ఇంకా పరిష్కారం కాలేదా? ASKODOX టీమ్‌కి పంపండి'
+                    : 'Still not solved? Send it to the ASKODOX team',
                 style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
           ),
         ]),
@@ -5896,30 +6071,19 @@ class _SupportCardState extends State<_SupportCard> {
                     await widget.onChat();
                     if (mounted) setState(() => _busy = false);
                   },
-            icon: const Icon(Icons.chat_rounded),
-            label: Text(te ? 'సపోర్ట్‌తో చాట్ చేయండి' : 'Chat with Support'),
+            icon: const Icon(Icons.send_rounded),
+            label: Text(te ? 'ASKODOX టీమ్‌కి పంపు' : 'Send to ASKODOX team'),
           )
         else ...[
           Text(
             te
-                ? 'సపోర్ట్ కేసు #${supportCase.caseId} సృష్టించబడింది. మీ సంభాషణ మొత్తం వారికి చేరింది -- మళ్లీ వివరించాల్సిన అవసరం లేదు.'
-                : 'Support case #${supportCase.caseId} created. ASKODOX Support has this whole conversation -- no need to explain again.',
+                ? 'టికెట్ #${supportCase.caseId} ASKODOX టీమ్‌కి పంపాం (ఈ సంభాషణ మొత్తం వారికి చేరింది, మళ్ళీ చెప్పనక్కర్లేదు). సమాధానం ఇక్కడే వస్తుంది.'
+                : 'Ticket #${supportCase.caseId} sent to the ASKODOX team (with this whole conversation -- no need to explain again). The answer comes back here.',
             key: const Key('askodoxSupportCaseCreated'),
             style: const TextStyle(color: Color(0xFF1B8A3B), fontWeight: FontWeight.w700),
           ),
+          // No live chat / call with staff (owner 2026-11-15, pani D): the team answers the ticket here.
           Wrap(spacing: 8, children: [
-            if (supportCase.whatsappUrl case final url?)
-              OutlinedButton.icon(
-                onPressed: () => widget.onOpen(url),
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: Text(te ? 'వాట్సాప్ సపోర్ట్' : 'WhatsApp Support'),
-              ),
-            if (supportCase.callUri case final uri?)
-              OutlinedButton.icon(
-                onPressed: () => widget.onOpen(uri),
-                icon: const Icon(Icons.call_rounded),
-                label: Text(te ? 'సపోర్ట్‌కు కాల్' : 'Call Support'),
-              ),
             if (widget.onCheckReply != null)
               TextButton.icon(
                 key: const Key('askodoxSupportCheckReply'),

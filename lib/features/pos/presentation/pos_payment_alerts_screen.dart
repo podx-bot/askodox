@@ -585,7 +585,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       await _configureNative();
       await askodoxSyncPaymentAlerts(_repo, _bridge, _id, _deviceId);
       final data = await _repo.paymentEvents(_id, status: _filter, q: _query);
-      _local = await _bridge.localEvents();
+      _local = (await _bridge.localEvents()).where((e) => e['direction'] == null).toList(); // "My phone" rows stay in My phone
       _unknowns = await _bridge.unknowns();
       if (!mounted) return;
       setState(() {

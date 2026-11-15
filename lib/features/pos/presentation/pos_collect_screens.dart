@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/share/askodox_image_share.dart';
 import '../../../services/media_picker.dart';
 import '../../native_video/video_commerce.dart' show askodoxShareTextProvider;
 import '../data/pos_hardware.dart';
@@ -57,6 +60,7 @@ class AskodoxMyPaymentMethodsScreen extends ConsumerStatefulWidget {
 }
 
 class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPaymentMethodsScreen> {
+  final _qrKey = GlobalKey();
   List<AskodoxJson>? _methods;
   String? _error;
   bool _busy = false;
@@ -277,6 +281,21 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
       );
 
   /// The QR customers scan: the default UPI (or the first one), drawn from the saved UPI ID.
+  /// The QR card as a PNG into the share sheet (WhatsApp shows it as a photo the customer can scan).
+  Future<bool> _shareQrPicture(String name, String upi) async {
+    try {
+      final boundary = _qrKey.currentContext?.findRenderObject();
+      if (boundary is! RenderRepaintBoundary) return false;
+      final image = await boundary.toImage(pixelRatio: 3);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) return false;
+      return await askodoxShareImage(data.buffer.asUint8List(),
+          name: 'askodox-upi-qr', text: '${name.isEmpty ? '' : '$name — '}UPI: $upi');
+    } catch (_) {
+      return false;
+    }
+  }
+
   Widget _qrCard(bool te, List<AskodoxJson> methods) {
     final upis = methods.where((m) => m['kind'] != 'bank' && '${m['upi_id'] ?? ''}'.isNotEmpty).toList();
     if (upis.isEmpty) {
@@ -303,10 +322,22 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         Text(te ? 'కస్టమర్ స్కాన్ చేసే QR' : 'The QR customers scan',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _payMuted)),
         const SizedBox(height: 10),
-        QrImageView(key: const Key('askodoxPayMethodsQr'), data: link, size: 200),
-        const SizedBox(height: 8),
-        if (name.isNotEmpty) Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _payInk)),
-        SelectableText(upi, style: const TextStyle(fontSize: 13, color: _payMuted)),
+        // The part shared as a PICTURE (owner 2026-11-15, pani A: a QR must reach WhatsApp as a QR, not a text link).
+        RepaintBoundary(
+          key: _qrKey,
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(12),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              QrImageView(key: const Key('askodoxPayMethodsQr'), data: link, size: 200, backgroundColor: Colors.white),
+              const SizedBox(height: 8),
+              if (name.isNotEmpty) Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _payInk)),
+              SelectableText(upi, style: const TextStyle(fontSize: 13, color: _payMuted)),
+              const SizedBox(height: 4),
+              const Text('Scan & pay with any UPI app · ASKODOX', style: TextStyle(fontSize: 10.5, color: _payMuted)),
+            ]),
+          ),
+        ),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(
@@ -314,7 +345,8 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
               key: const Key('askodoxPayMethodsShare'),
               style: FilledButton.styleFrom(backgroundColor: _payInk, minimumSize: const Size.fromHeight(44)),
               onPressed: () async {
-                final shared = await ref.read(askodoxShareTextProvider)('$name — UPI: $upi\n$link', subject: 'UPI');
+                var shared = await _shareQrPicture(name, upi);
+                if (!shared) shared = await ref.read(askodoxShareTextProvider)('$name — UPI: $upi\n$link', subject: 'UPI');
                 if (!shared) {
                   await Clipboard.setData(ClipboardData(text: upi));
                   if (mounted) askodoxPosSnack(context, te ? 'UPI ID కాపీ అయింది.' : 'UPI ID copied.');

@@ -179,8 +179,12 @@ void main() {
           AskodoxSupportNeed.none);
       expect(askodoxAssessSupport('Still not working', previousIssueTurns: 1).need,
           AskodoxSupportNeed.afterAiAttempt);
+      // Owner 2026-11-15 (pani D): Customer Care is AI-first -- the team is offered only on the second ask.
       expect(askodoxAssessSupport('I want to talk to customer care', previousIssueTurns: 0).need,
+          AskodoxSupportNeed.none);
+      expect(askodoxAssessSupport('I want to talk to customer care', previousIssueTurns: 1).need,
           AskodoxSupportNeed.afterAiAttempt);
+      expect(askodoxLooksLikeIssue('I want to talk to customer care'), isTrue);
     });
 
     test('critical issues escalate immediately', () {

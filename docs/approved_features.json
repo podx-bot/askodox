@@ -5944,6 +5944,227 @@
       "history": [
         "2026-11-15: owner approved (own phone path for every user, any app / bank SMS, edit + delete everywhere)"
       ]
+    },
+    {
+      "id": "payment_alerts_every_bank",
+      "name": "Payment alerts for every bank / UPI app / SMS app, both shop and My phone at once",
+      "purpose": "Owner rule 2026-11-15: one bank named = every bank. The payment / bank / SMS apps on THIS phone are found and chosen by themselves; one checklist opens each Android page (notification access, battery per maker, Autostart, each app's notifications, the SMS app); bank SMS of every Indian bank are read (amounts without Rs, safety lines cut off); one payment heard once even when the UPI app and the bank SMS both arrive; each app goes to the shop or My phone and both listen together.",
+      "expected_behavior": "First visit chooses the money apps installed on the phone (never other apps); Found apps can be added one by one or all; the checklist turns each step green when the phone can check it; a business app goes to the shop by default, others to My phone, changeable per app; the same amount from a UPI app and the bank SMS within 3 minutes is one history row with both sources; two UPI apps or one app twice stay two payments.",
+      "roles": [
+        "any signed-in user",
+        "owner"
+      ],
+      "domains": [
+        "payments"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [
+          "/me/payments/phone"
+        ],
+        "widget_keys": [
+          "askodoxMineSetup",
+          "askodoxMineFound",
+          "askodoxMineFoundAll",
+          "askodoxMineSetupTitle"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/my_phone_payments_test.dart"
+        ]
+      },
+      "dependencies": [
+        "my_phone_payment_alerts"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-15: owner approved (\"when I say one bank / etc., do it for all banks and all users\"); parser cases in android/parser-tests/ParserTest.kt (payment-parser-gate.yml)"
+      ]
+    },
+    {
+      "id": "bill_qr_share_whatsapp",
+      "name": "Bill and QR share to WhatsApp as a picture",
+      "purpose": "The quick bill and the UPI QR reach WhatsApp (or WhatsApp Business) as a picture; any other app through the share sheet. Root cause fixed: a CI script narrowed the FileProvider to cache/askodox_updates, so every shared picture was refused.",
+      "expected_behavior": "Send the bill on WhatsApp opens WhatsApp directly when installed; the QR card is shared as a scannable picture with the UPI id; a phone that cannot share shows a message instead of doing nothing.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "payments",
+        "business"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [
+          "/me/business/:id/bill",
+          "/me/payment-methods"
+        ],
+        "widget_keys": [
+          "askodoxQuickBillWhatsApp",
+          "askodoxQuickBillShare",
+          "askodoxPayMethodsShare"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-15: owner reported 3 times that WhatsApp bill / QR share did not work"
+      ]
+    },
+    {
+      "id": "payments_bill_shortcut",
+      "name": "Bill button on the Payments page",
+      "purpose": "One tap from Payments (next to Show my QR / Alerts / My accounts) opens the calculator bill.",
+      "expected_behavior": "The Bill door opens /me/business/<shown shop or me>/bill.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "payments"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [
+          "/me/payments"
+        ],
+        "widget_keys": [
+          "askodoxPaymentsHubBill"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/payments_hub_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-15: owner approved"
+      ]
+    },
+    {
+      "id": "ai_first_customer_care",
+      "name": "AI-first Customer Care with a team ticket (email + phone alert)",
+      "purpose": "\"I want to talk to Customer Care\" is answered first by ASKODOX AI from the app's own help text; only when it is still not solved does the chat offer Send to ASKODOX team, which makes a ticket and alerts the owner by email and phone. No live chat or call with staff.",
+      "expected_behavior": "First Customer Care ask -> AI answer, no ticket button, no search; asking again / still not solved -> Send to ASKODOX team; the ticket notifies the Command Center, emails ASKODOX_OWNER_EMAIL (default admin@askodox.com) and pushes staff with support permission.",
+      "roles": [
+        "any signed-in user",
+        "staff"
+      ],
+      "domains": [
+        "support"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/support/escalate"
+        }
+      ],
+      "ui": {
+        "routes": [
+          "/"
+        ],
+        "widget_keys": [
+          "askodoxSupportChat",
+          "askodoxSupportCaseCreated"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_support_alerts.py"
+        ],
+        "flutter": [
+          "test/features/home/chat_result_policy_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-15: owner approved"
+      ]
+    },
+    {
+      "id": "phase1_without_guides",
+      "name": "Phase 1 without Guides (Phase 2 switch)",
+      "purpose": "The robot Guide buttons beside rows, robots beside section headings, the menu Screen Guide and Show me on screen offers are hidden in Phase 1 behind askodoxGuidesOn (Phase 2 / ASKODOX_GUIDE_BUTTON turn them back on); nothing deleted.",
+      "expected_behavior": "Phase 1 build: no askodoxTileGuide-* buttons, no askodoxMenu-guide, how-to questions answered by the assistant.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "app"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [
+          "/profile"
+        ],
+        "widget_keys": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/home/history_explore_profile_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-15: owner approved (hide, keep the code)"
+      ]
+    },
+    {
+      "id": "voice_conversation_mode",
+      "name": "Full-screen voice conversation from the centre Ask",
+      "purpose": "ChatGPT-style voice talk: the centre Ask opens a full-screen orb; ASKODOX listens, a short silence ends the turn, it answers in voice and listens again until Close. Mute stops listening; a tap on the orb interrupts the reply. The chat mic keeps its tap-to-stop behaviour.",
+      "expected_behavior": "Centre Ask -> askodoxTalkMode; ~1.4 s silence after speech ends a turn; each turn = one Sarvam transcription (one voice credit when charging is on) + the normal chat answer; no speech for 25 s -> paused (no endless loop); Close stops everything.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "chat",
+        "voice"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/transcribe"
+        }
+      ],
+      "ui": {
+        "routes": [
+          "/"
+        ],
+        "widget_keys": [
+          "askodoxTalkMode",
+          "askodoxTalkOrb",
+          "askodoxTalkMute",
+          "askodoxTalkClose",
+          "askodoxTalkStatus"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-15: owner approved (1-2 s delay explained)"
+      ]
     }
   ]
 }
