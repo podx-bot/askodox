@@ -4039,6 +4039,8 @@ class _AskodoxPrimaryHomeScreenState
         Navigator.of(context).popUntil((r) => r == route || r.isFirst);
       }
     });
+    // The voice conversation covers the WHOLE screen (header + bottom bar): the root overlay.
+    // ignore: deprecated_member_use
     return OverlayPortal.targetsRootOverlay(
         controller: _talkPortal,
         overlayChildBuilder: (_) => _talkOverlay(te),

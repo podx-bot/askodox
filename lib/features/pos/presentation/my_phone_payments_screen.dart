@@ -100,7 +100,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     try {
       base = ref.read(appConfigProvider).apiBaseUrl?.toString() ?? '';
       final session = ref.read(authSessionProvider);
-      token = session.user == null ? '' : session.tokenPlaceholder;
+      token = session.user == null ? '' : (session.tokenPlaceholder ?? '');
     } catch (_) {}
     _status = await _bridge.configurePersonal(mine.nativeConfig(baseUrl: base, token: token));
   }
