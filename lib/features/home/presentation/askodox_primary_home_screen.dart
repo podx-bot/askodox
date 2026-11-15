@@ -2269,7 +2269,7 @@ class _AskodoxPrimaryHomeScreenState
     // A long answer (how-to guide / advice) appears while it is written (owner 2026-11-10:
     // feels like 2-3 s); the decision that comes back is still the real answer.
     _streamingScrolledAt = 0;
-    ref.read(askodoxAssistantServiceProvider).talkBrief = _talkMode;
+    askodoxTalkBrief = _talkMode;
     final decision = await ref.read(askodoxAssistantServiceProvider).decideStreaming(
       message: aiMessage,
       locale: _lang,
