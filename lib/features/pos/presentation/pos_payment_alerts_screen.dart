@@ -1087,7 +1087,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
             ),
           // Owner 2026-11-15: a payment this phone SPOKE must always have a row, even when the server did not
           // take it (yet): shown first with the reason, never silently missing.
-          if (_filter.isEmpty && _query.isEmpty)
+          if (!_phoneOnly && _filter.isEmpty && _query.isEmpty)
             for (final l in _local.reversed.where((l) => l['server_id'] == null && l['test'] != true))
               _phoneOnlyTile(l, te),
           for (final e in _events) _eventTile(e, te),
