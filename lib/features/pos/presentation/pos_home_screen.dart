@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/backend_providers.dart';
+import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../../shared/widgets/askodox_tile_grid.dart';
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
@@ -150,6 +151,17 @@ class _AskodoxPosSetupFormState extends ConsumerState<AskodoxPosSetupForm> {
     return ListView(key: const Key('askodoxPosSetup'), padding: const EdgeInsets.all(16), children: [
       Text(te ? 'మీ షాపు వివరాలు' : 'Your shop', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 10),
+      // Say it all once: shop name, address, GSTIN, bill prefix (owner 2026-11-16: one mic that fills the boxes).
+      AskodoxFillBar(
+        lang: te ? 'te' : 'en',
+        fields: () => [
+          AskodoxFillField('name', te ? 'షాపు పేరు' : 'Shop name', controller: _name),
+          AskodoxFillField('address', te ? 'చిరునామా' : 'Address', controller: _address),
+          AskodoxFillField('gstin', 'GSTIN', controller: _gstin),
+          AskodoxFillField('prefix', te ? 'బిల్లు ముందు అక్షరాలు' : 'Bill prefix', controller: _prefix),
+        ],
+      ),
+      const SizedBox(height: 8),
       AskodoxPosField(controller: _name, label: te ? 'షాపు పేరు' : 'Shop name', maxLength: 80),
       AskodoxPosField(controller: _address, label: te ? 'చిరునామా' : 'Address', maxLength: 240),
       DropdownButtonFormField<String>(

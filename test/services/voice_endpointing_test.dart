@@ -140,4 +140,25 @@ void main() {
     expect(askodoxRevealPrefix(markup, 3), 'Intro.');
     expect(askodoxRevealPrefix(markup, 999), markup);
   });
+
+  test('a loud room (always above the calibrated floor) still ends the turn after the voice stops', () {
+    final e = AskodoxVoiceEndpointer(silenceAfterSpeech: const Duration(milliseconds: 1800));
+    var at = Duration.zero;
+    VoiceEndpointDecision feed(int level) {
+      at += const Duration(milliseconds: 200);
+      return e.add(level, at);
+    }
+
+    for (var i = 0; i < 3; i++) {
+      feed(100); // calibration: a quiet moment
+    }
+    for (var i = 0; i < 15; i++) {
+      feed(7000); // speaking
+    }
+    var decision = VoiceEndpointDecision.keepRecording;
+    for (var i = 0; i < 20 && decision == VoiceEndpointDecision.keepRecording; i++) {
+      decision = feed(1500); // the room is noisy (above the old 600 threshold) but the voice stopped
+    }
+    expect(decision, VoiceEndpointDecision.stopAfterSilence);
+  });
 }
