@@ -14,7 +14,7 @@ import 'pos_common.dart';
 /// Front desk, customer side (owner 2026-11-15): scan / type the shop's order code -> the menu + a receptionist
 /// (voice or typing) -> one order that goes to the kitchen, then follow it live. Money is paid to the shop's own UPI.
 
-String _name(AskodoxJson item, bool te) =>
+String _itemName(AskodoxJson item, bool te) =>
     te && '${item['name_te'] ?? ''}'.isNotEmpty ? '${item['name_te']}' : '${item['name'] ?? ''}';
 
 String _kindLabel(String kind, bool te) => switch (kind) {
@@ -395,7 +395,7 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
       key: Key('askodoxOrderItem-$id'),
       contentPadding: EdgeInsets.zero,
       enabled: available,
-      title: Text(_name(m, te) + (m['today_only'] == true ? (te ? '  ⭐ ఈ రోజు' : '  ⭐ today') : '')),
+      title: Text(_itemName(m, te) + (m['today_only'] == true ? (te ? '  ⭐ ఈ రోజు' : '  ⭐ today') : '')),
       subtitle: Text(available ? '${askodoxPaise(askodoxPosInt(m['price_paise']))} / ${m['unit']}' : (te ? 'ఈ రోజు అయిపోయింది' : 'Finished for today')),
       trailing: !available
           ? null
