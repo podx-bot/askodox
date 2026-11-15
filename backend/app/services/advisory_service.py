@@ -79,10 +79,6 @@ def advise(demand: dict[str, Any], matches: list[dict[str, Any]], *, need_kind: 
         add("price_spread", f"Prices range ₹{low:,.0f}-₹{high:,.0f}; check warranty, condition and seller rating before picking the cheapest.",
             f"ధరలు ₹{low:,.0f}-₹{high:,.0f}; చౌకైనది ఎంచుకునే ముందు వారంటీ, కండిషన్, రేటింగ్ చూడండి.", "deal_quality")
 
-    # Only far options.
-    if scope and scope.get("expanded"):
-        km = int(scope.get("radius_km") or 0)
-        add("far_options", f"The nearest options are up to ~{km} km away -- ask about delivery or visit charges.",
-            f"దగ్గరలోని ఎంపికలు ~{km} కి.మీ దూరంలో ఉన్నాయి -- డెలివరీ/విజిట్ ఛార్జీలు అడగండి.", "cost")
+    # Owner 2026-11-15: no "options are ~N km away" tip at the top of results (removed).
 
     return advice[:MAX_ADVICE]
