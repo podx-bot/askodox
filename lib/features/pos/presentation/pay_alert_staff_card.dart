@@ -76,6 +76,78 @@ class _AskodoxPayAlertStaffCardState extends ConsumerState<AskodoxPayAlertStaffC
     }
   }
 
+  /// Edit role / name of an existing staff member (no need to type the number again).
+  Future<void> _edit(AskodoxJson m, bool te) async {
+    var role = '${m['role']}';
+    if (!askodoxPaymentAlertStaffRoles.contains(role)) role = 'cashier';
+    final name = TextEditingController(text: '${m['label'] ?? ''}');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(te ? 'సిబ్బందిని మార్చండి' : 'Edit staff'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              key: const Key('askodoxPayAlertStaffEditName'),
+              controller: name,
+              maxLength: 40,
+              decoration: InputDecoration(counterText: '', labelText: te ? 'పేరు' : 'Name'),
+            ),
+            DropdownButtonFormField<String>(
+              key: const Key('askodoxPayAlertStaffEditRole'),
+              isExpanded: true,
+              initialValue: role,
+              items: [for (final r in askodoxPaymentAlertStaffRoles) DropdownMenuItem(value: r, child: Text(askodoxStaffRoleLabel(r, te)))],
+              onChanged: (v) => setLocal(() => role = v ?? role),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+            FilledButton(key: const Key('askodoxPayAlertStaffEditSave'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
+          ],
+        ),
+      ),
+    );
+    final label = name.text;
+    name.dispose();
+    if (ok != true) return;
+    await _change(te, () => ref.read(askodoxPosRepositoryProvider).editMember(_id, '${m['phone_last4']}', role: role, label: label),
+        te ? 'మార్చాం.' : 'Saved.');
+  }
+
+  Future<void> _remove(AskodoxJson m, bool te) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(te ? 'తొలగించాలా?' : 'Remove this person?'),
+        content: Text(te ? 'ఇకపై వీళ్ళకు పేమెంట్ సౌండ్ వినిపించదు.' : 'They will no longer hear payment alerts.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+          FilledButton(key: const Key('askodoxPayAlertStaffRemoveYes'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'తొలగించు' : 'Remove')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _change(te, () => ref.read(askodoxPosRepositoryProvider).removeMember(_id, '${m['phone_last4']}'), te ? 'తొలగించాం.' : 'Removed.');
+  }
+
+  Future<void> _change(bool te, Future<AskodoxJson> Function() call, String done) async {
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await call();
+      await _load();
+      widget.onChanged?.call();
+      if (mounted) setState(() => _message = done);
+    } on AskodoxPosException catch (e) {
+      if (mounted) setState(() => _message = e.message(te));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
@@ -101,6 +173,20 @@ class _AskodoxPayAlertStaffCardState extends ConsumerState<AskodoxPayAlertStaffC
               leading: const Icon(Icons.person_outline_rounded),
               title: Text('${m['label'] ?? ''}'.isEmpty ? '••••••${m['phone_last4']}' : '${m['label']} · ••••••${m['phone_last4']}'),
               subtitle: Text(askodoxStaffRoleLabel('${m['role']}', te)),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  key: ValueKey('askodoxPayAlertStaffEdit-${m['phone_last4']}'),
+                  tooltip: te ? 'మార్చు' : 'Edit',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: _busy ? null : () => _edit(m, te),
+                ),
+                IconButton(
+                  key: ValueKey('askodoxPayAlertStaffRemove-${m['phone_last4']}'),
+                  tooltip: te ? 'తొలగించు' : 'Remove',
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: _busy ? null : () => _remove(m, te),
+                ),
+              ]),
             ),
           const SizedBox(height: 8),
           TextField(

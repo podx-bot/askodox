@@ -639,6 +639,11 @@ class PosPaymentAlerts:
                 return event
             if amount is not None and not test:
                 seen = self._same_payment_recent(conn, business_id, int(amount), self._now())
+                # Owner 2026-11-15: every real payment is recorded. A second notification from the SAME phone and
+                # the SAME payment app is a new payment (same reference / notification key is caught above); only
+                # a copy from ANOTHER device or source (provider webhook, a staff phone) merges into the one event.
+                if seen is not None and device_id and seen["device_id"] == device_id and seen["source_app"] == source:
+                    seen = None
                 if seen is not None:
                     conn.execute("UPDATE pos_payment_events SET duplicates = duplicates + 1 WHERE id = ?", (seen["id"],))
                     event = self._event_out(conn, seen, user)

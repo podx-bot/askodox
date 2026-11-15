@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/pos_payment_alerts.dart' show askodoxPaymentAlertsBridgeProvider;
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
 
@@ -48,7 +50,7 @@ class AskodoxPaymentWeek {
     days = [for (var i = 6; i >= 0; i--) today.subtract(Duration(days: i))];
     totals = List.filled(7, 0);
     for (final e in events) {
-      if (e['test'] == true) continue;
+      if (e['test'] == true || e['direction'] == 'out') continue; // money out is not "came in"
       final at = DateTime.tryParse('${e['received_at'] ?? ''}')?.toLocal();
       if (at == null) continue;
       final day = DateTime(at.year, at.month, at.day);
@@ -78,6 +80,11 @@ bool askodoxPaymentWasSpoken(AskodoxJson event) =>
 class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScreen> {
   List<AskodoxJson>? _shops;
   List<AskodoxJson> _events = const [];
+
+  /// 'me' = this phone's own payments (default for a normal person); otherwise a shop id the person belongs to.
+  String _source = 'me';
+  static const _sourceKey = 'askodox.payments.source.v1';
+  bool get _mine => _source == 'me';
   AskodoxPosException? _error;
 
   DateTime get _now => widget.now ?? DateTime.now();
@@ -92,18 +99,17 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
     final repo = ref.read(askodoxPosRepositoryProvider);
     try {
       final shops = await repo.businesses();
-      var events = const <AskodoxJson>[];
-      if (shops.isNotEmpty) {
-        final since = _now.toUtc().subtract(const Duration(days: 7)).toIso8601String();
-        try {
-          events = askodoxPosList((await repo.paymentEvents('${shops.first['id']}', since: since, limit: 500))['events']);
-        } on AskodoxPosException {
-          // The page still shows the doors; the list stays empty.
-        }
+      final prefs = await SharedPreferences.getInstance();
+      var source = prefs.getString(_sourceKey) ?? '';
+      // Nobody's shop is picked for them: the owner of a shop starts on it, everyone else on their own phone.
+      if (source != 'me' && !shops.any((s) => '${s['id']}' == source)) {
+        source = shops.where((s) => '${s['role']}' == 'owner').map((s) => '${s['id']}').firstOrNull ?? 'me';
       }
+      final events = await _eventsFor(repo, source);
       if (!mounted) return;
       setState(() {
         _shops = shops;
+        _source = source;
         _events = events;
         _error = null;
       });
@@ -111,6 +117,57 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
       if (mounted) setState(() => _error = e);
     }
   }
+
+  /// One week of events for [source]: this phone's own (kept on the phone) or one shop's (from the server).
+  Future<List<AskodoxJson>> _eventsFor(AskodoxPosRepository repo, String source) async {
+    if (source == 'me') {
+      final local = await ref.read(askodoxPaymentAlertsBridgeProvider).localEvents();
+      return [
+        for (final e in local.reversed)
+          if (e['test'] != true && e['direction'] != null)
+            {
+              ...e,
+              'id': e['local_id'],
+              'received_at': e['detected_at'],
+              'acks': [if ('${e['spoken']}' == 'announced') {'state': 'announced'}],
+            },
+      ];
+    }
+    final since = _now.toUtc().subtract(const Duration(days: 7)).toIso8601String();
+    try {
+      return askodoxPosList((await repo.paymentEvents(source, since: since, limit: 500))['events']);
+    } on AskodoxPosException {
+      return const []; // The page still shows the doors; the list stays empty.
+    }
+  }
+
+  Future<void> _pick(String source) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sourceKey, source);
+    final events = await _eventsFor(ref.read(askodoxPosRepositoryProvider), source);
+    if (!mounted) return;
+    setState(() {
+      _source = source;
+      _events = events;
+    });
+  }
+
+  /// "My phone" + one chip per shop the person belongs to (owner, manager or staff) -- each is a separate history.
+  Widget _sources(bool te, List<AskodoxJson> shops) => Wrap(spacing: 8, runSpacing: 4, children: [
+        ChoiceChip(
+          key: const Key('askodoxPaymentsSource-me'),
+          label: Text(te ? 'నా ఫోన్' : 'My phone'),
+          selected: _mine,
+          onSelected: (_) => _pick('me'),
+        ),
+        for (final s in shops)
+          ChoiceChip(
+            key: ValueKey('askodoxPaymentsSource-${s['id']}'),
+            label: Text('${s['name'] ?? ''}'),
+            selected: _source == '${s['id']}',
+            onSelected: (_) => _pick('${s['id']}'),
+          ),
+      ]);
 
   @override
   Widget build(BuildContext context) {
@@ -135,14 +192,15 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
                     Text(te ? 'డబ్బు నేరుగా మీ ఖాతాకే వస్తుంది' : 'Money comes straight to your account',
                         style: const TextStyle(fontSize: 13, color: _muted)),
                     const SizedBox(height: 14),
-                    if (shops.isEmpty) _start(te) else _today(te),
+                    if (shops.isNotEmpty) ...[_sources(te, shops), const SizedBox(height: 12)],
+                    if (_mine && _events.isEmpty) _start(te) else _today(te),
                     const SizedBox(height: 12),
                     _doors(te, shops),
-                    if (shops.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _recent(te, '${shops.first['id']}'),
+                    const SizedBox(height: 16),
+                    _recent(te, _source),
+                    if (!_mine) ...[
                       const SizedBox(height: 14),
-                      _advanced(te, '${shops.first['id']}'),
+                      _advanced(te, _source),
                     ],
                   ],
                 ),
@@ -162,20 +220,26 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
         decoration: _card,
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(te ? 'డబ్బు వచ్చిన వెంటనే ఫోన్ చెబుతుంది' : 'Your phone says it when money arrives',
+          Text(te ? 'మీ ఫోన్‌కి డబ్బు వచ్చిన వెంటనే చెబుతుంది' : 'Your phone says it when money reaches it',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
           const SizedBox(height: 6),
           Text(
               te
-                  ? 'మీ షాప్ పేరు ఇచ్చి పేమెంట్ అలర్ట్స్ ఆన్ చేయండి. సిబ్బంది ఫోన్‌లలో కూడా వినిపిస్తుంది.'
-                  : 'Name your shop and switch payment alerts on. Your staff can hear it on their phones too.',
+                  ? 'ఫోన్‌పే, గూగుల్ పే, సూపర్ మనీ, బ్యాంక్ SMS — మీకు కావలసిన యాప్‌లు ఎంచుకోండి. హిస్టరీ మీ ఫోన్‌లోనే.'
+                  : 'PhonePe, Google Pay, super.money, bank SMS — choose the apps you want read. Your history stays on your phone.',
               style: const TextStyle(fontSize: 13, color: _muted, height: 1.4)),
           const SizedBox(height: 12),
           FilledButton(
             key: const Key('askodoxPaymentsHubStartButton'),
             style: FilledButton.styleFrom(backgroundColor: _ink, minimumSize: const Size.fromHeight(48)),
+            onPressed: () => context.push('/me/payments/phone'),
+            child: Text(te ? 'నా ఫోన్ అలర్ట్స్ ఆన్ చేయండి' : 'Switch my phone alerts on'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            key: const Key('askodoxPaymentsHubShopButton'),
             onPressed: () => context.push('/me/payment-alerts'),
-            child: Text(te ? 'అలర్ట్స్ ఆన్ చేయండి' : 'Switch alerts on'),
+            child: Text(te ? 'షాప్ కోసం అలర్ట్స్' : 'Alerts for my shop'),
           ),
         ]),
       );
@@ -250,7 +314,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
   }
 
   Widget _doors(bool te, List<AskodoxJson> shops) {
-    final alerts = shops.isEmpty ? '/me/payment-alerts' : '/me/payment-alerts/${shops.first['id']}';
+    final alerts = _mine ? '/me/payments/phone' : '/me/payment-alerts/$_source';
     Widget door(String key, IconData icon, String label, String path, {bool primary = false}) => Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -344,7 +408,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
                   ]),
                 ),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(latest[i]['amount_paise'] is int ? askodoxRupees(latest[i]['amount_paise'] as int) : '—',
+                  Text(latest[i]['amount_paise'] is int ? '${latest[i]['direction'] == 'out' ? '−' : ''}${askodoxRupees(latest[i]['amount_paise'] as int)}' : '—',
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _ink)),
                   if (askodoxPaymentWasSpoken(latest[i]))
                     Text(te ? '✓ మాట్లాడింది' : '✓ Spoke',
@@ -354,7 +418,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
             ),
           InkWell(
             key: const Key('askodoxPaymentsHubSeeAll'),
-            onTap: () => context.push('/me/payment-alerts/$shopId/history'),
+            onTap: () => context.push(shopId == 'me' ? '/me/payments/phone' : '/me/payment-alerts/$shopId/history'),
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),

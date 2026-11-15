@@ -413,6 +413,20 @@ class PosStore:
             self._audit(conn, business_id, user, "member.set", key[-4:], {"role": role}, now)
         return {"phone_last4": key[-4:], "role": role, "label": name}
 
+    def member_by_ref(self, business_id: str, user: str, ref: str, role: str,
+                      label: Optional[str] = None) -> Dict[str, Any]:
+        """Edit (role / label) or remove ('removed') a member named by the last 4 digits shown in the list."""
+        tail = "".join(ch for ch in str(ref) if ch.isdigit())[-4:]
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "members")
+            rows = conn.execute("SELECT phone_key FROM pos_members WHERE business_id = ? AND phone_key LIKE ?",
+                                (business_id, "%" + tail)).fetchall() if len(tail) == 4 else []
+        if not rows:
+            raise PosError(404, "member", "No such staff member.")
+        if len(rows) > 1:
+            raise PosError(409, "member", "Two staff share these last 4 digits; use the full number.")
+        return self.set_member(business_id, user, rows[0]["phone_key"], role, label)
+
     def members(self, business_id: str, user: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             self._require(conn, business_id, user, "members")

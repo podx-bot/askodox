@@ -113,6 +113,8 @@ object AskodoxPaymentAlerts {
                     "speakRemote" -> result.success(speakRemote(app, call.argument<String>("eventId") ?: "",
                         call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, false, null))
                     "events" -> result.success(events(app).toString())
+                    "deleteEvents" -> result.success(deleteEvents(app, call.argument<List<String>>("localIds")))
+                    "installedApps" -> result.success(installedApps(app))
                     "unknowns" -> result.success(unknowns(app).toString())
                     "learnUnknown" -> result.success(learnUnknown(app, call.argument<String>("id") ?: "",
                         call.argument<Boolean>("received") == true))
@@ -293,6 +295,34 @@ object AskodoxPaymentAlerts {
         return true
     }
 
+    /** Owner 2026-11-15: every history row can be deleted. null / empty list = clear all rows on this phone. */
+    @Synchronized
+    private fun deleteEvents(context: Context, ids: List<String>?): Int {
+        val list = events(context)
+        val keep = JSONArray()
+        var removed = 0
+        for (i in 0 until list.length()) {
+            val e = list.getJSONObject(i)
+            if (ids.isNullOrEmpty() || ids.contains(e.optString("local_id"))) removed++ else keep.put(e)
+        }
+        saveEvents(context, keep)
+        return removed
+    }
+
+    /** Launchable apps on this phone (label + package id only) so the person can choose which apps to read. */
+    private fun installedApps(context: Context): List<Map<String, String>> = try {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .filter { it.first != context.packageName }
+            .distinctBy { it.first }
+            .sortedBy { it.second.lowercase(Locale.ROOT) }
+            .map { mapOf("package" to it.first, "label" to it.second) }
+    } catch (_: Exception) {
+        emptyList()
+    }
+
     /**
      * Speak an alert another device (or the bank / provider) reported -- from the open screen's poll or
      * from a high-priority push while ASKODOX is closed. Each event is spoken once on this phone, whichever
@@ -303,7 +333,9 @@ object AskodoxPaymentAlerts {
         val cfg = config(context)
         fun done(state: String): String { onFinished?.invoke(); return state }
         if (eventId.isEmpty() || text.isBlank()) return done("not_set_up")
-        if (cfg.optString("business_id").isEmpty()) return done("not_set_up") // this phone never opened payment alerts
+        // A phone that never opened payment alerts (no shop, not enabled, no device id for this shop) stays silent.
+        val knownShop = !businessId.isNullOrEmpty() && cfg.optJSONObject("device_ids")?.has(businessId) == true
+        if (cfg.optString("business_id").isEmpty() && !cfg.optBoolean("enabled", false) && !knownShop) return done("not_set_up")
         if (!cfg.optBoolean("speaks_remote", true)) return done("muted")
         val cal = Calendar.getInstance()
         if (PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
@@ -312,6 +344,11 @@ object AskodoxPaymentAlerts {
             return done("quiet_hours")
         }
         if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
+        if (!claimVoice(context, amountFromText(text), System.currentTimeMillis(), "remote")) {
+            // This phone already announced this money from its own notification: stay silent, but confirm delivery.
+            if (fromPush && businessId != null) ack(context, businessId, eventId, "announced")
+            return done("duplicate")
+        }
         CloudVoice.say(context, listOf(text), language, cfg) { ok ->
             if (fromPush && businessId != null) ack(context, businessId, eventId, if (ok) "announced" else "tts_failed")
             main.post { channel?.invokeMethod("paymentEvent", "{}") }
@@ -319,6 +356,29 @@ object AskodoxPaymentAlerts {
         }
         return "spoken"
     }
+
+    /**
+     * Owner 2026-11-15: ONE payment must not be heard twice. The phone's own notification reading and the
+     * bank / other-device push can both announce the same money (the push often arrives first). Whichever path
+     * speaks first records the amount; the OTHER path stays silent for 2 minutes. Two payments of the same amount
+     * through the same path (two notifications from the phone) are two payments and are both spoken.
+     * Returns true when this path may speak.
+     */
+    @Synchronized
+    private fun claimVoice(context: Context, amountPaise: Long?, now: Long, path: String): Boolean {
+        if (amountPaise == null || amountPaise <= 0) return true
+        val p = prefs(context)
+        val lastAmount = p.getLong("voice_amount", -1L)
+        val lastAt = p.getLong("voice_at", 0L)
+        val lastPath = p.getString("voice_path", "") ?: ""
+        if (lastAmount == amountPaise && lastPath != path && now - lastAt in 0..120_000L) return false
+        p.edit().putLong("voice_amount", amountPaise).putLong("voice_at", now).putString("voice_path", path).apply()
+        return true
+    }
+
+    /** The amount a spoken alert text states ("... 640 ..."), in paise; null when it has no number. */
+    private fun amountFromText(text: String): Long? =
+        Regex("""\d[\d,]*(?:\.\d{1,2})?""").find(text)?.value?.replace(",", "")?.toDoubleOrNull()?.let { Math.round(it * 100) }
 
     /** Best-effort acknowledgement from the phone itself (push path, app closed). */
     fun ack(context: Context, businessId: String, eventId: String, state: String) {
@@ -404,10 +464,17 @@ object AskodoxPaymentAlerts {
             return mapOf("result" to "unknown", "template" to parsed.template)
         }
         if (parsed is PaymentAlertParser.Result.Ignored) return mapOf("result" to "ignored")
+        // Owner 2026-11-15: a normal person's own phone (no shop) keeps credits AND debits of any app / bank SMS they chose.
+        val personal = cfg.optString("business_id").isEmpty()
+        if (parsed is PaymentAlertParser.Result.Outgoing) {
+            if (!personal) return mapOf("result" to "ignored") // a shop only cares about money coming in
+            return handleOutgoing(context, cfg, pkg, parsed, notificationKey, whenMillis, test)
+        }
         val amount = (parsed as? PaymentAlertParser.Result.Accepted)?.amountPaise
         val reference = (parsed as? PaymentAlertParser.Result.Accepted)?.reference
         // Spoken in the thank-you only; never put in the event, the log or the upload.
         val payer = (parsed as? PaymentAlertParser.Result.Accepted)?.payer
+        val account = (parsed as? PaymentAlertParser.Result.Accepted)?.account
         val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$whenMillis"
         val now = System.currentTimeMillis()
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
@@ -423,24 +490,70 @@ object AskodoxPaymentAlerts {
             .put("test", test)
         if (amount != null) event.put("amount_paise", amount)
         if (reference != null) event.put("reference", reference)
+        if (personal) {
+            event.put("direction", "in")
+            if (account != null) event.put("account", account)
+            if (!payer.isNullOrEmpty()) event.put("party", payer) // this phone only; never uploaded
+        }
         if (parsed is PaymentAlertParser.Result.Ambiguous) event.put("reason", parsed.reason)
         val cal = Calendar.getInstance()
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
-        event.put("spoken", if (quiet) "quiet_hours" else "pending")
+        val mayVoice = quiet || test || claimVoice(context, amount, now, "local")
+        event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet) speak(context, amount, test, localId, payer)
+        if (!quiet && mayVoice) speak(context, amount, test, localId, payer)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
-        if (!test) { upload(context, localId); retryPending(context, localId) }
+        if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to !quiet)
+            "amountPaise" to amount, "spoken" to (!quiet && mayVoice))
+    }
+
+    /** Personal phone: a debit is kept in the history; it is SPOKEN only when the person turned debit alerts on. */
+    private fun handleOutgoing(context: Context, cfg: JSONObject, pkg: String, o: PaymentAlertParser.Result.Outgoing,
+                               notificationKey: String, whenMillis: Long, test: Boolean): Map<String, Any?> {
+        val now = System.currentTimeMillis()
+        val key = "$pkg|out|$notificationKey|${o.amountPaise}|$whenMillis"
+        if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        val localId = "pa-$now-${(Math.random() * 1e6).toInt()}"
+        val labels = cfg.optJSONObject("apps")
+        val event = JSONObject()
+            .put("local_id", localId)
+            .put("client_event_id", key.take(110).replace(Regex("[^A-Za-z0-9_.:|-]"), "_"))
+            .put("source_app", pkg)
+            .put("source_label", if (pkg == "askodox.test") "ASKODOX test" else labels?.optString(pkg, pkg) ?: pkg)
+            .put("detected_at", isoUtc(now))
+            .put("status", "notification_unverified")
+            .put("direction", "out")
+            .put("amount_paise", o.amountPaise)
+            .put("test", test)
+        if (o.account != null) event.put("account", o.account)
+        if (!o.party.isNullOrEmpty()) event.put("party", o.party)
+        val cal = Calendar.getInstance()
+        val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
+            cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
+        val say = cfg.optBoolean("announce_debits", false) && !quiet
+        event.put("spoken", if (say) "pending" else if (quiet) "quiet_hours" else "seen")
+        synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
+        if (say) {
+            val language = cfg.optString("language", "te").ifEmpty { "te" }
+            val name = if (cfg.optBoolean("say_name", true)) o.party else null
+            CloudVoice.say(context, PaymentAlertParser.personalParts(o.amountPaise, language, false, name), language, cfg) { ok ->
+                update(context, localId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
+                main.post { channel?.invokeMethod("paymentEvent", "{}") }
+            }
+        }
+        main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
+        return mapOf("result" to "outgoing", "localId" to localId, "amountPaise" to o.amountPaise, "spoken" to say)
     }
 
     private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?, payer: String? = null) {
         val cfg = config(context)
         val language = cfg.optString("language", "te").ifEmpty { "te" }
         val name = if (cfg.optBoolean("say_name", true)) payer else null
-        val parts = PaymentAlertParser.announcementParts(amount, language, test, name, cfg.optString("shop_name"))
+        val parts = if (cfg.optString("business_id").isEmpty() && amount != null && !test)
+            PaymentAlertParser.personalParts(amount, language, true, name)
+        else PaymentAlertParser.announcementParts(amount, language, test, name, cfg.optString("shop_name"))
         CloudVoice.say(context, parts, language, cfg) { ok ->
             if (eventId != null) {
                 update(context, eventId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
@@ -470,7 +583,7 @@ object AskodoxPaymentAlerts {
                     val e = events(context).let { list ->
                         (0 until list.length()).map { list.getJSONObject(it) }.firstOrNull { it.optString("local_id") == localId }
                     }
-                    if (e == null || e.has("server_id") || e.has("upload_error")) {
+                    if (e == null || e.has("server_id") || e.has("upload_error") || e.has("direction")) {
                         done = true
                     } else {
                         val body = JSONObject()
@@ -526,7 +639,7 @@ object AskodoxPaymentAlerts {
         for (i in 0 until list.length()) {
             val e = list.getJSONObject(i)
             val id = e.optString("local_id")
-            if (id == exceptId || e.has("server_id") || e.has("upload_error") || e.optBoolean("test")) continue
+            if (id == exceptId || e.has("server_id") || e.has("upload_error") || e.has("direction") || e.optBoolean("test")) continue
             val madeAt = id.removePrefix("pa-").substringBefore("-").toLongOrNull() ?: 0L
             if (now - madeAt < 60_000L) continue
             upload(context, id, 1)

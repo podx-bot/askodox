@@ -77,15 +77,21 @@ def test_duplicate_by_reference_and_by_event_id(env):
     assert alerts.events(biz, OWNER, status="duplicate")["events"][0]["duplicates"] >= 1
 
 
-def test_same_payment_reported_twice_speaks_once(env):
-    """Owner 2026-11-14: one payment gave 2 notifications (PhonePe re-posted it a minute later)."""
+def test_same_amount_twice_from_one_phone_is_two_payments(env):
+    """Owner 2026-11-15: every payment is recorded -- Rs.1 twice a minute apart from the same phone + app = 2 rows."""
     _, alerts, biz, owner_dev, _, pushes, _, clock = env
     a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
     clock.now = clock.now + timedelta(minutes=1)
     b = alerts.report(biz, OWNER, _event(owner_dev, "2"))  # same amount, new notification key
+    assert a["id"] != b["id"] and not b["duplicate"]
+    assert alerts.events(biz, OWNER)["last_24h"]["count"] == 2
+
+
+def test_same_notification_key_is_never_two_payments(env):
+    _, alerts, biz, owner_dev, _, _, _, clock = env
+    a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
+    b = alerts.report(biz, OWNER, _event(owner_dev, "1"))
     assert b["duplicate"] is True and b["id"] == a["id"]
-    assert len(pushes) == 1, "a second report of the same payment never alerts again"
-    assert alerts.events(biz, OWNER)["last_24h"]["count"] == 1
 
 
 def test_phone_and_razorpay_for_one_payment_are_one_event(env):
@@ -425,3 +431,17 @@ def test_shops_on_the_first_app_list_get_the_new_payment_apps(tmp_path):
     assert len(DEFAULT_APPS) <= 20, "the per-shop limit is 20 apps"
     own = {"com.phonepe.app": "PhonePe"}
     assert _shop_apps(own) == own, "a shop that chose its own list keeps it"
+
+
+def test_member_can_be_edited_and_removed_by_the_last_four_digits(env):
+    store, alerts, biz, *_ = env
+    store.set_member(biz, OWNER, "9400000305", "waiter", "Sai")
+    out = store.member_by_ref(biz, OWNER, "0305", "cashier")
+    assert out["role"] == "cashier"
+    assert store.member_by_ref(biz, OWNER, "0305", "attendant", "Sai K")["label"] == "Sai K"
+    store.member_by_ref(biz, OWNER, "0305", "removed")
+    row = [m for m in store.members(biz, OWNER) if m["phone_last4"] == "0305"][0]
+    assert row["active"] is False
+    with pytest.raises(PosError) as err:
+        store.member_by_ref(biz, OWNER, "9999", "cashier")
+    assert err.value.status == 404

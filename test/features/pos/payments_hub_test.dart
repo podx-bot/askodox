@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/pos/data/pos_repository.dart';
@@ -48,6 +50,13 @@ Widget _app(_Api api, DateTime now) => ProviderScope(
 String _at(DateTime local) => local.toUtc().toIso8601String();
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    // The phone side (this phone's own payment history) answers "nothing yet" in tests.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('com.askodox.app/payment_alerts'), (call) async => null);
+  });
+
   test('rupees use Indian digit grouping', () {
     expect(askodoxRupees(0), '₹0');
     expect(askodoxRupees(35000), '₹350');
@@ -125,5 +134,31 @@ void main() {
     expect(find.byKey(const Key('askodoxPaymentsHubAdvanced')), findsOneWidget);
     expect(find.textContaining('ASKODOX payment profile'), findsOneWidget);
     expect(find.textContaining('Razorpay'), findsNothing);
+  });
+
+  testWidgets('a person who is only staff of someone else\'s shop starts on THEIR OWN phone, never the shop', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final api = _Api((method, path, body) {
+      if (method == 'GET' && path == '/api/pos/businesses') {
+        return {
+          'businesses': [
+            {'id': 'b9', 'name': 'Owner Kirana', 'role': 'attendant'}
+          ]
+        };
+      }
+      return const ApiFailure(ApiFailureType.notFound, statusCode: 404);
+    });
+    await tester.pumpWidget(_app(api, DateTime(2026, 11, 15, 18)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPaymentsSource-me')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPaymentsSource-b9')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPaymentsHubStart')), findsOneWidget, reason: 'his own phone, not the owner\'s shop');
+    expect(api.calls.where((c) => c.contains('payment-alerts/events')), isEmpty, reason: 'the shop history is not loaded');
+    // choosing the shop chip loads that shop's history; choosing My phone goes back
+    await tester.tap(find.byKey(const Key('askodoxPaymentsSource-b9')));
+    await tester.pumpAndSettle();
+    expect(api.calls.where((c) => c.contains('b9/payment-alerts/events')), isNotEmpty);
   });
 }
