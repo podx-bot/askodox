@@ -37,15 +37,19 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
           AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!, view: state.pathParameters['view']!)),
 ];
 
-final askodoxPosRoutes = <GoRoute>[
-  GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
-  // Front desk: the customer's QR menu + receptionist + live order, and the shop's one orders desk / menu / QR.
+/// Front desk (owner 2026-11-15: receptionist / waiter flow brings users, so it is in Phase 1 too): the customer's
+/// QR menu + receptionist + live order, and the shop's one orders desk / menu / QR.
+final askodoxFrontDeskRoutes = <GoRoute>[
   GoRoute(path: '/order-desk', builder: (context, state) => AskodoxOrderDeskScreen(code: state.uri.queryParameters['code'] ?? '')),
   GoRoute(path: '/order-desk/enter', builder: (context, state) => const AskodoxOrderCodeScreen()),
   GoRoute(path: '/order-desk/track/:oid', builder: (context, state) => AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)),
-  GoRoute(path: '/pos/:id/desk', builder: (context, state) => AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/pos/:id/desk/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/pos/:id/desk/qr', builder: (context, state) => AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/desk/:id', builder: (context, state) => AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/desk/:id/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/desk/:id/qr', builder: (context, state) => AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)),
+];
+
+final askodoxPosRoutes = <GoRoute>[
+  GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
   GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/collect', builder: (context, state) => AskodoxPosCollectScreen(businessId: state.pathParameters['id']!)),
   // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).

@@ -323,6 +323,8 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
           tile('askodoxMyBusinessBill', Icons.calculate_outlined, te ? 'బిల్లు చేయండి' : 'Make a bill',
               te ? 'మొత్తం వేసి, QR చూపండి, బిల్లు పంపండి' : 'Add amounts, show the QR, send the bill',
               '/me/business/$id/bill'),
+          tile('askodoxMyBusinessDesk', Icons.receipt_long_outlined, te ? 'ఆర్డర్స్ డెస్క్' : 'Orders desk',
+              te ? 'టేబుల్ / షాప్ QR ఆర్డర్లు, మెనూ, డెలివరీ' : 'Table / shop QR orders, menu, delivery', '/desk/$id'),
           tile('askodoxMyBusinessPost', Icons.campaign_outlined, te ? 'ఈ రోజు పోస్ట్' : "Today's post",
               te ? 'ఫాలోవర్లకు ఒక చిత్రం' : 'One picture for your followers', '/shops/$id/post'),
           tile('askodoxMyBusinessPage', Icons.storefront_outlined, te ? 'నా షాప్ పేజీ' : 'My shop page',

@@ -756,7 +756,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ప్రతి దశ లైవ్‌గా కనిపిస్తుంది: అంగీకరించారు, తయారవుతోంది, సిద్ధం, దారిలో.',
     'షాప్ అంగీకరించకముందే రద్దు చేయవచ్చు. కింద బిల్లు నుంచి షాప్ UPI కి కట్టండి.',
   ]),
-  '/pos/:id/desk': _H('Orders desk', 'ఆర్డర్స్ డెస్క్', [
+  '/desk/:id': _H('Orders desk', 'ఆర్డర్స్ డెస్క్', [
     'All table, shop-QR, counter and reception orders in one place: New, Kitchen, Ready, Delivery, Done.',
     'Accept an order and switch OFF what is finished; the customer is told. Then move it step by step.',
     'Bill when it is ready (GST only if your shop has GST). Delivery orders open the map pin.',
@@ -767,14 +767,14 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'సిద్ధమయ్యాక బిల్లు చేయండి (మీ షాప్‌కి GST ఉంటేనే GST). డెలివరీ ఆర్డర్లకు మ్యాప్ పిన్ తెరుచుకుంటుంది.',
     'నిమిషంలో అంగీకరించని ఆర్డర్ గురించి ఓనర్‌కి అలర్ట్ వెళ్తుంది.',
   ]),
-  '/pos/:id/desk/menu': _H('Menu', 'మెనూ', [
+  '/desk/:id/menu': _H('Menu', 'మెనూ', [
     'Say or type items with prices, tap Preview, check, then Save. Nothing is saved before you confirm.',
     'Say "today only" for a special; switch an item OFF when it is finished for today (back tomorrow).',
   ], [
     'ఐటమ్స్ ధరలతో చెప్పండి లేదా రాయండి, Preview నొక్కి చూసి, తర్వాత Save. నిర్ధారించే వరకు ఏదీ సేవ్ కాదు.',
     'స్పెషల్‌కి "ఈ రోజు మాత్రమే" అనండి; అయిపోతే ఆ ఐటమ్ OFF చేయండి (రేపు మళ్ళీ వస్తుంది).',
   ]),
-  '/pos/:id/desk/qr': _H('Shop / table QR', 'షాప్ / టేబుల్ QR', [
+  '/desk/:id/qr': _H('Shop / table QR', 'షాప్ / టేబుల్ QR', [
     'Print these and stick one on each table and one at the shop door.',
     'A customer types the code under the QR in "Order code" and the menu opens.',
   ], [

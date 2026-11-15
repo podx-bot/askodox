@@ -225,12 +225,12 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
             key: const Key('askodoxDeskMenuBtn'),
             tooltip: te ? 'మెనూ' : 'Menu',
             icon: const Icon(Icons.restaurant_menu),
-            onPressed: () => context.push('/pos/${widget.businessId}/desk/menu')),
+            onPressed: () => context.push('/desk/${widget.businessId}/menu')),
         IconButton(
             key: const Key('askodoxDeskQrBtn'),
             tooltip: 'QR',
             icon: const Icon(Icons.qr_code_2),
-            onPressed: () => context.push('/pos/${widget.businessId}/desk/qr')),
+            onPressed: () => context.push('/desk/${widget.businessId}/qr')),
       ]),
       body: Column(children: [
         SingleChildScrollView(

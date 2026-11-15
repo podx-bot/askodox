@@ -288,7 +288,7 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
             ('collect', Icons.qr_code_2, 'Collect by UPI', 'UPI తో కట్టించుకోండి', '/pos/$id/collect'),
             // Front desk: one orders desk for table / shop-QR / counter orders (owner 2026-11-15).
             if (askodoxPosCan(b, 'kitchen') || askodoxPosCan(b, 'tables') || askodoxPosCan(b, 'sell'))
-              ('desk', Icons.receipt_long_outlined, 'Orders desk', 'ఆర్డర్స్ డెస్క్', '/pos/$id/desk'),
+              ('desk', Icons.receipt_long_outlined, 'Orders desk', 'ఆర్డర్స్ డెస్క్', '/desk/$id'),
             if (askodoxPosCan(b, 'tables') && askodoxPosTableTemplates.contains(b['template']))
               ('tables', Icons.table_restaurant_outlined, 'Tables & KOT', 'టేబుల్స్ & KOT', '/pos/$id/tables'),
             if (askodoxPosCan(b, 'kitchen') && askodoxPosTableTemplates.contains(b['template']))

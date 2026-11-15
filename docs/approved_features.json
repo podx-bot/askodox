@@ -6244,8 +6244,8 @@
           "/order-desk",
           "/order-desk/enter",
           "/order-desk/track/:oid",
-          "/pos/:id/desk",
-          "/pos/:id/desk/qr"
+          "/desk/:id",
+          "/desk/:id/qr"
         ],
         "widget_keys": [
           "askodoxOrderDesk",
@@ -6307,7 +6307,7 @@
       ],
       "ui": {
         "routes": [
-          "/pos/:id/desk/menu"
+          "/desk/:id/menu"
         ],
         "widget_keys": [
           "askodoxDeskMenu",

@@ -248,6 +248,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ...askodoxWorkModeRoutes,
       GoRoute(path: '/profile/memory', builder: (context, state) => const ProfileMemoryScreen()),
       ...askodoxPaymentMethodRoutes,
+      ...askodoxFrontDeskRoutes,
       ...askodoxShopFollowRoutes,
       GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
       if (askodoxPhase2) ...[
