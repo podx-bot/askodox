@@ -3104,6 +3104,8 @@ void main() {
     expect(find.text('Call Support'), findsNothing);
 
     // Customer Care's reply comes back into the same conversation.
+    await tester.ensureVisible(find.byKey(const Key('askodoxSupportCheckReply')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('askodoxSupportCheckReply')));
     await _Harness.settle(tester);
     expect(find.text('Support resolved it: Engineer reset your account'), findsOneWidget);

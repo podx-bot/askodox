@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/core/flags/askodox_release_phase.dart';
 import 'package:podx/features/guide/in_app_guide.dart';
 import 'package:podx/shared/widgets/askodox_guided_field.dart';
 import 'package:podx/shared/widgets/askodox_mascot.dart';
@@ -33,12 +34,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('A name has no numbers. Write it like: Lakshmi Devi'), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxFieldOk-f')), findsNothing);
-    expect(find.byKey(const ValueKey('askodoxMascot-confused')), findsOneWidget, reason: 'ASKO looks confused');
+    // Phase 1 shows a plain help icon instead of the robot (owner 2026-11-15, pani C).
+    if (askodoxGuidesOn) expect(find.byKey(const ValueKey('askodoxMascot-confused')), findsOneWidget, reason: 'ASKO looks confused');
     await tester.enterText(find.byKey(const Key('f')), 'Lakshmi Devi');
     await tester.pumpAndSettle();
     expect(find.textContaining('Write it like'), findsNothing);
     expect(find.byKey(const ValueKey('askodoxFieldOk-f')), findsOneWidget, reason: 'green tick when right');
-    expect(find.byKey(const ValueKey('askodoxMascot-success')), findsOneWidget);
+    if (askodoxGuidesOn) expect(find.byKey(const ValueKey('askodoxMascot-success')), findsOneWidget);
     expect(controller.text, 'Lakshmi Devi');
   });
 
