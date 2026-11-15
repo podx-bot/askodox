@@ -133,6 +133,9 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskTodayOnly(String biz, String product, bool todayOnly) =>
       _send('POST', '${_b(biz)}/desk/menu/$product/today-only', body: {'today_only': todayOnly});
   Future<AskodoxJson> deskQr(String biz) => _send('GET', '${_b(biz)}/desk/qr');
+  /// Speak-to-fill: the words said + the page's boxes -> {values: {key: value}} (nothing invented; server checks types).
+  Future<AskodoxJson> formFill(List<AskodoxJson> fields, String text, {String locale = 'te'}) =>
+      _send('POST', '/api/pos/form-fill', body: {'fields': fields, 'text': text, 'locale': locale});
   /// The calculator bill as a REAL bill (items, GST only for a registered shop, advance, pending on the customer).
   Future<AskodoxJson> quickBill(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/quick-bill', body: body);
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});

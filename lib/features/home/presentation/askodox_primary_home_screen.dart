@@ -506,7 +506,7 @@ class _AskodoxPrimaryHomeScreenState
     // silence after speech ends the turn so ASKODOX answers by itself (turn-taking).
     _endpointer = _talkMode
         ? AskodoxVoiceEndpointer(
-            silenceAfterSpeech: const Duration(milliseconds: 1400),
+            silenceAfterSpeech: const Duration(milliseconds: 2200),
             noSpeechTimeout: const Duration(seconds: 25),
             maxDuration: const Duration(minutes: 1),
           )

@@ -6406,6 +6406,45 @@
       "history": [
         "2026-11-16: built (code ready)"
       ]
+    },
+    {
+      "id": "form_fill_mic",
+      "name": "One mic at the bottom of a page fills its boxes",
+      "purpose": "Press the mic once, say everything (name, phone, amount, items), and the page's boxes fill at once; the person can correct any box by typing. The server only maps the words onto the page's boxes; nothing is invented and each value is checked against its box type.",
+      "expected_behavior": "POST /api/pos/form-fill takes the page's boxes + the words; the model (AI Credits when charging is on) maps, then every value is validated (numbers, 10-digit phone, choice options); without a model, rules fill phone, a single number box or a single text box. A box not mentioned stays as it was.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "voice",
+        "pos",
+        "forms"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/form-fill"
+        }
+      ],
+      "ui": {
+        "routes": [],
+        "widget_keys": [
+          "askodoxFillMic",
+          "askodoxFillStatus"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_form_fill.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built on the owner's request (code ready)"
+      ]
     }
   ]
 }

@@ -11,6 +11,7 @@ import '../../../core/share/askodox_image_share.dart';
 import '../../growth/data/growth_repository.dart' show AskodoxPlace;
 import '../../home/presentation/question_mic.dart';
 import '../../location/presentation/map_pin_picker.dart';
+import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxParsePaise;
 import '../domain/name_change_rule.dart';
@@ -765,6 +766,13 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     super.dispose();
   }
 
+  _BillLine _lineAt(int index) {
+    while (_lines.length <= index) {
+      _lines.add(_BillLine());
+    }
+    return _lines[index];
+  }
+
   /// Turns the typed lines into a REAL bill: numbered, GST only for a registered shop, the advance as paid,
   /// the rest pending on the customer. The same request twice is the same bill (txn id).
   Future<void> _makeReal() async {
@@ -885,6 +893,26 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     final total = _total;
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'బిల్లు' : 'Bill')),
+      bottomNavigationBar: AskodoxFillBar(
+        lang: _bizLang(context),
+        onFilled: () => setState(() => _txn = askodoxNewTxnId()),
+        fields: () => [
+          for (var i = 0; i < _lines.length + 3; i++) ...[
+            AskodoxFillField('item-$i', te ? '${i + 1}వ వస్తువు పేరు' : 'Item ${i + 1} name',
+                controller: i < _lines.length ? _lines[i].name : null,
+                apply: i < _lines.length ? null : (t) => setState(() => _lineAt(i).name.text = t)),
+            AskodoxFillField('amount-$i', te ? '${i + 1}వ వస్తువు రూపాయలు' : 'Item ${i + 1} amount in rupees',
+                kind: 'number',
+                controller: i < _lines.length ? _lines[i].amount : null,
+                apply: i < _lines.length ? null : (t) => setState(() => _lineAt(i).amount.text = t)),
+          ],
+          AskodoxFillField('advance', te ? 'అడ్వాన్స్ (ముందే కట్టినది)' : 'Advance paid', kind: 'number', controller: _advance),
+          AskodoxFillField('customer', te ? 'కస్టమర్ పేరు' : 'Customer name', controller: _custName),
+          AskodoxFillField('phone', te ? 'కస్టమర్ ఫోన్' : 'Customer phone', kind: 'phone', controller: _custPhone),
+          AskodoxFillField('method', te ? 'చెల్లింపు విధానం' : 'Payment method',
+              kind: 'choice', options: const ['cash', 'upi', 'card'], apply: (t) => setState(() => _method = t)),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

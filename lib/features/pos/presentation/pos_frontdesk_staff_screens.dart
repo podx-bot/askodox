@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../shops/presentation/my_business_screens.dart' show askodoxBoxMic;
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
@@ -413,6 +414,11 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
     final items = askodoxPosList(_menu?['items']);
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'మెనూ' : 'Menu')),
+      bottomNavigationBar: AskodoxFillBar(
+        lang: te ? 'te' : 'en',
+        onFilled: () => unawaited(_parse()),
+        fields: () => [AskodoxFillField('menu', te ? 'మెనూ ఐటమ్స్ ధరలతో' : 'Menu items with prices', controller: _text)],
+      ),
       body: _error != null
           ? AskodoxPosError(error: _error!, onRetry: _load)
           : ListView(key: const Key('askodoxDeskMenu'), padding: const EdgeInsets.all(14), children: [

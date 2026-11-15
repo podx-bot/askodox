@@ -262,3 +262,30 @@ def quick_bill(business_id: str, body: QuickBillIn, request: Request) -> dict:
     from app.services.pos_quick_bill import PosQuickBill
 
     return _call(PosQuickBill(_store(request)).make, business_id, _user(request, "pos-quick", 120), body.model_dump())
+
+
+class FillFieldIn(BaseModel):
+    key: str = Field(max_length=60)
+    label: str = Field(default="", max_length=80)
+    kind: str = Field(default="text", pattern="^(text|number|phone|choice)$")
+    options: List[str] = Field(default_factory=list, max_length=20)
+
+
+class FormFillIn(BaseModel):
+    fields: List[FillFieldIn] = Field(min_length=1, max_length=40)
+    text: str = Field(min_length=1, max_length=600)
+    locale: str = Field(default="te", max_length=8)
+
+
+@router.post("/form-fill")
+def form_fill(body: FormFillIn, request: Request) -> dict:
+    """One mic at the bottom of a page: the words become the page's box values (model maps, rules check)."""
+    from app.api.routes.pos import _phraser
+    from app.services import form_fill as service
+
+    _user(request, "form-fill", 60)
+    phrase, metered = _phraser(request, body.locale)
+    if metered and metered.get("blocked"):
+        phrase = None
+    out = service.fill([f.model_dump() for f in body.fields], body.text, locale=body.locale, phrase=phrase)
+    return {"values": out["values"], "used_ai": out["used_ai"]}
