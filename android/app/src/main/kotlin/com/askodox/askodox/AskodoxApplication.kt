@@ -20,6 +20,11 @@ class AskodoxApplication : Application() {
             }
             previous?.uncaughtException(thread, error)
         }
+        // Every process start (app open, a push, an update) asks Android to bind the payment listener again.
+        try {
+            AskodoxPaymentAlerts.rebindIfEnabled(this)
+        } catch (_: Throwable) {
+        }
     }
 
     private fun recordCrash(thread: Thread, error: Throwable) {
