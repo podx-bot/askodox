@@ -96,7 +96,7 @@ void main() {
   });
 
   testWidgets('apps can be removed and added; accounts can be named and deleted; debits switch is saved', (tester) async {
-    tester.view.physicalSize = const Size(1080, 4000);
+    tester.view.physicalSize = const Size(1080, 7000);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
@@ -148,7 +148,7 @@ void main() {
 
   testWidgets('setup checklist opens each Android page; per-app shop / my phone choice when a shop listens too',
       (tester) async {
-    tester.view.physicalSize = const Size(1080, 5000);
+    tester.view.physicalSize = const Size(1080, 9000);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
     status = {
@@ -196,6 +196,7 @@ void main() {
     expect(tester.widget<ChoiceChip>(find.byKey(const ValueKey('askodoxMineDest-shop-com.phonepe.app.business'))).selected, isTrue);
     expect(tester.widget<ChoiceChip>(find.byKey(const ValueKey('askodoxMineDest-mine-com.phonepe.app'))).selected, isTrue);
     await tester.ensureVisible(find.byKey(const ValueKey('askodoxMineDest-shop-com.phonepe.app')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('askodoxMineDest-shop-com.phonepe.app')));
     await tester.pumpAndSettle();
     expect((lastConfig['destinations'] as Map)['com.phonepe.app'], 'shop');
