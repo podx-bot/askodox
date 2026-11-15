@@ -96,6 +96,8 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> businesses() async => askodoxPosList((await _send('GET', '/api/pos/businesses'))['businesses']);
   Future<AskodoxJson> createBusiness(AskodoxJson body) => _send('POST', '/api/pos/businesses', body: body);
   Future<AskodoxJson> business(String id) => _send('GET', _b(id));
+  /// Shop name only (owner 2026-11-14: a typo at creation must be fixable). Backend: PATCH /businesses/{id}.
+  Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
   // Shop follows: any signed-in person, shop owners included (backend: routes/shop_follows.py).
   Future<AskodoxJson> shopState(String id) => _send('GET', '/api/shops/$id');
   Future<AskodoxJson> followShop(String id) => _send('POST', '/api/shops/$id/follow');

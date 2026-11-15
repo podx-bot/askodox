@@ -33,6 +33,11 @@ String _rupees(double value) => value == value.roundToDouble() ? value.toStringA
 
 /// My business (Phase 1, owner 2026-11-14): ONE simple desk -- the shop's own details, a calculator bill that
 /// can be shared, the UPI QR for the bill amount, and today's post. The full POS stays Phase 2.
+/// The businesses this person OWNS (role `owner`). Staff roles (manager / cashier / attendant ...) never get the
+/// owner's desk here; their own screens (e.g. payment sound) are reached elsewhere.
+List<AskodoxJson> askodoxOwnedBusinesses(List<AskodoxJson> all) =>
+    [for (final b in all) if ('${b['role']}' == 'owner') b];
+
 class AskodoxMyBusinessScreen extends ConsumerStatefulWidget {
   const AskodoxMyBusinessScreen({super.key});
 
@@ -43,6 +48,8 @@ class AskodoxMyBusinessScreen extends ConsumerStatefulWidget {
 class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScreen> {
   final _name = TextEditingController();
   List<AskodoxJson>? _shops;
+  List<String> _helping = const [];
+  String? _selected;
   AskodoxJson _states = const {};
   String? _state;
   String? _status;
@@ -64,18 +71,24 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
   Future<void> _load() async {
     final repo = ref.read(askodoxPosRepositoryProvider);
     try {
-      final shops = await repo.businesses();
+      final all = await repo.businesses();
+      // Owner 2026-11-15: a person added as staff (e.g. payment sound only) must never see or edit the
+      // employer's business here. This desk shows ONLY the businesses this person owns.
+      final shops = askodoxOwnedBusinesses(all);
+      final helping = [for (final b in all) if ('${b['role']}' != 'owner') '${b['name']}'];
       var states = _states;
       String? status;
+      if (_selected != null && !shops.any((b) => '${b['id']}' == _selected)) _selected = null;
       if (shops.isEmpty) {
         states = askodoxPosMap((await repo.meta())['states']);
       } else {
-        final shop = await repo.shopState('${shops.first['id']}');
+        final shop = await repo.shopState(_selected ?? '${shops.first['id']}');
         status = '${askodoxPosMap(shop['profile'])['status'] ?? ''}';
       }
       if (mounted) {
         setState(() {
           _shops = shops;
+          _helping = helping;
           _states = states;
           _status = status;
           _failed = false;
@@ -127,6 +140,18 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
       body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (_helping.isNotEmpty) ...[
+            Card(
+              key: const Key('askodoxMyBusinessHelping'),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(te
+                    ? 'మీరు ${_helping.join(', ')} లో సిబ్బందిగా ఉన్నారు. ఆ బిజినెస్ వివరాలు యజమాని మాత్రమే మారుస్తారు. మీ సొంత బిజినెస్ ఉంటే కింద మొదలుపెట్టండి.'
+                    : 'You help at ${_helping.join(', ')}. Only its owner changes that business. If you have your own business, start it below.'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(te ? 'మీ బిజినెస్ పేరు చెప్పండి' : 'Tell us your business name',
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
@@ -163,7 +188,8 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
         ],
       );
     } else {
-      final id = '${shops.first['id']}';
+      final current = shops.firstWhere((b) => '${b['id']}' == _selected, orElse: () => shops.first);
+      final id = '${current['id']}';
       Widget tile(String key, IconData icon, String title, String subtitle, String route) => Card(
             child: ListTile(
               key: Key(key),
@@ -180,10 +206,30 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
       body = ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text('${shops.first['name']}', style: Theme.of(context).textTheme.titleLarge),
-          ),
+          if (shops.length > 1)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: DropdownButtonFormField<String>(
+                key: const Key('askodoxMyBusinessPick'),
+                initialValue: id,
+                isExpanded: true,
+                decoration: InputDecoration(
+                    labelText: te ? 'ఏ బిజినెస్?' : 'Which business?', border: const OutlineInputBorder()),
+                items: [
+                  for (final b in shops)
+                    DropdownMenuItem<String>(value: '${b['id']}', child: Text('${b['name']}')),
+                ],
+                onChanged: (value) {
+                  setState(() => _selected = value);
+                  _load();
+                },
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text('${current['name']}', style: Theme.of(context).textTheme.titleLarge),
+            ),
           tile('askodoxMyBusinessDetails', Icons.badge_outlined, te ? 'బిజినెస్ వివరాలు' : 'Business details',
               _statusText(te), '/me/business/$id/profile'),
           tile('askodoxMyBusinessBill', Icons.calculate_outlined, te ? 'బిల్లు చేయండి' : 'Make a bill',
@@ -243,6 +289,9 @@ class AskodoxBusinessProfileScreen extends ConsumerStatefulWidget {
 
 class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessProfileScreen> {
   final _boxes = {for (final f in _profileFields) f.id: TextEditingController()};
+  // The shop name is typed (never spoken): a spoken name is where the wrong letters came from.
+  final _name = TextEditingController();
+  String _savedName = '';
   final _catOther = TextEditingController();
   final _subOther = TextEditingController();
   String _lat = '';
@@ -265,6 +314,7 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     for (final box in _boxes.values) {
       box.dispose();
     }
+    _name.dispose();
     _catOther.dispose();
     _subOther.dispose();
     super.dispose();
@@ -292,6 +342,8 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
     } catch (_) {}
     try {
       final shop = await repo.shopState(widget.businessId);
+      _savedName = '${shop['name'] ?? ''}';
+      _name.text = _savedName;
       final fields = askodoxPosMap(askodoxPosMap(shop['profile'])['fields']);
       for (final entry in _boxes.entries) {
         entry.value.text = '${fields[entry.key] ?? ''}';
@@ -324,10 +376,21 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
       _busy = true;
       _message = null;
     });
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    final newName = _name.text.trim();
+    if (newName.isEmpty) {
+      setState(() {
+        _busy = false;
+        _message = te ? 'షాప్ పేరు ఖాళీగా ఉంచకండి.' : 'The shop name cannot be empty.';
+      });
+      return;
+    }
     try {
-      final saved = await ref
-          .read(askodoxPosRepositoryProvider)
-          .saveShopProfile(widget.businessId, {
+      if (newName != _savedName) {
+        await repo.renameBusiness(widget.businessId, newName);
+        _savedName = newName;
+      }
+      final saved = await repo.saveShopProfile(widget.businessId, {
             for (final e in _boxes.entries) e.key: e.value.text.trim(),
             'lat': _lat,
             'lng': _lng,
@@ -484,6 +547,17 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                     ? '★ ఉన్నవి తప్పనిసరి. మిగతావి మీ ఇష్టం. ఇవే కస్టమర్లకు ముందు కనిపిస్తాయి.'
                     : '★ are required. The rest is up to you. Customers see these first.'),
                 const SizedBox(height: 12),
+                TextField(
+                  key: const Key('askodoxBusinessName'),
+                  controller: _name,
+                  maxLength: 80,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                      labelText: te ? '★ షాప్ పేరు' : '★ Shop name',
+                      helperText: te ? 'టైప్ చేయండి; మైక్ ఇక్కడ లేదు' : 'Type it; no mic here',
+                      border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 10),
                 ..._categoryPickers(te),
                 for (final f in _profileFields)
                   Padding(

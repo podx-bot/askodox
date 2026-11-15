@@ -370,6 +370,8 @@ class PosStore:
         with self._tx() as conn:
             self._require(conn, business_id, user, "settings")
             changes = {k: _clean(data[k], allowed[k]) for k in allowed if k in data}
+            if "name" in changes and not changes["name"]:
+                raise PosError(400, "name", "Business name is required.")
             if "round_off" in data:
                 changes["round_off"] = 1 if data["round_off"] else 0
             if "turnover_above_5cr" in data:

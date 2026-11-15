@@ -9,7 +9,8 @@ import java.util.Locale
  *
  * A notification is accepted only when it clearly says money came IN and carries exactly one amount.
  * Outgoing payments, requests, OTPs, cashback / rewards / offers, failures and refunds are ignored.
- * Clear incoming wording without a single clear amount is AMBIGUOUS (recorded, never announced as money).
+ * Balances are never the payment; with several amounts the first non-balance amount is the payment.
+ * Clear incoming wording with NO amount at all is AMBIGUOUS (recorded, never announced as money).
  */
 object PaymentAlertParser {
     sealed class Result {
@@ -71,17 +72,29 @@ object PaymentAlertParser {
         val rejected = (reject + moreReject).any { it.isNotEmpty() && lower.contains(it.lowercase()) }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
             if (rejected) return Result.Ignored
-            val only = amountRegex.findAll(joined).mapNotNull { toPaise(it.groupValues[1]) }.filter { it > 0 }.toSet()
+            val only = paymentAmounts(joined).toSet()
             return if (only.size == 1 && shape.contains("₹#") && shape.length >= 8) Result.Unknown(only.first(), shape)
             else Result.Ignored
         }
         if (!learned && rejected) return Result.Ignored
-        val amounts = amountRegex.findAll(joined).mapNotNull { toPaise(it.groupValues[1]) }.filter { it > 0 }.toSet()
+        // Owner 2026-11-15 ("clear cut"): bank apps add the account BALANCE ("Avl Bal Rs.5,230"); that is never the
+        // payment. The payment is the FIRST amount that is not a balance (banks write the credited amount first).
+        val amounts = paymentAmounts(joined)
         if (amounts.isEmpty()) return Result.Ambiguous("amount_missing")
-        if (amounts.size > 1) return Result.Ambiguous("multiple_amounts")
         val reference = refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.any(Char::isDigit) }
         return Result.Accepted(amounts.first(), reference, payerName(text) ?: payerName(title))
     }
+
+    private val balanceBefore = Regex(
+        """(?:bal(?:ance)?|avl|avail(?:able)?|a/c\s*bal|closing)\s*(?:bal(?:ance)?)?\s*(?:is|:|-|of)?\s*$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** Amounts in the message in order, without balances (the words just before the amount say "bal" etc.). */
+    fun paymentAmounts(joined: String): List<Long> = amountRegex.findAll(joined).mapNotNull { m ->
+        val before = joined.substring(maxOf(0, m.range.first - 24), m.range.first)
+        if (balanceBefore.containsMatchIn(before)) null else toPaise(m.groupValues[1])
+    }.filter { it > 0 }.distinct().toList()
 
     private const val AMT = """(?:₹|rs\.?|inr)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?"""
     private val payerPatterns = listOf(
