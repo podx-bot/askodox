@@ -312,6 +312,11 @@ object AskodoxPaymentAlerts {
             return done("quiet_hours")
         }
         if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
+        if (!claimVoice(context, amountFromText(text), System.currentTimeMillis())) {
+            // This phone already announced this money from its own notification: stay silent, but confirm delivery.
+            if (fromPush && businessId != null) ack(context, businessId, eventId, "announced")
+            return done("duplicate")
+        }
         CloudVoice.say(context, listOf(text), language, cfg) { ok ->
             if (fromPush && businessId != null) ack(context, businessId, eventId, if (ok) "announced" else "tts_failed")
             main.post { channel?.invokeMethod("paymentEvent", "{}") }
@@ -319,6 +324,27 @@ object AskodoxPaymentAlerts {
         }
         return "spoken"
     }
+
+    /**
+     * Owner 2026-11-15: ONE payment must not be heard twice. The phone's own notification reading and the
+     * bank / other-device push can both announce the same money (the push often arrives first). Whichever path
+     * speaks first records the amount; the other stays silent for 2 minutes (the same window the server uses to
+     * count the same amount as one payment). Returns true when this path may speak.
+     */
+    @Synchronized
+    private fun claimVoice(context: Context, amountPaise: Long?, now: Long): Boolean {
+        if (amountPaise == null || amountPaise <= 0) return true
+        val p = prefs(context)
+        val lastAmount = p.getLong("voice_amount", -1L)
+        val lastAt = p.getLong("voice_at", 0L)
+        if (lastAmount == amountPaise && now - lastAt in 0..120_000L) return false
+        p.edit().putLong("voice_amount", amountPaise).putLong("voice_at", now).apply()
+        return true
+    }
+
+    /** The amount a spoken alert text states ("... 640 ..."), in paise; null when it has no number. */
+    private fun amountFromText(text: String): Long? =
+        Regex("""\d[\d,]*(?:\.\d{1,2})?""").find(text)?.value?.replace(",", "")?.toDoubleOrNull()?.let { Math.round(it * 100) }
 
     /** Best-effort acknowledgement from the phone itself (push path, app closed). */
     fun ack(context: Context, businessId: String, eventId: String, state: String) {
@@ -427,13 +453,14 @@ object AskodoxPaymentAlerts {
         val cal = Calendar.getInstance()
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
-        event.put("spoken", if (quiet) "quiet_hours" else "pending")
+        val mayVoice = quiet || test || claimVoice(context, amount, now)
+        event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet) speak(context, amount, test, localId, payer)
+        if (!quiet && mayVoice) speak(context, amount, test, localId, payer)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to !quiet)
+            "amountPaise" to amount, "spoken" to (!quiet && mayVoice))
     }
 
     private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?, payer: String? = null) {
