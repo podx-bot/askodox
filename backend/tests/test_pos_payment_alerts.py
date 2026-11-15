@@ -330,6 +330,10 @@ def test_attendant_role_hears_alerts_only_when_the_owner_allows_it_and_cannot_bi
     with pytest.raises(PosError) as e:
         store.members(biz, attendant)
     assert e.value.status == 403, "an attendant cannot manage staff"
+    with pytest.raises(PosError) as own:
+        alerts.report(biz, attendant, _event("attendant-phone-1", n="8", reference="T2410269999999992"))
+    assert own.value.status == 403 and own.value.code == "sound_only", \
+        "owner 2026-11-15: a sound-only phone never sends its own (private) payments into the shop"
 
 
 def test_razorpay_partner_signup_link_only_from_a_razorpay_https_url(env, monkeypatch):

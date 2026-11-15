@@ -34,7 +34,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
-from app.services.pos_store import ROLES, PosError, PosStore
+from app.services.pos_store import PERMISSIONS, ROLES, PosError, PosStore
 
 
 def _razorpay_signup_url() -> str:
@@ -611,7 +611,12 @@ class PosPaymentAlerts:
         if now - detected > MAX_DELAY:
             raise PosError(400, "too_old", "This notification is too old to announce.")
         with self.store._tx() as conn:
-            self._member(conn, business_id, user)
+            role = self._member(conn, business_id, user)
+            # Owner 2026-11-15: staff added for the SOUND only (attendant, waiter, kitchen, accountant) hear alerts
+            # but their phone is never a payment source: money they receive privately must never reach the shop.
+            if role != "owner" and "collect" not in PERMISSIONS.get(role, frozenset()):
+                raise PosError(403, "sound_only", "This phone only hears payment alerts for the shop; it does not "
+                                                  "report payments.")
             settings = self._settings_row(conn, business_id)
             if not settings["enabled"] and not test:
                 raise PosError(409, "not_enabled", "Payment alerts are not turned on for this shop.")
