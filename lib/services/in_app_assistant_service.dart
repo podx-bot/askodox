@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 
 import '../core/flags/askodox_release_phase.dart';
 
+/// Live voice conversation (talk mode): the brain keeps answers to a couple of short spoken sentences.
+bool askodoxTalkBrief = false;
+
 class InAppAssistantTurn {
   const InAppAssistantTurn({required this.role, required this.text});
 
@@ -346,7 +349,7 @@ class InAppAssistantService {
         // shows a chat-action button (app_action) under a reply. A Phase 1
         // build opens only Phase 1 screens, so the brain offers only those.
         // 'suggestions' = this build draws tap chips under the reply.
-        'capabilities': ['meaning_tags', 'app_actions', 'suggestions', if (!askodoxPhase2) 'phase1_only'],
+        'capabilities': ['meaning_tags', 'app_actions', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief'],
       };
 
   /// The same decision as [decide], but a long answer (how-to guide / advice) is shown

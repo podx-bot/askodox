@@ -46,6 +46,10 @@ class AskodoxVoiceEndpointer {
   final int minimumThreshold;
 
   double? _noiseFloor;
+  // How loud the person's own voice has been (slowly fading). A pause is "quiet" relative to THAT, so a room that is
+  // always louder than the calibrated floor (shop, fan, traffic) can no longer count as speech forever -- which made
+  // talk mode wait for a screen tap (owner 2026-11-16).
+  double _speechPeak = 0;
   Duration _lastSample = Duration.zero;
   Duration _speech = Duration.zero;
   Duration? _lastSpeechAt;
@@ -58,7 +62,10 @@ class AskodoxVoiceEndpointer {
     // a soft speaker's voice.
     final floor = _noiseFloor ?? 0;
     final adaptive = floor * 1.8 + 250;
-    return adaptive > minimumThreshold ? adaptive : minimumThreshold.toDouble();
+    final base = adaptive > minimumThreshold ? adaptive : minimumThreshold.toDouble();
+    // Once real speech was heard, a sample must reach 38% of the voice level to still count as speech.
+    final relative = _speechPeak * 0.38;
+    return relative > base ? relative : base;
   }
 
   /// Feed one amplitude sample (Android `MediaRecorder.getMaxAmplitude`,
@@ -76,6 +83,8 @@ class AskodoxVoiceEndpointer {
     } else if (level >= threshold) {
       _speech += step;
       _lastSpeechAt = elapsed;
+      // Loud samples build the voice level; it fades a little each sample so a changed distance / volume adapts.
+      _speechPeak = level > _speechPeak ? _speechPeak * 0.7 + level * 0.3 : _speechPeak * 0.995;
     } else {
       // Track slow changes in background noise (fan, traffic) without
       // letting speech raise the floor.

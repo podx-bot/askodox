@@ -159,6 +159,11 @@ class _VisibleText:
         return self.sent > 0
 
 
+TALK_BRIEF_RULES = (
+    "This is a LIVE SPOKEN conversation: the reply is read aloud. Keep `reply` to at most two short sentences "
+    "(about 25 words) unless the person explicitly asks for detail; no lists, no headings, no markup.\n"
+)
+
 DECISION_GUIDANCE_RULES = (
     "Decision guidance (every domain, every language; you are a personal advisor and decision partner, not a "
     "search box): the reply must first genuinely help with what the user asked, whether or not options will be "
@@ -754,6 +759,7 @@ class UniversalAIAssistantService:
             "that is still critical, then practical steps for the option they chose).\n"))
             + advice_memory.prompt_block(advice_ledger or [])
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
+            + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
             + "After the answer, end with ONE last line exactly like ADVICE_META: {\"key\": ..., \"summary\": ..., "
             "\"severity\": ..., \"repeat_reason\": ...} (or ADVICE_META: null). It is removed before display.\n"
             + _reply_language_rule(locale)
@@ -1170,6 +1176,7 @@ class UniversalAIAssistantService:
             + CONVERSATION_STATE_RULES
             + DECISION_GUIDANCE_RULES
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
+            + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
             + (chat_actions.prompt_block(chat_actions.PHASE1_CAPABILITY in (capabilities or ()))
                if chat_actions.CAPABILITY in (capabilities or ()) else "")
             + reply_suggestions.prompt_block(capabilities)

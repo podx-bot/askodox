@@ -510,7 +510,7 @@ class _AskodoxPrimaryHomeScreenState
     // silence after speech ends the turn so ASKODOX answers by itself (turn-taking).
     _endpointer = _talkMode
         ? AskodoxVoiceEndpointer(
-            silenceAfterSpeech: const Duration(milliseconds: 2200),
+            silenceAfterSpeech: const Duration(milliseconds: 1800),
             noSpeechTimeout: const Duration(seconds: 25),
             maxDuration: const Duration(minutes: 1),
           )
@@ -2269,6 +2269,7 @@ class _AskodoxPrimaryHomeScreenState
     // A long answer (how-to guide / advice) appears while it is written (owner 2026-11-10:
     // feels like 2-3 s); the decision that comes back is still the real answer.
     _streamingScrolledAt = 0;
+    askodoxTalkBrief = _talkMode;
     final decision = await ref.read(askodoxAssistantServiceProvider).decideStreaming(
       message: aiMessage,
       locale: _lang,
@@ -3728,7 +3729,7 @@ class _AskodoxPrimaryHomeScreenState
     if (_speechMuted && !force) return; // muted: the text reply stays
     reply = askodoxWithoutSources(reply); // source links are read, not spoken
     final markup = reply;
-    final chunks = askodoxSpeechChunks(markup);
+    final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160); // talk: the first words start sooner
     if (chunks.length > 1) {
       await _speakChunks(markup, chunks, userText: userText, deviceOnly: deviceOnly);
       return;
