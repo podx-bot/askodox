@@ -14,7 +14,8 @@ import java.util.Locale
  */
 object PaymentAlertParser {
     sealed class Result {
-        data class Accepted(val amountPaise: Long, val reference: String?, val payer: String? = null) : Result()
+        data class Accepted(val amountPaise: Long, val reference: String?, val payer: String? = null,
+                            val account: String? = null) : Result()
         data class Ambiguous(val reason: String) : Result()
 
         /**
@@ -24,6 +25,9 @@ object PaymentAlertParser {
          */
         data class Unknown(val amountPaise: Long, val template: String) : Result()
         object Ignored : Result()
+
+        /** Money that LEFT the person's account (debited / paid to / sent to). Never uploaded; spoken only if asked. */
+        data class Outgoing(val amountPaise: Long, val party: String?, val account: String?) : Result()
     }
 
     /** The message body with amounts as ₹#, lower case, single spaces -- the shape a person can confirm. */
@@ -71,19 +75,60 @@ object PaymentAlertParser {
         val learned = shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) }
         val rejected = (reject + moreReject).any { it.isNotEmpty() && lower.contains(it.lowercase()) }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
-            if (rejected) return Result.Ignored
+            if (rejected) return outgoingOrIgnored(joined, lower, text, title)
             val only = paymentAmounts(joined).toSet()
+            // "Paid ₹10 to Bhagya": clear outgoing wording with a payee is a debit, not a question for the person.
+            val payee = payeeName(text) ?: payeeName(title)
+            if (payee != null && only.size == 1) return Result.Outgoing(only.first(), payee, accountTail(joined))
             return if (only.size == 1 && shape.contains("₹#") && shape.length >= 8) Result.Unknown(only.first(), shape)
             else Result.Ignored
         }
-        if (!learned && rejected) return Result.Ignored
+        if (!learned && rejected) return outgoingOrIgnored(joined, lower, text, title)
         // Owner 2026-11-15 ("clear cut"): bank apps add the account BALANCE ("Avl Bal Rs.5,230"); that is never the
         // payment. The payment is the FIRST amount that is not a balance (banks write the credited amount first).
         val amounts = paymentAmounts(joined)
         if (amounts.isEmpty()) return Result.Ambiguous("amount_missing")
         val reference = refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.any(Char::isDigit) }
-        return Result.Accepted(amounts.first(), reference, payerName(text) ?: payerName(title))
+        return Result.Accepted(amounts.first(), reference, payerName(text) ?: payerName(title), accountTail(joined))
     }
+
+    private val debitWords = listOf("debited", "you paid", "you sent", "paid to", "sent to", "withdrawn", "spent")
+    private val notMoney = listOf("request", "collect", "otp", "one time", "failed", "declined", "unsuccessful", "pending",
+        "refund", "reversed", "due", "reminder", "cashback", "reward", "offer", "coupon", "scratch", "verification code",
+        "password", "pin ", "loan", "emi", "recharge", "bill pay")
+
+    /** Clear "money went out" wording with exactly one amount -> Outgoing; everything else stays ignored. */
+    private fun outgoingOrIgnored(joined: String, lower: String, text: String?, title: String?): Result {
+        if (debitWords.none { lower.contains(it) } || notMoney.any { lower.contains(it) }) return Result.Ignored
+        val amounts = paymentAmounts(joined)
+        if (amounts.isEmpty()) return Result.Ignored
+        return Result.Outgoing(amounts.first(), payeeName(text) ?: payeeName(title), accountTail(joined))
+    }
+
+    private val payeePatterns = listOf(
+        Regex("""(?:paid|sent)\s+$AMT\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        Regex("""you\s+(?:paid|sent)\s+$AMT\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:paid|sent)\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:trf|transfer(?:red)?|upi)\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+    )
+
+    /** Who the money went to (spoken only on this phone, letters only, never stored in the upload). */
+    fun payeeName(text: String?): String? {
+        val t = (text ?: "").replace('\n', ' ').trim()
+        for (re in payeePatterns) {
+            val raw = re.find(t)?.groupValues?.get(1) ?: continue
+            val name = raw.trim().trim('.', ',', '!', ':', '-', '\'', '"').replace(Regex("\\s+"), " ")
+            if (name.length < 2 || name.length > 40 || name.any { it.isDigit() || it == '@' || it == '₹' || it == '/' }) continue
+            if (name.split(' ').size > 4 || name.lowercase().split(' ').any { it in notAName }) continue
+            return name
+        }
+        return null
+    }
+
+    private val accountRegex = Regex("""(?:a/c|acct?|account)\s*(?:no\.?|number)?\s*[:.\-]?\s*[xX*]*\s*(\d{3,4})\b""", RegexOption.IGNORE_CASE)
+
+    /** Last 3-4 digits of the account a bank SMS names ("A/c XX1234" -> "1234"); never more than that. */
+    fun accountTail(text: String?): String? = accountRegex.find(text ?: "")?.groupValues?.get(1)
 
     private val balanceBefore = Regex(
         """(?:bal(?:ance)?|avl|avail(?:able)?|a/c\s*bal|closing)\s*(?:bal(?:ance)?)?\s*(?:is|:|-|of)?\s*$""",
@@ -102,10 +147,11 @@ object PaymentAlertParser {
         Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?paid\s+you\s+$AMT""", RegexOption.IGNORE_CASE),          // Google Pay
         Regex("""^\s*(.{2,60}?)\s+has\s+sent\s+you\s+$AMT""", RegexOption.IGNORE_CASE),
         Regex("""received\s+$AMT\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE), // Paytm
+        Regex("""(?:credited|received|deposited)[^.]{0,80}?\s(?:by|from)\s+(?:upi\s*[-/:]?\s*)?([A-Za-z][A-Za-z .]{1,40}?)(?:\s+(?:on|via|in|to|at|ref|upi|utr)\b|[.,!;]|$)""", RegexOption.IGNORE_CASE), // bank SMS
         Regex("""$AMT\s+received\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
     )
     private val notAName = setOf("you", "upi", "bank", "account", "a/c", "your", "someone", "phonepe", "paytm", "google",
-        "gpay", "bhim", "money", "payment", "received")
+        "gpay", "bhim", "money", "payment", "received", "ref", "neft", "imps", "utr", "rtgs", "txn")
 
     /**
      * The payer's display name from an incoming-payment message ("Bhagya sent ₹30 to you" -> "Bhagya"), or null.
@@ -139,6 +185,29 @@ object PaymentAlertParser {
     /** The whole sentence (device voice, or when the cloud voice is not reachable). */
     fun announcement(amountPaise: Long?, language: String, test: Boolean = false, payer: String? = null,
                      shop: String? = null): String = announcementParts(amountPaise, language, test, payer, shop).joinToString(" ")
+
+    /**
+     * Personal phone (no shop): who credited / debited and how much -- plain facts, no shop thank-you.
+     * [credit] false = money left the account (announced only when the person turned debit alerts on).
+     */
+    fun personalParts(amountPaise: Long, language: String, credit: Boolean, party: String?): List<String> {
+        val rupees = amountPaise / 100
+        val paise = amountPaise % 100
+        val who = party?.trim()?.takeIf { it.isNotEmpty() }
+        val money = when (language) {
+            "te" -> "$rupees రూపాయలు" + (if (paise > 0) " $paise పైసలు" else "")
+            "hi" -> "$rupees रुपये" + (if (paise > 0) " $paise पैसे" else "")
+            else -> "$rupees rupees" + (if (paise > 0) " $paise paise" else "")
+        }
+        return when (language) {
+            "te" -> if (credit) listOf(if (who != null) "$who నుండి" else "", "$money క్రెడిట్ అయ్యాయి.")
+                    else listOf(if (who != null) "$who కి" else "", "$money డెబిట్ అయ్యాయి.")
+            "hi" -> if (credit) listOf(if (who != null) "$who से" else "", "$money क्रेडिट हुए।")
+                    else listOf(if (who != null) "$who को" else "", "$money डेबिट हुए।")
+            else -> if (credit) listOf(if (who != null) "$who sent" else "Credited", "$money" + (if (who != null) "." else "."))
+                    else listOf("Debited", "$money" + (if (who != null) " to $who." else "."))
+        }.filter { it.isNotEmpty() }
+    }
 
     private val BUSINESS_WORDS = Regex(
         """(?i)\b(shop|store|stores|mart|traders?|trading|enterprises?|agencies|agency|hotel|restaurant|mess|bakery|medicals?|pharmacy|"""

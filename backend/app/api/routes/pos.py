@@ -249,6 +249,28 @@ def set_member(business_id: str, body: MemberIn, request: Request) -> dict:
     return _call(_store(request).set_member, business_id, _user(request), body.phone, body.role, body.label)
 
 
+class MemberEditIn(BaseModel):
+    role: Optional[str] = None
+    label: Optional[str] = None
+
+
+@router.patch("/businesses/{business_id}/members/{ref}")
+def edit_member(business_id: str, ref: str, body: MemberEditIn, request: Request) -> dict:
+    store = _store(request)
+    role = body.role
+    if role is None:
+        role = next((m["role"] for m in _call(store.members, business_id, _user(request))
+                     if m["phone_last4"] == ref[-4:] and m["active"]), None)
+        if role is None:
+            raise HTTPException(404, "No such staff member.")
+    return _call(store.member_by_ref, business_id, _user(request), ref, role, body.label)
+
+
+@router.delete("/businesses/{business_id}/members/{ref}")
+def remove_member(business_id: str, ref: str, request: Request) -> dict:
+    return _call(_store(request).member_by_ref, business_id, _user(request), ref, "removed")
+
+
 @router.post("/businesses/{business_id}/device-series")
 def device_series(business_id: str, body: DeviceSeriesIn, request: Request) -> dict:
     return _call(_store(request).register_device_series, business_id, _user(request), body.device_id)
@@ -1445,9 +1467,11 @@ def _payment_alerts(request: Request):
     if existing is None or existing.store is not store:
         def notify(user_id: str, title: str, body: str, route: str, event_key: str, speak=None) -> None:
             push = push_service(container)
-            push.notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
             if speak:
+                # the phone's own service shows the ONE visible notification + speaks (no second FCM notification)
                 push.send_data_async(user_id, data=speak, event_key=event_key, ttl_seconds=120)
+            else:
+                push.notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
 
         from app.api.routes.payment_methods import payment_methods
 

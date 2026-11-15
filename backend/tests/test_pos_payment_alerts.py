@@ -431,3 +431,17 @@ def test_shops_on_the_first_app_list_get_the_new_payment_apps(tmp_path):
     assert len(DEFAULT_APPS) <= 20, "the per-shop limit is 20 apps"
     own = {"com.phonepe.app": "PhonePe"}
     assert _shop_apps(own) == own, "a shop that chose its own list keeps it"
+
+
+def test_member_can_be_edited_and_removed_by_the_last_four_digits(env):
+    store, alerts, biz, *_ = env
+    store.set_member(biz, OWNER, "9400000305", "waiter", "Sai")
+    out = store.member_by_ref(biz, OWNER, "0305", "cashier")
+    assert out["role"] == "cashier"
+    assert store.member_by_ref(biz, OWNER, "0305", "attendant", "Sai K")["label"] == "Sai K"
+    store.member_by_ref(biz, OWNER, "0305", "removed")
+    row = [m for m in store.members(biz, OWNER) if m["phone_last4"] == "0305"][0]
+    assert row["active"] is False
+    with pytest.raises(PosError) as err:
+        store.member_by_ref(biz, OWNER, "9999", "cashier")
+    assert err.value.status == 404

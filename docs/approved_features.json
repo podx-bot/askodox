@@ -5889,6 +5889,61 @@
         "2026-11-14: owner approved My business desk in Phase 1 (details, calculator bill + QR + share); full POS stays Phase 2",
         "2026-11-14: category + sub-category dropdowns (Others = own words), mic in every box and in the chat box, Guide button hidden"
       ]
+    },
+    {
+      "id": "my_phone_payment_alerts",
+      "name": "My phone payment alerts (personal, any app / bank SMS)",
+      "purpose": "A normal signed-in person gets the payment notifications and bank SMS of the apps they choose read aloud and kept in their own history on their own phone, with edit / delete on every list.",
+      "expected_behavior": "Payments hub starts on My phone unless the person owns a shop; shop staff never see the owner's history by default; apps, account names and history rows can each be renamed / deleted; debits are kept and spoken only when switched on; staff roles can be edited or removed by the owner; one Razorpay payment shows one visible notification.",
+      "roles": [
+        "any signed-in user",
+        "owner"
+      ],
+      "domains": [
+        "payments"
+      ],
+      "api": [
+        {
+          "method": "PATCH",
+          "path": "/api/pos/businesses/{business_id}/members/{ref}"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/pos/businesses/{business_id}/members/{ref}"
+        }
+      ],
+      "ui": {
+        "routes": [
+          "/me/payments",
+          "/me/payments/phone"
+        ],
+        "widget_keys": [
+          "askodoxMyPhonePayments",
+          "askodoxMineApps",
+          "askodoxMineAccounts",
+          "askodoxMineHistory",
+          "askodoxPaymentsSource-me",
+          "askodoxPayAlertStaffEditSave",
+          "askodoxPayAlertStaffRemoveYes"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_payment_alerts.py"
+        ],
+        "flutter": [
+          "test/features/pos/payments_hub_test.dart",
+          "test/features/pos/my_phone_payments_test.dart"
+        ]
+      },
+      "dependencies": [
+        "pos_businesses"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-15: owner approved (own phone path for every user, any app / bank SMS, edit + delete everywhere)"
+      ]
     }
   ]
 }

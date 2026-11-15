@@ -147,6 +147,10 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> members(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/members'))['members']);
   Future<AskodoxJson> setMember(String id, String phone, String role, {String? label}) => _send('POST', '${_b(id)}/members',
       body: {'phone': phone, 'role': role, if (label != null && label.trim().isNotEmpty) 'label': label.trim()});
+  /// Edit a staff member's role / spoken name, or remove them (owner / manager), by the last 4 digits in the list.
+  Future<AskodoxJson> editMember(String id, String ref, {String? role, String? label}) =>
+      _send('PATCH', '${_b(id)}/members/$ref', body: {if (role != null) 'role': role, if (label != null) 'label': label});
+  Future<AskodoxJson> removeMember(String id, String ref) => _send('DELETE', '${_b(id)}/members/$ref');
   // restaurant
   Future<List<AskodoxJson>> tables(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/tables'))['tables']);
   Future<AskodoxJson> addTable(String id, String name, {String area = '', int seats = 4}) =>

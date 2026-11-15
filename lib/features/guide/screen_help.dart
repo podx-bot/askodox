@@ -325,6 +325,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ లెక్క ఫోన్ నోటిఫికేషన్ల నుంచి, బ్యాంక్ నుంచి కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
     '"నా QR చూపించు", "నా ఖాతాలు" మీ UPI / బ్యాంక్ తెరుస్తాయి; "అలర్ట్స్" వాయిస్ ఆన్ చేస్తుంది.',
   ]),
+  '/me/payments/phone': _H('My phone payments', 'నా ఫోన్ పేమెంట్లు', [
+    'Switch it on, then allow notification access for ASKODOX once.',
+    'My apps / SMS: add or remove the apps and bank SMS you want read; rename or delete any of them.',
+    'My accounts names the bank accounts; History lists every credit and debit — each row can be deleted.',
+  ], [
+    'ఆన్ చేసి, ASKODOX కి నోటిఫికేషన్ యాక్సెస్ ఒకసారి ఇవ్వండి.',
+    'నా యాప్‌లు / SMS: మీకు కావలసిన యాప్‌లు, బ్యాంక్ SMS జోడించండి లేదా తీసేయండి; ఏదైనా పేరు మార్చవచ్చు, తొలగించవచ్చు.',
+    'నా ఖాతాలు లో బ్యాంక్ ఖాతాలకు పేరు పెట్టండి; హిస్టరీ లో ప్రతి క్రెడిట్ / డెబిట్ ఉంటుంది — ప్రతి వరుస తొలగించవచ్చు.',
+  ]),
   '/me/payment-methods': _H('My payment methods', 'నా పేమెంట్ పద్ధతులు', [
     'Add your UPI QR from ANY app or bank — pick its photo or photograph it — or type the UPI ID.',
     'Buyers see these only after you accept their request; they pay you directly.',

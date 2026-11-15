@@ -136,6 +136,11 @@
         <package android:name="com.paytm.business" />
         <package android:name="net.one97.paytm" />
         <package android:name="in.org.npci.upiapp" />
+        <!-- Payment alerts "My apps": list the apps the person can choose from (names + package ids only). -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
