@@ -734,6 +734,11 @@ def escalate_to_support(payload: SupportEscalationRequest, request: Request) -> 
             )
         except Exception:
             pass
+    # Owner 2026-11-15 (pani D): every team ticket also reaches the owner by email + phone notification.
+    from app.services import support_alerts
+
+    support_alerts.notify_ticket(container, case, category=payload.category, issue=payload.issue,
+                                 critical=payload.critical)
     return {"case_id": case.get("id"), "status": case.get("status"), "channels": support_channels(case.get("id")),
             "summary": context["handoff"]["summary"]}
 

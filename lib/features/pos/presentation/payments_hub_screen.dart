@@ -344,6 +344,8 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
         );
     return Row(children: [
       door('askodoxPaymentsHubQr', Icons.qr_code_2_rounded, te ? 'నా QR చూపించు' : 'Show my QR', '/me/payment-methods', primary: true),
+      // Owner 2026-11-15 (pani B): one tap to the calculator bill (Make a bill) of the shop shown, or a personal bill.
+      door('askodoxPaymentsHubBill', Icons.calculate_outlined, te ? 'బిల్లు' : 'Bill', '/me/business/$_source/bill'),
       door('askodoxPaymentsHubAlerts', Icons.volume_up_rounded, te ? 'అలర్ట్స్' : 'Alerts', alerts),
       door('askodoxPaymentsHubAccounts', Icons.account_balance_outlined, te ? 'నా ఖాతాలు' : 'My accounts', '/me/payment-methods'),
     ]);

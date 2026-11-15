@@ -58,6 +58,15 @@ object AskodoxPaymentAlerts {
                     "configure" -> {
                         val json = call.argument<String>("config") ?: "{}"
                         val next = JSONObject(json)
+                        if (call.argument<String>("scope") == "personal") {
+                            // Owner 2026-11-15 (pani F): "My phone" has its OWN settings, so the shop and the
+                            // person's own apps are heard at the same time (no more "last screen opened wins").
+                            prefs(app).edit().putString("personal_config", next.toString()).apply()
+                            requestRebind(app)
+                            CloudVoice.prefetch(app, next)
+                            result.success(status(app))
+                            return@setMethodCallHandler
+                        }
                         // Owner 2026-11-15: a phone can belong to several shops (its own + a shop where the person is
                         // staff). Keep THIS phone's device id for EVERY shop it opened, so an alert pushed from any of
                         // them is acknowledged with that shop's own device id (one id for all -> 403 "not your device").
@@ -80,6 +89,16 @@ object AskodoxPaymentAlerts {
                         activity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                         result.success(true)
                     }
+                    // Xiaomi / Oppo / Vivo / Realme / OnePlus / Huawei / Honor / Asus / iQOO stop apps in the
+                    // background unless "Autostart" is on. Opens that maker's own page; false = this phone has none.
+                    "openAutostartSettings" -> result.success(openAutostart(activity))
+                    "hasAutostartSettings" -> result.success(autostartIntent(app) != null)
+                    "openSmsAppSettings" -> {
+                        val pkg = defaultSmsPackage(app)
+                        if (pkg != null) activity.startActivity(appNotificationSettings(app, pkg))
+                        result.success(pkg)
+                    }
+                    "defaultSmsApp" -> result.success(defaultSmsPackage(app))
                     "paymentApps" -> result.success(paymentApps(app, call.argument<List<String>>("packages") ?: emptyList()))
                     "openAppNotificationSettings" -> {
                         activity.startActivity(appNotificationSettings(app, call.argument<String>("package") ?: app.packageName))
@@ -102,7 +121,8 @@ object AskodoxPaymentAlerts {
                     "audioRoute" -> result.success(audioRoute(app))
                     "speakTest" -> {
                         val amount = (call.argument<Number>("amountPaise") ?: 100).toLong()
-                        speak(app, amount, test = true, eventId = null)
+                        val cfg = if (call.argument<String>("scope") == "personal") personalConfig(app) else config(app)
+                        speak(app, amount, test = true, eventId = null, cfg = cfg)
                         result.success(audioRoute(app))
                     }
                     "speakText" -> {
@@ -126,8 +146,9 @@ object AskodoxPaymentAlerts {
                     "simulate" -> {
                         // Debug-only path used by the in-app "test detection" button: runs the SAME parser and
                         // pipeline on a sample text, marked test=true so it is never counted as a payment.
+                        val cfg = if (call.argument<String>("scope") == "personal") personalConfig(app) else config(app)
                         val r = handle(app, "askodox.test", call.argument<String>("title"), call.argument<String>("text"),
-                            "sim-${System.currentTimeMillis()}", System.currentTimeMillis(), test = true)
+                            "sim-${System.currentTimeMillis()}", System.currentTimeMillis(), test = true, cfgIn = cfg)
                         result.success(r)
                     }
                     else -> result.notImplemented()
@@ -144,6 +165,97 @@ object AskodoxPaymentAlerts {
     fun config(context: Context): JSONObject =
         try { JSONObject(prefs(context).getString("config", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
 
+    /** The person's own "My phone" settings (separate from the shop's, owner 2026-11-15 pani F). */
+    fun personalConfig(context: Context): JSONObject =
+        try { JSONObject(prefs(context).getString("personal_config", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+
+    /**
+     * Where ONE notification of [pkg] goes: the shop ("shop"), the person's own history ("mine") or nowhere (null).
+     * A notification always has exactly ONE destination. When both lists hold the app the person's own choice
+     * (`destinations`) decides; without one a business app (PhonePe Business, GPay for Business, Paytm for Business
+     * ...) goes to the shop and everything else to "My phone".
+     */
+    fun destination(shop: JSONObject, mine: JSONObject, pkg: String): Pair<String, JSONObject>? {
+        val shopOn = shop.optBoolean("enabled", false) && shop.optString("business_id").isNotEmpty() &&
+            shop.optJSONObject("apps")?.has(pkg) == true
+        // Before this update "My phone" was saved as the shop config with no business id: keep it working.
+        val legacyMine = !shop.has("business_id") || shop.optString("business_id").isEmpty()
+        val mineCfg = if (mine.length() == 0 && legacyMine) shop else mine
+        val mineOn = mineCfg.optBoolean("enabled", false) && mineCfg.optJSONObject("apps")?.has(pkg) == true &&
+            mineCfg.optString("business_id").isEmpty()
+        if (shopOn && mineOn) {
+            val chosen = mine.optJSONObject("destinations")?.optString(pkg).orEmpty()
+            val toShop = if (chosen.isNotEmpty()) chosen == "shop" else isBusinessApp(pkg)
+            return if (toShop) "shop" to shop else "mine" to mineCfg
+        }
+        if (shopOn) return "shop" to shop
+        if (mineOn) return "mine" to mineCfg
+        return null
+    }
+
+    fun isBusinessApp(pkg: String): Boolean {
+        val p = pkg.lowercase(Locale.ROOT)
+        return p.contains("business") || p.contains("merchant") || p.contains(".biz") || p.endsWith("forbusiness")
+    }
+
+    /** upi | bank | sms | other: the person's list says it; otherwise guessed from the package name. */
+    fun kindOf(cfg: JSONObject, pkg: String): String {
+        cfg.optJSONObject("kinds")?.optString(pkg)?.takeIf { it.isNotEmpty() }?.let { return it }
+        val p = pkg.lowercase(Locale.ROOT)
+        return when {
+            p.contains("messag") || p.contains("mms") || p.contains("sms") -> "sms"
+            p.contains("phonepe") || p.contains("paisa") || p.contains("paytm") || p.contains("npci") ||
+                p.contains("super.payments") || p.contains("mobikwik") || p.contains("freecharge") || p.contains("cred") -> "upi"
+            else -> "bank"
+        }
+    }
+
+    private fun defaultSmsPackage(context: Context): String? = try {
+        android.provider.Telephony.Sms.getDefaultSmsPackage(context)
+    } catch (_: Exception) {
+        null
+    }
+
+    private val autostartComponents = listOf(
+        "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+        "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+        "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+        "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+        "com.oplus.safecenter" to "com.oplus.safecenter.startupapp.StartupAppListActivity",
+        "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+        "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity",
+        "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager",
+        "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+        "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+        "com.hihonor.systemmanager" to "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+        "com.oneplus.security" to "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity",
+        "com.asus.mobilemanager" to "com.asus.mobilemanager.autostart.AutoStartActivity",
+        "com.letv.android.letvsafe" to "com.letv.android.letvsafe.AutobootManageActivity",
+        "com.transsion.phonemaster" to "com.cyin.himgr.autostart.AutoStartActivity",
+    )
+
+    private fun autostartIntent(context: Context): Intent? {
+        val pm = context.packageManager
+        for ((pkg, cls) in autostartComponents) {
+            val i = Intent().setComponent(ComponentName(pkg, cls)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                if (pm.resolveActivity(i, 0) != null) return i
+            } catch (_: Exception) {
+            }
+        }
+        return null
+    }
+
+    private fun openAutostart(activity: Activity): Boolean {
+        val i = autostartIntent(activity) ?: return false
+        return try {
+            activity.startActivity(i)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun listenerAllowed(context: Context): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
@@ -153,7 +265,9 @@ object AskodoxPaymentAlerts {
      * or the listener is disconnected -- not only when the alerts screen is opened.
      */
     fun rebindIfEnabled(context: Context) {
-        if (config(context).optBoolean("enabled", false)) requestRebind(context)
+        if (config(context).optBoolean("enabled", false) || personalConfig(context).optBoolean("enabled", false)) {
+            requestRebind(context)
+        }
     }
 
     fun requestRebind(context: Context) {
@@ -179,6 +293,9 @@ object AskodoxPaymentAlerts {
             "listenerDeclared" to listenerDeclared(context),
             "listenerAllowed" to listenerAllowed(context),
             "enabled" to cfg.optBoolean("enabled", false),
+            "personalEnabled" to personalConfig(context).optBoolean("enabled", false),
+            "autostartPage" to (autostartIntent(context) != null),
+            "smsApp" to defaultSmsPackage(context),
             "connectedAt" to prefs(context).getLong("listener_connected_at", 0L),
             "disconnectedAt" to prefs(context).getLong("listener_disconnected_at", 0L),
             "ttsReady" to Speaker.ready,
@@ -453,8 +570,8 @@ object AskodoxPaymentAlerts {
     // -------------------------------------------------------------- pipeline
     /** Returns a small map describing what happened (for tests / the simulate button). */
     fun handle(context: Context, pkg: String, title: String?, text: String?, notificationKey: String, whenMillis: Long,
-               test: Boolean = false): Map<String, Any?> {
-        val cfg = config(context)
+               test: Boolean = false, cfgIn: JSONObject? = null): Map<String, Any?> {
+        val cfg = cfgIn ?: config(context)
         if (!test && !cfg.optBoolean("enabled", false)) return mapOf("result" to "disabled")
         val phrases = cfg.optJSONObject("phrases")
         val parsed = PaymentAlertParser.parse(title, text, strings(phrases?.optJSONArray("incoming")),
@@ -478,6 +595,11 @@ object AskodoxPaymentAlerts {
         val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$whenMillis"
         val now = System.currentTimeMillis()
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        if (!test && amount != null) {
+            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, now)?.let {
+                return mapOf("result" to "merged", "localId" to it, "amountPaise" to amount, "spoken" to false)
+            }
+        }
         val localId = "pa-$now-${(Math.random() * 1e6).toInt()}"
         val labels = cfg.optJSONObject("apps")
         val event = JSONObject()
@@ -486,6 +608,8 @@ object AskodoxPaymentAlerts {
             .put("source_app", pkg)
             .put("source_label", if (pkg == "askodox.test") "ASKODOX test" else labels?.optString(pkg, pkg) ?: pkg)
             .put("detected_at", isoUtc(now))
+            .put("at_ms", now)
+            .put("kind", kindOf(cfg, pkg))
             .put("status", if (amount != null) "notification_unverified" else "ambiguous")
             .put("test", test)
         if (amount != null) event.put("amount_paise", amount)
@@ -502,11 +626,48 @@ object AskodoxPaymentAlerts {
         val mayVoice = quiet || test || claimVoice(context, amount, now, "local")
         event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet && mayVoice) speak(context, amount, test, localId, payer)
+        if (!quiet && mayVoice) speak(context, amount, test, localId, payer, cfg)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
             "amountPaise" to amount, "spoken" to (!quiet && mayVoice))
+    }
+
+    /**
+     * Owner 2026-11-15 ("one payment = one voice, one row"): the SAME money usually reaches the phone twice -- the
+     * UPI app's notification AND the bank's SMS / bank app. When a payment of the same amount and direction came
+     * from a DIFFERENT KIND of source (upi vs bank vs sms) in the last 3 minutes, this one is folded into that row
+     * (its account / reference / name fill the gaps) and is not spoken again. Two payments from the SAME app, or
+     * from two UPI apps, always stay two payments. Returns the row it was folded into, or null.
+     */
+    @Synchronized
+    private fun mergeSameMoney(context: Context, cfg: JSONObject, pkg: String, direction: String, amount: Long,
+                               account: String?, reference: String?, party: String?, now: Long): String? {
+        val kind = kindOf(cfg, pkg)
+        val list = events(context)
+        for (i in list.length() - 1 downTo 0) {
+            val e = list.getJSONObject(i)
+            val at = e.optLong("at_ms", 0L)
+            if (at <= 0L || now - at > 180_000L) continue
+            if (e.optBoolean("test") || e.optLong("amount_paise", -1L) != amount) continue
+            if ((e.optString("direction").ifEmpty { "in" }) != direction) continue
+            if (e.optString("source_app") == pkg) continue
+            val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
+                (0 until a.length()).map { a.optString(it) }
+            }
+            if (kind in kinds) continue
+            val label = cfg.optJSONObject("apps")?.optString(pkg, pkg) ?: pkg
+            e.put("merged_kinds", JSONArray(kinds + kind))
+            e.put("also_from", listOfNotNull(e.optString("also_from").takeIf { it.isNotEmpty() }, label).joinToString(", "))
+            if (account != null && !e.has("account")) e.put("account", account)
+            if (reference != null && !e.has("reference")) e.put("reference", reference)
+            if (!party.isNullOrEmpty() && !e.has("party") && e.has("direction")) e.put("party", party)
+            saveEvents(context, list)
+            val id = e.optString("local_id")
+            main.post { channel?.invokeMethod("paymentEvent", e.toString()) }
+            return id
+        }
+        return null
     }
 
     /** Personal phone: a debit is kept in the history; it is SPOKEN only when the person turned debit alerts on. */
@@ -515,6 +676,11 @@ object AskodoxPaymentAlerts {
         val now = System.currentTimeMillis()
         val key = "$pkg|out|$notificationKey|${o.amountPaise}|$whenMillis"
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        if (!test) {
+            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, now)?.let {
+                return mapOf("result" to "merged", "localId" to it, "amountPaise" to o.amountPaise, "spoken" to false)
+            }
+        }
         val localId = "pa-$now-${(Math.random() * 1e6).toInt()}"
         val labels = cfg.optJSONObject("apps")
         val event = JSONObject()
@@ -525,6 +691,8 @@ object AskodoxPaymentAlerts {
             .put("detected_at", isoUtc(now))
             .put("status", "notification_unverified")
             .put("direction", "out")
+            .put("at_ms", now)
+            .put("kind", kindOf(cfg, pkg))
             .put("amount_paise", o.amountPaise)
             .put("test", test)
         if (o.account != null) event.put("account", o.account)
@@ -547,8 +715,8 @@ object AskodoxPaymentAlerts {
         return mapOf("result" to "outgoing", "localId" to localId, "amountPaise" to o.amountPaise, "spoken" to say)
     }
 
-    private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?, payer: String? = null) {
-        val cfg = config(context)
+    private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?, payer: String? = null,
+                      cfg: JSONObject = config(context)) {
         val language = cfg.optString("language", "te").ifEmpty { "te" }
         val name = if (cfg.optBoolean("say_name", true)) payer else null
         val parts = if (cfg.optString("business_id").isEmpty() && amount != null && !test)
@@ -923,10 +1091,9 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val n = sbn ?: return
         try {
-            val cfg = AskodoxPaymentAlerts.config(this)
-            if (!cfg.optBoolean("enabled", false)) return
-            val apps = cfg.optJSONObject("apps") ?: return
-            if (!apps.has(n.packageName)) return // not an allowed payment app: never read
+            // ONE destination per notification: the shop or the person's own "My phone" (both can be on at once).
+            val (_, cfg) = AskodoxPaymentAlerts.destination(AskodoxPaymentAlerts.config(this),
+                AskodoxPaymentAlerts.personalConfig(this), n.packageName) ?: return // not a chosen app: never read
             // Only the time (no content): lets the setup flow show this app's notifications reach the phone.
             AskodoxPaymentAlerts.prefs(this).edit().putLong("seen:${n.packageName}", System.currentTimeMillis()).apply()
             if (n.isOngoing) return
@@ -939,7 +1106,7 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
                 extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString(),
             ).distinct().joinToString(" ")
             val whenMillis = if (notification.`when` > 0) notification.`when` else n.postTime
-            AskodoxPaymentAlerts.handle(this, n.packageName, title, text, n.key ?: "${n.id}", whenMillis)
+            AskodoxPaymentAlerts.handle(this, n.packageName, title, text, n.key ?: "${n.id}", whenMillis, cfgIn = cfg)
         } catch (_: Exception) {
             // a malformed notification never crashes the listener
         }

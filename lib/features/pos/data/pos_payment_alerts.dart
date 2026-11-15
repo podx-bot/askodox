@@ -25,8 +25,13 @@ class AskodoxPaymentAlertsBridge {
 
   Future<AskodoxJson> status() => _map('status');
   Future<AskodoxJson> configure(AskodoxJson config) => _map('configure', {'config': jsonEncode(config)});
+
+  /// "My phone" settings, kept apart from the shop's so both are heard at the same time (owner 2026-11-15, F).
+  Future<AskodoxJson> configurePersonal(AskodoxJson config) =>
+      _map('configure', {'config': jsonEncode(config), 'scope': 'personal'});
   Future<AskodoxJson> audioRoute() => _map('audioRoute');
-  Future<AskodoxJson> speakTest(int amountPaise) => _map('speakTest', {'amountPaise': amountPaise});
+  Future<AskodoxJson> speakTest(int amountPaise, {bool personal = false}) =>
+      _map('speakTest', {'amountPaise': amountPaise, if (personal) 'scope': 'personal'});
   Future<AskodoxJson> simulate(String title, String text) => _map('simulate', {'title': title, 'text': text});
   Future<AskodoxJson> showVolume() => _map('showVolume');
 
@@ -67,6 +72,25 @@ class AskodoxPaymentAlertsBridge {
   Future<void> openListenerSettings() => _call('openListenerSettings');
   Future<void> openBatterySettings() => _call('openBatterySettings');
   Future<void> openBluetoothSettings() => _call('openBluetoothSettings');
+
+  /// The phone maker's own "Autostart" page (Xiaomi, Oppo, Vivo, Realme, OnePlus, Huawei, Honor, Asus...).
+  /// False when this phone has no such page (Samsung, Pixel, Motorola: nothing to do there).
+  Future<bool> openAutostartSettings() async {
+    try {
+      return await _ch.invokeMethod<bool>('openAutostartSettings') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the notification page of the phone's default SMS app; returns its package (null: none / not a phone).
+  Future<String?> openSmsAppSettings() async {
+    try {
+      return await _ch.invokeMethod<String>('openSmsAppSettings');
+    } catch (_) {
+      return null;
+    }
+  }
   Future<void> clear() => _call('clear');
 
   /// Delete history rows on this phone (null / empty = all).
@@ -150,16 +174,79 @@ const askodoxSmsApps = <String, Object?>{
 };
 
 /// Banking / wallet apps the person may add with one tap (installed ones are shown first on the screen).
-const askodoxKnownMoneyApps = <String, Object?>{
-  'in.amazon.mShop.android.shopping': 'Amazon Pay',
-  'com.dreamplug.androidapp': 'CRED',
-  'money.super.payments': 'super.money',
-  'com.samsung.android.spay': 'Samsung Wallet',
-  'com.sbi.SBIFreedomPlus': 'SBI YONO',
-  'com.snapwork.hdfc': 'HDFC Bank',
-  'com.csam.icici.bank.imobile': 'ICICI iMobile',
-  'com.axis.mobile': 'Axis Mobile',
+final askodoxKnownMoneyApps = <String, Object?>{
+  for (final e in askodoxMoneyAppCatalog.entries)
+    if (!askodoxDefaultPaymentApps.containsKey(e.key) && !askodoxSmsApps.containsKey(e.key)) e.key: e.value.$1,
 };
+
+/// Every money app ASKODOX knows by name: package -> (label, kind). kind = upi | bank | sms.
+/// Not a fixed allow-list (owner 2026-11-15: "no fixed list, any app / bank"): an app missing here is still found
+/// on the phone by [askodoxLooksLikeMoneyApp] and can always be added by hand.
+const askodoxMoneyAppCatalog = <String, (String, String)>{
+  // UPI / wallets
+  'com.phonepe.app': ('PhonePe', 'upi'),
+  'com.phonepe.app.business': ('PhonePe Business', 'upi'),
+  'com.google.android.apps.nbu.paisa.user': ('Google Pay', 'upi'),
+  'com.google.android.apps.nbu.paisa.merchant': ('Google Pay for Business', 'upi'),
+  'net.one97.paytm': ('Paytm', 'upi'),
+  'com.paytm.business': ('Paytm for Business', 'upi'),
+  'in.org.npci.upiapp': ('BHIM', 'upi'),
+  'money.super.payments': ('super.money', 'upi'),
+  'com.dreamplug.androidapp': ('CRED', 'upi'),
+  'in.amazon.mShop.android.shopping': ('Amazon Pay', 'upi'),
+  'com.mobikwik_new': ('MobiKwik', 'upi'),
+  'com.freecharge.android': ('Freecharge', 'upi'),
+  'com.naviapp': ('Navi', 'upi'),
+  'com.fampay.in': ('FamPay', 'upi'),
+  'com.myairtelapp': ('Airtel Thanks', 'upi'),
+  'com.samsung.android.spay': ('Samsung Wallet', 'upi'),
+  'com.whatsapp.w4b': ('WhatsApp Business', 'upi'),
+  // Banks
+  'com.sbi.lotusintouch': ('YONO SBI', 'bank'),
+  'com.sbi.SBIFreedomPlus': ('SBI YONO Lite', 'bank'),
+  'com.sbi.upi': ('BHIM SBI Pay', 'bank'),
+  'com.snapwork.hdfc': ('HDFC Bank', 'bank'),
+  'com.enstage.wibmo.hdfc': ('PayZapp (HDFC)', 'bank'),
+  'com.csam.icici.bank.imobile': ('ICICI iMobile Pay', 'bank'),
+  'com.axis.mobile': ('Axis Mobile', 'bank'),
+  'com.msf.kbank.mobile': ('Kotak Bank', 'bank'),
+  'com.bankofbaroda.mconnect': ('bob World', 'bank'),
+  'com.canarabank.mobility': ('Canara ai1', 'bank'),
+  'com.Version1': ('PNB ONE', 'bank'),
+  'com.idfcfirstbank.optimus': ('IDFC FIRST Bank', 'bank'),
+  'com.fedmobile': ('FedMobile', 'bank'),
+  // SMS apps: bank SMS reach the phone through their notification (the SMS inbox is never read)
+  'com.google.android.apps.messaging': ('Messages (Google)', 'sms'),
+  'com.samsung.android.messaging': ('Messages (Samsung)', 'sms'),
+  'com.android.mms': ('Messages', 'sms'),
+  'com.truecaller': ('Truecaller (SMS)', 'sms'),
+};
+
+/// upi | bank | sms for any package (catalogue first, then the app's own name / package words).
+String askodoxMoneyAppKind(String package, [String label = '']) {
+  final known = askodoxMoneyAppCatalog[package];
+  if (known != null) return known.$2;
+  final t = '${package.toLowerCase()} ${label.toLowerCase()}';
+  if (t.contains('messag') || t.contains('mms') || t.contains('sms')) return 'sms';
+  if (t.contains('bank') || t.contains('yono') || t.contains('imobile')) return 'bank';
+  return 'upi';
+}
+
+/// True for an installed app that is very likely a payment / bank / SMS app (shown as a suggestion, never added
+/// without the person's tap).
+bool askodoxLooksLikeMoneyApp(String package, String label) {
+  if (askodoxMoneyAppCatalog.containsKey(package)) return true;
+  final p = package.toLowerCase();
+  final l = ' ${label.toLowerCase()} ';
+  const words = [' bank', 'bank ', ' upi', 'upi ', ' pay', 'pay ', 'wallet', 'yono', 'imobile', ' messages', 'sms'];
+  return p.contains('bank') || p.contains('.upi') || words.any(l.contains);
+}
+
+/// Business payment apps go to the shop by default, everything else to "My phone" (same rule as the phone side).
+bool askodoxIsBusinessApp(String package) {
+  final p = package.toLowerCase();
+  return p.contains('business') || p.contains('merchant') || p.contains('.biz') || p.endsWith('forbusiness');
+}
 
 const askodoxPaymentAlertDeviceKey = 'askodox.pos.payalert.device.v1';
 
@@ -277,7 +364,9 @@ String askodoxPaymentAlertsCsv(List<AskodoxJson> events) {
 /// Everything is kept on this phone only (owner 2026-11-15: "whoever wants any app or bank SMS; each person's history
 /// is their own"). Defaults: the payment apps + common SMS apps; every item can be edited or deleted.
 class AskodoxMyPhoneAlerts {
-  AskodoxMyPhoneAlerts(this.enabled, this.apps, this.language, this.sayName, this.announceDebits, this.accounts);
+  AskodoxMyPhoneAlerts(this.enabled, this.apps, this.language, this.sayName, this.announceDebits, this.accounts,
+      [Map<String, String>? destinations, this.setupDone = false])
+      : destinations = destinations ?? {};
 
   bool enabled;
   Map<String, String> apps; // package -> label
@@ -285,6 +374,16 @@ class AskodoxMyPhoneAlerts {
   bool sayName;
   bool announceDebits;
   Map<String, String> accounts; // last digits -> person's name for it ("Savings", "Shop current")
+
+  /// package -> 'shop' | 'mine' when the phone also listens for a shop (owner 2026-11-15, F). Missing = default
+  /// ([askodoxIsBusinessApp] -> shop, else mine).
+  Map<String, String> destinations;
+
+  /// True once the apps found on this phone were offered the first time (never re-added after the person deletes).
+  bool setupDone;
+
+  String destinationOf(String package) =>
+      destinations[package] ?? (askodoxIsBusinessApp(package) ? 'shop' : 'mine');
 
   static const _key = 'askodox.mine.payalert.v1';
 
@@ -298,8 +397,11 @@ class AskodoxMyPhoneAlerts {
       if (j is Map) {
         final apps = j['apps'] is Map ? {for (final e in (j['apps'] as Map).entries) '${e.key}': '${e.value}'} : defaultApps();
         final acc = j['accounts'] is Map ? {for (final e in (j['accounts'] as Map).entries) '${e.key}': '${e.value}'} : <String, String>{};
+        final dest = j['destinations'] is Map
+            ? {for (final e in (j['destinations'] as Map).entries) '${e.key}': '${e.value}'}
+            : <String, String>{};
         return AskodoxMyPhoneAlerts(j['enabled'] == true, apps, '${j['language'] ?? 'te'}', j['say_name'] != false,
-            j['announce_debits'] == true, acc);
+            j['announce_debits'] == true, acc, dest, j['setup_done'] == true);
       }
     } catch (_) {}
     return AskodoxMyPhoneAlerts(false, defaultApps(), 'te', true, false, {});
@@ -316,11 +418,13 @@ class AskodoxMyPhoneAlerts {
           'say_name': sayName,
           'announce_debits': announceDebits,
           'accounts': accounts,
+          'destinations': destinations,
+          'setup_done': setupDone,
         }));
   }
 
   /// What the native listener needs: NO business id = personal mode (credits + debits kept on the phone only).
-  Map<String, Object?> nativeConfig() => {
+  Map<String, Object?> nativeConfig({String baseUrl = '', String token = ''}) => {
         'enabled': enabled,
         'language': language,
         'voice': 'female',
@@ -334,10 +438,12 @@ class AskodoxMyPhoneAlerts {
         'quiet_start': '',
         'quiet_end': '',
         'apps': apps,
+        'kinds': {for (final e in apps.entries) e.key: askodoxMoneyAppKind(e.key, e.value)},
+        'destinations': destinations,
         'business_id': '',
         'device_id': '',
-        'base_url': '',
-        'token': '',
+        'base_url': baseUrl, // the chosen ElevenLabs voice for "My phone" too (device voice when empty / offline)
+        'token': token,
       };
 
   /// The person's own name for an account tail ("Savings"), or "A/c ••1234".

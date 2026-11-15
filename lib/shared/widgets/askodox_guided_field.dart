@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/flags/askodox_release_phase.dart';
 import '../../features/guide/in_app_guide.dart' show askodoxGuideSpeakerProvider;
 import 'askodox_mascot.dart';
 
@@ -359,7 +360,10 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
               tooltip: te ? 'ఎలా రాయాలి?' : 'How to fill this?',
               visualDensity: VisualDensity.compact,
               onPressed: () => _explain(problem),
-              icon: AskodoxMascot(mood: mood, size: 28),
+              // Phase 1: a plain help icon, no robot (owner 2026-11-15, pani C).
+              icon: askodoxGuidesOn
+                  ? AskodoxMascot(mood: mood, size: 28)
+                  : const Icon(Icons.help_outline_rounded, color: Color(0xFF5A6478), size: 22),
             ),
           ]),
         ),

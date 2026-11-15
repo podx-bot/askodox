@@ -230,15 +230,26 @@ class MainActivity : FlutterActivity() {
                         } else {
                             try {
                                 val uri = FileProvider.getUriForFile(this, "$packageName.askodox.fileprovider", file)
+                                val mime = call.argument<String>("mime") ?: "application/pdf"
                                 val send = Intent(Intent.ACTION_SEND).apply {
-                                    type = call.argument<String>("mime") ?: "application/pdf"
+                                    type = mime
                                     putExtra(Intent.EXTRA_STREAM, uri)
                                     call.argument<String>("text")?.let { putExtra(Intent.EXTRA_TEXT, it) }
+                                    // ClipData carries the read grant through the chooser to WhatsApp & co (Android 10+).
+                                    clipData = android.content.ClipData.newRawUri(file.name, uri)
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
-                                startActivity(Intent.createChooser(send, call.argument<String>("title") ?: "Share").apply {
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                })
+                                // Owner 2026-11-15 (pani A): "send on WhatsApp" opens WhatsApp itself (or WhatsApp
+                                // Business) when it is installed; otherwise the normal share sheet.
+                                val target = call.argument<List<String>>("packages").orEmpty()
+                                    .firstOrNull { pkg -> runCatching { packageManager.getPackageInfo(pkg, 0) }.isSuccess }
+                                if (target != null) {
+                                    startActivity(Intent(send).setPackage(target))
+                                } else {
+                                    startActivity(Intent.createChooser(send, call.argument<String>("title") ?: "Share").apply {
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    })
+                                }
                                 result.success(true)
                             } catch (e: Exception) {
                                 result.error("share_failed", e.message, null)

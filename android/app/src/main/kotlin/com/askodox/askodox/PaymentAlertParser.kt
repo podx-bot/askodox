@@ -41,6 +41,8 @@ object PaymentAlertParser {
         // PhonePe: "Bhagya sent ₹1 to you." -- the amount sits between "sent" and "to you", so "sent you" never matched.
         // Outgoing texts still say "you sent" / "sent to" / "paid to" and stay rejected below.
         " to you",
+        // Bank SMS of every bank ("has a credit by Transfer of Rs 1,000", "credit of INR 500").
+        "a credit", "credit of", "credit by",
         "deposited", "జమ", "అందింది", "అందాయి", "स्वीकार", "प्राप्त", "मिले", "मिला", "जमा",
     )
     private val reject = listOf(
@@ -49,9 +51,39 @@ object PaymentAlertParser {
         "refund", "reversed", "due", "reminder", "recharge", "bill pay", " won", "win ", "loan", "emi",
         "verification code", "password", "pin ",
     )
-    private val amountRegex = Regex("""(?:₹|\brs\.?|\binr)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val amountRegex = Regex("""(?:₹|\brs[.:]?|\binr[.:]?)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
+
+    /** Bank SMS that write the amount WITHOUT a currency ("SBI: A/C X1234 debited by 20.0 on ..."). */
+    private val bareBankAmount = Regex(
+        """\b(?:credited|debited|deposited|withdrawn|credit|debit)\s*(?:by|with|for|of)\s+([0-9][0-9,]*(?:\.[0-9]{1,2})?)\b(?!\s*(?:/|-\d))""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * The fixed safety lines every bank adds ("Not you? Call 1800..", "Never share OTP/PIN", "SMS BLOCK UPI to ..")
+     * are cut off before reading: their "OTP" / "PIN" / phone numbers made a real credit look like an OTP message.
+     */
+    private val bankBoilerplate = Regex(
+        """(?i)(?:\bnot\s+(?:you|u)\b|\bif\s+not\s+(?:done\s+by\s+|initiated\s+by\s+)?(?:you|u)\b|\bnever\s+share|""" +
+            """\bdo\s*n[o']?t\s+share|\bcall\s+\+?\d{3,}|\bsms\s+block|\bto\s+report|\bfor\s+dispute|\breport\s+fraud|""" +
+            """\bif\s+this\s+(?:was|is)\s+not|\bhttps?://).*$""",
+    )
+
+    /** Message without the bank's safety lines; the original when cutting would leave nothing. */
+    fun withoutBoilerplate(s: String): String {
+        val cut = bankBoilerplate.replace(s, "").trim()
+        return if (cut.length >= 8) cut else s
+    }
+
+    /**
+     * Words of messages that carry a rupee amount but are NOT a payment (bills, statements, orders, offers). Such a
+     * message is ignored instead of asking the person "did you receive this?" -- bank SMS apps carry many of them.
+     */
+    private val notPaymentHints = listOf("bill ", "bill of", "statement", "minimum", "limit", "premium", "policy", "order",
+        "delivered", "shipped", "invoice", "generated", "plan", "validity", "data pack", "renew", "subscription", "fine",
+        "challan", "penalty", "charges", "fee ", "interest", "sale", "% off", "save ", "upto", "up to")
     private val refRegex = Regex(
-        """\b(?:utr|upi\s*ref(?:erence)?|ref(?:erence)?|txn|transaction)\s*(?:id|no\.?|number)?\s*[:#.\-]?\s*([A-Za-z0-9]{6,40})""",
+        """\b(?:utr|upi\s*ref(?:erence)?|ref(?:erence)?|txn|transaction|upi)\s*(?:id|no\.?|number)?\s*[:#.\-/]?\s*([A-Za-z0-9]{6,40})""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -67,30 +99,38 @@ object PaymentAlertParser {
         learnedIn: Collection<String> = emptyList(),
         learnedOut: Collection<String> = emptyList(),
     ): Result {
-        val joined = listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim()
+        val joined = withoutBoilerplate(listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim())
         if (joined.isEmpty()) return Result.Ignored
+        val body = text?.let { withoutBoilerplate(it.replace('\n', ' ')) }
         val lower = " ${joined.lowercase()} "
-        val shape = template(text)
+        val shape = template(body)
         if (shape.isNotEmpty() && learnedOut.any { it.isNotEmpty() && shape.contains(it) }) return Result.Ignored
         val learned = shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) }
         val rejected = (reject + moreReject).any { it.isNotEmpty() && lower.contains(it.lowercase()) }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
-            if (rejected) return outgoingOrIgnored(joined, lower, text, title)
+            if (rejected) return outgoingOrIgnored(joined, lower, body, title)
             val only = paymentAmounts(joined).toSet()
             // "Paid ₹10 to Bhagya": clear outgoing wording with a payee is a debit, not a question for the person.
-            val payee = payeeName(text) ?: payeeName(title)
+            val payee = payeeName(body) ?: payeeName(title)
             if (payee != null && only.size == 1) return Result.Outgoing(only.first(), payee, accountTail(joined))
+            // HDFC / Kotak style debit SMS: "Sent Rs.100.00 From HDFC Bank A/C *1234 To RAMESH On 15/11/26".
+            if (sentFrom.containsMatchIn(joined) && only.isNotEmpty()) {
+                return Result.Outgoing(only.first(), payeeName(body) ?: payeeName(title), accountTail(joined))
+            }
+            if (notPaymentHints.any { lower.contains(it) }) return Result.Ignored
             return if (only.size == 1 && shape.contains("₹#") && shape.length >= 8) Result.Unknown(only.first(), shape)
             else Result.Ignored
         }
-        if (!learned && rejected) return outgoingOrIgnored(joined, lower, text, title)
+        if (!learned && rejected) return outgoingOrIgnored(joined, lower, body, title)
         // Owner 2026-11-15 ("clear cut"): bank apps add the account BALANCE ("Avl Bal Rs.5,230"); that is never the
         // payment. The payment is the FIRST amount that is not a balance (banks write the credited amount first).
         val amounts = paymentAmounts(joined)
         if (amounts.isEmpty()) return Result.Ambiguous("amount_missing")
-        val reference = refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.any(Char::isDigit) }
-        return Result.Accepted(amounts.first(), reference, payerName(text) ?: payerName(title), accountTail(joined))
+        val reference = refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.count(Char::isDigit) >= 6 }
+        return Result.Accepted(amounts.first(), reference, payerName(body) ?: payerName(title), accountTail(joined))
     }
+
+    private val sentFrom = Regex("""\bsent\s+$AMT\s+from\b""", RegexOption.IGNORE_CASE)
 
     private val debitWords = listOf("debited", "you paid", "you sent", "paid to", "sent to", "withdrawn", "spent")
     private val notMoney = listOf("request", "collect", "otp", "one time", "failed", "declined", "unsuccessful", "pending",
@@ -105,27 +145,49 @@ object PaymentAlertParser {
         return Result.Outgoing(amounts.first(), payeeName(text) ?: payeeName(title), accountTail(joined))
     }
 
+    private const val END = """(?:\s+(?:on|via|in|from|using|ref|refno|upi|utr|at|thru|through|avl|bal)\b|[,!;(]|\.(?=\s|$|\(|(?-i:[A-Z]))|$)"""
     private val payeePatterns = listOf(
-        Regex("""(?:paid|sent)\s+$AMT\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
-        Regex("""you\s+(?:paid|sent)\s+$AMT\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
-        Regex("""(?:paid|sent)\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
-        Regex("""(?:trf|transfer(?:red)?|upi)\s+to\s+(.{2,60}?)(?:\s+(?:on|via|in|from|using|ref|upi)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        Regex("""(?:paid|sent)\s+$AMT\s+to\s+(.{2,60}?)$END""", RegexOption.IGNORE_CASE),
+        Regex("""you\s+(?:paid|sent)\s+$AMT\s+to\s+(.{2,60}?)$END""", RegexOption.IGNORE_CASE),
+        Regex("""(?:paid|sent)\s+to\s+(.{2,60}?)$END""", RegexOption.IGNORE_CASE),
+        Regex("""(?:trf|transfer(?:red)?|upi)\s+to\s+(.{2,60}?)$END""", RegexOption.IGNORE_CASE),
+        Regex("""\bsent\s+$AMT\s+from\s+.{0,60}?\s+to\s+(\S.{1,60}?)$END""", RegexOption.IGNORE_CASE), // HDFC / Kotak SMS
+        Regex(""";\s*([A-Za-z][A-Za-z .]{1,40}?)\s+credited""", RegexOption.IGNORE_CASE),            // ICICI debit SMS
+        Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
     )
 
     /** Who the money went to (spoken only on this phone, letters only, never stored in the upload). */
-    fun payeeName(text: String?): String? {
+    fun payeeName(text: String?): String? = nameFrom(payeePatterns, text)
+
+    /**
+     * The first clean person / shop name any pattern finds. A UPI id gives its letters part ("ramesh@ybl" ->
+     * "ramesh"); numbers, ids and bank words are never a name.
+     */
+    private fun nameFrom(patterns: List<Regex>, text: String?): String? {
         val t = (text ?: "").replace('\n', ' ').trim()
-        for (re in payeePatterns) {
-            val raw = re.find(t)?.groupValues?.get(1) ?: continue
-            val name = raw.trim().trim('.', ',', '!', ':', '-', '\'', '"').replace(Regex("\\s+"), " ")
-            if (name.length < 2 || name.length > 40 || name.any { it.isDigit() || it == '@' || it == '₹' || it == '/' }) continue
-            if (name.split(' ').size > 4 || name.lowercase().split(' ').any { it in notAName }) continue
-            return name
+        if (t.isEmpty()) return null
+        for (re in patterns) {
+            for (m in re.findAll(t)) {
+                var name = m.groupValues[1].trim().trim('.', ',', '!', ':', '-', '\'', '"', '(', ')').replace(Regex("\\s+"), " ")
+                if (name.contains('@')) {
+                    val local = name.substringBefore('@').substringAfterLast(' ')
+                    name = local.replace(Regex("[._-]+"), " ").trim()
+                    if (name.any(Char::isDigit) || name.length < 3) continue
+                }
+                if (name.length < 2 || name.length > 40) continue
+                if (name.any { it.isDigit() || it == '@' || it == '₹' || it == '/' }) continue
+                if (name.split(' ').size > 4) continue
+                if (name.lowercase().split(' ').any { it in notAName }) continue
+                return name
+            }
         }
         return null
     }
 
-    private val accountRegex = Regex("""(?:a/c|acct?|account)\s*(?:no\.?|number)?\s*[:.\-]?\s*[xX*]*\s*(\d{3,4})\b""", RegexOption.IGNORE_CASE)
+    private val accountRegex = Regex(
+        """(?:a/c|acct?|account|\bac\b)\s*(?:no\.?|number)?\s*[:.\-]?\s*[xX*.]*\s*(\d{3,4})\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     /** Last 3-4 digits of the account a bank SMS names ("A/c XX1234" -> "1234"); never more than that. */
     fun accountTail(text: String?): String? = accountRegex.find(text ?: "")?.groupValues?.get(1)
@@ -136,41 +198,46 @@ object PaymentAlertParser {
     )
 
     /** Amounts in the message in order, without balances (the words just before the amount say "bal" etc.). */
-    fun paymentAmounts(joined: String): List<Long> = amountRegex.findAll(joined).mapNotNull { m ->
-        val before = joined.substring(maxOf(0, m.range.first - 24), m.range.first)
-        if (balanceBefore.containsMatchIn(before)) null else toPaise(m.groupValues[1])
-    }.filter { it > 0 }.distinct().toList()
+    fun paymentAmounts(joined: String): List<Long> {
+        val withCurrency = amountRegex.findAll(joined).mapNotNull { m ->
+            val before = joined.substring(maxOf(0, m.range.first - 24), m.range.first)
+            if (balanceBefore.containsMatchIn(before)) null else toPaise(m.groupValues[1])
+        }.filter { it > 0 }.distinct().toList()
+        if (withCurrency.isNotEmpty()) return withCurrency
+        // "debited by 20.0" (SBI and others write no Rs / INR): only right after credited / debited by|with|for.
+        return bareBankAmount.findAll(joined).mapNotNull { toPaise(it.groupValues[1]) }.filter { it > 0 }.distinct().toList()
+    }
 
-    private const val AMT = """(?:₹|rs\.?|inr)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?"""
+    private const val AMT = """(?:₹|rs[.:]?|inr[.:]?)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?"""
     private val payerPatterns = listOf(
         Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?sent\s+$AMT\s+to\s+you""", RegexOption.IGNORE_CASE),   // PhonePe
         Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?paid\s+you\s+$AMT""", RegexOption.IGNORE_CASE),          // Google Pay
         Regex("""^\s*(.{2,60}?)\s+has\s+sent\s+you\s+$AMT""", RegexOption.IGNORE_CASE),
         Regex("""received\s+$AMT\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE), // Paytm
-        Regex("""(?:credited|received|deposited)[^.]{0,80}?\s(?:by|from)\s+(?:upi\s*[-/:]?\s*)?([A-Za-z][A-Za-z .]{1,40}?)(?:\s+(?:on|via|in|to|at|ref|upi|utr)\b|[.,!;]|$)""", RegexOption.IGNORE_CASE), // bank SMS
+        Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
         Regex("""$AMT\s+received\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        // MUST stay last (payerName applies it only to the text after the credit word).
+        // Bank SMS: "... by|from NAME" anywhere AFTER the credit word (payerName passes only that part).
+        Regex("""(?:^|\s)(?:by|from)\s+(?:upi\s*[-/:]?\s*|(?:a/c\s+linked\s+to\s+)?vpa\s+)?([A-Za-z][A-Za-z0-9 .@_-]{1,50}?)$END""", RegexOption.IGNORE_CASE),
     )
     private val notAName = setOf("you", "upi", "bank", "account", "a/c", "your", "someone", "phonepe", "paytm", "google",
-        "gpay", "bhim", "money", "payment", "received", "ref", "neft", "imps", "utr", "rtgs", "txn")
+        "gpay", "bhim", "money", "payment", "received", "ref", "neft", "imps", "utr", "rtgs", "txn", "transfer", "rs", "inr",
+        "mob", "bk", "vpa", "linked", "mobile", "cash", "atm", "branch", "cheque", "clearing", "interest", "salary", "of")
 
     /**
      * The payer's display name from an incoming-payment message ("Bhagya sent ₹30 to you" -> "Bhagya"), or null.
      * Letters only: anything with a digit or @ (a number / UPI id) is never returned.
      */
     fun payerName(text: String?): String? {
-        val t = (text ?: "").replace('\n', ' ').trim()
-        if (t.isEmpty()) return null
-        for (re in payerPatterns) {
-            val raw = re.find(t)?.groupValues?.get(1) ?: continue
-            val name = raw.trim().trim('.', ',', '!', ':', '-', '\'', '"').replace(Regex("\\s+"), " ")
-            if (name.length < 2 || name.length > 40) continue
-            if (name.any { it.isDigit() || it == '@' || it == '₹' || it == '/' }) continue
-            if (name.split(' ').size > 4) continue
-            if (name.lowercase().split(' ').any { it in notAName }) continue
-            return name
-        }
-        return null
+        val t = text ?: return null
+        // Bank SMS name the payer after the credit word ("credited ... by RAMESH"); a "by" before it ("debited by")
+        // is never the payer. App messages keep the whole text (their names come first: "Bhagya sent ₹1 to you").
+        val at = creditWord.find(t)?.range?.last
+        val bankPart = if (at != null) t.substring(at + 1) else null
+        return nameFrom(payerPatterns.dropLast(1), t) ?: bankPart?.let { nameFrom(listOf(payerPatterns.last()), it) }
     }
+
+    private val creditWord = Regex("""\b(?:credited|credit|received|deposited)\b""", RegexOption.IGNORE_CASE)
 
     fun toPaise(raw: String): Long? {
         val clean = raw.replace(",", "")

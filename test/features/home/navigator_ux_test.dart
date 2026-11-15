@@ -143,6 +143,11 @@ void main() {
     // 2026-11-04: the Screen Guide moved from its own header icon into the Menu.
     await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
     await tester.pumpAndSettle();
+    if (!askodoxGuidesOn) {
+      // Owner 2026-11-15 (pani C): no Guides in Phase 1.
+      expect(find.byKey(const ValueKey('askodoxMenu-guide')), findsNothing);
+      return;
+    }
     await tester.tap(find.byKey(const ValueKey('askodoxMenu-guide')));
     await tester.pumpAndSettle();
     // Uploading own videos is Phase 2; changing location is offered in every build.

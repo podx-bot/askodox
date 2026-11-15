@@ -79,6 +79,7 @@ void main() {
     expect(find.byKey(const Key('askodoxPaymentsHubQr')), findsOneWidget);
     expect(find.byKey(const Key('askodoxPaymentsHubAlerts')), findsOneWidget);
     expect(find.byKey(const Key('askodoxPaymentsHubAccounts')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPaymentsHubBill')), findsOneWidget, reason: 'one tap to Make a bill');
     expect(find.textContaining('Razorpay'), findsNothing);
   });
 

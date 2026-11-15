@@ -532,9 +532,12 @@ AskodoxSupportAssessment askodoxAssessSupport(
       return AskodoxSupportAssessment(AskodoxSupportNeed.immediate, category: entry.key);
     }
   }
-  // The user explicitly asks for a person.
+  // The user explicitly asks for a person / Customer Care: ASKODOX AI answers FIRST (owner 2026-11-15, pani D);
+  // "Send to ASKODOX team" is offered only when they ask again after the AI tried.
   if (_matchesAny(t, _askForHumanWords)) {
-    return const AskodoxSupportAssessment(AskodoxSupportNeed.afterAiAttempt);
+    return previousIssueTurns >= 1
+        ? const AskodoxSupportAssessment(AskodoxSupportNeed.afterAiAttempt)
+        : const AskodoxSupportAssessment(AskodoxSupportNeed.none);
   }
   // The same problem persists after ASKODOX AI already tried to help.
   final issue = _matchesAny(t, _issueWords) || _matchesAny(t, _unresolvedWords);
@@ -548,6 +551,7 @@ AskodoxSupportAssessment askodoxAssessSupport(
 bool askodoxLooksLikeIssue(String text) {
   final t = ' ${text.toLowerCase()} ';
   return _matchesAny(t, _issueWords) ||
+      _matchesAny(t, _askForHumanWords) || // asking for Customer Care counts as the AI's first try
       _matchesAny(t, _unresolvedWords) ||
       _criticalSupport.values.any((patterns) => _matchesAny(t, patterns));
 }

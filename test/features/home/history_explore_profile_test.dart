@@ -481,6 +481,11 @@ void main() {
     ]) {
       await _openProfileView(tester, container, tab);
       final button = find.byKey(ValueKey('askodoxTileGuide-$id'));
+      if (!askodoxGuidesOn) {
+        // Owner 2026-11-15 (pani C): no robot Guide buttons beside the rows in Phase 1.
+        expect(button, findsNothing, reason: id);
+        continue;
+      }
       await tester.ensureVisible(button);
       await tester.pump();
       await tester.tap(button);

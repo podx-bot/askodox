@@ -1,0 +1,40 @@
+# Payment alert parser gate (owner 2026-11-15: "every bank, every app"): the pure Kotlin parser that reads UPI app
+# notifications and bank SMS of every bank is compiled on its own and run against real message shapes
+# (SBI, HDFC, ICICI, Axis, Kotak, Canara, Union, BoB, PNB, Indian Bank, PhonePe, GPay, Paytm, OTP / bill / offer).
+name: Payment parser gate
+
+on:
+  pull_request:
+    paths:
+      - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt'
+      - 'android/parser-tests/**'
+      - '.github/workflows/payment-parser-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt'
+      - 'android/parser-tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Kotlin compiler
+        run: |
+          curl -sSL -o /tmp/kc.zip https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+          unzip -q /tmp/kc.zip -d /tmp
+      - name: Parser cases
+        run: |
+          /tmp/kotlinc/bin/kotlinc android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt \
+            android/parser-tests/ParserTest.kt -include-runtime -d /tmp/parser.jar
+          java -jar /tmp/parser.jar

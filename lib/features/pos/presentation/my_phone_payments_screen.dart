@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/providers/backend_providers.dart';
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
@@ -11,6 +13,11 @@ import 'pos_common.dart';
 /// "My phone" payments (owner 2026-11-15): any signed-in person -- no shop, no registered UPI id -- gets the payment
 /// notifications and bank SMS of the apps THEY choose read out on their own phone and kept in their own history.
 /// Everything is on this phone only; every list (apps, accounts, history) can be edited and deleted.
+///
+/// Built for every phone, bank and app (owner rule: one example = all cases): the payment / bank / SMS apps found on
+/// THIS phone are offered by themselves, and one checklist opens each Android page the phone needs (notification
+/// access, battery, the maker's Autostart page, each app's own notifications, the SMS app) -- nothing to hunt for.
+/// A phone that also listens for a shop chooses per app where it goes (shop or my phone); both work together.
 class AskodoxMyPhonePaymentsScreen extends ConsumerStatefulWidget {
   const AskodoxMyPhonePaymentsScreen({super.key});
 
@@ -23,6 +30,10 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
   AskodoxJson _status = const {};
   List<AskodoxJson> _events = const [];
   String _filter = 'all'; // all | in | out
+  List<AskodoxJson> _installed = const [];
+  Map<String, AskodoxJson> _appState = const {}; // package -> installed / batteryUnrestricted / lastSeenAt
+  Set<String> _confirmed = {}; // steps the phone cannot check, confirmed by the person
+  static const _confirmedKey = 'askodox.mine.payalert.setup.v1';
   late final AskodoxPaymentAlertsBridge _bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
 
   @override
@@ -48,24 +59,70 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
   Future<void> _start() async {
     final mine = await AskodoxMyPhoneAlerts.load();
     _mine = mine;
+    final prefs = await SharedPreferences.getInstance();
+    _confirmed = (prefs.getStringList(_confirmedKey) ?? const []).toSet();
+    _installed = await _bridge.installedApps();
+    if (!mine.setupDone) {
+      // First visit: the money apps really on THIS phone are chosen for the person (they can remove any).
+      final found = _found(mine, includeChosen: true);
+      if (_installed.isNotEmpty) {
+        final installedIds = {for (final a in _installed) '${a['package']}'};
+        mine.apps = {
+          for (final e in mine.apps.entries)
+            if (installedIds.contains(e.key)) e.key: e.value,
+          for (final a in found) '${a['package']}': '${a['label']}',
+        };
+        if (mine.apps.isEmpty) mine.apps = AskodoxMyPhoneAlerts.defaultApps();
+      }
+      mine.setupDone = true;
+      await mine.save();
+    }
     await _configure();
     await _reload();
   }
 
+  /// Installed payment / bank / SMS apps (catalogue or by name), not yet in the list unless [includeChosen].
+  List<AskodoxJson> _found(AskodoxMyPhoneAlerts m, {bool includeChosen = false}) => [
+        for (final a in _installed)
+          if (askodoxLooksLikeMoneyApp('${a['package']}', '${a['label']}') &&
+              (includeChosen || !m.apps.containsKey('${a['package']}')))
+            {
+              'package': '${a['package']}',
+              'label': askodoxMoneyAppCatalog['${a['package']}']?.$1 ?? '${a['label']}',
+            },
+      ];
+
   Future<void> _configure() async {
     final mine = _mine;
     if (mine == null) return;
-    _status = await _bridge.configure(mine.nativeConfig());
+    var base = '';
+    var token = '';
+    try {
+      base = ref.read(appConfigProvider).apiBaseUrl?.toString() ?? '';
+      final session = ref.read(authSessionProvider);
+      token = session.user == null ? '' : (session.tokenPlaceholder ?? '');
+    } catch (_) {}
+    _status = await _bridge.configurePersonal(mine.nativeConfig(baseUrl: base, token: token));
   }
 
   Future<void> _reload() async {
     final status = await _bridge.status();
     final events = (await _bridge.localEvents()).where((e) => e['direction'] != null || e['test'] == true).toList();
+    final apps = _mine?.apps.keys.toList() ?? const <String>[];
+    final state = await _bridge.paymentApps(apps);
     if (!mounted) return;
     setState(() {
       _status = status;
       _events = events.reversed.toList();
+      _appState = {for (final a in state) '${a['package']}': a};
     });
+  }
+
+  Future<void> _confirm1(String id) async {
+    _confirmed = {..._confirmed, id};
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_confirmedKey, _confirmed.toList());
+    if (mounted) setState(() {});
   }
 
   Future<void> _change(void Function(AskodoxMyPhoneAlerts m) edit) async {
@@ -140,6 +197,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     final pkg = '${picked['package']}'.trim();
     if (pkg.isEmpty) return;
     await _change((m) => m.apps = {...m.apps, pkg: '${picked['label']}'.trim().isEmpty ? pkg : '${picked['label']}'.trim()});
+    await _reload();
   }
 
   String _time(Object? at) {
@@ -159,6 +217,8 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
           ? const Center(child: CircularProgressIndicator())
           : ListView(key: const Key('askodoxMyPhonePayments'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 28), children: [
               _stateCard(mine, te),
+              if (mine.enabled) _setupCard(mine, te),
+              _foundCard(mine, te),
               _appsCard(mine, te),
               _accountsCard(mine, te),
               _historyCard(mine, te),
@@ -228,10 +288,208 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
           ),
           OutlinedButton.icon(
             key: const Key('askodoxMineTest'),
-            onPressed: () => _bridge.speakTest(100),
+            onPressed: () async {
+              await _bridge.speakTest(100, personal: true);
+              await _confirm1('sound');
+            },
             icon: const Icon(Icons.volume_up_outlined),
             label: Text(te ? 'సౌండ్ టెస్ట్' : 'Sound test'),
           ),
+        ]),
+      ),
+    );
+  }
+
+  bool get _shopListening => _status['enabled'] == true;
+
+  IconData _kindIcon(String kind) => switch (kind) {
+        'sms' => Icons.sms_outlined,
+        'bank' => Icons.account_balance_outlined,
+        _ => Icons.qr_code_2_rounded,
+      };
+
+  String _kindLabel(String kind, bool te) => switch (kind) {
+        'sms' => te ? 'బ్యాంక్ SMS' : 'Bank SMS',
+        'bank' => te ? 'బ్యాంక్ యాప్' : 'Bank app',
+        _ => te ? 'UPI యాప్' : 'UPI app',
+      };
+
+  /// "Not on this phone" / "Messages reach ASKODOX ✓" / "No message seen yet" for one chosen app.
+  String _appLine(String pkg, bool te) {
+    final st = _appState[pkg];
+    if (st == null) return pkg;
+    if (st['installed'] != true) return te ? 'ఈ ఫోన్‌లో లేదు' : 'Not on this phone';
+    final seen = st['lastSeenAt'] is num && (st['lastSeenAt'] as num) > 0;
+    return seen
+        ? (te ? 'మెసేజ్‌లు అందుతున్నాయి ✓' : 'Messages reach ASKODOX ✓')
+        : (te ? 'ఇంకా మెసేజ్ రాలేదు' : 'No message seen yet');
+  }
+
+  /// Battery wording for this phone's maker (the page names differ on every brand).
+  String _batteryHow(bool te, {String? app}) {
+    final maker = '${_status['maker'] ?? ''}';
+    final who = app ?? 'ASKODOX';
+    if (maker.contains('samsung')) {
+      return te
+          ? '$who పేజీ → Battery → Unrestricted. "Manage app if unused" / "Pause app activity" ఆఫ్ చేయండి.'
+          : '$who page → Battery → Unrestricted. Switch off "Manage app if unused" / "Pause app activity".';
+    }
+    if (maker.contains('xiaomi') || maker.contains('redmi') || maker.contains('poco')) {
+      return te
+          ? '$who పేజీ → Battery saver → No restrictions. Autostart కూడా ఆన్ చేయండి.'
+          : '$who page → Battery saver → No restrictions. Also switch Autostart on.';
+    }
+    if (maker.contains('oppo') || maker.contains('realme') || maker.contains('oneplus')) {
+      return te
+          ? '$who పేజీ → Battery usage → "Allow background activity" + "Allow auto launch" ఆన్ చేయండి.'
+          : '$who page → Battery usage → switch on "Allow background activity" and "Allow auto launch".';
+    }
+    if (maker.contains('vivo') || maker.contains('iqoo')) {
+      return te
+          ? '$who పేజీ → Battery → "Allow high background power consumption" ఆన్ చేయండి.'
+          : '$who page → Battery → switch on "Allow high background power consumption".';
+    }
+    return te ? '$who పేజీ → Battery → Unrestricted / Don\'t optimise.' : '$who page → Battery → Unrestricted / Don\'t optimise.';
+  }
+
+  /// One checklist for every phone: each row opens the exact Android page and turns ✓ by itself when the phone can
+  /// check it (the rest are ticked by the person after doing them).
+  Widget _setupCard(AskodoxMyPhoneAlerts m, bool te) {
+    final rows = <Widget>[];
+    var open = 0;
+    void row(String id, bool done, String title, String how, Future<void> Function() go, {bool selfConfirm = false}) {
+      if (!done) open++;
+      rows.add(ListTile(
+        key: ValueKey('askodoxMineStep-$id'),
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            color: done ? const Color(0xFF17784C) : const Color(0xFFB45309)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: done ? null : Text(how, style: const TextStyle(fontSize: 12)),
+        trailing: done
+            ? null
+            : Row(mainAxisSize: MainAxisSize.min, children: [
+                if (selfConfirm)
+                  TextButton(
+                    key: ValueKey('askodoxMineStepDone-$id'),
+                    onPressed: () => _confirm1(id),
+                    child: Text(te ? 'అయింది' : 'Done'),
+                  ),
+                FilledButton(
+                  key: ValueKey('askodoxMineStepGo-$id'),
+                  onPressed: () async {
+                    await go();
+                    if (selfConfirm) await _confirm1('$id:opened');
+                  },
+                  child: Text(te ? 'తెరవండి' : 'Open'),
+                ),
+              ]),
+      ));
+    }
+
+    if (_status['listenerDeclared'] != false) {
+      row('access', _status['listenerAllowed'] == true, te ? '1. పేమెంట్ మెసేజ్ చదివే అనుమతి' : '1. Permission to read payment messages',
+          te ? 'లిస్ట్‌లో ASKODOX ఆన్ చేసి వెనక్కి రండి.' : 'Switch ASKODOX on in the list, then come back.', _bridge.openListenerSettings);
+    }
+    row('battery', _status['batteryUnrestricted'] != false, te ? '2. ఫోన్ ASKODOX ను ఆపకూడదు' : '2. The phone must not stop ASKODOX',
+        _batteryHow(te), _bridge.openBatterySettings);
+    if (_status['autostartPage'] == true) {
+      row('autostart', _confirmed.contains('autostart'), te ? '3. Autostart ఆన్' : '3. Autostart on',
+          te ? 'తెరుచుకునే లిస్ట్‌లో ASKODOX తో పాటు మీ పేమెంట్ / బ్యాంక్ యాప్‌లు ఆన్ చేయండి.' : 'Switch on ASKODOX and your payment / bank apps in the list.',
+          () async => _bridge.openAutostartSettings(), selfConfirm: true);
+    }
+    final sms = '${_status['smsApp'] ?? ''}';
+    if (sms.isNotEmpty) {
+      final inList = m.apps.containsKey(sms);
+      final seen = (_appState[sms]?['lastSeenAt'] is num) && (_appState[sms]!['lastSeenAt'] as num) > 0;
+      row('sms', inList && (seen || _confirmed.contains('sms')), te ? 'బ్యాంక్ SMS చదవడం' : 'Read bank SMS',
+          inList
+              ? (te
+                  ? 'SMS యాప్ నోటిఫికేషన్లు ఆన్ చేయండి (QR పేమెంట్‌లకు చాలాసార్లు SMS మాత్రమే వస్తుంది). SMS ఇన్‌బాక్స్ చదవం.'
+                  : 'Keep the SMS app notifications on (QR payments often give only an SMS). The inbox is never read.')
+              : (te ? 'మీ SMS యాప్ లిస్ట్‌లో లేదు — "జోడించు" నొక్కండి.' : 'Your SMS app is not in the list — tap Add.'),
+          () async {
+            if (!inList) {
+              final label = askodoxMoneyAppCatalog[sms]?.$1 ??
+                  '${_installed.where((a) => a['package'] == sms).firstOrNull?['label'] ?? 'Messages'}';
+              await _change((x) => x.apps = {...x.apps, sms: label});
+              await _reload();
+            } else {
+              await _bridge.openSmsAppSettings();
+            }
+          },
+          selfConfirm: inList);
+    }
+    for (final e in m.apps.entries) {
+      final st = _appState[e.key];
+      if (st == null || st['installed'] != true || e.key == sms) continue;
+      final seen = st['lastSeenAt'] is num && (st['lastSeenAt'] as num) > 0;
+      row('app_notifications:${e.key}', seen || _confirmed.contains('app_notifications:${e.key}'),
+          te ? '${e.value} నోటిఫికేషన్లు ఆన్' : '${e.value} notifications on',
+          te ? '${e.value} పేజీలో నోటిఫికేషన్లు అన్నీ ఆన్ చేయండి. అవి రాకపోతే ASKODOX కి పేమెంట్ తెలియదు.'
+              : 'Switch all ${e.value} notifications on. Without them ASKODOX cannot hear the payment.',
+          () => _bridge.openAppNotificationSettings(e.key),
+          selfConfirm: true);
+      row('app_battery:${e.key}', st['batteryUnrestricted'] == true, te ? '${e.value} ఆగకూడదు' : '${e.value} must not be stopped',
+          _batteryHow(te, app: e.value), () => _bridge.openAppDetails(e.key));
+    }
+    row('sound', _confirmed.contains('sound'), te ? 'సౌండ్ టెస్ట్' : 'Sound test',
+        te ? 'ఒక టెస్ట్ పేమెంట్ వినిపిస్తుంది.' : 'Plays a test payment.', () => _bridge.speakTest(100, personal: true).then((_) => _confirm1('sound')));
+    return Card(
+      key: const Key('askodoxMineSetup'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(
+              open == 0
+                  ? (te ? 'అన్నీ సిద్ధం ✓' : 'All set ✓')
+                  : (te ? 'సెటప్ — ఇంకా $open మిగిలాయి' : 'Setup — $open left'),
+              key: const Key('askodoxMineSetupTitle'),
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          if (open > 0) ...rows,
+        ]),
+      ),
+    );
+  }
+
+  /// Payment / bank / SMS apps found on this phone that are not in the list yet: one tap adds one, or all.
+  Widget _foundCard(AskodoxMyPhoneAlerts m, bool te) {
+    final found = _found(m);
+    if (found.isEmpty) return const SizedBox.shrink();
+    return Card(
+      key: const Key('askodoxMineFound'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(te ? 'ఈ ఫోన్‌లో దొరికిన పేమెంట్ / బ్యాంక్ యాప్‌లు' : 'Payment / bank apps found on this phone',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          for (final a in found)
+            ListTile(
+              key: ValueKey('askodoxMineFound-${a['package']}'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(_kindIcon(askodoxMoneyAppKind('${a['package']}', '${a['label']}'))),
+              title: Text('${a['label']}'),
+              subtitle: Text(_kindLabel(askodoxMoneyAppKind('${a['package']}', '${a['label']}'), te)),
+              trailing: TextButton(
+                key: ValueKey('askodoxMineFoundAdd-${a['package']}'),
+                onPressed: () async {
+                  await _change((x) => x.apps = {...x.apps, '${a['package']}': '${a['label']}'});
+                  await _reload();
+                },
+                child: Text(te ? 'జోడించు' : 'Add'),
+              ),
+            ),
+          if (found.length > 1)
+            FilledButton.tonal(
+              key: const Key('askodoxMineFoundAll'),
+              onPressed: () async {
+                await _change((x) => x.apps = {...x.apps, for (final a in found) '${a['package']}': '${a['label']}'});
+                await _reload();
+              },
+              child: Text(te ? 'అన్నీ జోడించు' : 'Add all'),
+            ),
         ]),
       ),
     );
@@ -252,10 +510,34 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               key: ValueKey('askodoxMineApp-${e.key}'),
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.apps_rounded),
+              leading: Icon(_kindIcon(askodoxMoneyAppKind(e.key, e.value))),
               title: Text(e.value),
-              subtitle: Text(e.key, style: const TextStyle(fontSize: 11)),
+              subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${_kindLabel(askodoxMoneyAppKind(e.key, e.value), te)} · ${_appLine(e.key, te)}',
+                    style: const TextStyle(fontSize: 11.5)),
+                if (_shopListening)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(spacing: 6, children: [
+                      for (final d in const ['mine', 'shop'])
+                        ChoiceChip(
+                          key: ValueKey('askodoxMineDest-$d-${e.key}'),
+                          visualDensity: VisualDensity.compact,
+                          label: Text(d == 'shop' ? (te ? 'షాప్' : 'Shop') : (te ? 'నా ఫోన్' : 'My phone')),
+                          selected: m.destinationOf(e.key) == d,
+                          onSelected: (_) => _change((x) => x.destinations = {...x.destinations, e.key: d}),
+                        ),
+                    ]),
+                  ),
+              ]),
+              isThreeLine: _shopListening,
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  key: ValueKey('askodoxMineAppSettings-${e.key}'),
+                  tooltip: te ? 'ఈ యాప్ నోటిఫికేషన్ సెట్టింగ్' : 'This app\'s notification settings',
+                  icon: const Icon(Icons.tune_rounded),
+                  onPressed: () => _bridge.openAppNotificationSettings(e.key),
+                ),
                 IconButton(
                   key: ValueKey('askodoxMineAppEdit-${e.key}'),
                   tooltip: te ? 'పేరు మార్చు' : 'Rename',
@@ -271,7 +553,9 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                   icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: () async {
                     if (await _confirm(te ? 'ఈ యాప్ తొలగించాలా?' : 'Remove this app?', e.value, te)) {
-                      await _change((x) => x.apps = {...x.apps}..remove(e.key));
+                      await _change((x) => x
+                        ..apps = ({...x.apps}..remove(e.key))
+                        ..destinations = ({...x.destinations}..remove(e.key)));
                     }
                   },
                 ),
@@ -395,7 +679,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                   '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
                   style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text([
-                '${e['source_label'] ?? ''}',
+                '${e['source_label'] ?? ''}${'${e['also_from'] ?? ''}'.isEmpty ? '' : ' + ${e['also_from']}'}',
                 m.accountName('${e['account'] ?? ''}'),
                 _time(e['detected_at']),
                 (te ? askodoxSpokenLabel('${e['spoken']}').$2 : askodoxSpokenLabel('${e['spoken']}').$1),
