@@ -239,6 +239,19 @@ def update_business(business_id: str, body: SettingsIn, request: Request) -> dic
     return _call(_store(request).update_settings, business_id, _user(request), _dump(body))
 
 
+class StatusIn(BaseModel):
+    status: str = Field(max_length=10)
+    note: str = Field(default="", max_length=160)
+
+
+@router.post("/businesses/{business_id}/status")
+def set_business_status(business_id: str, body: StatusIn, request: Request) -> dict:
+    """Owner only: open / paused / closed. Listings follow at once; nothing is deleted."""
+    out = _call(_store(request).set_status, business_id, _user(request), body.status, body.note)
+    _online_sync(request, business_id, None)
+    return out
+
+
 @router.get("/businesses/{business_id}/members")
 def members(business_id: str, request: Request) -> dict:
     return {"members": _call(_store(request).members, business_id, _user(request))}

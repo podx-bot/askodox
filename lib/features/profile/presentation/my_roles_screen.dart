@@ -24,6 +24,8 @@ class MyRolesScreen extends ConsumerWidget {
         holds: owned.contains(AskodoxUserRole.buyer),
         tiles: [
           (key: 'orders', label: t('My orders', 'నా ఆర్డర్లు'), icon: Icons.receipt_long_outlined, route: '/orders/mine'),
+          (key: 'orderdesk', label: t('Order at a shop / table', 'షాప్ / టేబుల్ ఆర్డర్'), icon: Icons.restaurant_menu,
+              route: '/order-desk/enter'),
           (key: 'memory', label: t('My needs (remembered)', 'నా అవసరాలు'), icon: Icons.psychology_alt_outlined,
               route: '/profile/memory'),
         ],

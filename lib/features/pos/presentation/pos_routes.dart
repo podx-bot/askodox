@@ -5,6 +5,8 @@ import 'pos_agent_screens.dart';
 import 'pos_catalogue_screens.dart';
 import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
+import 'pos_frontdesk_screens.dart';
+import 'pos_frontdesk_staff_screens.dart';
 import 'pos_home_screen.dart';
 import 'my_payment_alerts_screen.dart';
 import 'my_phone_payments_screen.dart';
@@ -37,6 +39,13 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
 
 final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
+  // Front desk: the customer's QR menu + receptionist + live order, and the shop's one orders desk / menu / QR.
+  GoRoute(path: '/order-desk', builder: (context, state) => AskodoxOrderDeskScreen(code: state.uri.queryParameters['code'] ?? '')),
+  GoRoute(path: '/order-desk/enter', builder: (context, state) => const AskodoxOrderCodeScreen()),
+  GoRoute(path: '/order-desk/track/:oid', builder: (context, state) => AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)),
+  GoRoute(path: '/pos/:id/desk', builder: (context, state) => AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/desk/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/desk/qr', builder: (context, state) => AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/collect', builder: (context, state) => AskodoxPosCollectScreen(businessId: state.pathParameters['id']!)),
   // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).

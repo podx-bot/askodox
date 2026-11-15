@@ -229,7 +229,15 @@ class AskodoxGuidedField extends ConsumerStatefulWidget {
     this.minLines,
     this.maxLength,
     this.onChanged,
+    this.enabled = true,
+    this.helper,
   });
+
+  /// false = shown but not editable (for example a business name that is locked for a while).
+  final bool enabled;
+
+  /// A fixed explanation under the box (it replaces nothing: the field's own error still shows first).
+  final String? helper;
 
   /// Key of the inner TextField (guides and tests point at it).
   final Key fieldKey;
@@ -341,7 +349,10 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
         minLines: widget.minLines,
         maxLength: widget.maxLength,
         onChanged: widget.onChanged,
+        enabled: widget.enabled,
         decoration: InputDecoration(
+          helperText: widget.helper,
+          helperMaxLines: 3,
           labelText: widget.label,
           hintText: widget.guide.example(te),
           hintStyle: const TextStyle(color: Color(0xFFA0A8B8)),

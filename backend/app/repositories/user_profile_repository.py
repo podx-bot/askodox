@@ -90,7 +90,7 @@ class UserProfileRepository:
             if "upi_id" not in columns:  # the seller's own UPI ID (VPA) for direct payments
                 conn.execute("ALTER TABLE user_profiles ADD COLUMN upi_id TEXT")
             for column in ("email", "active_role", "links_json", "role_details_json", "last_name", "business_email",
-                           "business_subcategory", "phones_json", "addresses_json"):
+                           "business_subcategory", "phones_json", "addresses_json", "business_name_policy_json"):
                 if column not in columns:
                     conn.execute(f"ALTER TABLE user_profiles ADD COLUMN {column} TEXT")
             conn.commit()
@@ -160,6 +160,25 @@ class UserProfileRepository:
                              (stored, now, user_id))
             conn.commit()
         return self.get(user_id)
+
+    def name_policy_state(self, user_id: str) -> Dict[str, Any]:
+        """{set_at, edits, locked_until} of the "My business" name (name_change_policy.py); {} before the first name."""
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT business_name_policy_json FROM user_profiles WHERE user_id=?", (user_id,)).fetchone()
+        try:
+            value = json.loads((row[0] if row else None) or "{}")
+        except (TypeError, ValueError):
+            value = {}
+        return value if isinstance(value, dict) else {}
+
+    def set_name_policy_state(self, user_id: str, state: Dict[str, Any]) -> None:
+        now = self._now()
+        with closing(self._connect()) as conn:
+            conn.execute("INSERT OR IGNORE INTO user_profiles(user_id, created_at, updated_at) VALUES(?,?,?)",
+                         (user_id, now, now))
+            conn.execute("UPDATE user_profiles SET business_name_policy_json=? WHERE user_id=?",
+                         (json.dumps(state), user_id))
+            conn.commit()
 
     def set_photo(self, user_id: str, jpeg: bytes | None) -> Dict[str, Any]:
         now = self._now()

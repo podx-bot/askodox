@@ -733,6 +733,54 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ], [
     'ఫోన్ నంబర్‌తో సిబ్బందిని చేర్చి వారి పాత్ర ఎంచుకోండి.',
   ]),
+  '/order-desk/enter': _H('Order at a shop / table', 'షాప్ / టేబుల్ ఆర్డర్', [
+    'Type the code printed under the shop or table QR, and the menu opens.',
+    'Your earlier orders are listed here: tap one to follow it, or "Again" to order the same.',
+  ], [
+    'షాప్ లేదా టేబుల్ QR కింద ఉన్న కోడ్ రాయండి, మెనూ తెరుచుకుంటుంది.',
+    'మీ పాత ఆర్డర్లు ఇక్కడ కనిపిస్తాయి: నొక్కి ఫాలో చేయండి, లేదా "మళ్ళీ" నొక్కి అదే ఆర్డర్ చేయండి.',
+  ]),
+  '/order-desk': _H('Menu & order', 'మెనూ & ఆర్డర్', [
+    'Choose dine in, takeaway or delivery. Add items with + or just say it (2 chicken biryani).',
+    'Say "same as last time" to repeat your last order; say "that\'s all" to send it.',
+    'Delivery needs an address or a map pin. You pay the shop directly; ASKODOX never holds the money.',
+  ], [
+    'ఇక్కడే తింటారా, పార్సిల్ లేదా డెలివరీనా ఎంచుకోండి. + నొక్కండి లేదా చెప్పండి (2 చికెన్ బిర్యానీ).',
+    '"మునుపటిలాగే" అంటే గత ఆర్డర్ మళ్ళీ; "అంతే" అంటే ఆర్డర్ వెళ్తుంది.',
+    'డెలివరీకి అడ్రస్ లేదా మ్యాప్ పిన్ కావాలి. డబ్బు నేరుగా షాప్‌కే; ASKODOX డబ్బు పట్టుకోదు.',
+  ]),
+  '/order-desk/track/:oid': _H('My order', 'నా ఆర్డర్', [
+    'See each step live: accepted, preparing, ready, on the way.',
+    'You can cancel only before the shop accepts. Pay the shop\'s UPI from the bill below.',
+  ], [
+    'ప్రతి దశ లైవ్‌గా కనిపిస్తుంది: అంగీకరించారు, తయారవుతోంది, సిద్ధం, దారిలో.',
+    'షాప్ అంగీకరించకముందే రద్దు చేయవచ్చు. కింద బిల్లు నుంచి షాప్ UPI కి కట్టండి.',
+  ]),
+  '/pos/:id/desk': _H('Orders desk', 'ఆర్డర్స్ డెస్క్', [
+    'All table, shop-QR, counter and reception orders in one place: New, Kitchen, Ready, Delivery, Done.',
+    'Accept an order and switch OFF what is finished; the customer is told. Then move it step by step.',
+    'Bill when it is ready (GST only if your shop has GST). Delivery orders open the map pin.',
+    'An order not accepted in a minute alerts the owner.',
+  ], [
+    'టేబుల్, షాప్ QR, కౌంటర్, రిసెప్షన్ ఆర్డర్లన్నీ ఒకే చోట: కొత్త, వంటగది, సిద్ధం, డెలివరీ, పూర్తి.',
+    'ఆర్డర్ అంగీకరించి అయిపోయినవాటిని OFF చేయండి; కస్టమర్‌కి తెలుస్తుంది. తర్వాత ఒక్కో దశ ముందుకు.',
+    'సిద్ధమయ్యాక బిల్లు చేయండి (మీ షాప్‌కి GST ఉంటేనే GST). డెలివరీ ఆర్డర్లకు మ్యాప్ పిన్ తెరుచుకుంటుంది.',
+    'నిమిషంలో అంగీకరించని ఆర్డర్ గురించి ఓనర్‌కి అలర్ట్ వెళ్తుంది.',
+  ]),
+  '/pos/:id/desk/menu': _H('Menu', 'మెనూ', [
+    'Say or type items with prices, tap Preview, check, then Save. Nothing is saved before you confirm.',
+    'Say "today only" for a special; switch an item OFF when it is finished for today (back tomorrow).',
+  ], [
+    'ఐటమ్స్ ధరలతో చెప్పండి లేదా రాయండి, Preview నొక్కి చూసి, తర్వాత Save. నిర్ధారించే వరకు ఏదీ సేవ్ కాదు.',
+    'స్పెషల్‌కి "ఈ రోజు మాత్రమే" అనండి; అయిపోతే ఆ ఐటమ్ OFF చేయండి (రేపు మళ్ళీ వస్తుంది).',
+  ]),
+  '/pos/:id/desk/qr': _H('Shop / table QR', 'షాప్ / టేబుల్ QR', [
+    'Print these and stick one on each table and one at the shop door.',
+    'A customer types the code under the QR in "Order code" and the menu opens.',
+  ], [
+    'వీటిని ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
+    'కస్టమర్ QR కింద కోడ్‌ని "ఆర్డర్ కోడ్" లో రాస్తే మెనూ తెరుచుకుంటుంది.',
+  ]),
   '/pos/:id/tables': _H('Tables & KOT', 'టేబుల్స్ & KOT', [
     'Tap a table to open an order, add items, send the KOT, then bill.',
   ], [

@@ -6165,6 +6165,247 @@
       "history": [
         "2026-11-15: owner approved (1-2 s delay explained)"
       ]
+    },
+    {
+      "id": "front_desk_orders",
+      "name": "Front desk: QR menu, receptionist, one orders desk",
+      "purpose": "A customer opens the shop / table order code, sees today's menu, orders by voice or taps (receptionist), and follows the order live. The shop has ONE desk for table / shop-QR / counter / reception orders: accept with per-item availability, move stages, bill, delivery map pin. GST appears only if the shop is registered. ASKODOX never holds the money (the customer pays the shop's own UPI).",
+      "expected_behavior": "Order code ASKODOX-ORDER:<business>[:<table>] -> resolve (closed shop refuses, dine-in only with a table) -> place (idempotent client_txn_id, max 3 open per customer, delivery needs address or pin) -> staff accept (unavailable items struck, sold out for today) -> forward-only stages per kind -> bill through the POS core (cook cannot bill) -> done. An order not accepted in 60 s alerts the owner once. The customer can cancel only before acceptance. Strangers cannot read an order.",
+      "roles": [
+        "any signed-in user",
+        "owner",
+        "manager",
+        "cashier",
+        "kitchen",
+        "waiter",
+        "attendant"
+      ],
+      "domains": [
+        "pos",
+        "orders",
+        "restaurant"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/order-desk/resolve"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/order-desk/assist"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/order-desk/orders"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/order-desk/mine"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/order-desk/mine/{order_id}"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/order-desk/mine/{order_id}/cancel"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/orders"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders/{order_id}/confirm"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders/{order_id}/reject"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders/{order_id}/advance"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders/{order_id}/bill"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/qr"
+        }
+      ],
+      "ui": {
+        "routes": [
+          "/order-desk",
+          "/order-desk/enter",
+          "/order-desk/track/:oid",
+          "/pos/:id/desk",
+          "/pos/:id/desk/qr"
+        ],
+        "widget_keys": [
+          "askodoxOrderDesk",
+          "askodoxOrderPlace",
+          "askodoxOrderTrack",
+          "askodoxDeskAccept-",
+          "askodoxDeskBill-",
+          "askodoxDeskQr"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built (code ready, not phone verified)"
+      ]
+    },
+    {
+      "id": "front_desk_voice_menu",
+      "name": "Spoken menu: say items and prices, review, save",
+      "purpose": "The owner says or types the menu (any language, Telugu + English); the server previews (new / existing price change / today only) and only saves after the owner confirms. Today-only items show only that day; an item finished for today is back tomorrow.",
+      "expected_behavior": "parse never saves; import needs the products permission; GST % is the shop's own pick and only for registered shops; availability and today-only toggles are per item.",
+      "roles": [
+        "owner",
+        "manager",
+        "kitchen"
+      ],
+      "domains": [
+        "pos",
+        "restaurant"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/menu"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/parse"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/import"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/{product_id}/availability"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/{product_id}/today-only"
+        }
+      ],
+      "ui": {
+        "routes": [
+          "/pos/:id/desk/menu"
+        ],
+        "widget_keys": [
+          "askodoxDeskMenu",
+          "askodoxDeskMenuParse",
+          "askodoxDeskMenuSave"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_menu_voice.py",
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "front_desk_orders"
+      ],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built (code ready)"
+      ]
+    },
+    {
+      "id": "quick_bill_real",
+      "name": "Calculator bill becomes a real bill with advance and pending",
+      "purpose": "Typed lines + advance become a numbered POS invoice; GST only when the shop is registered; the unpaid rest is pending on the named customer.",
+      "expected_behavior": "Same client_txn_id = same bill; only owner / manager may bill at a different price than the item's; advance cannot exceed the bill; no payment and no customer is refused.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "domains": [
+        "pos",
+        "billing"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/quick-bill"
+        }
+      ],
+      "ui": {
+        "routes": [],
+        "widget_keys": [
+          "askodoxQuickBillSave",
+          "askodoxQuickBillAdvance",
+          "askodoxQuickBillSaved"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_quick_bill.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built (code ready)"
+      ]
+    },
+    {
+      "id": "business_identity_rules",
+      "name": "Business name rule + stop / close / turn on",
+      "purpose": "A business name is free for 15 days after first set, then each edit locks the name (30 days, then 60); the owner can pause or close a business and turn it on again; a business that is not open hides online listings and refuses self-shopping and the front desk.",
+      "expected_behavior": "Rule is one pure module shared by profile and POS; status open / paused / closed; nothing is deleted.",
+      "roles": [
+        "owner"
+      ],
+      "domains": [
+        "pos",
+        "profile"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/status"
+        }
+      ],
+      "ui": {
+        "routes": [],
+        "widget_keys": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_business_identity.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built (code ready)"
+      ]
     }
   ]
 }

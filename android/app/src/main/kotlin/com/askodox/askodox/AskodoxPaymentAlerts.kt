@@ -1101,9 +1101,21 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
             if (notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0) return
             val extras = notification.extras ?: return
             val title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
+            // Messaging apps (Google Messages, Samsung Messages ...) use a MessagingStyle notification: the new
+            // SMS sits in EXTRA_MESSAGES (newest last) and EXTRA_TEXT can say only "2 new messages". Only the
+            // NEWEST message is read, so an older payment in the same thread is never counted again.
+            val newest = try {
+                @Suppress("DEPRECATION")
+                val list = extras.getParcelableArray(android.app.Notification.EXTRA_MESSAGES)
+                (list?.lastOrNull() as? android.os.Bundle)?.getCharSequence("text")?.toString()
+            } catch (_: Exception) { null }
+            val lines = try {
+                extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)?.lastOrNull()?.toString()
+            } catch (_: Exception) { null }
             val text = listOfNotNull(
                 extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString(),
                 extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString(),
+                newest, lines,
             ).distinct().joinToString(" ")
             val whenMillis = if (notification.`when` > 0) notification.`when` else n.postTime
             AskodoxPaymentAlerts.handle(this, n.packageName, title, text, n.key ?: "${n.id}", whenMillis, cfgIn = cfg)
