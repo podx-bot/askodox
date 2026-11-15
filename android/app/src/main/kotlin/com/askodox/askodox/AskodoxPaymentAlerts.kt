@@ -312,7 +312,7 @@ object AskodoxPaymentAlerts {
             return done("quiet_hours")
         }
         if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
-        if (!claimVoice(context, amountFromText(text), System.currentTimeMillis())) {
+        if (!claimVoice(context, amountFromText(text), System.currentTimeMillis(), "remote")) {
             // This phone already announced this money from its own notification: stay silent, but confirm delivery.
             if (fromPush && businessId != null) ack(context, businessId, eventId, "announced")
             return done("duplicate")
@@ -328,17 +328,19 @@ object AskodoxPaymentAlerts {
     /**
      * Owner 2026-11-15: ONE payment must not be heard twice. The phone's own notification reading and the
      * bank / other-device push can both announce the same money (the push often arrives first). Whichever path
-     * speaks first records the amount; the other stays silent for 2 minutes (the same window the server uses to
-     * count the same amount as one payment). Returns true when this path may speak.
+     * speaks first records the amount; the OTHER path stays silent for 2 minutes. Two payments of the same amount
+     * through the same path (two notifications from the phone) are two payments and are both spoken.
+     * Returns true when this path may speak.
      */
     @Synchronized
-    private fun claimVoice(context: Context, amountPaise: Long?, now: Long): Boolean {
+    private fun claimVoice(context: Context, amountPaise: Long?, now: Long, path: String): Boolean {
         if (amountPaise == null || amountPaise <= 0) return true
         val p = prefs(context)
         val lastAmount = p.getLong("voice_amount", -1L)
         val lastAt = p.getLong("voice_at", 0L)
-        if (lastAmount == amountPaise && now - lastAt in 0..120_000L) return false
-        p.edit().putLong("voice_amount", amountPaise).putLong("voice_at", now).apply()
+        val lastPath = p.getString("voice_path", "") ?: ""
+        if (lastAmount == amountPaise && lastPath != path && now - lastAt in 0..120_000L) return false
+        p.edit().putLong("voice_amount", amountPaise).putLong("voice_at", now).putString("voice_path", path).apply()
         return true
     }
 
@@ -453,7 +455,7 @@ object AskodoxPaymentAlerts {
         val cal = Calendar.getInstance()
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
-        val mayVoice = quiet || test || claimVoice(context, amount, now)
+        val mayVoice = quiet || test || claimVoice(context, amount, now, "local")
         event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
         if (!quiet && mayVoice) speak(context, amount, test, localId, payer)

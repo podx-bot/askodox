@@ -77,15 +77,21 @@ def test_duplicate_by_reference_and_by_event_id(env):
     assert alerts.events(biz, OWNER, status="duplicate")["events"][0]["duplicates"] >= 1
 
 
-def test_same_payment_reported_twice_speaks_once(env):
-    """Owner 2026-11-14: one payment gave 2 notifications (PhonePe re-posted it a minute later)."""
+def test_same_amount_twice_from_one_phone_is_two_payments(env):
+    """Owner 2026-11-15: every payment is recorded -- Rs.1 twice a minute apart from the same phone + app = 2 rows."""
     _, alerts, biz, owner_dev, _, pushes, _, clock = env
     a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
     clock.now = clock.now + timedelta(minutes=1)
     b = alerts.report(biz, OWNER, _event(owner_dev, "2"))  # same amount, new notification key
+    assert a["id"] != b["id"] and not b["duplicate"]
+    assert alerts.events(biz, OWNER)["last_24h"]["count"] == 2
+
+
+def test_same_notification_key_is_never_two_payments(env):
+    _, alerts, biz, owner_dev, _, _, _, clock = env
+    a = alerts.report(biz, OWNER, _event(owner_dev, "1"))
+    b = alerts.report(biz, OWNER, _event(owner_dev, "1"))
     assert b["duplicate"] is True and b["id"] == a["id"]
-    assert len(pushes) == 1, "a second report of the same payment never alerts again"
-    assert alerts.events(biz, OWNER)["last_24h"]["count"] == 1
 
 
 def test_phone_and_razorpay_for_one_payment_are_one_event(env):
