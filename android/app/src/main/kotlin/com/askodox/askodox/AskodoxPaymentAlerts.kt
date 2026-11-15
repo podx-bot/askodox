@@ -267,7 +267,7 @@ object AskodoxPaymentAlerts {
 
     private fun markUploaded(context: Context, localId: String, serverId: String?, error: String?) =
         update(context, localId) { e ->
-            if (serverId != null) e.put("server_id", serverId)
+            if (serverId != null) { e.put("server_id", serverId); e.remove("upload_note") }
             if (error != null) e.put("upload_error", error)
         }
 
@@ -422,7 +422,7 @@ object AskodoxPaymentAlerts {
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
         if (!quiet) speak(context, amount, test, localId, payer)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
-        if (!test) upload(context, localId)
+        if (!test) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
             "amountPaise" to amount, "spoken" to !quiet)
     }
@@ -440,45 +440,87 @@ object AskodoxPaymentAlerts {
         }
     }
 
-    /** Best effort, off the main thread: the app syncs anything left pending when it opens. */
-    private fun upload(context: Context, localId: String) {
+    /**
+     * Off the main thread. A payment that was SPOKEN must also reach the history: when the server cannot be reached
+     * (offline, 5xx, an expired sign-in, rate limit) the upload is tried again after 20 s, 1, 3, 9 and 27 minutes,
+     * and every new payment re-tries anything still waiting. Only a real refusal (4xx) stops, and it is kept on the
+     * event as `upload_error` so the history can show why. The server is idempotent on client_event_id.
+     */
+    private fun upload(context: Context, localId: String, attempt: Int = 0) {
         io.execute {
+            var done = false
             try {
                 val cfg = config(context)
                 val base = cfg.optString("base_url").trimEnd('/')
                 val token = cfg.optString("token")
                 val biz = cfg.optString("business_id")
-                if (base.isEmpty() || token.isEmpty() || biz.isEmpty()) return@execute
-                Thread.sleep(2500) // let the announcement finish so "spoken" is final
-                val e = events(context).let { list ->
-                    (0 until list.length()).map { list.getJSONObject(it) }.firstOrNull { it.optString("local_id") == localId }
-                } ?: return@execute
-                val body = JSONObject()
-                for (k in listOf("client_event_id", "source_app", "amount_paise", "reference", "detected_at", "reason")) {
-                    if (e.has(k)) body.put(k, e.get(k))
+                if (base.isEmpty() || token.isEmpty() || biz.isEmpty()) {
+                    markUploadNote(context, localId, "not_configured")
+                } else {
+                    if (attempt == 0) Thread.sleep(2500) // let the announcement finish so "spoken" is final
+                    val e = events(context).let { list ->
+                        (0 until list.length()).map { list.getJSONObject(it) }.firstOrNull { it.optString("local_id") == localId }
+                    }
+                    if (e == null || e.has("server_id") || e.has("upload_error")) {
+                        done = true
+                    } else {
+                        val body = JSONObject()
+                        for (k in listOf("client_event_id", "source_app", "amount_paise", "reference", "detected_at", "reason")) {
+                            if (e.has(k)) body.put(k, e.get(k))
+                        }
+                        val spoken = e.optString("spoken")
+                        if (spoken != "pending") body.put("spoken", spoken)
+                        val device = cfg.optJSONObject("device_ids")?.optString(biz)?.takeIf { it.isNotEmpty() }
+                            ?: cfg.optString("device_id")
+                        if (device.isNotEmpty()) body.put("device_id", device)
+                        val conn = URL("$base/api/pos/businesses/$biz/payment-alerts/events").openConnection() as HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.connectTimeout = 15000
+                        conn.readTimeout = 15000
+                        conn.doOutput = true
+                        conn.setRequestProperty("Content-Type", "application/json")
+                        conn.setRequestProperty("Authorization", "Bearer $token")
+                        conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                        val code = conn.responseCode
+                        if (code == 200) {
+                            val text = conn.inputStream.bufferedReader().use { it.readText() }
+                            markUploaded(context, localId, JSONObject(text).optString("id"), null)
+                            done = true
+                        } else if (code in 400..499 && code != 401 && code != 429) {
+                            markUploaded(context, localId, null, "http_$code")
+                            done = true
+                        } else {
+                            markUploadNote(context, localId, "http_$code")
+                        }
+                        conn.disconnect()
+                    }
                 }
-                val spoken = e.optString("spoken")
-                if (spoken != "pending") body.put("spoken", spoken)
-                if (cfg.optString("device_id").isNotEmpty()) body.put("device_id", cfg.optString("device_id"))
-                val conn = URL("$base/api/pos/businesses/$biz/payment-alerts/events").openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.connectTimeout = 15000
-                conn.readTimeout = 15000
-                conn.doOutput = true
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("Authorization", "Bearer $token")
-                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-                val code = conn.responseCode
-                if (code == 200) {
-                    val text = conn.inputStream.bufferedReader().use { it.readText() }
-                    markUploaded(context, localId, JSONObject(text).optString("id"), null)
-                } else if (code in 400..499 && code != 401 && code != 429) {
-                    markUploaded(context, localId, null, "http_$code")
-                }
-                conn.disconnect()
             } catch (_: Exception) {
-                // offline: stays pending; the app retries when it opens
+                markUploadNote(context, localId, "offline")
             }
+            if (!done && attempt < 5) {
+                var wait = 20_000L
+                repeat(attempt) { wait *= 3 }
+                main.postDelayed({ upload(context, localId, attempt + 1) }, wait)
+            }
+        }
+    }
+
+    /** Why the last upload try did not finish (kept until it does); the history shows it. */
+    private fun markUploadNote(context: Context, localId: String, note: String) =
+        update(context, localId) { e -> e.put("upload_note", note) }
+
+    /** Every new payment also pushes older ones that are still waiting (a phone that was offline or signed out). */
+    private fun retryPending(context: Context, exceptId: String) {
+        val now = System.currentTimeMillis()
+        val list = events(context)
+        for (i in 0 until list.length()) {
+            val e = list.getJSONObject(i)
+            val id = e.optString("local_id")
+            if (id == exceptId || e.has("server_id") || e.has("upload_error") || e.optBoolean("test")) continue
+            val madeAt = id.removePrefix("pa-").substringBefore("-").toLongOrNull() ?: 0L
+            if (now - madeAt < 60_000L) continue
+            upload(context, id, 1)
         }
     }
 

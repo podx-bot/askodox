@@ -1085,9 +1085,35 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(te ? 'ఇంకా అలర్ట్స్ లేవు.' : 'No alerts yet.', key: const Key('askodoxPayAlertEmpty')),
             ),
+          // Owner 2026-11-15: a payment this phone SPOKE must always have a row, even when the server did not
+          // take it (yet): shown first with the reason, never silently missing.
+          if (_filter.isEmpty && _query.isEmpty)
+            for (final l in _local.reversed.where((l) => l['server_id'] == null && l['test'] != true))
+              _phoneOnlyTile(l, te),
           for (final e in _events) _eventTile(e, te),
         ]),
       ),
+    );
+  }
+
+  Widget _phoneOnlyTile(AskodoxJson l, bool te) {
+    final err = '${l['upload_error'] ?? ''}';
+    final note = '${l['upload_note'] ?? ''}';
+    final (spEn, spTe) = askodoxSpokenLabel('${l['spoken'] ?? ''}');
+    final why = err.isNotEmpty
+        ? (te ? 'సర్వర్ తీసుకోలేదు ($err)' : 'The server did not take it ($err)')
+        : (te ? 'ఇంకా సర్వర్‌కి పంపలేదు — మళ్ళీ ప్రయత్నిస్తోంది${note.isEmpty ? '' : ' ($note)'}' : 'Not sent to the server yet — retrying${note.isEmpty ? '' : ' ($note)'}');
+    return ListTile(
+      key: ValueKey('askodoxPayAlertLocal-${l['local_id']}'),
+      contentPadding: EdgeInsets.zero,
+      leading: const CircleAvatar(backgroundColor: Color(0x1FB45309), child: Icon(Icons.phone_android, color: Color(0xFFB45309))),
+      title: Text('${askodoxRupees(l['amount_paise'])} · ${l['source_label'] ?? l['source_app'] ?? ''}',
+          style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(why, style: const TextStyle(color: Color(0xFFB45309), fontSize: 12.5, fontWeight: FontWeight.w600)),
+        Text('${askodoxPayAlertTime(l['detected_at'])} · ${te ? 'వాయిస్' : 'Voice'}: ${te ? spTe : spEn} · ${te ? 'ఈ ఫోన్ మాత్రమే' : 'this phone only'}',
+            style: const TextStyle(fontSize: 12)),
+      ]),
     );
   }
 
@@ -1115,7 +1141,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           if (ref.isNotEmpty) 'Ref ••$ref',
           if ('${e['receiving_device'] ?? ''}'.isNotEmpty) '${e['receiving_device']}',
           '${te ? 'వాయిస్' : 'Voice'}: ${te ? spTe : spEn}',
-          if (askodoxPosInt(e['duplicates']) > 0) '${te ? 'డూప్లికేట్' : 'duplicate'} ×${e['duplicates']}',
+          if (askodoxPosInt(e['duplicates']) > 0)
+            te ? 'అదే మొత్తం మళ్ళీ ×${e['duplicates']} (2 నిమిషాల్లో — ఒక్కటిగా లెక్క)' : 'same amount again ×${e['duplicates']} (within 2 min — counted once)',
         ].join(' · '), style: const TextStyle(fontSize: 12)),
         if (askodoxPayAlertTimeline(e, te).isNotEmpty)
           Text(askodoxPayAlertTimeline(e, te),
