@@ -1,0 +1,22 @@
+name: zz analyze probe
+on:
+  push:
+    branches: [probe/analyze-front-desk]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Test
+        run: |
+          flutter test --reporter expanded > /tmp/t.txt 2>&1 || true
+          grep -nE "\[E\]|Some tests failed|All tests passed" /tmp/t.txt | head -20 | while IFS= read -r l; do echo "::warning::${l}"; done
+          grep -n -B2 -A14 "EXCEPTION CAUGHT\|Expected:\|Error:" /tmp/t.txt | head -120 | while IFS= read -r l; do echo "::warning::${l}"; done
+          echo "::warning::tests-done"
