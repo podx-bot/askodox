@@ -101,6 +101,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
+    // The apps / accounts / language settings live under "More settings" (collapsed by default).
+    await tester.ensureVisible(find.byKey(const Key('askodoxMineMore')));
+    await tester.tap(find.byKey(const Key('askodoxMineMore')));
+    await tester.pumpAndSettle();
     // remove an app
     await tester.ensureVisible(find.byKey(const ValueKey('askodoxMineAppDelete-com.example.bank')));
     await tester.tap(find.byKey(const ValueKey('askodoxMineAppDelete-com.example.bank')));
@@ -178,6 +182,10 @@ void main() {
     await tester.pumpAndSettle();
     expect((lastConfig['apps'] as Map).containsKey('com.google.android.apps.messaging'), isTrue);
     // found apps: add all
+    // The apps / accounts / language settings live under "More settings" (collapsed by default).
+    await tester.ensureVisible(find.byKey(const Key('askodoxMineMore')));
+    await tester.tap(find.byKey(const Key('askodoxMineMore')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('askodoxMineFoundAll')));
     await tester.tap(find.byKey(const Key('askodoxMineFoundAll')));
     await tester.pumpAndSettle();

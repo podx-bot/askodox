@@ -267,6 +267,10 @@ class _AskodoxPrimaryHomeScreenState
   bool _talkPaused = false;
   /// Why the voice conversation is waiting (shown INSIDE the full-screen overlay: a snackbar would be hidden under it).
   String? _talkNote;
+  // Where a voice turn's time goes (shown small in the talk overlay so a slow step is visible, owner 2026-11-16).
+  DateTime? _tHeard;
+  DateTime? _tTranscribed;
+  String? _talkTiming;
   DateTime? _talkIdleSince;
   Timer? _talkLoop;
   // Drawn in the ROOT overlay so it covers the whole screen (header and bottom bar too).
@@ -599,9 +603,11 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     setState(() => _voicePhase = _VoicePhase.transcribing);
+    _tHeard = DateTime.now();
     final transcript = await ref
         .read(askodoxVoiceTranscriptionServiceProvider)
         .transcribeFile(path, locale: _lang);
+    _tTranscribed = DateTime.now();
     if (!mounted) return;
     if (transcript == null) {
       setState(() => _voicePhase = _VoicePhase.idle);
@@ -3740,6 +3746,7 @@ class _AskodoxPrimaryHomeScreenState
       userText: userText,
       uiTelugu: _te,
     );
+    _markReplyReady();
     if (mounted) setState(() => _voicePhase = _VoicePhase.speaking);
     final lips = ref.read(askodoxCompanionVoiceProvider)..speechBegin(reply);
     try {
@@ -3833,6 +3840,7 @@ class _AskodoxPrimaryHomeScreenState
     _speechPaused = false;
     _pausedRemainder = null;
     bool current() => mounted && turn == _speechTurn && _voicePhase == _VoicePhase.speaking;
+    _markReplyReady();
     if (mounted) {
       setState(() {
         _voicePhase = _VoicePhase.speaking;
@@ -4144,6 +4152,20 @@ class _AskodoxPrimaryHomeScreenState
     unawaited(_startVoice());
   }
 
+  /// The answer text is ready (about to be spoken): remember how long hearing and answering took.
+  void _markReplyReady() {
+    final heard = _tHeard;
+    final text = _tTranscribed;
+    if (!_talkMode || heard == null || text == null) return;
+    String sec(Duration d) => (d.inMilliseconds / 1000).toStringAsFixed(1);
+    final now = DateTime.now();
+    _talkTiming = _te
+        ? 'అక్షరాలుగా ${sec(text.difference(heard))}s · సమాధానం ${sec(now.difference(text))}s'
+        : 'Hearing ${sec(text.difference(heard))}s · answer ${sec(now.difference(text))}s';
+    _tHeard = null;
+    _tTranscribed = null;
+  }
+
   Future<void> _exitTalkMode() async {
     _talkLoop?.cancel();
     _talkLoop = null;
@@ -4235,6 +4257,12 @@ class _AskodoxPrimaryHomeScreenState
               ),
             ),
             Text(label, key: const Key('askodoxTalkStatus'), style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+            if (_talkTiming != null && _talkNote == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
+                child: Text(_talkTiming!, key: const Key('askodoxTalkTiming'), textAlign: TextAlign.center,
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5)),
+              ),
             if (_talkNote != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),

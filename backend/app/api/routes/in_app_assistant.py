@@ -499,8 +499,14 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
     if _feature_enabled(container, "voice.elevenlabs_tts"):
         eleven = _elevenlabs(container)
         if eleven.configured:
+            import time as _time
+
+            started = _time.monotonic()
             spoken = eleven.synthesize(payload.text, voice=payload.voice, locale=payload.locale)
             _observe_elevenlabs(spoken)
+            # Where a spoken turn's time goes (owner 2026-11-16: talk felt slow): chars + ms, no text.
+            logger.info("in_app_voice_speak path=elevenlabs chars=%d ms=%d ok=%s", len(payload.text),
+                        int((_time.monotonic() - started) * 1000), bool(spoken.get("success")))
             if spoken.get("success") and spoken.get("content"):
                 return Response(
                     content=bytes(spoken["content"]),
