@@ -57,7 +57,16 @@ object AskodoxPaymentAlerts {
                     "status" -> result.success(status(app))
                     "configure" -> {
                         val json = call.argument<String>("config") ?: "{}"
-                        prefs(app).edit().putString("config", JSONObject(json).toString()).apply()
+                        val next = JSONObject(json)
+                        // Owner 2026-11-15: a phone can belong to several shops (its own + a shop where the person is
+                        // staff). Keep THIS phone's device id for EVERY shop it opened, so an alert pushed from any of
+                        // them is acknowledged with that shop's own device id (one id for all -> 403 "not your device").
+                        val ids = config(app).optJSONObject("device_ids") ?: JSONObject()
+                        val biz = next.optString("business_id")
+                        val dev = next.optString("device_id")
+                        if (biz.isNotEmpty() && dev.isNotEmpty()) ids.put(biz, dev)
+                        next.put("device_ids", ids)
+                        prefs(app).edit().putString("config", next.toString()).apply()
                         requestRebind(app)
                         CloudVoice.prefetch(app, JSONObject(json)) // the fixed words, once per voice / language
                         result.success(status(app))
@@ -309,7 +318,8 @@ object AskodoxPaymentAlerts {
                 val cfg = config(context)
                 val base = cfg.optString("base_url").trimEnd('/')
                 val token = cfg.optString("token")
-                val device = cfg.optString("device_id")
+                val device = cfg.optJSONObject("device_ids")?.optString(businessId)?.takeIf { it.isNotEmpty() }
+                    ?: (if (cfg.optString("business_id") == businessId) cfg.optString("device_id") else "")
                 if (base.isEmpty() || token.isEmpty() || device.isEmpty()) return@execute
                 val conn = URL("$base/api/pos/businesses/$businessId/payment-alerts/events/$eventId/ack")
                     .openConnection() as HttpURLConnection
