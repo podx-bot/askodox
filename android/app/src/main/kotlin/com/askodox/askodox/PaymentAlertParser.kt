@@ -140,6 +140,15 @@ object PaymentAlertParser {
     fun announcement(amountPaise: Long?, language: String, test: Boolean = false, payer: String? = null,
                      shop: String? = null): String = announcementParts(amountPaise, language, test, payer, shop).joinToString(" ")
 
+    private val BUSINESS_WORDS = Regex(
+        """(?i)\b(shop|store|stores|mart|traders?|trading|enterprises?|agencies|agency|hotel|restaurant|mess|bakery|medicals?|pharmacy|"""
+            + """clinic|hospital|garage|motors?|electricals?|electronics|textiles?|cloth|fashions?|jewell?ers?|jewell?ery|supermarket|"""
+            + """provisions?|kirana|general|centre|center|services?|solutions|company|co|ltd|pvt|llp|brothers|bros|sons|and sons|&)\b|"""
+            + """(షాప్|స్టోర్|మార్ట్|ట్రేడర్స్|ఎంటర్ప్రైజెస్|హోటల్|మెడికల్స్|మెడికల్|బ్రదర్స్)""")
+
+    /** Owner 2026-11-15: "please visit again" only to a SHOP; a person's name just gets the thanks. */
+    fun looksLikeBusiness(name: String?): Boolean = name != null && BUSINESS_WORDS.containsMatchIn(name)
+
     /**
      * The thank-you the shop speaks to the customer (owner 2026-11-13): "Thank you <name> garu, 30 rupees reached
      * <shop>, thank you, please come again". Split into parts so the cloud voice can keep the parts that never
@@ -163,31 +172,32 @@ object PaymentAlertParser {
         val paise = amountPaise % 100
         val name = payer?.trim()?.takeIf { it.isNotEmpty() }
         val place = shop?.trim()?.take(40)?.takeIf { it.isNotEmpty() }
+        val again = looksLikeBusiness(name)
         when (language) {
             "te" -> {
                 parts += if (name != null) "థ్యాంక్ యూ $name గారు." else "థ్యాంక్ యూ."
                 parts += "$rupees రూపాయలు" + (if (paise > 0) " $paise పైసలు" else "")
                 parts += if (place != null) "$place కి అందాయి." else "మాకు అందాయి."
-                parts += "ధన్యవాదాలు, మళ్ళీ విచ్చేయండి."
+                if (again) parts += "ధన్యవాదాలు, మళ్ళీ విచ్చేయండి."
             }
             "hi" -> {
                 parts += if (name != null) "धन्यवाद $name जी।" else "धन्यवाद।"
                 parts += "$rupees रुपये" + (if (paise > 0) " $paise पैसे" else "")
                 parts += if (place != null) "$place को मिल गए।" else "हमें मिल गए।"
-                parts += "फिर से पधारिए।"
+                if (again) parts += "फिर से पधारिए।"
             }
             "en" -> {
                 parts += if (name != null) "Thank you $name." else "Thank you."
                 parts += "$rupees rupees" + (if (paise > 0) " $paise paise" else "")
                 parts += if (place != null) "received at $place." else "received."
-                parts += "Please visit again."
+                if (again) parts += "Please visit again."
             }
             else -> {
                 val w = words ?: WORDS.getValue("en_fallback")
                 parts += if (name != null) w.thanksName.replace("{name}", name) else w.thanks
                 parts += w.rupees.replace("{n}", "$rupees") + (if (paise > 0) " " + w.paise.replace("{n}", "$paise") else "")
                 parts += if (place != null) w.reachedAt.replace("{place}", place) else w.reached
-                parts += w.again
+                if (again) parts += w.again
             }
         }
         return parts
