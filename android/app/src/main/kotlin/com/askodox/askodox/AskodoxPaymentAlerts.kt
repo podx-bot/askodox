@@ -145,7 +145,16 @@ object AskodoxPaymentAlerts {
     fun listenerAllowed(context: Context): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
-    private fun requestRebind(context: Context) {
+    /**
+     * Owner 2026-11-15: after a Play update Android (Samsung and others) can leave the listener unbound until the
+     * person toggles notification access. Ask the system to bind it again whenever this app starts, is updated,
+     * or the listener is disconnected -- not only when the alerts screen is opened.
+     */
+    fun rebindIfEnabled(context: Context) {
+        if (config(context).optBoolean("enabled", false)) requestRebind(context)
+    }
+
+    fun requestRebind(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && listenerAllowed(context)) {
             try {
                 NotificationListenerService.requestRebind(ComponentName(context, AskodoxPaymentAlertListener::class.java))
@@ -795,6 +804,7 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         AskodoxPaymentAlerts.prefs(this).edit().putLong("listener_disconnected_at", System.currentTimeMillis()).apply()
+        AskodoxPaymentAlerts.rebindIfEnabled(this)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -891,5 +901,14 @@ private fun showPaymentNotification(context: Context, eventId: String, title: St
         NotificationManagerCompat.from(context).notify("payalert", eventId.hashCode(), notification)
     } catch (_: SecurityException) {
         // notifications not allowed: the voice still plays
+    }
+}
+
+/** After this app is updated from Play, bind the payment listener again (it is not always rebound by the system). */
+class AskodoxPaymentAlertsReceiver : android.content.BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: android.content.Intent?) {
+        if (intent?.action == android.content.Intent.ACTION_MY_PACKAGE_REPLACED) {
+            AskodoxPaymentAlerts.rebindIfEnabled(context)
+        }
     }
 }
