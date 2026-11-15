@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,7 +50,12 @@ Widget _app(_Api api, DateTime now) => ProviderScope(
 String _at(DateTime local) => local.toUtc().toIso8601String();
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    // The phone side (this phone's own payment history) answers "nothing yet" in tests.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('com.askodox.app/payment_alerts'), (call) async => null);
+  });
 
   test('rupees use Indian digit grouping', () {
     expect(askodoxRupees(0), '₹0');

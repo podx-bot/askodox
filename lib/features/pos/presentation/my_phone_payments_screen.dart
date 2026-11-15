@@ -112,8 +112,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
         ],
       ),
     );
-    c.dispose();
-    return out;
+    return out; // the dialog's exit animation still reads the controller: it is garbage collected, not disposed
   }
 
   Future<void> _toggle(bool on) async {
