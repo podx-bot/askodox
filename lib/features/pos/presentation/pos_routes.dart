@@ -5,6 +5,8 @@ import 'pos_agent_screens.dart';
 import 'pos_catalogue_screens.dart';
 import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
+import 'pos_frontdesk_screens.dart';
+import 'pos_frontdesk_staff_screens.dart';
 import 'pos_home_screen.dart';
 import 'my_payment_alerts_screen.dart';
 import 'my_phone_payments_screen.dart';
@@ -33,6 +35,17 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
       path: '/me/payment-alerts/:id/:view',
       builder: (context, state) =>
           AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!, view: state.pathParameters['view']!)),
+];
+
+/// Front desk (owner 2026-11-15: receptionist / waiter flow brings users, so it is in Phase 1 too): the customer's
+/// QR menu + receptionist + live order, and the shop's one orders desk / menu / QR.
+final askodoxFrontDeskRoutes = <GoRoute>[
+  GoRoute(path: '/order-desk', builder: (context, state) => AskodoxOrderDeskScreen(code: state.uri.queryParameters['code'] ?? '')),
+  GoRoute(path: '/order-desk/enter', builder: (context, state) => const AskodoxOrderCodeScreen()),
+  GoRoute(path: '/order-desk/track/:oid', builder: (context, state) => AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)),
+  GoRoute(path: '/desk/:id', builder: (context, state) => AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/desk/:id/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/desk/:id/qr', builder: (context, state) => AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)),
 ];
 
 final askodoxPosRoutes = <GoRoute>[

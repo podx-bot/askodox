@@ -633,7 +633,9 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
 
   Widget _businessBody() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AskodoxGuidedField(fieldKey: const Key('askodoxEditShop'), controller: _shop,
-            label: _t('Business / shop name', 'వ్యాపారం / షాప్ పేరు'), guide: AskodoxFieldGuides.shopName),
+            label: _t('Business / shop name', 'వ్యాపారం / షాప్ పేరు'), guide: AskodoxFieldGuides.shopName,
+            enabled: p.businessNameChange?.canChange ?? true,
+            helper: p.businessName == null ? null : p.businessNameChange?.text(widget.telugu)),
         AskodoxGuidedField(fieldKey: const Key('askodoxEditCategory'), controller: _category,
             label: _t('Category / service', 'విభాగం / సర్వీస్'), guide: AskodoxFieldGuides.category),
         TextField(

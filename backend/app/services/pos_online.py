@@ -119,7 +119,8 @@ class PosOnline:
             linked = {r[0] for r in conn.execute("SELECT product_id FROM pos_online_links WHERE business_id = ?",
                                                  (business_id,))}
         for product in rows:
-            wanted = product["active"] and effective_channel(dict(product), business["online_default"]) != "pos"
+            wanted = (product["active"] and (business["status"] or "open") == "open"
+                      and effective_channel(dict(product), business["online_default"]) != "pos")
             if not wanted and product["id"] not in linked:
                 continue  # never published, still not wanted: nothing to do
             try:
@@ -138,7 +139,8 @@ class PosOnline:
         db = self.store.db_path
         owner = business["owner_user_id"]
         now = datetime.now(timezone.utc).isoformat()
-        wanted = product["active"] and effective_channel(dict(product), business["online_default"]) in ("online", "both")
+        wanted = (product["active"] and (business["status"] or "open") == "open"
+                  and effective_channel(dict(product), business["online_default"]) in ("online", "both"))
         with sqlite3.connect(db) as conn:
             conn.row_factory = sqlite3.Row
             link = conn.execute("SELECT * FROM pos_online_links WHERE business_id = ? AND product_id = ?",

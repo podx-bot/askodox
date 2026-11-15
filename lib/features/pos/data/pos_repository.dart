@@ -97,6 +97,47 @@ class AskodoxPosRepository {
   Future<AskodoxJson> createBusiness(AskodoxJson body) => _send('POST', '/api/pos/businesses', body: body);
   Future<AskodoxJson> business(String id) => _send('GET', _b(id));
   /// Shop name only (owner 2026-11-14: a typo at creation must be fixable). Backend: PATCH /businesses/{id}.
+  /// Owner only: open | paused | closed (listings hide, self-shopping / table QR refuse; nothing is deleted).
+  Future<AskodoxJson> setBusinessStatus(String id, String status, {String note = ''}) =>
+      _send('POST', '${_b(id)}/status', body: {'status': status, 'note': note});
+  // ---- Front desk (pos_frontdesk.py): QR menu -> customer order -> kitchen -> bill. Customer calls need only sign-in.
+  Future<AskodoxJson> deskResolve(String code) => _send('GET', '/api/pos/order-desk/resolve', query: {'code': code});
+  Future<AskodoxJson> deskAssist(String code, String text, List<AskodoxJson> cart, {bool te = true}) =>
+      _send('POST', '/api/pos/order-desk/assist', body: {'code': code, 'text': text, 'cart': cart, 'te': te});
+  Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
+  Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
+  Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
+  Future<AskodoxJson> deskCancelMine(String id) => _send('POST', '/api/pos/order-desk/mine/$id/cancel');
+  Future<AskodoxJson> deskOrders(String biz, {String lane = 'active'}) =>
+      _send('GET', '${_b(biz)}/desk/orders', query: {'lane': lane});
+  Future<AskodoxJson> deskStaffPlace(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/desk/orders', body: body);
+  Future<AskodoxJson> deskConfirm(String biz, String id, Map<String, bool> decisions) =>
+      _send('POST', '${_b(biz)}/desk/orders/$id/confirm', body: {'decisions': decisions});
+  Future<AskodoxJson> deskReject(String biz, String id, String reason) =>
+      _send('POST', '${_b(biz)}/desk/orders/$id/reject', body: {'reason': reason});
+  Future<AskodoxJson> deskAdvance(String biz, String id, String stage, {String assignee = ''}) =>
+      _send('POST', '${_b(biz)}/desk/orders/$id/advance', body: {'stage': stage, 'assignee': assignee});
+  Future<AskodoxJson> deskBill(String biz, String id, List<AskodoxJson> payments, {String? customerId}) =>
+      _send('POST', '${_b(biz)}/desk/orders/$id/bill',
+          body: {'payments': payments, 'client_txn_id': askodoxNewTxnId(), 'customer_id': customerId});
+  Future<AskodoxJson> deskAssign(String biz, String id, String who) =>
+      _send('POST', '${_b(biz)}/desk/orders/$id/assign', body: {'assignee': who});
+  Future<AskodoxJson> deskCounterAssist(String biz, String text, List<AskodoxJson> cart, {bool te = true}) =>
+      _send('POST', '${_b(biz)}/desk/assist', body: {'text': text, 'cart': cart, 'te': te});
+  Future<AskodoxJson> deskMenu(String biz) => _send('GET', '${_b(biz)}/desk/menu');
+  Future<AskodoxJson> deskMenuParse(String biz, String text) => _send('POST', '${_b(biz)}/desk/menu/parse', body: {'text': text});
+  Future<AskodoxJson> deskMenuImport(String biz, List<AskodoxJson> items, {int rateBp = 0}) =>
+      _send('POST', '${_b(biz)}/desk/menu/import', body: {'items': items, 'rate_bp': rateBp});
+  Future<AskodoxJson> deskAvailability(String biz, String product, bool available) =>
+      _send('POST', '${_b(biz)}/desk/menu/$product/availability', body: {'available': available});
+  Future<AskodoxJson> deskTodayOnly(String biz, String product, bool todayOnly) =>
+      _send('POST', '${_b(biz)}/desk/menu/$product/today-only', body: {'today_only': todayOnly});
+  Future<AskodoxJson> deskQr(String biz) => _send('GET', '${_b(biz)}/desk/qr');
+  /// Speak-to-fill: the words said + the page's boxes -> {values: {key: value}} (nothing invented; server checks types).
+  Future<AskodoxJson> formFill(List<AskodoxJson> fields, String text, {String locale = 'te'}) =>
+      _send('POST', '/api/pos/form-fill', body: {'fields': fields, 'text': text, 'locale': locale});
+  /// The calculator bill as a REAL bill (items, GST only for a registered shop, advance, pending on the customer).
+  Future<AskodoxJson> quickBill(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/quick-bill', body: body);
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
   // Shop follows: any signed-in person, shop owners included (backend: routes/shop_follows.py).
   Future<AskodoxJson> shopState(String id) => _send('GET', '/api/shops/$id');

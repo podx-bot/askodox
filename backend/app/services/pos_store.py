@@ -28,7 +28,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
-from app.services import pos_tax
+from app.services import name_change_policy, pos_tax
 from app.services.account_identity import phone_key
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -188,7 +188,19 @@ MIGRATIONS = [
     # Quantity pricing: the least a customer may buy (base units); rates by quantity live in pos_price_tiers.
     ("pos_products", "min_qty_milli", "INTEGER"),
     ("pos_products", "photo_at", "TEXT"),
+    # Open / paused / closed (owner 2026-11-15) and the business-name change rule (name_change_policy.py).
+    ("pos_businesses", "status", "TEXT NOT NULL DEFAULT 'open'"),
+    ("pos_businesses", "status_changed_at", "TEXT"),
+    ("pos_businesses", "status_note", "TEXT NOT NULL DEFAULT ''"),
+    ("pos_businesses", "name_set_at", "TEXT"),
+    ("pos_businesses", "name_edits", "INTEGER NOT NULL DEFAULT 0"),
+    ("pos_businesses", "name_locked_until", "TEXT"),
+    # Front desk (pos_frontdesk.py): an item shown only on one day (today's special) / finished for one day.
+    ("pos_products", "only_on", "TEXT"),
+    ("pos_products", "sold_out_on", "TEXT"),
 ]
+
+BUSINESS_STATUSES = ("open", "paused", "closed")
 
 # Selling units beyond the item's base unit (box of 12 pcs, 25 kg bag ...).
 EXTRA_SCHEMA = [
@@ -299,11 +311,11 @@ class PosStore:
         with self._tx() as conn:
             conn.execute(
                 "INSERT INTO pos_businesses (id, owner_user_id, name, address, phone, gstin, state_code,"
-                " registration_type, turnover_above_5cr, template, invoice_prefix, round_off, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " registration_type, turnover_above_5cr, template, invoice_prefix, round_off, created_at, updated_at,"
+                " name_set_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (business_id, owner, name, _clean(data.get("address"), 240), _clean(data.get("phone"), 20), gstin,
                  state, reg, 1 if data.get("turnover_above_5cr") else 0, template, prefix,
-                 1 if data.get("round_off") else 0, now, now))
+                 1 if data.get("round_off") else 0, now, now, now))
             conn.execute("INSERT INTO pos_members (business_id, phone_key, app_user_id, role, active, added_by,"
                          " created_at) VALUES (?, ?, ?, 'owner', 1, ?, ?)",
                          (business_id, phone_key(owner) or owner, owner, owner, now))
@@ -350,16 +362,44 @@ class PosStore:
         row["state"] = pos_tax.STATE_CODES.get(row["state_code"], "")
         row["my_role"] = role
         row["permissions"] = sorted(PERMISSIONS[role])
+        row["name_change"] = self._name_change(row)
         row["rules"] = {"version": pos_tax.RULES_VERSION, "einvoice_note": (
             "E-invoicing (IRN) applies above Rs 5 crore aggregate turnover; ASKODOX does not generate IRNs yet."
             if row["turnover_above_5cr"] else "")}
         return row
 
+    def _name_change(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        state = {"set_at": row.get("name_set_at") or row.get("created_at"), "edits": row.get("name_edits") or 0,
+                 "locked_until": row.get("name_locked_until")}
+        return name_change_policy.evaluate(state, self.clock())
+
+    def set_status(self, business_id: str, user: str, status: str, note: str = "") -> Dict[str, Any]:
+        """Owner only: open / paused (a short break) / closed (shut down, history kept). Reopening is always possible.
+        A paused or closed business takes no new customer orders (online listings hidden, self-shopping / table QR
+        refused); the counter and every record stay available to the owner."""
+        if status not in BUSINESS_STATUSES:
+            raise PosError(400, "status", "Status must be open, paused or closed.")
+        with self._tx() as conn:
+            role = self._require(conn, business_id, user, "view")
+            if role != "owner":
+                raise PosError(403, "permission", "Only the owner can open, pause or close the business.", role=role)
+            now = self.clock().isoformat()
+            conn.execute("UPDATE pos_businesses SET status = ?, status_changed_at = ?, status_note = ?, updated_at = ?"
+                         " WHERE id = ?", (status, now, _clean(note, 160), now, business_id))
+            self._audit(conn, business_id, user, "business.status", business_id, {"status": status}, now)
+        return self.business(business_id, user)  # the route re-syncs the online listings
+
+
+    def is_open(self, business_id: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute("SELECT status FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+        return bool(row) and (row["status"] or "open") == "open"
+
     def my_businesses(self, user: str) -> List[Dict[str, Any]]:
         key = phone_key(user)
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT b.id, b.name, b.template, b.registration_type, m.role FROM pos_members m"
+                "SELECT b.id, b.name, b.template, b.registration_type, b.status, b.status_note, m.role FROM pos_members m"
                 " JOIN pos_businesses b ON b.id = m.business_id WHERE m.active = 1 AND (m.app_user_id = ?"
                 " OR (length(?) >= 10 AND m.phone_key = ?)) ORDER BY b.created_at",
                 (user, key, key)).fetchall()
@@ -372,6 +412,22 @@ class PosStore:
             changes = {k: _clean(data[k], allowed[k]) for k in allowed if k in data}
             if "name" in changes and not changes["name"]:
                 raise PosError(400, "name", "Business name is required.")
+            if "name" in changes:
+                current = dict(self._business_row(conn, business_id))
+                if changes["name"] == current["name"]:
+                    del changes["name"]  # the same name again is not a change
+                else:
+                    state = {"set_at": current.get("name_set_at") or current.get("created_at"),
+                             "edits": current.get("name_edits") or 0, "locked_until": current.get("name_locked_until")}
+                    now_dt = self.clock()
+                    verdict = name_change_policy.evaluate(state, now_dt)
+                    if not verdict["can_change"]:
+                        raise PosError(409, "name", name_change_policy.lock_message(verdict),
+                                       next_allowed_at=verdict["next_allowed_at"])
+                    new_state = name_change_policy.after_change(state, now_dt, True)
+                    changes["name_set_at"] = new_state["set_at"]
+                    changes["name_edits"] = new_state["edits"]
+                    changes["name_locked_until"] = new_state["locked_until"]
             if "round_off" in data:
                 changes["round_off"] = 1 if data["round_off"] else 0
             if "turnover_above_5cr" in data:

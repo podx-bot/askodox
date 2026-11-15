@@ -11,7 +11,10 @@ import '../../../core/share/askodox_image_share.dart';
 import '../../growth/data/growth_repository.dart' show AskodoxPlace;
 import '../../home/presentation/question_mic.dart';
 import '../../location/presentation/map_pin_picker.dart';
+import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../pos/data/pos_repository.dart';
+import '../../pos/domain/pos_money.dart' show askodoxParsePaise;
+import '../domain/name_change_rule.dart';
 
 bool _bizTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
 
@@ -55,6 +58,7 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
   String? _status;
   bool _busy = false;
   bool _failed = false;
+  bool _adding = false;
 
   @override
   void initState() {
@@ -108,6 +112,8 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
       await ref
           .read(askodoxPosRepositoryProvider)
           .createBusiness({'name': name, 'state_code': state, 'registration_type': 'unregistered'});
+      _name.clear();
+      _adding = false;
       await _load();
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -121,6 +127,116 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
         'submitted' => te ? 'వివరాలు ఇచ్చారు · ASKODOX చూస్తుంది' : 'Details given · ASKODOX will check',
         _ => te ? 'వివరాలు పూర్తి చేయండి' : 'Complete your details',
       };
+
+  /// The "start a business" boxes: used for the first business and for "Add another business".
+  List<Widget> _createFields(bool te) => [
+          Text(te ? 'మీ బిజినెస్ పేరు చెప్పండి' : 'Tell us your business name',
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('askodoxMyBusinessName'),
+            controller: _name,
+            maxLength: 80,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+                labelText: te ? 'షాప్ / బిజినెస్ పేరు' : 'Shop / business name', border: const OutlineInputBorder()),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            key: const Key('askodoxMyBusinessState'),
+            initialValue: _state,
+            isExpanded: true,
+            decoration:
+                InputDecoration(labelText: te ? 'రాష్ట్రం' : 'State', border: const OutlineInputBorder()),
+            items: [
+              for (final entry in _states.entries)
+                DropdownMenuItem<String>(value: entry.key, child: Text('${entry.value}')),
+            ],
+            onChanged: (value) => setState(() => _state = value),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _busy || _name.text.trim().isEmpty || _state == null ? null : _create,
+            child: Text(te ? 'మొదలుపెట్టండి' : 'Start'),
+          ),
+      ];
+
+  String _shopLabel(AskodoxJson b, bool te) {
+    final status = '${b['status'] ?? 'open'}';
+    return status == 'open' ? '${b['name']}' : '${b['name']} · ${_statusLabel(status, te)}';
+  }
+
+  String _statusLabel(String status, bool te) => switch (status) {
+        'paused' => te ? 'విరామంలో' : 'Paused',
+        'closed' => te ? 'మూసివేశారు' : 'Closed',
+        _ => te ? 'తెరిచి ఉంది' : 'Open',
+      };
+
+  Future<void> _setStatus(String id, String status, bool te) async {
+    final note = TextEditingController();
+    final ok = status == 'open'
+        ? true
+        : await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(status == 'paused'
+                  ? (te ? 'బిజినెస్‌కు విరామం ఇవ్వాలా?' : 'Pause this business?')
+                  : (te ? 'బిజినెస్ మూసివేయాలా?' : 'Close this business?')),
+              content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(te
+                    ? 'కస్టమర్లకు కొత్త ఆర్డర్లు ఆగిపోతాయి (ఆన్‌లైన్ లిస్టింగ్లు దాగుతాయి, QR / కోడ్ పనిచేయదు). మీ బిల్లులు, లెక్కలు, కస్టమర్లు అలాగే ఉంటాయి. ఎప్పుడైనా మళ్ళీ తెరవవచ్చు.'
+                    : 'New customer orders stop (online listings hide, the QR / code stops working). Your bills, accounts and customers stay. You can open it again any time.'),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const Key('askodoxBizStatusNote'),
+                  controller: note,
+                  maxLength: 160,
+                  decoration: InputDecoration(
+                      labelText: te ? 'కారణం (ఐచ్ఛికం)' : 'Reason (optional)', border: const OutlineInputBorder()),
+                ),
+              ]),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+                FilledButton(
+                    key: const Key('askodoxBizStatusConfirm'),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text(status == 'paused' ? (te ? 'విరామం' : 'Pause') : (te ? 'మూసివేయి' : 'Close'))),
+              ],
+            ),
+          );
+    final reason = note.text.trim();
+    note.dispose();
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(askodoxPosRepositoryProvider).setBusinessStatus(id, status, note: reason);
+      await _load();
+    } on AskodoxPosException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message(te))));
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  Widget _statusCard(String id, String status, bool te) => Card(
+        key: const Key('askodoxBusinessStatus'),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(te ? 'బిజినెస్ స్థితి: ${_statusLabel(status, te)}' : 'Business status: ${_statusLabel(status, te)}',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              for (final s in const ['open', 'paused', 'closed'])
+                ChoiceChip(
+                  key: Key('askodoxBizStatus-$s'),
+                  label: Text(_statusLabel(s, te)),
+                  selected: status == s,
+                  onSelected: status == s ? null : (_) => _setStatus(id, s, te),
+                ),
+            ]),
+          ]),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -152,35 +268,7 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
             ),
             const SizedBox(height: 12),
           ],
-          Text(te ? 'మీ బిజినెస్ పేరు చెప్పండి' : 'Tell us your business name',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          TextField(
-            key: const Key('askodoxMyBusinessName'),
-            controller: _name,
-            maxLength: 80,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-                labelText: te ? 'షాప్ / బిజినెస్ పేరు' : 'Shop / business name', border: const OutlineInputBorder()),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            key: const Key('askodoxMyBusinessState'),
-            initialValue: _state,
-            isExpanded: true,
-            decoration:
-                InputDecoration(labelText: te ? 'రాష్ట్రం' : 'State', border: const OutlineInputBorder()),
-            items: [
-              for (final entry in _states.entries)
-                DropdownMenuItem<String>(value: entry.key, child: Text('${entry.value}')),
-            ],
-            onChanged: (value) => setState(() => _state = value),
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: _busy || _name.text.trim().isEmpty || _state == null ? null : _create,
-            child: Text(te ? 'మొదలుపెట్టండి' : 'Start'),
-          ),
+          ..._createFields(te),
           if (_failed) ...[
             const SizedBox(height: 8),
             Text(te ? 'సేవ్ కాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'Could not save. Try again.'),
@@ -217,7 +305,7 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
                     labelText: te ? 'ఏ బిజినెస్?' : 'Which business?', border: const OutlineInputBorder()),
                 items: [
                   for (final b in shops)
-                    DropdownMenuItem<String>(value: '${b['id']}', child: Text('${b['name']}')),
+                    DropdownMenuItem<String>(value: '${b['id']}', child: Text(_shopLabel(b, te))),
                 ],
                 onChanged: (value) {
                   setState(() => _selected = value);
@@ -230,17 +318,32 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
               padding: const EdgeInsets.all(8),
               child: Text('${current['name']}', style: Theme.of(context).textTheme.titleLarge),
             ),
+          _statusCard(id, '${current['status'] ?? 'open'}', te),
           tile('askodoxMyBusinessDetails', Icons.badge_outlined, te ? 'బిజినెస్ వివరాలు' : 'Business details',
               _statusText(te), '/me/business/$id/profile'),
           tile('askodoxMyBusinessBill', Icons.calculate_outlined, te ? 'బిల్లు చేయండి' : 'Make a bill',
               te ? 'మొత్తం వేసి, QR చూపండి, బిల్లు పంపండి' : 'Add amounts, show the QR, send the bill',
               '/me/business/$id/bill'),
+          tile('askodoxMyBusinessDesk', Icons.receipt_long_outlined, te ? 'ఆర్డర్స్ డెస్క్' : 'Orders desk',
+              te ? 'టేబుల్ / షాప్ QR ఆర్డర్లు, మెనూ, డెలివరీ' : 'Table / shop QR orders, menu, delivery', '/desk/$id'),
           tile('askodoxMyBusinessPost', Icons.campaign_outlined, te ? 'ఈ రోజు పోస్ట్' : "Today's post",
               te ? 'ఫాలోవర్లకు ఒక చిత్రం' : 'One picture for your followers', '/shops/$id/post'),
           tile('askodoxMyBusinessPage', Icons.storefront_outlined, te ? 'నా షాప్ పేజీ' : 'My shop page',
               te ? 'కస్టమర్లకు కనిపించేది' : 'What customers see', '/shops/$id'),
           tile('askodoxMyBusinessAccounts', Icons.qr_code_2, te ? 'నా QR / ఖాతాలు' : 'My QR / accounts',
               te ? 'డబ్బు నేరుగా మీకే వస్తుంది' : 'Money comes straight to you', '/me/payment-methods'),
+          const SizedBox(height: 8),
+          if (_adding) ...[
+            const Divider(),
+            ..._createFields(te),
+            TextButton(onPressed: () => setState(() => _adding = false), child: Text(te ? 'వద్దు' : 'Cancel')),
+          ] else
+            OutlinedButton.icon(
+              key: const Key('askodoxMyBusinessAdd'),
+              onPressed: () => setState(() => _adding = true),
+              icon: const Icon(Icons.add_business_outlined),
+              label: Text(te ? 'ఇంకో బిజినెస్ చేర్చండి' : 'Add another business'),
+            ),
         ],
       );
     }
@@ -292,6 +395,7 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
   // The shop name is typed (never spoken): a spoken name is where the wrong letters came from.
   final _name = TextEditingController();
   String _savedName = '';
+  AskodoxNameChange? _nameRule;
   final _catOther = TextEditingController();
   final _subOther = TextEditingController();
   String _lat = '';
@@ -341,6 +445,9 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
       _cats = await repo.shopCategories();
     } catch (_) {}
     try {
+      try {
+        _nameRule = AskodoxNameChange.fromJson((await repo.business(widget.businessId))['name_change']);
+      } catch (_) {}
       final shop = await repo.shopState(widget.businessId);
       _savedName = '${shop['name'] ?? ''}';
       _name.text = _savedName;
@@ -403,6 +510,13 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
         setState(() => _message = left == 0
             ? (te ? 'సేవ్ అయింది. ASKODOX చూసి నిర్ధారిస్తుంది.' : 'Saved. ASKODOX will check and verify.')
             : (te ? 'సేవ్ అయింది. ఇంకా $left తప్పనిసరి వివరాలు మిగిలాయి.' : 'Saved. $left required details are still empty.'));
+      }
+    } on AskodoxPosException catch (e) {
+      // The server's own reason (for example "name can be changed after 12 Dec") is shown as it is.
+      if (mounted) {
+        setState(() => _message = e.kind == 'conflict' && e.detail.isNotEmpty
+            ? e.detail
+            : (te ? 'సేవ్ కాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'Could not save. Try again.'));
       }
     } catch (_) {
       if (mounted) setState(() => _message = te ? 'సేవ్ కాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'Could not save. Try again.');
@@ -551,10 +665,12 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                   key: const Key('askodoxBusinessName'),
                   controller: _name,
                   maxLength: 80,
+                  enabled: _nameRule?.canChange ?? true,
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
                       labelText: te ? '★ షాప్ పేరు' : '★ Shop name',
-                      helperText: te ? 'టైప్ చేయండి; మైక్ ఇక్కడ లేదు' : 'Type it; no mic here',
+                      helperMaxLines: 3,
+                      helperText: _nameRule?.text(te) ?? (te ? 'టైప్ చేయండి; మైక్ ఇక్కడ లేదు' : 'Type it; no mic here'),
                       border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 10),
@@ -619,8 +735,19 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
   String _shopName = '';
   String _upi = '';
   String _payee = '';
+  // Real bill (owner 2026-11-15): advance + pending on a customer; GST only when the shop is registered.
+  final _advance = TextEditingController();
+  final _custName = TextEditingController();
+  final _custPhone = TextEditingController();
+  bool _gstShop = false;
+  int _rateBp = 0;
+  String _method = 'cash';
+  bool _saving = false;
+  String _txn = askodoxNewTxnId();
+  AskodoxJson? _saved;
 
   double get _total => _lines.fold(0, (sum, line) => sum + line.value);
+  int get _advancePaise => askodoxParsePaise(_advance.text.trim().isEmpty ? '0' : _advance.text) ?? 0;
 
   @override
   void initState() {
@@ -633,11 +760,56 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     for (final line in _lines) {
       line.dispose();
     }
+    _advance.dispose();
+    _custName.dispose();
+    _custPhone.dispose();
     super.dispose();
+  }
+
+  _BillLine _lineAt(int index) {
+    while (_lines.length <= index) {
+      _lines.add(_BillLine());
+    }
+    return _lines[index];
+  }
+
+  /// Turns the typed lines into a REAL bill: numbered, GST only for a registered shop, the advance as paid,
+  /// the rest pending on the customer. The same request twice is the same bill (txn id).
+  Future<void> _makeReal() async {
+    final te = _bizTe(context);
+    setState(() => _saving = true);
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).quickBill(widget.businessId, {
+        'lines': [
+          for (final l in _lines)
+            if (l.value > 0) {'name': l.name.text.trim(), 'amount_paise': (l.value * 100).round()}
+        ],
+        'advance_paise': _advancePaise,
+        'method': _method,
+        'name': _custName.text.trim(),
+        'phone': _custPhone.text.trim(),
+        'rate_bp': _gstShop ? _rateBp : 0,
+        'client_txn_id': _txn,
+      });
+      if (mounted) setState(() => _saved = out);
+    } on AskodoxPosException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(e.code == 'balance' || e.code == 'payment'
+                ? (te ? 'బాకీ ఉంటే కస్టమర్ పేరు లేదా ఫోన్ రాయండి, లేదా అడ్వాన్స్ రాయండి.' : 'For a pending balance give the customer name or phone, or enter the advance.')
+                : e.message(te))));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _load() async {
     final repo = ref.read(askodoxPosRepositoryProvider);
+    try {
+      final biz = await repo.business(widget.businessId);
+      if (mounted) setState(() => _gstShop = '${biz['registration_type'] ?? 'unregistered'}' != 'unregistered');
+    } catch (_) {}
     try {
       final shop = await repo.shopState(widget.businessId);
       if (mounted) setState(() => _shopName = '${shop['name']}');
@@ -721,6 +893,26 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     final total = _total;
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'బిల్లు' : 'Bill')),
+      bottomNavigationBar: AskodoxFillBar(
+        lang: _bizLang(context),
+        onFilled: () => setState(() => _txn = askodoxNewTxnId()),
+        fields: () => [
+          for (var i = 0; i < _lines.length + 3; i++) ...[
+            AskodoxFillField('item-$i', te ? '${i + 1}వ వస్తువు పేరు' : 'Item ${i + 1} name',
+                controller: i < _lines.length ? _lines[i].name : null,
+                apply: i < _lines.length ? null : (t) => setState(() => _lineAt(i).name.text = t)),
+            AskodoxFillField('amount-$i', te ? '${i + 1}వ వస్తువు రూపాయలు' : 'Item ${i + 1} amount in rupees',
+                kind: 'number',
+                controller: i < _lines.length ? _lines[i].amount : null,
+                apply: i < _lines.length ? null : (t) => setState(() => _lineAt(i).amount.text = t)),
+          ],
+          AskodoxFillField('advance', te ? 'అడ్వాన్స్ (ముందే కట్టినది)' : 'Advance paid', kind: 'number', controller: _advance),
+          AskodoxFillField('customer', te ? 'కస్టమర్ పేరు' : 'Customer name', controller: _custName),
+          AskodoxFillField('phone', te ? 'కస్టమర్ ఫోన్' : 'Customer phone', kind: 'phone', controller: _custPhone),
+          AskodoxFillField('method', te ? 'చెల్లింపు విధానం' : 'Payment method',
+              kind: 'choice', options: const ['cash', 'upi', 'card'], apply: (t) => setState(() => _method = t)),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -762,6 +954,82 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               label: Text(te ? 'ఇంకో లైన్' : 'Add a line'),
             ),
           ),
+          const SizedBox(height: 8),
+          Text(te ? 'ముందే కట్టినది / బాకీ' : 'Advance paid / pending', style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                key: const Key('askodoxQuickBillAdvance'),
+                controller: _advance,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() => _txn = askodoxNewTxnId()),
+                decoration: InputDecoration(labelText: te ? 'అడ్వాన్స్ ₹' : 'Advance ₹', border: const OutlineInputBorder()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            DropdownButton<String>(
+              value: _method,
+              items: [
+                DropdownMenuItem(value: 'cash', child: Text(te ? 'క్యాష్' : 'Cash')),
+                const DropdownMenuItem(value: 'upi', child: Text('UPI')),
+                DropdownMenuItem(value: 'card', child: Text(te ? 'కార్డ్' : 'Card')),
+              ],
+              onChanged: (v) => setState(() => _method = v ?? 'cash'),
+            ),
+          ]),
+          if (_advancePaise > 0 && _advancePaise < (total * 100).round())
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(te ? 'బాకీ ₹${_rupees(total - _advancePaise / 100)}' : 'Pending ₹${_rupees(total - _advancePaise / 100)}',
+                  key: const Key('askodoxQuickBillPending'), style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          const SizedBox(height: 6),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                  controller: _custName,
+                  decoration: InputDecoration(labelText: te ? 'కస్టమర్ పేరు' : 'Customer name', border: const OutlineInputBorder(), suffixIcon: askodoxBoxMic(context, _custName))),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                  controller: _custPhone,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(labelText: te ? 'ఫోన్' : 'Phone', border: const OutlineInputBorder())),
+            ),
+          ]),
+          if (_gstShop) ...[
+            const SizedBox(height: 6),
+            DropdownButtonFormField<int>(
+              key: const Key('askodoxQuickBillGst'),
+              initialValue: _rateBp,
+              decoration: InputDecoration(labelText: te ? 'GST % (ధరలో కలిసి ఉంది)' : 'GST % (included in the prices)', border: const OutlineInputBorder()),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('0%')),
+                DropdownMenuItem(value: 500, child: Text('5%')),
+                DropdownMenuItem(value: 1200, child: Text('12%')),
+                DropdownMenuItem(value: 1800, child: Text('18%')),
+              ],
+              onChanged: (v) => setState(() => _rateBp = v ?? 0),
+            ),
+          ],
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            key: const Key('askodoxQuickBillSave'),
+            onPressed: total > 0 && !_saving && _saved == null ? _makeReal : null,
+            icon: const Icon(Icons.receipt_long),
+            label: Text(te ? 'నిజమైన బిల్లు చేయండి (నంబర్ వస్తుంది)' : 'Make the real bill (gets a number)'),
+          ),
+          if (_saved != null)
+            Card(
+              key: const Key('askodoxQuickBillSaved'),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Text(
+                    '${te ? 'బిల్లు' : 'Bill'} ${_saved!['number'] ?? ''} ✓  ${te ? 'కట్టింది' : 'Paid'} ₹${_rupees(askodoxPosInt(_saved!['advance_paise']) / 100)} · ${te ? 'బాకీ' : 'Pending'} ₹${_rupees(askodoxPosInt(_saved!['pending_paise']) / 100)}'),
+              ),
+            ),
           const SizedBox(height: 8),
           RepaintBoundary(
             key: _billKey,

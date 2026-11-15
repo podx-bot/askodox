@@ -265,6 +265,13 @@ class _AskodoxPrimaryHomeScreenState
   /// (short silence) -> transcribe -> answer -> speak -> listen again, until Close. The chat mic stays as before.
   bool _talkMode = false;
   bool _talkPaused = false;
+  /// Why the voice conversation is waiting (shown INSIDE the full-screen overlay: a snackbar would be hidden under it).
+  String? _talkNote;
+  // Where a voice turn's time goes (shown small in the talk overlay so a slow step is visible, owner 2026-11-16).
+  DateTime? _tHeard;
+  DateTime? _tTranscribed;
+  String? _talkTiming;
+  DateTime? _talkIdleSince;
   Timer? _talkLoop;
   // Drawn in the ROOT overlay so it covers the whole screen (header and bottom bar too).
   final _talkPortal = OverlayPortalController();
@@ -503,7 +510,7 @@ class _AskodoxPrimaryHomeScreenState
     // silence after speech ends the turn so ASKODOX answers by itself (turn-taking).
     _endpointer = _talkMode
         ? AskodoxVoiceEndpointer(
-            silenceAfterSpeech: const Duration(milliseconds: 1400),
+            silenceAfterSpeech: const Duration(milliseconds: 2200),
             noSpeechTimeout: const Duration(seconds: 25),
             maxDuration: const Duration(minutes: 1),
           )
@@ -596,9 +603,11 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     setState(() => _voicePhase = _VoicePhase.transcribing);
+    _tHeard = DateTime.now();
     final transcript = await ref
         .read(askodoxVoiceTranscriptionServiceProvider)
         .transcribeFile(path, locale: _lang);
+    _tTranscribed = DateTime.now();
     if (!mounted) return;
     if (transcript == null) {
       setState(() => _voicePhase = _VoicePhase.idle);
@@ -747,6 +756,17 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   void _voiceError(String message) {
+    if (_talkMode) {
+      // The full-screen voice conversation covers snackbars, and its loop would retry the failing mic every
+      // 350 ms forever ("One moment..." for ever, owner 2026-11-15): wait, say why, and let the orb tap retry.
+      if (mounted) {
+        setState(() {
+          _talkNote = message;
+          _talkPaused = true;
+        });
+      }
+      return;
+    }
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
@@ -3726,6 +3746,7 @@ class _AskodoxPrimaryHomeScreenState
       userText: userText,
       uiTelugu: _te,
     );
+    _markReplyReady();
     if (mounted) setState(() => _voicePhase = _VoicePhase.speaking);
     final lips = ref.read(askodoxCompanionVoiceProvider)..speechBegin(reply);
     try {
@@ -3819,6 +3840,7 @@ class _AskodoxPrimaryHomeScreenState
     _speechPaused = false;
     _pausedRemainder = null;
     bool current() => mounted && turn == _speechTurn && _voicePhase == _VoicePhase.speaking;
+    _markReplyReady();
     if (mounted) {
       setState(() {
         _voicePhase = _VoicePhase.speaking;
@@ -4110,7 +4132,38 @@ class _AskodoxPrimaryHomeScreenState
   /// Listens again as soon as ASKODOX is idle (its reply finished, or the person barged in).
   void _talkTick() {
     if (!mounted || !_talkMode || _talkPaused) return;
-    if (_voicePhase == _VoicePhase.idle && !_sending && !_analyzingAttachments) unawaited(_startVoice());
+    if (_voicePhase != _VoicePhase.idle) {
+      _talkIdleSince = null;
+      return;
+    }
+    if (_sending || _analyzingAttachments) return;
+    final since = _talkIdleSince ??= DateTime.now();
+    if (DateTime.now().difference(since) > const Duration(seconds: 8)) {
+      // The mic never started: stop retrying silently, tell the person, keep the orb as the retry button.
+      _talkIdleSince = null;
+      setState(() {
+        _talkPaused = true;
+        _talkNote = _te
+            ? 'మైక్ మొదలవ్వలేదు. గోళం నొక్కి మళ్ళీ ప్రయత్నించండి.'
+            : 'The mic did not start. Tap the orb to try again.';
+      });
+      return;
+    }
+    unawaited(_startVoice());
+  }
+
+  /// The answer text is ready (about to be spoken): remember how long hearing and answering took.
+  void _markReplyReady() {
+    final heard = _tHeard;
+    final text = _tTranscribed;
+    if (!_talkMode || heard == null || text == null) return;
+    String sec(Duration d) => (d.inMilliseconds / 1000).toStringAsFixed(1);
+    final now = DateTime.now();
+    _talkTiming = _te
+        ? 'అక్షరాలుగా ${sec(text.difference(heard))}s · సమాధానం ${sec(now.difference(text))}s'
+        : 'Hearing ${sec(text.difference(heard))}s · answer ${sec(now.difference(text))}s';
+    _tHeard = null;
+    _tTranscribed = null;
   }
 
   Future<void> _exitTalkMode() async {
@@ -4123,6 +4176,8 @@ class _AskodoxPrimaryHomeScreenState
       setState(() {
         _talkMode = false;
         _talkPaused = false;
+        _talkNote = null;
+        _talkIdleSince = null;
       });
     }
   }
@@ -4130,7 +4185,11 @@ class _AskodoxPrimaryHomeScreenState
   /// Mute = stop listening (ASKODOX may still finish its sentence); unmute = listen again.
   Future<void> _toggleTalkMute() async {
     if (_talkPaused) {
-      setState(() => _talkPaused = false);
+      setState(() {
+        _talkPaused = false;
+        _talkNote = null;
+        _talkIdleSince = null;
+      });
       _talkTick();
       return;
     }
@@ -4163,7 +4222,9 @@ class _AskodoxPrimaryHomeScreenState
       _VoicePhase.recording => (te ? 'వింటున్నాను…' : 'Listening…', const Color(0xFF38BDF8)),
       _VoicePhase.transcribing || _VoicePhase.thinking => (te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…', const Color(0xFFA78BFA)),
       _VoicePhase.speaking => (te ? 'మాట్లాడుతున్నాను… (ఆపడానికి గోళం నొక్కండి)' : 'Speaking… (tap the orb to interrupt)', const Color(0xFF34D399)),
-      _VoicePhase.idle => (te ? 'ఒక్క క్షణం…' : 'One moment…', const Color(0xFF94A3B8)),
+      _VoicePhase.idle when _sending || _analyzingAttachments =>
+        (te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…', const Color(0xFFA78BFA)),
+      _VoicePhase.idle => (te ? 'మైక్ సిద్ధం చేస్తున్నాను…' : 'Getting the mic ready…', const Color(0xFF94A3B8)),
     };
     final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: true));
     final lastReply = _turns.lastWhere((t) => !t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: false));
@@ -4196,6 +4257,18 @@ class _AskodoxPrimaryHomeScreenState
               ),
             ),
             Text(label, key: const Key('askodoxTalkStatus'), style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+            if (_talkTiming != null && _talkNote == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
+                child: Text(_talkTiming!, key: const Key('askodoxTalkTiming'), textAlign: TextAlign.center,
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5)),
+              ),
+            if (_talkNote != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                child: Text(_talkNote!, key: const Key('askodoxTalkNote'), textAlign: TextAlign.center,
+                    style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 13.5, height: 1.3)),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
               child: Text(lastUser.text, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,

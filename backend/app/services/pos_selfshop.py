@@ -279,6 +279,9 @@ class PosSelfShop:
             if hit is None or not self._settings_row(conn, hit["business_id"])["enabled"]:
                 raise PosError(404, "code", "No shop has that code today. Check the code at the entrance.")
             business_id = hit["business_id"]
+            shop = conn.execute("SELECT status FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+            if shop is not None and (shop["status"] or "open") != "open":
+                raise PosError(409, "shop", "ఈ షాప్ ఇప్పుడు తెరిచి లేదు (This shop is closed right now).")
             self._expire(conn, "customer_user = ?", (user,))
             row = conn.execute("SELECT * FROM pos_selfshop_sessions WHERE business_id = ? AND customer_user = ? AND"
                                " status IN ('OPEN', 'CHECKOUT') ORDER BY started_at DESC LIMIT 1",

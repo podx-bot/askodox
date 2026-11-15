@@ -216,12 +216,25 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
       body: mine == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(key: const Key('askodoxMyPhonePayments'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 28), children: [
-              _stateCard(mine, te),
+              _quickCard(mine, te),
               if (mine.enabled) _setupCard(mine, te),
-              _foundCard(mine, te),
-              _appsCard(mine, te),
-              _accountsCard(mine, te),
               _historyCard(mine, te),
+              // Everything else is tucked away: the page stays short once setup is done (owner 2026-11-16).
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  key: const Key('askodoxMineMore'),
+                  tilePadding: EdgeInsets.zero,
+                  title: Text(te ? 'మరిన్ని సెట్టింగ్స్ (భాష, యాప్‌లు, ఖాతాలు)' : 'More settings (language, apps, accounts)',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  children: [
+                    _stateCard(mine, te),
+                    _foundCard(mine, te),
+                    _appsCard(mine, te),
+                    _accountsCard(mine, te),
+                  ],
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 te
@@ -230,6 +243,55 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                 style: const TextStyle(fontSize: 12),
               ),
             ]),
+    );
+  }
+
+  /// ONE card at the top: a single button turns everything on (the alerts, every money / SMS app found on this phone,
+  /// and opens the system's notification-access list if ASKODOX is not allowed yet); once it is all on, one line.
+  Widget _quickCard(AskodoxMyPhoneAlerts m, bool te) {
+    final allowed = _status['listenerAllowed'] == true;
+    final ready = m.enabled && allowed;
+    return Card(
+      key: const Key('askodoxMineQuick'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: ready
+            ? Row(children: [
+                const Icon(Icons.check_circle, color: Color(0xFF15803D)),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Text(te ? 'పేమెంట్ అలర్ట్స్ ఆన్ ✓ (${m.apps.length} యాప్‌లు)' : 'Payment alerts are on ✓ (${m.apps.length} apps)',
+                        style: const TextStyle(fontWeight: FontWeight.w800))),
+                TextButton(
+                    key: const Key('askodoxMineQuickTest'),
+                    onPressed: () async {
+                      await _bridge.speakTest(100, personal: true);
+                      await _confirm1('sound');
+                    },
+                    child: Text(te ? 'టెస్ట్' : 'Test')),
+              ])
+            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(te ? 'ఒక్క నొక్కుతో అన్నీ ఆన్' : 'Turn everything on in one tap', style: const TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(te ? 'మీ ఫోన్‌లో ఉన్న పేమెంట్ / బ్యాంక్ / SMS యాప్‌లన్నీ చేర్చి, అలర్ట్స్ ఆన్ చేస్తుంది. తర్వాత ASKODOX ని ఆన్ చేయమని లిస్ట్ తెరుస్తుంది.' : 'Adds every payment / bank / SMS app on this phone and switches the alerts on, then opens the list where you switch ASKODOX on.',
+                    style: const TextStyle(fontSize: 12)),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  key: const Key('askodoxMineQuickOn'),
+                  onPressed: () async {
+                    final found = _found(m);
+                    await _change((x) {
+                      x.enabled = true;
+                      x.apps = {...x.apps, for (final a in found) '${a['package']}': '${a['label']}'};
+                    });
+                    await _reload();
+                    if (_status['listenerAllowed'] != true) await _bridge.openListenerSettings();
+                  },
+                  icon: const Icon(Icons.bolt),
+                  label: Text(te ? 'అన్నీ ఆన్ చేయి' : 'Turn all on'),
+                ),
+              ]),
+      ),
     );
   }
 

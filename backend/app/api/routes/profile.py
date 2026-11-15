@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import binascii
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -16,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.api.routes.in_app_deal import _authenticated_app_user
 from app.repositories.user_profile_repository import UserProfileRepository
+from app.services import name_change_policy
 
 router = APIRouter(prefix="/api/me/profile", tags=["profile"])
 
@@ -52,7 +54,11 @@ def _verification(container: Any, user_id: str) -> dict:
 
 
 def _view(request: Request, user_id: str, data: dict) -> dict:
-    return {**data, "verification": _verification(request.app.state.container, user_id),
+    policy = profiles(request.app.state.container).name_policy_state(user_id)
+    if data.get("business_name") and not policy.get("set_at"):
+        policy = {**policy, "set_at": data.get("updated_at") or None}  # a name from before the rule: window from now
+    return {**data, "business_name_change": name_change_policy.evaluate(policy, datetime.now(timezone.utc)),
+            "verification": _verification(request.app.state.container, user_id),
             "role_verifications": _role_verifications(request.app.state.container, user_id),
             "photo_url": "/api/me/profile/photo" if data.get("has_photo") else None}
 
@@ -99,6 +105,21 @@ def update_my_profile(payload: ProfileUpdate, request: Request) -> dict:
 
         if not valid_vpa(fields["upi_id"]):
             raise HTTPException(status_code=422, detail="Enter a valid UPI ID, e.g. name@okbank")
+    if "business_name" in fields:
+        # Business-name change rule (15 days free, then 30, then 60): one place, name_change_policy.py.
+        before = profiles(request.app.state.container).get(user_id).get("business_name") or ""
+        if (fields["business_name"] or "") == before:
+            del fields["business_name"]  # the same name again is not a change
+        else:
+            repo0 = profiles(request.app.state.container)
+            state = repo0.name_policy_state(user_id)
+            now_dt = datetime.now(timezone.utc)
+            if before and not state.get("set_at"):
+                state = {"set_at": now_dt.isoformat(), "edits": 0, "locked_until": None}  # name from before the rule
+            verdict = name_change_policy.evaluate(state, now_dt)
+            if not verdict["can_change"]:
+                raise HTTPException(status_code=409, detail=name_change_policy.lock_message(verdict))
+            repo0.set_name_policy_state(user_id, name_change_policy.after_change(state, now_dt, bool(before)))
     if "roles" in fields:
         fields["roles"] = [str(r).strip()[:30] for r in (fields["roles"] or []) if str(r).strip()]
     repo = profiles(request.app.state.container)

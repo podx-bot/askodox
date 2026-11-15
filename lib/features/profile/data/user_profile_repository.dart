@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_models.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../shops/domain/name_change_rule.dart';
 
 /// The signed-in user's ONE stored profile (GET/PUT /api/me/profile).
 /// Nothing here is invented: an empty field stays empty.
@@ -37,7 +38,11 @@ class AskodoxUserProfile {
     this.businessSubcategory,
     this.phones = const [],
     this.addresses = const [],
+    this.businessNameChange,
   });
+
+  /// Whether the business name can be changed now (server rule: 15 days free, then 30, then 60 days locked).
+  final AskodoxNameChange? businessNameChange;
 
   final String? lastName;
   final String? businessEmail;
@@ -98,6 +103,7 @@ class AskodoxUserProfile {
       language: _s(json['language']),
       roles: [for (final r in (json['roles'] as List? ?? const [])) '$r'],
       businessName: _s(json['business_name']),
+      businessNameChange: AskodoxNameChange.fromJson(json['business_name_change']),
       businessAddress: _s(json['business_address']),
       businessCategory: _s(json['business_category']),
       gstin: _s(json['gstin']),
