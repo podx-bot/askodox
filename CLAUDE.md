@@ -7,6 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` `be27836` (2026-11-16): #331 / #332 / #333 / #334 merged (production deploy of `91c07d2` = #333 SUCCESS). Front desk
+  (`pos_frontdesk.py`, `/desk/:id`, `/order-desk`), spoken menu, real quick bill, business name rule, speak-to-fill mic
+  (`AskodoxFillBar` + `POST /api/pos/form-fill`, on quick bill / menu / shop setup), My phone payments = one "Turn all on" card +
+  "More settings", talk mode ends by voice level (`voice_endpointing.dart` speech peak) + silence 1.8 s + capability
+  `talk_brief` (2 short sentences) + timing line in the talk overlay + `in_app_voice_speak` log. Play bundle from Live Build
+  run 43771803509 (include_payment_alerts). Nothing phone verified.
 - `main` `8b5ec95` (2026-11-12, server deployed SUCCESS on Railway): payment alerts round -- #315 CI pins Flutter 3.47.9
   (stable 3.50.0 broke analyze + AGP); #316 parser reads PhonePe "X sent ₹N to you"; #317 one-question setup card
   (`domain/payment_alert_setup.dart`, payment-app notifications + battery, Samsung wording) + `razorpay_signup_url`
