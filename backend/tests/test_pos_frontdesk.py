@@ -250,6 +250,33 @@ def test_http_routes_end_to_end(monkeypatch):
                         json={"lines": [{"name": "Tea", "amount_paise": 1000}], "advance_paise": 400, "name": "Ravi",
                               "client_txn_id": "http-quick-1"})
     assert quick.status_code == 200 and quick.json()["pending_paise"] == 600
+    # table requests: a dine-in order at a table -> ask -> the staff list -> done; a stranger sees nothing
+    table = client.post(f"/api/pos/businesses/{biz}/tables", headers=auth(owner), json={"name": "T9"}).json()["id"]
+    dine = client.post("/api/pos/order-desk/orders", headers=auth(customer),
+                       json={"code": f"{code}:{table}", "items": [{"product_id": item, "qty": 1, "note": "crisp"}],
+                             "client_txn_id": "http-order-2"}).json()
+    assert client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(customer), json={"kinds": ["water"]}).status_code == 409
+    client.post(f"/api/pos/businesses/{biz}/desk/orders/{dine['id']}/confirm", headers=auth(owner), json={"decisions": {}})
+    assert client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", json={"kinds": ["water"]}).status_code == 401
+    assert client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(stranger), json={"kinds": ["water"]}).status_code == 404
+    asked = client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(customer),
+                        json={"kinds": ["water"], "text": "onions"})
+    assert asked.status_code == 200, asked.text
+    assert {a["kind"] for a in asked.json()["asked"]} == {"water", "onions"}
+    mine = client.get(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(customer)).json()
+    assert mine["can_ask"] and len(mine["requests"]) == 2
+    assert client.get(f"/api/pos/businesses/{biz}/desk/requests", headers=auth(stranger)).status_code == 404
+    waiting = client.get(f"/api/pos/businesses/{biz}/desk/requests", headers=auth(owner)).json()
+    assert waiting["count"] == 2 and waiting["requests"][0]["table_name"] == "T9"
+    done = client.post(f"/api/pos/businesses/{biz}/desk/requests/{waiting['requests'][0]['id']}/done", headers=auth(owner))
+    assert done.status_code == 200 and done.json()["count"] == 1
+    cancel = client.post(f"/api/pos/order-desk/requests/{waiting['requests'][1]['id']}/cancel", headers=auth(customer))
+    assert cancel.status_code == 200 and client.get(f"/api/pos/businesses/{biz}/desk/requests", headers=auth(owner)).json()["count"] == 0
+    assert client.get(f"/api/pos/businesses/{biz}/desk/request-settings", headers=auth(customer)).status_code == 404
+    saved = client.put(f"/api/pos/businesses/{biz}/desk/request-settings", headers=auth(owner),
+                       json={"off": ["tissue"], "custom": [{"en": "Papad", "te": "అప్పడం"}]})
+    assert saved.status_code == 200, saved.text
+    assert [r["en"] for r in saved.json()["requests"] if r["custom"]] == ["Papad"]
 
 
 def test_find_shops_matches_the_shop_name_the_person_said(env):
@@ -536,3 +563,26 @@ def test_shop_chooses_its_quick_requests_and_adds_its_own(env):
     assert desk.requests.ask(CUSTOMER, order["id"], [papad])["asked"][0]["label"]["te"] == "అప్పడం"
     with pytest.raises(PosError):  # a switched-off one cannot be asked
         desk.requests.ask(CUSTOMER, order["id"], ["tissue"])
+
+
+def test_own_requests_with_telugu_names_stay_separate_and_words_match_whole_words(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _accepted_dine_in(env)
+    out = desk.requests.set_settings(biz, OWNER, None, [{"en": "అప్పడం", "te": "అప్పడం"}, {"en": "పెరుగు", "te": "పెరుగు"},
+                                                        {"en": "అప్పడం", "te": "అప్పడం"}])
+    own = [r for r in out["requests"] if r["custom"]]
+    assert [r["te"] for r in own] == ["అప్పడం", "పెరుగు"] and len({r["key"] for r in own}) == 2  # one key each, no double
+    asked = desk.requests.ask(CUSTOMER, order["id"], [own[1]["key"]])
+    assert asked["asked"][0]["label"]["te"] == "పెరుగు"
+    said = desk.requests.ask(CUSTOMER, order["id"], [], "అప్పడం కావాలి")  # said in words -> the shop's own item
+    assert [a["kind"] for a in said["asked"]] == [own[0]["key"]]
+    # the keys stay the same when the list is saved again, and removing one keeps the other
+    again = desk.requests.set_settings(biz, OWNER, None, [{"key": r["key"], "en": r["en"], "te": r["te"]} for r in own[1:]])
+    assert [(r["key"], r["te"]) for r in again["requests"] if r["custom"]] == [(own[1]["key"], "పెరుగు")]
+    with desk.store._connect() as conn:
+        kinds = lambda text: [h["kind"] for h in desk.requests.parse(conn, biz, text)]  # noqa: E731
+        assert kinds("watermelon juice") == ["other"]  # not "water"
+        assert kinds("నీళ్లు తీసుకురండి") == ["water"]  # "bring" is not "call the waiter"
+        assert kinds("2 plates and tissues") == ["extra_plate", "tissue"]
+        assert kinds("ఉల్లిపాయలు కొంచెం") == ["onions"]
+        assert kinds("bill please") == ["bill"] and kinds("call the waiter") == ["call"]

@@ -7,6 +7,7 @@ Records only -- nothing here moves money.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -38,7 +39,7 @@ DEFAULT_REQUESTS: List[Dict[str, Any]] = [
     {"key": "bill", "en": "Bring the bill", "te": "బిల్ తీసుకురండి",
      "words": ["bill", "check", "బిల్", "బిల్లు"]},
     {"key": "call", "en": "Call the waiter", "te": "వెయిటర్‌ని పిలవండి",
-     "words": ["waiter", "call", "help", "వెయిటర్", "బేరర్", "బ్యారర్", "సర్"]},
+     "words": ["waiter", "bearer", "call", "help", "వెయిటర్", "బేరర్", "బ్యారర్", "పిలవండి"]},
 ]
 STOP_WORDS = ["and", "also", "please", "pls", "plz", "extra", "more", "one", "two", "need", "want", "bring", "give", "send",
               "a", "the", "i", "we", "some", "కూడా", "ఇంకా", "ఒక", "రెండు", "మరియు", "ప్లీజ్", "కావాలి", "కావాలండి",
@@ -50,6 +51,38 @@ MAX_OPEN_PER_ORDER = 12
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").lower()).strip()
+
+
+def _own_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The shop's own quick requests, cleaned: a label in any script, ONE stable key per label (a key made from the
+    letters a-z alone would be the same for every Telugu name), the same label never twice."""
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for c in rows[:MAX_CUSTOM]:
+        en = _clean(c.get("en") or c.get("te"), 40)
+        te = _clean(c.get("te") or c.get("en"), 40)
+        if not en:
+            continue
+        key = str(c.get("key") or "")
+        if not re.fullmatch(r"c_[a-z0-9]{6,20}", key):
+            key = "c_" + hashlib.sha1(_norm(en).encode("utf-8")).hexdigest()[:10]
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"key": key, "en": en, "te": te, "custom": True})
+    return out
+
+
+def _is_latin(term: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9 ]+", term))
+
+
+def _term_pattern(term: str) -> str:
+    """English words match as whole words (plural allowed) -- 'water' is not inside 'watermelon'; Telugu words match
+    inside a longer word too (the endings change: ఉల్లిపాయ -> ఉల్లిపాయలు)."""
+    if _is_latin(term):
+        return rf"(?<![a-z0-9]){re.escape(term)}(?:s|es)?(?![a-z0-9])"
+    return re.escape(term)
 
 
 class PosDeskRequests:
@@ -73,13 +106,7 @@ class PosDeskRequests:
         except ValueError:
             data = {}
         off = [str(k) for k in (data.get("off") or []) if str(k) in BUILT_IN]
-        custom = []
-        for c in (data.get("custom") or [])[:MAX_CUSTOM]:
-            label = _clean(c.get("en") or c.get("te"), 40)
-            if label:
-                custom.append({"key": _clean(c.get("key"), 40) or "c_" + re.sub(r"[^a-z0-9]+", "_", _norm(label))[:30],
-                               "en": _clean(c.get("en") or c.get("te"), 40), "te": _clean(c.get("te") or c.get("en"), 40),
-                               "custom": True})
+        custom = _own_rows(data.get("custom") or [])
         return {"off": off, "custom": custom}
 
     def catalogue(self, conn: sqlite3.Connection, business_id: str, *, everything: bool = False) -> List[Dict[str, Any]]:
@@ -103,9 +130,7 @@ class PosDeskRequests:
             new_custom = cur["custom"] if custom is None else custom
             if len(new_custom) > MAX_CUSTOM:
                 raise PosError(400, "requests", f"At most {MAX_CUSTOM} of your own quick requests.")
-            data = {"off": new_off, "custom": [{"key": c.get("key") or "", "en": _clean(c.get("en"), 40),
-                                                "te": _clean(c.get("te"), 40)} for c in new_custom
-                                               if _clean(c.get("en") or c.get("te"), 40)]}
+            data = {"off": new_off, "custom": [{"key": c["key"], "en": c["en"], "te": c["te"]} for c in _own_rows(new_custom)]}
             conn.execute("INSERT INTO pos_desk_settings (business_id, routing_json, auto_confirm, updated_at, requests_json)"
                          " VALUES (?, '{}', 0, ?, ?) ON CONFLICT(business_id) DO UPDATE SET requests_json = excluded.requests_json,"
                          " updated_at = excluded.updated_at",
@@ -124,10 +149,11 @@ class PosDeskRequests:
         words = {r["key"]: r["words"] for r in DEFAULT_REQUESTS}
         for item in shop:
             terms = words.get(item["key"]) or [_norm(item["en"]), _norm(item["te"])]
-            if any(t and t in said for t in terms):
+            terms = [t for t in terms if t]
+            if any(re.search(_term_pattern(t), said) for t in terms):
                 hits.append({"kind": item["key"], "label_en": item["en"], "label_te": item["te"]})
                 for t in sorted(terms, key=len, reverse=True):
-                    used = used.replace(t, " ")
+                    used = re.sub(_term_pattern(t), " ", used)
         for w in STOP_WORDS:
             used = re.sub(rf"(?<![\w]){re.escape(w)}(?![\w])", " ", used)
         leftover = re.sub(r"[\s,.;/&+-]+", " ", used).strip()
