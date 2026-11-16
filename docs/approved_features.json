@@ -6902,13 +6902,9 @@
       "ui": {
         "keys": [
           "askodoxTableRequests",
-          "askodoxTableAsk-",
           "askodoxTableSay",
           "askodoxDeskRequestsBanner",
-          "askodoxDeskRequest-",
-          "askodoxQuickReq-",
           "askodoxQuickReqAdd",
-          "askodoxOrderItemNote-",
           "askodoxItemNoteBox"
         ]
       },
@@ -6983,8 +6979,6 @@
         "keys": [
           "askodoxQuickBillSendNumber",
           "askodoxQuickBillPrint",
-          "askodoxMyBillPay-",
-          "askodoxChatShopMenu-",
           "askodoxOrderScanCamera"
         ]
       },
