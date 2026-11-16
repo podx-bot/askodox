@@ -7,6 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` `b521f51` (2026-11-16): #335 merged. Payment alert health banner on Home (`payment_alert_banner.dart`; native TTS
+  engine is warmed before it is checked -- never-started != not ready), credit / debit spoken per language
+  (`PaymentAlertParser.PERSONAL`), chat shows ASKODOX shops first by menu item (`PosFrontDesk.find_items`), menu from photo
+  (`pos_menu_photo.py`, `POST /desk/menu/photo`), order routing by role / person + auto-confirm (default off) + delivery role
+  (`pos_desk_settings`, `/desk/:id/settings`), Sales page (`pos_sales.py`, `/desk/:id/sales`), shop share message on the QR page.
+  Play bundle 1523 (Live Build run 43826531226). Nothing phone verified. Railway deploy of `b521f51` in progress when written.
 - `main` `be27836` (2026-11-16): #331 / #332 / #333 / #334 merged (production deploy of `91c07d2` = #333 SUCCESS). Front desk
   (`pos_frontdesk.py`, `/desk/:id`, `/order-desk`), spoken menu, real quick bill, business name rule, speak-to-fill mic
   (`AskodoxFillBar` + `POST /api/pos/form-fill`, on quick bill / menu / shop setup), My phone payments = one "Turn all on" card +
