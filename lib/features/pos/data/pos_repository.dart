@@ -115,7 +115,7 @@ class AskodoxPosRepository {
       _send('POST', '${_b(biz)}/desk/orders/$id/confirm', body: {'decisions': decisions});
   Future<AskodoxJson> deskReject(String biz, String id, String reason) =>
       _send('POST', '${_b(biz)}/desk/orders/$id/reject', body: {'reason': reason});
-  Future<AskodoxJson> deskAdvance(String biz, String id, String stage, {String assignee = ''}) =>
+  Future<AskodoxJson> deskAdvance(String biz, String id, String stage, {String assignee = '', String assigneeUser = ''}) =>
       _send('POST', '${_b(biz)}/desk/orders/$id/advance', body: {'stage': stage, 'assignee': assignee, 'assignee_user': assigneeUser});
   Future<AskodoxJson> deskBill(String biz, String id, List<AskodoxJson> payments, {String? customerId}) =>
       _send('POST', '${_b(biz)}/desk/orders/$id/bill',

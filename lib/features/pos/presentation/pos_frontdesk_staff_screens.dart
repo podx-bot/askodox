@@ -203,7 +203,6 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
   }
 
   Future<void> _advance(AskodoxJson order, String stage) async {
-    final te = askodoxPosTe(context);
     var who = '';
     var whoId = '';
     if (stage == 'out_for_delivery' && '${order['assignee'] ?? ''}'.isEmpty) {
