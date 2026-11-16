@@ -28,6 +28,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from app.services import pos_menu_voice
 from app.services.account_identity import phone_key
+from app.services.pos_bills import PosBills
 from app.services.pos_store import PERMISSIONS, PosError, PosStore, _clean, _id
 
 QR_PREFIX = "ASKODOX-ORDER:"
@@ -111,6 +112,10 @@ class PosFrontDesk:
         with store._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            try:
+                conn.execute("ALTER TABLE pos_products ADD COLUMN item_no INTEGER")
+            except sqlite3.OperationalError:
+                pass
             try:  # who the order is assigned to (an app user), next to the typed name
                 conn.execute("ALTER TABLE pos_desk_orders ADD COLUMN assignee_user TEXT NOT NULL DEFAULT ''")
             except sqlite3.OperationalError:
@@ -233,8 +238,9 @@ class PosFrontDesk:
     def _menu(self, conn: sqlite3.Connection, business_id: str, *, everything: bool = False) -> List[Dict[str, Any]]:
         today = self._today()
         stock = self.store._stock_map(conn, business_id)
+        PosBills.number_items(conn, business_id)  # every item has its menu number (billing by number)
         out = []
-        for r in conn.execute("SELECT * FROM pos_products WHERE business_id = ? AND active = 1 ORDER BY name", (business_id,)):
+        for r in conn.execute("SELECT * FROM pos_products WHERE business_id = ? AND active = 1 ORDER BY item_no, name", (business_id,)):
             only_on = r["only_on"] if "only_on" in r.keys() else None
             if only_on and only_on != today and not everything:
                 continue  # a "today only" item of another day
@@ -243,7 +249,8 @@ class PosFrontDesk:
             item = {"id": r["id"], "name": r["name"], "name_te": r["name_te"] or "", "price_paise": r["price_paise"],
                     "unit": r["unit"], "today_only": bool(only_on) and only_on == today,
                     "available": not sold_out and not tracked_out, "rate_bp": r["rate_bp"],
-                    "price_includes_tax": bool(r["price_includes_tax"])}
+                    "price_includes_tax": bool(r["price_includes_tax"]),
+                    "item_no": r["item_no"] if "item_no" in r.keys() else None}
             if everything:
                 item["today_only_flag"] = bool(only_on)
                 item["sold_out"] = sold_out

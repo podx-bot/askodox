@@ -397,6 +397,9 @@ def create_app() -> FastAPI:
     from app.api.routes.pos_frontdesk import router as pos_frontdesk_router
 
     app.include_router(pos_frontdesk_router)
+    from app.api.routes.pos_frontdesk import bill_page_router as pos_bill_page_router
+
+    app.include_router(pos_bill_page_router)
     from app.api.routes.shop_follows import router as shop_follows_router
 
     app.include_router(shop_follows_router)

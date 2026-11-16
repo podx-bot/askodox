@@ -124,13 +124,18 @@ class TodayOnlyIn(BaseModel):
 
 class QuickLineIn(BaseModel):
     name: str = Field(default="", max_length=80)
-    amount_paise: int = Field(ge=1, le=10_00_00_000_00)
+    amount_paise: int = Field(default=0, ge=0, le=10_00_00_000_00)
+    # Billed by the menu NUMBER ("3 two"): item_no + count; the amount then comes from the menu price.
+    item_no: int = Field(default=0, ge=0, le=100000)
+    count: int = Field(default=0, ge=0, le=1000)
+    qty_milli: int = Field(default=0, ge=0, le=10_000_000)
+    rate_paise: int = Field(default=0, ge=0, le=10_00_00_000_00)
 
 
 class QuickBillIn(BaseModel):
     lines: List[QuickLineIn] = Field(min_length=1, max_length=100)
     advance_paise: int = Field(default=0, ge=0, le=10_00_00_000_00)
-    method: str = Field(default="cash", pattern="^(cash|upi|card|bank_transfer)$")
+    method: str = Field(default="cash", pattern="^(cash|upi|card|bank_transfer|phonepe|gpay|paytm|bhim|other_upi)$")
     name: str = Field(default="", max_length=80)
     phone: str = Field(default="", max_length=20)
     customer_id: Optional[str] = Field(default=None, max_length=60)
@@ -322,6 +327,134 @@ def quick_bill(business_id: str, body: QuickBillIn, request: Request) -> dict:
     from app.services.pos_quick_bill import PosQuickBill
 
     return _call(PosQuickBill(_store(request)).make, business_id, _user(request, "pos-quick", 120), body.model_dump())
+
+
+# ---------------------------------------------------------------- bills: send, pay later, history, customer inbox
+def _bills(request: Request):
+    from app.api.routes.payment_methods import payment_methods
+    from app.services.pos_bills import PosBills
+    from app.services.push_service import push_service
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_bills", None)
+    if existing is None or existing.store is not store:
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+            push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+
+        methods = payment_methods(container)
+
+        def pay_to(owner: str, amount_paise: int, note: str, ref: str) -> List[Dict[str, Any]]:
+            return methods.pay_to(owner, amount=amount_paise / 100.0, note=note, reference=ref)
+
+        existing = PosBills(store, notify=notify, pay_to=pay_to)
+        try:
+            container.pos_bills = existing
+        except Exception:
+            pass
+    return existing
+
+
+class BillSendIn(BaseModel):
+    phone: str = Field(min_length=10, max_length=20)
+
+
+class BillSettleIn(BaseModel):
+    pay: str = Field(default="cash", max_length=20)
+    amount_paise: int = Field(default=0, ge=0, le=10_00_00_000_00)
+    client_txn_id: str = Field(min_length=8, max_length=64)
+
+
+class SaysPaidIn(BaseModel):
+    app: str = Field(default="", max_length=20)
+
+
+@router.post("/businesses/{business_id}/bills/{invoice_id}/send")
+def bill_send(business_id: str, invoice_id: str, body: BillSendIn, request: Request) -> dict:
+    """The bill to the customer's number: their ASKODOX inbox when they use the app, else a WhatsApp text + link."""
+    from app.api.routes.partners import _public_base
+
+    return _call(_bills(request).send, business_id, _user(request, "bill-send", 120), invoice_id, body.phone,
+                 base_url=_public_base(request))
+
+
+@router.post("/businesses/{business_id}/bills/{invoice_id}/settle")
+def bill_settle(business_id: str, invoice_id: str, body: BillSettleIn, request: Request) -> dict:
+    return _call(_bills(request).settle, business_id, _user(request, "bill-settle", 120), invoice_id, body.pay,
+                 body.amount_paise, body.client_txn_id)
+
+
+@router.get("/businesses/{business_id}/bills")
+def bill_history(business_id: str, request: Request, date_from: str = "", date_to: str = "", due: bool = False,
+                 q: str = "") -> dict:
+    return _call(_bills(request).history, business_id, _user(request, "bills", 300), date_from=date_from[:10],
+                 date_to=date_to[:10], only_due=due, query=q[:40])
+
+
+@router.get("/me/bills")
+def my_bills(request: Request) -> dict:
+    """Bills shops sent to the signed-in person's number, with the shop's own UPI pay link for any balance."""
+    return {"bills": _call(_bills(request).my_bills, _user(request, "my-bills", 300))}
+
+
+@router.post("/me/bills/{token}/paid")
+def my_bill_paid(token: str, body: SaysPaidIn, request: Request) -> dict:
+    _user(request, "my-bills", 60)
+    return _call(_bills(request).customer_says_paid, token, body.app)
+
+
+bill_page_router = APIRouter(tags=["POS"])
+
+
+def _rupees(paise: int) -> str:
+    return f"₹{paise // 100:,}" if paise % 100 == 0 else f"₹{paise / 100:,.2f}"
+
+
+@bill_page_router.get("/b/{token}")
+def bill_page(token: str, request: Request):
+    """Public page of ONE bill (the unguessable link the shop sent on WhatsApp): items, total, and a button that
+    opens the customer's own UPI app for the balance. Read-only; money goes straight to the shop."""
+    import html as _html
+
+    from fastapi.responses import HTMLResponse
+
+    bill = _bills(request).public(token)
+    if bill is None:
+        return HTMLResponse("<h3>This bill link is not valid · ఈ బిల్లు లింక్ సరైనది కాదు.</h3>", status_code=404)
+    esc = _html.escape
+    rows = "".join(
+        f'<tr><td>{esc(str(l["name"]))} × {l["qty_milli"] / 1000:g}</td><td class="r">{_rupees(int(l["amount_paise"] or 0))}</td></tr>'
+        for l in bill["lines"])
+    upi = next((m.get("upi_link") for m in bill["pay"] if m.get("upi_link")), "")
+    if bill["status"] == "cancelled":
+        action = '<p class="m">This bill was cancelled · ఈ బిల్లు రద్దు అయింది.</p>'
+    elif bill["due_paise"] <= 0:
+        paid = (" · " + esc(", ".join(bill["paid_with"]))) if bill["paid_with"] else ""
+        action = f'<p class="ok">కట్టారు ✓ Paid{paid}</p>'
+    elif upi:
+        action = (f'<a class="b" href="{esc(upi, quote=True)}">UPI లో {_rupees(bill["due_paise"])} కట్టండి · Pay</a>'
+                  '<p class="m">PhonePe / Google Pay / Paytm / BHIM / మీ బ్యాంక్ యాప్ — మొత్తం ముందే నిండి ఉంటుంది. '
+                  'డబ్బు నేరుగా షాప్‌కి వెళ్తుంది; ASKODOX పట్టుకోదు.</p>')
+    else:
+        action = f'<p class="m">కట్టాల్సింది {_rupees(bill["due_paise"])} — షాప్‌లో కట్టండి · Pay at the shop.</p>'
+    page = ('<!doctype html><html lang="te"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,'
+            'initial-scale=1"><title>' + esc(bill["shop"]) + ' · ' + esc(str(bill["number"])) + '</title><style>'
+            'body{font-family:system-ui,sans-serif;background:#f3f4f6;margin:0;padding:16px;color:#1b2333}'
+            '.c{background:#fff;border-radius:16px;padding:18px;max-width:440px;margin:12px auto;border:1px solid #e2e5ea}'
+            'h1{font-size:22px;margin:0 0 2px;color:#16203f}table{width:100%;border-collapse:collapse;margin-top:12px}'
+            'td{padding:6px 0;border-bottom:1px solid #eef0f3;font-size:15px}.r{text-align:right}.t td{font-weight:700;'
+            'font-size:18px;border:0}.b{display:block;background:#2f5bd3;color:#fff;padding:16px;border-radius:14px;'
+            'text-decoration:none;font-weight:700;margin-top:16px;text-align:center}.m{color:#5b6475;font-size:13px}'
+            '.ok{color:#1f7a4a;font-weight:700;font-size:17px}.d{background:#16203f;color:#fff}.d .m{color:#d5daea}'
+            '.d a{display:block;background:#fff;color:#16203f;padding:12px;border-radius:12px;text-align:center;'
+            'text-decoration:none;font-weight:700;margin-top:10px}@media print{.d,.b{display:none}}</style></head><body>'
+            '<div class="c"><h1>' + esc(bill["shop"]) + '</h1><div class="m">బిల్లు ' + esc(str(bill["number"])) + ' · '
+            + esc(str(bill["issued_at"])[:10]) + '</div><table>' + rows + '<tr class="t"><td>మొత్తం · Total</td>'
+            '<td class="r">' + _rupees(bill["total_paise"]) + '</td></tr></table>' + action + '</div>'
+            '<div class="c d"><b>తర్వాతి సారి బిల్లులు నేరుగా యాప్‌లోనే</b><div class="m">ASKODOX లో మీ బిల్లులు, ఆర్డర్లు ఒకే '
+            'చోట.</div><a href="https://askodox.com">ASKODOX</a></div></body></html>')
+    return HTMLResponse(page, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+                                       "X-Robots-Tag": "noindex"})
 
 
 class FillFieldIn(BaseModel):
