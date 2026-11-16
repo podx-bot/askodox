@@ -288,6 +288,7 @@ object AskodoxPaymentAlerts {
     }
 
     private fun status(context: Context): Map<String, Any?> {
+        Speaker.warm(context)
         val cfg = config(context)
         return mapOf(
             "listenerDeclared" to listenerDeclared(context),
@@ -298,7 +299,7 @@ object AskodoxPaymentAlerts {
             "smsApp" to defaultSmsPackage(context),
             "connectedAt" to prefs(context).getLong("listener_connected_at", 0L),
             "disconnectedAt" to prefs(context).getLong("listener_disconnected_at", 0L),
-            "ttsReady" to Speaker.ready,
+            "ttsReady" to (if (Speaker.initDone) Speaker.ready else null),
             "ttsLanguageOk" to Speaker.languageOk,
             "pending" to events(context).let { list -> (0 until list.length()).count { !list.getJSONObject(it).has("server_id") } },
             "audio" to audioRoute(context),
@@ -943,6 +944,8 @@ object AskodoxPaymentAlerts {
     object Speaker {
         private var tts: TextToSpeech? = null
         @Volatile var ready = false
+        /** True once the engine answered its start-up (success or failure): before that, "not ready" means "not checked yet". */
+        @Volatile var initDone = false
         @Volatile var languageOk = true
         private val waiting = mutableListOf<() -> Unit>()
         private val callbacks = mutableMapOf<String, (Boolean) -> Unit>()
@@ -959,6 +962,7 @@ object AskodoxPaymentAlerts {
                 tts = TextToSpeech(context.applicationContext) { status ->
                     synchronized(this) {
                         ready = status == TextToSpeech.SUCCESS
+                        initDone = true
                         val run = waiting.toList()
                         waiting.clear()
                         if (ready) {
@@ -974,6 +978,33 @@ object AskodoxPaymentAlerts {
                             tts = null
                             done?.invoke(false)
                         }
+                    }
+                }
+            }
+        }
+
+        /** Start the engine before the first payment so the health check reads a real answer, not "never started". */
+        @Synchronized
+        fun warm(context: Context) {
+            if (tts != null) return
+            appContext = context.applicationContext
+            tts = TextToSpeech(context.applicationContext) { status ->
+                synchronized(this) {
+                    ready = status == TextToSpeech.SUCCESS
+                    initDone = true
+                    val run = waiting.toList()
+                    waiting.clear()
+                    if (ready) {
+                        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                            override fun onStart(utteranceId: String?) {}
+                            override fun onDone(utteranceId: String?) { finish(utteranceId, true) }
+                            @Deprecated("Deprecated in Java")
+                            override fun onError(utteranceId: String?) { finish(utteranceId, false) }
+                            override fun onError(utteranceId: String?, errorCode: Int) { finish(utteranceId, false) }
+                        })
+                        run.forEach { it() }
+                    } else {
+                        tts = null
                     }
                 }
             }
