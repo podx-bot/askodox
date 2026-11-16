@@ -288,6 +288,7 @@ object AskodoxPaymentAlerts {
     }
 
     private fun status(context: Context): Map<String, Any?> {
+        Speaker.warm(context)
         val cfg = config(context)
         return mapOf(
             "listenerDeclared" to listenerDeclared(context),
@@ -298,7 +299,7 @@ object AskodoxPaymentAlerts {
             "smsApp" to defaultSmsPackage(context),
             "connectedAt" to prefs(context).getLong("listener_connected_at", 0L),
             "disconnectedAt" to prefs(context).getLong("listener_disconnected_at", 0L),
-            "ttsReady" to Speaker.ready,
+            "ttsReady" to (if (Speaker.initDone) Speaker.ready else null),
             "ttsLanguageOk" to Speaker.languageOk,
             "pending" to events(context).let { list -> (0 until list.length()).count { !list.getJSONObject(it).has("server_id") } },
             "audio" to audioRoute(context),
@@ -624,13 +625,37 @@ object AskodoxPaymentAlerts {
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
         val mayVoice = quiet || test || claimVoice(context, amount, now, "local")
-        event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else "pending")
+        // Owner 2026-11-16: the UPI app's notification carries the payer's NAME; a bank SMS usually does not. A nameless SMS
+        // waits a few seconds for that notification (it then speaks WITH the name); none came -> the SMS is spoken as is.
+        val heldForName = !test && !quiet && mayVoice && amount != null && payer.isNullOrEmpty() &&
+            kindOf(cfg, pkg).let { it == "sms" || it == "bank" }
+        event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else if (heldForName) "held" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet && mayVoice) speak(context, amount, test, localId, payer, cfg)
+        if (!quiet && mayVoice) {
+            if (heldForName) main.postDelayed({ speakHeld(context, localId, amount, cfg) }, HOLD_FOR_NAME_MS)
+            else speak(context, amount, test, localId, payer, cfg)
+        }
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to (!quiet && mayVoice))
+            "amountPaise" to amount, "spoken" to (!quiet && mayVoice && !heldForName))
+    }
+
+    private const val HOLD_FOR_NAME_MS = 4500L
+
+    /** The wait for a notification with the name is over: speak the held SMS payment now (unless a notification already did). */
+    private fun speakHeld(context: Context, localId: String, amount: Long?, cfg: JSONObject) {
+        var go = false
+        synchronized(this) {
+            val list = events(context)
+            for (i in 0 until list.length()) {
+                val e = list.getJSONObject(i)
+                if (e.optString("local_id") == localId && e.optString("spoken") == "held") {
+                    e.put("spoken", "pending"); go = true; saveEvents(context, list); break
+                }
+            }
+        }
+        if (go) speak(context, amount, false, localId, null, cfg)
     }
 
     /**
@@ -662,9 +687,13 @@ object AskodoxPaymentAlerts {
             if (account != null && !e.has("account")) e.put("account", account)
             if (reference != null && !e.has("reference")) e.put("reference", reference)
             if (!party.isNullOrEmpty() && !e.has("party") && e.has("direction")) e.put("party", party)
+            val wasHeld = e.optString("spoken") == "held" && direction == "in"
+            if (wasHeld) e.put("spoken", "pending")
             saveEvents(context, list)
             val id = e.optString("local_id")
             main.post { channel?.invokeMethod("paymentEvent", e.toString()) }
+            // The notification (with the name) arrived while the SMS was waiting: speak ONCE, with the name.
+            if (wasHeld) speak(context, amount, false, id, party, cfg)
             return id
         }
         return null
@@ -915,6 +944,8 @@ object AskodoxPaymentAlerts {
     object Speaker {
         private var tts: TextToSpeech? = null
         @Volatile var ready = false
+        /** True once the engine answered its start-up (success or failure): before that, "not ready" means "not checked yet". */
+        @Volatile var initDone = false
         @Volatile var languageOk = true
         private val waiting = mutableListOf<() -> Unit>()
         private val callbacks = mutableMapOf<String, (Boolean) -> Unit>()
@@ -931,6 +962,7 @@ object AskodoxPaymentAlerts {
                 tts = TextToSpeech(context.applicationContext) { status ->
                     synchronized(this) {
                         ready = status == TextToSpeech.SUCCESS
+                        initDone = true
                         val run = waiting.toList()
                         waiting.clear()
                         if (ready) {
@@ -946,6 +978,33 @@ object AskodoxPaymentAlerts {
                             tts = null
                             done?.invoke(false)
                         }
+                    }
+                }
+            }
+        }
+
+        /** Start the engine before the first payment so the health check reads a real answer, not "never started". */
+        @Synchronized
+        fun warm(context: Context) {
+            if (tts != null) return
+            appContext = context.applicationContext
+            tts = TextToSpeech(context.applicationContext) { status ->
+                synchronized(this) {
+                    ready = status == TextToSpeech.SUCCESS
+                    initDone = true
+                    val run = waiting.toList()
+                    waiting.clear()
+                    if (ready) {
+                        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                            override fun onStart(utteranceId: String?) {}
+                            override fun onDone(utteranceId: String?) { finish(utteranceId, true) }
+                            @Deprecated("Deprecated in Java")
+                            override fun onError(utteranceId: String?) { finish(utteranceId, false) }
+                            override fun onError(utteranceId: String?, errorCode: Int) { finish(utteranceId, false) }
+                        })
+                        run.forEach { it() }
+                    } else {
+                        tts = null
                     }
                 }
             }

@@ -314,6 +314,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 'Your shop details, quick bill, QR payment, today\'s post.',
                 'మీ షాప్ వివరాలు, వెంటనే బిల్లు, QR పేమెంట్, ఈ రోజు పోస్ట్.',
                 () => context.push('/me/business'), words: ['business', 'shop', 'bill', 'బిజినెస్', 'షాప్', 'బిల్లు']),
+            // Owner 2026-11-16: ordering at a hotel / shop by its code must be reachable without My Roles (hidden in Phase 1).
+            row('profile-order-desk', 'me', Icons.restaurant_menu, 'Order at a shop / table', 'షాప్ / టేబుల్ ఆర్డర్',
+                'Enter the shop code or scan its QR, pick items, order.',
+                'షాప్ కోడ్ రాయండి లేదా QR స్కాన్ చేయండి, ఐటమ్స్ ఎంచుకుని ఆర్డర్ చేయండి.',
+                () => context.push('/order-desk/enter'), words: ['order', 'hotel', 'menu', 'table', 'ఆర్డర్', 'హోటల్', 'మెనూ']),
             row('profile-following', 'me', Icons.storefront_outlined, 'Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు',
                 'Updates from the shops you follow.', 'మీరు ఫాలో చేసే షాప్‌ల అప్‌డేట్స్.',
                 () => context.push('/me/following'), words: ['follow', 'shop', 'ఫాలో', 'షాప్']),

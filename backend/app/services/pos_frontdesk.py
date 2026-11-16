@@ -45,6 +45,9 @@ SCHEMA = [
     "CREATE TABLE IF NOT EXISTS pos_desk_events (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL,"
     " business_id TEXT NOT NULL, stage TEXT NOT NULL, actor TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', at TEXT NOT NULL)",
     "CREATE INDEX IF NOT EXISTS idx_pos_desk_events ON pos_desk_events(order_id)",
+    # Who is told about which step + the shop's auto-confirm switch (owner 2026-11-16). One row per shop.
+    "CREATE TABLE IF NOT EXISTS pos_desk_settings (business_id TEXT PRIMARY KEY, routing_json TEXT NOT NULL DEFAULT '{}',"
+    " auto_confirm INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL)",
 ]
 
 FLOWS: Dict[str, tuple] = {
@@ -72,7 +75,8 @@ STAGE_TEXT: Dict[str, tuple] = {  # (English, Telugu)
     "cancelled": ("Cancelled.", "రద్దు చేశారు."),
 }
 _THANKS = ("served", "handed", "delivered", "done")
-_FLOOR = ("tables", "kitchen", "sell")
+_FLOOR = ("tables", "kitchen", "sell", "deliver")
+ROUTE_EVENTS = ("new", "kitchen", "ready", "delivery")
 
 
 def _maps_url(lat: Optional[float], lng: Optional[float], address: str) -> str:
@@ -107,6 +111,10 @@ class PosFrontDesk:
         with store._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            try:  # who the order is assigned to (an app user), next to the typed name
+                conn.execute("ALTER TABLE pos_desk_orders ADD COLUMN assignee_user TEXT NOT NULL DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
 
     # ------------------------------------------------------------------ helpers
     def _now(self) -> datetime:
@@ -115,15 +123,90 @@ class PosFrontDesk:
     def _today(self) -> str:
         return self.store._local(self._now())
 
-    def _floor(self, conn: sqlite3.Connection, business_id: str, user: str) -> str:
-        """Anyone on the floor (waiter / kitchen / cashier / manager / owner) may work the desk."""
+    def _floor(self, conn: sqlite3.Connection, business_id: str, user: str, *, delivery_ok: bool = False) -> str:
+        """Anyone on the floor (waiter / kitchen / cashier / manager / owner) may work the desk. A delivery person only
+        sees and moves the delivery orders assigned to them (delivery_ok)."""
         self.store._business_row(conn, business_id)
         role = self.store.role_of(conn, business_id, user)
         if role is None:
             raise PosError(404, "business", "Business not found.")
         if not (PERMISSIONS[role] & set(_FLOOR)):
             raise PosError(403, "permission", f"Your role ({role}) cannot work the order desk.", role=role)
+        if role == "delivery" and not delivery_ok:
+            raise PosError(403, "permission", "A delivery person can only take the delivery orders assigned to them.", role=role)
         return role
+
+    # ------------------------------------------------------------------ who is told (owner 2026-11-16)
+    def _people(self, conn: sqlite3.Connection, business_id: str) -> List[Dict[str, Any]]:
+        """The owner + every active member with an app account: the people an order can be assigned / routed to."""
+        owner = conn.execute("SELECT owner_user_id FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+        people = [{"id": owner["owner_user_id"], "role": "owner", "label": "Owner"}] if owner else []
+        for r in conn.execute("SELECT role, app_user_id, label, phone_key FROM pos_members WHERE business_id = ? AND active = 1"
+                              " AND app_user_id IS NOT NULL AND app_user_id != ''", (business_id,)):
+            people.append({"id": r["app_user_id"], "role": r["role"], "last4": str(r["phone_key"])[-4:],
+                           "label": r["label"] or f"••{str(r['phone_key'])[-4:]}"})
+        return people
+
+    def _routing(self, conn: sqlite3.Connection, business_id: str) -> Dict[str, Any]:
+        row = conn.execute("SELECT routing_json, auto_confirm FROM pos_desk_settings WHERE business_id = ?", (business_id,)).fetchone()
+        try:
+            routing = json.loads(row["routing_json"]) if row else {}
+        except ValueError:
+            routing = {}
+        return {"routing": {k: [str(x) for x in routing.get(k, []) if x] for k in ROUTE_EVENTS},
+                "auto_confirm": bool(row["auto_confirm"]) if row else False}
+
+    def _targets(self, conn: sqlite3.Connection, business_id: str, event: str) -> List[str]:
+        """Who hears about [event]: the people the owner chose; otherwise by role -- new order: owner / manager / cashier,
+        kitchen: owner / kitchen, ready: owner / waiter / cashier, delivery: owner / delivery. Never everyone."""
+        people = self._people(conn, business_id)
+        valid = {p["id"] for p in people}
+        chosen = [u for u in self._routing(conn, business_id)["routing"].get(event, []) if u in valid]
+        if chosen:
+            return list(dict.fromkeys(chosen))
+        roles = {"new": ("owner", "manager", "cashier"), "kitchen": ("owner", "kitchen", "manager"),
+                 "ready": ("owner", "waiter", "cashier"), "delivery": ("owner", "delivery")}[event]
+        return list(dict.fromkeys(p["id"] for p in people if p["role"] in roles))
+
+    def people(self, business_id: str, user: str) -> Dict[str, Any]:
+        """Who an order can be assigned to (the floor staff see it; a delivery person does not)."""
+        with self.store._connect() as conn:
+            self._floor(conn, business_id, user)
+            return {"people": [{**p, "you": p["id"] == user} for p in self._people(conn, business_id)]}
+
+    def desk_settings(self, business_id: str, user: str) -> Dict[str, Any]:
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "settings")
+            out = self._routing(conn, business_id)
+            out["people"] = [{**p, "you": p["id"] == user} for p in self._people(conn, business_id)]
+            out["defaults"] = {e: self._targets_default(conn, business_id, e) for e in ROUTE_EVENTS}
+            return out
+
+    def _targets_default(self, conn: sqlite3.Connection, business_id: str, event: str) -> List[str]:
+        roles = {"new": ("owner", "manager", "cashier"), "kitchen": ("owner", "kitchen", "manager"),
+                 "ready": ("owner", "waiter", "cashier"), "delivery": ("owner", "delivery")}[event]
+        return [p["id"] for p in self._people(conn, business_id) if p["role"] in roles]
+
+    def set_desk_settings(self, business_id: str, user: str, routing: Optional[Dict[str, Any]],
+                          auto_confirm: Optional[bool]) -> Dict[str, Any]:
+        """Owner only. routing {event: [user ids]} (empty list = the role defaults); auto_confirm on/off."""
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "settings")
+            valid = {p["id"] for p in self._people(conn, business_id)}
+            current = self._routing(conn, business_id)
+            merged = dict(current["routing"])
+            for event, ids in (routing or {}).items():
+                if event not in ROUTE_EVENTS:
+                    raise PosError(400, "routing", f"Unknown step {event}.")
+                if not isinstance(ids, list) or any(str(i) not in valid for i in ids):
+                    raise PosError(400, "routing", "Choose people who are on this shop's staff.")
+                merged[event] = [str(i) for i in ids][:10]
+            auto = current["auto_confirm"] if auto_confirm is None else bool(auto_confirm)
+            conn.execute("INSERT INTO pos_desk_settings (business_id, routing_json, auto_confirm, updated_at) VALUES (?, ?, ?, ?)"
+                         " ON CONFLICT(business_id) DO UPDATE SET routing_json = excluded.routing_json,"
+                         " auto_confirm = excluded.auto_confirm, updated_at = excluded.updated_at",
+                         (business_id, json.dumps(merged), 1 if auto else 0, self._now().isoformat()))
+        return self.desk_settings(business_id, user)
 
     def _staff_users(self, conn: sqlite3.Connection, business_id: str) -> List[str]:
         """The owner + every active member who can work the floor (and has an app account)."""
@@ -187,6 +270,24 @@ class PosFrontDesk:
             item["old_price_paise"] = existing.get(key)
         return {"items": items, "gst": business["registration_type"] != "unregistered"}
 
+    def parse_menu_photo(self, business_id: str, user: str, images: List[Any], image_service: Any) -> Dict[str, Any]:
+        """Menu photo(s) -> a PREVIEW (nothing saved): every item with the price printed on the photo, marked when it
+        already exists (old price shown) or when the photo had no clear price (the owner types it)."""
+        from app.services import pos_menu_photo
+
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "products")
+            business = self.store._business_row(conn, business_id)
+            existing = {pos_menu_voice.normalize(r["name"]): r["price_paise"] for r in conn.execute(
+                "SELECT name, price_paise FROM pos_products WHERE business_id = ? AND active = 1", (business_id,))}
+        default_unit = "plate" if business["template"] in ("restaurant", "bakery") else "pcs"
+        out = pos_menu_photo.read_menu(image_service, images, default_unit)
+        for item in out["items"]:
+            key = pos_menu_voice.normalize(item["name"])
+            item["exists"] = key in existing
+            item["old_price_paise"] = existing.get(key)
+        return {"items": out["items"], "read": out["read"], "gst": business["registration_type"] != "unregistered"}
+
     def import_menu(self, business_id: str, user: str, items: List[Dict[str, Any]], rate_bp: int = 0) -> Dict[str, Any]:
         if not items or len(items) > 200:
             raise PosError(400, "items", "Add 1-200 items.")
@@ -236,10 +337,69 @@ class PosFrontDesk:
     def qr_codes(self, business_id: str, user: str) -> Dict[str, Any]:
         with self.store._connect() as conn:
             self.store._require(conn, business_id, user, "tables")
+            name = self.store._business_row(conn, business_id)["name"]
             tables = [{"id": t["id"], "name": t["name"], "area": t["area"], "code": f"{QR_PREFIX}{business_id}:{t['id']}"}
                       for t in conn.execute("SELECT id, name, area FROM pos_tables WHERE business_id = ? AND active = 1"
                                             " ORDER BY area, name", (business_id,))]
-        return {"shop": f"{QR_PREFIX}{business_id}", "tables": tables}
+        return {"shop": f"{QR_PREFIX}{business_id}", "name": name, "tables": tables}
+
+    _GENERIC = {"the", "and", "shop", "store", "stores", "hotel", "restaurant", "mess", "centre", "center", "mart", "tiffins"}
+
+    @staticmethod
+    def _words(text: str) -> set:
+        return {w for w in re.findall(r"[\w]+", str(text or "").lower(), flags=re.UNICODE) if len(w) >= 3}
+
+    def find_shops(self, text: str, limit: int = 2) -> List[Dict[str, Any]]:
+        """Shops on ASKODOX whose own NAME the person said (data match, no categories): open, with a menu.
+        A multi-word name needs at least two of its words in the message (one generic word like 'shop' never counts)."""
+        said = self._words(text)
+        if not said:
+            return []
+        found: List[Dict[str, Any]] = []
+        with self.store._connect() as conn:
+            for r in conn.execute("SELECT id, name, status FROM pos_businesses"):
+                if ((r["status"] if "status" in r.keys() else "open") or "open") != "open":
+                    continue
+                words = self._words(r["name"])
+                real = words - self._GENERIC
+                hit = len(words & said)
+                if not real or not (real & said) or hit < min(2, len(words)):
+                    continue
+                items = conn.execute("SELECT COUNT(*) AS n FROM pos_products WHERE business_id = ? AND active = 1",
+                                     (r["id"],)).fetchone()["n"]
+                if items:
+                    found.append({"id": r["id"], "name": r["name"], "code": f"{QR_PREFIX}{r['id']}", "score": hit})
+        found.sort(key=lambda x: -x["score"])
+        return found[:limit]
+
+    def find_items(self, text: str, limit: int = 3) -> List[Dict[str, Any]]:
+        """Shops on ASKODOX (open) whose MENU has what the person asked for -- matched on the item's own words
+        ("biryani" finds "Chicken Dum Biryani"), never on a category list. Only items on sale today. Each shop carries
+        its matching items with the menu prices; best match first (owner 2026-11-16: our shops are shown first)."""
+        said = self._words(text) - self._GENERIC
+        if not said:
+            return []
+        found: List[Dict[str, Any]] = []
+        with self.store._connect() as conn:
+            for b in conn.execute("SELECT id, name, status FROM pos_businesses"):
+                if ((b["status"] if "status" in b.keys() else "open") or "open") != "open":
+                    continue
+                hits = []
+                for item in self._menu(conn, b["id"]):
+                    if not item["available"]:
+                        continue
+                    score = len((self._words(item["name"]) | self._words(item.get("name_te") or "")) & said)
+                    if score:
+                        hits.append((score, item))
+                if not hits:
+                    continue
+                hits.sort(key=lambda h: (-h[0], h[1]["price_paise"]))
+                found.append({"id": b["id"], "name": b["name"], "code": f"{QR_PREFIX}{b['id']}",
+                              "score": sum(h[0] for h in hits[:3]),
+                              "items": [{"name": h[1]["name"], "price_paise": h[1]["price_paise"], "unit": h[1]["unit"]}
+                                        for h in hits[:3]]})
+        found.sort(key=lambda x: -x["score"])
+        return found[:limit]
 
     def resolve(self, code: str, user: str) -> Dict[str, Any]:
         ref = parse_code(code)
@@ -377,11 +537,22 @@ class PosFrontDesk:
                  json.dumps(items), _clean(payload.get("notes"), 160), txn, now, now))
             self._event(conn, order_id, business_id, "placed", user)
             row = dict(conn.execute("SELECT * FROM pos_desk_orders WHERE id = ?", (order_id,)).fetchone())
-            targets = self._staff_users(conn, business_id)
+            targets = self._targets(conn, business_id, "new")
             view = self._view(conn, row, user)
+            auto = self._routing(conn, business_id)["auto_confirm"]
+            owner_id = business["owner_user_id"]
         total = sum(i["price_paise"] * i["qty_milli"] // 1000 for i in items)
         self._push([u for u in targets if u != user], "కొత్త ఆర్డర్ · New order",
-                   f"{len(items)} ఐటమ్స్ · ₹{total // 100} · {kind}", f"/pos/{business_id}/orders", f"desk:{order_id}:new")
+                   f"{len(items)} ఐటమ్స్ · ₹{total // 100} · {kind}", f"/desk/{business_id}", f"desk:{order_id}:new")
+        if auto:
+            # Auto-confirm (the shop switched it on): every item is on today's menu (checked above) and the shop is open,
+            # so the order is accepted at once and the kitchen is told. Any problem leaves it for a person to answer.
+            try:
+                self.confirm(business_id, owner_id, order_id, note="auto-confirmed")
+                with self.store._connect() as conn:
+                    return self._view(conn, dict(conn.execute("SELECT * FROM pos_desk_orders WHERE id = ?", (order_id,)).fetchone()), user)
+            except Exception:
+                return view
         return view
 
     @staticmethod
@@ -418,7 +589,7 @@ class PosFrontDesk:
             "estimate_paise": estimate, "customer_name": row["customer_name"], "notes": row["notes"],
             "address": row["address"], "landmark": row["landmark"], "lat": row["lat"], "lng": row["lng"],
             "maps_url": _maps_url(row["lat"], row["lng"], row["address"]) if row["kind"] == "delivery" else "",
-            "assignee": row["assignee"], "placed_at": row["placed_at"], "updated_at": row["updated_at"],
+            "assignee": row["assignee"], "assignee_user": row.get("assignee_user") or "", "placed_at": row["placed_at"], "updated_at": row["updated_at"],
             "can_cancel": row["stage"] == "placed", "timeline": self._timeline(conn, row["id"]),
             "gst": bool(business and business["registration_type"] != "unregistered"),
             "business_phone": business["phone"] if business else "", "invoice": None, "pay": [],
@@ -500,11 +671,13 @@ class PosFrontDesk:
     def orders(self, business_id: str, user: str, lane: str = "active") -> Dict[str, Any]:
         """lane: active (everything running), new, kitchen, ready, delivery, done."""
         with self.store._tx() as conn:
-            self._floor(conn, business_id, user)
+            role = self._floor(conn, business_id, user, delivery_ok=True)
             self._escalate(conn, business_id)
         with self.store._connect() as conn:
             rows = [dict(r) for r in conn.execute("SELECT * FROM pos_desk_orders WHERE business_id = ? ORDER BY placed_at DESC"
                                                   " LIMIT 300", (business_id,))]
+            if role == "delivery":  # a delivery person sees only the orders assigned to them
+                rows = [r for r in rows if self._is_mine(r, user)]
             lanes = {
                 "new": lambda r: r["stage"] == "placed",
                 "kitchen": lambda r: r["stage"] in ("accepted", "preparing"),
@@ -519,11 +692,16 @@ class PosFrontDesk:
 
     def order(self, business_id: str, user: str, order_id: str) -> Dict[str, Any]:
         with self.store._connect() as conn:
-            self._floor(conn, business_id, user)
+            role = self._floor(conn, business_id, user, delivery_ok=True)
             row = conn.execute("SELECT * FROM pos_desk_orders WHERE id = ? AND business_id = ?", (order_id, business_id)).fetchone()
-            if row is None:
+            if row is None or (role == "delivery" and not self._is_mine(dict(row), user)):
                 raise PosError(404, "order", "Order not found.")
             return self._view(conn, dict(row), user, staff=True)
+
+    @staticmethod
+    def _is_mine(row: Dict[str, Any], user: str) -> bool:
+        """A delivery person's own order: a delivery order assigned to them."""
+        return row["kind"] == "delivery" and (row.get("assignee_user") or "") == user
 
     def _set_stage(self, conn: sqlite3.Connection, row: Dict[str, Any], stage: str, actor: str, note: str = "",
                    **fields: Any) -> None:
@@ -582,6 +760,10 @@ class PosFrontDesk:
             self._set_stage(conn, row, "accepted", user, note, pos_order_id=pos_order["id"])
         names = ", ".join(i["name"] for i in dropped)
         self._tell_customer(row, "accepted", (f"లేనివి: {names}. " if names else "") + STAGE_TEXT["accepted"][1])
+        with self.store._connect() as conn:  # the kitchen people the owner chose (or the kitchen role) hear it now
+            kitchen = self._targets(conn, business_id, "kitchen")
+        self._push([u for u in kitchen if u != user], "వంటగదికి ఆర్డర్ · Kitchen order",
+                   ", ".join(f"{i['name']} ×{i['qty_milli'] // 1000}" for i in kept)[:140], f"/desk/{business_id}", f"desk:{order_id}:kitchen")
         return self.order(business_id, user, order_id)
 
     def reject(self, business_id: str, user: str, order_id: str, reason: str) -> Dict[str, Any]:
@@ -597,14 +779,20 @@ class PosFrontDesk:
         self._tell_customer(row, "rejected", _clean(reason, 120))
         return self.order(business_id, user, order_id)
 
-    def advance(self, business_id: str, user: str, order_id: str, stage: str, assignee: str = "") -> Dict[str, Any]:
+    def advance(self, business_id: str, user: str, order_id: str, stage: str, assignee: str = "",
+                assignee_user: str = "") -> Dict[str, Any]:
         """Forward only along this order's own lane; 'preparing' may be skipped."""
         with self.store._tx() as conn:
-            self._floor(conn, business_id, user)
+            role = self._floor(conn, business_id, user, delivery_ok=True)
             row = conn.execute("SELECT * FROM pos_desk_orders WHERE id = ? AND business_id = ?", (order_id, business_id)).fetchone()
-            if row is None:
+            if row is None or (role == "delivery" and not self._is_mine(dict(row), user)):
                 raise PosError(404, "order", "Order not found.")
             row = dict(row)
+            if role == "delivery" and stage not in ("out_for_delivery", "delivered"):
+                raise PosError(403, "permission", "A delivery person can only mark an order out for delivery or delivered.")
+            if _clean(assignee_user, 60) and role != "delivery":
+                self._assign_user(conn, row, _clean(assignee_user, 60))
+                row["assignee_user"] = _clean(assignee_user, 60)
             flow = FLOWS[row["kind"]]
             if row["stage"] in CLOSED or row["stage"] == "placed":
                 raise PosError(409, "stage", "Accept the order first." if row["stage"] == "placed" else "This order is closed.")
@@ -631,7 +819,25 @@ class PosFrontDesk:
         if stage in ("ready", "out_for_delivery") or stage in _THANKS:
             extra = f"{fields.get('assignee', row['assignee'])} తీసుకొస్తున్నారు" if stage == "out_for_delivery" else ""
             self._tell_customer(row, stage, extra)
+        self._tell_staff_step(row, stage, user)
         return self.order(business_id, user, order_id)
+
+    def _tell_staff_step(self, row: Dict[str, Any], stage: str, actor: str) -> None:
+        """The next person hears it: the one the order is assigned to; otherwise ready -> waiter (dine-in) / cashier
+        (takeaway), packed delivery -> the delivery people. Never the whole team."""
+        biz, kind = row["business_id"], row["kind"]
+        with self.store._connect() as conn:
+            fresh = conn.execute("SELECT assignee_user FROM pos_desk_orders WHERE id = ?", (row["id"],)).fetchone()
+            assigned = (fresh["assignee_user"] if fresh else "") or ""
+            if stage == "ready" and kind in ("dine_in", "takeaway"):
+                who, title = self._targets(conn, biz, "ready"), ("వడ్డించండి · Ready to serve" if kind == "dine_in" else "సిద్ధం — ఇవ్వండి · Ready for pickup")
+            elif stage == "packed" and kind == "delivery":
+                who, title = self._targets(conn, biz, "delivery"), "డెలివరీకి సిద్ధం · Ready for delivery"
+            else:
+                return
+        if assigned:
+            who = [assigned]
+        self._push([u for u in who if u != actor], title, f"#{row['id'][-5:]}", f"/desk/{biz}", f"desk:{row['id']}:{stage}:step")
 
     def bill(self, business_id: str, user: str, order_id: str, payments: Optional[List[Dict[str, Any]]] = None,
              client_txn_id: str = "", customer_id: Optional[str] = None) -> Dict[str, Any]:
@@ -659,9 +865,31 @@ class PosFrontDesk:
         out["invoice_number"] = result.get("number")
         return out
 
-    def assign(self, business_id: str, user: str, order_id: str, assignee: str) -> Dict[str, Any]:
+    def _assign_user(self, conn: sqlite3.Connection, row: Dict[str, Any], person_id: str) -> Dict[str, Any]:
+        people = {p["id"]: p for p in self._people(conn, row["business_id"])}
+        person = people.get(person_id)
+        if person is None:
+            raise PosError(400, "assignee", "Choose a person who is on this shop's staff.")
+        label = _clean(person["label"], 40) or person["role"]
+        conn.execute("UPDATE pos_desk_orders SET assignee = ?, assignee_user = ?, updated_at = ? WHERE id = ?",
+                     (label, person_id, self._now().isoformat(), row["id"]))
+        self._event(conn, row["id"], row["business_id"], row["stage"], "assign", f"assigned to {label}")
+        return person
+
+    def assign(self, business_id: str, user: str, order_id: str, assignee: str, assignee_user: str = "") -> Dict[str, Any]:
+        """Assign an order to a staff PERSON (they get the alert on their own phone) or, for old callers, a typed name."""
+        person_id = ""
         with self.store._tx() as conn:
             self._floor(conn, business_id, user)
-            conn.execute("UPDATE pos_desk_orders SET assignee = ?, updated_at = ? WHERE id = ? AND business_id = ?",
-                         (_clean(assignee, 40), self._now().isoformat(), order_id, business_id))
+            row = conn.execute("SELECT * FROM pos_desk_orders WHERE id = ? AND business_id = ?", (order_id, business_id)).fetchone()
+            if row is None:
+                raise PosError(404, "order", "Order not found.")
+            if _clean(assignee_user, 60):
+                person_id = _clean(assignee_user, 60)
+                self._assign_user(conn, dict(row), person_id)
+            else:
+                conn.execute("UPDATE pos_desk_orders SET assignee = ?, assignee_user = '', updated_at = ? WHERE id = ? AND business_id = ?",
+                             (_clean(assignee, 40), self._now().isoformat(), order_id, business_id))
+        if person_id and person_id != user:
+            self._push([person_id], "మీకు ఆర్డర్ అసైన్ అయింది · Order for you", f"#{order_id[-5:]}", f"/desk/{business_id}", f"desk:{order_id}:assign")
         return self.order(business_id, user, order_id)

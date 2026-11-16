@@ -60,17 +60,26 @@ class PosQuickBill:
             with self.store._connect() as conn:
                 found = conn.execute("SELECT id, price_paise FROM pos_products WHERE business_id = ? AND active = 1 AND"
                                      " lower(name) = lower(?)", (business_id, name)).fetchone()
+            # Weighed line (today's rate x weight in kg): billed as quantity x rate when the typed total agrees with it;
+            # a total typed over by hand is billed as one lump (qty 1) at that amount, as before.
+            qty_milli = int(raw.get("qty_milli") or 0)
+            rate = int(raw.get("rate_paise") or 0)
+            weighed = qty_milli > 0 and rate > 0 and abs(qty_milli * rate // 1000 - amount) <= max(1, amount // 100)
+            if weighed:
+                amount = qty_milli * rate // 1000
             if found is None:
-                made = self.store.add_product(business_id, user, {"name": name, "unit": "pcs", "price_paise": amount,
+                made = self.store.add_product(business_id, user, {"name": name, "unit": "kg" if weighed else "pcs",
+                                                                  "price_paise": rate if weighed else amount,
                                                                   "rate_bp": rate_bp, "price_includes_tax": True})
-                product_id, listed = made["id"], amount
+                product_id, listed = made["id"], (rate if weighed else amount)
             else:
                 product_id, listed = found["id"], found["price_paise"]
-            line: Dict[str, Any] = {"product_id": product_id, "qty_milli": 1000}
-            if amount != listed:
+            line: Dict[str, Any] = {"product_id": product_id, "qty_milli": qty_milli if weighed else 1000}
+            unit_price = rate if weighed else amount
+            if unit_price != listed:
                 if not can_override:
                     raise PosError(403, "price_override", f"Line {index}: only a manager / owner can bill {name} at a different price.")
-                line["unit_price_paise"] = amount
+                line["unit_price_paise"] = unit_price
             lines.append(line)
             total += amount
         advance = max(0, int(data.get("advance_paise") or 0))

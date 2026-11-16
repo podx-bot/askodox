@@ -21,6 +21,7 @@ String askodoxStaffRoleLabel(String role, bool te) => switch (role) {
       'accountant' => te ? 'అకౌంటెంట్' : 'Accountant',
       'waiter' => te ? 'వెయిటర్' : 'Waiter',
       'kitchen' => te ? 'వంటగది' : 'Kitchen',
+      'delivery' => te ? 'డెలివరీ' : 'Delivery',
       _ => role,
     };
 

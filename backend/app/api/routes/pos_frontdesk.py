@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.routes.pos import _call, _restaurant, _store, _user
@@ -84,6 +84,7 @@ class ReasonIn(BaseModel):
 class AdvanceIn(BaseModel):
     stage: str = Field(max_length=20)
     assignee: str = Field(default="", max_length=40)
+    assignee_user: str = Field(default="", max_length=60)
 
 
 class BillIn(BaseModel):
@@ -94,6 +95,11 @@ class BillIn(BaseModel):
 
 class MenuTextIn(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
+
+
+class MenuPhotoIn(BaseModel):
+    """Up to 4 photos of the menu, each base64 (JPEG / PNG), about 4 MB at most."""
+    images: List[Dict[str, str]] = Field(min_length=1, max_length=4)
 
 
 class MenuItemIn(BaseModel):
@@ -134,7 +140,14 @@ class QuickBillIn(BaseModel):
 
 
 class AssigneeIn(BaseModel):
-    assignee: str = Field(max_length=40)
+    assignee: str = Field(default="", max_length=40)
+    assignee_user: str = Field(default="", max_length=60)
+
+
+class DeskSettingsIn(BaseModel):
+    """routing: {new | kitchen | ready | delivery: [staff user ids]} (empty list = the role defaults)."""
+    routing: Optional[Dict[str, List[str]]] = None
+    auto_confirm: Optional[bool] = None
 
 
 # ------------------------------------------------------------------------------------------- customer
@@ -201,7 +214,7 @@ def desk_reject(business_id: str, order_id: str, body: ReasonIn, request: Reques
 
 @router.post("/businesses/{business_id}/desk/orders/{order_id}/advance")
 def desk_advance(business_id: str, order_id: str, body: AdvanceIn, request: Request) -> dict:
-    return _call(_desk(request).advance, business_id, _user(request, "desk", 300), order_id, body.stage, body.assignee)
+    return _call(_desk(request).advance, business_id, _user(request, "desk", 300), order_id, body.stage, body.assignee, body.assignee_user)
 
 
 @router.post("/businesses/{business_id}/desk/orders/{order_id}/bill")
@@ -211,12 +224,36 @@ def desk_bill(business_id: str, order_id: str, body: BillIn, request: Request) -
 
 @router.post("/businesses/{business_id}/desk/orders/{order_id}/assign")
 def desk_assign(business_id: str, order_id: str, body: AssigneeIn, request: Request) -> dict:
-    return _call(_desk(request).assign, business_id, _user(request, "desk", 300), order_id, body.assignee)
+    return _call(_desk(request).assign, business_id, _user(request, "desk", 300), order_id, body.assignee, body.assignee_user)
 
 
 @router.post("/businesses/{business_id}/desk/assist")
 def desk_assist(business_id: str, body: AssistIn, request: Request) -> dict:
     return _call(_desk(request).assist_counter, business_id, _user(request, "desk-assist", 120), body.text, body.cart, body.te)
+
+
+@router.get("/businesses/{business_id}/desk/people")
+def desk_people(business_id: str, request: Request) -> dict:
+    return _call(_desk(request).people, business_id, _user(request, "desk", 300))
+
+
+@router.get("/businesses/{business_id}/desk/settings")
+def desk_settings(business_id: str, request: Request) -> dict:
+    """Who is told about each step (new order / kitchen / ready / delivery) + auto-confirm. Owner only."""
+    return _call(_desk(request).desk_settings, business_id, _user(request, "desk", 120))
+
+
+@router.put("/businesses/{business_id}/desk/settings")
+def desk_settings_save(business_id: str, body: DeskSettingsIn, request: Request) -> dict:
+    return _call(_desk(request).set_desk_settings, business_id, _user(request, "desk", 120), body.routing, body.auto_confirm)
+
+
+@router.get("/businesses/{business_id}/sales")
+def sales(business_id: str, request: Request, period: str = "day", date: str = "") -> dict:
+    """Today / week / month sales from the shop's own bills (owner, manager, accountant)."""
+    from app.services.pos_sales import PosSales
+
+    return _call(PosSales(_store(request)).summary, business_id, _user(request, "sales", 120), period, date)
 
 
 @router.get("/businesses/{business_id}/desk/menu")
@@ -227,6 +264,29 @@ def desk_menu(business_id: str, request: Request) -> dict:
 @router.post("/businesses/{business_id}/desk/menu/parse")
 def desk_menu_parse(business_id: str, body: MenuTextIn, request: Request) -> dict:
     return _call(_desk(request).parse_menu, business_id, _user(request, "desk", 300), body.text)
+
+
+@router.post("/businesses/{business_id}/desk/menu/photo")
+def desk_menu_photo(business_id: str, body: MenuPhotoIn, request: Request) -> dict:
+    """A photo of the menu -> items + prices as a preview (nothing is saved until /menu/import)."""
+    import base64
+
+    photos = []
+    for entry in body.images:
+        raw = str(entry.get("data") or "")
+        if len(raw) > 6_000_000:
+            raise HTTPException(status_code=413, detail="Photo too large. Use a smaller picture.")
+        try:
+            data = base64.b64decode(raw, validate=False)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Photo could not be read.")
+        mime = str(entry.get("mime") or "image/jpeg").lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp"):
+            raise HTTPException(status_code=400, detail="Send a JPEG or PNG photo.")
+        photos.append((data, mime))
+    container = getattr(request.app.state, "container", None)
+    service = getattr(container, "universal_image_service", None)
+    return _call(_desk(request).parse_menu_photo, business_id, _user(request, "desk-photo", 20), photos, service)
 
 
 @router.post("/businesses/{business_id}/desk/menu/import")

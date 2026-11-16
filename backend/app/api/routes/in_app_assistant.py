@@ -234,9 +234,53 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
         override = override_reply(intelligence, payload.locale)
     if override:
         decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
+    decision = _own_shop_order(request, payload, decision)
     _record_knowledge_gap(container, decision, payload)
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence,
                              credits=(metered or {}).get("credits"))
+
+
+def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dict) -> dict:
+    """A shop that is on ASKODOX (open, with a menu) and was NAMED by the person is ordered from ASKODOX, never sent
+    to Swiggy / Zomato (owner 2026-11-16). The brain's text yields to a real button that opens that shop's menu."""
+    try:
+        if "app_actions" not in (payload.capabilities or []):
+            return decision
+        from app.api.routes.pos_frontdesk import _desk
+
+        user_words = str(payload.message or "").split("\n\n")[0]
+        shops = _desk(request).find_shops(user_words, 1)
+        te = str(payload.locale or "").lower().startswith("te")
+        if not shops:
+            # Not named: but when the person is asking for something to buy / order, the ASKODOX shops whose own menu
+            # has it come FIRST, with their menu prices (the search for other sources goes on beside it).
+            if not (decision.get("mode") == "commerce" or decision.get("transactional") or decision.get("search_ready")):
+                return decision
+            found = _desk(request).find_items(user_words, 3)
+            if not found:
+                return decision
+            best = found[0]
+
+            def rupees(paise: int) -> str:
+                return f"₹{paise // 100}" if paise % 100 == 0 else f"₹{paise / 100:.2f}"
+
+            lines = [f"{s['name']}: " + ", ".join(f"{i['name']} {rupees(i['price_paise'])}" for i in s["items"]) for s in found]
+            head = "ASKODOX లో ఉన్నాయి (మెనూ ధరలు):" if te else "On ASKODOX (menu prices):"
+            tail = "కింద బటన్ తో ఇక్కడే ఆర్డర్ చేయండి." if te else "Tap below to order here."
+            reply = head + "\n" + "\n".join(lines) + "\n" + tail
+            old_reply = str(decision.get("reply") or "").strip()
+            return {**decision, "reply": reply + ("\n\n" + old_reply if old_reply else ""), "app_action": {
+                "key": "order_shop", "route": f"/order-desk?code={best['code']}",
+                "label": f"{best['name']} ఆర్డర్" if te else f"{best['name']} order"}}
+        shop = shops[0]
+        reply = (f"{shop['name']} ASKODOX లో ఉంది. కింద బటన్ నొక్కి మెనూ చూసి ఇక్కడే ఆర్డర్ చేయండి."
+                 if te else f"{shop['name']} is on ASKODOX. Tap below to see its menu and order here.")
+        return {**decision, "reply": reply, "mode": "advice", "transactional": False, "search_ready": False, "app_action": {
+            "key": "order_shop", "route": f"/order-desk?code={shop['code']}",
+            "label": f"{shop['name']} ఆర్డర్" if te else f"{shop['name']} order"}}
+    except Exception:
+        logger.exception("in_app_assistant: own-shop order lookup failed")
+        return decision
 
 
 def _corrections_platform(container: Any) -> Any:

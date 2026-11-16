@@ -770,9 +770,27 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   '/desk/:id/menu': _H('Menu', 'మెనూ', [
     'Say or type items with prices, tap Preview, check, then Save. Nothing is saved before you confirm.',
     'Say "today only" for a special; switch an item OFF when it is finished for today (back tomorrow).',
+    'Or photograph the menu: every item and its printed price is read; fix any line, then Save.',
   ], [
     'ఐటమ్స్ ధరలతో చెప్పండి లేదా రాయండి, Preview నొక్కి చూసి, తర్వాత Save. నిర్ధారించే వరకు ఏదీ సేవ్ కాదు.',
     'స్పెషల్‌కి "ఈ రోజు మాత్రమే" అనండి; అయిపోతే ఆ ఐటమ్ OFF చేయండి (రేపు మళ్ళీ వస్తుంది).',
+    'లేదా మెనూ ఫోటో తీయండి: ప్రతి ఐటమ్, అందులో ముద్రించిన రేటు చదువుతుంది; ఏదైనా సరిచేసి Save.',
+  ]),
+  '/desk/:id/settings': _H('Order alerts & staff', 'ఆర్డర్ అలర్ట్స్ & సిబ్బంది', [
+    'Choose who is told at each step: new order, kitchen, ready, delivery. Nobody chosen = the people of that role.',
+    'Add staff with their phone number and a role (cashier, kitchen, waiter, delivery). Delete anyone with the bin.',
+    'Auto-confirm accepts an order at once while the shop is open, for items on today\'s menu.',
+  ], [
+    'ప్రతి స్టెప్ లో ఎవరికి చెప్పాలో ఎంచుకోండి: కొత్త ఆర్డర్, వంటగది, సిద్ధం, డెలివరీ. ఎవరినీ ఎంచుకోకపోతే ఆ పాత్ర ఉన్నవాళ్ళకి.',
+    'సిబ్బందిని ఫోన్ నంబర్, పాత్రతో చేర్చండి (క్యాషియర్, వంటగది, వెయిటర్, డెలివరీ). చెత్తబుట్టతో తీసేయండి.',
+    'ఆటో-కన్ఫర్మ్: షాప్ తెరిచి ఉంటే, ఈరోజు మెనూలోని ఐటెమ్‌ల ఆర్డర్ వెంటనే అంగీకరిస్తుంది.',
+  ]),
+  '/desk/:id/sales': _H('Sales', 'అమ్మకాలు', [
+    'Today, this week or this month: total sales, bills, how it was paid, dues and best sellers.',
+    'All numbers come from the bills you made. Cancelled bills are not counted.',
+  ], [
+    'ఈరోజు, ఈ వారం, ఈ నెల: మొత్తం అమ్మకం, బిల్లులు, ఎలా చెల్లించారు, బాకీ, ఎక్కువ అమ్మినవి.',
+    'అన్ని లెక్కలు మీరు చేసిన బిల్లుల నుంచే. రద్దు చేసిన బిల్లులు లెక్కలో లేవు.',
   ]),
   '/desk/:id/qr': _H('Shop / table QR', 'షాప్ / టేబుల్ QR', [
     'Print these and stick one on each table and one at the shop door.',

@@ -264,17 +264,47 @@ object PaymentAlertParser {
         val money = when (language) {
             "te" -> "$rupees రూపాయలు" + (if (paise > 0) " $paise పైసలు" else "")
             "hi" -> "$rupees रुपये" + (if (paise > 0) " $paise पैसे" else "")
-            else -> "$rupees rupees" + (if (paise > 0) " $paise paise" else "")
+            "en" -> "$rupees rupees" + (if (paise > 0) " $paise paise" else "")
+            else -> {
+                // Any other language: its own rupee / paise words from the same table the shop thank-you uses.
+                val w = WORDS[language] ?: WORDS["en_fallback"]!!
+                w.rupees.replace("{n}", rupees.toString()) + (if (paise > 0) " " + w.paise.replace("{n}", paise.toString()) else "")
+            }
         }
+        // Owner 2026-11-16: say credit / debit in the person's OWN language ("జమ అయ్యాయి" / "వెళ్ళాయి"), not the
+        // English words in local letters. Other languages: ONE table row (credit, debit; {who} / {money}).
         return when (language) {
-            "te" -> if (credit) listOf(if (who != null) "$who నుండి" else "", "$money క్రెడిట్ అయ్యాయి.")
-                    else listOf(if (who != null) "$who కి" else "", "$money డెబిట్ అయ్యాయి.")
-            "hi" -> if (credit) listOf(if (who != null) "$who से" else "", "$money क्रेडिट हुए।")
-                    else listOf(if (who != null) "$who को" else "", "$money डेबिट हुए।")
-            else -> if (credit) listOf(if (who != null) "$who sent" else "Credited", "$money" + (if (who != null) "." else "."))
-                    else listOf("Debited", "$money" + (if (who != null) " to $who." else "."))
+            "te" -> if (credit) listOf(if (who != null) "$who నుండి" else "", "$money జమ అయ్యాయి.")
+                    else listOf(if (who != null) "$who కి" else "", "$money " + (if (who != null) "వెళ్ళాయి." else "ఖాతా నుండి వెళ్ళాయి."))
+            "hi" -> if (credit) listOf(if (who != null) "$who से" else "", "$money जमा हुए।")
+                    else listOf(if (who != null) "$who को" else "", "$money " + (if (who != null) "गए।" else "खाते से कटे।"))
+            "en" -> if (credit) listOf(if (who != null) "$who sent" else "Received", "$money.")
+                    else listOf("Spent", "$money" + (if (who != null) " to $who." else "."))
+            else -> {
+                val row = PERSONAL[language]
+                if (row == null) {
+                    if (credit) listOf(if (who != null) "$who sent" else "Received", "$money.")
+                    else listOf("Spent", "$money" + (if (who != null) " to $who." else "."))
+                } else {
+                    val t = if (credit) (if (who != null) row[0] else row[1]) else (if (who != null) row[2] else row[3])
+                    listOf(t.replace("{who}", who ?: "").replace("{money}", money))
+                }
+            }
         }.filter { it.isNotEmpty() }
     }
+
+    /** language -> [credit with name, credit, debit with name, debit] (spoken for "My phone"). */
+    private val PERSONAL: Map<String, List<String>> = mapOf(
+        "ta" to listOf("{who} இடமிருந்து {money} வந்தது.", "{money} வரவு ஆனது.", "{who}-க்கு {money} சென்றது.", "{money} கணக்கிலிருந்து சென்றது."),
+        "kn" to listOf("{who} ಅವರಿಂದ {money} ಬಂದಿದೆ.", "{money} ಜಮೆ ಆಗಿದೆ.", "{who} ಅವರಿಗೆ {money} ಹೋಗಿದೆ.", "{money} ಖಾತೆಯಿಂದ ಹೋಗಿದೆ."),
+        "ml" to listOf("{who}-ൽ നിന്ന് {money} ലഭിച്ചു.", "{money} വരവ് വച്ചു.", "{who}-ന് {money} പോയി.", "{money} അക്കൗണ്ടിൽ നിന്ന് പോയി."),
+        "bn" to listOf("{who}-এর কাছ থেকে {money} এসেছে।", "{money} জমা হয়েছে।", "{who}-কে {money} গেছে।", "{money} অ্যাকাউন্ট থেকে গেছে।"),
+        "mr" to listOf("{who} कडून {money} मिळाले.", "{money} जमा झाले.", "{who} ला {money} गेले.", "{money} खात्यातून गेले."),
+        "gu" to listOf("{who} તરફથી {money} મળ્યા.", "{money} જમા થયા.", "{who} ને {money} ગયા.", "{money} ખાતામાંથી ગયા."),
+        "pa" to listOf("{who} ਤੋਂ {money} ਮਿਲੇ।", "{money} ਜਮ੍ਹਾ ਹੋਏ।", "{who} ਨੂੰ {money} ਗਏ।", "{money} ਖਾਤੇ ਵਿੱਚੋਂ ਗਏ।"),
+        "or" to listOf("{who}ଙ୍କ ଠାରୁ {money} ମିଳିଲା।", "{money} ଜମା ହେଲା।", "{who}ଙ୍କୁ {money} ଗଲା।", "{money} ଖାତାରୁ ଗଲା।"),
+        "ur" to listOf("{who} سے {money} موصول ہوئے۔", "{money} جمع ہوئے۔", "{who} کو {money} گئے۔", "{money} اکاؤنٹ سے گئے۔"),
+    )
 
     private val BUSINESS_WORDS = Regex(
         """(?i)\b(shop|store|stores|mart|traders?|trading|enterprises?|agencies|agency|hotel|restaurant|mess|bakery|medicals?|pharmacy|"""

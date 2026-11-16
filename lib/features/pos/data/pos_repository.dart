@@ -115,17 +115,29 @@ class AskodoxPosRepository {
       _send('POST', '${_b(biz)}/desk/orders/$id/confirm', body: {'decisions': decisions});
   Future<AskodoxJson> deskReject(String biz, String id, String reason) =>
       _send('POST', '${_b(biz)}/desk/orders/$id/reject', body: {'reason': reason});
-  Future<AskodoxJson> deskAdvance(String biz, String id, String stage, {String assignee = ''}) =>
-      _send('POST', '${_b(biz)}/desk/orders/$id/advance', body: {'stage': stage, 'assignee': assignee});
+  Future<AskodoxJson> deskAdvance(String biz, String id, String stage, {String assignee = '', String assigneeUser = ''}) =>
+      _send('POST', '${_b(biz)}/desk/orders/$id/advance', body: {'stage': stage, 'assignee': assignee, 'assignee_user': assigneeUser});
   Future<AskodoxJson> deskBill(String biz, String id, List<AskodoxJson> payments, {String? customerId}) =>
       _send('POST', '${_b(biz)}/desk/orders/$id/bill',
           body: {'payments': payments, 'client_txn_id': askodoxNewTxnId(), 'customer_id': customerId});
-  Future<AskodoxJson> deskAssign(String biz, String id, String who) =>
-      _send('POST', '${_b(biz)}/desk/orders/$id/assign', body: {'assignee': who});
+  Future<AskodoxJson> deskAssign(String biz, String id, String who, {String userId = ''}) =>
+      _send('POST', '${_b(biz)}/desk/orders/$id/assign', body: {'assignee': who, 'assignee_user': userId});
+  /// The staff an order can be assigned to ({id, label, role, you}).
+  Future<List<AskodoxJson>> deskPeople(String biz) async => askodoxPosList((await _send('GET', '${_b(biz)}/desk/people'))['people']);
+  /// Who is told about each step + auto-confirm (owner only).
+  Future<AskodoxJson> deskSettings(String biz) => _send('GET', '${_b(biz)}/desk/settings');
+  Future<AskodoxJson> deskSettingsSave(String biz, {Map<String, List<String>>? routing, bool? autoConfirm}) =>
+      _send('PUT', '${_b(biz)}/desk/settings', body: {if (routing != null) 'routing': routing, if (autoConfirm != null) 'auto_confirm': autoConfirm});
+  /// Today / week / month sales from the shop's own bills.
+  Future<AskodoxJson> shopSales(String biz, {String period = 'day', String date = ''}) =>
+      _send('GET', '${_b(biz)}/sales', query: {'period': period, if (date.isNotEmpty) 'date': date});
   Future<AskodoxJson> deskCounterAssist(String biz, String text, List<AskodoxJson> cart, {bool te = true}) =>
       _send('POST', '${_b(biz)}/desk/assist', body: {'text': text, 'cart': cart, 'te': te});
   Future<AskodoxJson> deskMenu(String biz) => _send('GET', '${_b(biz)}/desk/menu');
   Future<AskodoxJson> deskMenuParse(String biz, String text) => _send('POST', '${_b(biz)}/desk/menu/parse', body: {'text': text});
+  /// Menu photo(s) -> a PREVIEW (items + printed prices, nothing saved). [images]: {data: base64, mime}.
+  Future<AskodoxJson> deskMenuPhoto(String biz, List<AskodoxJson> images) =>
+      _send('POST', '${_b(biz)}/desk/menu/photo', body: {'images': images});
   Future<AskodoxJson> deskMenuImport(String biz, List<AskodoxJson> items, {int rateBp = 0}) =>
       _send('POST', '${_b(biz)}/desk/menu/import', body: {'items': items, 'rate_bp': rateBp});
   Future<AskodoxJson> deskAvailability(String biz, String product, bool available) =>

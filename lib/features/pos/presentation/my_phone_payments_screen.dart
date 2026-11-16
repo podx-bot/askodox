@@ -307,7 +307,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
             contentPadding: EdgeInsets.zero,
             title: Text(te ? 'నా ఫోన్‌కి వచ్చే పేమెంట్లు చెప్పు' : 'Say the payments that reach my phone',
                 style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text(te ? 'ఎవరు ఎంత క్రెడిట్ / డెబిట్ అయ్యారో చెబుతుంది, హిస్టరీలో ఉంచుతుంది.' : 'Says who credited / debited and how much, and keeps it in your history.'),
+            subtitle: Text(te ? 'ఎవరు ఎంత పంపారో / ఎవరికి ఎంత వెళ్ళిందో చెబుతుంది, హిస్టరీలో ఉంచుతుంది.' : 'Says who credited / debited and how much, and keeps it in your history.'),
             value: m.enabled,
             onChanged: _toggle,
           ),
@@ -330,8 +330,32 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               ButtonSegment(value: 'hi', label: Text('हिन्दी')),
               ButtonSegment(value: 'en', label: Text('English')),
             ],
-            selected: {m.language},
-            onSelectionChanged: (v) => _change((x) => x.language = v.first),
+            emptySelectionAllowed: true,
+            selected: {if (const ['te', 'hi', 'en'].contains(m.language)) m.language},
+            onSelectionChanged: (v) {
+              if (v.isNotEmpty) _change((x) => x.language = v.first);
+            },
+          ),
+          // Every other Indian language: one more row in the native table, nothing per language in the app.
+          DropdownButton<String>(
+            key: const Key('askodoxMineLanguageMore'),
+            isExpanded: true,
+            hint: Text(te ? 'ఇతర భాషలు' : 'Other languages'),
+            value: const ['te', 'hi', 'en'].contains(m.language) ? null : m.language,
+            items: const [
+              DropdownMenuItem(value: 'ta', child: Text('தமிழ்')),
+              DropdownMenuItem(value: 'kn', child: Text('ಕನ್ನಡ')),
+              DropdownMenuItem(value: 'ml', child: Text('മലയാളം')),
+              DropdownMenuItem(value: 'mr', child: Text('मराठी')),
+              DropdownMenuItem(value: 'bn', child: Text('বাংলা')),
+              DropdownMenuItem(value: 'gu', child: Text('ગુજરાતી')),
+              DropdownMenuItem(value: 'pa', child: Text('ਪੰਜਾਬੀ')),
+              DropdownMenuItem(value: 'or', child: Text('ଓଡ଼ିଆ')),
+              DropdownMenuItem(value: 'ur', child: Text('اردو')),
+            ],
+            onChanged: (v) {
+              if (v != null) _change((x) => x.language = v);
+            },
           ),
           SwitchListTile(
             key: const Key('askodoxMineSayName'),
