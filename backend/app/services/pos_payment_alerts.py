@@ -183,7 +183,7 @@ def _parse_time(value: Any) -> Optional[datetime]:
 
 ROLE_NAMES = {
     "te": {"owner": "యజమాని", "manager": "మేనేజర్", "cashier": "క్యాషియర్", "attendant": "అటెండెంట్",
-           "accountant": "అకౌంటెంట్", "waiter": "వెయిటర్", "kitchen": "వంటగది"},
+           "accountant": "అకౌంటెంట్", "waiter": "వెయిటర్", "kitchen": "వంటగది", "delivery": "డెలివరీ"},
     "hi": {"owner": "मालिक", "manager": "मैनेजर", "cashier": "कैशियर"},
 }
 

@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../services/media_picker.dart';
 import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../shops/presentation/my_business_screens.dart' show askodoxBoxMic;
 import '../data/pos_repository.dart';
@@ -146,27 +149,70 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
     if (go == true) await _run(() => ref.read(askodoxPosRepositoryProvider).deskReject(widget.businessId, '${order['id']}', text));
   }
 
+  /// Pick the staff PERSON an order goes to (they get the alert on their own phone). Returns {id, label} or null.
+  /// An empty staff list falls back to the typed name.
+  Future<AskodoxJson?> _pickPerson(AskodoxJson order, {String? onlyRole}) async {
+    final te = askodoxPosTe(context);
+    List<AskodoxJson> people = const [];
+    try {
+      people = await ref.read(askodoxPosRepositoryProvider).deskPeople(widget.businessId);
+    } on AskodoxPosException {
+      people = const [];
+    }
+    if (!mounted) return null;
+    if (onlyRole != null) {
+      final narrowed = people.where((p) => p['role'] == onlyRole).toList();
+      if (narrowed.isNotEmpty) people = narrowed;
+    }
+    final typed = TextEditingController(text: '${order['assignee'] ?? ''}');
+    final picked = await showDialog<AskodoxJson?>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(te ? 'ఎవరికి అసైన్ చేయాలి?' : 'Assign to whom?'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            for (final p in people)
+              ListTile(
+                key: Key('askodoxDeskPerson-${p['id']}'),
+                contentPadding: EdgeInsets.zero,
+                title: Text('${p['you'] == true ? (te ? 'నేను' : 'Me') : p['label']}'),
+                subtitle: Text('${p['role']}'),
+                selected: order['assignee_user'] == p['id'],
+                onTap: () => Navigator.of(dialogContext).pop({'id': '${p['id']}', 'label': '${p['label']}'}),
+              ),
+            TextField(key: const Key('askodoxDeskAssignee'), controller: typed, decoration: InputDecoration(labelText: te ? 'లేదా పేరు రాయండి' : 'Or type a name')),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(te ? 'వెనక్కి' : 'Back')),
+          FilledButton(
+              key: const Key('askodoxDeskAssignTyped'),
+              onPressed: () => Navigator.of(dialogContext).pop({'id': '', 'label': typed.text.trim()}),
+              child: Text(te ? 'సరే' : 'OK')),
+        ],
+      ),
+    );
+    typed.dispose();
+    return picked;
+  }
+
+  Future<void> _assign(AskodoxJson order) async {
+    final who = await _pickPerson(order);
+    if (who == null) return;
+    await _run(() => ref.read(askodoxPosRepositoryProvider).deskAssign(widget.businessId, '${order['id']}', '${who['label']}', userId: '${who['id']}'));
+  }
+
   Future<void> _advance(AskodoxJson order, String stage) async {
     final te = askodoxPosTe(context);
     var who = '';
-    if (stage == 'out_for_delivery') {
-      final box = TextEditingController(text: '${order['assignee'] ?? ''}');
-      final go = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(te ? 'డెలివరీ ఎవరు తీసుకెళ్తున్నారు?' : 'Who is delivering?'),
-          content: TextField(key: const Key('askodoxDeskAssignee'), controller: box, decoration: InputDecoration(labelText: te ? 'పేరు' : 'Name')),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(te ? 'వెనక్కి' : 'Back')),
-            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(te ? 'సరే' : 'OK')),
-          ],
-        ),
-      );
-      who = box.text.trim();
-      box.dispose();
-      if (go != true) return;
+    var whoId = '';
+    if (stage == 'out_for_delivery' && '${order['assignee'] ?? ''}'.isEmpty) {
+      final picked = await _pickPerson(order, onlyRole: 'delivery');
+      if (picked == null || '${picked['label']}'.isEmpty) return;
+      who = '${picked['label']}';
+      whoId = '${picked['id']}';
     }
-    await _run(() => ref.read(askodoxPosRepositoryProvider).deskAdvance(widget.businessId, '${order['id']}', stage, assignee: who));
+    await _run(() => ref.read(askodoxPosRepositoryProvider).deskAdvance(widget.businessId, '${order['id']}', stage, assignee: who, assigneeUser: whoId));
   }
 
   Future<void> _bill(AskodoxJson order) async {
@@ -227,6 +273,16 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
             tooltip: te ? 'మెనూ' : 'Menu',
             icon: const Icon(Icons.restaurant_menu),
             onPressed: () => context.push('/desk/${widget.businessId}/menu')),
+        IconButton(
+            key: const Key('askodoxDeskSalesBtn'),
+            tooltip: te ? 'అమ్మకాలు' : 'Sales',
+            icon: const Icon(Icons.insights_outlined),
+            onPressed: () => context.push('/desk/${widget.businessId}/sales')),
+        IconButton(
+            key: const Key('askodoxDeskSettingsBtn'),
+            tooltip: te ? 'ఆర్డర్ అలర్ట్స్ & సిబ్బంది' : 'Order alerts & staff',
+            icon: const Icon(Icons.tune),
+            onPressed: () => context.push('/desk/${widget.businessId}/settings')),
         IconButton(
             key: const Key('askodoxDeskQrBtn'),
             tooltip: 'QR',
@@ -324,6 +380,12 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
                   key: Key('askodoxDeskNext-${o['id']}'),
                   onPressed: _busy ? null : () => _advance(o, next),
                   child: Text('→ ${_stageLabel(next, te)}')),
+            if (!closed && stage != 'placed')
+              OutlinedButton.icon(
+                  key: Key('askodoxDeskAssign-${o['id']}'),
+                  onPressed: _busy ? null : () => _assign(o),
+                  icon: const Icon(Icons.person_outline, size: 18),
+                  label: Text('${'${o['assignee'] ?? ''}'.isEmpty ? (te ? 'అసైన్' : 'Assign') : o['assignee']}')),
             if (!closed && stage != 'placed' && !billed)
               OutlinedButton(key: Key('askodoxDeskBill-${o['id']}'), onPressed: _busy ? null : () => _bill(o), child: Text(te ? 'బిల్లు' : 'Bill')),
           ]),
@@ -346,6 +408,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
   final _text = TextEditingController();
   AskodoxJson? _menu;
   List<AskodoxJson> _preview = const [];
+  bool _reading = false;
   bool _gst = false;
   int _rateBp = 0;
   Object? _error;
@@ -449,9 +512,84 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
         return null;
       });
 
+  /// A photo (or several) of the menu board / price list -> items WITH the prices printed on it, as a preview the
+  /// owner edits before anything is saved (owner 2026-11-16). A price the photo does not show stays empty.
+  Future<void> _photo(String source) async {
+    final te = askodoxPosTe(context);
+    final picked = (await ref.read(askodoxMediaPickerProvider).pick(source)).where((a) => a.isImage).toList();
+    if (picked.isEmpty || !mounted) return;
+    if (picked.any((a) => a.bytes.length > 4400000)) {
+      askodoxPosSnack(context, te ? 'ఫోటో చాలా పెద్దది. చిన్న ఫోటో వాడండి.' : 'That photo is too large. Use a smaller one.');
+      return;
+    }
+    setState(() => _reading = true);
+    await _guard(() async {
+      final out = await ref.read(askodoxPosRepositoryProvider).deskMenuPhoto(widget.businessId, [
+        for (final a in picked.take(4)) {'data': base64Encode(a.bytes), 'mime': a.mimeType},
+      ]);
+      if (!mounted) return null;
+      final items = askodoxPosList(out['items']);
+      setState(() {
+        _preview = items;
+        _gst = out['gst'] == true;
+      });
+      if (items.isEmpty) {
+        askodoxPosSnack(context, te ? 'ఫోటో నుంచి చదవలేకపోయాను. స్పష్టమైన ఫోటో తీయండి లేదా చెప్పండి.' : 'Could not read that photo. Take a clearer one, or say the items.');
+      }
+      return null;
+    });
+    if (mounted) setState(() => _reading = false);
+  }
+
+  /// Fix one previewed item (name / price) before saving.
+  Future<void> _editPreview(int i, bool te) async {
+    final m = _preview[i];
+    final price = askodoxPosInt(m['price_paise']);
+    final name = TextEditingController(text: '${m['name']}');
+    final rate = TextEditingController(text: price <= 0 ? '' : (price / 100).toStringAsFixed(price % 100 == 0 ? 0 : 2));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(te ? 'ఐటమ్ సరిచేయండి' : 'Fix this item'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(key: const Key('askodoxDeskPreviewName'), controller: name, decoration: InputDecoration(labelText: te ? 'పేరు' : 'Name')),
+          TextField(
+              key: const Key('askodoxDeskPreviewPrice'),
+              controller: rate,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: te ? 'రేటు (₹)' : 'Price (₹)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సరే' : 'OK')),
+        ],
+      ),
+    );
+    final newName = name.text.trim();
+    final rupees = double.tryParse(rate.text.trim());
+    name.dispose();
+    rate.dispose();
+    if (ok != true || newName.isEmpty || !mounted) return;
+    setState(() {
+      final next = [..._preview];
+      final paise = rupees == null || rupees <= 0 ? 0 : (rupees * 100).round();
+      next[i] = {...m, 'name': newName, 'price_paise': paise, 'needs_price': paise <= 0};
+      _preview = next;
+    });
+  }
+
   Future<void> _import() => _guard(() async {
         final te = askodoxPosTe(context);
-        final out = await ref.read(askodoxPosRepositoryProvider).deskMenuImport(widget.businessId, _preview, rateBp: _rateBp);
+        final ready = [for (final m in _preview) if (askodoxPosInt(m['price_paise']) > 0) m];
+        final skipped = _preview.length - ready.length;
+        if (ready.isEmpty) {
+          askodoxPosSnack(context, te ? 'ఏ ఐటమ్ కీ రేటు లేదు. రేట్లు రాయండి.' : 'No item has a price yet. Add the prices.');
+          return null;
+        }
+        final out = await ref.read(askodoxPosRepositoryProvider).deskMenuImport(widget.businessId, ready, rateBp: _rateBp);
+        if (skipped > 0 && mounted) {
+          askodoxPosSnack(context, te ? '$skipped ఐటమ్‌లకు రేటు లేదు, వదిలేశాను.' : '$skipped items had no price and were left out.');
+        }
         if (!mounted) return null;
         setState(() {
           _preview = const [];
@@ -486,18 +624,43 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
               ),
               const SizedBox(height: 8),
               FilledButton(key: const Key('askodoxDeskMenuParse'), onPressed: _parse, child: Text(te ? 'చూపించు (ఇంకా సేవ్ కాదు)' : 'Preview (not saved yet)')),
+              const SizedBox(height: 8),
+              Text(te ? 'లేదా మెనూ ఫోటో తీయండి — పేర్లు, రేట్లు అన్నీ చదివి చూపిస్తాను. మీరు సరిచూసి సేవ్ చేయండి.' : 'Or photograph the menu — I read every item with its price. You check, then save.',
+                  style: const TextStyle(fontSize: 12.5)),
+              const SizedBox(height: 6),
+              Row(children: [
+                Expanded(
+                    child: OutlinedButton.icon(
+                        key: const Key('askodoxDeskMenuPhotoCamera'),
+                        onPressed: _reading ? null : () => _photo('camera'),
+                        icon: const Icon(Icons.photo_camera_outlined),
+                        label: Text(te ? 'ఫోటో తీయి' : 'Take photo'))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: OutlinedButton.icon(
+                        key: const Key('askodoxDeskMenuPhotoGallery'),
+                        onPressed: _reading ? null : () => _photo('photos'),
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: Text(te ? 'గ్యాలరీ నుంచి' : 'From gallery'))),
+              ]),
+              if (_reading) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator(key: Key('askodoxDeskMenuReading'))),
               if (_preview.isNotEmpty) ...[
                 const Divider(height: 24),
                 for (var i = 0; i < _preview.length; i++)
                   ListTile(
                     key: Key('askodoxDeskPreview-$i'),
                     contentPadding: EdgeInsets.zero,
-                    title: Text('${_preview[i]['name']} · ${askodoxPaise(askodoxPosInt(_preview[i]['price_paise']))}'),
+                    onTap: () => _editPreview(i, te),
+                    title: Text(askodoxPosInt(_preview[i]['price_paise']) > 0 ? '${_preview[i]['name']} · ${askodoxPaise(askodoxPosInt(_preview[i]['price_paise']))}' : '${_preview[i]['name']} · ${te ? 'రేటు రాయండి' : 'add price'}',
+                        style: TextStyle(color: askodoxPosInt(_preview[i]['price_paise']) > 0 ? null : const Color(0xFFB91C1C))),
                     subtitle: Text([
                       _preview[i]['exists'] == true ? (te ? 'ఉన్నదే — ధర మారుతుంది (పాతది ${askodoxPaise(askodoxPosInt(_preview[i]['old_price_paise']))})' : 'Exists — price changes (was ${askodoxPaise(askodoxPosInt(_preview[i]['old_price_paise']))})') : (te ? 'కొత్తది' : 'New'),
                       if (_preview[i]['today_only'] == true) te ? 'ఈ రోజు మాత్రమే' : 'Today only',
                     ].join(' · ')),
-                    trailing: IconButton(icon: const Icon(Icons.close), onPressed: () => setState(() => _preview = [..._preview]..removeAt(i))),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(key: Key('askodoxDeskPreviewEdit-$i'), tooltip: te ? 'మార్చు' : 'Edit', icon: const Icon(Icons.edit_outlined, size: 20), onPressed: () => _editPreview(i, te)),
+                      IconButton(key: Key('askodoxDeskPreviewRemove-$i'), tooltip: te ? 'తీసేయి' : 'Delete', icon: const Icon(Icons.close), onPressed: () => setState(() => _preview = [..._preview]..removeAt(i))),
+                    ]),
                   ),
                 if (_gst)
                   DropdownButtonFormField<int>(
@@ -517,12 +680,18 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
               ],
               const Divider(height: 28),
               Text(te ? 'ఈ రోజు ఏవి ఉన్నాయి?' : 'What is available today?', style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(
+                  te
+                      ? 'ఏదైనా అయిపోతే దాని స్విచ్ ఆఫ్ చేయండి — కస్టమర్ కి కనపడదు, రేపు ఉదయం ఆటోగా మళ్ళీ ఆన్ అవుతుంది.'
+                      : 'When something runs out, switch it off — customers will not see it, and it comes back on by itself tomorrow.',
+                  key: const Key('askodoxDeskAvailableHelp'),
+                  style: const TextStyle(fontSize: 12.5)),
               for (final m in items)
                 SwitchListTile(
                   key: Key('askodoxDeskAvailable-${m['id']}'),
                   contentPadding: EdgeInsets.zero,
                   value: m['available'] == true,
-                  title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}'),
+                  title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}${m['available'] == true ? '' : (te ? ' · ఈ రోజు లేదు' : ' · out today')}'),
                   subtitle: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
                     if (m['today_only_flag'] == true) Text(te ? 'ఈ రోజు మాత్రమే ✓' : 'Today only ✓'),
                     // Edit + Delete on every menu line (owner 2026-11-16). Delete hides the item; old bills keep their lines.
@@ -586,6 +755,14 @@ class _AskodoxDeskQrScreenState extends ConsumerState<AskodoxDeskQrScreen> {
     }
   }
 
+  String _shareText(AskodoxJson d, bool te) {
+    final name = '${d['name'] ?? ''}'.trim();
+    final shop = name.isEmpty ? (te ? 'మా షాప్' : 'our shop') : name;
+    return te
+        ? '$shop లో ఇప్పుడు ASKODOX తో ఆర్డర్ చేయవచ్చు. ASKODOX యాప్ తెరిచి Profile → "Order at a shop" లో ఈ కోడ్ రాయండి: ${d['shop']}'
+        : 'You can now order from $shop on ASKODOX. Open the ASKODOX app, go to Profile → "Order at a shop" and enter this code: ${d['shop']}';
+  }
+
   Widget _qr(String title, String code) => Card(
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -611,6 +788,35 @@ class _AskodoxDeskQrScreenState extends ConsumerState<AskodoxDeskQrScreen> {
               : ListView(key: const Key('askodoxDeskQr'), padding: const EdgeInsets.all(14), children: [
                   Text(te ? 'ఈ QR ని ప్రింట్ చేసి టేబుల్ / షాప్ మీద అతికించండి. కస్టమర్ ASKODOX లో "ఆర్డర్ కోడ్" లో ఈ కోడ్ వేస్తే మెనూ తెరుచుకుంటుంది.' : 'Print this QR and stick it on the shop / each table. The customer enters the code in ASKODOX "Order code" to open the menu.'),
                   const SizedBox(height: 8),
+                  // A message the owner sends to customers (WhatsApp, SMS ...): they open ASKODOX and type this code,
+                  // no QR needed (owner 2026-11-16).
+                  Card(
+                    key: const Key('askodoxDeskShare'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(te ? 'కస్టమర్లకు పంపండి' : 'Send to your customers', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(_shareText(d, te), style: const TextStyle(fontSize: 12.5)),
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 8, children: [
+                          FilledButton.icon(
+                              key: const Key('askodoxDeskShareWhatsApp'),
+                              onPressed: () => launchUrl(Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText(d, te))}'), mode: LaunchMode.externalApplication),
+                              icon: const Icon(Icons.send),
+                              label: const Text('WhatsApp')),
+                          OutlinedButton.icon(
+                              key: const Key('askodoxDeskShareCopy'),
+                              onPressed: () async {
+                                await Clipboard.setData(ClipboardData(text: _shareText(d, te)));
+                                if (context.mounted) askodoxPosSnack(context, te ? 'కాపీ అయింది' : 'Copied');
+                              },
+                              icon: const Icon(Icons.copy),
+                              label: Text(te ? 'కాపీ' : 'Copy')),
+                        ]),
+                      ]),
+                    ),
+                  ),
                   _qr(te ? 'షాప్ (పార్సిల్ / డెలివరీ)' : 'Shop (takeaway / delivery)', '${d['shop']}'),
                   for (final t in askodoxPosList(d['tables'])) _qr(te ? 'టేబుల్ ${t['name']}' : 'Table ${t['name']}', '${t['code']}'),
                 ]),

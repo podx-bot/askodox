@@ -6575,6 +6575,283 @@
       "history": [
         "2026-11-16: built on the owner's request (code ready)"
       ]
+    },
+    {
+      "id": "payment_alert_health_banner",
+      "name": "Home banner says when this phone would stay silent for a payment",
+      "purpose": "The phone reports why no payment voice would play (never turned on, notification access missing, build without the listener, no apps, no voice) and fixes it in one tap.",
+      "expected_behavior": "Signed-in Home shows a strip with one Fix button to /me/payments/phone; snoozed 7 days (never on) or 1 day (broken); the saved My phone settings are re-sent to the native listener at every start.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "voice",
+        "pos"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxPaymentAlertBanner",
+          "askodoxPaymentAlertBannerFix",
+          "askodoxPaymentAlertBannerClose"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/payment_alert_banner_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "payment_voice_native_language_words",
+      "name": "Credit / debit are spoken in the person's own language",
+      "purpose": "Telugu says జమ అయ్యాయి / వెళ్ళాయి, Hindi जमा हुए / गए, English received / spent; ta kn ml mr bn gu pa or ur have their own rows.",
+      "expected_behavior": "PaymentAlertParser.personalParts uses a per-language table; the My phone page has an Other languages dropdown.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "voice",
+        "pos"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxMineLanguage",
+          "askodoxMineLanguageMore"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "chat_shops_first_by_menu_item",
+      "name": "Chat shows ASKODOX shops whose menu has the asked item first",
+      "purpose": "Asking for biryani (any item) finds open ASKODOX shops by their menu item words, with menu prices and an order button; other sources continue beside it.",
+      "expected_behavior": "PosFrontDesk.find_items matches item words only for items on sale today; the chat reply lists shop + items + prices and adds the order_shop action.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "chat",
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant"
+        }
+      ],
+      "ui": {},
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "menu_from_photo",
+      "name": "Menu photo is read into items with their printed prices",
+      "purpose": "Photograph a menu board or price list; every item and the price printed on it comes back as a preview the owner edits before saving.",
+      "expected_behavior": "POST /desk/menu/photo returns items (needs_price when the photo has no clear price); only priced items are imported with /desk/menu/import.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/photo"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxDeskMenuPhotoCamera",
+          "askodoxDeskMenuPhotoGallery"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "desk_order_routing_and_auto_confirm",
+      "name": "Order alerts go to the people the owner chose; auto-confirm; delivery person",
+      "purpose": "New order -> owner / cashier, kitchen -> cook, ready -> waiter / cashier, delivery -> delivery person (by choice or role); an order can be assigned to a staff person; a delivery person sees only their own orders.",
+      "expected_behavior": "pos_desk_settings routing + auto_confirm (default off); assign pushes the assignee; role delivery limited to out_for_delivery / delivered.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/settings"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/desk/settings"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/people"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders/{order_id}/assign"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxDeskSettings",
+          "askodoxDeskAutoConfirm",
+          "askodoxDeskSettingsBtn",
+          "askodoxDeskStaffAdd"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py",
+          "tests/test_pos_frontdesk.py",
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "shop_sales_page",
+      "name": "Sales page: today / week / month from the shop's own bills",
+      "purpose": "Total, bills, how it was paid, dues, best sellers, latest bills; cancelled bills never counted.",
+      "expected_behavior": "GET /sales (owner / manager / accountant) from pos_invoices and pos_payments; tile in My Business.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/sales"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxDeskSales",
+          "askodoxDeskSalesPeriod",
+          "askodoxDeskSalesTotal",
+          "askodoxMyBusinessSales"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_sales.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "shop_order_share_message",
+      "name": "Share the shop's order code to customers (WhatsApp / copy)",
+      "purpose": "The owner sends a message with the shop's order code; the customer types it in Order at a shop (no QR needed).",
+      "expected_behavior": "The shop QR page has a share card with WhatsApp and Copy.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/qr"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxDeskShare",
+          "askodoxDeskShareWhatsApp",
+          "askodoxDeskShareCopy"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
     }
   ]
 }

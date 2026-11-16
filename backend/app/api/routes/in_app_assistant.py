@@ -250,10 +250,29 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
 
         user_words = str(payload.message or "").split("\n\n")[0]
         shops = _desk(request).find_shops(user_words, 1)
-        if not shops:
-            return decision
-        shop = shops[0]
         te = str(payload.locale or "").lower().startswith("te")
+        if not shops:
+            # Not named: but when the person is asking for something to buy / order, the ASKODOX shops whose own menu
+            # has it come FIRST, with their menu prices (the search for other sources goes on beside it).
+            if not (decision.get("mode") == "commerce" or decision.get("transactional") or decision.get("search_ready")):
+                return decision
+            found = _desk(request).find_items(user_words, 3)
+            if not found:
+                return decision
+            best = found[0]
+
+            def rupees(paise: int) -> str:
+                return f"₹{paise // 100}" if paise % 100 == 0 else f"₹{paise / 100:.2f}"
+
+            lines = [f"{s['name']}: " + ", ".join(f"{i['name']} {rupees(i['price_paise'])}" for i in s["items"]) for s in found]
+            head = "ASKODOX లో ఉన్నాయి (మెనూ ధరలు):" if te else "On ASKODOX (menu prices):"
+            tail = "కింద బటన్ తో ఇక్కడే ఆర్డర్ చేయండి." if te else "Tap below to order here."
+            reply = head + "\n" + "\n".join(lines) + "\n" + tail
+            old_reply = str(decision.get("reply") or "").strip()
+            return {**decision, "reply": reply + ("\n\n" + old_reply if old_reply else ""), "app_action": {
+                "key": "order_shop", "route": f"/order-desk?code={best['code']}",
+                "label": f"{best['name']} ఆర్డర్" if te else f"{best['name']} order"}}
+        shop = shops[0]
         reply = (f"{shop['name']} ASKODOX లో ఉంది. కింద బటన్ నొక్కి మెనూ చూసి ఇక్కడే ఆర్డర్ చేయండి."
                  if te else f"{shop['name']} is on ASKODOX. Tap below to see its menu and order here.")
         return {**decision, "reply": reply, "mode": "advice", "transactional": False, "search_ready": False, "app_action": {

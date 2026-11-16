@@ -54,6 +54,18 @@ fun main() {
     check("card due", null, "Your credit card statement: total due Rs 5,000, minimum Rs 250", "IGNORED")
     check("recharge", null, "Recharge of Rs 299 successful. Validity 28 days", "IGNORED")
     check("delivery", null, "Your order of Rs 799 has been delivered", "IGNORED")
+    // "My phone" speaks credit / debit in the person's own language (owner 2026-11-16)
+    fun said(name: String, lang: String, credit: Boolean, who: String?, mustHave: String, mustNot: String) {
+        val t = PaymentAlertParser.personalParts(600, lang, credit, who).joinToString(" ")
+        val ok = t.contains(mustHave) && (mustNot.isEmpty() || !t.contains(mustNot))
+        if (!ok) fails++
+        println((if (ok) "ok   " else "FAIL ") + name + " -> " + t)
+    }
+    said("te credit", "te", true, "Ramesh", "జమ అయ్యాయి", "క్రెడిట్")
+    said("te debit", "te", false, "Ramesh", "వెళ్ళాయి", "డెబిట్")
+    said("hi credit", "hi", true, null, "जमा हुए", "क्रेडिट")
+    said("ta credit", "ta", true, "Ramesh", "வந்தது", "")
+    said("en debit", "en", false, "Ramesh", "Spent", "Debited")
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }

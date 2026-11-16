@@ -6,6 +6,7 @@ import 'pos_catalogue_screens.dart';
 import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
 import 'pos_frontdesk_screens.dart';
+import 'pos_desk_manage_screens.dart';
 import 'pos_frontdesk_staff_screens.dart';
 import 'pos_home_screen.dart';
 import 'my_payment_alerts_screen.dart';
@@ -45,6 +46,8 @@ final askodoxFrontDeskRoutes = <GoRoute>[
   GoRoute(path: '/order-desk/track/:oid', builder: (context, state) => AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)),
   GoRoute(path: '/desk/:id', builder: (context, state) => AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/desk/:id/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/desk/:id/settings', builder: (context, state) => AskodoxDeskSettingsScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/desk/:id/sales', builder: (context, state) => AskodoxDeskSalesScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/desk/:id/qr', builder: (context, state) => AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)),
 ];
 

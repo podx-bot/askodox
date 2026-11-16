@@ -15,6 +15,7 @@ import '../../features/home/presentation/question_mic.dart';
 import '../../features/location/application/location_controller.dart';
 import '../../features/location/domain/geo_models.dart';
 import '../../features/notifications/application/askodox_notifications.dart';
+import '../../features/pos/presentation/payment_alert_banner.dart';
 import '../../services/in_app_messaging.dart';
 import '../../services/push_registration.dart';
 import 'header_menu.dart';
@@ -323,13 +324,19 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         // white text was invisible here (Orders looked blank -- APK 1274):
         // every tab inside the shell uses the light theme it is drawn on.
         Positioned.fill(
-          child: Theme(
-            // Profile (branch 4) is an inner page in the redesign; Home and the rest stay as they are.
-            data: shell.currentIndex == 4 ? askodoxInnerTheme(AppTheme.light) : AppTheme.light,
-            // Material re-applies the light text style (the inherited one is
-            // the dark theme's white).
-            child: Material(type: MaterialType.transparency, child: shell),
-          ),
+          child: Column(children: [
+            // Says by itself when this phone would stay silent for a payment (owner 2026-11-16); Home only.
+            if (shell.currentIndex == 0) const AskodoxPaymentAlertBanner(),
+            Expanded(
+              child: Theme(
+                // Profile (branch 4) is an inner page in the redesign; Home and the rest stay as they are.
+                data: shell.currentIndex == 4 ? askodoxInnerTheme(AppTheme.light) : AppTheme.light,
+                // Material re-applies the light text style (the inherited one is
+                // the dark theme's white).
+                child: Material(type: MaterialType.transparency, child: shell),
+              ),
+            ),
+          ]),
         ),
         // Optional floating companion on the other ASKODOX screens (Main
         // Chat already shows it): the same assistant, same conversation.
