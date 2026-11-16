@@ -29,6 +29,7 @@ from typing import Any, Callable, Dict, List, Optional
 from app.services import pos_menu_voice
 from app.services.account_identity import phone_key
 from app.services.pos_bills import PosBills
+from app.services.pos_desk_requests import PosDeskRequests
 from app.services.pos_store import PERMISSIONS, PosError, PosStore, _clean, _id
 
 QR_PREFIX = "ASKODOX-ORDER:"
@@ -125,6 +126,8 @@ class PosFrontDesk:
                 conn.execute("ALTER TABLE pos_desk_orders ADD COLUMN assignee_user TEXT NOT NULL DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
+
+        self.requests = PosDeskRequests(self)  # table service requests (water / gravy / onions / bill)
 
     # ------------------------------------------------------------------ helpers
     def _now(self) -> datetime:
@@ -660,6 +663,10 @@ class PosFrontDesk:
                         out["pay"] = self.pay_to(business["owner_user_id"], balance, f"Bill {inv['number']}", row["id"])
                     except Exception:
                         out["pay"] = []
+        if row["kind"] == "dine_in":
+            out["requests"] = [{"id": r["id"], "kind": r["kind"], "label": r["label"], "text": r["text"], "qty": r["qty"]}
+                               for r in conn.execute("SELECT id, kind, label, text, qty FROM pos_desk_requests WHERE order_id = ?"
+                                                     " AND status = 'open' ORDER BY created_at", (row["id"],))]
         if staff:
             out["customer_phone"] = row["customer_phone"]
             out["customer_user_last4"] = (row["customer_user"] or "")[-4:]

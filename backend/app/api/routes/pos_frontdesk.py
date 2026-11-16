@@ -155,6 +155,23 @@ class DeskSettingsIn(BaseModel):
     auto_confirm: Optional[bool] = None
 
 
+class AskIn(BaseModel):
+    kinds: List[str] = Field(default_factory=list, max_length=8)
+    text: str = Field(default="", max_length=160)
+    qty: int = Field(default=1, ge=1, le=9)
+
+
+class CustomRequestIn(BaseModel):
+    key: str = Field(default="", max_length=40)
+    en: str = Field(default="", max_length=40)
+    te: str = Field(default="", max_length=40)
+
+
+class RequestSettingsIn(BaseModel):
+    off: Optional[List[str]] = Field(default=None, max_length=12)
+    custom: Optional[List[CustomRequestIn]] = Field(default=None, max_length=8)
+
+
 # ------------------------------------------------------------------------------------------- customer
 @router.get("/order-desk/resolve")
 def resolve(code: str, request: Request) -> dict:
@@ -489,3 +506,41 @@ def form_fill(body: FormFillIn, request: Request) -> dict:
         phrase = None
     out = service.fill([f.model_dump() for f in body.fields], body.text, locale=body.locale, phrase=phrase)
     return {"values": out["values"], "used_ai": out["used_ai"]}
+
+
+# ------------------------------------------------------------------------------------------- table service requests
+@router.get("/order-desk/mine/{order_id}/requests")
+def my_requests(order_id: str, request: Request) -> dict:
+    return _call(_desk(request).requests.for_order, _user(request, "desk", 300), order_id)
+
+
+@router.post("/order-desk/mine/{order_id}/requests")
+def ask_service(order_id: str, body: AskIn, request: Request) -> dict:
+    """Water / extra gravy / onions / bring the bill / call the waiter -- tapped from the shop's list or said in words."""
+    return _call(_desk(request).requests.ask, _user(request, "desk", 120), order_id, body.kinds, body.text, body.qty)
+
+
+@router.post("/order-desk/requests/{request_id}/cancel")
+def cancel_service(request_id: str, request: Request) -> dict:
+    return _call(_desk(request).requests.cancel_mine, _user(request, "desk", 120), request_id)
+
+
+@router.get("/businesses/{business_id}/desk/requests")
+def desk_requests(business_id: str, request: Request) -> dict:
+    return _call(_desk(request).requests.open_list, business_id, _user(request, "desk", 600))
+
+
+@router.post("/businesses/{business_id}/desk/requests/{request_id}/done")
+def desk_request_done(business_id: str, request_id: str, request: Request) -> dict:
+    return _call(_desk(request).requests.done, business_id, _user(request, "desk", 300), request_id)
+
+
+@router.get("/businesses/{business_id}/desk/request-settings")
+def desk_request_settings(business_id: str, request: Request) -> dict:
+    return _call(_desk(request).requests.settings, business_id, _user(request, "desk", 120))
+
+
+@router.put("/businesses/{business_id}/desk/request-settings")
+def desk_request_settings_save(business_id: str, body: RequestSettingsIn, request: Request) -> dict:
+    custom = None if body.custom is None else [c.model_dump() for c in body.custom]
+    return _call(_desk(request).requests.set_settings, business_id, _user(request, "desk", 120), body.off, custom)

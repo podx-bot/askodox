@@ -106,9 +106,20 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskResolve(String code) => _send('GET', '/api/pos/order-desk/resolve', query: {'code': code});
   Future<AskodoxJson> deskAssist(String code, String text, List<AskodoxJson> cart, {bool te = true}) =>
       _send('POST', '/api/pos/order-desk/assist', body: {'code': code, 'text': text, 'cart': cart, 'te': te});
+  /// Shops with a menu whose name contains [q] (the search box beside the QR photo).
+  Future<List<AskodoxJson>> deskShops(String q) async =>
+      askodoxPosList((await _send('GET', '/api/pos/order-desk/shops', query: {'q': q}))['shops']);
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
+  Future<AskodoxJson> deskMyRequests(String orderId) => _send('GET', '/api/pos/order-desk/mine/$orderId/requests');
+  Future<AskodoxJson> deskAsk(String orderId, {List<String> kinds = const [], String text = ''}) =>
+      _send('POST', '/api/pos/order-desk/mine/$orderId/requests', body: {'kinds': kinds, 'text': text});
+  Future<AskodoxJson> deskRequests(String biz) => _send('GET', '${_b(biz)}/desk/requests');
+  Future<AskodoxJson> deskRequestDone(String biz, String id) => _send('POST', '${_b(biz)}/desk/requests/$id/done');
+  Future<AskodoxJson> deskRequestSettings(String biz) => _send('GET', '${_b(biz)}/desk/request-settings');
+  Future<AskodoxJson> deskRequestSettingsSave(String biz, {List<String>? off, List<AskodoxJson>? custom}) =>
+      _send('PUT', '${_b(biz)}/desk/request-settings', body: {if (off != null) 'off': off, if (custom != null) 'custom': custom});
   Future<AskodoxJson> deskCancelMine(String id) => _send('POST', '/api/pos/order-desk/mine/$id/cancel');
   Future<AskodoxJson> deskOrders(String biz, {String lane = 'active'}) =>
       _send('GET', '${_b(biz)}/desk/orders', query: {'lane': lane});

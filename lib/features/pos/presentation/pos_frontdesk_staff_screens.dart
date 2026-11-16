@@ -55,6 +55,7 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
   Object? _error;
   Timer? _timer;
   bool _busy = false;
+  List<AskodoxJson> _asks = const [];
 
   @override
   void initState() {
@@ -81,6 +82,49 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
     } catch (e) {
       if (mounted && _data == null) setState(() => _error = e);
     }
+    try {
+      final r = await ref.read(askodoxPosRepositoryProvider).deskRequests(widget.businessId);
+      if (mounted) setState(() => _asks = askodoxPosList(r['requests']));
+    } catch (_) {}
+  }
+
+  /// Table requests (water / extra gravy / onions / bill / call): the waiter's list, one tap = done.
+  Future<void> _openAsks() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (context, setLocal) {
+          final te = askodoxPosTe(context);
+          return SafeArea(
+            child: ListView(key: const Key('askodoxDeskRequests'), shrinkWrap: true, padding: const EdgeInsets.all(14), children: [
+              Text(te ? 'టేబుల్ అభ్యర్థనలు' : 'Table requests', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              if (_asks.isEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(te ? 'ఏమీ లేవు ✓' : 'Nothing waiting ✓')),
+              for (final r in _asks)
+                ListTile(
+                  key: Key('askodoxDeskRequest-${r['id']}'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(r['kind'] == 'bill' ? Icons.receipt_long : Icons.room_service_outlined),
+                  title: Text('${r['table_name'] ?? ''} · ${'${r['text']}'.isNotEmpty ? r['text'] : r['label']}${askodoxPosInt(r['qty']) > 1 ? ' × ${r['qty']}' : ''}'),
+                  trailing: FilledButton(
+                    key: Key('askodoxDeskRequestDone-${r['id']}'),
+                    onPressed: () async {
+                      try {
+                        final out = await ref.read(askodoxPosRepositoryProvider).deskRequestDone(widget.businessId, '${r['id']}');
+                        if (mounted) setState(() => _asks = askodoxPosList(out['requests']));
+                        setLocal(() {});
+                      } on AskodoxPosException catch (e) {
+                        if (mounted) askodoxPosSnack(this.context, e.message(te));
+                      }
+                    },
+                    child: Text(te ? 'అయింది' : 'Done'),
+                  ),
+                ),
+            ]),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _run(Future<Object?> Function() action) async {
@@ -289,6 +333,21 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
             onPressed: () => context.push('/desk/${widget.businessId}/qr')),
       ]),
       body: Column(children: [
+        if (_asks.isNotEmpty)
+          Material(
+            color: Theme.of(context).colorScheme.tertiaryContainer,
+            child: ListTile(
+              key: const Key('askodoxDeskRequestsBanner'),
+              dense: true,
+              leading: const Icon(Icons.notifications_active),
+              title: Text(te ? '${_asks.length} టేబుల్ అభ్యర్థనలు వేచి ఉన్నాయి' : '${_asks.length} table requests waiting',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text(_asks.take(3).map((r) => '${r['table_name'] ?? ''} ${'${r['text']}'.isNotEmpty ? r['text'] : r['label']}').join(' · '),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openAsks,
+            ),
+          ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -715,7 +774,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                   key: Key('askodoxDeskAvailable-${m['id']}'),
                   contentPadding: EdgeInsets.zero,
                   value: m['available'] == true,
-                  leading: askodoxPosInt(m['item_no']) > 0
+                  secondary: askodoxPosInt(m['item_no']) > 0
                       ? CircleAvatar(
                           key: Key('askodoxDeskMenuNo-${m['id']}'),
                           radius: 15,

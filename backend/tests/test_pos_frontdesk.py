@@ -472,3 +472,67 @@ def test_cashier_taking_money_for_a_bill_made_on_accept_settles_it(env):
     assert out["invoice"]["balance_paise"] == 0
     again = desk.bill(biz, OWNER, order["id"], payments=[{"method": "cash", "amount_paise": 30000}], client_txn_id="cash-at-counter")
     assert again["invoice"]["balance_paise"] == 0  # nothing taken twice
+
+
+# ---- table service requests (owner 2026-11-16): water / extra gravy / onions / bill, answered by the waiter
+def _accepted_dine_in(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}:{table}", [{"product_id": biryani, "qty": 1, "note": "less spicy"}])
+    desk.confirm(biz, COOK, order["id"])
+    return order
+
+
+def test_table_request_by_tap_and_words_reaches_the_waiter(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _accepted_dine_in(env)
+    assert desk.view_mine(CUSTOMER, order["id"])["items"][0]["note"] == "less spicy"  # item note kept
+    mine = desk.requests.for_order(CUSTOMER, order["id"])
+    assert mine["can_ask"] and {q["key"] for q in mine["quick"]} >= {"water", "extra_gravy", "onions", "bill", "call"}
+    pushes.clear()
+    out = desk.requests.ask(CUSTOMER, order["id"], ["water"], "extra onions and papad")
+    assert {a["kind"] for a in out["asked"]} == {"water", "onions", "other"}
+    assert any(p[2] == f"/desk/{biz}" for p in pushes)  # a waiter / the owner is told
+    assert out["asked"] and [r["text"] for r in out["requests"] if r["kind"] == "other"] == ["papad"]
+    # tapping the same thing twice never doubles it
+    again = desk.requests.ask(CUSTOMER, order["id"], ["water"])
+    assert again["asked"] == [] and again["already_waiting"] == 1
+    # the staff queue shows the table; one tap answers it and the customer is told
+    queue = desk.requests.open_list(biz, COOK)
+    assert queue["count"] == 3 and {r["table_name"] for r in queue["requests"]} == {"T1"}
+    assert desk.view_mine(CUSTOMER, order["id"])["requests"]
+    pushes.clear()
+    rid = next(r["id"] for r in queue["requests"] if r["kind"] == "water")
+    assert desk.requests.done(biz, COOK, rid)["count"] == 2
+    assert any(p[0] == CUSTOMER for p in pushes)
+
+
+def test_table_requests_need_an_accepted_dine_in_order_of_your_own(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}:{table}", [{"product_id": biryani, "qty": 1}])
+    with pytest.raises(PosError) as e:  # not accepted yet
+        desk.requests.ask(CUSTOMER, order["id"], ["water"])
+    assert e.value.status == 409
+    with pytest.raises(PosError) as e:  # someone else's order
+        desk.requests.ask("app-phone-9111111111", order["id"], ["water"])
+    assert e.value.status == 404
+    take = _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": fry, "qty": 1}], txn="zz9y8x7w")
+    desk.confirm(biz, COOK, take["id"])
+    with pytest.raises(PosError) as e:  # takeaway has no table
+        desk.requests.ask(CUSTOMER, take["id"], ["water"])
+    assert e.value.status == 409
+
+
+def test_shop_chooses_its_quick_requests_and_adds_its_own(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _accepted_dine_in(env)
+    with pytest.raises(PosError):  # only the owner sets it up
+        desk.requests.set_settings(biz, COOK, ["tissue"], None)
+    out = desk.requests.set_settings(biz, OWNER, ["tissue", "extra_plate"], [{"en": "Papad", "te": "అప్పడం"}])
+    keys = {r["key"]: r["enabled"] for r in out["requests"]}
+    assert keys["tissue"] is False and keys["extra_plate"] is False and keys["water"] is True
+    quick = desk.requests.for_order(CUSTOMER, order["id"])["quick"]
+    assert "tissue" not in {q["key"] for q in quick} and "Papad" in {q["en"] for q in quick}
+    papad = next(q["key"] for q in quick if q["en"] == "Papad")
+    assert desk.requests.ask(CUSTOMER, order["id"], [papad])["asked"][0]["label"]["te"] == "అప్పడం"
+    with pytest.raises(PosError):  # a switched-off one cannot be asked
+        desk.requests.ask(CUSTOMER, order["id"], ["tissue"])
