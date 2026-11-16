@@ -423,3 +423,52 @@ def test_menu_photos_are_read_one_call_each_in_parallel_and_merged():
     assert sorted(vision.calls) == [(1, True)] * 3
     # every photo failing -> honest "not read"
     assert pos_menu_photo.read_menu(vision, [(b"broken", "image/png")])["read"] is False
+
+
+def test_parcel_order_is_billed_on_accept_and_reaches_my_bills(env):
+    """Owner 2026-11-16: accept -> the bill (unpaid, with Pay) is in the customer's "My bills"; marking it paid later
+    clears the balance the customer sees; the order still walks its lane to done."""
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": biryani, "qty": 2}], kind="takeaway")
+    accepted = desk.confirm(biz, OWNER, order["id"])
+    assert accepted["invoice"] and accepted["invoice"]["balance_paise"] == 32000
+    mine = desk.bills.my_bills(CUSTOMER)
+    assert len(mine) == 1 and mine[0]["due_paise"] == 32000 and mine[0]["pay"]
+    assert any(p[2] == "/me/bills" for p in pushes if p[0] == CUSTOMER)
+    desk.bills.settle(biz, OWNER, accepted["invoice"]["id"], "phonepe", 0, "settle-desk-01")
+    seen = desk.track(CUSTOMER, order["id"]) if hasattr(desk, "track") else desk.order(biz, OWNER, order["id"])
+    assert seen["invoice"]["balance_paise"] == 0 and seen["pay"] == []
+    for stage in ("ready", "packed", "handed", "done"):
+        out = desk.advance(biz, OWNER, order["id"], stage)
+    assert out["stage"] == "done"
+
+
+def test_dine_in_is_not_billed_on_accept(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}:{table}", [{"product_id": fry, "qty": 1}], kind="dine_in")
+    assert desk.confirm(biz, OWNER, order["id"])["invoice"] is None
+
+
+def test_shop_search_and_chat_card(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    assert [s["id"] for s in desk.search_shops("mura")] == [biz]
+    assert desk.search_shops("m") == [] and desk.search_shops("zzz") == []
+    card = desk.chat_card(biz, CUSTOMER, "murali hotel")
+    assert card["open"] and card["prepared"] == [] and {i["id"] for i in card["items"]} == {biryani, fry}
+    assert all(i["item_no"] for i in card["items"]) and "takeaway" in card["modes"] and "dine_in" not in card["modes"]
+    said = desk.chat_card(biz, CUSTOMER, "murali hotel 2 chicken biryani")
+    assert said["prepared"] and said["prepared"][0]["product_id"] == biryani and said["items"][0]["id"] == biryani
+    # "the usual" = the last order, ready for one confirm tap (nothing is placed)
+    _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": fry, "qty": 3}], kind="takeaway")
+    usual = desk.chat_card(biz, CUSTOMER, "murali hotel usual")
+    assert usual["prepared"] == [{"product_id": fry, "qty": 3}]
+
+
+def test_cashier_taking_money_for_a_bill_made_on_accept_settles_it(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": fry, "qty": 1}], kind="takeaway")
+    desk.confirm(biz, OWNER, order["id"])
+    out = desk.bill(biz, OWNER, order["id"], payments=[{"method": "cash", "amount_paise": 30000}], client_txn_id="cash-at-counter")
+    assert out["invoice"]["balance_paise"] == 0
+    again = desk.bill(biz, OWNER, order["id"], payments=[{"method": "cash", "amount_paise": 30000}], client_txn_id="cash-at-counter")
+    assert again["invoice"]["balance_paise"] == 0  # nothing taken twice

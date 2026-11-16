@@ -316,6 +316,13 @@ def desk_today_only(business_id: str, product_id: str, body: TodayOnlyIn, reques
     return _call(_desk(request).set_today_only, business_id, _user(request, "desk", 300), product_id, body.today_only)
 
 
+@router.get("/order-desk/shops")
+def desk_shop_search(request: Request, q: str = "") -> dict:
+    """Find a shop by its name (the box beside the QR scanner): shops with a menu, open ones first."""
+    _user(request, "desk-search", 120)
+    return {"shops": _desk(request).search_shops(q[:60])}
+
+
 @router.get("/businesses/{business_id}/desk/qr")
 def desk_qr(business_id: str, request: Request) -> dict:
     return _call(_desk(request).qr_codes, business_id, _user(request, "desk", 120))

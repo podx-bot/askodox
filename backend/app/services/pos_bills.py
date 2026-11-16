@@ -224,6 +224,36 @@ class PosBills:
         return {"channel": channel, "token": token, "url": url, "text": text, "whatsapp_to": whatsapp_number(phone),
                 "on_askodox": bool(customer_user)}
 
+    def share_to_user(self, business_id: str, invoice_id: str, customer_user: str, actor: str) -> Optional[str]:
+        """A bill made for an order the customer placed in the app: it appears in THEIR "My bills" (with Pay) at once."""
+        if not customer_user:
+            return None
+        now = self.clock().isoformat()
+        with self.store._connect() as conn:
+            inv = self._invoice_row(conn, business_id, invoice_id)
+            if conn.execute("SELECT 1 FROM pos_bill_shares WHERE invoice_id = ? AND customer_user = ?",
+                            (invoice_id, customer_user)).fetchone():
+                return None
+            biz = self.store._business_row(conn, business_id)
+            token = secrets.token_urlsafe(9).replace("-", "a").replace("_", "b")
+            conn.execute("INSERT INTO pos_bill_shares (token, business_id, invoice_id, phone_key, customer_user, channel,"
+                         " created_by, created_at) VALUES (?, ?, ?, ?, ?, 'askodox', ?, ?)",
+                         (token, business_id, invoice_id, phone_key(customer_user), customer_user, actor, now))
+            due = self._due(conn, inv)
+            total = int(json.loads(inv["totals"]).get("grand_total_paise") or 0)
+        rupees = f"₹{total // 100}" if total % 100 == 0 else f"₹{total / 100:.2f}"
+        try:
+            self.notify(customer_user, f"{biz['name']} బిల్లు {rupees}",
+                        "కట్టాల్సింది ఉంది — Pay నొక్కండి" if due else "బిల్లు వచ్చింది", "/me/bills", f"bill:{token}")
+        except Exception:
+            pass
+        return token
+
+    def due_of(self, invoice_id: str) -> int:
+        with self.store._connect() as conn:
+            inv = conn.execute("SELECT * FROM pos_invoices WHERE id = ?", (invoice_id,)).fetchone()
+            return self._due(conn, inv) if inv else 0
+
     # ------------------------------------------------------------------ customer side
     def my_bills(self, user: str, limit: int = 60) -> List[Dict[str, Any]]:
         key = phone_key(user)
