@@ -397,3 +397,29 @@ def test_auto_confirm_accepts_an_order_when_the_shop_switched_it_on(env):
     assert COOK in {p[0] for p in pushes if ":kitchen:" in p[3]}  # the kitchen is told
     desk.set_desk_settings(biz, OWNER, None, False)
     assert _order(desk, code, [{"product_id": biryani, "qty": 1}], kind="takeaway", txn="auto0003")["stage"] == "placed"
+
+
+class _PerPhotoVision:
+    """Answers each photo on its own (the menu reader sends one call per photo, thinking off)."""
+
+    def __init__(self):
+        self.calls = []
+
+    def analyze_with_prompt(self, images, prompt, max_models=1, allow_second_provider=False, fast=False):
+        self.calls.append((len(images), fast))
+        data = images[0][0]
+        if data == b"broken":
+            return {}, 1
+        return {"items": [{"name": data.decode(), "price": 100, "unit": None}]}, 1
+
+
+def test_menu_photos_are_read_one_call_each_in_parallel_and_merged():
+    from app.services import pos_menu_photo
+
+    vision = _PerPhotoVision()
+    out = pos_menu_photo.read_menu(vision, [(b"Tea", "image/jpeg"), (b"broken", "image/jpeg"), (b"Coffee", "image/jpeg")])
+    assert out["read"] is True
+    assert [i["name"] for i in out["items"]] == ["Tea", "Coffee"]
+    assert sorted(vision.calls) == [(1, True)] * 3
+    # every photo failing -> honest "not read"
+    assert pos_menu_photo.read_menu(vision, [(b"broken", "image/png")])["read"] is False

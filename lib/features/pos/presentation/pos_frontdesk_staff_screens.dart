@@ -501,6 +501,24 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
     }
   }
 
+  /// The photo path has its own words: a timeout / no answer is NOT "the bill is kept on this phone" (that text is the
+  /// offline sale queue's).
+  Future<void> _photoGuard(Future<Object?> Function() action) async {
+    final te = askodoxPosTe(context);
+    try {
+      await action();
+    } on AskodoxPosException catch (e) {
+      if (!mounted) return;
+      askodoxPosSnack(
+          context,
+          e.retryable
+              ? (te
+                  ? 'మెనూ చదవడం పూర్తి కాలేదు — నెట్ బాగున్నచోట మళ్ళీ ఫోటో పంపండి, లేదా ఐటమ్స్ చెప్పండి.'
+                  : 'Could not finish reading the menu — try the photo again on a better network, or say the items.')
+              : e.message(te));
+    }
+  }
+
   Future<void> _parse() => _guard(() async {
         final out = await ref.read(askodoxPosRepositoryProvider).deskMenuParse(widget.businessId, _text.text);
         if (!mounted) return null;
@@ -522,7 +540,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
       return;
     }
     setState(() => _reading = true);
-    await _guard(() async {
+    await _photoGuard(() async {
       final out = await ref.read(askodoxPosRepositoryProvider).deskMenuPhoto(widget.businessId, [
         for (final a in picked.take(4)) {'data': base64Encode(a.bytes), 'mime': a.mimeType},
       ]);
@@ -643,6 +661,13 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                         label: Text(te ? 'గ్యాలరీ నుంచి' : 'From gallery'))),
               ]),
               if (_reading) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator(key: Key('askodoxDeskMenuReading'))),
+              if (_reading)
+                Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                        te ? 'మెనూ చదువుతున్నాను… 10–30 సెకన్లు పడుతుంది, ఆగండి.' : 'Reading the menu… this takes 10–30 seconds.',
+                        key: const Key('askodoxDeskMenuReadingText'),
+                        style: const TextStyle(fontSize: 12.5))),
               if (_preview.isNotEmpty) ...[
                 const Divider(height: 24),
                 for (var i = 0; i < _preview.length; i++)

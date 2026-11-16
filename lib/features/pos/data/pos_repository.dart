@@ -46,8 +46,8 @@ class AskodoxPosRepository {
   final ApiClient _client;
   final String? authToken;
 
-  ApiRequestOptions _opts([Map<String, Object?> query = const {}]) =>
-      ApiRequestOptions(authToken: authToken, timeout: const Duration(seconds: 20), query: query);
+  ApiRequestOptions _opts([Map<String, Object?> query = const {}, Duration timeout = const Duration(seconds: 20)]) =>
+      ApiRequestOptions(authToken: authToken, timeout: timeout, query: query);
 
   Never _fail(ApiError<Object?> error) {
     final status = error.failure.statusCode;
@@ -77,14 +77,16 @@ class AskodoxPosRepository {
         code);
   }
 
-  Future<AskodoxJson> _send(String method, String path, {Object? body, Map<String, Object?> query = const {}}) async {
+  Future<AskodoxJson> _send(String method, String path,
+      {Object? body, Map<String, Object?> query = const {}, Duration timeout = const Duration(seconds: 20)}) async {
     if (authToken == null) throw const AskodoxPosException('sign_in');
+    final opts = _opts(query, timeout);
     final ApiResult<Object?> result = switch (method) {
-      'GET' => await _client.get<Object?>(path, options: _opts(query)),
-      'POST' => await _client.post<Object?>(path, body: body, options: _opts(query)),
-      'PATCH' => await _client.patch<Object?>(path, body: body, options: _opts(query)),
-      'PUT' => await _client.put<Object?>(path, body: body, options: _opts(query)),
-      _ => await _client.delete<Object?>(path, options: _opts(query)),
+      'GET' => await _client.get<Object?>(path, options: opts),
+      'POST' => await _client.post<Object?>(path, body: body, options: opts),
+      'PATCH' => await _client.patch<Object?>(path, body: body, options: opts),
+      'PUT' => await _client.put<Object?>(path, body: body, options: opts),
+      _ => await _client.delete<Object?>(path, options: opts),
     };
     if (result is ApiError<Object?>) _fail(result);
     return askodoxPosMap((result as ApiSuccess<Object?>).data);
@@ -136,8 +138,10 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskMenu(String biz) => _send('GET', '${_b(biz)}/desk/menu');
   Future<AskodoxJson> deskMenuParse(String biz, String text) => _send('POST', '${_b(biz)}/desk/menu/parse', body: {'text': text});
   /// Menu photo(s) -> a PREVIEW (items + printed prices, nothing saved). [images]: {data: base64, mime}.
+  /// Reading takes the AI 10-40 s, so this call waits 90 s (owner 2026-11-16: at 20 s the phone gave up while the
+  /// server had read the menu, and showed "No internet").
   Future<AskodoxJson> deskMenuPhoto(String biz, List<AskodoxJson> images) =>
-      _send('POST', '${_b(biz)}/desk/menu/photo', body: {'images': images});
+      _send('POST', '${_b(biz)}/desk/menu/photo', body: {'images': images}, timeout: const Duration(seconds: 90));
   Future<AskodoxJson> deskMenuImport(String biz, List<AskodoxJson> items, {int rateBp = 0}) =>
       _send('POST', '${_b(biz)}/desk/menu/import', body: {'items': items, 'rate_bp': rateBp});
   Future<AskodoxJson> deskAvailability(String biz, String product, bool available) =>
