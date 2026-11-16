@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/share/askodox_image_share.dart';
 import '../../growth/data/growth_repository.dart' show AskodoxPlace;
@@ -14,6 +15,7 @@ import '../../location/presentation/map_pin_picker.dart';
 import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxParsePaise;
+import '../../pos/presentation/pos_sale_screen.dart' show askodoxPrintInvoice;
 import '../domain/name_change_rule.dart';
 
 bool _bizTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
@@ -711,7 +713,21 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
   }
 }
 
+/// How a bill was paid (owner 2026-11-16): the app the customer used, cash, card, or `due` (not paid in full).
+const askodoxBillPayModes = <(String, String, String)>[
+  ('cash', 'Cash', 'క్యాష్'),
+  ('phonepe', 'PhonePe', 'PhonePe'),
+  ('gpay', 'Google Pay', 'Google Pay'),
+  ('paytm', 'Paytm', 'Paytm'),
+  ('other_upi', 'Other UPI', 'ఇతర UPI'),
+  ('card', 'Card', 'కార్డ్'),
+  ('due', 'Pending / part paid', 'బాకీ / సగం కట్టారు'),
+];
+
 class _BillLine {
+  /// The item's NUMBER on the shop's menu ("3"): fills the name and today's rate from the menu.
+  final no = TextEditingController();
+  String unit = 'kg';
   final name = TextEditingController();
   final amount = TextEditingController();
   // Today's rate and the weight / quantity: the total fills itself (rate x weight) and can still be typed over.
@@ -741,6 +757,7 @@ class _BillLine {
   }
 
   void dispose() {
+    no.dispose();
     name.dispose();
     amount.dispose();
     rate.dispose();
@@ -776,7 +793,76 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
   AskodoxJson? _saved;
 
   double get _total => _lines.fold(0, (sum, line) => sum + line.value);
-  int get _advancePaise => askodoxParsePaise(_advance.text.trim().isEmpty ? '0' : _advance.text) ?? 0;
+  int get _typedAdvancePaise => askodoxParsePaise(_advance.text.trim().isEmpty ? '0' : _advance.text) ?? 0;
+
+  /// What was paid now: the typed amount, else the whole bill -- unless the cashier chose "pending".
+  int get _advancePaise {
+    final typed = _typedAdvancePaise;
+    if (_method == 'due' || typed > 0) return typed;
+    return (_total * 100).round();
+  }
+
+  /// The shop's menu by item number (billing by number).
+  Map<int, AskodoxJson> _menuByNo = const {};
+
+  void _applyNumber(int i) {
+    final line = _lines[i];
+    final item = _menuByNo[int.tryParse(line.no.text.trim()) ?? 0];
+    if (item == null) return;
+    line.name.text = '${item['name']}';
+    line.unit = '${item['unit'] ?? 'pcs'}';
+    line.rate.text = _rupees(askodoxPosInt(item['price_paise']) / 100);
+    if (line.qtyValue <= 0) line.qty.text = '1';
+    line.recompute();
+    _txn = askodoxNewTxnId();
+  }
+
+  void _newBill() {
+    setState(() {
+      for (final line in _lines) {
+        line.dispose();
+      }
+      _lines
+        ..clear()
+        ..add(_BillLine());
+      _advance.clear();
+      _custName.clear();
+      _custPhone.clear();
+      _method = 'cash';
+      _saved = null;
+      _txn = askodoxNewTxnId();
+    });
+  }
+
+  /// The saved bill to the customer's NUMBER: an ASKODOX user gets it in the app; anyone else gets a WhatsApp
+  /// message opened straight on that number (no contact needed).
+  Future<void> _sendToNumber() async {
+    final te = _bizTe(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final digits = _custPhone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length < 10) {
+      messenger.showSnackBar(SnackBar(content: Text(te ? 'కస్టమర్ 10 అంకెల నంబర్ రాయండి.' : "Type the customer's 10-digit number.")));
+      return;
+    }
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).billSend(widget.businessId, '${_saved!['id']}', digits);
+      if ('${out['channel']}' == 'askodox') {
+        messenger.showSnackBar(SnackBar(
+            content: Text(te ? 'బిల్లు కస్టమర్ ASKODOX యాప్‌లోకి వెళ్ళింది ✓' : "Sent to the customer's ASKODOX app ✓")));
+        return;
+      }
+      final text = '${out['text'] ?? ''}';
+      final uri = Uri.parse('https://wa.me/${out['whatsapp_to']}?text=${Uri.encodeComponent(text)}');
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
+      if (!ok) {
+        await Clipboard.setData(ClipboardData(text: text));
+        messenger.showSnackBar(SnackBar(
+            content: Text(te ? 'WhatsApp తెరుచుకోలేదు — మెసేజ్ కాపీ చేశాను.' : 'WhatsApp did not open — message copied.')));
+      }
+    } on AskodoxPosException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message(te))));
+    }
+  }
 
   @override
   void initState() {
@@ -822,7 +908,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               }
         ],
         'advance_paise': _advancePaise,
-        'method': _method,
+        'method': _method == 'due' ? 'cash' : _method,
         'name': _custName.text.trim(),
         'phone': _custPhone.text.trim(),
         'rate_bp': _gstShop ? _rateBp : 0,
@@ -846,6 +932,15 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     try {
       final biz = await repo.business(widget.businessId);
       if (mounted) setState(() => _gstShop = '${biz['registration_type'] ?? 'unregistered'}' != 'unregistered');
+    } catch (_) {}
+    try {
+      final menu = askodoxPosList((await repo.deskMenu(widget.businessId))['items']);
+      if (mounted) {
+        setState(() => _menuByNo = {
+              for (final m in menu)
+                if (askodoxPosInt(m['item_no']) > 0) askodoxPosInt(m['item_no']): m,
+            });
+      }
     } catch (_) {}
     try {
       final shop = await repo.shopState(widget.businessId);
@@ -940,6 +1035,12 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
         }),
         fields: () => [
           for (var i = 0; i < _lines.length + 3; i++) ...[
+            if (_menuByNo.isNotEmpty)
+              AskodoxFillField('no-$i', te ? '${i + 1}వ వస్తువు మెనూ నంబర్' : 'Item ${i + 1} menu number', kind: 'number',
+                  apply: (t) => setState(() {
+                        _lineAt(i).no.text = t;
+                        _applyNumber(i);
+                      })),
             AskodoxFillField('rate-$i', te ? '${i + 1}వ వస్తువు ఈ రోజు రేటు' : 'Item ${i + 1} rate today', kind: 'number',
                 controller: i < _lines.length ? _lines[i].rate : null,
                 apply: i < _lines.length ? null : (t) => setState(() => _lineAt(i).rate.text = t)),
@@ -958,7 +1059,9 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
           AskodoxFillField('customer', te ? 'కస్టమర్ పేరు' : 'Customer name', controller: _custName),
           AskodoxFillField('phone', te ? 'కస్టమర్ ఫోన్' : 'Customer phone', kind: 'phone', controller: _custPhone),
           AskodoxFillField('method', te ? 'చెల్లింపు విధానం' : 'Payment method',
-              kind: 'choice', options: const ['cash', 'upi', 'card'], apply: (t) => setState(() => _method = t)),
+              kind: 'choice',
+              options: [for (final m in askodoxBillPayModes) m.$1],
+              apply: (t) => setState(() => _method = t)),
         ],
       ),
       body: ListView(
@@ -968,14 +1071,31 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Column(children: [
-                TextField(
-                  controller: _lines[i].name,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                      labelText: te ? 'వస్తువు (ఉదా: చికెన్)' : 'Item (e.g. Chicken)',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: askodoxBoxMic(context, _lines[i].name, changed: () => setState(() {}))),
-                ),
+                Row(children: [
+                  if (_menuByNo.isNotEmpty) ...[
+                    SizedBox(
+                      width: 68,
+                      child: TextField(
+                        key: Key('askodoxQuickBillNo-$i'),
+                        controller: _lines[i].no,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => setState(() => _applyNumber(i)),
+                        decoration: InputDecoration(labelText: te ? 'నం.' : 'No.', border: const OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: TextField(
+                      controller: _lines[i].name,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                          labelText: te ? 'వస్తువు (ఉదా: చికెన్)' : 'Item (e.g. Chicken)',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: askodoxBoxMic(context, _lines[i].name, changed: () => setState(() {}))),
+                    ),
+                  ),
+                ]),
                 const SizedBox(height: 6),
                 Row(children: [
                   Expanded(
@@ -994,7 +1114,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                       controller: _lines[i].qty,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() => _lines[i].recompute()),
-                      decoration: InputDecoration(labelText: te ? 'బరువు (kg)' : 'Weight (kg)', border: const OutlineInputBorder()),
+                      decoration: InputDecoration(labelText: te ? 'ఎన్ని / బరువు' : 'Count / weight', border: const OutlineInputBorder()),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1026,29 +1146,30 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             ),
           ),
           const SizedBox(height: 8),
-          Text(te ? 'ముందే కట్టినది / బాకీ' : 'Advance paid / pending', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(te ? 'ఎలా కట్టారు?' : 'How was it paid?', style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
-          Row(children: [
-            Expanded(
-              child: TextField(
-                key: const Key('askodoxQuickBillAdvance'),
-                controller: _advance,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (_) => setState(() => _txn = askodoxNewTxnId()),
-                decoration: InputDecoration(labelText: te ? 'అడ్వాన్స్ ₹' : 'Advance ₹', border: const OutlineInputBorder()),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            for (final m in askodoxBillPayModes)
+              ChoiceChip(
+                key: Key('askodoxQuickBillPay-${m.$1}'),
+                label: Text(te ? m.$3 : m.$2),
+                selected: _method == m.$1,
+                onSelected: (_) => setState(() {
+                  _method = m.$1;
+                  _txn = askodoxNewTxnId();
+                }),
               ),
-            ),
-            const SizedBox(width: 8),
-            DropdownButton<String>(
-              value: _method,
-              items: [
-                DropdownMenuItem(value: 'cash', child: Text(te ? 'క్యాష్' : 'Cash')),
-                const DropdownMenuItem(value: 'upi', child: Text('UPI')),
-                DropdownMenuItem(value: 'card', child: Text(te ? 'కార్డ్' : 'Card')),
-              ],
-              onChanged: (v) => setState(() => _method = v ?? 'cash'),
-            ),
           ]),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('askodoxQuickBillAdvance'),
+            controller: _advance,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() => _txn = askodoxNewTxnId()),
+            decoration: InputDecoration(
+                labelText: te ? 'ఇప్పుడు కట్టింది ₹ (ఖాళీగా ఉంటే మొత్తం కట్టినట్టు)' : 'Paid now ₹ (empty = paid in full)',
+                border: const OutlineInputBorder()),
+          ),
           if (_advancePaise > 0 && _advancePaise < (total * 100).round())
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -1068,7 +1189,9 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               child: TextField(
                   controller: _custPhone,
                   keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(labelText: te ? 'ఫోన్' : 'Phone', border: const OutlineInputBorder())),
+                  decoration: InputDecoration(
+                      labelText: te ? 'కస్టమర్ నంబర్ (బిల్లు పంపడానికి)' : 'Customer number (to send the bill)',
+                      border: const OutlineInputBorder())),
             ),
           ]),
           if (_gstShop) ...[
@@ -1102,6 +1225,44 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                     '${te ? 'బిల్లు' : 'Bill'} ${_saved!['number'] ?? ''} ✓  ${te ? 'కట్టింది' : 'Paid'} ₹${_rupees(askodoxPosInt(_saved!['advance_paise']) / 100)} · ${te ? 'బాకీ' : 'Pending'} ₹${_rupees(askodoxPosInt(_saved!['pending_paise']) / 100)}'),
               ),
             ),
+          if (_saved != null) ...[
+            const SizedBox(height: 6),
+            FilledButton.icon(
+              key: const Key('askodoxQuickBillSendNumber'),
+              onPressed: _sendToNumber,
+              icon: const Icon(Icons.send_rounded),
+              label: Text(te ? 'ఈ నంబర్‌కి బిల్లు పంపు (ASKODOX / WhatsApp)' : 'Send the bill to this number (ASKODOX / WhatsApp)'),
+            ),
+            const SizedBox(height: 6),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('askodoxQuickBillPrint'),
+                  onPressed: () => askodoxPrintInvoice(context, ref, _saved!),
+                  icon: const Icon(Icons.print_outlined),
+                  label: Text(te ? 'ప్రింట్' : 'Print'),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('askodoxQuickBillHistory'),
+                  onPressed: () => context.push('/bills/${widget.businessId}'),
+                  icon: const Icon(Icons.history),
+                  label: Text(te ? 'హిస్టరీ' : 'History'),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('askodoxQuickBillNew'),
+                  onPressed: _newBill,
+                  icon: const Icon(Icons.add),
+                  label: Text(te ? 'కొత్త బిల్లు' : 'New bill'),
+                ),
+              ),
+            ]),
+          ],
           const SizedBox(height: 8),
           RepaintBoundary(
             key: _billKey,
@@ -1128,7 +1289,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                               child: Row(
                                 children: [
                                   Expanded(
-                                      child: Text(line.label('kg').isEmpty ? '—' : line.label('kg'),
+                                      child: Text(line.label(line.unit).isEmpty ? '—' : line.label(line.unit),
                                           style: const TextStyle(color: Color(0xFF0F172A)))),
                                   Text('₹${_rupees(line.value)}', style: const TextStyle(color: Color(0xFF0F172A))),
                                 ],

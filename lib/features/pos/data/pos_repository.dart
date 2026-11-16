@@ -154,6 +154,17 @@ class AskodoxPosRepository {
       _send('POST', '/api/pos/form-fill', body: {'fields': fields, 'text': text, 'locale': locale});
   /// The calculator bill as a REAL bill (items, GST only for a registered shop, advance, pending on the customer).
   Future<AskodoxJson> quickBill(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/quick-bill', body: body);
+  // ---- Bills after the counter (pos_bills.py): send to the customer's number, settle later, history, customer inbox.
+  /// -> {channel: askodox | whatsapp, text, url, whatsapp_to}. ASKODOX users get it in "My bills"; others on WhatsApp.
+  Future<AskodoxJson> billSend(String biz, String invoiceId, String phone) =>
+      _send('POST', '${_b(biz)}/bills/$invoiceId/send', body: {'phone': phone});
+  Future<AskodoxJson> billSettle(String biz, String invoiceId, String pay, String txn) =>
+      _send('POST', '${_b(biz)}/bills/$invoiceId/settle', body: {'pay': pay, 'client_txn_id': txn});
+  Future<AskodoxJson> billHistory(String biz, {String from = '', String to = '', bool due = false, String q = ''}) =>
+      _send('GET', '${_b(biz)}/bills', query: {'date_from': from, 'date_to': to, 'due': due ? 'true' : 'false', 'q': q});
+  Future<List<AskodoxJson>> myBills() async => askodoxPosList((await _send('GET', '/api/pos/me/bills'))['bills']);
+  Future<AskodoxJson> myBillPaid(String token, String app) =>
+      _send('POST', '/api/pos/me/bills/$token/paid', body: {'app': app});
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
   // Shop follows: any signed-in person, shop owners included (backend: routes/shop_follows.py).
   Future<AskodoxJson> shopState(String id) => _send('GET', '/api/shops/$id');

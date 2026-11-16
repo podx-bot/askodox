@@ -347,6 +347,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
       // Owner 2026-11-15 (pani B): one tap to the calculator bill (Make a bill) of the shop shown, or a personal bill.
       door('askodoxPaymentsHubBill', Icons.calculate_outlined, te ? 'బిల్లు' : 'Bill', '/me/business/$_source/bill'),
       door('askodoxPaymentsHubAlerts', Icons.volume_up_rounded, te ? 'అలర్ట్స్' : 'Alerts', alerts),
+      door('askodoxPaymentsHubMyBills', Icons.receipt_long_outlined, te ? 'నా బిల్లులు' : 'My bills', '/me/bills'),
       door('askodoxPaymentsHubAccounts', Icons.account_balance_outlined, te ? 'నా ఖాతాలు' : 'My accounts', '/me/payment-methods'),
     ]);
   }

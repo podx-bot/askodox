@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import 'pos_advance_screens.dart';
 import 'pos_agent_screens.dart';
+import 'pos_bills_screens.dart';
 import 'pos_catalogue_screens.dart';
 import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
@@ -24,6 +25,9 @@ import 'pos_selfshop_screens.dart';
 final askodoxPaymentMethodRoutes = <GoRoute>[
   // The Payments tab (redesign 2026-11-13): today, the week, latest payments, QR / alerts / accounts.
   GoRoute(path: '/me/payments', builder: (context, state) => const AskodoxPaymentsHubScreen()),
+  // Bills (owner 2026-11-16): the customer's own bills from shops, and a shop's bill history.
+  GoRoute(path: '/me/bills', builder: (context, state) => const AskodoxMyBillsScreen()),
+  GoRoute(path: '/bills/:id', builder: (context, state) => AskodoxBillHistoryScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/me/payments/phone', builder: (context, state) => const AskodoxMyPhonePaymentsScreen()),
   GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),
   // Payment sound alerts without the POS (owner 2026-11-10): the shop, its staff and who hears the sound.

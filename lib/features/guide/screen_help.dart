@@ -325,6 +325,24 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ లెక్క ఫోన్ నోటిఫికేషన్ల నుంచి, బ్యాంక్ నుంచి కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
     '"నా QR చూపించు", "నా ఖాతాలు" మీ UPI / బ్యాంక్ తెరుస్తాయి; "అలర్ట్స్" వాయిస్ ఆన్ చేస్తుంది.',
   ]),
+  '/me/bills': _H('My bills', 'నా బిల్లులు', [
+    'Bills that shops sent to your number show here.',
+    'Pay by UPI opens your UPI app with the amount filled in; the money goes straight to the shop.',
+    'After paying, tap "I have paid" so the shop checks and closes the bill.',
+  ], [
+    'షాపులు మీ నంబర్‌కి పంపిన బిల్లులు ఇక్కడ కనిపిస్తాయి.',
+    '"UPI లో కట్టు" నొక్కితే మొత్తం నిండిన UPI యాప్ తెరుచుకుంటుంది; డబ్బు నేరుగా షాప్‌కి వెళ్తుంది.',
+    'కట్టాక "కట్టేశాను" నొక్కితే షాప్ చూసి బిల్లు ముగిస్తుంది.',
+  ]),
+  '/bills/:id': _H('Bill history', 'బిల్లుల హిస్టరీ', [
+    'Every bill with how it was paid: cash, PhonePe, Google Pay, Paytm, other UPI or card.',
+    'Pending only shows bills with money still to come; Paid closes one when the money arrives.',
+    'Remind / send puts the bill in the customer\'s ASKODOX app, or opens WhatsApp on their number.',
+  ], [
+    'ప్రతి బిల్లు ఎలా కట్టారో కనిపిస్తుంది: క్యాష్, PhonePe, Google Pay, Paytm, ఇతర UPI, కార్డ్.',
+    '"బాకీ మాత్రమే" లో డబ్బు రావాల్సిన బిల్లులు ఉంటాయి; డబ్బు వచ్చాక "కట్టారు" నొక్కండి.',
+    '"గుర్తు చేయి / పంపు" బిల్లును కస్టమర్ ASKODOX యాప్‌లోకి, లేదా వాళ్ళ నంబర్ WhatsApp కి పంపుతుంది.',
+  ]),
   '/me/payments/phone': _H('My phone payments', 'నా ఫోన్ పేమెంట్లు', [
     'Switch it on, then allow notification access for ASKODOX once.',
     'My apps / SMS: add or remove the apps and bank SMS you want read; rename or delete any of them.',

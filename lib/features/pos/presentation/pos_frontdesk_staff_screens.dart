@@ -715,6 +715,12 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                   key: Key('askodoxDeskAvailable-${m['id']}'),
                   contentPadding: EdgeInsets.zero,
                   value: m['available'] == true,
+                  leading: askodoxPosInt(m['item_no']) > 0
+                      ? CircleAvatar(
+                          key: Key('askodoxDeskMenuNo-${m['id']}'),
+                          radius: 15,
+                          child: Text('${m['item_no']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)))
+                      : null,
                   title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}${m['available'] == true ? '' : (te ? ' · ఈ రోజు లేదు' : ' · out today')}'),
                   subtitle: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
                     if (m['today_only_flag'] == true) Text(te ? 'ఈ రోజు మాత్రమే ✓' : 'Today only ✓'),
