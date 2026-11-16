@@ -624,13 +624,37 @@ object AskodoxPaymentAlerts {
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
         val mayVoice = quiet || test || claimVoice(context, amount, now, "local")
-        event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else "pending")
+        // Owner 2026-11-16: the UPI app's notification carries the payer's NAME; a bank SMS usually does not. A nameless SMS
+        // waits a few seconds for that notification (it then speaks WITH the name); none came -> the SMS is spoken as is.
+        val heldForName = !test && !quiet && mayVoice && amount != null && payer.isNullOrEmpty() &&
+            kindOf(cfg, pkg).let { it == "sms" || it == "bank" }
+        event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else if (heldForName) "held" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet && mayVoice) speak(context, amount, test, localId, payer, cfg)
+        if (!quiet && mayVoice) {
+            if (heldForName) main.postDelayed({ speakHeld(context, localId, amount, cfg) }, HOLD_FOR_NAME_MS)
+            else speak(context, amount, test, localId, payer, cfg)
+        }
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to (!quiet && mayVoice))
+            "amountPaise" to amount, "spoken" to (!quiet && mayVoice && !heldForName))
+    }
+
+    private const val HOLD_FOR_NAME_MS = 4500L
+
+    /** The wait for a notification with the name is over: speak the held SMS payment now (unless a notification already did). */
+    private fun speakHeld(context: Context, localId: String, amount: Long?, cfg: JSONObject) {
+        var go = false
+        synchronized(this) {
+            val list = events(context)
+            for (i in 0 until list.length()) {
+                val e = list.getJSONObject(i)
+                if (e.optString("local_id") == localId && e.optString("spoken") == "held") {
+                    e.put("spoken", "pending"); go = true; saveEvents(context, list); break
+                }
+            }
+        }
+        if (go) speak(context, amount, false, localId, null, cfg)
     }
 
     /**
@@ -662,9 +686,13 @@ object AskodoxPaymentAlerts {
             if (account != null && !e.has("account")) e.put("account", account)
             if (reference != null && !e.has("reference")) e.put("reference", reference)
             if (!party.isNullOrEmpty() && !e.has("party") && e.has("direction")) e.put("party", party)
+            val wasHeld = e.optString("spoken") == "held" && direction == "in"
+            if (wasHeld) e.put("spoken", "pending")
             saveEvents(context, list)
             val id = e.optString("local_id")
             main.post { channel?.invokeMethod("paymentEvent", e.toString()) }
+            // The notification (with the name) arrived while the SMS was waiting: speak ONCE, with the name.
+            if (wasHeld) speak(context, amount, false, id, party, cfg)
             return id
         }
         return null

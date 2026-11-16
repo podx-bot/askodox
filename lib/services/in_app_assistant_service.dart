@@ -69,7 +69,7 @@ class AskodoxAppAction {
 
 /// An in-app path only: starts with one "/", no scheme, host, ".." or spaces.
 bool askodoxIsInternalRoute(String route) =>
-    RegExp(r'^/[A-Za-z0-9_\-/]*$').hasMatch(route) && !route.startsWith('//') && !route.contains('..');
+    RegExp(r'^/[A-Za-z0-9_\-/]*(\?[A-Za-z0-9_\-=&:.%]*)?$').hasMatch(route) && !route.startsWith('//') && !route.contains('..');
 
 class InAppAssistantDecision {
   const InAppAssistantDecision({

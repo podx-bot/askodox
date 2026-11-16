@@ -65,3 +65,19 @@ def test_unregistered_shop_has_no_gst_and_registered_shop_shows_it(tmp_path):
     taxed = PosQuickBill(store2).make(gst, OWNER, {"lines": [{"name": "Rice 1kg", "amount_paise": 10500}], "advance_paise": 10500,
                                                    "rate_bp": 500, "client_txn_id": "qb-2000002"})
     assert taxed["totals"]["tax_paise"] == 500 and taxed["totals"]["grand_total_paise"] == 10500
+
+
+def test_weighed_line_is_billed_as_weight_times_rate(tmp_path):
+    """Chicken, today's rate Rs 210, 30 kg -> Rs 6300 billed as 30 kg x 210 (owner 2026-11-16)."""
+    store, biz = _store(tmp_path)
+    out = PosQuickBill(store).make(biz, OWNER, {
+        "lines": [{"name": "Chicken", "amount_paise": 630000, "rate_paise": 21000, "qty_milli": 30000}],
+        "advance_paise": 630000, "method": "cash", "client_txn_id": "weighed-0001"})
+    assert out["totals"]["grand_total_paise"] == 630000 and out["pending_paise"] == 0
+    line = out["lines"][0]
+    assert line["qty_milli"] == 30000 and line["unit_price_paise"] == 21000
+    # a total typed over by hand (not rate x weight) is one lump at that amount, as before
+    lump = PosQuickBill(store).make(biz, OWNER, {
+        "lines": [{"name": "Chicken curry cut", "amount_paise": 100000, "rate_paise": 21000, "qty_milli": 30000}],
+        "advance_paise": 100000, "client_txn_id": "weighed-0002"})
+    assert lump["totals"]["grand_total_paise"] == 100000

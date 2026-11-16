@@ -362,6 +362,60 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
     super.dispose();
   }
 
+  Future<void> _editItem(AskodoxJson m, bool te) async {
+    final name = TextEditingController(text: '${m['name']}');
+    final price = TextEditingController(text: (askodoxPosInt(m['price_paise']) / 100).toStringAsFixed(askodoxPosInt(m['price_paise']) % 100 == 0 ? 0 : 2));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(te ? 'ఐటమ్ మార్చండి' : 'Edit item'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(key: const Key('askodoxDeskEditName'), controller: name, decoration: InputDecoration(labelText: te ? 'పేరు' : 'Name')),
+          TextField(
+              key: const Key('askodoxDeskEditPrice'),
+              controller: price,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: te ? 'రేటు (₹)' : 'Price (₹)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
+        ],
+      ),
+    );
+    final newName = name.text.trim();
+    final rupees = double.tryParse(price.text.trim());
+    name.dispose();
+    price.dispose();
+    if (ok != true || newName.isEmpty || rupees == null || rupees < 0) return;
+    await _guard(() async {
+      await ref.read(askodoxPosRepositoryProvider).updateProduct(
+          widget.businessId, '${m['id']}', {'name': newName, 'price_paise': (rupees * 100).round()});
+      await _load();
+      return null;
+    });
+  }
+
+  Future<void> _deleteItem(AskodoxJson m, bool te) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(te ? '"${m['name']}" తీసేయాలా?' : 'Remove "${m['name']}"?'),
+        content: Text(te ? 'మెనూ నుంచి తొలగిస్తుంది. పాత బిల్లులు మారవు.' : 'It leaves the menu. Old bills stay as they were.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+          FilledButton(key: const Key('askodoxDeskDeleteYes'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'తీసేయి' : 'Remove')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _guard(() async {
+      await ref.read(askodoxPosRepositoryProvider).updateProduct(widget.businessId, '${m['id']}', {'active': false});
+      await _load();
+      return null;
+    });
+  }
+
   Future<void> _load() async {
     try {
       final m = await ref.read(askodoxPosRepositoryProvider).deskMenu(widget.businessId);
@@ -469,8 +523,21 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                   contentPadding: EdgeInsets.zero,
                   value: m['available'] == true,
                   title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}'),
-                  subtitle: Row(children: [
-                    Text(m['today_only_flag'] == true ? (te ? 'ఈ రోజు మాత్రమే ✓' : 'Today only ✓') : ''),
+                  subtitle: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+                    if (m['today_only_flag'] == true) Text(te ? 'ఈ రోజు మాత్రమే ✓' : 'Today only ✓'),
+                    // Edit + Delete on every menu line (owner 2026-11-16). Delete hides the item; old bills keep their lines.
+                    IconButton(
+                      key: Key('askodoxDeskEdit-${m['id']}'),
+                      tooltip: te ? 'మార్చు' : 'Edit',
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: () => _editItem(m, te),
+                    ),
+                    IconButton(
+                      key: Key('askodoxDeskDelete-${m['id']}'),
+                      tooltip: te ? 'తీసేయి' : 'Delete',
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      onPressed: () => _deleteItem(m, te),
+                    ),
                     TextButton(
                       onPressed: () => _guard(() async {
                         await ref.read(askodoxPosRepositoryProvider).deskTodayOnly(widget.businessId, '${m['id']}', m['today_only_flag'] != true);

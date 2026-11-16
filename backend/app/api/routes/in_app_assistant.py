@@ -234,9 +234,34 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
         override = override_reply(intelligence, payload.locale)
     if override:
         decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
+    decision = _own_shop_order(request, payload, decision)
     _record_knowledge_gap(container, decision, payload)
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence,
                              credits=(metered or {}).get("credits"))
+
+
+def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dict) -> dict:
+    """A shop that is on ASKODOX (open, with a menu) and was NAMED by the person is ordered from ASKODOX, never sent
+    to Swiggy / Zomato (owner 2026-11-16). The brain's text yields to a real button that opens that shop's menu."""
+    try:
+        if "app_actions" not in (payload.capabilities or []):
+            return decision
+        from app.api.routes.pos_frontdesk import _desk
+
+        user_words = str(payload.message or "").split("\n\n")[0]
+        shops = _desk(request).find_shops(user_words, 1)
+        if not shops:
+            return decision
+        shop = shops[0]
+        te = str(payload.locale or "").lower().startswith("te")
+        reply = (f"{shop['name']} ASKODOX లో ఉంది. కింద బటన్ నొక్కి మెనూ చూసి ఇక్కడే ఆర్డర్ చేయండి."
+                 if te else f"{shop['name']} is on ASKODOX. Tap below to see its menu and order here.")
+        return {**decision, "reply": reply, "mode": "advice", "transactional": False, "search_ready": False, "app_action": {
+            "key": "order_shop", "route": f"/order-desk?code={shop['code']}",
+            "label": f"{shop['name']} ఆర్డర్" if te else f"{shop['name']} order"}}
+    except Exception:
+        logger.exception("in_app_assistant: own-shop order lookup failed")
+        return decision
 
 
 def _corrections_platform(container: Any) -> Any:

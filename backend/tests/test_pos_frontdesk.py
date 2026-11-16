@@ -250,3 +250,13 @@ def test_http_routes_end_to_end(monkeypatch):
                         json={"lines": [{"name": "Tea", "amount_paise": 1000}], "advance_paise": 400, "name": "Ravi",
                               "client_txn_id": "http-quick-1"})
     assert quick.status_code == 200 and quick.json()["pending_paise"] == 600
+
+
+def test_find_shops_matches_the_shop_name_the_person_said(env):
+    """'Murali hotel lo biryani order' finds the ASKODOX shop by its own name; a stray generic word does not
+    (owner 2026-11-16: do not send the person to Swiggy / Zomato for a shop that is on ASKODOX)."""
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    hit = desk.find_shops("murali hotel lo biryani order cheyyali")
+    assert [h["id"] for h in hit] == [biz] and hit[0]["code"] == f"{QR_PREFIX}{biz}"
+    assert desk.find_shops("best hotel near me for biryani") == []  # one generic word is not a shop name
+    assert desk.find_shops("zzz unknown place") == []

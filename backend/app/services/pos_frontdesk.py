@@ -241,6 +241,35 @@ class PosFrontDesk:
                                             " ORDER BY area, name", (business_id,))]
         return {"shop": f"{QR_PREFIX}{business_id}", "tables": tables}
 
+    _GENERIC = {"the", "and", "shop", "store", "stores", "hotel", "restaurant", "mess", "centre", "center", "mart", "tiffins"}
+
+    @staticmethod
+    def _words(text: str) -> set:
+        return {w for w in re.findall(r"[\w]+", str(text or "").lower(), flags=re.UNICODE) if len(w) >= 3}
+
+    def find_shops(self, text: str, limit: int = 2) -> List[Dict[str, Any]]:
+        """Shops on ASKODOX whose own NAME the person said (data match, no categories): open, with a menu.
+        A multi-word name needs at least two of its words in the message (one generic word like 'shop' never counts)."""
+        said = self._words(text)
+        if not said:
+            return []
+        found: List[Dict[str, Any]] = []
+        with self.store._connect() as conn:
+            for r in conn.execute("SELECT id, name, status FROM pos_businesses"):
+                if ((r["status"] if "status" in r.keys() else "open") or "open") != "open":
+                    continue
+                words = self._words(r["name"])
+                real = words - self._GENERIC
+                hit = len(words & said)
+                if not real or not (real & said) or hit < min(2, len(words)):
+                    continue
+                items = conn.execute("SELECT COUNT(*) AS n FROM pos_products WHERE business_id = ? AND active = 1",
+                                     (r["id"],)).fetchone()["n"]
+                if items:
+                    found.append({"id": r["id"], "name": r["name"], "code": f"{QR_PREFIX}{r['id']}", "score": hit})
+        found.sort(key=lambda x: -x["score"])
+        return found[:limit]
+
     def resolve(self, code: str, user: str) -> Dict[str, Any]:
         ref = parse_code(code)
         with self.store._connect() as conn:

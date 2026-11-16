@@ -31,5 +31,10 @@ void main() {
           reason: route);
     }
     expect(askodoxIsInternalRoute('/me/ai-credits'), isTrue);
+    // a shop's order link carries its code in the query
+    expect(askodoxIsInternalRoute('/order-desk?code=ASKODOX-ORDER:biz_abc123def'), isTrue);
+    for (final bad in ['/order-desk?code=<script>', '/order-desk?x=https://evil', '//x?a=1', '/a/../b?c=1']) {
+      expect(askodoxIsInternalRoute(bad), isFalse, reason: bad);
+    }
   });
 }

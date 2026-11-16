@@ -6445,6 +6445,136 @@
       "history": [
         "2026-11-16: built on the owner's request (code ready)"
       ]
+    },
+    {
+      "id": "chat_order_from_own_shop",
+      "name": "Naming a shop on ASKODOX in the chat opens ITS menu",
+      "purpose": "A shop that is on ASKODOX (open, with a menu) and named by the person is ordered from ASKODOX, not sent to Swiggy / Zomato.",
+      "expected_behavior": "The assistant answer carries an order_shop app_action whose route is /order-desk?code=<shop code>; matching is by the shop's own name words only (two words for a multi-word name, a generic word never counts).",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "voice",
+        "pos",
+        "forms"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [],
+        "widget_keys": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": [
+          "test/services/in_app_assistant_app_action_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built on the owner's request (code ready)"
+      ]
+    },
+    {
+      "id": "desk_menu_edit_delete",
+      "name": "Every menu line can be edited or removed",
+      "purpose": "The shop edits a menu item name / price and removes an item; old bills keep their lines.",
+      "expected_behavior": "Edit = PATCH products (name, price_paise); Delete = PATCH active=false (hidden from the menu, history kept).",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "voice",
+        "pos",
+        "forms"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [],
+        "widget_keys": [
+          "askodoxDeskEdit-",
+          "askodoxDeskDelete-"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built on the owner's request (code ready)"
+      ]
+    },
+    {
+      "id": "quick_bill_weighed_lines",
+      "name": "Quick bill: item, today's rate, weight (kg), total",
+      "purpose": "A weighed line is typed as rate x weight; the total fills itself and can be typed over.",
+      "expected_behavior": "quick-bill lines may carry rate_paise + qty_milli; billed as qty x rate when they agree with the amount, else one lump.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "voice",
+        "pos",
+        "forms"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [],
+        "widget_keys": [
+          "askodoxQuickBillRate-",
+          "askodoxQuickBillQty-"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_quick_bill.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built on the owner's request (code ready)"
+      ]
+    },
+    {
+      "id": "payment_sms_waits_for_name",
+      "name": "A nameless bank SMS waits a few seconds for the UPI app notification",
+      "purpose": "Notification first (it has the payer name); the SMS is spoken as is if none arrives.",
+      "expected_behavior": "Native: an SMS / bank source without a payer is held 4.5 s; a matching notification speaks once with the name, else the held SMS is spoken.",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "voice",
+        "pos",
+        "forms"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [],
+        "widget_keys": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        "2026-11-16: built on the owner's request (code ready)"
+      ]
     }
   ]
 }
