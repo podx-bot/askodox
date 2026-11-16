@@ -90,6 +90,8 @@ class AssistantDecision(BaseModel):
     # open / do ({key, route, label}); the app shows a button, the user taps.
     # Only for apps that send the ``app_actions`` capability.
     app_action: dict[str, str] | None = None
+    # A shop on ASKODOX named by the person: its menu as a card inside the chat (capability ``shop_menu``).
+    shop_menu: dict[str, Any] | None = None
     # Master command round 2: tax / GST, fraud & market reality and smart
     # tricks attach here (intelligence_gate.py) -- deterministic, sourced,
     # only when the user's own words ask; never a separate bot.
@@ -275,9 +277,29 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
         shop = shops[0]
         reply = (f"{shop['name']} ASKODOX లో ఉంది. కింద బటన్ నొక్కి మెనూ చూసి ఇక్కడే ఆర్డర్ చేయండి."
                  if te else f"{shop['name']} is on ASKODOX. Tap below to see its menu and order here.")
-        return {**decision, "reply": reply, "mode": "advice", "transactional": False, "search_ready": False, "app_action": {
+        out = {**decision, "reply": reply, "mode": "advice", "transactional": False, "search_ready": False, "app_action": {
             "key": "order_shop", "route": f"/order-desk?code={shop['code']}",
             "label": f"{shop['name']} ఆర్డర్" if te else f"{shop['name']} order"}}
+        if "shop_menu" in (payload.capabilities or []):
+            # Newer apps: the menu itself in the chat. The person's own words may already be an order ("2 biryani",
+            # "the usual") -> it comes PREPARED and waits for one "send" tap; nothing is placed by the assistant.
+            try:
+                from app.api.routes.in_app_deal import _authenticated_app_user
+
+                caller = _authenticated_app_user(request)
+            except Exception:
+                caller = ""
+            card = _desk(request).chat_card(shop["id"], caller, user_words, te)
+            out["shop_menu"] = card
+            if not card["open"]:
+                out["reply"] = card["message"]
+            elif card["prepared"]:
+                out["reply"] = (f"{shop['name']} కి ఆర్డర్ సిద్ధం చేశాను. కింద చూసి \"సరే, పంపు\" నొక్కండి."
+                                if te else f"I prepared your order for {shop['name']}. Check it below and tap Send.")
+            else:
+                out["reply"] = (f"{shop['name']} మెనూ ఇదిగో. కావలసినవి + నొక్కి ఆర్డర్ పంపండి, లేదా చెప్పండి."
+                                if te else f"Here is {shop['name']}'s menu. Tap + for what you want, or just say it.")
+        return out
     except Exception:
         logger.exception("in_app_assistant: own-shop order lookup failed")
         return decision

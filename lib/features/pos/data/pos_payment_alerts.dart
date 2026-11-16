@@ -333,6 +333,7 @@ String askodoxRupees(Object? paise) {
 (String, String) askodoxSpokenLabel(String state) => switch (state) {
       'announced' => ('Spoken', 'చెప్పింది'),
       'quiet_hours' => ('Silent (quiet hours)', 'నిశ్శబ్ద సమయం — చెప్పలేదు'),
+      'late' => ('Arrived late — written, not spoken', 'ఆలస్యంగా వచ్చింది — రాశాం, చెప్పలేదు'),
       'tts_failed' => ('Voice failed', 'వాయిస్ రాలేదు'),
       'muted' => ('Muted', 'మ్యూట్'),
       'seen' => ('Seen', 'చూశారు'),

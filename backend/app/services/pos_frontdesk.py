@@ -28,6 +28,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from app.services import pos_menu_voice
 from app.services.account_identity import phone_key
+from app.services.pos_bills import PosBills
+from app.services.pos_desk_requests import PosDeskRequests
 from app.services.pos_store import PERMISSIONS, PosError, PosStore, _clean, _id
 
 QR_PREFIX = "ASKODOX-ORDER:"
@@ -103,18 +105,29 @@ def parse_code(code: str) -> Dict[str, Optional[str]]:
 class PosFrontDesk:
     def __init__(self, store: PosStore, restaurant: Any, *,
                  notify: Optional[Callable[[str, str, str, str, str], None]] = None,
-                 pay_to: Optional[Callable[[str, int, str, str], List[Dict[str, Any]]]] = None) -> None:
+                 pay_to: Optional[Callable[[str, int, str, str], List[Dict[str, Any]]]] = None,
+                 bills: Optional[PosBills] = None) -> None:
         self.store = store
+        # Bills go to the customer's own "My bills" (owner 2026-11-16); the same notify / pay_to unless one is given.
+        self.bills = bills
         self.restaurant = restaurant
         self.notify = notify or (lambda user, title, body, route, key: None)
         self.pay_to = pay_to or (lambda owner, amount, note, ref: [])
+        if self.bills is None:
+            self.bills = PosBills(store, notify=self.notify, pay_to=self.pay_to, clock=self._now)
         with store._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            try:
+                conn.execute("ALTER TABLE pos_products ADD COLUMN item_no INTEGER")
+            except sqlite3.OperationalError:
+                pass
             try:  # who the order is assigned to (an app user), next to the typed name
                 conn.execute("ALTER TABLE pos_desk_orders ADD COLUMN assignee_user TEXT NOT NULL DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
+
+        self.requests = PosDeskRequests(self)  # table service requests (water / gravy / onions / bill)
 
     # ------------------------------------------------------------------ helpers
     def _now(self) -> datetime:
@@ -233,8 +246,9 @@ class PosFrontDesk:
     def _menu(self, conn: sqlite3.Connection, business_id: str, *, everything: bool = False) -> List[Dict[str, Any]]:
         today = self._today()
         stock = self.store._stock_map(conn, business_id)
+        PosBills.number_items(conn, business_id)  # every item has its menu number (billing by number)
         out = []
-        for r in conn.execute("SELECT * FROM pos_products WHERE business_id = ? AND active = 1 ORDER BY name", (business_id,)):
+        for r in conn.execute("SELECT * FROM pos_products WHERE business_id = ? AND active = 1 ORDER BY item_no, name", (business_id,)):
             only_on = r["only_on"] if "only_on" in r.keys() else None
             if only_on and only_on != today and not everything:
                 continue  # a "today only" item of another day
@@ -243,7 +257,8 @@ class PosFrontDesk:
             item = {"id": r["id"], "name": r["name"], "name_te": r["name_te"] or "", "price_paise": r["price_paise"],
                     "unit": r["unit"], "today_only": bool(only_on) and only_on == today,
                     "available": not sold_out and not tracked_out, "rate_bp": r["rate_bp"],
-                    "price_includes_tax": bool(r["price_includes_tax"])}
+                    "price_includes_tax": bool(r["price_includes_tax"]),
+                    "item_no": r["item_no"] if "item_no" in r.keys() else None}
             if everything:
                 item["today_only_flag"] = bool(only_on)
                 item["sold_out"] = sold_out
@@ -371,6 +386,45 @@ class PosFrontDesk:
                     found.append({"id": r["id"], "name": r["name"], "code": f"{QR_PREFIX}{r['id']}", "score": hit})
         found.sort(key=lambda x: -x["score"])
         return found[:limit]
+
+    def search_shops(self, text: str, limit: int = 8) -> List[Dict[str, Any]]:
+        """Shops with a menu whose NAME contains what the person typed (any part, any case). For the "find a shop" box
+        next to the QR scanner: a customer cannot type a long order code."""
+        q = re.sub(r"\s+", " ", str(text or "")).strip().lower()
+        if len(q) < 2:
+            return []
+        found: List[Dict[str, Any]] = []
+        with self.store._connect() as conn:
+            for r in conn.execute("SELECT id, name, address, status FROM pos_businesses WHERE lower(name) LIKE ? LIMIT 60",
+                                  (f"%{q}%",)):
+                status = ((r["status"] if "status" in r.keys() else "open") or "open")
+                if status == "closed":
+                    continue
+                items = conn.execute("SELECT COUNT(*) AS n FROM pos_products WHERE business_id = ? AND active = 1",
+                                     (r["id"],)).fetchone()["n"]
+                if items:
+                    found.append({"id": r["id"], "name": r["name"], "address": r["address"], "open": status == "open",
+                                  "code": f"{QR_PREFIX}{r['id']}", "items": items})
+        found.sort(key=lambda s: (not s["open"], not s["name"].lower().startswith(q), s["name"].lower()))
+        return found[:limit]
+
+    def chat_card(self, business_id: str, user: str, text: str = "", te: bool = True, limit: int = 8) -> Dict[str, Any]:
+        """The shop's menu as a card INSIDE the chat (owner 2026-11-16): the items to tap, the ways to get it, the
+        person's last order ("again"), and -- when their own words already name items ("2 biryani 1 tea") or ask for
+        the usual -- that order PREPARED for one confirm tap. Nothing is placed here."""
+        data = self.resolve(f"{QR_PREFIX}{business_id}", user)
+        menu = data["menu"]
+        prepared: List[Dict[str, Any]] = []
+        if text and data["open"]:
+            heard = pos_menu_voice.assist(text, menu, te=te, cart=[], last_items=data["last_items"])
+            prepared = [{"product_id": a["product_id"], "qty": a.get("qty", 1)} for a in heard.get("add") or []]
+        wanted = {p["product_id"] for p in prepared}
+        ordered = sorted(menu, key=lambda m: (m["id"] not in wanted, not m["available"], m.get("item_no") or 0))
+        return {"business_id": business_id, "name": data["business"]["name"], "code": f"{QR_PREFIX}{business_id}",
+                "open": data["open"], "message": data["message"], "modes": data["modes"],
+                "items": [{"id": m["id"], "name": m["name"], "name_te": m["name_te"], "price_paise": m["price_paise"],
+                           "available": m["available"], "item_no": m.get("item_no")} for m in ordered[:limit]],
+                "more": max(0, len(menu) - limit), "last_items": data["last_items"], "prepared": prepared}
 
     def find_items(self, text: str, limit: int = 3) -> List[Dict[str, Any]]:
         """Shops on ASKODOX (open) whose MENU has what the person asked for -- matched on the item's own words
@@ -600,13 +654,19 @@ class PosFrontDesk:
             if inv:
                 totals = json.loads(inv["totals"])
                 total = int(totals.get("grand_total_paise") or totals.get("total_paise") or 0)
+                # money the shop marked as received later (bill_settle) is off the balance
+                balance = max(0, int(inv["balance_paise"] or 0) - PosBills._settled(conn, row["invoice_id"]))
                 out["invoice"] = {"id": row["invoice_id"], "number": inv["number"], "total_paise": total,
-                                  "paid_paise": inv["paid_paise"], "balance_paise": inv["balance_paise"]}
-                if inv["balance_paise"] > 0 and business:
+                                  "paid_paise": total - balance, "balance_paise": balance}
+                if balance > 0 and business:
                     try:
-                        out["pay"] = self.pay_to(business["owner_user_id"], inv["balance_paise"], f"Bill {inv['number']}", row["id"])
+                        out["pay"] = self.pay_to(business["owner_user_id"], balance, f"Bill {inv['number']}", row["id"])
                     except Exception:
                         out["pay"] = []
+        if row["kind"] == "dine_in":
+            out["requests"] = [{"id": r["id"], "kind": r["kind"], "label": r["label"], "text": r["text"], "qty": r["qty"]}
+                               for r in conn.execute("SELECT id, kind, label, text, qty FROM pos_desk_requests WHERE order_id = ?"
+                                                     " AND status = 'open' ORDER BY created_at", (row["id"],))]
         if staff:
             out["customer_phone"] = row["customer_phone"]
             out["customer_user_last4"] = (row["customer_user"] or "")[-4:]
@@ -760,11 +820,30 @@ class PosFrontDesk:
             self._set_stage(conn, row, "accepted", user, note, pos_order_id=pos_order["id"])
         names = ", ".join(i["name"] for i in dropped)
         self._tell_customer(row, "accepted", (f"లేనివి: {names}. " if names else "") + STAGE_TEXT["accepted"][1])
+        self._bill_on_accept(business_id, owner, row)
         with self.store._connect() as conn:  # the kitchen people the owner chose (or the kitchen role) hear it now
             kitchen = self._targets(conn, business_id, "kitchen")
         self._push([u for u in kitchen if u != user], "వంటగదికి ఆర్డర్ · Kitchen order",
                    ", ".join(f"{i['name']} ×{i['qty_milli'] // 1000}" for i in kept)[:140], f"/desk/{business_id}", f"desk:{order_id}:kitchen")
         return self.order(business_id, user, order_id)
+
+    def _bill_on_accept(self, business_id: str, owner: str, row: Dict[str, Any]) -> None:
+        """Owner 2026-11-16: a parcel / delivery order placed from the customer's app is BILLED the moment the shop accepts
+        it -- unpaid, on that customer -- so the bill with its Pay button reaches their app at once. Dine-in is billed at
+        the end (more may be ordered at the table). A problem here never undoes the acceptance; the cashier can still
+        bill by hand."""
+        if row["kind"] == "dine_in" or not row["customer_user"] or row.get("invoice_id"):
+            return
+        try:
+            from app.services.pos_quick_bill import PosQuickBill
+
+            phone = row["customer_phone"] or phone_key(row["customer_user"])
+            customer_id = PosQuickBill(self.store)._customer(business_id, owner, {"name": row["customer_name"], "phone": phone})
+            self.bill(business_id, owner, row["id"], payments=[], customer_id=customer_id)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("desk: bill on accept failed for %s", row["id"])
 
     def reject(self, business_id: str, user: str, order_id: str, reason: str) -> Dict[str, Any]:
         with self.store._tx() as conn:
@@ -854,6 +933,15 @@ class PosFrontDesk:
         if not row["pos_order_id"]:
             raise PosError(409, "stage", "Accept the order before billing it.")
         txn = _clean(client_txn_id, 64) or f"dskbill-{order_id}"
+        if row["invoice_id"]:
+            # Already billed (on accept, unpaid): what the cashier now took is money received for THAT bill.
+            for index, p in enumerate(payments or []):
+                left = self.bills.due_of(row["invoice_id"])
+                if left <= 0:
+                    break
+                self.bills.settle(business_id, user, row["invoice_id"], str(p.get("app") or p.get("method") or "cash"),
+                                  min(int(p.get("amount_paise") or 0) or left, left), f"{txn}:s{index}"[:64])
+            return self.order(business_id, user, order_id)
         result = self.restaurant.bill(business_id, user, row["pos_order_id"],
                                       {"client_txn_id": txn, "payments": payments or [], "include_unsent": True,
                                        "customer_id": customer_id})
@@ -861,6 +949,10 @@ class PosFrontDesk:
             conn.execute("UPDATE pos_desk_orders SET invoice_id = ?, updated_at = ? WHERE id = ?",
                          (result["id"], self._now().isoformat(), order_id))
             self._event(conn, order_id, business_id, row["stage"], user, f"billed {result.get('number', '')}")
+        try:  # the customer who ordered in the app sees this bill in "My bills", with Pay
+            self.bills.share_to_user(business_id, result["id"], row["customer_user"], user)
+        except Exception:
+            pass
         out = self.order(business_id, user, order_id)
         out["invoice_number"] = result.get("number")
         return out

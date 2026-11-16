@@ -7,8 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../location/presentation/map_pin_picker.dart';
 import '../../shops/presentation/my_business_screens.dart' show askodoxBoxMic;
+import '../data/pos_hardware.dart' show AskodoxScanException;
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
+import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
 
 /// Front desk, customer side (owner 2026-11-15): scan / type the shop's order code -> the menu + a receptionist
@@ -33,7 +35,57 @@ class AskodoxOrderCodeScreen extends ConsumerStatefulWidget {
 
 class _AskodoxOrderCodeScreenState extends ConsumerState<AskodoxOrderCodeScreen> {
   final _code = TextEditingController();
+  final _shop = TextEditingController();
   List<AskodoxJson> _mine = const [];
+  List<AskodoxJson> _shops = const [];
+  bool _searched = false;
+  Timer? _debounce;
+
+  /// A customer cannot type a long code: photograph the shop / table QR instead (read on this phone).
+  Future<void> _scan(String source) async {
+    final te = askodoxPosTe(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final text = await ref.read(askodoxQrReaderProvider).read(source);
+      if (text == null || !mounted) return;
+      if (!text.toUpperCase().startsWith('ASKODOX-ORDER:')) {
+        messenger.showSnackBar(SnackBar(
+            content: Text(te ? 'ఇది ASKODOX ఆర్డర్ QR కాదు. షాప్ / టేబుల్ మీది QR తీయండి.' : 'That is not an ASKODOX order QR. Photograph the one on the shop / table.')));
+        return;
+      }
+      _open(text);
+    } on AskodoxScanException {
+      messenger.showSnackBar(SnackBar(
+          content: Text(te ? 'QR కనబడలేదు. దగ్గరగా, వెలుతురులో మళ్ళీ తీయండి — లేదా షాప్ పేరు వెతకండి.' : 'No QR found. Try closer, in good light — or search the shop by name.')));
+    }
+  }
+
+  void _searchSoon(String text) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      final q = text.trim();
+      if (q.length < 2) {
+        if (mounted) {
+          setState(() {
+            _shops = const [];
+            _searched = false;
+          });
+        }
+        return;
+      }
+      try {
+        final rows = await ref.read(askodoxPosRepositoryProvider).deskShops(q);
+        if (mounted && _shop.text.trim() == q) {
+          setState(() {
+            _shops = rows;
+            _searched = true;
+          });
+        }
+      } on AskodoxPosException {
+        // the code box and the QR still work
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -43,7 +95,9 @@ class _AskodoxOrderCodeScreenState extends ConsumerState<AskodoxOrderCodeScreen>
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _code.dispose();
+    _shop.dispose();
     super.dispose();
   }
 
@@ -66,8 +120,51 @@ class _AskodoxOrderCodeScreenState extends ConsumerState<AskodoxOrderCodeScreen>
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'షాప్ / టేబుల్ ఆర్డర్' : 'Order at a shop / table')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        Text(te ? 'షాప్ లేదా టేబుల్ మీద ఉన్న QR కోడ్ రాయండి (ASKODOX-ORDER: తో మొదలవుతుంది).' : 'Type the code printed under the shop / table QR (it starts with ASKODOX-ORDER:).'),
-        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: FilledButton.icon(
+                key: const Key('askodoxOrderScanCamera'),
+                onPressed: () => _scan('camera'),
+                icon: const Icon(Icons.qr_code_scanner),
+                label: Text(te ? 'QR ఫోటో తీయి' : 'Photograph the QR')),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+                key: const Key('askodoxOrderScanGallery'),
+                onPressed: () => _scan('photos'),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(te ? 'గ్యాలరీ నుంచి' : 'From gallery')),
+          ),
+        ]),
+        const SizedBox(height: 14),
+        TextField(
+          key: const Key('askodoxOrderShopSearch'),
+          controller: _shop,
+          onChanged: _searchSoon,
+          decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              border: const OutlineInputBorder(),
+              labelText: te ? 'లేదా షాప్ పేరు వెతకండి' : 'Or search the shop by name'),
+        ),
+        for (final s in _shops)
+          Card(
+            child: ListTile(
+              key: ValueKey('askodoxOrderShop-${s['id']}'),
+              title: Text('${s['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(s['open'] == true ? (te ? 'తెరిచి ఉంది' : 'Open') : (te ? 'ఇప్పుడు మూసి ఉంది' : 'Closed now')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open('${s['code']}'),
+            ),
+          ),
+        if (_searched && _shops.isEmpty)
+          Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(te ? 'ఈ పేరుతో ASKODOX లో షాప్ కనబడలేదు.' : 'No shop with this name on ASKODOX.', style: const TextStyle(fontSize: 13))),
+        const SizedBox(height: 14),
+        Text(te ? 'లేదా QR కింద ఉన్న కోడ్ రాయండి (ASKODOX-ORDER: తో మొదలవుతుంది).' : 'Or type the code printed under the QR (it starts with ASKODOX-ORDER:).',
+            style: const TextStyle(fontSize: 12.5)),
+        const SizedBox(height: 8),
         TextField(
           key: const Key('askodoxOrderCode'),
           controller: _code,
@@ -104,8 +201,12 @@ class _AskodoxOrderCodeScreenState extends ConsumerState<AskodoxOrderCodeScreen>
 
 // =============================================================== menu + receptionist + cart
 class AskodoxOrderDeskScreen extends ConsumerStatefulWidget {
-  const AskodoxOrderDeskScreen({super.key, required this.code});
+  const AskodoxOrderDeskScreen({super.key, required this.code, this.kind = '', this.cart = ''});
   final String code;
+
+  /// From the chat's menu card: the way chosen there and the cart ("productId:qty,productId:qty").
+  final String kind;
+  final String cart;
 
   @override
   ConsumerState<AskodoxOrderDeskScreen> createState() => _AskodoxOrderDeskScreenState();
@@ -115,6 +216,7 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
   AskodoxJson? _data;
   Object? _error;
   final _qty = <String, double>{};
+  final _itemNote = <String, String>{};
   final _say = TextEditingController();
   final _name = TextEditingController();
   final _phone = TextEditingController();
@@ -151,6 +253,17 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
         _error = null;
         final modes = (data['modes'] as List? ?? const []).map((e) => '$e').toList();
         _kind = modes.contains('dine_in') ? 'dine_in' : 'takeaway';
+        if (modes.contains(widget.kind)) _kind = widget.kind;
+        if (_qty.isEmpty) {
+          for (final part in widget.cart.split(',')) {
+            final at = part.lastIndexOf(':');
+            if (at <= 0) continue;
+            final id = part.substring(0, at);
+            final qty = double.tryParse(part.substring(at + 1)) ?? 0;
+            final item = _item(id);
+            if (item != null && item['available'] == true && qty > 0 && qty <= 50) _qty[id] = qty;
+          }
+        }
       });
     } catch (e) {
       if (mounted) setState(() => _error = e);
@@ -241,7 +354,10 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
     try {
       final order = await ref.read(askodoxPosRepositoryProvider).deskPlace({
         'code': widget.code,
-        'items': [for (final e in _qty.entries) {'product_id': e.key, 'qty': e.value}],
+        'items': [
+          for (final e in _qty.entries)
+            {'product_id': e.key, 'qty': e.value, if ((_itemNote[e.key] ?? '').isNotEmpty) 'note': _itemNote[e.key]},
+        ],
         'kind': _kind,
         'name': _name.text.trim(),
         'phone': _phone.text.trim(),
@@ -387,6 +503,44 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
     ]);
   }
 
+  /// A note for one item: tap a common one or type your own (it goes to the kitchen next to the item).
+  Future<void> _editNote(String id, bool te) async {
+    final box = TextEditingController(text: _itemNote[id] ?? '');
+    final quick = te
+        ? ['తక్కువ కారం', 'ఎక్కువ కారం', 'ఉల్లిపాయ వద్దు', 'తక్కువ నూనె', 'ముందు ఇవ్వండి']
+        : ['Less spicy', 'More spicy', 'No onion', 'Less oil', 'Serve first'];
+    final saved = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: Text(te ? 'ఈ ఐటమ్‌కి నోట్' : 'Note for this item'),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                Wrap(spacing: 6, children: [
+                  for (final q in quick) ActionChip(label: Text(q), onPressed: () => box.text = q),
+                ]),
+                const SizedBox(height: 8),
+                TextField(
+                    key: const Key('askodoxItemNoteBox'),
+                    controller: box,
+                    maxLength: 120,
+                    decoration: InputDecoration(border: const OutlineInputBorder(), labelText: te ? 'మీ నోట్' : 'Your note')),
+              ]),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, ''), child: Text(te ? 'తీసేయి' : 'Clear')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, box.text.trim()), child: Text(te ? 'సరే' : 'Done')),
+              ],
+            ));
+    box.dispose();
+    if (saved == null || !mounted) return;
+    setState(() {
+      if (saved.isEmpty) {
+        _itemNote.remove(id);
+      } else {
+        _itemNote[id] = saved;
+      }
+      _txn = askodoxNewTxnId();
+    });
+  }
+
   Widget _menuRow(AskodoxJson m, bool te) {
     final id = '${m['id']}';
     final q = _qty[id] ?? 0;
@@ -396,7 +550,20 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
       contentPadding: EdgeInsets.zero,
       enabled: available,
       title: Text(_itemName(m, te) + (m['today_only'] == true ? (te ? '  ⭐ ఈ రోజు' : '  ⭐ today') : '')),
-      subtitle: Text(available ? '${askodoxPaise(askodoxPosInt(m['price_paise']))} / ${m['unit']}' : (te ? 'ఈ రోజు అయిపోయింది' : 'Finished for today')),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(available ? '${askodoxPaise(askodoxPosInt(m['price_paise']))} / ${m['unit']}' : (te ? 'ఈ రోజు అయిపోయింది' : 'Finished for today')),
+        if (available && q > 0)
+          InkWell(
+            key: Key('askodoxOrderItemNote-$id'),
+            onTap: () => _editNote(id, te),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                  (_itemNote[id] ?? '').isEmpty ? (te ? '✏️ నోట్ (తక్కువ కారం, ఉల్లిపాయ వద్దు…)' : '✏️ Add a note (less spicy, no onion…)') : '✏️ ${_itemNote[id]}',
+                  style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13)),
+            ),
+          ),
+      ]),
       trailing: !available
           ? null
           : Row(mainAxisSize: MainAxisSize.min, children: [
@@ -492,13 +659,17 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                       contentPadding: EdgeInsets.zero,
                       title: Text('${i['name']} × ${(i['qty'] as num).round()}',
                           style: TextStyle(decoration: i['status'] == 'unavailable' ? TextDecoration.lineThrough : null)),
-                      subtitle: i['status'] == 'unavailable' ? Text(te ? 'ఇది ఈ రోజు లేదు' : 'Not available today') : null,
+                      subtitle: i['status'] == 'unavailable'
+                          ? Text(te ? 'ఇది ఈ రోజు లేదు' : 'Not available today')
+                          : ('${i['note'] ?? ''}'.isNotEmpty ? Text('✏️ ${i['note']}') : null),
                       trailing: Text(askodoxPaise(askodoxPosInt(i['price_paise']) * (i['qty'] as num).round())),
                     ),
                   Row(children: [
                     Expanded(child: Text(te ? 'సుమారు మొత్తం' : 'About')),
                     Text(askodoxPaise(askodoxPosInt(o['estimate_paise'])), style: const TextStyle(fontWeight: FontWeight.w800)),
                   ]),
+                  if (o['kind'] == 'dine_in' && !const ['placed', 'done', 'rejected', 'cancelled'].contains('${o['stage']}'))
+                    AskodoxTableRequestsPanel(key: const Key('askodoxTableRequests'), orderId: widget.orderId),
                   if (o['invoice'] is Map) ...[
                     const Divider(),
                     Text('${te ? 'బిల్లు' : 'Bill'} ${(o['invoice'] as Map)['number']}: ${askodoxPaise(askodoxPosInt((o['invoice'] as Map)['total_paise']))}',
@@ -532,6 +703,115 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                         icon: const Icon(Icons.call),
                         label: Text(te ? 'షాప్‌కి కాల్' : 'Call the shop')),
                 ]),
+    );
+  }
+}
+
+
+/// "Need something?" on a running dine-in order: tap water / extra gravy / onions / bring the bill / call the waiter
+/// (the shop chooses the list), or say it in words. The waiter gets it with the table's name.
+class AskodoxTableRequestsPanel extends ConsumerStatefulWidget {
+  const AskodoxTableRequestsPanel({super.key, required this.orderId});
+  final String orderId;
+
+  @override
+  ConsumerState<AskodoxTableRequestsPanel> createState() => _AskodoxTableRequestsPanelState();
+}
+
+class _AskodoxTableRequestsPanelState extends ConsumerState<AskodoxTableRequestsPanel> {
+  AskodoxJson? _data;
+  final _say = TextEditingController();
+  bool _busy = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_load()));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _say.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final d = await ref.read(askodoxPosRepositoryProvider).deskMyRequests(widget.orderId);
+      if (mounted) setState(() => _data = d);
+    } catch (_) {}
+  }
+
+  Future<void> _ask({List<String> kinds = const [], String text = ''}) async {
+    if (_busy) return;
+    final te = askodoxPosTe(context);
+    setState(() => _busy = true);
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).deskAsk(widget.orderId, kinds: kinds, text: text);
+      if (!mounted) return;
+      _say.clear();
+      final asked = askodoxPosList(out['asked']);
+      askodoxPosSnack(
+          context,
+          asked.isEmpty
+              ? (te ? 'ఇప్పటికే చెప్పారు, వెయిటర్ వస్తున్నారు.' : 'Already asked, the waiter is coming.')
+              : (te ? 'వెయిటర్‌కి చెప్పాం ✓' : 'Told the waiter ✓'));
+      await _load();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = askodoxPosTe(context);
+    final d = _data;
+    if (d == null || d['can_ask'] != true) return const SizedBox.shrink();
+    final waiting = askodoxPosList(d['requests']).where((r) => r['status'] == 'open').toList();
+    return Card(
+      margin: const EdgeInsets.only(top: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(te ? 'ఏమైనా కావాలా?' : 'Need something?', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            for (final q in askodoxPosList(d['quick']))
+              ActionChip(
+                key: Key('askodoxTableAsk-${q['key']}'),
+                avatar: Icon(q['key'] == 'bill' ? Icons.receipt_long : (q['key'] == 'call' ? Icons.notifications_active : Icons.add), size: 18),
+                label: Text(te ? '${q['te']}' : '${q['en']}'),
+                onPressed: _busy ? null : () => _ask(kinds: ['${q['key']}']),
+              ),
+          ]),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('askodoxTableSay'),
+            controller: _say,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (t) => _ask(text: t),
+            decoration: InputDecoration(
+              isDense: true,
+              border: const OutlineInputBorder(),
+              labelText: te ? 'చెప్పండి: "ఆనియన్స్, నీళ్లు"' : 'Say it: "onions and water"',
+              suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                askodoxBoxMic(context, _say, changed: () => unawaited(_ask(text: _say.text))),
+                IconButton(icon: const Icon(Icons.send), onPressed: () => _ask(text: _say.text)),
+              ]),
+            ),
+          ),
+          if (waiting.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('${te ? 'వేచి ఉన్నవి' : 'Waiting'}: ${waiting.map((r) => ('${r['text']}'.isNotEmpty ? '${r['text']}' : '${r['label']}')).join(', ')}',
+                key: const Key('askodoxTableWaiting'), style: const TextStyle(fontSize: 13)),
+          ],
+        ]),
+      ),
     );
   }
 }

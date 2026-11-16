@@ -6852,6 +6852,154 @@
           "change": "built on the owner's request (code ready, not phone verified)"
         }
       ]
+    },
+    {
+      "id": "table_service_requests",
+      "name": "Table requests: water / extra gravy / onions / bill / call the waiter",
+      "purpose": "A dine-in customer with an accepted order taps or says what they need at the table; the waiter gets it with the table name and answers with one tap. The shop chooses the quick list and adds its own. Items can carry a note for the kitchen.",
+      "expected_behavior": "Only the customer's own accepted dine-in order may ask; the same open request is never doubled; free words are matched to the shop's list and anything unmatched stays as one free request; staff queue per shop; done tells the customer; the owner sets the quick list.",
+      "roles": [
+        "any signed-in user",
+        "owner",
+        "manager",
+        "cashier",
+        "waiter"
+      ],
+      "domains": [
+        "pos",
+        "restaurant"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/order-desk/mine/{order_id}/requests"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/order-desk/mine/{order_id}/requests"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/order-desk/requests/{request_id}/cancel"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/requests"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/requests/{request_id}/done"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/request-settings"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/desk/request-settings"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxTableRequests",
+          "askodoxTableSay",
+          "askodoxDeskRequestsBanner",
+          "askodoxQuickReqAdd",
+          "askodoxItemNoteBox"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "front_desk_orders"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "bills_send_history_my_bills",
+      "name": "Bills: number or name billing, send to a number, history, customer My bills, public bill page",
+      "purpose": "One catalogue serves billing, orders and chat. A bill carries a number, goes to the customer's ASKODOX My bills (pay by QR / UPI) or by WhatsApp + a link page, and history shows how it was paid (cash / PhonePe / GPay / Paytm / card / pending).",
+      "expected_behavior": "ASKODOX never holds money; the customer's 'I have paid' only tells the shop; later money is a new payment row; app orders (parcel / delivery) are billed unpaid on accept.",
+      "roles": [
+        "any signed-in user",
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "domains": [
+        "pos",
+        "billing"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/bills/{invoice_id}/send"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/bills/{invoice_id}/settle"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/bills"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/me/bills"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/me/bills/{token}/paid"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/order-desk/shops"
+        },
+        {
+          "method": "GET",
+          "path": "/b/{token}"
+        }
+      ],
+      "ui": {
+        "routes": [
+          "/me/bills",
+          "/bills/:id"
+        ],
+        "keys": [
+          "askodoxQuickBillSendNumber",
+          "askodoxQuickBillPrint",
+          "askodoxOrderScanCamera"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_bills.py",
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "front_desk_orders"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-16",
+          "change": "built on the owner's request (code ready, not phone verified)"
+        }
+      ]
     }
   ]
 }

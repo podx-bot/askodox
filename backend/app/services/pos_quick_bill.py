@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from app.services.account_identity import phone_key
+from app.services.pos_bills import PosBills, mode_of, pay_choice
 from app.services.pos_store import PERMISSIONS, PosError, PosStore, _clean
 
 
@@ -53,13 +54,32 @@ class PosQuickBill:
         lines: List[Dict[str, Any]] = []
         total = 0
         for index, raw in enumerate(raw_lines, start=1):
-            name = _clean(raw.get("name"), 80) or f"Item {index}"
+            name = _clean(raw.get("name"), 80)
             amount = int(raw.get("amount_paise") or 0)
+            item_no = int(raw.get("item_no") or 0)
+            count = int(raw.get("count") or 0)
+            found = None
+            with self.store._connect() as conn:
+                if item_no > 0:
+                    # Billed by the item's NUMBER on the menu ("3 two"): the menu's own name and price.
+                    PosBills.number_items(conn, business_id)
+                    found = conn.execute("SELECT id, name, price_paise FROM pos_products WHERE business_id = ? AND"
+                                         " active = 1 AND item_no = ?", (business_id, item_no)).fetchone()
+                    if found is None:
+                        raise PosError(400, "item_no", f"Line {index}: there is no item number {item_no} on the menu.")
+                    name = found["name"]
+                elif name:
+                    found = conn.execute("SELECT id, name, price_paise FROM pos_products WHERE business_id = ? AND"
+                                         " active = 1 AND lower(name) = lower(?)", (business_id, name)).fetchone()
+            name = name or f"Item {index}"
+            if found is not None and count > 0 and amount <= 0:
+                amount = found["price_paise"] * count  # "3 two" -> two at the menu price
             if amount <= 0:
                 raise PosError(400, "amount", f"Line {index}: enter the amount.")
-            with self.store._connect() as conn:
-                found = conn.execute("SELECT id, price_paise FROM pos_products WHERE business_id = ? AND active = 1 AND"
-                                     " lower(name) = lower(?)", (business_id, name)).fetchone()
+            if found is not None and count > 1 and amount == found["price_paise"] * count:
+                lines.append({"product_id": found["id"], "qty_milli": count * 1000})
+                total += amount
+                continue
             # Weighed line (today's rate x weight in kg): billed as quantity x rate when the typed total agrees with it;
             # a total typed over by hand is billed as one lump (qty 1) at that amount, as before.
             qty_milli = int(raw.get("qty_milli") or 0)
@@ -85,8 +105,8 @@ class PosQuickBill:
         advance = max(0, int(data.get("advance_paise") or 0))
         payments: List[Dict[str, Any]] = []
         customer_id = None
+        method, app = pay_choice(data.get("method"))
         if advance:
-            method = str(data.get("method") or "cash")
             payments.append({"method": method, "amount_paise": min(advance, total)})
         # GST can make the bill a little more or less than the typed total: the pending balance is whatever is left.
         invoice_data: Dict[str, Any] = {"lines": lines, "payments": payments, "client_txn_id": txn,
@@ -103,6 +123,9 @@ class PosQuickBill:
             if error.code == "payment" and "more than the bill" in error.message:
                 raise PosError(400, "advance", "The advance is more than the bill total.") from error
             raise
+        if app and result.get("id"):
+            PosBills(self.store).tag_app(result["id"], app)
+        result["pay_mode"] = mode_of(method, app) if advance else ""
         result["pending_paise"] = int(result.get("balance_paise") or 0)
         result["advance_paise"] = int(result.get("paid_paise") or 0)
         return result

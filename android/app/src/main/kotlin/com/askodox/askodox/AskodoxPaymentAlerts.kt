@@ -596,8 +596,11 @@ object AskodoxPaymentAlerts {
         val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$whenMillis"
         val now = System.currentTimeMillis()
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        // Owner 2026-11-16 (double sound): a UPI app's notification sometimes reaches the phone MINUTES after its SMS. The
+        // payment's own time (the notification's `when`) decides whether two messages are one payment, not the arrival time.
+        val posted = paymentTime(whenMillis, now)
         if (!test && amount != null) {
-            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, now)?.let {
+            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted)?.let {
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to amount, "spoken" to false)
             }
         }
@@ -609,7 +612,8 @@ object AskodoxPaymentAlerts {
             .put("source_app", pkg)
             .put("source_label", if (pkg == "askodox.test") "ASKODOX test" else labels?.optString(pkg, pkg) ?: pkg)
             .put("detected_at", isoUtc(now))
-            .put("at_ms", now)
+            .put("at_ms", posted)
+            .put("seen_after_ms", now - posted)
             .put("kind", kindOf(cfg, pkg))
             .put("status", if (amount != null) "notification_unverified" else "ambiguous")
             .put("test", test)
@@ -624,24 +628,33 @@ object AskodoxPaymentAlerts {
         val cal = Calendar.getInstance()
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
-        val mayVoice = quiet || test || claimVoice(context, amount, now, "local")
+        // A payment that happened long before the phone saw it (phone asleep, app stopped by the battery saver) is
+        // written in the history but NOT spoken: a voice minutes later sounds like a second, new payment.
+        val late = !test && now - posted > LATE_MS
+        val mayVoice = quiet || test || late || claimVoice(context, amount, now, "local")
         // Owner 2026-11-16: the UPI app's notification carries the payer's NAME; a bank SMS usually does not. A nameless SMS
         // waits a few seconds for that notification (it then speaks WITH the name); none came -> the SMS is spoken as is.
-        val heldForName = !test && !quiet && mayVoice && amount != null && payer.isNullOrEmpty() &&
+        val heldForName = !test && !quiet && !late && mayVoice && amount != null && payer.isNullOrEmpty() &&
             kindOf(cfg, pkg).let { it == "sms" || it == "bank" }
-        event.put("spoken", if (quiet) "quiet_hours" else if (!mayVoice) "announced" else if (heldForName) "held" else "pending")
+        event.put("spoken", if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced"
+            else if (heldForName) "held" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet && mayVoice) {
+        if (!quiet && !late && mayVoice) {
             if (heldForName) main.postDelayed({ speakHeld(context, localId, amount, cfg) }, HOLD_FOR_NAME_MS)
             else speak(context, amount, test, localId, payer, cfg)
         }
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to (!quiet && mayVoice && !heldForName))
+            "amountPaise" to amount, "spoken" to (!quiet && !late && mayVoice && !heldForName))
     }
 
     private const val HOLD_FOR_NAME_MS = 4500L
+    private const val LATE_MS = 120_000L
+
+    /** The payment's own time: the notification's `when` when it is sane (not in the future, not days old), else now. */
+    private fun paymentTime(whenMillis: Long, now: Long): Long =
+        if (whenMillis in (now - 2 * 24 * 3600 * 1000L)..(now + 5_000L)) minOf(whenMillis, now) else now
 
     /** The wait for a notification with the name is over: speak the held SMS payment now (unless a notification already did). */
     private fun speakHeld(context: Context, localId: String, amount: Long?, cfg: JSONObject) {
@@ -668,12 +681,16 @@ object AskodoxPaymentAlerts {
     @Synchronized
     private fun mergeSameMoney(context: Context, cfg: JSONObject, pkg: String, direction: String, amount: Long,
                                account: String?, reference: String?, party: String?, now: Long): String? {
+        // [now] = THIS message's payment time; rows keep theirs in at_ms. Same payment = within 3 minutes either way.
         val kind = kindOf(cfg, pkg)
         val list = events(context)
         for (i in list.length() - 1 downTo 0) {
             val e = list.getJSONObject(i)
             val at = e.optLong("at_ms", 0L)
-            if (at <= 0L || now - at > 180_000L) continue
+            if (at <= 0L || kotlin.math.abs(now - at) > 180_000L) continue
+            // Both sides carry a UPI reference and they differ: two payments, whatever the amount.
+            val ref = e.optString("reference")
+            if (reference != null && ref.isNotEmpty() && ref != reference) continue
             if (e.optBoolean("test") || e.optLong("amount_paise", -1L) != amount) continue
             if ((e.optString("direction").ifEmpty { "in" }) != direction) continue
             if (e.optString("source_app") == pkg) continue
@@ -705,8 +722,9 @@ object AskodoxPaymentAlerts {
         val now = System.currentTimeMillis()
         val key = "$pkg|out|$notificationKey|${o.amountPaise}|$whenMillis"
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        val posted = paymentTime(whenMillis, now)
         if (!test) {
-            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, now)?.let {
+            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted)?.let {
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to o.amountPaise, "spoken" to false)
             }
         }
@@ -720,7 +738,7 @@ object AskodoxPaymentAlerts {
             .put("detected_at", isoUtc(now))
             .put("status", "notification_unverified")
             .put("direction", "out")
-            .put("at_ms", now)
+            .put("at_ms", posted)
             .put("kind", kindOf(cfg, pkg))
             .put("amount_paise", o.amountPaise)
             .put("test", test)
@@ -729,8 +747,9 @@ object AskodoxPaymentAlerts {
         val cal = Calendar.getInstance()
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
-        val say = cfg.optBoolean("announce_debits", false) && !quiet
-        event.put("spoken", if (say) "pending" else if (quiet) "quiet_hours" else "seen")
+        val late = now - posted > LATE_MS
+        val say = cfg.optBoolean("announce_debits", false) && !quiet && !late
+        event.put("spoken", if (say) "pending" else if (quiet) "quiet_hours" else if (late) "late" else "seen")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
         if (say) {
             val language = cfg.optString("language", "te").ifEmpty { "te" }

@@ -250,6 +250,33 @@ def test_http_routes_end_to_end(monkeypatch):
                         json={"lines": [{"name": "Tea", "amount_paise": 1000}], "advance_paise": 400, "name": "Ravi",
                               "client_txn_id": "http-quick-1"})
     assert quick.status_code == 200 and quick.json()["pending_paise"] == 600
+    # table requests: a dine-in order at a table -> ask -> the staff list -> done; a stranger sees nothing
+    table = client.post(f"/api/pos/businesses/{biz}/tables", headers=auth(owner), json={"name": "T9"}).json()["id"]
+    dine = client.post("/api/pos/order-desk/orders", headers=auth(customer),
+                       json={"code": f"{code}:{table}", "items": [{"product_id": item, "qty": 1, "note": "crisp"}],
+                             "client_txn_id": "http-order-2"}).json()
+    assert client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(customer), json={"kinds": ["water"]}).status_code == 409
+    client.post(f"/api/pos/businesses/{biz}/desk/orders/{dine['id']}/confirm", headers=auth(owner), json={"decisions": {}})
+    assert client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", json={"kinds": ["water"]}).status_code == 401
+    assert client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(stranger), json={"kinds": ["water"]}).status_code == 404
+    asked = client.post(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(customer),
+                        json={"kinds": ["water"], "text": "onions"})
+    assert asked.status_code == 200, asked.text
+    assert {a["kind"] for a in asked.json()["asked"]} == {"water", "onions"}
+    mine = client.get(f"/api/pos/order-desk/mine/{dine['id']}/requests", headers=auth(customer)).json()
+    assert mine["can_ask"] and len(mine["requests"]) == 2
+    assert client.get(f"/api/pos/businesses/{biz}/desk/requests", headers=auth(stranger)).status_code == 404
+    waiting = client.get(f"/api/pos/businesses/{biz}/desk/requests", headers=auth(owner)).json()
+    assert waiting["count"] == 2 and waiting["requests"][0]["table_name"] == "T9"
+    done = client.post(f"/api/pos/businesses/{biz}/desk/requests/{waiting['requests'][0]['id']}/done", headers=auth(owner))
+    assert done.status_code == 200 and done.json()["count"] == 1
+    cancel = client.post(f"/api/pos/order-desk/requests/{waiting['requests'][1]['id']}/cancel", headers=auth(customer))
+    assert cancel.status_code == 200 and client.get(f"/api/pos/businesses/{biz}/desk/requests", headers=auth(owner)).json()["count"] == 0
+    assert client.get(f"/api/pos/businesses/{biz}/desk/request-settings", headers=auth(customer)).status_code == 404
+    saved = client.put(f"/api/pos/businesses/{biz}/desk/request-settings", headers=auth(owner),
+                       json={"off": ["tissue"], "custom": [{"en": "Papad", "te": "అప్పడం"}]})
+    assert saved.status_code == 200, saved.text
+    assert [r["en"] for r in saved.json()["requests"] if r["custom"]] == ["Papad"]
 
 
 def test_find_shops_matches_the_shop_name_the_person_said(env):
@@ -397,3 +424,165 @@ def test_auto_confirm_accepts_an_order_when_the_shop_switched_it_on(env):
     assert COOK in {p[0] for p in pushes if ":kitchen:" in p[3]}  # the kitchen is told
     desk.set_desk_settings(biz, OWNER, None, False)
     assert _order(desk, code, [{"product_id": biryani, "qty": 1}], kind="takeaway", txn="auto0003")["stage"] == "placed"
+
+
+class _PerPhotoVision:
+    """Answers each photo on its own (the menu reader sends one call per photo, thinking off)."""
+
+    def __init__(self):
+        self.calls = []
+
+    def analyze_with_prompt(self, images, prompt, max_models=1, allow_second_provider=False, fast=False):
+        self.calls.append((len(images), fast))
+        data = images[0][0]
+        if data == b"broken":
+            return {}, 1
+        return {"items": [{"name": data.decode(), "price": 100, "unit": None}]}, 1
+
+
+def test_menu_photos_are_read_one_call_each_in_parallel_and_merged():
+    from app.services import pos_menu_photo
+
+    vision = _PerPhotoVision()
+    out = pos_menu_photo.read_menu(vision, [(b"Tea", "image/jpeg"), (b"broken", "image/jpeg"), (b"Coffee", "image/jpeg")])
+    assert out["read"] is True
+    assert [i["name"] for i in out["items"]] == ["Tea", "Coffee"]
+    assert sorted(vision.calls) == [(1, True)] * 3
+    # every photo failing -> honest "not read"
+    assert pos_menu_photo.read_menu(vision, [(b"broken", "image/png")])["read"] is False
+
+
+def test_parcel_order_is_billed_on_accept_and_reaches_my_bills(env):
+    """Owner 2026-11-16: accept -> the bill (unpaid, with Pay) is in the customer's "My bills"; marking it paid later
+    clears the balance the customer sees; the order still walks its lane to done."""
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": biryani, "qty": 2}], kind="takeaway")
+    accepted = desk.confirm(biz, OWNER, order["id"])
+    assert accepted["invoice"] and accepted["invoice"]["balance_paise"] == 32000
+    mine = desk.bills.my_bills(CUSTOMER)
+    assert len(mine) == 1 and mine[0]["due_paise"] == 32000 and mine[0]["pay"]
+    assert any(p[2] == "/me/bills" for p in pushes if p[0] == CUSTOMER)
+    desk.bills.settle(biz, OWNER, accepted["invoice"]["id"], "phonepe", 0, "settle-desk-01")
+    seen = desk.track(CUSTOMER, order["id"]) if hasattr(desk, "track") else desk.order(biz, OWNER, order["id"])
+    assert seen["invoice"]["balance_paise"] == 0 and seen["pay"] == []
+    for stage in ("ready", "packed", "handed", "done"):
+        out = desk.advance(biz, OWNER, order["id"], stage)
+    assert out["stage"] == "done"
+
+
+def test_dine_in_is_not_billed_on_accept(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}:{table}", [{"product_id": fry, "qty": 1}], kind="dine_in")
+    assert desk.confirm(biz, OWNER, order["id"])["invoice"] is None
+
+
+def test_shop_search_and_chat_card(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    assert [s["id"] for s in desk.search_shops("mura")] == [biz]
+    assert desk.search_shops("m") == [] and desk.search_shops("zzz") == []
+    card = desk.chat_card(biz, CUSTOMER, "murali hotel")
+    assert card["open"] and card["prepared"] == [] and {i["id"] for i in card["items"]} == {biryani, fry}
+    assert all(i["item_no"] for i in card["items"]) and "takeaway" in card["modes"] and "dine_in" not in card["modes"]
+    said = desk.chat_card(biz, CUSTOMER, "murali hotel 2 chicken biryani")
+    assert said["prepared"] and said["prepared"][0]["product_id"] == biryani and said["items"][0]["id"] == biryani
+    # "the usual" = the last order, ready for one confirm tap (nothing is placed)
+    _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": fry, "qty": 3}], kind="takeaway")
+    usual = desk.chat_card(biz, CUSTOMER, "murali hotel usual")
+    assert usual["prepared"] == [{"product_id": fry, "qty": 3}]
+
+
+def test_cashier_taking_money_for_a_bill_made_on_accept_settles_it(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": fry, "qty": 1}], kind="takeaway")
+    desk.confirm(biz, OWNER, order["id"])
+    out = desk.bill(biz, OWNER, order["id"], payments=[{"method": "cash", "amount_paise": 30000}], client_txn_id="cash-at-counter")
+    assert out["invoice"]["balance_paise"] == 0
+    again = desk.bill(biz, OWNER, order["id"], payments=[{"method": "cash", "amount_paise": 30000}], client_txn_id="cash-at-counter")
+    assert again["invoice"]["balance_paise"] == 0  # nothing taken twice
+
+
+# ---- table service requests (owner 2026-11-16): water / extra gravy / onions / bill, answered by the waiter
+def _accepted_dine_in(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}:{table}", [{"product_id": biryani, "qty": 1, "note": "less spicy"}])
+    desk.confirm(biz, COOK, order["id"])
+    return order
+
+
+def test_table_request_by_tap_and_words_reaches_the_waiter(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _accepted_dine_in(env)
+    assert desk.view_mine(CUSTOMER, order["id"])["items"][0]["note"] == "less spicy"  # item note kept
+    mine = desk.requests.for_order(CUSTOMER, order["id"])
+    assert mine["can_ask"] and {q["key"] for q in mine["quick"]} >= {"water", "extra_gravy", "onions", "bill", "call"}
+    pushes.clear()
+    out = desk.requests.ask(CUSTOMER, order["id"], ["water"], "extra onions and papad")
+    assert {a["kind"] for a in out["asked"]} == {"water", "onions", "other"}
+    assert any(p[2] == f"/desk/{biz}" for p in pushes)  # a waiter / the owner is told
+    assert out["asked"] and [r["text"] for r in out["requests"] if r["kind"] == "other"] == ["papad"]
+    # tapping the same thing twice never doubles it
+    again = desk.requests.ask(CUSTOMER, order["id"], ["water"])
+    assert again["asked"] == [] and again["already_waiting"] == 1
+    # the staff queue shows the table; one tap answers it and the customer is told
+    queue = desk.requests.open_list(biz, COOK)
+    assert queue["count"] == 3 and {r["table_name"] for r in queue["requests"]} == {"T1"}
+    assert desk.view_mine(CUSTOMER, order["id"])["requests"]
+    pushes.clear()
+    rid = next(r["id"] for r in queue["requests"] if r["kind"] == "water")
+    assert desk.requests.done(biz, COOK, rid)["count"] == 2
+    assert any(p[0] == CUSTOMER for p in pushes)
+
+
+def test_table_requests_need_an_accepted_dine_in_order_of_your_own(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _order(desk, f"{QR_PREFIX}{biz}:{table}", [{"product_id": biryani, "qty": 1}])
+    with pytest.raises(PosError) as e:  # not accepted yet
+        desk.requests.ask(CUSTOMER, order["id"], ["water"])
+    assert e.value.status == 409
+    with pytest.raises(PosError) as e:  # someone else's order
+        desk.requests.ask("app-phone-9111111111", order["id"], ["water"])
+    assert e.value.status == 404
+    take = _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": fry, "qty": 1}], txn="zz9y8x7w")
+    desk.confirm(biz, COOK, take["id"])
+    with pytest.raises(PosError) as e:  # takeaway has no table
+        desk.requests.ask(CUSTOMER, take["id"], ["water"])
+    assert e.value.status == 409
+
+
+def test_shop_chooses_its_quick_requests_and_adds_its_own(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _accepted_dine_in(env)
+    with pytest.raises(PosError):  # only the owner sets it up
+        desk.requests.set_settings(biz, COOK, ["tissue"], None)
+    out = desk.requests.set_settings(biz, OWNER, ["tissue", "extra_plate"], [{"en": "Papad", "te": "అప్పడం"}])
+    keys = {r["key"]: r["enabled"] for r in out["requests"]}
+    assert keys["tissue"] is False and keys["extra_plate"] is False and keys["water"] is True
+    quick = desk.requests.for_order(CUSTOMER, order["id"])["quick"]
+    assert "tissue" not in {q["key"] for q in quick} and "Papad" in {q["en"] for q in quick}
+    papad = next(q["key"] for q in quick if q["en"] == "Papad")
+    assert desk.requests.ask(CUSTOMER, order["id"], [papad])["asked"][0]["label"]["te"] == "అప్పడం"
+    with pytest.raises(PosError):  # a switched-off one cannot be asked
+        desk.requests.ask(CUSTOMER, order["id"], ["tissue"])
+
+
+def test_own_requests_with_telugu_names_stay_separate_and_words_match_whole_words(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    order = _accepted_dine_in(env)
+    out = desk.requests.set_settings(biz, OWNER, None, [{"en": "అప్పడం", "te": "అప్పడం"}, {"en": "పెరుగు", "te": "పెరుగు"},
+                                                        {"en": "అప్పడం", "te": "అప్పడం"}])
+    own = [r for r in out["requests"] if r["custom"]]
+    assert [r["te"] for r in own] == ["అప్పడం", "పెరుగు"] and len({r["key"] for r in own}) == 2  # one key each, no double
+    asked = desk.requests.ask(CUSTOMER, order["id"], [own[1]["key"]])
+    assert asked["asked"][0]["label"]["te"] == "పెరుగు"
+    said = desk.requests.ask(CUSTOMER, order["id"], [], "అప్పడం కావాలి")  # said in words -> the shop's own item
+    assert [a["kind"] for a in said["asked"]] == [own[0]["key"]]
+    # the keys stay the same when the list is saved again, and removing one keeps the other
+    again = desk.requests.set_settings(biz, OWNER, None, [{"key": r["key"], "en": r["en"], "te": r["te"]} for r in own[1:]])
+    assert [(r["key"], r["te"]) for r in again["requests"] if r["custom"]] == [(own[1]["key"], "పెరుగు")]
+    with desk.store._connect() as conn:
+        kinds = lambda text: [h["kind"] for h in desk.requests.parse(conn, biz, text)]  # noqa: E731
+        assert kinds("watermelon juice") == ["other"]  # not "water"
+        assert kinds("నీళ్లు తీసుకురండి") == ["water"]  # "bring" is not "call the waiter"
+        assert kinds("2 plates and tissues") == ["extra_plate", "tissue"]
+        assert kinds("ఉల్లిపాయలు కొంచెం") == ["onions"]
+        assert kinds("bill please") == ["bill"] and kinds("call the waiter") == ["call"]

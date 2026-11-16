@@ -33,6 +33,8 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
   Object? _error;
   final _phone = TextEditingController();
   final _label = TextEditingController();
+  final _custom = TextEditingController();
+  List<AskodoxJson> _quick = const [];
   String _role = 'cashier';
 
   @override
@@ -45,13 +47,20 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
   void dispose() {
     _phone.dispose();
     _label.dispose();
+    _custom.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     try {
       final d = await ref.read(askodoxPosRepositoryProvider).deskSettings(widget.businessId);
-      if (mounted) setState(() => _data = d);
+      final q = await ref.read(askodoxPosRepositoryProvider).deskRequestSettings(widget.businessId);
+      if (mounted) {
+        setState(() {
+          _data = d;
+          _quick = askodoxPosList(q['requests']);
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -74,6 +83,23 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
         if (mounted) setState(() => _data = d);
         return null;
       });
+
+  /// Table quick requests (water / gravy / onions / bill ...): switch the built-in ones on / off, add the shop's own.
+  Future<void> _saveQuick({List<String>? off, List<AskodoxJson>? custom}) => _guard(() async {
+        final q = await ref.read(askodoxPosRepositoryProvider).deskRequestSettingsSave(widget.businessId, off: off, custom: custom);
+        if (mounted) setState(() => _quick = askodoxPosList(q['requests']));
+        return null;
+      });
+
+  List<String> get _offKeys => [for (final r in _quick) if (r['custom'] != true && r['enabled'] != true) '${r['key']}'];
+  List<AskodoxJson> get _customRows => [for (final r in _quick) if (r['custom'] == true) {'key': r['key'], 'en': r['en'], 'te': r['te']}];
+
+  Future<void> _addQuick() async {
+    final text = _custom.text.trim();
+    if (text.isEmpty) return;
+    _custom.clear();
+    await _saveQuick(custom: [..._customRows, {'en': text, 'te': text}]);
+  }
 
   Future<void> _auto(bool v) => _guard(() async {
         final d = await ref.read(askodoxPosRepositoryProvider).deskSettingsSave(widget.businessId, autoConfirm: v);
@@ -154,6 +180,48 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                         ),
                     ]),
                   ],
+                  const Divider(height: 28),
+                  Text(te ? 'టేబుల్ దగ్గర కస్టమర్ అడిగేవి' : 'What a table can ask for', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  Text(
+                      te
+                          ? 'కస్టమర్ ఆర్డర్ అంగీకరించాక నీళ్లు, ఎక్స్‌ట్రా గ్రేవీ, ఆనియన్స్, బిల్ లాంటివి బటన్‌తో లేదా మాటతో అడుగుతారు. వెయిటర్‌కి టేబుల్ పేరుతో వెళ్తుంది.'
+                          : 'After you accept the order, the customer taps or says water, extra gravy, onions, the bill... The waiter gets it with the table name.',
+                      style: const TextStyle(fontSize: 12.5)),
+                  for (final r in _quick)
+                    if (r['custom'] != true)
+                      SwitchListTile(
+                        key: Key('askodoxQuickReq-${r['key']}'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: r['enabled'] == true,
+                        title: Text(te ? '${r['te']}' : '${r['en']}'),
+                        onChanged: (v) {
+                          final off = _offKeys.toSet();
+                          v ? off.remove('${r['key']}') : off.add('${r['key']}');
+                          _saveQuick(off: off.toList());
+                        },
+                      )
+                    else
+                      ListTile(
+                        key: Key('askodoxQuickReq-${r['key']}'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('${r['en']}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _saveQuick(custom: [for (final c in _customRows) if (c['key'] != r['key']) c]),
+                        ),
+                      ),
+                  TextField(
+                    key: const Key('askodoxQuickReqAdd'),
+                    controller: _custom,
+                    onSubmitted: (_) => _addQuick(),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: te ? 'మీ సొంతది చేర్చండి (ఉదా: అప్పడం)' : 'Add your own (e.g. Papad)',
+                      suffixIcon: IconButton(icon: const Icon(Icons.add), onPressed: _addQuick),
+                    ),
+                  ),
                   const Divider(height: 28),
                   Text(te ? 'సిబ్బంది' : 'Staff', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   for (final p in people.where((p) => p['role'] != 'owner'))

@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import 'pos_advance_screens.dart';
 import 'pos_agent_screens.dart';
+import 'pos_bills_screens.dart';
 import 'pos_catalogue_screens.dart';
 import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
@@ -24,6 +25,9 @@ import 'pos_selfshop_screens.dart';
 final askodoxPaymentMethodRoutes = <GoRoute>[
   // The Payments tab (redesign 2026-11-13): today, the week, latest payments, QR / alerts / accounts.
   GoRoute(path: '/me/payments', builder: (context, state) => const AskodoxPaymentsHubScreen()),
+  // Bills (owner 2026-11-16): the customer's own bills from shops, and a shop's bill history.
+  GoRoute(path: '/me/bills', builder: (context, state) => const AskodoxMyBillsScreen()),
+  GoRoute(path: '/bills/:id', builder: (context, state) => AskodoxBillHistoryScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/me/payments/phone', builder: (context, state) => const AskodoxMyPhonePaymentsScreen()),
   GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),
   // Payment sound alerts without the POS (owner 2026-11-10): the shop, its staff and who hears the sound.
@@ -41,7 +45,12 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
 /// Front desk (owner 2026-11-15: receptionist / waiter flow brings users, so it is in Phase 1 too): the customer's
 /// QR menu + receptionist + live order, and the shop's one orders desk / menu / QR.
 final askodoxFrontDeskRoutes = <GoRoute>[
-  GoRoute(path: '/order-desk', builder: (context, state) => AskodoxOrderDeskScreen(code: state.uri.queryParameters['code'] ?? '')),
+  GoRoute(
+      path: '/order-desk',
+      builder: (context, state) => AskodoxOrderDeskScreen(
+          code: state.uri.queryParameters['code'] ?? '',
+          kind: state.uri.queryParameters['kind'] ?? '',
+          cart: state.uri.queryParameters['cart'] ?? '')),
   GoRoute(path: '/order-desk/enter', builder: (context, state) => const AskodoxOrderCodeScreen()),
   GoRoute(path: '/order-desk/track/:oid', builder: (context, state) => AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)),
   GoRoute(path: '/desk/:id', builder: (context, state) => AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)),

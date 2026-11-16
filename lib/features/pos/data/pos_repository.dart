@@ -46,8 +46,8 @@ class AskodoxPosRepository {
   final ApiClient _client;
   final String? authToken;
 
-  ApiRequestOptions _opts([Map<String, Object?> query = const {}]) =>
-      ApiRequestOptions(authToken: authToken, timeout: const Duration(seconds: 20), query: query);
+  ApiRequestOptions _opts([Map<String, Object?> query = const {}, Duration timeout = const Duration(seconds: 20)]) =>
+      ApiRequestOptions(authToken: authToken, timeout: timeout, query: query);
 
   Never _fail(ApiError<Object?> error) {
     final status = error.failure.statusCode;
@@ -77,14 +77,16 @@ class AskodoxPosRepository {
         code);
   }
 
-  Future<AskodoxJson> _send(String method, String path, {Object? body, Map<String, Object?> query = const {}}) async {
+  Future<AskodoxJson> _send(String method, String path,
+      {Object? body, Map<String, Object?> query = const {}, Duration timeout = const Duration(seconds: 20)}) async {
     if (authToken == null) throw const AskodoxPosException('sign_in');
+    final opts = _opts(query, timeout);
     final ApiResult<Object?> result = switch (method) {
-      'GET' => await _client.get<Object?>(path, options: _opts(query)),
-      'POST' => await _client.post<Object?>(path, body: body, options: _opts(query)),
-      'PATCH' => await _client.patch<Object?>(path, body: body, options: _opts(query)),
-      'PUT' => await _client.put<Object?>(path, body: body, options: _opts(query)),
-      _ => await _client.delete<Object?>(path, options: _opts(query)),
+      'GET' => await _client.get<Object?>(path, options: opts),
+      'POST' => await _client.post<Object?>(path, body: body, options: opts),
+      'PATCH' => await _client.patch<Object?>(path, body: body, options: opts),
+      'PUT' => await _client.put<Object?>(path, body: body, options: opts),
+      _ => await _client.delete<Object?>(path, options: opts),
     };
     if (result is ApiError<Object?>) _fail(result);
     return askodoxPosMap((result as ApiSuccess<Object?>).data);
@@ -104,9 +106,20 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskResolve(String code) => _send('GET', '/api/pos/order-desk/resolve', query: {'code': code});
   Future<AskodoxJson> deskAssist(String code, String text, List<AskodoxJson> cart, {bool te = true}) =>
       _send('POST', '/api/pos/order-desk/assist', body: {'code': code, 'text': text, 'cart': cart, 'te': te});
+  /// Shops with a menu whose name contains [q] (the search box beside the QR photo).
+  Future<List<AskodoxJson>> deskShops(String q) async =>
+      askodoxPosList((await _send('GET', '/api/pos/order-desk/shops', query: {'q': q}))['shops']);
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
+  Future<AskodoxJson> deskMyRequests(String orderId) => _send('GET', '/api/pos/order-desk/mine/$orderId/requests');
+  Future<AskodoxJson> deskAsk(String orderId, {List<String> kinds = const [], String text = ''}) =>
+      _send('POST', '/api/pos/order-desk/mine/$orderId/requests', body: {'kinds': kinds, 'text': text});
+  Future<AskodoxJson> deskRequests(String biz) => _send('GET', '${_b(biz)}/desk/requests');
+  Future<AskodoxJson> deskRequestDone(String biz, String id) => _send('POST', '${_b(biz)}/desk/requests/$id/done');
+  Future<AskodoxJson> deskRequestSettings(String biz) => _send('GET', '${_b(biz)}/desk/request-settings');
+  Future<AskodoxJson> deskRequestSettingsSave(String biz, {List<String>? off, List<AskodoxJson>? custom}) =>
+      _send('PUT', '${_b(biz)}/desk/request-settings', body: {if (off != null) 'off': off, if (custom != null) 'custom': custom});
   Future<AskodoxJson> deskCancelMine(String id) => _send('POST', '/api/pos/order-desk/mine/$id/cancel');
   Future<AskodoxJson> deskOrders(String biz, {String lane = 'active'}) =>
       _send('GET', '${_b(biz)}/desk/orders', query: {'lane': lane});
@@ -136,8 +149,10 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskMenu(String biz) => _send('GET', '${_b(biz)}/desk/menu');
   Future<AskodoxJson> deskMenuParse(String biz, String text) => _send('POST', '${_b(biz)}/desk/menu/parse', body: {'text': text});
   /// Menu photo(s) -> a PREVIEW (items + printed prices, nothing saved). [images]: {data: base64, mime}.
+  /// Reading takes the AI 10-40 s, so this call waits 90 s (owner 2026-11-16: at 20 s the phone gave up while the
+  /// server had read the menu, and showed "No internet").
   Future<AskodoxJson> deskMenuPhoto(String biz, List<AskodoxJson> images) =>
-      _send('POST', '${_b(biz)}/desk/menu/photo', body: {'images': images});
+      _send('POST', '${_b(biz)}/desk/menu/photo', body: {'images': images}, timeout: const Duration(seconds: 90));
   Future<AskodoxJson> deskMenuImport(String biz, List<AskodoxJson> items, {int rateBp = 0}) =>
       _send('POST', '${_b(biz)}/desk/menu/import', body: {'items': items, 'rate_bp': rateBp});
   Future<AskodoxJson> deskAvailability(String biz, String product, bool available) =>
@@ -150,6 +165,17 @@ class AskodoxPosRepository {
       _send('POST', '/api/pos/form-fill', body: {'fields': fields, 'text': text, 'locale': locale});
   /// The calculator bill as a REAL bill (items, GST only for a registered shop, advance, pending on the customer).
   Future<AskodoxJson> quickBill(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/quick-bill', body: body);
+  // ---- Bills after the counter (pos_bills.py): send to the customer's number, settle later, history, customer inbox.
+  /// -> {channel: askodox | whatsapp, text, url, whatsapp_to}. ASKODOX users get it in "My bills"; others on WhatsApp.
+  Future<AskodoxJson> billSend(String biz, String invoiceId, String phone) =>
+      _send('POST', '${_b(biz)}/bills/$invoiceId/send', body: {'phone': phone});
+  Future<AskodoxJson> billSettle(String biz, String invoiceId, String pay, String txn) =>
+      _send('POST', '${_b(biz)}/bills/$invoiceId/settle', body: {'pay': pay, 'client_txn_id': txn});
+  Future<AskodoxJson> billHistory(String biz, {String from = '', String to = '', bool due = false, String q = ''}) =>
+      _send('GET', '${_b(biz)}/bills', query: {'date_from': from, 'date_to': to, 'due': due ? 'true' : 'false', 'q': q});
+  Future<List<AskodoxJson>> myBills() async => askodoxPosList((await _send('GET', '/api/pos/me/bills'))['bills']);
+  Future<AskodoxJson> myBillPaid(String token, String app) =>
+      _send('POST', '/api/pos/me/bills/$token/paid', body: {'app': app});
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
   // Shop follows: any signed-in person, shop owners included (backend: routes/shop_follows.py).
   Future<AskodoxJson> shopState(String id) => _send('GET', '/api/shops/$id');

@@ -325,6 +325,24 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ లెక్క ఫోన్ నోటిఫికేషన్ల నుంచి, బ్యాంక్ నుంచి కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
     '"నా QR చూపించు", "నా ఖాతాలు" మీ UPI / బ్యాంక్ తెరుస్తాయి; "అలర్ట్స్" వాయిస్ ఆన్ చేస్తుంది.',
   ]),
+  '/me/bills': _H('My bills', 'నా బిల్లులు', [
+    'Bills that shops sent to your number show here.',
+    'Pay by UPI opens your UPI app with the amount filled in; the money goes straight to the shop.',
+    'After paying, tap "I have paid" so the shop checks and closes the bill.',
+  ], [
+    'షాపులు మీ నంబర్‌కి పంపిన బిల్లులు ఇక్కడ కనిపిస్తాయి.',
+    '"UPI లో కట్టు" నొక్కితే మొత్తం నిండిన UPI యాప్ తెరుచుకుంటుంది; డబ్బు నేరుగా షాప్‌కి వెళ్తుంది.',
+    'కట్టాక "కట్టేశాను" నొక్కితే షాప్ చూసి బిల్లు ముగిస్తుంది.',
+  ]),
+  '/bills/:id': _H('Bill history', 'బిల్లుల హిస్టరీ', [
+    'Every bill with how it was paid: cash, PhonePe, Google Pay, Paytm, other UPI or card.',
+    'Pending only shows bills with money still to come; Paid closes one when the money arrives.',
+    'Remind / send puts the bill in the customer\'s ASKODOX app, or opens WhatsApp on their number.',
+  ], [
+    'ప్రతి బిల్లు ఎలా కట్టారో కనిపిస్తుంది: క్యాష్, PhonePe, Google Pay, Paytm, ఇతర UPI, కార్డ్.',
+    '"బాకీ మాత్రమే" లో డబ్బు రావాల్సిన బిల్లులు ఉంటాయి; డబ్బు వచ్చాక "కట్టారు" నొక్కండి.',
+    '"గుర్తు చేయి / పంపు" బిల్లును కస్టమర్ ASKODOX యాప్‌లోకి, లేదా వాళ్ళ నంబర్ WhatsApp కి పంపుతుంది.',
+  ]),
   '/me/payments/phone': _H('My phone payments', 'నా ఫోన్ పేమెంట్లు', [
     'Switch it on, then allow notification access for ASKODOX once.',
     'My apps / SMS: add or remove the apps and bank SMS you want read; rename or delete any of them.',
@@ -734,10 +752,12 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఫోన్ నంబర్‌తో సిబ్బందిని చేర్చి వారి పాత్ర ఎంచుకోండి.',
   ]),
   '/order-desk/enter': _H('Order at a shop / table', 'షాప్ / టేబుల్ ఆర్డర్', [
-    'Type the code printed under the shop or table QR, and the menu opens.',
+    'Photograph the QR on the shop or table, or search the shop by its name; the menu opens.',
+    'The code printed under the QR can still be typed.',
     'Your earlier orders are listed here: tap one to follow it, or "Again" to order the same.',
   ], [
-    'షాప్ లేదా టేబుల్ QR కింద ఉన్న కోడ్ రాయండి, మెనూ తెరుచుకుంటుంది.',
+    'షాప్ లేదా టేబుల్ మీది QR ఫోటో తీయండి, లేదా షాప్ పేరు వెతకండి; మెనూ తెరుచుకుంటుంది.',
+    'QR కింద ఉన్న కోడ్ కూడా రాయవచ్చు.',
     'మీ పాత ఆర్డర్లు ఇక్కడ కనిపిస్తాయి: నొక్కి ఫాలో చేయండి, లేదా "మళ్ళీ" నొక్కి అదే ఆర్డర్ చేయండి.',
   ]),
   '/order-desk': _H('Menu & order', 'మెనూ & ఆర్డర్', [
@@ -752,20 +772,24 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   '/order-desk/track/:oid': _H('My order', 'నా ఆర్డర్', [
     'See each step live: accepted, preparing, ready, on the way.',
     'You can cancel only before the shop accepts. Pay the shop\'s UPI from the bill below.',
+    'Eating here? After the shop accepts, tap "Need something?" for water, extra gravy, onions, the bill, or say it in words.',
   ], [
     'ప్రతి దశ లైవ్‌గా కనిపిస్తుంది: అంగీకరించారు, తయారవుతోంది, సిద్ధం, దారిలో.',
     'షాప్ అంగీకరించకముందే రద్దు చేయవచ్చు. కింద బిల్లు నుంచి షాప్ UPI కి కట్టండి.',
+    'ఇక్కడ తింటుంటే, షాప్ అంగీకరించాక "ఏమైనా కావాలా?" లో నీళ్లు, ఎక్స్‌ట్రా గ్రేవీ, ఆనియన్స్, బిల్ నొక్కండి లేదా మాటతో చెప్పండి.',
   ]),
   '/desk/:id': _H('Orders desk', 'ఆర్డర్స్ డెస్క్', [
     'All table, shop-QR, counter and reception orders in one place: New, Kitchen, Ready, Delivery, Done.',
     'Accept an order and switch OFF what is finished; the customer is told. Then move it step by step.',
     'Bill when it is ready (GST only if your shop has GST). Delivery orders open the map pin.',
     'An order not accepted in a minute alerts the owner.',
+    'Table requests (water, extra gravy, onions, bill) show in a banner on top; tap Done when served.',
   ], [
     'టేబుల్, షాప్ QR, కౌంటర్, రిసెప్షన్ ఆర్డర్లన్నీ ఒకే చోట: కొత్త, వంటగది, సిద్ధం, డెలివరీ, పూర్తి.',
     'ఆర్డర్ అంగీకరించి అయిపోయినవాటిని OFF చేయండి; కస్టమర్‌కి తెలుస్తుంది. తర్వాత ఒక్కో దశ ముందుకు.',
     'సిద్ధమయ్యాక బిల్లు చేయండి (మీ షాప్‌కి GST ఉంటేనే GST). డెలివరీ ఆర్డర్లకు మ్యాప్ పిన్ తెరుచుకుంటుంది.',
     'నిమిషంలో అంగీకరించని ఆర్డర్ గురించి ఓనర్‌కి అలర్ట్ వెళ్తుంది.',
+    'టేబుల్ అభ్యర్థనలు (నీళ్లు, గ్రేవీ, ఆనియన్స్, బిల్) పైన బ్యానర్‌లో కనిపిస్తాయి; ఇచ్చాక "అయింది" నొక్కండి.',
   ]),
   '/desk/:id/menu': _H('Menu', 'మెనూ', [
     'Say or type items with prices, tap Preview, check, then Save. Nothing is saved before you confirm.',

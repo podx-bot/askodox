@@ -55,6 +55,7 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
   Object? _error;
   Timer? _timer;
   bool _busy = false;
+  List<AskodoxJson> _asks = const [];
 
   @override
   void initState() {
@@ -81,6 +82,49 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
     } catch (e) {
       if (mounted && _data == null) setState(() => _error = e);
     }
+    try {
+      final r = await ref.read(askodoxPosRepositoryProvider).deskRequests(widget.businessId);
+      if (mounted) setState(() => _asks = askodoxPosList(r['requests']));
+    } catch (_) {}
+  }
+
+  /// Table requests (water / extra gravy / onions / bill / call): the waiter's list, one tap = done.
+  Future<void> _openAsks() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (context, setLocal) {
+          final te = askodoxPosTe(context);
+          return SafeArea(
+            child: ListView(key: const Key('askodoxDeskRequests'), shrinkWrap: true, padding: const EdgeInsets.all(14), children: [
+              Text(te ? 'టేబుల్ అభ్యర్థనలు' : 'Table requests', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              if (_asks.isEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(te ? 'ఏమీ లేవు ✓' : 'Nothing waiting ✓')),
+              for (final r in _asks)
+                ListTile(
+                  key: Key('askodoxDeskRequest-${r['id']}'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(r['kind'] == 'bill' ? Icons.receipt_long : Icons.room_service_outlined),
+                  title: Text('${r['table_name'] ?? ''} · ${'${r['text']}'.isNotEmpty ? r['text'] : r['label']}${askodoxPosInt(r['qty']) > 1 ? ' × ${r['qty']}' : ''}'),
+                  trailing: FilledButton(
+                    key: Key('askodoxDeskRequestDone-${r['id']}'),
+                    onPressed: () async {
+                      try {
+                        final out = await ref.read(askodoxPosRepositoryProvider).deskRequestDone(widget.businessId, '${r['id']}');
+                        if (mounted) setState(() => _asks = askodoxPosList(out['requests']));
+                        setLocal(() {});
+                      } on AskodoxPosException catch (e) {
+                        if (mounted) askodoxPosSnack(this.context, e.message(te));
+                      }
+                    },
+                    child: Text(te ? 'అయింది' : 'Done'),
+                  ),
+                ),
+            ]),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _run(Future<Object?> Function() action) async {
@@ -289,6 +333,21 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
             onPressed: () => context.push('/desk/${widget.businessId}/qr')),
       ]),
       body: Column(children: [
+        if (_asks.isNotEmpty)
+          Material(
+            color: Theme.of(context).colorScheme.tertiaryContainer,
+            child: ListTile(
+              key: const Key('askodoxDeskRequestsBanner'),
+              dense: true,
+              leading: const Icon(Icons.notifications_active),
+              title: Text(te ? '${_asks.length} టేబుల్ అభ్యర్థనలు వేచి ఉన్నాయి' : '${_asks.length} table requests waiting',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text(_asks.take(3).map((r) => '${r['table_name'] ?? ''} ${'${r['text']}'.isNotEmpty ? r['text'] : r['label']}').join(' · '),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openAsks,
+            ),
+          ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -501,6 +560,24 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
     }
   }
 
+  /// The photo path has its own words: a timeout / no answer is NOT "the bill is kept on this phone" (that text is the
+  /// offline sale queue's).
+  Future<void> _photoGuard(Future<Object?> Function() action) async {
+    final te = askodoxPosTe(context);
+    try {
+      await action();
+    } on AskodoxPosException catch (e) {
+      if (!mounted) return;
+      askodoxPosSnack(
+          context,
+          e.retryable
+              ? (te
+                  ? 'మెనూ చదవడం పూర్తి కాలేదు — నెట్ బాగున్నచోట మళ్ళీ ఫోటో పంపండి, లేదా ఐటమ్స్ చెప్పండి.'
+                  : 'Could not finish reading the menu — try the photo again on a better network, or say the items.')
+              : e.message(te));
+    }
+  }
+
   Future<void> _parse() => _guard(() async {
         final out = await ref.read(askodoxPosRepositoryProvider).deskMenuParse(widget.businessId, _text.text);
         if (!mounted) return null;
@@ -522,7 +599,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
       return;
     }
     setState(() => _reading = true);
-    await _guard(() async {
+    await _photoGuard(() async {
       final out = await ref.read(askodoxPosRepositoryProvider).deskMenuPhoto(widget.businessId, [
         for (final a in picked.take(4)) {'data': base64Encode(a.bytes), 'mime': a.mimeType},
       ]);
@@ -643,6 +720,13 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                         label: Text(te ? 'గ్యాలరీ నుంచి' : 'From gallery'))),
               ]),
               if (_reading) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator(key: Key('askodoxDeskMenuReading'))),
+              if (_reading)
+                Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                        te ? 'మెనూ చదువుతున్నాను… 10–30 సెకన్లు పడుతుంది, ఆగండి.' : 'Reading the menu… this takes 10–30 seconds.',
+                        key: const Key('askodoxDeskMenuReadingText'),
+                        style: const TextStyle(fontSize: 12.5))),
               if (_preview.isNotEmpty) ...[
                 const Divider(height: 24),
                 for (var i = 0; i < _preview.length; i++)
@@ -690,6 +774,12 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                   key: Key('askodoxDeskAvailable-${m['id']}'),
                   contentPadding: EdgeInsets.zero,
                   value: m['available'] == true,
+                  secondary: askodoxPosInt(m['item_no']) > 0
+                      ? CircleAvatar(
+                          key: Key('askodoxDeskMenuNo-${m['id']}'),
+                          radius: 15,
+                          child: Text('${m['item_no']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)))
+                      : null,
                   title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}${m['available'] == true ? '' : (te ? ' · ఈ రోజు లేదు' : ' · out today')}'),
                   subtitle: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
                     if (m['today_only_flag'] == true) Text(te ? 'ఈ రోజు మాత్రమే ✓' : 'Today only ✓'),

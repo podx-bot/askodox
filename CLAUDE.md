@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #336 (2026-11-16, owner "1"): one catalogue, three roles -- `pos_bills.py` (item numbers `pos_products.item_no`,
+  pay app `pos_payments.app`, send bill to a typed number: ASKODOX user -> "My bills" `/me/bills` + push, else WhatsApp +
+  public page `/b/{token}`; settle later = `bill_settle` payment row; history `/bills/:id`); parcel / delivery app orders billed
+  unpaid on accept; menu photo = one fast Gemini call per photo in parallel (phone waits 90 s); payment double sound fixed on
+  the notification's own time (> 2 min late = saved, not spoken); chat `shop_menu` card (named shop -> menu, quick order);
+  order code QR scan + shop-name search; table requests `pos_desk_requests.py` (water / gravy / onions / bill / call waiter,
+  shop's own list, waiter banner on the desk) + per-item notes. Nothing phone verified.
 - `main` `be27836` (2026-11-16): #331 / #332 / #333 / #334 merged (production deploy of `91c07d2` = #333 SUCCESS). Front desk
   (`pos_frontdesk.py`, `/desk/:id`, `/order-desk`), spoken menu, real quick bill, business name rule, speak-to-fill mic
   (`AskodoxFillBar` + `POST /api/pos/form-fill`, on quick bill / menu / shop setup), My phone payments = one "Turn all on" card +

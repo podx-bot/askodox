@@ -146,7 +146,7 @@ MENU_PHRASES = ("menu", "మెనూ", "ఏమున్నాయి", "ఏం �
                 "list")
 PRICE_WORDS = {"ధర", "రేటు", "ఎంత", "price", "cost", "rate", "how", "much"}
 AVAILABLE_WORDS = {"ఉందా", "ఉన్నాయా", "ఉన్నదా", "available", "have", "stock", "దొరుకుతుందా"}
-REPEAT_WORDS = {"మళ్ళీ", "మళ్లీ", "అదే", "same", "repeat", "last", "again"}
+REPEAT_WORDS = {"మళ్ళీ", "మళ్లీ", "అదే", "same", "repeat", "last", "again", "usual", "ఎప్పటిలాగే", "ఎప్పటిలాగా"}
 GREETING_WORDS = {"hi", "hello", "hai", "హాయ్", "హలో", "నమస్తే", "నమస్కారం"}
 PEOPLE_WORDS = {"people", "persons", "members", "మందికి", "మంది", "మందిమి", "persons"}
 PEOPLE_TOKENS = {"ఇద్దరికి": 2, "ముగ్గురికి": 3, "నలుగురికి": 4, "ఐదుగురికి": 5, "ఆరుగురికి": 6, "ఏడుగురికి": 7}

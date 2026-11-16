@@ -7,6 +7,7 @@ never guesses one. Works for a printed list, a hand-written board, any language;
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Sequence, Tuple
 
 MAX_ITEMS = 200
@@ -48,13 +49,29 @@ def read_menu(image_service: Any, images: Sequence[Tuple[bytes, str]], default_u
     photos = [(data, mime) for data, mime in list(images)[:MAX_PHOTOS] if data]
     if not photos or image_service is None or not hasattr(image_service, "analyze_with_prompt"):
         return {"items": [], "read": False}
-    try:
-        payload, _calls = image_service.analyze_with_prompt(photos, PROMPT, max_models=2, allow_second_provider=True)
-    except Exception:
+    # One call PER photo, all at once, thinking off (owner 2026-11-16: three photos in one call took 44-75 s and the
+    # phone gave up). The answer waits only for the slowest single photo.
+    def one(photo: Tuple[bytes, str]) -> Any:
+        try:
+            try:
+                payload, _calls = image_service.analyze_with_prompt([photo], PROMPT, max_models=2,
+                                                                    allow_second_provider=True, fast=True)
+            except TypeError:  # an older / fake service without ``fast``
+                payload, _calls = image_service.analyze_with_prompt([photo], PROMPT, max_models=2,
+                                                                    allow_second_provider=True)
+        except Exception:
+            return None
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        return raw_items if isinstance(raw_items, list) else None
+
+    if len(photos) == 1:
+        answers = [one(photos[0])]
+    else:
+        with ThreadPoolExecutor(max_workers=len(photos)) as pool:
+            answers = list(pool.map(one, photos))
+    if all(a is None for a in answers):
         return {"items": [], "read": False}
-    raw = payload.get("items") if isinstance(payload, dict) else None
-    if not isinstance(raw, list):
-        return {"items": [], "read": False}
+    raw = [entry for a in answers if a for entry in a]
     items: List[Dict[str, Any]] = []
     seen = set()
     for entry in raw:

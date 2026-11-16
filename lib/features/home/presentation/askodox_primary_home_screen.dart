@@ -83,6 +83,7 @@ import '../../staff/askodox_staff_access.dart';
 import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
+import 'chat_shop_menu_card.dart';
 import '../application/voice_mode.dart';
 import '../../../core/diagnostics/test_mode.dart';
 import '../data/availability_watch_repository.dart';
@@ -1142,6 +1143,8 @@ class _AskodoxPrimaryHomeScreenState
   /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
   /// to open, keyed by the USER turn; a button under the next assistant turn.
   final Map<int, AskodoxAppAction> _appActionByTurn = {};
+  // A named ASKODOX shop's menu, drawn as a card under that reply (replaces the "open" button of the same turn).
+  final Map<int, Map<String, Object?>> _shopMenuByTurn = {};
   /// Smart Answer chips (backend reply_suggestions.py) keyed by the USER turn;
   /// drawn under the next assistant turn only while it is the latest turn.
   final Map<int, List<String>> _suggestionsByTurn = {};
@@ -1154,6 +1157,7 @@ class _AskodoxPrimaryHomeScreenState
     _guideByTurn.clear();
     _intelByTurn.clear();
     _appActionByTurn.clear();
+    _shopMenuByTurn.clear();
     _suggestionsByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
@@ -2301,6 +2305,9 @@ class _AskodoxPrimaryHomeScreenState
     // A screen hidden in this release phase gets no button (the server is told too: "phase1_only").
     if (aiUsable && decision!.appAction != null && askodoxRouteShownNow(decision.appAction!.route)) {
       _appActionByTurn[userTurnIndex] = decision.appAction!;
+    }
+    if (aiUsable && decision!.shopMenu != null && askodoxRouteShownNow('/order-desk')) {
+      _shopMenuByTurn[userTurnIndex] = decision.shopMenu!;
     }
     final chips = aiUsable ? askodoxSuggestionChips(decision!.suggestions) : const <String>[];
     if (chips.isNotEmpty) _suggestionsByTurn[userTurnIndex] = chips;
@@ -5212,7 +5219,9 @@ class _AskodoxPrimaryHomeScreenState
                     ),
                 ]),
               ),
-            if (_appActionByTurn[index - 1] case final appAction? when !turn.isUser)
+            if (_shopMenuByTurn[index - 1] case final shopMenu? when !turn.isUser)
+              AskodoxChatShopMenuCard(card: shopMenu, te: te),
+            if (_appActionByTurn[index - 1] case final appAction? when !turn.isUser && _shopMenuByTurn[index - 1] == null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Wrap(spacing: 8, children: [

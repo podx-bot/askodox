@@ -321,11 +321,13 @@ class UniversalImageService:
         prompt: str,
         max_models: int = 1,
         allow_second_provider: bool = False,
+        fast: bool = False,
     ) -> tuple[Dict[str, Any], int]:
         """One bounded JSON call over 1..n images with a caller's prompt
         (Vision Inspection). Returns (payload, model_calls). Tries at most
         ``max_models`` Gemini models, then OpenAI only when allowed. Never
-        raises for a provider failure: an empty payload means no answer."""
+        raises for a provider failure: an empty payload means no answer. ``fast`` turns the model's thinking off
+        (reading printed text needs none; owner 2026-11-16: a menu photo took 44-75 s with thinking on)."""
         parts = [(data, str(mime or "image/jpeg").lower()) for data, mime in images if data]
         if not parts:
             return {}, 0
@@ -337,7 +339,9 @@ class UniversalImageService:
                     response = self.client.models.generate_content(
                         model=model,
                         contents=[*(types.Part.from_bytes(data=d, mime_type=m) for d, m in parts), prompt],
-                        config=types.GenerateContentConfig(response_mime_type="application/json"),
+                        config=(types.GenerateContentConfig(response_mime_type="application/json",
+                                                            thinking_config=types.ThinkingConfig(thinking_budget=0))
+                                if fast else types.GenerateContentConfig(response_mime_type="application/json")),
                     )
                     payload = self._parse_json(str(getattr(response, "text", "") or ""))
                     print(f"ASKODOX INSPECT BRAIN: provider=gemini model={model} images={len(parts)} status=success",
