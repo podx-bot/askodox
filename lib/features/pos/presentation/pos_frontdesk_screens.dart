@@ -9,6 +9,7 @@ import '../../location/presentation/map_pin_picker.dart';
 import '../../shops/presentation/my_business_screens.dart' show askodoxBoxMic;
 import '../data/pos_hardware.dart' show AskodoxScanException;
 import '../data/pos_repository.dart';
+import '../domain/order_steps.dart';
 import '../domain/pos_money.dart';
 import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
@@ -18,6 +19,18 @@ import 'pos_common.dart';
 
 String _itemName(AskodoxJson item, bool te) =>
     te && '${item['name_te'] ?? ''}'.isNotEmpty ? '${item['name_te']}' : '${item['name'] ?? ''}';
+
+/// The veg / non-veg / egg mark printed on Indian menus: a square with a dot (green / red / brown).
+Widget askodoxFoodDot(String type) {
+  final color = type == 'veg' ? const Color(0xFF17784C) : (type == 'egg' ? const Color(0xFFB45309) : const Color(0xFFB91C1C));
+  return Container(
+    width: 14,
+    height: 14,
+    decoration: BoxDecoration(border: Border.all(color: color, width: 1.5), borderRadius: BorderRadius.circular(3)),
+    alignment: Alignment.center,
+    child: Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+  );
+}
 
 String _kindLabel(String kind, bool te) => switch (kind) {
       'dine_in' => te ? 'ఇక్కడ తింటాను' : 'Dine in',
@@ -271,6 +284,17 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
   }
 
   List<AskodoxJson> get _menu => askodoxPosList(_data?['menu']);
+  String _group = '';
+  String _food = '';
+
+  /// The shop's own menu sections in menu order ('' = items with no section).
+  List<String> get _groups => [for (final g in {for (final m in _menu) '${m['menu_group'] ?? ''}'.trim()}) g];
+
+  bool get _hasFoodMarks => _menu.any((m) => '${m['food_type'] ?? ''}'.isNotEmpty);
+
+  bool _shows(AskodoxJson m) =>
+      (_group.isEmpty || '${m['menu_group'] ?? ''}'.trim() == _group) &&
+      (_food.isEmpty || (_food == 'veg' ? m['food_type'] == 'veg' : const ['nonveg', 'egg'].contains(m['food_type'])));
 
   AskodoxJson? _item(String id) {
     for (final m in _menu) {
@@ -387,6 +411,7 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
     final d = _data;
     return Scaffold(
       appBar: AppBar(title: Text('${(d?['business'] as Map?)?['name'] ?? (te ? 'ఆర్డర్' : 'Order')}')),
+      bottomNavigationBar: d != null && d['open'] == true ? _cartBar(te) : null,
       body: _error != null
           ? AskodoxPosError(error: _error!, onRetry: _load)
           : d == null
@@ -451,7 +476,48 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
           ),
         ),
       const SizedBox(height: 6),
-      for (final m in _menu) _menuRow(m, te),
+      if (_groups.where((g) => g.isNotEmpty).length > 1 || _hasFoodMarks)
+        SingleChildScrollView(
+          key: const Key('askodoxOrderMenuTabs'),
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            if (_hasFoodMarks) ...[
+              for (final f in const ['veg', 'nonveg'])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: FilterChip(
+                    key: Key('askodoxOrderFood-$f'),
+                    avatar: askodoxFoodDot(f),
+                    label: Text(f == 'veg' ? (te ? 'వెజ్' : 'Veg') : (te ? 'నాన్-వెజ్' : 'Non-veg')),
+                    selected: _food == f,
+                    onSelected: (on) => setState(() => _food = on ? f : ''),
+                  ),
+                ),
+              const SizedBox(width: 6),
+            ],
+            if (_groups.where((g) => g.isNotEmpty).length > 1)
+              for (final g in ['', ..._groups.where((g) => g.isNotEmpty)])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    key: Key('askodoxOrderGroup-${g.isEmpty ? 'all' : g}'),
+                    label: Text(g.isEmpty ? (te ? 'అన్నీ' : 'All') : g),
+                    selected: _group == g,
+                    onSelected: (_) => setState(() => _group = g),
+                  ),
+                ),
+          ]),
+        ),
+      for (final g in _groups)
+        if (_menu.any((m) => '${m['menu_group'] ?? ''}'.trim() == g && _shows(m))) ...[
+          if (g.isNotEmpty && _groups.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 2),
+              child: Text(g, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            ),
+          for (final m in _menu)
+            if ('${m['menu_group'] ?? ''}'.trim() == g && _shows(m)) _menuRow(m, te),
+        ],
       const Divider(height: 24),
       if (_kind == 'delivery') ...[
         TextField(
@@ -484,23 +550,39 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
           controller: _notes,
           decoration: InputDecoration(border: const OutlineInputBorder(), labelText: te ? 'షాప్‌కి నోట్ (కారం తక్కువ…)' : 'Note for the kitchen')),
       const SizedBox(height: 12),
-      Row(children: [
-        Expanded(child: Text(te ? 'సుమారు మొత్తం' : 'About', style: const TextStyle(fontWeight: FontWeight.w800))),
-        Text(askodoxPaise(_total), key: const Key('askodoxOrderTotal'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-      ]),
       Text(
           gst
               ? (te ? 'GST బిల్లులో చూపిస్తారు. డబ్బు నేరుగా షాప్ UPI కి.' : 'GST is shown on the bill. You pay the shop directly.')
               : (te ? 'ఈ షాప్‌కి GST లేదు. డబ్బు నేరుగా షాప్ UPI కి.' : 'This shop has no GST. You pay the shop directly.'),
           style: const TextStyle(fontSize: 12)),
-      const SizedBox(height: 10),
-      FilledButton.icon(
-        key: const Key('askodoxOrderPlace'),
-        onPressed: _busy || _qty.isEmpty ? null : _place,
-        icon: const Icon(Icons.restaurant_menu),
-        label: Text(te ? 'ఆర్డర్ పంపండి' : 'Send the order'),
-      ),
+      const SizedBox(height: 80),
     ]);
+  }
+
+  /// Always at the bottom, whatever is scrolled (owner 2026-11-17): how many, how much, and the one button.
+  Widget _cartBar(bool te) {
+    final count = _qty.values.fold<double>(0, (a, b) => a + b).round();
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+        decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Color(0x1A141E3C), blurRadius: 14, offset: Offset(0, -4))]),
+        child: FilledButton(
+          key: const Key('askodoxOrderPlace'),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), padding: const EdgeInsets.symmetric(horizontal: 16)),
+          onPressed: _busy || _qty.isEmpty ? null : _place,
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(count == 0 ? (te ? 'ఐటమ్స్ ఎంచుకోండి' : 'Choose items') : '$count ${te ? 'ఐటమ్స్' : 'items'} · ${_kindLabel(_kind, te)}',
+                    style: const TextStyle(fontSize: 12)),
+                Text(askodoxPaise(_total), key: const Key('askodoxOrderTotal'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+              ]),
+            ),
+            Text(te ? 'ఆర్డర్ పంపు ›' : 'Send order ›', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          ]),
+        ),
+      ),
+    );
   }
 
   /// A note for one item: tap a common one or type your own (it goes to the kitchen next to the item).
@@ -549,7 +631,12 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
       key: Key('askodoxOrderItem-$id'),
       contentPadding: EdgeInsets.zero,
       enabled: available,
-      title: Text(_itemName(m, te) + (m['today_only'] == true ? (te ? '  ⭐ ఈ రోజు' : '  ⭐ today') : '')),
+      title: Row(children: [
+        if ('${m['food_type'] ?? ''}'.isNotEmpty) ...[askodoxFoodDot('${m['food_type']}'), const SizedBox(width: 6)],
+        Expanded(
+            child: Text(
+                '${m['item_no'] != null ? '#${m['item_no']} ' : ''}${_itemName(m, te)}${m['today_only'] == true ? (te ? '  ⭐ ఈ రోజు' : '  ⭐ today') : ''}')),
+      ]),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(available ? '${askodoxPaise(askodoxPosInt(m['price_paise']))} / ${m['unit']}' : (te ? 'ఈ రోజు అయిపోయింది' : 'Finished for today')),
         if (available && q > 0)
@@ -635,73 +722,168 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
     final o = _order;
+    final waiting = o != null && askodoxOrderAwaitsShop(o);
+    final payLink = o == null ? null : askodoxOrderPayLink(o);
+    final invoice = o?['invoice'] is Map ? o!['invoice'] as Map : null;
+    final balance = invoice == null ? 0 : askodoxPosInt(invoice['balance_paise']);
+    final toPay = balance > 0 ? balance : askodoxPosInt(o?['estimate_paise']);
+    final closed = o != null && const ['rejected', 'cancelled'].contains('${o['stage']}');
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'నా ఆర్డర్' : 'My order')),
+      appBar: AppBar(title: Text(o == null ? (te ? 'నా ఆర్డర్' : 'My order') : '${o['business_name']}')),
+      bottomNavigationBar: o == null || closed || (invoice != null && balance == 0)
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+                child: FilledButton.icon(
+                  key: const Key('askodoxOrderPayUpi'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+                  onPressed: payLink == null ? null : () => _pay(payLink),
+                  icon: const Icon(Icons.payments_outlined),
+                  label: Text(waiting
+                      ? (te ? '${askodoxPaise(toPay)} — షాప్ ఒప్పుకున్నాక కట్టండి' : '${askodoxPaise(toPay)} — pay after the shop accepts')
+                      : payLink == null
+                          ? (te ? 'బిల్లు రాగానే ఇక్కడ కట్టొచ్చు' : 'Pay here once the bill comes')
+                          : (te ? '${askodoxPaise(toPay)} షాప్ UPI కి కట్టు' : "Pay ${askodoxPaise(toPay)} to the shop's UPI")),
+                ),
+              ),
+            ),
       body: _error != null
           ? AskodoxPosError(error: _error!, onRetry: _load)
           : o == null
               ? const Center(child: CircularProgressIndicator())
               : ListView(key: const Key('askodoxOrderTrack'), padding: const EdgeInsets.all(14), children: [
-                  Text('${o['business_name']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                  Text('${_kindLabel('${o['kind']}', te)}${o['table_name'] != null ? ' · ${o['table_name']}' : ''}'),
+                  Text('${_kindLabel('${o['kind']}', te)}${o['table_name'] != null ? ' · ${o['table_name']}' : ''}',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Container(
+                    key: const Key('askodoxOrderStage'),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: waiting ? const Color(0xFFFFF4E5) : (closed ? const Color(0xFFFDECEC) : const Color(0xFFE7F5EE)),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(children: [
+                      Text(
+                          waiting
+                              ? (te ? 'షాప్ ఒప్పుకోవడానికి వేచి ఉంది…' : 'Waiting for the shop to accept…')
+                              : '${(o['stage_text'] as Map)[te ? 'te' : 'en']}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: waiting ? const Color(0xFF92400E) : (closed ? const Color(0xFFB91C1C) : const Color(0xFF17784C)))),
+                      if (waiting)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                              te
+                                  ? 'ఓనర్ / వాళ్లు అనుమతి ఇచ్చిన వ్యక్తి "ఒప్పుకున్నాను" నొక్కగానే మీకు చెప్తాం. ఇంకా డబ్బు కట్టకండి.'
+                                  : 'You are told the moment the owner (or a person they allowed) accepts. Do not pay yet.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 13)),
+                        ),
+                    ]),
+                  ),
+                  if ('${o['reason'] ?? ''}'.isNotEmpty && '${o['reason']}' != 'null')
+                    Padding(padding: const EdgeInsets.only(top: 6), child: Text('${o['reason']}')),
                   const SizedBox(height: 10),
                   Card(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Text('${(o['stage_text'] as Map)[te ? 'te' : 'en']}',
-                              key: const Key('askodoxOrderStage'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)))),
-                  if ('${o['reason']}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text('${o['reason']}')),
-                  const SizedBox(height: 8),
-                  for (final i in askodoxPosList(o['items']))
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${i['name']} × ${(i['qty'] as num).round()}',
-                          style: TextStyle(decoration: i['status'] == 'unavailable' ? TextDecoration.lineThrough : null)),
-                      subtitle: i['status'] == 'unavailable'
-                          ? Text(te ? 'ఇది ఈ రోజు లేదు' : 'Not available today')
-                          : ('${i['note'] ?? ''}'.isNotEmpty ? Text('✏️ ${i['note']}') : null),
-                      trailing: Text(askodoxPaise(askodoxPosInt(i['price_paise']) * (i['qty'] as num).round())),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: Column(children: [
+                        for (final st in askodoxOrderSteps(o))
+                          Padding(
+                            key: Key('askodoxOrderStep-${st.stage}'),
+                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            child: Row(children: [
+                              Icon(
+                                  switch (st.state) {
+                                    AskodoxStepState.done => Icons.check_circle,
+                                    AskodoxStepState.now => Icons.radio_button_checked,
+                                    AskodoxStepState.next => Icons.radio_button_unchecked,
+                                  },
+                                  size: 22,
+                                  color: switch (st.state) {
+                                    AskodoxStepState.done => const Color(0xFF17784C),
+                                    AskodoxStepState.now => const Color(0xFFB45309),
+                                    AskodoxStepState.next => const Color(0xFF9AA3B2),
+                                  }),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                  child: Text(askodoxOrderStepName(st.stage, te),
+                                      style: TextStyle(
+                                          fontWeight: st.state == AskodoxStepState.next ? FontWeight.w500 : FontWeight.w800,
+                                          color: st.state == AskodoxStepState.next ? const Color(0xFF5B6475) : null))),
+                              Text(askodoxClockWords(st.at, te), style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                            ]),
+                          ),
+                      ]),
                     ),
-                  Row(children: [
-                    Expanded(child: Text(te ? 'సుమారు మొత్తం' : 'About')),
-                    Text(askodoxPaise(askodoxPosInt(o['estimate_paise'])), style: const TextStyle(fontWeight: FontWeight.w800)),
-                  ]),
-                  if (o['kind'] == 'dine_in' && !const ['placed', 'done', 'rejected', 'cancelled'].contains('${o['stage']}'))
+                  ),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(children: [
+                        for (final i in askodoxPosList(o['items']))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text('${(i['qty'] as num).round()} × ${i['name']}',
+                                      style: TextStyle(decoration: i['status'] == 'unavailable' ? TextDecoration.lineThrough : null)),
+                                  if (i['status'] == 'unavailable')
+                                    Text(te ? 'ఇది ఈ రోజు లేదు' : 'Not available today',
+                                        style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)))
+                                  else if ('${i['note'] ?? ''}'.isNotEmpty)
+                                    Text('${i['note']}', style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                                ]),
+                              ),
+                              Text(askodoxPaise(askodoxPosInt(i['price_paise']) * (i['qty'] as num).round()),
+                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                            ]),
+                          ),
+                        const Divider(),
+                        Row(children: [
+                          Expanded(
+                              child: Text(invoice != null ? '${te ? 'బిల్లు' : 'Bill'} ${invoice['number']}' : (te ? 'మొత్తం (సుమారు)' : 'Total (about)'),
+                                  style: const TextStyle(fontWeight: FontWeight.w800))),
+                          Text(askodoxPaise(invoice != null ? askodoxPosInt(invoice['total_paise']) : askodoxPosInt(o['estimate_paise'])),
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        ]),
+                        if (invoice != null)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                                balance > 0
+                                    ? '${te ? 'ఇంకా కట్టాల్సింది' : 'Still to pay'}: ${askodoxPaise(balance)}'
+                                    : (te ? 'కట్టేశారు ✓' : 'Paid ✓'),
+                                style: TextStyle(color: balance > 0 ? const Color(0xFFB45309) : const Color(0xFF17784C))),
+                          ),
+                      ]),
+                    ),
+                  ),
+                  if (o['kind'] == 'dine_in' && !const ['placed', 'accepting', 'done', 'rejected', 'cancelled'].contains('${o['stage']}'))
                     AskodoxTableRequestsPanel(key: const Key('askodoxTableRequests'), orderId: widget.orderId),
-                  if (o['invoice'] is Map) ...[
-                    const Divider(),
-                    Text('${te ? 'బిల్లు' : 'Bill'} ${(o['invoice'] as Map)['number']}: ${askodoxPaise(askodoxPosInt((o['invoice'] as Map)['total_paise']))}',
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
-                    if (askodoxPosInt((o['invoice'] as Map)['balance_paise']) > 0)
-                      Text('${te ? 'ఇంకా కట్టాల్సింది' : 'Still to pay'}: ${askodoxPaise(askodoxPosInt((o['invoice'] as Map)['balance_paise']))}'),
-                  ],
-                  for (final p in askodoxPosList(o['pay']))
-                    if ('${p['upi_link'] ?? ''}'.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: FilledButton.icon(
-                            key: const Key('askodoxOrderPayUpi'),
-                            onPressed: () => _pay('${p['upi_link']}'),
-                            icon: const Icon(Icons.payments_outlined),
-                            label: Text(te ? 'షాప్ UPI కి కట్టండి' : "Pay the shop's UPI")),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    if (o['can_cancel'] == true)
+                      Expanded(
+                        child: OutlinedButton(
+                            key: const Key('askodoxOrderCancel'),
+                            onPressed: _cancel,
+                            child: Text(te ? 'ఆర్డర్ రద్దు' : 'Cancel the order')),
                       ),
-                  const Divider(height: 28),
-                  for (final t in askodoxPosList(o['timeline']))
-                    ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.check_circle, size: 18),
-                        title: Text('${t['stage']}'),
-                        subtitle: Text('${t['at'] ?? ''}')),
-                  if (o['can_cancel'] == true)
-                    OutlinedButton(key: const Key('askodoxOrderCancel'), onPressed: _cancel, child: Text(te ? 'ఆర్డర్ రద్దు' : 'Cancel the order')),
-                  if ('${o['business_phone']}'.isNotEmpty)
-                    TextButton.icon(
-                        onPressed: () => launchUrl(Uri.parse('tel:${o['business_phone']}')),
-                        icon: const Icon(Icons.call),
-                        label: Text(te ? 'షాప్‌కి కాల్' : 'Call the shop')),
+                    if (o['can_cancel'] == true && '${o['business_phone'] ?? ''}'.isNotEmpty) const SizedBox(width: 8),
+                    if ('${o['business_phone'] ?? ''}'.isNotEmpty)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                            onPressed: () => launchUrl(Uri.parse('tel:${o['business_phone']}')),
+                            icon: const Icon(Icons.call),
+                            label: Text(te ? 'షాప్‌కి కాల్' : 'Call the shop')),
+                      ),
+                  ]),
                 ]),
     );
   }

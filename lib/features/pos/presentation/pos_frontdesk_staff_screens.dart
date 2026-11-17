@@ -486,32 +486,67 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
   Future<void> _editItem(AskodoxJson m, bool te) async {
     final name = TextEditingController(text: '${m['name']}');
     final price = TextEditingController(text: (askodoxPosInt(m['price_paise']) / 100).toStringAsFixed(askodoxPosInt(m['price_paise']) % 100 == 0 ? 0 : 2));
+    final group = TextEditingController(text: '${m['menu_group'] ?? ''}');
+    var food = '${m['food_type'] ?? ''}';
+    final sections = {
+      for (final x in askodoxPosList(_menu?['items'])) '${x['menu_group'] ?? ''}'.trim(),
+    }..remove('');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(te ? 'ఐటమ్ మార్చండి' : 'Edit item'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(key: const Key('askodoxDeskEditName'), controller: name, decoration: InputDecoration(labelText: te ? 'పేరు' : 'Name')),
-          TextField(
-              key: const Key('askodoxDeskEditPrice'),
-              controller: price,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: te ? 'రేటు (₹)' : 'Price (₹)')),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setInner) => AlertDialog(
+          title: Text(te ? 'ఐటమ్ మార్చండి' : 'Edit item'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              TextField(key: const Key('askodoxDeskEditName'), controller: name, decoration: InputDecoration(labelText: te ? 'పేరు' : 'Name')),
+              TextField(
+                  key: const Key('askodoxDeskEditPrice'),
+                  controller: price,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: te ? 'రేటు (₹)' : 'Price (₹)')),
+              TextField(
+                  key: const Key('askodoxDeskEditGroup'),
+                  controller: group,
+                  decoration: InputDecoration(labelText: te ? 'మెనూ వర్గం (బిర్యానీ, స్టార్టర్స్, డ్రింక్స్…)' : 'Menu section (Biryani, Starters, Drinks…)')),
+              if (sections.isNotEmpty)
+                Wrap(spacing: 6, children: [
+                  for (final g in sections) ActionChip(label: Text(g), onPressed: () => setInner(() => group.text = g)),
+                ]),
+              const SizedBox(height: 10),
+              Text(te ? 'వెజ్ / నాన్-వెజ్' : 'Veg / non-veg', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Wrap(spacing: 6, children: [
+                for (final f in const ['veg', 'nonveg', 'egg', ''])
+                  ChoiceChip(
+                    key: Key('askodoxDeskEditFood-${f.isEmpty ? 'none' : f}'),
+                    label: Text(switch (f) {
+                      'veg' => te ? 'వెజ్' : 'Veg',
+                      'nonveg' => te ? 'నాన్-వెజ్' : 'Non-veg',
+                      'egg' => te ? 'ఎగ్' : 'Egg',
+                      _ => te ? 'చెప్పను' : 'Not set',
+                    }),
+                    selected: food == f,
+                    onSelected: (_) => setInner(() => food = f),
+                  ),
+              ]),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
+          ],
+        ),
       ),
     );
     final newName = name.text.trim();
     final rupees = double.tryParse(price.text.trim());
+    final newGroup = group.text.trim();
     name.dispose();
     price.dispose();
+    group.dispose();
     if (ok != true || newName.isEmpty || rupees == null || rupees < 0) return;
     await _guard(() async {
-      await ref.read(askodoxPosRepositoryProvider).updateProduct(
-          widget.businessId, '${m['id']}', {'name': newName, 'price_paise': (rupees * 100).round()});
+      await ref.read(askodoxPosRepositoryProvider).updateProduct(widget.businessId, '${m['id']}',
+          {'name': newName, 'price_paise': (rupees * 100).round(), 'menu_group': newGroup, 'food_type': food});
       await _load();
       return null;
     });
@@ -535,6 +570,20 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
       await _load();
       return null;
     });
+    if (!mounted) return;
+    // a removed item can be brought back (owner 2026-11-17: every list has undo)
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 8),
+      content: Text(te ? '"${m['name']}" తీసేశాం' : '"${m['name']}" removed'),
+      action: SnackBarAction(
+        label: te ? 'తిరిగి తెచ్చు' : 'Undo',
+        onPressed: () => unawaited(_guard(() async {
+          await ref.read(askodoxPosRepositoryProvider).updateProduct(widget.businessId, '${m['id']}', {'active': true});
+          await _load();
+          return null;
+        })),
+      ),
+    ));
   }
 
   Future<void> _load() async {
@@ -780,7 +829,9 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                           radius: 15,
                           child: Text('${m['item_no']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)))
                       : null,
-                  title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}${m['available'] == true ? '' : (te ? ' · ఈ రోజు లేదు' : ' · out today')}'),
+                  title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}${m['available'] == true ? '' : (te ? ' · ఈ రోజు లేదు' : ' · out today')}'
+                      '${'${m['menu_group'] ?? ''}'.isNotEmpty ? ' · ${m['menu_group']}' : ''}'
+                      '${switch ('${m['food_type'] ?? ''}') { 'veg' => te ? ' · వెజ్' : ' · veg', 'nonveg' => te ? ' · నాన్-వెజ్' : ' · non-veg', 'egg' => te ? ' · ఎగ్' : ' · egg', _ => '' }}'),
                   subtitle: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
                     if (m['today_only_flag'] == true) Text(te ? 'ఈ రోజు మాత్రమే ✓' : 'Today only ✓'),
                     // Edit + Delete on every menu line (owner 2026-11-16). Delete hides the item; old bills keep their lines.

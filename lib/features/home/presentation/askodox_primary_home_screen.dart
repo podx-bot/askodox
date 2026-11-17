@@ -84,6 +84,7 @@ import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
 import 'chat_shop_menu_card.dart';
+import '../application/chat_shop_cart.dart';
 import '../application/voice_mode.dart';
 import '../../../core/diagnostics/test_mode.dart';
 import '../data/availability_watch_repository.dart';
@@ -1879,6 +1880,23 @@ class _AskodoxPrimaryHomeScreenState
     // writing in. Attachments (and an empty caption) inherit it.
     if (typed.isNotEmpty && (preset == null || speakResponse)) {
       await ref.read(askodoxConversationLanguageProvider.notifier).observe(typed);
+    }
+
+    // A shop's menu is open in the chat with a cart being filled: "ఇంకో బిర్యానీ" / "one cool drink too" changes THAT
+    // cart (owner 2026-11-17: the whole order happens in the chat). Anything else goes on to the normal assistant.
+    final shopCart = ref.read(askodoxChatShopCartProvider);
+    if (shopCart != null && attachments.isEmpty && typed.isNotEmpty) {
+      final heard = await shopCart.hear(typed);
+      if (heard != null && mounted) {
+        setState(() {
+          _active = true;
+          _turns.add(ConversationTurnRecord(text: typed, isUser: true));
+          _turns.add(ConversationTurnRecord(text: heard, isUser: false));
+        });
+        if (preset == null) _controller.clear();
+        _scrollBottom();
+        return;
+      }
     }
 
     var attachmentContext = '';
@@ -4105,6 +4123,7 @@ class _AskodoxPrimaryHomeScreenState
                 _ => boardMax == null ? _resultPill(te, pinned!) : _resultContext(te, pinned!, maxHeight: boardMax),
               },
               Expanded(child: _active ? _chat(te) : _home(te)),
+              if (_active) _shopCartBar(te),
               _composer(te)
             ]);
           }),
@@ -5364,6 +5383,42 @@ class _AskodoxPrimaryHomeScreenState
           ],
         ],
       );
+
+  /// The cart of the shop menu open in the chat, always just above the message box (owner 2026-11-17).
+  Widget _shopCartBar(bool te) {
+    final cart = ref.watch(askodoxChatShopCartProvider);
+    if (cart == null || cart.count == 0) return const SizedBox.shrink();
+    final money = cart.totalPaise % 100 == 0 ? '₹${cart.totalPaise ~/ 100}' : '₹${(cart.totalPaise / 100).toStringAsFixed(2)}';
+    return Container(
+      key: const Key('askodoxChatCartBar'),
+      margin: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+      decoration: BoxDecoration(color: const Color(0xFF1E3FA0), borderRadius: BorderRadius.circular(14)),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('${cart.count} ${te ? 'ఐటమ్స్' : 'items'} · ${cart.kindLabel} · ${cart.shopName}',
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(money, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+          ]),
+        ),
+        TextButton(
+          key: const Key('askodoxChatCartShow'),
+          onPressed: cart.show,
+          style: TextButton.styleFrom(foregroundColor: Colors.white, minimumSize: const Size(44, 44)),
+          child: Text(te ? 'చూడు' : 'View'),
+        ),
+        const SizedBox(width: 4),
+        FilledButton(
+          key: const Key('askodoxChatCartSend'),
+          onPressed: () => unawaited(cart.send()),
+          style: FilledButton.styleFrom(
+              backgroundColor: Colors.white, foregroundColor: const Color(0xFF1E3FA0), minimumSize: const Size(44, 44)),
+          child: Text(te ? 'ఆర్డర్ పెట్టు' : 'Place order', style: const TextStyle(fontWeight: FontWeight.w800)),
+        ),
+      ]),
+    );
+  }
 
   Widget _composer(bool te) => Container(
         padding: EdgeInsets.fromLTRB(
