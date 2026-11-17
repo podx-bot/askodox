@@ -51,7 +51,7 @@ def pay_choice(value: Any) -> tuple:
     """'phonepe' -> ('upi', 'phonepe'); 'cash' -> ('cash', ''); unknown -> PosError."""
     v = str(value or "cash").strip().lower().replace(" ", "").replace("_", "")
     v = {"googlepay": "gpay", "gpay": "gpay", "phonepe": "phonepe", "paytm": "paytm", "bhim": "bhim",
-         "otherupi": "other_upi", "upi": "upi", "cash": "cash", "card": "card", "banktransfer": "bank_transfer",
+         "otherupi": "other_upi", "upi": "upi", "online": "upi", "cash": "cash", "card": "card", "banktransfer": "bank_transfer",
          "cheque": "cheque"}.get(v, v)
     if v in PAY_APPS:
         return "upi", v
@@ -186,9 +186,75 @@ class PosBills:
                "status": "cancelled" if inv["status"] != "issued" else ("paid" if due == 0 else "due"),
                "paid_with": [APP_LABELS.get(m, m) for m in modes],
                "customer_says_paid": bool(share["customer_says_paid_at"]), "pay": []}
+        out.update(self.paper(conn, inv, biz, due))
         if due > 0:
             out["pay"] = self.pay_to(biz["owner_user_id"], due, f"{biz['name']} bill {inv['number']}"[:60], inv["number"])
         return out
+
+    def paper(self, conn: sqlite3.Connection, inv: sqlite3.Row, biz: sqlite3.Row, due: int) -> Dict[str, Any]:
+        """Everything a printed shop bill shows (owner 2026-11-17, like a paper bill): the shop's name, what it sells,
+        address, phone, GSTIN or "no GST"; the customer; each line with quantity, rate and amount; discount, GST, round-off;
+        how it was paid (cash / online with the app / still due) and the bill's name from that (cash / online / credit)."""
+        totals = json.loads(inv["totals"])
+        try:
+            snap = json.loads(inv["customer_snapshot"] or "{}")
+        except ValueError:
+            snap = {}
+        category = ""
+        try:
+            prof = conn.execute("SELECT data FROM shop_profiles WHERE business_id = ?", (biz["id"],)).fetchone()
+            data = json.loads(prof["data"]) if prof else {}
+            category = str(data.get("subcategory") or data.get("category") or "")
+            category = category.split(":", 1)[1] if category.startswith("other:") else category
+        except (sqlite3.Error, ValueError):
+            category = ""
+        lines = [{"name": l["name"], "qty_milli": l["qty_milli"], "unit": l["unit"], "rate_paise": l["unit_price_paise"],
+                  "discount_paise": l["discount_paise"], "rate_bp": l["rate_bp"], "amount_paise": l["total_paise"]}
+                 for l in conn.execute("SELECT * FROM pos_invoice_lines WHERE invoice_id = ? ORDER BY line_no", (inv["id"],))]
+        cash = online = 0
+        apps: List[str] = []
+        try:
+            rows = conn.execute("SELECT method, amount_paise, app FROM pos_payments WHERE invoice_id = ?", (inv["id"],)).fetchall()
+        except sqlite3.OperationalError:
+            rows = conn.execute("SELECT method, amount_paise, '' AS app FROM pos_payments WHERE invoice_id = ?", (inv["id"],)).fetchall()
+        for r in rows:
+            if r["method"] == "cash":
+                cash += int(r["amount_paise"])
+            else:
+                online += int(r["amount_paise"])
+                label = APP_LABELS.get(r["app"] or "", "") or {"card": "Card", "bank_transfer": "Bank"}.get(r["method"], "")
+                if label and label not in apps:
+                    apps.append(label)
+        if due > 0:
+            kind = "part" if (cash or online) else "credit"
+        else:
+            kind = "mixed" if cash and online else ("online" if online else "cash")
+        return {
+            "shop_address": biz["address"], "shop_phone": biz["phone"], "shop_gstin": biz["gstin"] or "",
+            "shop_category": category, "gst": biz["registration_type"] != "unregistered",
+            "customer_name": str(snap.get("name") or ""), "customer_phone_last4": str(snap.get("phone") or "")[-4:],
+            "paper_lines": lines,
+            "gross_paise": int(totals.get("gross_paise") or 0), "discount_paise": int(totals.get("discount_paise") or 0),
+            "tax_paise": int(totals.get("tax_paise") or 0), "cgst_paise": int(totals.get("cgst_paise") or 0),
+            "sgst_paise": int(totals.get("sgst_paise") or 0), "igst_paise": int(totals.get("igst_paise") or 0),
+            "round_off_paise": int(totals.get("round_off_paise") or 0),
+            "cash_paise": cash, "online_paise": online, "online_apps": apps, "bill_kind": kind,
+            "revised_from": "",
+        }
+
+    def paper_for(self, business_id: str, user: str, invoice_id: str) -> Dict[str, Any]:
+        """The same paper view for the shop's own screen (after billing): what the customer will see."""
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "sell")
+            inv = self._invoice_row(conn, business_id, invoice_id)
+            biz = self.store._business_row(conn, business_id)
+            due = self._due(conn, inv)
+            totals = json.loads(inv["totals"])
+            out = {"business_id": business_id, "shop": biz["name"], "invoice_id": inv["id"], "number": inv["number"],
+                   "issued_at": inv["issued_at"], "total_paise": int(totals.get("grand_total_paise") or 0),
+                   "due_paise": due, "status": "cancelled" if inv["status"] != "issued" else ("paid" if due == 0 else "due")}
+            out.update(self.paper(conn, inv, biz, due))
+            return out
 
     # ------------------------------------------------------------------ send
     def send(self, business_id: str, user: str, invoice_id: str, phone: str, *, base_url: str = "") -> Dict[str, Any]:

@@ -5526,12 +5526,14 @@ class _AskodoxPrimaryHomeScreenState
     };
     return Container(
       key: const Key('askodoxVoicePanel'),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      // Owner 2026-11-17: a compact pill like Claude's voice bar -- live wave, time and one round Stop.
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
       decoration: BoxDecoration(
-          color: const Color(0xFFF2F0FF),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFDDD9FF))),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFDDD9FF)),
+          boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 2))]),
       child: Row(children: [
         AnimatedScale(
           key: const Key('askodoxVoicePulse'),
@@ -5540,24 +5542,24 @@ class _AskodoxPrimaryHomeScreenState
           // The docked companion above listens/thinks/speaks; the panel keeps
           // the plain mic/speaker cue.
           child: CircleAvatar(
-                  radius: 18,
+                  radius: 14,
                   backgroundColor: listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
                   child: Icon(
                       _voicePhase == _VoicePhase.speaking
                           ? Icons.volume_up_rounded
                           : Icons.mic_rounded,
                       color: Colors.white,
-                      size: 20),
+                      size: 16),
                 ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Flexible(
                 child: Text(status,
                     key: const Key('askodoxVoiceStatus'),
-                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w900)),
+                    style: const TextStyle(color: _ink, fontSize: 12.5, fontWeight: FontWeight.w800)),
               ),
               if (listening) ...[
                 const SizedBox(width: 8),
@@ -5571,7 +5573,7 @@ class _AskodoxPrimaryHomeScreenState
                       key: const Key('askodoxVoiceStopHint'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(color: _muted, fontSize: 10.5, fontWeight: FontWeight.w600)),
                 ),
               ],
               if (listening) ...[
@@ -5582,7 +5584,7 @@ class _AskodoxPrimaryHomeScreenState
               ],
             ]),
             if (listening) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
               SizedBox(
                 height: 30,
                 child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -5607,12 +5609,12 @@ class _AskodoxPrimaryHomeScreenState
         ),
         const SizedBox(width: 6),
         if (listening)
-          FilledButton.icon(
+          IconButton.filled(
             key: const Key('askodoxVoiceStop'),
+            tooltip: te ? 'ఆపండి' : 'Stop',
             onPressed: () => _finishVoice(noSpeech: false),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5484D)),
-            icon: const Icon(Icons.stop_rounded),
-            label: Text(te ? 'ఆపండి' : 'Stop'),
+            style: IconButton.styleFrom(backgroundColor: const Color(0xFFE5484D), fixedSize: const Size(44, 44)),
+            icon: const Icon(Icons.stop_rounded, color: Colors.white),
           )
         else if (_voicePhase == _VoicePhase.speaking) ...[
           IconButton(

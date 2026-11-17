@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../shared/widgets/navigator_section.dart' show AskodoxNavSection;
 import '../../location/presentation/map_pin_picker.dart';
 import '../../shops/presentation/my_business_screens.dart' show askodoxBoxMic;
 import '../data/pos_hardware.dart' show AskodoxScanException;
@@ -13,12 +14,25 @@ import '../domain/order_steps.dart';
 import '../domain/pos_money.dart';
 import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
+import 'shop_rating_screens.dart';
 
 /// Front desk, customer side (owner 2026-11-15): scan / type the shop's order code -> the menu + a receptionist
 /// (voice or typing) -> one order that goes to the kitchen, then follow it live. Money is paid to the shop's own UPI.
 
 String _itemName(AskodoxJson item, bool te) =>
     te && '${item['name_te'] ?? ''}'.isNotEmpty ? '${item['name_te']}' : '${item['name'] ?? ''}';
+
+/// The picture for a table request (water, gravy, onions, plate, tissue, bill, waiter; a shop's own = plus).
+IconData askodoxTableAskIcon(String key) => switch (key) {
+      'water' => Icons.water_drop_outlined,
+      'extra_gravy' || 'gravy' => Icons.ramen_dining_outlined,
+      'onions' || 'onion' => Icons.spa_outlined,
+      'extra_plate' || 'plate' => Icons.restaurant_outlined,
+      'tissue' => Icons.clean_hands_outlined,
+      'bill' => Icons.receipt_long,
+      'call' => Icons.front_hand_outlined,
+      _ => Icons.add_circle_outline,
+    };
 
 /// The veg / non-veg / egg mark printed on Indian menus: a square with a dot (green / red / brown).
 Widget askodoxFoodDot(String type) {
@@ -430,7 +444,52 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
       return Center(
           child: Padding(padding: const EdgeInsets.all(24), child: Text('${d['message']}', textAlign: TextAlign.center)));
     }
+    final welcome = askodoxPosMap(d['welcome']);
+    final biz = askodoxPosMap(d['business']);
     return ListView(key: const Key('askodoxOrderDesk'), padding: const EdgeInsets.all(14), children: [
+      // Owner 2026-11-17: the shop greets the person by name on a QR scan (the shop can change or turn it off).
+      if ('${welcome['text'] ?? ''}'.isNotEmpty)
+        Container(
+          key: const Key('askodoxOrderWelcome'),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFFFFF4E0), Color(0xFFFFE7EF)]),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(children: [
+            const Text('🙏', style: TextStyle(fontSize: 26)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${welcome['text']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                if (askodoxPosInt(welcome['visits_this_month']) > 1 || '${welcome['favourite'] ?? ''}'.isNotEmpty)
+                  Text(
+                      [
+                        if (askodoxPosInt(welcome['visits_this_month']) > 1)
+                          te ? 'ఈ నెల ${welcome['visits_this_month']}వ సారి' : 'Visit ${welcome['visits_this_month']} this month',
+                        if ('${welcome['favourite'] ?? ''}'.isNotEmpty)
+                          te ? 'మీ ఇష్టం: ${welcome['favourite']}' : 'Your usual: ${welcome['favourite']}',
+                      ].join(' · '),
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+              ]),
+            ),
+          ]),
+        ),
+      if ('${biz['id'] ?? ''}'.isNotEmpty)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('askodoxOrderDeskShopPage'),
+            icon: const Icon(Icons.storefront_outlined, size: 18),
+            label: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(te ? 'షాప్ పేజీ' : 'Shop page'),
+              const SizedBox(width: 6),
+              askodoxRatingLine(biz['rating']),
+            ]),
+            onPressed: () => context.push('/shops/${biz['id']}'),
+          ),
+        ),
       if (table != null)
         Card(child: ListTile(leading: const Icon(Icons.table_restaurant), title: Text(te ? 'టేబుల్ ${table['name']}' : 'Table ${table['name']}'))),
       Wrap(spacing: 8, children: [
@@ -636,6 +695,7 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
         Expanded(
             child: Text(
                 '${m['item_no'] != null ? '#${m['item_no']} ' : ''}${_itemName(m, te)}${m['today_only'] == true ? (te ? '  ⭐ ఈ రోజు' : '  ⭐ today') : ''}')),
+        askodoxRatingLine(m['rating'], size: 11.5),
       ]),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(available ? '${askodoxPaise(askodoxPosInt(m['price_paise']))} / ${m['unit']}' : (te ? 'ఈ రోజు అయిపోయింది' : 'Finished for today')),
@@ -673,6 +733,7 @@ class AskodoxOrderTrackScreen extends ConsumerStatefulWidget {
 
 class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScreen> {
   AskodoxJson? _order;
+  bool _ratingAsked = false;
   Object? _error;
   Timer? _timer;
 
@@ -697,6 +758,17 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
           _order = o;
           _error = null;
         });
+        // Owner 2026-11-17: the rating sheet opens by itself once the order is finished (the server decides
+        // whether to ask: once, "later" = once more the next day).
+        if (o['can_rate'] == true && !_ratingAsked) {
+          _ratingAsked = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (mounted && await askodoxAskRating(context, ref, widget.orderId) && mounted) {
+              askodoxPosSnack(context, askodoxPosTe(context) ? 'ధన్యవాదాలు! ⭐' : 'Thank you! ⭐');
+              unawaited(_load());
+            }
+          });
+        }
       }
     } catch (e) {
       if (mounted && _order == null) setState(() => _error = e);
@@ -753,6 +825,35 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
           : o == null
               ? const Center(child: CircularProgressIndicator())
               : ListView(key: const Key('askodoxOrderTrack'), padding: const EdgeInsets.all(14), children: [
+                  if ('${o['thanks'] ?? ''}'.isNotEmpty || o['can_rate'] == true)
+                    Container(
+                      key: const Key('askodoxOrderThanks'),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: const Color(0xFFFFF8EB), borderRadius: BorderRadius.circular(14)),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        if ('${o['thanks'] ?? ''}'.isNotEmpty)
+                          Text('🙏 ${o['thanks']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        Wrap(spacing: 8, children: [
+                          if (o['can_rate'] == true)
+                            TextButton.icon(
+                              key: const Key('askodoxOrderRate'),
+                              icon: const Icon(Icons.star_rounded, color: Color(0xFFF59E0B)),
+                              label: Text(te ? 'రేటింగ్ ఇవ్వండి' : 'Rate'),
+                              onPressed: () async {
+                                if (await askodoxAskRating(context, ref, widget.orderId)) unawaited(_load());
+                              },
+                            ),
+                          if ('${o['business_id'] ?? ''}'.isNotEmpty)
+                            TextButton.icon(
+                              key: const Key('askodoxOrderShopPage'),
+                              icon: const Icon(Icons.storefront_outlined),
+                              label: Text(te ? 'షాప్ పేజీ' : 'Shop page'),
+                              onPressed: () => context.push('/shops/${o['business_id']}'),
+                            ),
+                        ]),
+                      ]),
+                    ),
                   Text('${_kindLabel('${o['kind']}', te)}${o['table_name'] != null ? ' · ${o['table_name']}' : ''}',
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
@@ -962,15 +1063,39 @@ class _AskodoxTableRequestsPanelState extends ConsumerState<AskodoxTableRequests
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(te ? 'ఏమైనా కావాలా?' : 'Need something?', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 4, children: [
-            for (final q in askodoxPosList(d['quick']))
-              ActionChip(
-                key: Key('askodoxTableAsk-${q['key']}'),
-                avatar: Icon(q['key'] == 'bill' ? Icons.receipt_long : (q['key'] == 'call' ? Icons.notifications_active : Icons.add), size: 18),
-                label: Text(te ? '${q['te']}' : '${q['en']}'),
-                onPressed: _busy ? null : () => _ask(kinds: ['${q['key']}']),
-              ),
-          ]),
+          // Owner 2026-11-17: big coloured buttons (3 in a row), one tap = the waiter's phone rings and says it.
+          LayoutBuilder(builder: (context, box) {
+            final w = (box.maxWidth - 16) / 3;
+            final quick = askodoxPosList(d['quick']);
+            return Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final (i, q) in quick.indexed)
+                SizedBox(
+                  width: w,
+                  child: Material(
+                    color: AskodoxNavSection.palette[i % AskodoxNavSection.palette.length].$1,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      key: Key('askodoxTableAsk-${q['key']}'),
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: _busy ? null : () => _ask(kinds: ['${q['key']}']),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 80),
+                        padding: const EdgeInsets.all(6),
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(askodoxTableAskIcon('${q['key']}'),
+                              size: 26, color: AskodoxNavSection.palette[i % AskodoxNavSection.palette.length].$2),
+                          const SizedBox(height: 4),
+                          Text(te ? '${q['te']}' : '${q['en']}',
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+            ]);
+          }),
           const SizedBox(height: 8),
           TextField(
             key: const Key('askodoxTableSay'),
@@ -987,10 +1112,30 @@ class _AskodoxTableRequestsPanelState extends ConsumerState<AskodoxTableRequests
               ]),
             ),
           ),
-          if (waiting.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('${te ? 'వేచి ఉన్నవి' : 'Waiting'}: ${waiting.map((r) => ('${r['text']}'.isNotEmpty ? '${r['text']}' : '${r['label']}')).join(', ')}',
-                key: const Key('askodoxTableWaiting'), style: const TextStyle(fontSize: 13)),
+          if (askodoxPosList(d['requests']).isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(te ? 'మీరు అడిగినవి' : 'What you asked for', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+            Column(key: waiting.isEmpty ? null : const Key('askodoxTableWaiting'), children: [
+              for (final r in askodoxPosList(d['requests']).take(6))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(children: [
+                    Icon(askodoxTableAskIcon('${r['kind']}'), size: 18, color: const Color(0xFF1E3FA0)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('${r['text']}'.isNotEmpty ? '${r['text']}' : '${r['label']}')),
+                    Text(
+                        switch ('${r['status']}') {
+                          'done' => '${'${r['done_by_name'] ?? ''}'.isNotEmpty ? '${r['done_by_name']} ' : ''}${te ? 'తెచ్చారు ✓' : 'brought it ✓'}',
+                          'cancelled' => te ? 'రద్దు' : 'Cancelled',
+                          _ => '${te ? 'పంపాం' : 'Sent'} · ${askodoxClockWords(r['created_at'], te)}',
+                        },
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: r['status'] == 'done' ? const Color(0xFF17784C) : const Color(0xFFB45309))),
+                  ]),
+                ),
+            ]),
           ],
         ]),
       ),

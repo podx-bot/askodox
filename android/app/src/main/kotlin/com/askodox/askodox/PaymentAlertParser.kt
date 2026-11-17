@@ -126,7 +126,10 @@ object PaymentAlertParser {
         // payment. The payment is the FIRST amount that is not a balance (banks write the credited amount first).
         val amounts = paymentAmounts(joined)
         if (amounts.isEmpty()) return Result.Ambiguous("amount_missing")
-        val reference = refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.count(Char::isDigit) >= 6 }
+        // The UPI RRN (12 digits) is the ONE number a bank SMS and a UPI / bank app show for the same payment
+        // (owner 2026-11-17: one common key). An app's own transaction id ("T2511...") is used only when no RRN is shown.
+        val reference = rrn(joined)
+            ?: refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.count(Char::isDigit) >= 6 }
         return Result.Accepted(amounts.first(), reference, payerName(body) ?: payerName(title), accountTail(joined))
     }
 
@@ -440,6 +443,43 @@ object PaymentAlertParser {
      * payment time is [deltaMs] after the row's (negative = before)? A kind the row already has never joins it
      * (two SMS = two payments).
      */
+    private val rrnRegex = Regex("""(?<![0-9])([0-9]{12})(?![0-9])""")
+
+    /** The UPI reference number (RRN): 12 digits, not a phone number / account / amount. */
+    fun rrn(text: String?): String? = rrnRegex.findAll(text ?: "").map { it.groupValues[1] }
+        .firstOrNull { !it.startsWith("91") || it.length != 12 || it[2] !in '6'..'9' }
+
+    enum class RefMatch { SAME, DIFFERENT, UNKNOWN }
+
+    /**
+     * Owner 2026-11-17 (the same money spoken twice, a fraction of a second apart): two messages' references.
+     * SAME = equal, or one is the other's tail (an app showing only the last digits);
+     * DIFFERENT = two full UPI RRNs (12 digits) that differ: two payments, whatever the amount;
+     * UNKNOWN = different KINDS of number (the bank's RRN vs an app's own "T2511..." id, or one missing) -- they say
+     * nothing either way, so amount + time + source decide.
+     */
+    fun compareRefs(a: String?, b: String?): RefMatch {
+        val x = a?.trim().orEmpty()
+        val y = b?.trim().orEmpty()
+        if (x.isEmpty() || y.isEmpty()) return RefMatch.UNKNOWN
+        if (x.equals(y, ignoreCase = true)) return RefMatch.SAME
+        val shorter = if (x.length <= y.length) x else y
+        val longer = if (x.length <= y.length) y else x
+        if (shorter.length >= 4 && shorter.all(Char::isDigit) && longer.endsWith(shorter)) return RefMatch.SAME
+        val rrnA = x.length == 12 && x.all(Char::isDigit)
+        val rrnB = y.length == 12 && y.all(Char::isDigit)
+        return if (rrnA && rrnB) RefMatch.DIFFERENT else RefMatch.UNKNOWN
+    }
+
+    /** Two account tails (last digits of the bank account) that cannot be the same account. */
+    fun accountsDiffer(a: String?, b: String?): Boolean {
+        val x = a?.filter(Char::isDigit).orEmpty()
+        val y = b?.filter(Char::isDigit).orEmpty()
+        if (x.length < 3 || y.length < 3) return false
+        val n = minOf(x.length, y.length)
+        return x.takeLast(n) != y.takeLast(n)
+    }
+
     fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long): Boolean = when {
         kind in rowKinds -> false
         kind == "sms" -> deltaMs in -NOTE_AFTER_SMS_MS..SMS_AFTER_NOTE_MS   // this SMS vs the row's notification

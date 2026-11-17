@@ -9,10 +9,9 @@ import 'askodox_mascot.dart';
 /// Business, Listings and every nested page -- a small heading with an icon,
 /// then one rounded card of rows (no card per row, no tall empty gaps).
 ///
-/// Redesign 2026-11-13 (owner: "a heading, and what each tap opens must be clear"): every
-/// section is a heading + ONE white card of full-width rows -- icon, title, a line saying what
-/// opens, the row's Guide button and a chevron. The old 2-column tile grid is gone; [grid] is kept
-/// only so callers compile.
+/// Redesign 2026-11-17 (owner: "buttons, not long rows; add colours"): every section is a heading +
+/// a 2-column grid of coloured tiles; rows with their own control stay as rows. [grid] is kept only so
+/// callers compile.
 class AskodoxNavSection extends StatelessWidget {
   const AskodoxNavSection(
       {super.key, required this.title, required this.icon, required this.children, this.grid = false, this.mascot});
@@ -28,10 +27,25 @@ class AskodoxNavSection extends StatelessWidget {
   static const ink = Color(0xFF10204A);
   static const accent = Color(0xFF1769FF);
 
+  /// Soft background + strong colour pairs; each section starts at its own colour (owner 2026-11-17: "add colours").
+  static const palette = [
+    (Color(0xFFE8EEFB), Color(0xFF1E3FA0)),
+    (Color(0xFFE7F5EE), Color(0xFF17784C)),
+    (Color(0xFFFFF1E3), Color(0xFFB45309)),
+    (Color(0xFFF1EBFB), Color(0xFF5B2A9E)),
+    (Color(0xFFE3F4F6), Color(0xFF0E6A84)),
+    (Color(0xFFFCE9F1), Color(0xFFA3215C)),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final rows = [for (final c in children) if (c is! SizedBox || c.child != null) c];
     if (rows.isEmpty) return const SizedBox.shrink();
+    // Owner 2026-11-17: pages are BUTTONS, not long rows -- every plain destination row is a coloured tile in a 2-column
+    // grid; rows that carry their own control (a switch, a value) stay as rows in one card below.
+    final tiles = [for (final r in rows) if (r is AskodoxNavRow && r.trailing == null) r];
+    final others = [for (final r in rows) if (!(r is AskodoxNavRow && r.trailing == null)) r];
+    final start = title.codeUnits.fold<int>(0, (a, b) => a + b) % palette.length;
     return Padding(
       padding: const EdgeInsets.only(top: 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -46,21 +60,96 @@ class AskodoxNavSection extends StatelessWidget {
             ),
           ]),
         ),
-        Material(
-          color: Colors.white,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFFE6E9EF)),
+        if (tiles.isNotEmpty)
+          LayoutBuilder(builder: (context, box) {
+            final width = (box.maxWidth - 10) / 2;
+            return Wrap(spacing: 10, runSpacing: 10, children: [
+              for (final (i, row) in tiles.indexed)
+                SizedBox(
+                  width: tiles.length.isOdd && i == tiles.length - 1 ? box.maxWidth : width,
+                  child: AskodoxNavColorTile(row: row, colors: palette[(start + i) % palette.length]),
+                ),
+            ]);
+          }),
+        if (others.isNotEmpty) ...[
+          if (tiles.isNotEmpty) const SizedBox(height: 10),
+          Material(
+            color: Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Color(0xFFE6E9EF)),
+            ),
+            child: Column(children: [
+              for (final (i, row) in others.indexed) ...[
+                if (i > 0) const Divider(height: 1, indent: 60, color: Color(0xFFEEF0F4)),
+                row,
+              ],
+            ]),
           ),
-          child: Column(children: [
-            for (final (i, row) in rows.indexed) ...[
-              if (i > 0) const Divider(height: 1, indent: 60, color: Color(0xFFEEF0F4)),
-              if (row is AskodoxNavRow && row.trailing == null) AskodoxNavListRow(row: row) else row,
-            ],
-          ]),
-        ),
+        ],
       ]),
+    );
+  }
+}
+
+/// A plain destination as a coloured button: white icon box, bold title, one or two lines saying what opens, the
+/// Guide button when the row has a walkthrough. The whole tile opens the page.
+class AskodoxNavColorTile extends ConsumerWidget {
+  const AskodoxNavColorTile({super.key, required this.row, required this.colors});
+  final AskodoxNavRow row;
+  final (Color, Color) colors;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
+    final flow = row.guide == null || !askodoxGuidesOn ? null : askodoxGuideById(row.guide!);
+    return KeyedSubtree(
+      key: row.key,
+      child: Material(
+        color: colors.$1,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: row.onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 100),
+            padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                  child: Icon(row.icon, color: colors.$2, size: 21),
+                ),
+                const Spacer(),
+                if (flow != null)
+                  Tooltip(
+                    message: te ? 'గైడ్: ఇక్కడ ఏం చేయాలి' : 'Guide: what to do here',
+                    child: InkResponse(
+                      key: ValueKey('askodoxTileGuide-${row.guide}'),
+                      radius: 20,
+                      onTap: () => ref.read(askodoxGuideProvider.notifier).start(flow),
+                      child: const Padding(padding: EdgeInsets.all(2), child: AskodoxMascot(size: 22)),
+                    ),
+                  ),
+              ]),
+              const SizedBox(height: 8),
+              Text(row.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AskodoxNavSection.ink, fontWeight: FontWeight.w800, fontSize: 14.5, height: 1.2)),
+              if (row.subtitle != null && row.subtitle!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(row.subtitle!,
+                      maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFF4B5563))),
+                ),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }

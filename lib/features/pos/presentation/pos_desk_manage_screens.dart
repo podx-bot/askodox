@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
+import '../../../shared/widgets/navigator_section.dart' show AskodoxNavSection;
 import 'pos_common.dart';
 
 /// The shop's order desk settings (owner 2026-11-16): WHO hears each step of an order (new order -> owner / cashier,
@@ -37,11 +38,17 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
   final _custom = TextEditingController();
   List<AskodoxJson> _quick = const [];
   String _role = 'cashier';
+  // Welcome on a QR scan + thanks at the end (owner 2026-11-17); the shop changes the words or turns it off.
+  AskodoxJson? _welcome;
+  final _hello = TextEditingController();
+  final _again = TextEditingController();
+  final _thanks = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     unawaited(_load());
+    unawaited(_loadWelcome());
   }
 
   @override
@@ -49,7 +56,84 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
     _phone.dispose();
     _label.dispose();
     _custom.dispose();
+    _hello.dispose();
+    _again.dispose();
+    _thanks.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWelcome() async {
+    try {
+      final w = await ref.read(askodoxPosRepositoryProvider).welcomeSettings(widget.businessId);
+      if (!mounted) return;
+      setState(() {
+        _welcome = w;
+        _hello.text = '${w['hello'] ?? ''}';
+        _again.text = '${w['again'] ?? ''}';
+        _thanks.text = '${w['thanks'] ?? ''}';
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveWelcome({bool? enabled}) => _guard(() async {
+        final w = await ref.read(askodoxPosRepositoryProvider).saveWelcome(widget.businessId, {
+          if (enabled != null) 'enabled': enabled,
+          'hello': _hello.text.trim(),
+          'again': _again.text.trim(),
+          'thanks': _thanks.text.trim(),
+        });
+        if (mounted) {
+          setState(() => _welcome = w);
+          askodoxPosSnack(context, askodoxPosTe(context) ? 'సేవ్ అయింది ✓' : 'Saved ✓');
+        }
+        return null;
+      });
+
+  Widget _welcomeCard(bool te) {
+    final w = _welcome;
+    if (w == null) return const SizedBox.shrink();
+    final defaults = askodoxPosMap(w['defaults']);
+    final on = w['enabled'] == true;
+    Widget box(String key, TextEditingController c, String label) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: TextField(
+            key: Key('askodoxDeskWelcome-$key'),
+            controller: c,
+            enabled: on,
+            maxLength: 160,
+            decoration: InputDecoration(
+                isDense: true,
+                border: const OutlineInputBorder(),
+                labelText: label,
+                hintText: '${defaults[key] ?? ''}',
+                hintMaxLines: 2,
+                counterText: ''),
+          ),
+        );
+    return Card(
+      key: const Key('askodoxDeskWelcomeCard'),
+      margin: const EdgeInsets.only(top: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SwitchListTile(
+            key: const Key('askodoxDeskWelcomeOn'),
+            contentPadding: EdgeInsets.zero,
+            value: on,
+            title: Text(te ? '🙏 స్వాగతం / ధన్యవాదాలు' : '🙏 Welcome / thank you', style: const TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text(te
+                ? 'QR స్కాన్ చేయగానే కస్టమర్ ఫోన్‌లో పేరుతో స్వాగతం, ఆర్డర్ అయిపోయాక ధన్యవాదాలు. {name} = కస్టమర్ పేరు, {shop} = షాప్ పేరు. ఖాళీ = కింద చూపిన మాట.'
+                : 'On the QR scan the customer sees a welcome with their name; after the order, a thank you. {name} = customer, {shop} = your shop. Empty = the grey text.'),
+            onChanged: (v) => _saveWelcome(enabled: v),
+          ),
+          box('hello', _hello, te ? 'మొదటిసారి వచ్చినవారికి' : 'First visit'),
+          box('again', _again, te ? 'మళ్ళీ వచ్చినవారికి' : 'Returning customer'),
+          box('thanks', _thanks, te ? 'చివర్లో ధన్యవాదాలు' : 'Thank you at the end'),
+          const SizedBox(height: 8),
+          FilledButton(key: const Key('askodoxDeskWelcomeSave'), onPressed: on ? () => _saveWelcome() : null, child: Text(te ? 'సేవ్' : 'Save')),
+        ]),
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -136,6 +220,44 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
         return null;
       });
 
+  String _chosenNames(String step, List<AskodoxJson> people, AskodoxJson routing, bool te) {
+    final chosen = ((routing[step] as List?) ?? const []).map((e) => '$e').toSet();
+    final names = [
+      for (final p in people)
+        if (chosen.contains('${p['id']}')) p['you'] == true ? (te ? 'మీరు' : 'You') : '${p['label']}',
+    ];
+    return names.isEmpty ? (te ? 'పాత్ర ప్రకారం ▾' : 'By role ▾') : '${names.join(', ')} ▾';
+  }
+
+  Future<void> _pickPeople((String, String, String) step, List<AskodoxJson> people, AskodoxJson routing, bool te) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
+        final chosen = ((askodoxPosMap(_data?['routing'])[step.$1] as List?) ?? const []).map((e) => '$e').toSet();
+        return SafeArea(
+          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+            Text(te ? step.$3 : step.$2, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            Text(te ? 'ఎవరినీ ఎంచుకోకపోతే ఆ పాత్ర ఉన్నవాళ్లకి వెళ్తుంది.' : 'Choose nobody and the people of that role are told.',
+                style: const TextStyle(fontSize: 12.5)),
+            for (final p in people)
+              CheckboxListTile(
+                key: Key('askodoxDeskRoute-${step.$1}-${p['id']}'),
+                contentPadding: EdgeInsets.zero,
+                value: chosen.contains('${p['id']}'),
+                title: Text(p['you'] == true ? (te ? 'మీరు' : 'You') : '${p['label']}'),
+                subtitle: Text(askodoxStaffRoleLabel('${p['role']}', te)),
+                onChanged: (v) async {
+                  await _toggle(step.$1, '${p['id']}', v ?? false);
+                  setSheet(() {});
+                },
+              ),
+          ]),
+        );
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
@@ -168,19 +290,37 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                   Text(te ? 'ఏ స్టెప్ ఎవరికి వినిపించాలి?' : 'Who is told at each step?', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   Text(te ? 'ఎవరినీ ఎంచుకోకపోతే ఆ పాత్ర ఉన్నవాళ్ళకి (యజమానికి కూడా) వెళ్తుంది.' : 'Choose nobody and the people of that role (and you) are told.',
                       style: const TextStyle(fontSize: 12.5)),
-                  for (final step in askodoxDeskSteps) ...[
-                    const SizedBox(height: 10),
-                    Text(te ? step.$3 : step.$2, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Wrap(spacing: 6, children: [
-                      for (final p in people)
-                        FilterChip(
-                          key: Key('askodoxDeskRoute-${step.$1}-${p['id']}'),
-                          label: Text('${p['you'] == true ? (te ? 'నేను' : 'Me') : p['label']} · ${askodoxStaffRoleLabel('${p['role']}', te)}'),
-                          selected: ((routing[step.$1] as List?) ?? const []).contains(p['id']),
-                          onSelected: (v) => _toggle(step.$1, '${p['id']}', v),
-                        ),
-                    ]),
-                  ],
+                  const SizedBox(height: 6),
+                  // Owner 2026-11-17: a small table (one row per step, the chosen people in one button), not chip walls.
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Column(children: [
+                        for (final (i, step) in askodoxDeskSteps.indexed) ...[
+                          if (i > 0) const Divider(height: 1),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(children: [
+                              Container(width: 6, height: 34, decoration: BoxDecoration(
+                                  color: AskodoxNavSection.palette[i % AskodoxNavSection.palette.length].$2,
+                                  borderRadius: BorderRadius.circular(3))),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(te ? step.$3 : step.$2, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5))),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 170),
+                                child: OutlinedButton(
+                                  key: Key('askodoxDeskRoutePick-${step.$1}'),
+                                  onPressed: () => _pickPeople(step, people, routing, te),
+                                  child: Text(_chosenNames(step.$1, people, routing, te), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ),
+                              ),
+                            ]),
+                          ),
+                        ],
+                      ]),
+                    ),
+                  ),
                   const Divider(height: 28),
                   Text(te ? 'టేబుల్ దగ్గర కస్టమర్ అడిగేవి' : 'What a table can ask for', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   Text(
@@ -188,31 +328,29 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                           ? 'కస్టమర్ ఆర్డర్ అంగీకరించాక నీళ్లు, ఎక్స్‌ట్రా గ్రేవీ, ఆనియన్స్, బిల్ లాంటివి బటన్‌తో లేదా మాటతో అడుగుతారు. వెయిటర్‌కి టేబుల్ పేరుతో వెళ్తుంది.'
                           : 'After you accept the order, the customer taps or says water, extra gravy, onions, the bill... The waiter gets it with the table name.',
                       style: const TextStyle(fontSize: 12.5)),
-                  for (final r in _quick)
-                    if (r['custom'] != true)
-                      SwitchListTile(
-                        key: Key('askodoxQuickReq-${r['key']}'),
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        value: r['enabled'] == true,
-                        title: Text(te ? '${r['te']}' : '${r['en']}'),
-                        onChanged: (v) {
-                          final off = _offKeys.toSet();
-                          v ? off.remove('${r['key']}') : off.add('${r['key']}');
-                          _saveQuick(off: off.toList());
-                        },
-                      )
-                    else
-                      ListTile(
-                        key: Key('askodoxQuickReq-${r['key']}'),
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('${r['en']}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _saveQuick(custom: [for (final c in _customRows) if (c['key'] != r['key']) c]),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    for (final r in _quick)
+                      if (r['custom'] != true)
+                        FilterChip(
+                          key: Key('askodoxQuickReq-${r['key']}'),
+                          label: Text(te ? '${r['te']}' : '${r['en']}'),
+                          selected: r['enabled'] == true,
+                          selectedColor: const Color(0xFFE7F5EE),
+                          onSelected: (v) {
+                            final off = _offKeys.toSet();
+                            v ? off.remove('${r['key']}') : off.add('${r['key']}');
+                            _saveQuick(off: off.toList());
+                          },
+                        )
+                      else
+                        InputChip(
+                          key: Key('askodoxQuickReq-${r['key']}'),
+                          label: Text('${r['en']}'),
+                          onDeleted: () => _saveQuick(custom: [for (final c in _customRows) if (c['key'] != r['key']) c]),
                         ),
-                      ),
+                  ]),
+                  const SizedBox(height: 8),
                   TextField(
                     key: const Key('askodoxQuickReqAdd'),
                     controller: _custom,
@@ -261,6 +399,7 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                       onPressed: _addStaff,
                       icon: const Icon(Icons.person_add_alt_1),
                       label: Text(te ? 'సిబ్బందిని చేర్చు' : 'Add staff')),
+                  _welcomeCard(te),
                 ]),
     );
   }

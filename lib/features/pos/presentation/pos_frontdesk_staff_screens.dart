@@ -13,7 +13,9 @@ import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../shops/presentation/my_business_screens.dart' show askodoxBoxMic;
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
+import '../domain/order_steps.dart' show askodoxClockWords;
 import 'pos_common.dart';
+import 'pos_frontdesk_screens.dart' show askodoxTableAskIcon;
 
 /// Front desk, shop side (owner 2026-11-15): ONE orders desk for table / shop-QR / counter / reception orders,
 /// the spoken menu, and the QR page. Cooks accept + move the stages, a cashier bills; every rule is the server's.
@@ -100,25 +102,44 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
             child: ListView(key: const Key('askodoxDeskRequests'), shrinkWrap: true, padding: const EdgeInsets.all(14), children: [
               Text(te ? 'టేబుల్ అభ్యర్థనలు' : 'Table requests', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               if (_asks.isEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(te ? 'ఏమీ లేవు ✓' : 'Nothing waiting ✓')),
+              // Owner 2026-11-17: a big card per request (table, what, how long ago) and one "Brought it ✓" tap.
               for (final r in _asks)
-                ListTile(
+                Container(
                   key: Key('askodoxDeskRequest-${r['id']}'),
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(r['kind'] == 'bill' ? Icons.receipt_long : Icons.room_service_outlined),
-                  title: Text('${r['table_name'] ?? ''} · ${'${r['text']}'.isNotEmpty ? r['text'] : r['label']}${askodoxPosInt(r['qty']) > 1 ? ' × ${r['qty']}' : ''}'),
-                  trailing: FilledButton(
-                    key: Key('askodoxDeskRequestDone-${r['id']}'),
-                    onPressed: () async {
-                      try {
-                        final out = await ref.read(askodoxPosRepositoryProvider).deskRequestDone(widget.businessId, '${r['id']}');
-                        if (mounted) setState(() => _asks = askodoxPosList(out['requests']));
-                        setLocal(() {});
-                      } on AskodoxPosException catch (e) {
-                        if (mounted) askodoxPosSnack(this.context, e.message(te));
-                      }
-                    },
-                    child: Text(te ? 'అయింది' : 'Done'),
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF4E5),
+                    border: Border.all(color: const Color(0xFFF59E0B)),
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  child: Row(children: [
+                    Icon(askodoxTableAskIcon('${r['kind']}'), size: 30, color: const Color(0xFFB45309)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('${r['table_name'] ?? ''}'.isEmpty ? (te ? 'టేబుల్' : 'Table') : '${r['table_name']}',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                        Text('${'${r['text']}'.isNotEmpty ? r['text'] : r['label']}${askodoxPosInt(r['qty']) > 1 ? ' × ${r['qty']}' : ''}',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                        Text(askodoxClockWords(r['created_at'], te), style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                      ]),
+                    ),
+                    FilledButton(
+                      key: Key('askodoxDeskRequestDone-${r['id']}'),
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF17784C), minimumSize: const Size(0, 48)),
+                      onPressed: () async {
+                        try {
+                          final out = await ref.read(askodoxPosRepositoryProvider).deskRequestDone(widget.businessId, '${r['id']}');
+                          if (mounted) setState(() => _asks = askodoxPosList(out['requests']));
+                          setLocal(() {});
+                        } on AskodoxPosException catch (e) {
+                          if (mounted) askodoxPosSnack(this.context, e.message(te));
+                        }
+                      },
+                      child: Text(te ? 'తెచ్చాను ✓' : 'Brought it ✓'),
+                    ),
+                  ]),
                 ),
             ]),
           );
@@ -464,6 +485,7 @@ class AskodoxDeskMenuScreen extends ConsumerStatefulWidget {
 
 class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
   final _text = TextEditingController();
+  bool _sorting = false;
   AskodoxJson? _menu;
   List<AskodoxJson> _preview = const [];
   bool _reading = false;
@@ -598,6 +620,195 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }
+  }
+
+  /// Sections in menu order; items without one come last.
+  List<String> _sections(List<AskodoxJson> items) {
+    final out = <String>[for (final g in {for (final m in items) '${m['menu_group'] ?? ''}'.trim()}) if (g.isNotEmpty) g];
+    if (items.any((m) => '${m['menu_group'] ?? ''}'.trim().isEmpty)) out.add('');
+    return out;
+  }
+
+  /// One compact menu line: veg mark, number, name, price, ✏ edit, ⋮ more (today only / delete), on / off switch.
+  Widget _itemRow(AskodoxJson m, bool te) {
+    final on = m['available'] == true;
+    final food = '${m['food_type'] ?? ''}';
+    final foodColor = food == 'veg' ? const Color(0xFF17784C) : (food == 'egg' ? const Color(0xFFB45309) : const Color(0xFFB91C1C));
+    return Container(
+      key: Key('askodoxDeskItem-${m['id']}'),
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEF0F3)))),
+      child: Row(children: [
+        if (food.isNotEmpty)
+          Container(
+            width: 14,
+            height: 14,
+            margin: const EdgeInsets.only(right: 6),
+            decoration: BoxDecoration(border: Border.all(color: foodColor, width: 1.5), borderRadius: BorderRadius.circular(3)),
+            alignment: Alignment.center,
+            child: Container(width: 7, height: 7, decoration: BoxDecoration(color: foodColor, shape: BoxShape.circle)),
+          ),
+        if (askodoxPosInt(m['item_no']) > 0)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Text('#${m['item_no']}',
+                key: Key('askodoxDeskMenuNo-${m['id']}'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B6475))),
+          ),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${m['name']}',
+                style: TextStyle(fontWeight: FontWeight.w700, color: on ? null : const Color(0xFF9AA1AD), decoration: on ? null : TextDecoration.lineThrough)),
+            if (m['today_only_flag'] == true || !on)
+              Text(
+                  [
+                    if (m['today_only_flag'] == true) te ? 'ఈ రోజు మాత్రమే' : 'Today only',
+                    if (!on) te ? 'ఈ రోజు లేదు' : 'Out today',
+                  ].join(' · '),
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309))),
+          ]),
+        ),
+        Text(askodoxPaise(askodoxPosInt(m['price_paise'])), style: const TextStyle(fontWeight: FontWeight.w800)),
+        IconButton(
+          key: Key('askodoxDeskEdit-${m['id']}'),
+          tooltip: te ? 'మార్చు' : 'Edit',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.edit_outlined, size: 19),
+          onPressed: () => _editItem(m, te),
+        ),
+        PopupMenuButton<String>(
+          key: Key('askodoxDeskMore-${m['id']}'),
+          tooltip: te ? 'ఇంకా' : 'More',
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.more_vert, size: 19),
+          onSelected: (v) {
+            if (v == 'delete') {
+              unawaited(_deleteItem(m, te));
+            } else {
+              unawaited(_guard(() async {
+                await ref.read(askodoxPosRepositoryProvider).deskTodayOnly(widget.businessId, '${m['id']}', m['today_only_flag'] != true);
+                await _load();
+                return null;
+              }));
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(
+                value: 'today',
+                child: Text(m['today_only_flag'] == true ? (te ? 'రోజూ ఉంచు' : 'Keep daily') : (te ? 'ఈ రోజు మాత్రమే' : 'Today only'))),
+            PopupMenuItem(key: Key('askodoxDeskDelete-${m['id']}'), value: 'delete', child: Text(te ? '🗑 తీసేయి' : '🗑 Delete')),
+          ],
+        ),
+        Switch(
+          key: Key('askodoxDeskAvailable-${m['id']}'),
+          value: on,
+          onChanged: (v) => _guard(() async {
+            await ref.read(askodoxPosRepositoryProvider).deskAvailability(widget.businessId, '${m['id']}', v);
+            await _load();
+            return null;
+          }),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _aiSort(bool te) async {
+    setState(() => _sorting = true);
+    AskodoxJson? out;
+    try {
+      out = await ref.read(askodoxPosRepositoryProvider).menuSort(widget.businessId);
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    } finally {
+      if (mounted) setState(() => _sorting = false);
+    }
+    if (out == null || !mounted) return;
+    final rows = [for (final r in askodoxPosList(out['items'])) Map<String, Object?>.of(r)];
+    final groups = [for (final g in (out['groups'] as List? ?? const [])) '$g'];
+    final save = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(ctx).height * 0.8,
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                    te
+                        ? 'AI ఇలా సర్దింది — ${rows.where((r) => r['changed'] == true).length} మారాయి. తప్పు ఉంటే విభాగం నొక్కి మార్చండి.'
+                        : 'AI suggests this — ${rows.where((r) => r['changed'] == true).length} change. Tap a section to fix it.',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              Expanded(
+                child: ListView(padding: const EdgeInsets.all(12), children: [
+                  for (final g in [...groups, if (rows.any((r) => !groups.contains('${r['menu_group']}'))) ''])
+                    if (rows.any((r) => '${r['menu_group']}' == g)) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10, bottom: 4),
+                        child: Text(g.isEmpty ? (te ? 'విభాగం లేనివి' : 'No section') : g,
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF5B21B6))),
+                      ),
+                      for (final r in rows.where((r) => '${r['menu_group']}' == g))
+                        Row(children: [
+                          Expanded(
+                              child: Text('${r['name']}',
+                                  style: TextStyle(fontWeight: r['changed'] == true ? FontWeight.w800 : FontWeight.w500))),
+                          DropdownButton<String>(
+                            value: const ['veg', 'nonveg', 'egg'].contains(r['food_type']) ? '${r['food_type']}' : '',
+                            underline: const SizedBox.shrink(),
+                            items: [
+                              const DropdownMenuItem(value: '', child: Text('—')),
+                              DropdownMenuItem(value: 'veg', child: Text(te ? 'వెజ్' : 'Veg')),
+                              DropdownMenuItem(value: 'nonveg', child: Text(te ? 'నాన్-వెజ్' : 'Non-veg')),
+                              DropdownMenuItem(value: 'egg', child: Text(te ? 'ఎగ్' : 'Egg')),
+                            ],
+                            onChanged: (v) => setSheet(() => r['food_type'] = v ?? ''),
+                          ),
+                          const SizedBox(width: 6),
+                          DropdownButton<String>(
+                            value: '${r['menu_group']}',
+                            underline: const SizedBox.shrink(),
+                            items: [
+                              for (final x in {...groups, '${r['menu_group']}'})
+                                DropdownMenuItem(value: x, child: Text(x.isEmpty ? '—' : x, overflow: TextOverflow.ellipsis)),
+                            ],
+                            onChanged: (v) => setSheet(() => r['menu_group'] = v ?? ''),
+                          ),
+                        ]),
+                    ],
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Row(children: [
+                  Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel'))),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      key: const Key('askodoxDeskMenuAiSave'),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(te ? 'సేవ్ చేయి' : 'Save'),
+                    ),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+    if (save != true || !mounted) return;
+    await _guard(() async {
+      final res = await ref.read(askodoxPosRepositoryProvider).menuSortApply(widget.businessId, [
+        for (final r in rows) {'id': r['id'], 'menu_group': r['menu_group'] ?? '', 'food_type': r['food_type'] ?? ''},
+      ]);
+      await _load();
+      if (mounted) askodoxPosSnack(context, te ? '${res['saved']} ఐటమ్స్ సర్దాం ✓' : 'Sorted ${res['saved']} items ✓');
+      return null;
+    });
   }
 
   Future<void> _guard(Future<Object?> Function() action) async {
@@ -811,6 +1022,40 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                 FilledButton(key: const Key('askodoxDeskMenuSave'), onPressed: _import, child: Text(te ? 'మెనూలో సేవ్ చేయండి' : 'Save to the menu')),
               ],
               const Divider(height: 28),
+              // Owner 2026-11-17: one tap -> AI reads the item names and suggests sections + veg / non-veg; nothing is
+              // saved until the owner checks the preview.
+              if (items.length > 1)
+                Material(
+                  color: const Color(0xFFF3EEFF),
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    key: const Key('askodoxDeskMenuAiSort'),
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: _sorting ? null : () => _aiSort(te),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(children: [
+                        const Text('✨', style: TextStyle(fontSize: 22)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(te ? 'AI తో సర్దు' : 'Sort with AI', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF5B21B6))),
+                            Text(
+                                te
+                                    ? 'బిర్యానీలు, స్టార్టర్స్, డ్రింక్స్… విభాగాలు + వెజ్ / నాన్-వెజ్ AI సూచిస్తుంది. మీరు చూసి సేవ్ చేయండి.'
+                                    : 'AI suggests sections (biryanis, starters, drinks…) + veg / non-veg. You check, then save.',
+                                style: const TextStyle(fontSize: 12)),
+                          ]),
+                        ),
+                        if (_sorting)
+                          const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+                        else
+                          const Icon(Icons.chevron_right, color: Color(0xFF5B21B6)),
+                      ]),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
               Text(te ? 'ఈ రోజు ఏవి ఉన్నాయి?' : 'What is available today?', style: const TextStyle(fontWeight: FontWeight.w800)),
               Text(
                   te
@@ -818,50 +1063,21 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                       : 'When something runs out, switch it off — customers will not see it, and it comes back on by itself tomorrow.',
                   key: const Key('askodoxDeskAvailableHelp'),
                   style: const TextStyle(fontSize: 12.5)),
-              for (final m in items)
-                SwitchListTile(
-                  key: Key('askodoxDeskAvailable-${m['id']}'),
-                  contentPadding: EdgeInsets.zero,
-                  value: m['available'] == true,
-                  secondary: askodoxPosInt(m['item_no']) > 0
-                      ? CircleAvatar(
-                          key: Key('askodoxDeskMenuNo-${m['id']}'),
-                          radius: 15,
-                          child: Text('${m['item_no']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)))
-                      : null,
-                  title: Text('${m['name']} · ${askodoxPaise(askodoxPosInt(m['price_paise']))}${m['available'] == true ? '' : (te ? ' · ఈ రోజు లేదు' : ' · out today')}'
-                      '${'${m['menu_group'] ?? ''}'.isNotEmpty ? ' · ${m['menu_group']}' : ''}'
-                      '${switch ('${m['food_type'] ?? ''}') { 'veg' => te ? ' · వెజ్' : ' · veg', 'nonveg' => te ? ' · నాన్-వెజ్' : ' · non-veg', 'egg' => te ? ' · ఎగ్' : ' · egg', _ => '' }}'),
-                  subtitle: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
-                    if (m['today_only_flag'] == true) Text(te ? 'ఈ రోజు మాత్రమే ✓' : 'Today only ✓'),
-                    // Edit + Delete on every menu line (owner 2026-11-16). Delete hides the item; old bills keep their lines.
-                    IconButton(
-                      key: Key('askodoxDeskEdit-${m['id']}'),
-                      tooltip: te ? 'మార్చు' : 'Edit',
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      onPressed: () => _editItem(m, te),
-                    ),
-                    IconButton(
-                      key: Key('askodoxDeskDelete-${m['id']}'),
-                      tooltip: te ? 'తీసేయి' : 'Delete',
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      onPressed: () => _deleteItem(m, te),
-                    ),
-                    TextButton(
-                      onPressed: () => _guard(() async {
-                        await ref.read(askodoxPosRepositoryProvider).deskTodayOnly(widget.businessId, '${m['id']}', m['today_only_flag'] != true);
-                        await _load();
-                        return null;
-                      }),
-                      child: Text(m['today_only_flag'] == true ? (te ? 'రోజూ ఉంచు' : 'Keep daily') : (te ? 'ఈ రోజు మాత్రమే' : 'Today only')),
-                    ),
+              for (final g in _sections(items)) ...[
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(10)),
+                  child: Row(children: [
+                    Expanded(
+                        child: Text(g.isEmpty ? (te ? 'విభాగం లేనివి' : 'No section') : g,
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3FA0)))),
+                    Text('${items.where((m) => '${m['menu_group'] ?? ''}'.trim() == g).length}',
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1E3FA0))),
                   ]),
-                  onChanged: (v) => _guard(() async {
-                    await ref.read(askodoxPosRepositoryProvider).deskAvailability(widget.businessId, '${m['id']}', v);
-                    await _load();
-                    return null;
-                  }),
                 ),
+                for (final m in items.where((m) => '${m['menu_group'] ?? ''}'.trim() == g)) _itemRow(m, te),
+              ],
             ]),
     );
   }

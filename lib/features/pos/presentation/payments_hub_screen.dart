@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/pos_payment_alerts.dart' show askodoxPaymentAlertsBridgeProvider;
+import '../../../shared/widgets/navigator_section.dart' show AskodoxNavSection;
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
 
@@ -153,7 +154,9 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
   }
 
   /// "My phone" + one chip per shop the person belongs to (owner, manager or staff) -- each is a separate history.
-  Widget _sources(bool te, List<AskodoxJson> shops) => Wrap(spacing: 8, runSpacing: 4, children: [
+  Widget _sources(bool te, List<AskodoxJson> shops) => SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
         ChoiceChip(
           key: const Key('askodoxPaymentsSource-me'),
           label: Text(te ? 'నా ఫోన్' : 'My phone'),
@@ -161,13 +164,16 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
           onSelected: (_) => _pick('me'),
         ),
         for (final s in shops)
-          ChoiceChip(
-            key: ValueKey('askodoxPaymentsSource-${s['id']}'),
-            label: Text('${s['name'] ?? ''}'),
-            selected: _source == '${s['id']}',
-            onSelected: (_) => _pick('${s['id']}'),
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: ChoiceChip(
+              key: ValueKey('askodoxPaymentsSource-${s['id']}'),
+              label: Text('${s['name'] ?? ''}'),
+              selected: _source == '${s['id']}',
+              onSelected: (_) => _pick('${s['id']}'),
+            ),
           ),
-      ]);
+      ]));
 
   @override
   Widget build(BuildContext context) {
@@ -269,9 +275,11 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(te ? 'నా QR చూపించు' : 'Show my QR',
+                  Text(te ? 'నా QR / ఖాతాలు' : 'My QR / accounts',
                       style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
-                  Text(te ? 'కస్టమర్ స్కాన్ చేసి నేరుగా మీ ఖాతాకి కడతారు' : 'The customer scans and pays straight into your account',
+                  // Owner 2026-11-17: ONE place for the QR and the accounts (no separate "My accounts" button).
+                  Text(te ? 'QR చూపించు · UPI / బ్యాంక్ చేర్చు, మార్చు' : 'Show the QR · add / change UPI and bank',
+                      key: const Key('askodoxPaymentsHubAccounts'),
                       style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
                 ]),
               ),
@@ -286,26 +294,36 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
     final week = AskodoxPaymentWeek(_events, _now);
     final hasToday = _events.isNotEmpty;
     final alerts = _mine ? '/me/payments/phone' : '/me/payment-alerts/$_source';
-    Widget door(String key, IconData icon, String title, String sub, String path, {Key? subKey, bool tint = false}) => Material(
-          color: tint ? const Color(0xFFE8EEFB) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: tint ? BorderSide.none : const BorderSide(color: _line)),
-          child: InkWell(
-            key: Key(key),
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => context.push(path),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 96),
-              padding: const EdgeInsets.all(12),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(icon, color: _blue),
-                const SizedBox(height: 6),
-                Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
-                const SizedBox(height: 2),
-                Text(sub, key: subKey, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _muted)),
-              ]),
-            ),
+    var n = 0;
+    Widget door(String key, IconData icon, String title, String sub, String path, {Key? subKey, bool tint = false}) {
+      final (bg, fg) = AskodoxNavSection.palette[n++ % AskodoxNavSection.palette.length];
+      return Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          key: Key(key),
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => context.push(path),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 96),
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                child: Icon(icon, color: fg, size: 21),
+              ),
+              const SizedBox(height: 8),
+              Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
+              const SizedBox(height: 2),
+              Text(sub, key: subKey, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+            ]),
           ),
-        );
+        ),
+      );
+    }
+
     final cells = [
       door('askodoxPaymentsHubMoney', Icons.account_balance_wallet_outlined, te ? 'నా డబ్బు' : 'My money',
           hasToday
@@ -330,11 +348,10 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
               ? (te ? 'ఈ రోజు ${week.todaySpoken} సార్లు చెప్పింది' : 'spoke ${week.todaySpoken} times today')
               : (te ? 'డబ్బు రాగానే చెప్తుంది' : 'Says it when money comes'),
           alerts),
-      door('askodoxPaymentsHubAccounts', Icons.account_balance_outlined, te ? 'నా ఖాతాలు' : 'My accounts',
-          te ? 'బ్యాంక్, UPI, QR' : 'Bank, UPI, QR', '/me/payment-methods'),
     ];
+    // 2 x 2 + the voice door across the width (an odd one never sits alone in half a row)
     return Column(children: [
-      for (var r = 0; r < cells.length; r += 2) ...[
+      for (var r = 0; r + 1 < cells.length; r += 2) ...[
         if (r > 0) const SizedBox(height: 10),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: cells[r]),
@@ -342,6 +359,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
           Expanded(child: cells[r + 1]),
         ]),
       ],
+      if (cells.length.isOdd) ...[const SizedBox(height: 10), cells.last],
     ]);
   }
 

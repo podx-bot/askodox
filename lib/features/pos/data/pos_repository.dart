@@ -179,6 +179,24 @@ class AskodoxPosRepository {
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
   // Shop follows: any signed-in person, shop owners included (backend: routes/shop_follows.py).
   Future<AskodoxJson> shopState(String id) => _send('GET', '/api/shops/$id');
+  // ratings, reviews, shop page, welcome (owner 2026-11-17)
+  Future<AskodoxJson> shopPage(String id) => _send('GET', '/api/pos/shops/$id/page');
+  Future<AskodoxJson> writeReview(String id, int stars, String text, List<AskodoxJson> photos) =>
+      _send('POST', '/api/pos/shops/$id/review', body: {'stars': stars, 'text': text, 'photos': photos});
+  Future<AskodoxJson> deleteReview(String id) => _send('DELETE', '/api/pos/shops/$id/review');
+  Future<AskodoxJson> replyReview(String id, String reviewId, String text) =>
+      _send('POST', '/api/pos/shops/$id/reviews/$reviewId/reply', body: {'text': text});
+  Future<AskodoxJson> reportReview(String reviewId) => _send('POST', '/api/pos/shops/reviews/$reviewId/report');
+  Future<AskodoxJson> rateAsk(String orderId) => _send('GET', '/api/pos/order-desk/mine/$orderId/rate');
+  Future<AskodoxJson> rate(String orderId, {int? shop, Map<String, int> items = const {}, bool later = false}) =>
+      _send('POST', '/api/pos/order-desk/mine/$orderId/rate',
+          body: {if (shop != null) 'shop': shop, 'items': items, 'later': later});
+  Future<AskodoxJson> welcomeSettings(String biz) => _send('GET', '${_b(biz)}/welcome');
+  Future<AskodoxJson> saveWelcome(String biz, AskodoxJson body) => _send('PUT', '${_b(biz)}/welcome', body: body);
+  Future<AskodoxJson> menuSort(String biz) => _send('POST', '${_b(biz)}/desk/menu/sort');
+  Future<AskodoxJson> menuSortApply(String biz, List<AskodoxJson> items) =>
+      _send('POST', '${_b(biz)}/desk/menu/sort/apply', body: {'items': items});
+  Future<AskodoxJson> billPaper(String biz, String invoiceId) => _send('GET', '${_b(biz)}/bills/$invoiceId/paper');
   Future<AskodoxJson> followShop(String id) => _send('POST', '/api/shops/$id/follow');
   Future<AskodoxJson> unfollowShop(String id) => _send('DELETE', '/api/shops/$id/follow');
   Future<List<AskodoxJson>> myFollows() async => askodoxPosList((await _send('GET', '/api/me/follows'))['follows']);

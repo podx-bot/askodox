@@ -1489,7 +1489,7 @@ def _payment_alerts(request: Request):
             push = push_service(container)
             if speak:
                 # the phone's own service shows the ONE visible notification + speaks (no second FCM notification)
-                push.send_data_async(user_id, data=speak, event_key=event_key, ttl_seconds=120)
+                push.send_data_async(user_id, data=speak, event_key=event_key, ttl_seconds=600)
             else:
                 push.notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
 

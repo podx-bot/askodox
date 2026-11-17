@@ -167,7 +167,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // The menu: headings, one row per page; nothing is shown twice.
-    for (final v in ['status', 'who', 'staff', 'voice', 'bank', 'history']) {
+    // Owner 2026-11-17: four boxes (staff lives in "who hears it"), the history link goes to My money.
+    for (final v in ['status', 'who', 'voice', 'bank', 'history']) {
       expect(find.byKey(ValueKey('askodoxPayAlertOpen-$v')), findsOneWidget, reason: v);
     }
     expect(find.byKey(const Key('askodoxPayAlertStatus')), findsNothing);

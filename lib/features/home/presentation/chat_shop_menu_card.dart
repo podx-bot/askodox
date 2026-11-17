@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../pos/data/pos_repository.dart';
+import '../../pos/presentation/shop_rating_screens.dart' show askodoxRatingLine;
 import '../application/chat_shop_cart.dart';
 
 /// A shop's menu INSIDE the chat (owner 2026-11-16): tap + / − (or arrive with the order already prepared from the
@@ -30,6 +32,8 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
   String _food = ''; // '' all, 'veg', 'nonveg'
   bool _all = false;
   StateController<AskodoxChatShopCart?>? _cartSlot;
+  AskodoxJson? _shop; // follow state + the shop's own links (best effort)
+  bool _followBusy = false;
 
   List<AskodoxJson> get _items => askodoxPosList(widget.card['items']);
   List<String> get _modes => [for (final m in (widget.card['modes'] as List? ?? const [])) '$m'];
@@ -42,6 +46,69 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
     _fill(askodoxPosList(widget.card['prepared']));
     _cartSlot = ref.read(askodoxChatShopCartProvider.notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) => _publish());
+    _loadShop();
+  }
+
+  Future<void> _loadShop() async {
+    final id = '${widget.card['business_id'] ?? ''}';
+    if (id.isEmpty) return;
+    try {
+      final shop = await ref.read(askodoxPosRepositoryProvider).shopState(id);
+      if (mounted) setState(() => _shop = shop);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFollow() async {
+    final shop = _shop;
+    if (shop == null || _followBusy) return;
+    final id = '${widget.card['business_id']}';
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    setState(() => _followBusy = true);
+    try {
+      final updated = shop['following'] == true ? await repo.unfollowShop(id) : await repo.followShop(id);
+      if (mounted) setState(() => _shop = updated);
+    } on AskodoxPosException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message(widget.te))));
+    } finally {
+      if (mounted) setState(() => _followBusy = false);
+    }
+  }
+
+  /// Follow on ASKODOX + the shop's own Instagram / Facebook / YouTube links (following THERE is the person's own tap).
+  Widget _followRow(bool te) {
+    final shop = _shop;
+    final fields = askodoxPosMap(askodoxPosMap(shop?['profile'])['fields']);
+    final links = [
+      for (final s in const [('instagram', 'Instagram'), ('facebook', 'Facebook'), ('youtube', 'YouTube')])
+        if ('${fields[s.$1] ?? ''}'.trim().isNotEmpty) (s.$1, s.$2, '${fields[s.$1]}'.trim()),
+    ];
+    final following = shop?['following'] == true;
+    return Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      if (shop != null && shop['is_owner'] != true)
+        FilledButton.tonalIcon(
+          key: const Key('askodoxChatShopFollow'),
+          style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+          onPressed: _followBusy ? null : _toggleFollow,
+          icon: Icon(following ? Icons.check : Icons.add, size: 16),
+          label: Text(following ? (te ? 'ఫాలో అవుతున్నారు' : 'Following') : (te ? 'ఫాలో' : 'Follow')),
+        ),
+      TextButton(
+        key: const Key('askodoxChatShopPage'),
+        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+        onPressed: () => context.push('/shops/${widget.card['business_id']}'),
+        child: Text(te ? 'షాప్ పేజీ ›' : 'Shop page ›'),
+      ),
+      for (final l in links)
+        ActionChip(
+          key: Key('askodoxChatShopSocial-${l.$1}'),
+          visualDensity: VisualDensity.compact,
+          label: Text('${l.$2} ↗', style: const TextStyle(fontSize: 12)),
+          onPressed: () {
+            final uri = Uri.tryParse(l.$3.startsWith('http') ? l.$3 : 'https://${l.$3}');
+            if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+          },
+        ),
+    ]);
   }
 
   @override
@@ -238,8 +305,12 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${widget.card['name'] ?? ''}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                Text(open ? (te ? 'ఇప్పుడు తెరిచి ఉంది · ASKODOX లో' : 'Open now · on ASKODOX') : (te ? 'ఇప్పుడు మూసి ఉంది' : 'Closed now'),
-                    style: TextStyle(fontSize: 12, color: open ? const Color(0xFF1F7A4A) : const Color(0xFFB4530A))),
+                Row(children: [
+                  Text(open ? (te ? 'ఇప్పుడు తెరిచి ఉంది · ASKODOX లో' : 'Open now · on ASKODOX') : (te ? 'ఇప్పుడు మూసి ఉంది' : 'Closed now'),
+                      style: TextStyle(fontSize: 12, color: open ? const Color(0xFF1F7A4A) : const Color(0xFFB4530A))),
+                  const SizedBox(width: 6),
+                  askodoxRatingLine(widget.card['rating'], size: 12),
+                ]),
               ]),
             ),
             if (open && last.isNotEmpty && _orderId == null)
@@ -254,6 +325,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                 child: Text(te ? 'మళ్ళీ అదే' : 'Same again'),
               ),
           ]),
+          _followRow(te),
           if (_orderId != null) ...[
             const SizedBox(height: 10),
             Text(te ? 'ఆర్డర్ పంపాం ✓ షాప్ అంగీకరించగానే బిల్లు, Pay ఇక్కడే వస్తాయి.' : 'Order sent ✓ The bill and Pay arrive once the shop accepts.',
@@ -322,6 +394,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                             : '${m['name']} — ${te ? 'ఈరోజు అయిపోయింది' : 'finished today'}',
                         style: TextStyle(color: m['available'] == true ? null : const Color(0xFF5B6475))),
                   ),
+                  askodoxRatingLine(m['rating'], size: 11),
                   if (m['available'] == true && (_qty['${m['id']}'] ?? 0) == 0)
                     OutlinedButton(
                       key: Key('askodoxChatShopMenuAdd-${m['id']}'),

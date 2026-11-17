@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/auth/app_restart.dart';
 import 'core/auth/sign_out.dart';
+import 'core/diagnostics/build_error_view.dart';
 import 'core/persistence/startup_prefs.dart';
 import 'core/flags/askodox_remote_flags.dart';
 import 'core/providers/backend_providers.dart';
@@ -40,6 +41,7 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
   @override
   void initState() {
     super.initState();
+    askodoxInstallBuildErrorView(ref.read(appConfigProvider).apiBaseUrl);
     Future.microtask(() async {
       await ref.read(authSessionProvider.notifier).restore();
       await ref.read(analyticsServiceProvider).record(

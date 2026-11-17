@@ -101,6 +101,20 @@ fun main() {
     yes("balance avl bal", PaymentAlertParser.availableBalance("Rs 240 credited. Avl Bal Rs 32,140.00") == 3214000L)
     yes("balance available", PaymentAlertParser.availableBalance("Available balance: INR 1,234.50") == 123450L)
     yes("no balance", PaymentAlertParser.availableBalance("Rs 240 credited to A/c XX6911") == null)
+    // Owner 2026-11-17: one common key -- the UPI RRN -- for the SMS and the app's notification of the same money.
+    val R = PaymentAlertParser.RefMatch.SAME
+    yes("rrn from sms", PaymentAlertParser.rrn("from VPA *2317@ibl (UPI 925142780111)") == "925142780111")
+    yes("rrn not a +91 phone", PaymentAlertParser.rrn("call 919876543210 now") == null)
+    yes("same rrn = same", PaymentAlertParser.compareRefs("925142780111", "925142780111") == R)
+    yes("tail = same", PaymentAlertParser.compareRefs("925142780111", "0111") == R)
+    yes("two rrn = different", PaymentAlertParser.compareRefs("925142780111", "925142780999") == PaymentAlertParser.RefMatch.DIFFERENT)
+    yes("rrn vs app txn id = unknown", PaymentAlertParser.compareRefs("925142780111", "T2511171845123456") == PaymentAlertParser.RefMatch.UNKNOWN)
+    yes("missing = unknown", PaymentAlertParser.compareRefs(null, "925142780111") == PaymentAlertParser.RefMatch.UNKNOWN)
+    yes("accounts 6911 vs 7571 differ", PaymentAlertParser.accountsDiffer("6911", "XX7571"))
+    yes("accounts 6911 vs 06911 same", !PaymentAlertParser.accountsDiffer("6911", "06911"))
+    yes("one account missing = not different", !PaymentAlertParser.accountsDiffer(null, "6911"))
+    val app = PaymentAlertParser.parse("PhonePe", "Received ₹240 from MOHAMMAD HAFIZ. UPI Ref No. 925142780111. Transaction ID T2511171845123456")
+    yes("app notification carries the RRN, not its own id", app is PaymentAlertParser.Result.Accepted && app.reference == "925142780111")
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }

@@ -129,6 +129,8 @@ class PosFrontDesk:
                 pass
 
         self.requests = PosDeskRequests(self)  # table service requests (water / gravy / onions / bill)
+        self._ratings = None
+        _ = self.ratings  # ratings / reviews / welcome tables made now, never inside a read
 
     # ------------------------------------------------------------------ helpers
     def _now(self) -> datetime:
@@ -171,6 +173,15 @@ class PosFrontDesk:
         if any(p["id"] == user and p.get("accepts_orders") for p in self._people(conn, business_id)):
             return
         raise PosError(403, "accept", "Only the owner, or a person the owner allowed, can accept orders here.")
+
+    @property
+    def ratings(self) -> Any:
+        """Ratings / reviews / welcome on the same store (created once)."""
+        if getattr(self, "_ratings", None) is None:
+            from app.services.pos_ratings import PosRatings
+
+            self._ratings = PosRatings(self.store, clock=self._now)
+        return self._ratings
 
     def _routing(self, conn: sqlite3.Connection, business_id: str) -> Dict[str, Any]:
         row = conn.execute("SELECT routing_json, auto_confirm FROM pos_desk_settings WHERE business_id = ?", (business_id,)).fetchone()
@@ -252,9 +263,17 @@ class PosFrontDesk:
         conn.execute("INSERT INTO pos_desk_events (order_id, business_id, stage, actor, note, at) VALUES (?, ?, ?, ?, ?, ?)",
                      (order_id, business_id, stage, actor, _clean(note, 160), self._now().isoformat()))
 
-    def _push(self, users: List[str], title: str, body: str, route: str, key: str) -> None:
+    def _push(self, users: List[str], title: str, body: str, route: str, key: str, speak: bool = False) -> None:
+        """speak=True: the phone also SAYS it (new order, a table asking for water) -- owner 2026-11-17."""
         for u in dict.fromkeys(users):
             try:
+                if speak:
+                    try:
+                        self.notify(u, title, body, route, f"{key}:{u}",
+                                    speak={"type": "say", "title": title, "text": f"{title}. {body}"[:300]})
+                        continue
+                    except TypeError:
+                        pass  # an older notify without speech: a normal notification
                 self.notify(u, title, body, route, f"{key}:{u}")
             except Exception:
                 pass  # a push problem never fails an order
@@ -461,7 +480,8 @@ class PosFrontDesk:
                 "open": data["open"], "message": data["message"], "modes": data["modes"],
                 "items": [{"id": m["id"], "name": m["name"], "name_te": m["name_te"], "price_paise": m["price_paise"],
                            "available": m["available"], "item_no": m.get("item_no"), "menu_group": m.get("menu_group", ""),
-                           "food_type": m.get("food_type", "")} for m in ordered[:limit]],
+                           "food_type": m.get("food_type", ""), "rating": m.get("rating")} for m in ordered[:limit]],
+                "rating": data["business"].get("rating"), "welcome": data.get("welcome"),
                 "more": max(0, len(menu) - limit), "last_items": data["last_items"], "prepared": prepared}
 
     def find_items(self, text: str, limit: int = 3) -> List[Dict[str, Any]]:
@@ -507,9 +527,17 @@ class PosFrontDesk:
                 table = dict(t) if t else None
             menu = self._menu(conn, row["id"]) if status == "open" else []
             last = self._last_items(conn, row["id"], user)
+            ratings = self.ratings
+            items_rated = ratings.item_ratings(conn, row["id"])
+            for m in menu:
+                if m["id"] in items_rated:
+                    m["rating"] = items_rated[m["id"]]
+            shop_rating = ratings.summary(conn, row["id"])
+            welcome = ratings.welcome(conn, row["id"], user)
         modes = (["dine_in"] if table else []) + ["takeaway", "delivery"]
         return {"business": {"id": row["id"], "name": row["name"], "address": row["address"], "phone": row["phone"],
-                             "status": status, "gst": row["registration_type"] != "unregistered"},
+                             "status": status, "gst": row["registration_type"] != "unregistered", "rating": shop_rating},
+                "welcome": welcome,
                 "table": table, "modes": modes, "menu": menu, "open": status == "open", "last_items": last,
                 "message": "" if status == "open" else "ఈ షాప్ ఇప్పుడు తెరిచి లేదు (This shop is closed right now)."}
 
@@ -633,7 +661,8 @@ class PosFrontDesk:
             view = self._view(conn, row, user)
         total = sum(i["price_paise"] * i["qty_milli"] // 1000 for i in items)
         self._push([u for u in targets if u != user], "కొత్త ఆర్డర్ · New order",
-                   f"{len(items)} ఐటమ్స్ · ₹{total // 100} · {kind}", f"/desk/{business_id}", f"desk:{order_id}:new")
+                   f"{len(items)} ఐటమ్స్ · ₹{total // 100} · {kind}", f"/desk/{business_id}", f"desk:{order_id}:new",
+                   speak=True)
         # never accepted here: the order waits for the owner / a person the owner allowed (owner 2026-11-17)
         return view
 
@@ -698,6 +727,14 @@ class PosFrontDesk:
                         out["pay"] = self.pay_to(business["owner_user_id"], balance, f"Bill {inv['number']}", row["id"])
                     except Exception:
                         out["pay"] = []
+        if not staff and row["customer_user"] == viewer and row["stage"] in ("served", "handed", "delivered", "done"):
+            try:
+                welcome = self.ratings.welcome(conn, row["business_id"], viewer)
+                out["thanks"] = welcome["thanks"] if welcome else ""
+            except Exception:
+                out["thanks"] = ""
+            out["can_rate"] = not conn.execute("SELECT 1 FROM pos_ratings WHERE user_id = ? AND ref = ? LIMIT 1",
+                                               (viewer, row["id"])).fetchone() if self._has_ratings(conn) else True
         if row["kind"] == "dine_in":
             out["requests"] = [{"id": r["id"], "kind": r["kind"], "label": r["label"], "text": r["text"], "qty": r["qty"]}
                                for r in conn.execute("SELECT id, kind, label, text, qty FROM pos_desk_requests WHERE order_id = ?"
@@ -708,6 +745,10 @@ class PosFrontDesk:
             out["pos_order_id"] = row["pos_order_id"]
             out["escalated"] = bool(row["escalated_at"])
         return out
+
+    @staticmethod
+    def _has_ratings(conn: sqlite3.Connection) -> bool:
+        return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'pos_ratings'").fetchone() is not None
 
     def _escalate(self, conn: sqlite3.Connection, business_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Orders nobody accepted for a minute -> tell the OWNER once (the team's lane is the first minute)."""

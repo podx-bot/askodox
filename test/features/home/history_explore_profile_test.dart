@@ -505,7 +505,7 @@ void main() {
       // Owner 2026-11-14: the profile guide link is hidden with the Guide button.
       expect(find.byKey(const Key('askodoxProfileGuide')), findsNothing);
     }
-    expect(find.byType(AskodoxNavListRow), findsWidgets, reason: 'headed list rows: each tap opens its page');
+    expect(find.byType(AskodoxNavColorTile), findsWidgets, reason: 'coloured buttons: each tap opens its page');
   });
 
   testWidgets('Profile search finds any row in any tab (en / te) and remembers recent ones', (tester) async {
