@@ -302,6 +302,29 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'బిల్ నంబర్ / ఫోన్ నంబర్‌తో వెతకండి. రోజులు ఎంచుకుని, క్యాష్ / ఆన్‌లైన్ / బాకీ / రద్దు ఎంచుకోండి.',
     'బిల్లులు రోజు వారీగా, ఆ రోజు మొత్తంతో.',
   ]),
+  '/biz/:id/reports': _H('Reports', 'రిపోర్ట్స్', [
+    'The face shows how the day went. Tap Listen to hear it.',
+    'Each problem says why it happened and one thing to do; Go there opens the page to fix it.',
+    'Switch to 7 or 30 days for bars of each day, weekdays, busy hours, items, spending and staff.',
+  ], [
+    'ముఖం చూస్తే రోజు ఎలా ఉందో తెలుస్తుంది. వినండి నొక్కితే చదివి చెబుతుంది.',
+    'ప్రతి సమస్యకు కారణం, ఏం చేయాలో ఉంటుంది; అక్కడికి వెళ్ళు నొక్కితే సరిచేసే పేజీ.',
+    '7 / 30 రోజులు నొక్కితే రోజూ అమ్మకం, వారం రోజులు, రద్దీ టైం, ఐటమ్స్, ఖర్చులు, సిబ్బంది బార్లలో.',
+  ]),
+  '/biz/:id/reports/day': _H('Day report', 'రోజు రిపోర్ట్', [
+    'The report of the day in the night notification.',
+    "Tap Listen to hear it; tap a problem's Go there to fix it.",
+  ], [
+    'రాత్రి నోటిఫికేషన్‌లో వచ్చిన రోజు రిపోర్ట్.',
+    'వినండి నొక్కండి; సమస్య దగ్గర అక్కడికి వెళ్ళు నొక్కి సరిచేయండి.',
+  ]),
+  '/biz/:id/reports/settings': _H('Night report', 'రాత్రి రిపోర్ట్', [
+    'Turn the night report on or off and choose the time.',
+    'It goes to you and to the manager / accountant who can see reports.',
+  ], [
+    'రాత్రి రిపోర్ట్ ఆన్ / ఆఫ్, టైం ఎంచుకోండి.',
+    'మీకు, రిపోర్ట్స్ చూడగలిగే మేనేజర్ / అకౌంటెంట్‌కి వెళ్తుంది.',
+  ]),
   '/biz/:id/staff': _H('Staff & attendance', 'సిబ్బంది & హాజరు', [
     'Who came today and when. Tap a person for their month, salary and advance.',
     'Check in, tasks, the shop-phone attendance and salary are the big buttons.',

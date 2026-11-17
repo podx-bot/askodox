@@ -79,6 +79,8 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'staff.add' || 'staff.people' => askodoxPhase2 ? '/pos/$id/staff' : '/desk/$id/settings',
       'staff.alerts' => '/desk/$id/settings',
       'staff.attendance' => '/biz/$id/staff',
+      'reports' || 'reports.day' => '/biz/$id/reports',
+      'reports.settings' => '/biz/$id/reports/settings',
       'staff.checkin' => '/biz/$id/staff/checkin',
       'staff.salary' => '/biz/$id/staff/salary',
       'staff.tasks' => '/biz/$id/staff/tasks',
@@ -772,6 +774,34 @@ class AskodoxBizHubBody extends ConsumerWidget {
               ),
             ],
           ]),
+          if (askodoxBizAllowed('reports', business)) ...[
+            const SizedBox(height: 10),
+            Material(
+              color: const Color(0xFFF1EBFB),
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                key: const Key('askodoxBizReportsCard'),
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => context.push('/biz/$businessId/reports'),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    const Text('📊', style: TextStyle(fontSize: 34)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(te ? 'రిపోర్ట్స్ & అనాలిటిక్స్' : 'Reports & analytics',
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF5B2A9E))),
+                        Text(te ? 'ఈ రోజు ఎలా ఉంది, సమస్యలు + కారణాలు, సలహాలు, వినండి' : 'How today went, problems + why, what to do, listen',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+                      ]),
+                    ),
+                    const Icon(Icons.chevron_right, color: Color(0xFF5B2A9E)),
+                  ]),
+                ),
+              ),
+            ),
+          ],
           AskodoxBizSection(te ? '${groups.length} విభాగాలు — ఒకటి నొక్కితే దాని పనులన్నీ' : 'Tap a group to see everything in it'),
           AskodoxBizGrid(children: [
             for (final g in groups)

@@ -225,6 +225,13 @@ class AskodoxPosRepository {
   Future<AskodoxJson> staffPay(String biz, String ref, AskodoxJson body) => _send('PUT', '${_b(biz)}/staff/$ref/pay', body: body);
   Future<AskodoxJson> staffAdvance(String biz, String ref, int paise, {String note = ''}) =>
       _send('POST', '${_b(biz)}/staff/$ref/advance', body: {'amount_paise': paise, 'note': note});
+  Future<AskodoxJson> reportDay(String biz, {String date = ''}) =>
+      _send('GET', '${_b(biz)}/reports/day', query: {'date': date});
+  Future<AskodoxJson> reportRange(String biz, {int days = 7}) =>
+      _send('GET', '${_b(biz)}/reports/range', query: {'days': '$days'});
+  Future<AskodoxJson> reportSettings(String biz) => _send('GET', '${_b(biz)}/reports/settings');
+  Future<AskodoxJson> saveReportSettings(String biz, AskodoxJson body) =>
+      _send('PUT', '${_b(biz)}/reports/settings', body: body);
   Future<AskodoxJson> teamSalary(String biz, {String month = ''}) => _send('GET', '${_b(biz)}/salary', query: {'month': month});
   Future<AskodoxJson> salaryPaid(String biz, String ref, String month) =>
       _send('POST', '${_b(biz)}/staff/$ref/salary/$month/paid');

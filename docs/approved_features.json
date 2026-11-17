@@ -7502,6 +7502,200 @@
           "change": "approved design canvas CY5DeThsUHtxuvEfj29S9H; phase 1 of the build"
         }
       ]
+    },
+    {
+      "id": "business_cashbook_dues",
+      "name": "Cashbook, dues and bill history",
+      "roles": [
+        "shop owner",
+        "shop staff"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/cashbook"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/cashbook"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/pos/businesses/{business_id}/cashbook/{entry_id}"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/dues"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxBizCashbook",
+          "askodoxBizDues"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_cashbook.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "business_hub_six_groups"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-18: money in from bills is read from the shop's own payments (never typed); expenses / other income are entries with undo; dues grouped by person, biggest first.",
+      "expected_behavior": "A removed entry can be brought back; the cashbook always matches the bills; ASKODOX holds no money.",
+      "history": [
+        {
+          "date": "2026-11-18",
+          "change": "design canvas CY5DeThsUHtxuvEfj29S9H; business hub build"
+        }
+      ]
+    },
+    {
+      "id": "business_attendance_salary_tasks",
+      "name": "Staff attendance (phone lock + location / shop-phone photo), month calendar, salary, advances, tasks",
+      "roles": [
+        "shop owner",
+        "shop staff"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/attendance/today"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/attendance/check"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/attendance/mark"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/attendance/month"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/staff/{ref}/pay"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/staff/{ref}/advance"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/salary"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/staff/{ref}/salary/{month}/paid"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/tasks"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/tasks"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxStaffCheckIn",
+          "askodoxCheckInIn",
+          "askodoxBizKiosk",
+          "askodoxBizStaffPerson",
+          "askodoxBizSalary",
+          "askodoxBizTasks",
+          "askodoxBizAttSetup"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_attendance.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "business_hub_six_groups"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-18: each person checks in on their OWN phone (the phone's own lock + distance from the shop pin), people without a phone use the shop phone with a photo, the owner can mark by hand; salary worked out line by line; advances and paid salary go to the cashbook.",
+      "expected_behavior": "A phone lock never claims to identify anyone but the phone's owner; far check-ins are shown, not hidden; photos only for owner / manager, deleted after 90 days.",
+      "history": [
+        {
+          "date": "2026-11-18",
+          "change": "design canvas CY5DeThsUHtxuvEfj29S9H; business hub build"
+        }
+      ]
+    },
+    {
+      "id": "business_reports_analytics",
+      "name": "Reports & analytics: day face, problems with reasons + suggestions, 7 / 30 days, night report",
+      "roles": [
+        "shop owner",
+        "shop staff"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/day"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/range"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/settings"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/reports/settings"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxBizReports",
+          "askodoxReportFace",
+          "askodoxReportListen",
+          "askodoxBizReportsCard",
+          "askodoxReportNightPush"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_reports.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "business_hub_six_groups"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-18: a report a person who cannot read can follow (face, big numbers, colours, bars, Listen), every problem counted from the shop's own rows with why + one thing to do, and one night push per day.",
+      "expected_behavior": "Nothing estimated or invented; the night push goes once per shop per day to the owner + people with the reports permission; it can be switched off or moved.",
+      "history": [
+        {
+          "date": "2026-11-18",
+          "change": "design canvas CY5DeThsUHtxuvEfj29S9H; business hub build"
+        }
+      ]
     }
   ]
 }
