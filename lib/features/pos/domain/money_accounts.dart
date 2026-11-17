@@ -4,8 +4,8 @@
 /// Pure rules only (no storage, no widgets) so they are tested without a phone.
 library;
 
-/// One place money comes in to / goes out of. Bank accounts are keyed by their last digits ("bank:6911"); UPI IDs,
-/// wallets and QR codes by their own id ("place:<id>").
+/// One place money comes in to / goes out of. Bank accounts are keyed by their last digits (`bank:6911`); UPI IDs,
+/// wallets and QR codes by their own id (`place:ID`).
 class AskodoxMoneyPlace {
   const AskodoxMoneyPlace({
     required this.key,
@@ -17,7 +17,7 @@ class AskodoxMoneyPlace {
     this.fromMethod = '',
   });
 
-  /// bank:<last digits> | place:<id>
+  /// `bank:DIGITS` or `place:ID`
   final String key;
 
   /// bank | upi | wallet | qr
@@ -97,7 +97,7 @@ String? askodoxUpiFromQr(String raw) {
 
 /// Which account a history row belongs to:
 /// 1. the person moved it by hand ([assigned] localId -> key),
-/// 2. the bank SMS's last digits (a named bank account, or the plain "bank:<digits>" bucket),
+/// 2. the bank SMS's last digits (a named bank account, or the plain `bank:DIGITS` bucket),
 /// 3. an app linked to an account (its own app, or an app merged into the row),
 /// 4. otherwise unknown ("").
 String askodoxAccountOf(Map<String, Object?> event, List<AskodoxMoneyPlace> places, Map<String, String> assigned,

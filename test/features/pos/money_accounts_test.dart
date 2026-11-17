@@ -60,7 +60,8 @@ void main() {
 
   test('a place survives a save / load round trip', () {
     final back = AskodoxMoneyPlace.fromJson(phonepeWallet.toJson())!;
-    expect((back.key, back.type, back.name, back.apps), ('place:w1', 'wallet', 'PhonePe wallet', ['com.phonepe.app']));
+    expect((back.key, back.type, back.name), ('place:w1', 'wallet', 'PhonePe wallet'));
+    expect(back.apps, ['com.phonepe.app']);
     expect(AskodoxMoneyPlace.fromJson({'key': 'x', 'type': 'nope'}), isNull);
   });
 }
