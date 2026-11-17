@@ -50,6 +50,7 @@ PAGES: Dict[str, tuple] = {
     "staff.salary": ("Salary & advance", "జీతాలు & అడ్వాన్స్"),
     "staff.tasks": ("Tasks", "పనులు"),
     "staff.add": ("Add staff", "సిబ్బందిని చేర్చు"),
+    "staff.checkin": ("Check in / out", "హాజరు వేయి"),
     "customers": ("Customers & shop page", "కస్టమర్లు & షాప్ పేజీ"),
     "customers.page": ("My shop page", "నా షాప్ పేజీ"),
     "customers.reviews": ("Reviews", "రివ్యూలు"),
@@ -61,24 +62,33 @@ PAGES: Dict[str, tuple] = {
     "settings.gst": ("GST", "GST"),
     "settings.printer": ("Printer", "ప్రింటర్"),
     "reports": ("Reports", "రిపోర్ట్స్"),
+    "reports.settings": ("Night report", "రాత్రి రిపోర్ట్"),
 }
 
 # Changes the ASK bar may PROPOSE (each runs only after the person's ✓).
-CHANGES = ("item_off", "item_on", "item_price", "menu_sort", "add_expense", "add_income")
+CHANGES = ("item_off", "item_on", "item_price", "menu_sort", "add_expense", "add_income", "staff_advance", "task_add")
+OTHER = ("open", "answer", "report", "check_in", "unknown")
 
 PROMPT = (
     "You read ONE sentence a shop owner or staff said in any language (Telugu, English, mixed) inside their business "
     "app, and pick ONE action. Return ONLY JSON {\"action\": string, \"page\": string, \"item\": string, "
-    "\"price\": number, \"question\": string, \"category\": string, \"note\": string}.\n"
+    "\"price\": number, \"question\": string, \"category\": string, \"note\": string, \"person\": string}.\n"
     "action is one of: open (they want to see a page), answer (they ask a question about today: sales, dues, orders, "
     "payments, staff), item_off (an item is finished / not available today), item_on (an item is available again), "
     "item_price (change an item's price; price in rupees), menu_sort (arrange / sort / organise the menu into "
     "sections), add_expense (money spent: write it in the cashbook; price = the rupees, category = one of stock, salary, "
     "rent, power, gas, transport, repair, other; note = what it was in a few words), add_income (money received that is "
-    "not a bill: advance, catering ...; price = rupees), unknown.\n"
+    "not a bill: advance, catering ...; price = rupees), "
+    "report (how the day / week went, problems, best or slow items, busy time, staff work, the night report), "
+    "staff_advance (money given to a staff member in advance; person = their name, price = rupees), task_add (give a "
+    "staff member a job to do; person = their name, note = the job in a few words), check_in (the speaker says they "
+    "came to work / are leaving), unknown (anything else, e.g. shopping, general talk, a question not about this "
+    "business).\n"
     "page = one key from this list when action is open (else \"\"): {pages}\n"
     "item = the item name exactly as said (for item_* actions), else \"\". question = the question in short English "
-    "for answer, else \"\".\nThe person is on the page: {here}.\nSentence: {text}"
+    "for answer, else \"\".\nThe person is on the page: {here}. When the page is chat (the app's main chat, where "
+    "people also shop and ask anything), choose unknown unless the sentence is clearly about running THEIR OWN "
+    "business.\nSentence: {text}"
 )
 
 
@@ -235,7 +245,7 @@ def read(text: str, here: str, write_text: Callable[..., str]) -> Dict[str, Any]
     raw = write_text(prompt, max_tokens=300)
     data = _parse(raw or "")
     action = str(data.get("action") or "unknown")
-    if action not in ("open", "answer", "unknown") + CHANGES:
+    if action not in OTHER + CHANGES:
         action = "unknown"
     page = str(data.get("page") or "")
     if action == "open" and page not in PAGES:
@@ -247,12 +257,40 @@ def read(text: str, here: str, write_text: Callable[..., str]) -> Dict[str, Any]
         price = None
     return {"action": action, "page": page, "item": str(data.get("item") or "")[:80], "price": price,
             "question": str(data.get("question") or "")[:200], "category": str(data.get("category") or "other")[:30],
-            "note": str(data.get("note") or "")[:120]}
+            "note": str(data.get("note") or "")[:120], "person": str(data.get("person") or "")[:60]}
 
 
-def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str, Any], te: bool) -> Dict[str, Any]:
+def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str, Any], te: bool,
+         people: Optional[List[Dict[str, Any]]] = None, report: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Intent -> what the app shows: a reply, a page to open and/or ONE change waiting for ✓."""
     action = intent["action"]
+    if action == "report":
+        if not report:
+            return {"reply": "రిపోర్ట్ తెరుస్తున్నాను." if te else "Opening the report.", "open": "reports"}
+        return {"reply": report.get("say_te" if te else "say_en") or "", "open": None, "link": "reports",
+                "mood": report.get("mood")}
+    if action == "check_in":
+        return {"reply": "హాజరు పేజీ తెరుస్తున్నాను — మీ ఫోన్ లాక్‌తో వేయండి." if te
+                else "Opening attendance — check in with your phone lock.", "open": "staff.checkin"}
+    if action in ("staff_advance", "task_add"):
+        who = find_item(people or [], intent.get("person") or "")
+        if who is None:
+            return {"reply": (f"\"{intent.get('person') or ''}\" అనే సిబ్బంది కనబడలేదు. సిబ్బంది పేజీ తెరుస్తున్నాను." if te
+                              else f"I could not find \"{intent.get('person') or ''}\" in your staff. Opening staff."),
+                    "open": "staff"}
+        if action == "staff_advance":
+            if not intent.get("price") or intent["price"] <= 0:
+                return {"reply": f"{who['name']} కి ఎంత అడ్వాన్స్?" if te else f"How much advance to {who['name']}?", "open": None}
+            paise = int(round(intent["price"] * 100))
+            text = (f"{who['name']} కి అడ్వాన్స్ {_rupees(paise)} — జీతంలో తగ్గుతుంది, క్యాష్‌బుక్‌లో పడుతుంది" if te
+                    else f"Advance {_rupees(paise)} to {who['name']} — taken from salary, written in the cashbook")
+            return {"reply": text, "confirm": {"action": "staff_advance", "ref": who["id"], "amount_paise": paise,
+                                               "summary": text}}
+        job = (intent.get("note") or "").strip()
+        if not job:
+            return {"reply": f"{who['name']} కి ఏ పని?" if te else f"What task for {who['name']}?", "open": None}
+        text = f"{who['name']} కి పని: {job} (వారి ఫోన్ మోగుతుంది)" if te else f"Task for {who['name']}: {job} (their phone rings)"
+        return {"reply": text, "confirm": {"action": "task_add", "ref": who["id"], "note": job, "summary": text}}
     if action == "open":
         en, tel = PAGES[intent["page"]]
         return {"reply": f"{tel} తెరుస్తున్నాను." if te else f"Opening {en}.", "open": intent["page"]}
@@ -314,4 +352,12 @@ def run(change: Dict[str, Any], *, store, desk, business_id: str, user: str) -> 
         return PosCashbook(store).add(business_id, user, {
             "kind": "expense" if action == "add_expense" else "income", "amount_paise": change.get("amount_paise"),
             "category": change.get("category") or "other", "note": change.get("note") or "", "source": "ask"})
+    if action in ("staff_advance", "task_add"):
+        from app.services.pos_attendance import PosAttendance
+
+        att = PosAttendance(store, notify=getattr(desk, "notify", None))
+        ref = str(change.get("ref") or "")[:20]
+        if action == "staff_advance":
+            return att.advance(business_id, user, ref, int(change.get("amount_paise") or 0), change.get("note") or "")
+        return att.add_task(business_id, user, change.get("note") or "", ref)
     raise PosError(400, "action", "This change cannot run from the ASK bar.")

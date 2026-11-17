@@ -64,3 +64,31 @@ def test_spoken_expense_waits_for_confirm_then_lands_in_the_cashbook(env):  # no
     pos_hub.run(plan["confirm"], store=store, desk=desk, business_id=biz, user=OWNER)
     from app.services.pos_cashbook import PosCashbook
     assert PosCashbook(store).month(biz, OWNER)["expense_paise"] == 120000
+
+
+def test_staff_advance_and_task_wait_for_confirm_then_run(env):  # noqa: F811
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    store.set_member(biz, OWNER, "9400000105", "cashier", label="Chintayya")
+    people = [{"id": "0105", "name": "Chintayya"}, {"id": "0103", "name": "Prasad"}]
+    intent = pos_hub.read("chintayya ki 500 advance", "chat",
+                          lambda p, max_tokens=0: json.dumps({"action": "staff_advance", "person": "Chintayya", "price": 500}))
+    plan = pos_hub.plan(intent, [], {}, te=True, people=people)
+    assert plan["confirm"]["action"] == "staff_advance" and plan["confirm"]["ref"] == "0105"
+    assert plan["confirm"]["amount_paise"] == 50000
+    out = pos_hub.run(plan["confirm"], store=store, desk=desk, business_id=biz, user=OWNER)
+    assert out
+    task = pos_hub.plan({"action": "task_add", "person": "prasad", "note": "clean tables", "price": None}, [], {}, te=False,
+                        people=people)
+    assert task["confirm"] == {"action": "task_add", "ref": "0103", "note": "clean tables", "summary": task["confirm"]["summary"]}
+    assert pos_hub.run(task["confirm"], store=store, desk=desk, business_id=biz, user=OWNER)["id"]
+    missing = pos_hub.plan({"action": "task_add", "person": "ramu", "note": "x"}, [], {}, te=False, people=people)
+    assert "confirm" not in missing and missing["open"] == "staff"
+
+
+def test_report_and_check_in_and_chat_unknown():
+    report = {"say_te": "ఈ రోజు బాగుంది.", "say_en": "Today went well.", "mood": "good"}
+    assert pos_hub.plan({"action": "report"}, [], {}, te=True, report=report)["reply"] == "ఈ రోజు బాగుంది."
+    assert pos_hub.plan({"action": "check_in"}, [], {}, te=False)["open"] == "staff.checkin"
+    assert "chat" in pos_hub.PROMPT
+    intent = pos_hub.read("best phone under 15000", "chat", lambda p, max_tokens=0: json.dumps({"action": "unknown"}))
+    assert intent["action"] == "unknown"

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/flags/askodox_release_phase.dart' show askodoxRouteShownNow;
+
 import '../../guide/in_app_guide.dart' show askodoxGuideSpeakerProvider;
 import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxPaise;

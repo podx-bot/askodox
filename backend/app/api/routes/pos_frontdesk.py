@@ -768,6 +768,7 @@ class AskConfirmIn(BaseModel):
     amount_paise: Optional[int] = Field(default=None, ge=1, le=1_000_000_000)
     category: str = Field(default="", max_length=30)
     note: str = Field(default="", max_length=120)
+    ref: str = Field(default="", max_length=20)
 
 
 @router.get("/businesses/{business_id}/hub")
@@ -801,7 +802,16 @@ def business_ask(business_id: str, body: BizAskIn, request: Request) -> dict:
     items: List[Dict[str, Any]] = []
     if intent["action"] in ("item_off", "item_on", "item_price"):
         items = _call(_desk(request).menu_admin, business_id, user)["items"]
-    out = pos_hub.plan(intent, items, numbers, body.lang == "te")
+    people: List[Dict[str, Any]] = []
+    report = None
+    if intent["action"] in ("staff_advance", "task_add"):
+        people = [{"id": p["ref"], "name": p["name"]} for p in _call(_att(request).today, business_id, user)["people"]]
+    if intent["action"] == "report":
+        try:
+            report = _reports(request).day(business_id, user)
+        except Exception:
+            report = None  # no reports permission: the page itself explains
+    out = pos_hub.plan(intent, items, numbers, body.lang == "te", people=people, report=report)
     out["intent"] = intent["action"]
     return out
 
