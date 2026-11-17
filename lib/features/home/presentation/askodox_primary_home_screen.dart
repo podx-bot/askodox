@@ -5611,10 +5611,10 @@ class _AskodoxPrimaryHomeScreenState
         if (listening)
           IconButton.filled(
             key: const Key('askodoxVoiceStop'),
-            tooltip: te ? 'ఆపి పంపు' : 'Stop and send',
+            tooltip: te ? 'ఆపండి' : 'Stop',
             onPressed: () => _finishVoice(noSpeech: false),
-            style: IconButton.styleFrom(backgroundColor: const Color(0xFF1F2937), fixedSize: const Size(44, 44)),
-            icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white),
+            style: IconButton.styleFrom(backgroundColor: const Color(0xFFE5484D), fixedSize: const Size(44, 44)),
+            icon: const Icon(Icons.stop_rounded, color: Colors.white),
           )
         else if (_voicePhase == _VoicePhase.speaking) ...[
           IconButton(
