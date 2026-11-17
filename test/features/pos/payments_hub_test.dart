@@ -124,8 +124,9 @@ void main() {
     await tester.pumpWidget(_app(api, now));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPaymentsHubToday')), findsOneWidget);
-    expect(find.text('₹470'), findsOneWidget, reason: '350 + 120 today; the test payment and yesterday are left out');
-    expect(find.text('2 payments · spoke 1 times'), findsOneWidget);
+    expect(find.text('Today ₹470 · 2 payments'), findsOneWidget, reason: '350 + 120 today; the test payment and yesterday are left out');
+    expect(find.text('spoke 1 times today'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPaymentsHubMoney')), findsOneWidget);
     expect(find.textContaining('not bank-confirmed'), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPaymentsHubEvent-e1')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPaymentsHubEvent-e2')), findsOneWidget);

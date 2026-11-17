@@ -68,8 +68,9 @@ String askodoxHowOf(String package, String label, {String kind = ''}) {
   if (s.contains('amazon')) return 'wallet';
   if (s.contains('razorpay')) return 'razorpay';
   if (s.contains('bhim') || s.contains('upi')) return 'upi';
-  if (kind == 'sms' || s.contains('messag') || s.contains('sms')) return 'sms';
+  // the bank's own app beats its SMS (owner 2026-11-17: show the app the money came through, not "Bank SMS")
   if (kind == 'bank' || s.contains('bank')) return 'bank';
+  if (kind == 'sms' || s.contains('messag') || s.contains('sms')) return 'sms';
   return 'upi';
 }
 
@@ -156,22 +157,36 @@ List<AskodoxMoneyItem> askodoxItemsFromPhone(Iterable<Map<String, Object?>> even
     final label = '${e['source_label'] ?? ''}';
     final also = '${e['also_from'] ?? ''}';
     final how = askodoxHowOf('${e['source_app'] ?? ''}', '$label $also', kind: '${e['kind'] ?? ''}');
+    final account = askodoxAccountOf(e, places, assigned, labelToPackage: labelToPackage);
     out.add(AskodoxMoneyItem(
       id: id,
       kind: 'payment',
       direction: e['direction'] == 'out' ? 'out' : 'in',
       amountPaise: (e['amount_paise'] as num).toInt(),
       at: _when(e['detected_at'], e['at_ms']),
-      title: party.isNotEmpty ? party : label,
+      title: party.isNotEmpty ? party : askodoxNoNameTitle(label, also, account, places),
       sub: also.isEmpty ? label : '$label + $also',
       how: how,
-      account: askodoxAccountOf(e, places, assigned, labelToPackage: labelToPackage),
+      account: account,
       confirmed: e['bank_confirmed'] == true ? 'bank_sms' : '',
       linkedTo: links[id] ?? '',
       raw: e,
     ));
   }
   return out;
+}
+
+/// A payment with no person's name: never the messages app's name ("Messages (Google)") -- the app it came through,
+/// else the account it moved in ("HDFC ••6911"), else the bank.
+String askodoxNoNameTitle(String label, String also, String account, List<AskodoxMoneyPlace> places) {
+  bool messages(String x) => x.toLowerCase().contains('messag') || x.toLowerCase().contains('sms');
+  if (label.trim().isNotEmpty && !messages(label)) return label.trim();
+  if (also.trim().isNotEmpty && !messages(also)) return also.trim();
+  for (final p in places) {
+    if (p.key == account && p.name.trim().isNotEmpty) return p.name.trim();
+  }
+  if (account.startsWith('bank:')) return 'A/c ••${account.substring(5)}';
+  return 'Bank';
 }
 
 /// Bills the person RECEIVED from shops (My bills): money they owe / paid.

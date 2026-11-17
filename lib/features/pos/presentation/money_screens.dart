@@ -62,6 +62,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
   String _q = '';
   bool _searching = false;
   bool _loading = true;
+  bool _listMode = false; // false = the one-page summary, true = every row with filters
   late final AskodoxPaymentAlertsBridge _bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
 
   @override
@@ -368,6 +369,336 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
+    if (!_listMode) return _summary(te);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _listMode = false);
+      },
+      child: _list(te),
+    );
+  }
+
+  /// Unconfirmed money (only a notification saw it): a small ⏳ after the name; the meaning is in ONE note below.
+  bool _unconfirmed(AskodoxMoneyItem i) => i.kind == 'payment' && i.confirmed.isEmpty;
+
+  Widget _footNote(bool te) => Padding(
+        key: const Key('askodoxMoneyFootNote'),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+        child: Text(
+            te
+                ? '⏳ = బ్యాంక్ నుంచి ఇంకా నిర్ధారణ రాలేదు (యాప్ నోటిఫికేషన్ మాత్రమే). మిగతావి బ్యాంక్ SMS / బ్యాంక్ నిర్ధారించినవి.'
+                : '⏳ = not confirmed by the bank yet (an app notification only). The rest were confirmed by a bank SMS / the bank.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+      );
+
+  // ------------------------------------------------------------------ the one page (owner 2026-11-17)
+
+  String _periodLabel(bool te) {
+    const monthsTe = ['జనవరి', 'ఫిబ్రవరి', 'మార్చి', 'ఏప్రిల్', 'మే', 'జూన్', 'జూలై', 'ఆగస్టు', 'సెప్టెంబర్', 'అక్టోబర్', 'నవంబర్', 'డిసెంబర్'];
+    const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return switch (_period) {
+      'today' => te ? 'ఈ రోజు' : 'Today',
+      'week' => te ? 'ఈ వారం' : 'This week',
+      'all' => te ? 'అన్నీ' : 'All time',
+      _ => te ? monthsTe[DateTime.now().month - 1] : monthsEn[DateTime.now().month - 1],
+    };
+  }
+
+  void _openList({String kind = 'all', String? account, bool search = false}) => setState(() {
+        _listMode = true;
+        _kind = kind;
+        _account = account;
+        _searching = search;
+        if (!search) _q = '';
+      });
+
+  /// Everything at a glance on ONE screen: what came in / went out, what is due, what to join, the latest few rows.
+  /// Every tile opens the full list already filtered.
+  Widget _summary(bool te) {
+    final all = _items();
+    final range = _range();
+    final m = _data.mine;
+    final personal = _owner == 'me';
+    final totals = askodoxTotals(all, range.$1, range.$2,
+        rowCategory: m?.rowCategory ?? const {}, payeeCategory: m?.payeeCategory ?? const {});
+    final payments = all.where((i) => i.kind == 'payment').toList();
+    final bills = all.where((i) => i.kind == 'bill').toList();
+    final pairs = askodoxPairSuggestions(payments, bills, dismissed: m?.dismissed ?? const <String>{});
+    final pending = bills.where((b) => b.pending).toList();
+    final pendingSum = pending.fold<int>(0, (a, b) => a + b.amountPaise);
+    final balances = askodoxLatestBalances(all);
+    final sales = bills.where((b) => !b.at.isBefore(range.$1) && b.at.isBefore(range.$2)).toList();
+    final salesSum = sales.fold<int>(0, (a, b) => a + b.amountPaise);
+    final topCat = (totals.byCategory.entries.where((e) => e.key.isNotEmpty).toList()..sort((a, b) => b.value.compareTo(a.value)))
+        .firstOrNull;
+    final cash = totals.inByHow['cash'] ?? 0;
+    final now = DateTime.now();
+    final upcoming = <(AskodoxDue, DateTime)>[
+      if (personal && m != null)
+        for (final d in m.dues)
+          if (askodoxNextDue(d, now) case final next?) (d, next),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
+    final recent = all.where((i) => !i.at.isBefore(range.$1) && i.at.isBefore(range.$2)).take(4).toList();
+    final today = DateTime(now.year, now.month, now.day);
+
+    Widget stat(String label, String value, {String sub = ''}) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(12)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              Text(value, style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800)),
+              if (sub.isNotEmpty) Text(sub, style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
+            ]),
+          ),
+        );
+
+    Widget tile(String key, String label, String value, String sub, Color color, Color bg, VoidCallback onTap) => Expanded(
+          child: Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              key: ValueKey('askodoxMoneyTile-$key'),
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 74),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color)),
+                  if (sub.isNotEmpty)
+                    Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+                ]),
+              ),
+            ),
+          ),
+        );
+
+    final tiles = personal
+        ? [
+            tile('pending', te ? 'కట్టాల్సిన బిల్లులు' : 'Bills to pay', _rs(pendingSum),
+                te ? '${pending.length} బిల్' : '${pending.length} bills', _amber, const Color(0xFFFFF4E5), () => _openList(kind: 'pending')),
+            const SizedBox(width: 8),
+            tile('top', te ? 'ఎక్కువ ఖర్చు' : 'Spent most on',
+                topCat == null ? '—' : (te ? askodoxCategoryLabel(topCat.key).$2 : askodoxCategoryLabel(topCat.key).$1),
+                topCat == null ? '' : _rs(topCat.value), const Color(0xFF1B2333), Colors.white,
+                () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => AskodoxMoneyMonthScreen(items: all, mine: _data.mine, personal: personal)))),
+            const SizedBox(width: 8),
+            tile('pairs', te ? 'జత చేయాలి' : 'To join', '${pairs.length}', te ? 'బిల్ ↔ పేమెంట్' : 'bill ↔ payment', _accent,
+                const Color(0xFFE8EEFB), () => _openList()),
+          ]
+        : [
+            tile('pending', te ? 'రావాల్సిన బాకీ' : 'Customers owe', _rs(pendingSum),
+                te ? '${pending.length} బిల్లులు' : '${pending.length} bills', _amber, const Color(0xFFFFF4E5), () => _openList(kind: 'pending')),
+            const SizedBox(width: 8),
+            tile('cash', te ? 'క్యాష్ / UPI' : 'Cash / UPI', '${_rs(cash)} / ${_rs(totals.inPaise - cash)}', '', const Color(0xFF1B2333),
+                Colors.white, () => _openList(kind: 'in')),
+            const SizedBox(width: 8),
+            tile('pairs', te ? 'జత చేయాలి' : 'To join', '${pairs.length}', te ? 'పేమెంట్ ↔ బిల్' : 'payment ↔ bill', _accent,
+                const Color(0xFFE8EEFB), () => _openList()),
+          ];
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(key: const Key('askodoxMoney'), padding: EdgeInsets.zero, children: [
+          Container(
+            key: const Key('askodoxMoneySummary'),
+            padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 6, 14, 14),
+            decoration: const BoxDecoration(color: _accent, borderRadius: BorderRadius.vertical(bottom: Radius.circular(22))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                IconButton(
+                    tooltip: te ? 'వెనక్కి' : 'Back',
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).maybePop()),
+                Expanded(
+                    child: Text(personal ? (te ? 'నా డబ్బు' : 'My money') : (te ? 'షాప్ డబ్బు' : 'Shop money'),
+                        style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800))),
+                IconButton(
+                  key: const Key('askodoxMoneySearchToggle'),
+                  tooltip: te ? 'వెతుకు' : 'Search',
+                  icon: const Icon(Icons.search, color: Colors.white),
+                  onPressed: () => _openList(search: true),
+                ),
+                PopupMenuButton<String>(
+                  key: const Key('askodoxMoneyPeriod'),
+                  initialValue: _period,
+                  onSelected: (p) => setState(() => _period = p),
+                  itemBuilder: (_) => [
+                    for (final p in const ['today', 'week', 'month', 'all'])
+                      PopupMenuItem(value: p, child: Text(switch (p) {
+                        'today' => te ? 'ఈ రోజు' : 'Today',
+                        'week' => te ? 'ఈ వారం' : 'This week',
+                        'month' => te ? 'ఈ నెల' : 'This month',
+                        _ => te ? 'అన్నీ' : 'All time',
+                      })),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
+                    child: Text('${_periodLabel(te)} ▾', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                  ),
+                ),
+              ]),
+              if (_data.businesses.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: [
+                      _segment('me', te ? 'నా సొంతం' : 'My own'),
+                      for (final b in _data.businesses) _segment('${b['id']}', '${b['name'] ?? ''}'),
+                    ]),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(children: personal
+                  ? [
+                      stat(te ? 'వచ్చింది' : 'Came in', _rs(totals.inPaise)),
+                      const SizedBox(width: 8),
+                      stat(te ? 'ఖర్చు' : 'Went out', _rs(totals.outPaise)),
+                    ]
+                  : [
+                      stat(te ? 'అమ్మకాలు (బిల్లులు)' : 'Sales (bills)', _rs(salesSum), sub: te ? '${sales.length} బిల్లులు' : '${sales.length} bills'),
+                      const SizedBox(width: 8),
+                      stat(te ? 'వచ్చిన డబ్బు' : 'Money in', _rs(totals.inPaise),
+                          sub: te ? '${payments.where((p) => !p.at.isBefore(range.$1) && p.at.isBefore(range.$2)).length} పేమెంట్లు' : ''),
+                    ]),
+              if (personal && balances.isNotEmpty)
+                InkWell(
+                  key: const Key('askodoxMoneyBalances'),
+                  onTap: () => _openList(),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                        '${te ? 'బ్యాలెన్స్' : 'Balance'}: ${[
+                          for (final e in balances.entries.take(2)) '${_accountName(e.key, te)} ${_rs(e.value.$1)}',
+                        ].join(' · ')} ›',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+                  ),
+                ),
+            ]),
+          ),
+          if (_loading) const LinearProgressIndicator(minHeight: 2),
+          Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 0), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: tiles)),
+          if (pairs.isNotEmpty) _pairCard(te, pairs.first),
+          if (personal) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+              child: Row(children: [
+                Expanded(child: Text(te ? 'రాబోయే చెల్లింపులు' : 'Coming up', style: const TextStyle(fontWeight: FontWeight.w800))),
+                TextButton(
+                  key: const Key('askodoxMoneyDues'),
+                  onPressed: () async {
+                    await Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => AskodoxDuesScreen(phoneEvents: _data.phoneEvents, items: all)));
+                    await _load(quiet: true);
+                  },
+                  child: Text(upcoming.isEmpty ? (te ? '+ చేర్చు' : '+ Add') : (te ? 'అన్నీ ›' : 'All ›')),
+                ),
+              ]),
+            ),
+            SizedBox(
+              height: 72,
+              child: upcoming.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(te ? 'EMI, కరెంట్ బిల్, అద్దె చేర్చండి — గడువుకు 2 రోజుల ముందు, ఆ రోజు వాయిస్‌తో చెప్తుంది.'
+                          : 'Add EMI, current bill, rent — said aloud 2 days before and on the day.',
+                          style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                    )
+                  : ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 14), children: [
+                      for (final u in upcoming.take(8))
+                        Container(
+                          key: ValueKey('askodoxMoneyDue-${u.$1.id}'),
+                          width: 132,
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(u.$1.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                            Text(_rs(u.$1.amountPaise), style: const TextStyle(fontWeight: FontWeight.w800)),
+                            Builder(builder: (_) {
+                              final days = DateTime(u.$2.year, u.$2.month, u.$2.day).difference(today).inDays;
+                              return Text(
+                                  days <= 0 ? (te ? 'ఈ రోజే' : 'Today') : days == 1 ? (te ? 'రేపు' : 'Tomorrow') : days <= 7 ? (te ? '$days రోజుల్లో' : 'in $days days') : '${u.$2.day}/${u.$2.month}',
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: days <= 3 ? const Color(0xFFB45309) : const Color(0xFF374151)));
+                            }),
+                          ]),
+                        ),
+                    ]),
+            ),
+          ],
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(child: Text(te ? 'ఇటీవల' : 'Latest', style: const TextStyle(fontWeight: FontWeight.w800))),
+                TextButton(key: const Key('askodoxMoneyAll'), onPressed: () => _openList(), child: Text(te ? 'అన్నీ చూడు ›' : 'See all ›')),
+              ]),
+              if (recent.isEmpty)
+                Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Text(_loading ? (te ? 'లోడ్ అవుతోంది…' : 'Loading…') : (te ? 'ఇంకా ఏమీ లేదు.' : 'Nothing yet.'),
+                        textAlign: TextAlign.center)),
+              for (final i in recent) _row(te, i, all),
+            ]),
+          ),
+          _footNote(te),
+        ]),
+      ),
+    );
+  }
+
+  Widget _segment(String id, String label) {
+    final sel = _owner == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Material(
+        color: sel ? Colors.white : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
+        child: InkWell(
+          key: ValueKey('askodoxMoneyOwner-$id'),
+          borderRadius: BorderRadius.circular(9),
+          onTap: () async {
+            setState(() {
+              _owner = id;
+              _account = null;
+              _how = '';
+              _loading = id != 'me';
+            });
+            if (id != 'me') {
+              await _loadShop(id);
+              if (mounted) setState(() => _loading = false);
+            }
+          },
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 38, minWidth: 96),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(label,
+                style: TextStyle(color: sel ? _accent : Colors.white, fontWeight: sel ? FontWeight.w800 : FontWeight.w500, fontSize: 13)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _list(bool te) {
     final all = _items();
     final range = _range();
     final m = _data.mine;
@@ -434,6 +765,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
               for (final i in shown.take(300)) _row(te, i, all),
             ]),
           ),
+          _footNote(te),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
@@ -462,8 +794,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
   }
 
   Widget _header(bool te, Map<String, (int, DateTime)> balances, bool personal) {
-    final places = _data.mine?.places ?? const <AskodoxMoneyPlace>[];
-    final keys = <String>{...balances.keys, for (final p in places) p.key}.toList();
+    final keys = _accountKeys(balances);
     final total = balances.values.fold<int>(0, (a, b) => a + b.$1);
     return Container(
       padding: EdgeInsets.fromLTRB(8, MediaQuery.paddingOf(context).top + 8, 8, 16),
@@ -473,7 +804,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
           IconButton(
               tooltip: te ? 'వెనక్కి' : 'Back',
               icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).maybePop()),
+              onPressed: () => _listMode ? setState(() => _listMode = false) : Navigator.of(context).maybePop()),
           Expanded(
             child: _searching
                 ? TextField(
@@ -529,6 +860,19 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
         ],
       ]),
     );
+  }
+
+  /// Accounts worth a card: ones with money seen in them or a known balance, ONE card per name (two saved places
+  /// both called "PhonePe" with nothing in them are not shown twice -- owner 2026-11-17).
+  List<String> _accountKeys(Map<String, (int, DateTime)> balances) {
+    final used = <String>{for (final i in _items()) if (i.account.isNotEmpty) i.account, ...balances.keys};
+    final names = <String>{};
+    final out = <String>[];
+    for (final k in used) {
+      final name = _accountName(k, true).trim().toLowerCase();
+      if (names.add(name)) out.add(k);
+    }
+    return out;
   }
 
   Widget _ownerChip(String id, String label, bool te) => Padding(
@@ -763,7 +1107,6 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
   }
 
   Widget _row(bool te, AskodoxMoneyItem i, List<AskodoxMoneyItem> all) {
-    final proof = _proof(i, te);
     final cat = i.direction == 'out' && _owner == 'me' ? _cat(i) : '';
     final linked = i.linkedTo.isEmpty ? null : all.where((x) => x.id == i.linkedTo).firstOrNull;
     final linkText = linked != null
@@ -781,7 +1124,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(i.title.isEmpty ? (te ? 'పేమెంట్' : 'Payment') : i.title,
+              Text('${i.title.isEmpty ? (te ? 'పేమెంట్' : 'Payment') : i.title}${_unconfirmed(i) ? ' ⏳' : ''}',
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
               Text(
                   [
@@ -791,7 +1134,8 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                     _when(i.at, te),
                   ].where((x) => x.isNotEmpty).join(' · '),
                   style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
-              if (proof != null) Text(proof.$1, style: TextStyle(fontSize: 11.5, color: proof.$2, fontWeight: FontWeight.w600)),
+              if (i.kind == 'bill' && i.pending)
+                Text(te ? 'ఇంకా కట్టలేదు' : 'Not paid yet', style: const TextStyle(fontSize: 11.5, color: _amber, fontWeight: FontWeight.w600)),
               if (linkText.isNotEmpty || cat.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 3),

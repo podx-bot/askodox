@@ -193,30 +193,21 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
                         style: const TextStyle(fontSize: 13, color: _muted)),
                     const SizedBox(height: 14),
                     if (shops.isNotEmpty) ...[_sources(te, shops), const SizedBox(height: 12)],
-                    if (_mine && _events.isEmpty) _start(te) else _today(te),
+                    _qrCard(te),
                     const SizedBox(height: 12),
+                    if (_mine && _events.isEmpty) ...[_start(te), const SizedBox(height: 12)],
                     _doors(te, shops),
-                    // Owner 2026-11-17: ONE money history (payments + bills + accounts + EMI / bills to pay).
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Material(
-                        color: const Color(0xFFE8EEFB),
-                        borderRadius: BorderRadius.circular(14),
-                        child: ListTile(
-                          key: const Key('askodoxPaymentsHubMoney'),
-                          leading: const Icon(Icons.account_balance_wallet_outlined, color: _blue),
-                          title: Text(te ? 'నా డబ్బు — అన్నీ ఒకే చోట' : 'My money — all in one place',
-                              style: const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text(te
-                              ? 'ఖాతాలు, పేమెంట్లు, బిల్లులు, EMI / కరెంట్ బిల్ గడువులు'
-                              : 'Accounts, payments, bills, EMI / bill due dates'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => context.push('/money'),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     _recent(te, _source),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                          te
+                              ? 'ఫోన్ నోటిఫికేషన్ల లెక్క — బ్యాంక్ నిర్ధారణ కాదు. బ్యాంక్ SMS వచ్చినవి మాత్రమే నిర్ధారించినవి.'
+                              : 'Counted from phone notifications — not bank-confirmed unless a bank SMS came.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 11.5, color: _muted)),
+                    ),
                     if (!_mine) ...[
                       const SizedBox(height: 14),
                       _advanced(te, _source),
@@ -263,111 +254,94 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
         ]),
       );
 
-  Widget _today(bool te) {
-    final week = AskodoxPaymentWeek(_events, _now);
-    final top = week.totals.fold<int>(0, (m, v) => v > m ? v : m);
-    const teDays = ['సోమ', 'మంగళ', 'బుధ', 'గురు', 'శుక్ర', 'శని', 'ఆది'];
-    const enDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const teMonths = ['జనవరి', 'ఫిబ్రవరి', 'మార్చి', 'ఏప్రిల్', 'మే', 'జూన్', 'జూలై', 'ఆగస్టు', 'సెప్టెంబర్', 'అక్టోబర్', 'నవంబర్', 'డిసెంబర్'];
-    const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final now = _now;
-    return Container(
-      key: const Key('askodoxPaymentsHubToday'),
-      decoration: _card,
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(
-            child: Text(te ? 'ఈ రోజు వచ్చింది' : 'Came in today',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _muted)),
-          ),
-          Text('${now.day} ${(te ? teMonths : enMonths)[now.month - 1]}', style: const TextStyle(fontSize: 12, color: _muted)),
-        ]),
-        const SizedBox(height: 4),
-        Text(askodoxRupees(week.todayPaise),
-            key: const Key('askodoxPaymentsHubTodayTotal'),
-            style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: _ink)),
-        const SizedBox(height: 4),
-        Text(
-            te
-                ? '${week.todayCount} పేమెంట్లు · ${week.todaySpoken} సార్లు మాట్లాడింది'
-                : '${week.todayCount} payments · spoke ${week.todaySpoken} times',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _ink)),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: 72,
-          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            for (var i = 0; i < 7; i++)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                    Container(
-                      height: top == 0 ? 4 : 4 + 44 * week.totals[i] / top,
-                      decoration: BoxDecoration(
-                        color: i == 6 ? _green : const Color(0xFFCFE6D9),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      i == 6 ? (te ? 'ఈ రోజు' : 'Today') : (te ? teDays : enDays)[week.days[i].weekday - 1],
-                      maxLines: 1,
-                      overflow: TextOverflow.fade,
-                      softWrap: false,
-                      style: TextStyle(fontSize: 10.5, fontWeight: i == 6 ? FontWeight.w800 : FontWeight.w500, color: _muted),
-                    ),
-                  ]),
-                ),
-              ),
-          ]),
-        ),
-        const SizedBox(height: 10),
-        Text(
-            te
-                ? 'ఫోన్ నోటిఫికేషన్ల లెక్క — బ్యాంక్ నిర్ధారణ కాదు. బ్యాంక్ యాప్‌లో ఒకసారి చూసుకోండి.'
-                : 'Counted from phone notifications — not bank-confirmed. Check your bank app once.',
-            style: const TextStyle(fontSize: 11.5, color: _muted)),
-      ]),
-    );
-  }
-
-  Widget _doors(bool te, List<AskodoxJson> shops) {
-    final alerts = _mine ? '/me/payments/phone' : '/me/payment-alerts/$_source';
-    Widget door(String key, IconData icon, String label, String path, {bool primary = false}) => Expanded(
+  /// The one big action: show the QR the customer scans (money goes straight to the person's own account).
+  Widget _qrCard(bool te) => Material(
+        color: _ink,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          key: const Key('askodoxPaymentsHubQr'),
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => context.push('/me/payment-methods'),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Material(
-              color: primary ? _ink : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: primary ? BorderSide.none : const BorderSide(color: _line),
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              const Icon(Icons.qr_code_2_rounded, color: Colors.white, size: 40),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(te ? 'నా QR చూపించు' : 'Show my QR',
+                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                  Text(te ? 'కస్టమర్ స్కాన్ చేసి నేరుగా మీ ఖాతాకి కడతారు' : 'The customer scans and pays straight into your account',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                ]),
               ),
-              child: InkWell(
-                key: Key(key),
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => context.push(path),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(icon, color: primary ? Colors.white : _blue),
-                    const SizedBox(height: 6),
-                    Text(label,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: primary ? Colors.white : _ink)),
-                  ]),
-                ),
-              ),
+              const Icon(Icons.chevron_right, color: Colors.white),
+            ]),
+          ),
+        ),
+      );
+
+  /// Six doors in a neat 2 x 3 grid (owner 2026-11-17: no stats card, no row of small buttons); each says its news.
+  Widget _doors(bool te, List<AskodoxJson> shops) {
+    final week = AskodoxPaymentWeek(_events, _now);
+    final hasToday = _events.isNotEmpty;
+    final alerts = _mine ? '/me/payments/phone' : '/me/payment-alerts/$_source';
+    Widget door(String key, IconData icon, String title, String sub, String path, {Key? subKey, bool tint = false}) => Material(
+          color: tint ? const Color(0xFFE8EEFB) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: tint ? BorderSide.none : const BorderSide(color: _line)),
+          child: InkWell(
+            key: Key(key),
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => context.push(path),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 96),
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(icon, color: _blue),
+                const SizedBox(height: 6),
+                Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
+                const SizedBox(height: 2),
+                Text(sub, key: subKey, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _muted)),
+              ]),
             ),
           ),
         );
-    return Row(children: [
-      door('askodoxPaymentsHubQr', Icons.qr_code_2_rounded, te ? 'నా QR చూపించు' : 'Show my QR', '/me/payment-methods', primary: true),
-      // Owner 2026-11-15 (pani B): one tap to the calculator bill (Make a bill) of the shop shown, or a personal bill.
-      door('askodoxPaymentsHubBill', Icons.calculate_outlined, te ? 'బిల్లు' : 'Bill', '/me/business/$_source/bill'),
-      door('askodoxPaymentsHubAlerts', Icons.volume_up_rounded, te ? 'అలర్ట్స్' : 'Alerts', alerts),
-      door('askodoxPaymentsHubMyBills', Icons.receipt_long_outlined, te ? 'నా బిల్లులు' : 'My bills', '/me/bills'),
-      door('askodoxPaymentsHubAccounts', Icons.account_balance_outlined, te ? 'నా ఖాతాలు' : 'My accounts', '/me/payment-methods'),
+    final cells = [
+      door('askodoxPaymentsHubMoney', Icons.account_balance_wallet_outlined, te ? 'నా డబ్బు' : 'My money',
+          hasToday
+              ? (te
+                  ? 'ఈ రోజు ${askodoxRupees(week.todayPaise)} · ${week.todayCount} పేమెంట్లు'
+                  : 'Today ${askodoxRupees(week.todayPaise)} · ${week.todayCount} payments')
+              : (te ? 'అన్నీ ఒకే చోట: వచ్చినవి, ఖర్చులు, బిల్లులు' : 'All in one place: in, out, bills'),
+          '/money',
+          subKey: hasToday ? const Key('askodoxPaymentsHubToday') : null,
+          tint: true),
+      door('askodoxPaymentsHubBill', Icons.calculate_outlined, te ? 'బిల్ వేయి' : 'Make a bill',
+          te ? 'నంబర్ / పేరుతో, WhatsApp కి' : 'By number / name, to WhatsApp', '/me/business/$_source/bill'),
+      door('askodoxPaymentsHubDues', Icons.event_note_outlined, te ? 'రాబోయే చెల్లింపులు' : 'Coming up',
+          te ? 'EMI, కరెంట్ బిల్, అద్దె' : 'EMI, current bill, rent', '/money'),
+      door('askodoxPaymentsHubMyBills', Icons.receipt_long_outlined, te ? 'నా బిల్లులు' : 'My bills',
+          te ? 'షాపుల నుంచి వచ్చినవి' : 'Bills shops sent you', '/me/bills'),
+      door(
+          'askodoxPaymentsHubAlerts',
+          Icons.volume_up_rounded,
+          te ? 'పేమెంట్ వాయిస్' : 'Payment voice',
+          hasToday
+              ? (te ? 'ఈ రోజు ${week.todaySpoken} సార్లు చెప్పింది' : 'spoke ${week.todaySpoken} times today')
+              : (te ? 'డబ్బు రాగానే చెప్తుంది' : 'Says it when money comes'),
+          alerts),
+      door('askodoxPaymentsHubAccounts', Icons.account_balance_outlined, te ? 'నా ఖాతాలు' : 'My accounts',
+          te ? 'బ్యాంక్, UPI, QR' : 'Bank, UPI, QR', '/me/payment-methods'),
+    ];
+    return Column(children: [
+      for (var r = 0; r < cells.length; r += 2) ...[
+        if (r > 0) const SizedBox(height: 10),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: cells[r]),
+          const SizedBox(width: 10),
+          Expanded(child: cells[r + 1]),
+        ]),
+      ],
     ]);
   }
 

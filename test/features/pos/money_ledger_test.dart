@@ -97,4 +97,17 @@ void main() {
     expect(rows.length, 1);
     expect((rows.first.how, rows.first.confirmed, rows.first.account, rows.first.linkedTo), ('phonepe', 'bank_sms', 'bank:7571', 'mybill:t1'));
   });
+
+  test('the app the money came through is shown, never "Messages" or "Bank SMS" when an app saw it too', () {
+    expect(askodoxHowOf('com.google.android.apps.messaging', 'Messages (Google) HDFC Bank App', kind: 'sms'), 'bank');
+    expect(askodoxHowOf('com.google.android.apps.messaging', 'Messages (Google) PhonePe', kind: 'sms'), 'phonepe');
+    expect(askodoxHowOf('com.google.android.apps.messaging', 'Messages (Google)', kind: 'sms'), 'sms');
+    final rows = askodoxItemsFromPhone([
+      {'local_id': 'a', 'amount_paise': 24000, 'direction': 'in', 'source_label': 'Messages (Google)', 'kind': 'sms',
+       'account_tail': '6911', 'at_ms': 1}
+    ], const [], const {}, const {});
+    expect(rows.single.title.toLowerCase().contains('messag'), isFalse);
+    expect(askodoxNoNameTitle('Messages (Google)', 'HDFC Bank', '', const []), 'HDFC Bank');
+    expect(askodoxNoNameTitle('Messages (Google)', '', 'bank:6911', const []), 'A/c ••6911');
+  });
 }
