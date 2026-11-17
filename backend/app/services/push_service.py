@@ -14,12 +14,15 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import os
 import sqlite3
 import threading
 import time
 from contextlib import closing
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import httpx
 
@@ -204,14 +207,30 @@ class PushService:
             return 0
         url = f"https://fcm.googleapis.com/v1/projects/{self._account['project_id']}/messages:send"
         sent = 0
+        codes: list[int] = []
+        payload = {k: str(v)[:500] for k, v in data.items()}
+        payload.setdefault("sent_at", str(int(time.time() * 1000)))  # the phone stays silent on a late copy
         for token in tokens:
-            message = {"message": {"token": token, "data": {k: str(v)[:500] for k, v in data.items()},
+            message = {"message": {"token": token, "data": payload,
                                    "android": {"priority": "high", "ttl": f"{int(ttl_seconds)}s"}}}
-            response = self.client.post(url, json=message, headers={"Authorization": f"Bearer {access}"})
-            if response.status_code == 200:
+            response = None
+            for attempt in range(2):  # one retry on FCM's busy answers (429 / 5xx), never on a bad token
+                try:
+                    response = self.client.post(url, json=message, headers={"Authorization": f"Bearer {access}"})
+                except Exception:
+                    response = None
+                if response is not None and response.status_code < 429:
+                    break
+                time.sleep(0.6)
+            code = response.status_code if response is not None else 0
+            codes.append(code)
+            if code == 200:
                 sent += 1
-            elif response.status_code in (400, 404) and "UNREGISTERED" in response.text:
+            elif response is not None and code in (400, 404) and "UNREGISTERED" in response.text:
                 self.unregister(user_id, token)
+        # Owner 2026-11-17 (a staff phone hears it one time, not the next): the delivery trail, no identities.
+        logger.info("push.data key=%s user=..%s tokens=%d sent=%d codes=%s", event_key[:40], user_id[-4:], len(tokens),
+                    sent, codes)
         return sent
 
     def send_data_async(self, user_id: str, **kwargs: Any) -> None:

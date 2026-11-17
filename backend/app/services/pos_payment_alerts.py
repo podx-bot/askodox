@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import sqlite3
 import uuid
@@ -676,6 +677,7 @@ class PosPaymentAlerts:
         body = (f"{who}: " if who else "") + announcement(amount, settings["language"], test=test)
         speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body, "title": title,
                  "language": settings["language"], "verified": "0", "test": "1" if test else "0"}
+        logging.getLogger(__name__).info("payalert.fanout event=%s receivers=%d", event_id, len(receivers))
         for receiver in receivers:
             try:
                 self.notify(receiver, title, body, f"/pos/{business_id}/payment-alerts", f"payalert:{event_id}", speak)

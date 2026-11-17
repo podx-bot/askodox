@@ -715,12 +715,16 @@ object AskodoxPaymentAlerts {
             val at = e.optLong("at_ms", 0L)
             if (at <= 0L || e.optBoolean("test") || e.optString("source_app") == pkg) continue
             if ((e.optString("direction").ifEmpty { "in" }) != direction) continue
-            val ref = e.optString("reference")
-            if (reference != null && ref.isNotEmpty()) {
-                if (ref == reference && kotlin.math.abs(now - at) <= 24 * 3600_000L) { hit = e; break }
-                continue // two different references: two payments, whatever the amount
+            // ONE common key (owner 2026-11-17): the UPI RRN both messages carry. Same RRN = same money, any order,
+            // any gap within a day. Two different full RRNs = two payments. An app's own id vs the bank's RRN says
+            // nothing: amount + account + time + source decide below.
+            when (PaymentAlertParser.compareRefs(e.optString("reference"), reference)) {
+                PaymentAlertParser.RefMatch.SAME -> if (kotlin.math.abs(now - at) <= 24 * 3600_000L) { hit = e; break }
+                PaymentAlertParser.RefMatch.DIFFERENT -> continue
+                PaymentAlertParser.RefMatch.UNKNOWN -> {}
             }
             if (e.optLong("amount_paise", -1L) != amount) continue
+            if (PaymentAlertParser.accountsDiffer(e.optString("account"), account)) continue
             val other = e.optString("upi_handle")
             if (handle != null && other.isNotEmpty() && other != handle) continue
             val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
@@ -1015,6 +1019,7 @@ object AskodoxPaymentAlerts {
     object CloudVoice {
         private const val MAX_FILES = 400
         private const val SEGMENT_TIMEOUT_MS = 6000
+        private const val TOTAL_BUDGET_MS = 3500L
         private val voiceIo = Executors.newSingleThreadExecutor() // never waits behind uploads
 
         fun say(context: Context, parts: List<String>, language: String, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
@@ -1023,13 +1028,22 @@ object AskodoxPaymentAlerts {
             val fallback = { Speaker.say(app, text, language, cfg, done) }
             if (!enabled(cfg) || parts.isEmpty()) { fallback(); return }
             voiceIo.execute {
-                val files = try { parts.map { fetch(app, it, language, cfg) } } catch (_: Exception) { null }
-                if (files == null || files.any { it == null }) { AskodoxPaymentAlerts.main.post { fallback() }; return@execute }
+                // Owner 2026-11-17 ("sound came with the net off, then sometimes not"): a slow / failing network never
+                // keeps a payment silent -- the phone's own voice speaks if the cloud voice is not ready in time,
+                // and also when the cloud file fails to play.
+                val deadline = System.currentTimeMillis() + TOTAL_BUDGET_MS
+                val files = try { parts.map { fetch(app, it, language, cfg, deadline) } } catch (_: Exception) { null }
+                if (files == null || files.any { it == null }) {
+                    AskodoxPaymentAlerts.main.post { fallback() }
+                    // keep fetching the missing parts in the background: the next payment gets the cloud voice
+                    voiceIo.execute { for (p in parts) try { fetch(app, p, language, cfg) } catch (_: Exception) { return@execute } }
+                    return@execute
+                }
                 try {
                     val dir = java.io.File(app.cacheDir, "payalert").apply { mkdirs() }
                     val out = java.io.File(dir, "pv-${System.nanoTime()}.mp3")
                     out.outputStream().use { o -> files.forEach { f -> f!!.inputStream().use { it.copyTo(o) } } }
-                    Player.enqueue(app, out, cfg, done)
+                    Player.enqueue(app, out, cfg) { ok -> if (ok) done?.invoke(true) else AskodoxPaymentAlerts.main.post { fallback() } }
                 } catch (_: Exception) {
                     AskodoxPaymentAlerts.main.post { fallback() }
                 }
@@ -1062,16 +1076,20 @@ object AskodoxPaymentAlerts {
         }
 
         /** The part's MP3 on this phone (fetched once), or null when ASKODOX / ElevenLabs did not give one. */
-        private fun fetch(context: Context, text: String, language: String, cfg: JSONObject): java.io.File? {
+        private fun fetch(context: Context, text: String, language: String, cfg: JSONObject,
+                          deadline: Long = Long.MAX_VALUE): java.io.File? {
             val v = voice(cfg)
             val file = java.io.File(dir(context), key(text, language, v) + ".mp3")
             if (file.length() > 0) { file.setLastModified(System.currentTimeMillis()); return file }
+            val left = deadline - System.currentTimeMillis()
+            if (left < 300) return null // out of time: the phone's own voice speaks now (the part is fetched next time)
+            val wait = minOf(SEGMENT_TIMEOUT_MS.toLong(), left).toInt()
             val base = cfg.optString("base_url").trimEnd('/')
             val conn = URL("$base/api/in-app/voice/speak").openConnection() as HttpURLConnection
             try {
                 conn.requestMethod = "POST"
-                conn.connectTimeout = SEGMENT_TIMEOUT_MS
-                conn.readTimeout = SEGMENT_TIMEOUT_MS
+                conn.connectTimeout = wait
+                conn.readTimeout = wait
                 conn.doOutput = true
                 conn.setRequestProperty("Content-Type", "application/json")
                 val body = JSONObject().put("text", text).put("locale", "$language-IN").put("voice", v)
@@ -1394,6 +1412,14 @@ class AskodoxMessagingService : io.flutter.plugins.firebase.messaging.FlutterFir
         val businessId = data["business_id"]
         // Proof the push reached THIS phone (history shows "Delivered" even if the voice later fails).
         if (businessId != null && eventId.isNotEmpty()) AskodoxPaymentAlerts.ack(ctx, businessId, eventId, "delivered")
+        // A push held back by the phone's battery saver arrives late: shown, never spoken (a late voice sounds like a
+        // second, new payment). The server keeps it alive 10 minutes so a sleeping phone still gets it.
+        val sentAt = data["sent_at"]?.toLongOrNull() ?: 0L
+        if (sentAt > 0 && System.currentTimeMillis() - sentAt > 3 * 60_000L) {
+            try { showPaymentNotification(ctx, eventId, data["title"] ?: "ASKODOX", data["text"] ?: "") } catch (_: Exception) {}
+            if (businessId != null && eventId.isNotEmpty()) AskodoxPaymentAlerts.ack(ctx, businessId, eventId, "seen")
+            return
+        }
         // A visible, high-importance notification: Android keeps high-priority delivery (and wakes a locked
         // phone) only for messages that show something to the user. Silent: the voice is the sound.
         try {
