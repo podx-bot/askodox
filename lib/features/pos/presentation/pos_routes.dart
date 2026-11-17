@@ -11,6 +11,7 @@ import 'pos_desk_manage_screens.dart';
 import 'pos_frontdesk_staff_screens.dart';
 import 'pos_home_screen.dart';
 import 'my_payment_alerts_screen.dart';
+import 'money_screens.dart';
 import 'my_phone_payments_screen.dart';
 import 'payments_hub_screen.dart';
 import 'pos_payment_alerts_screen.dart';
@@ -27,6 +28,7 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
   GoRoute(path: '/me/payments', builder: (context, state) => const AskodoxPaymentsHubScreen()),
   // Bills (owner 2026-11-16): the customer's own bills from shops, and a shop's bill history.
   GoRoute(path: '/me/bills', builder: (context, state) => const AskodoxMyBillsScreen()),
+  GoRoute(path: '/money', builder: (context, state) => const AskodoxMoneyScreen()),
   GoRoute(path: '/bills/:id', builder: (context, state) => AskodoxBillHistoryScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/me/payments/phone', builder: (context, state) => const AskodoxMyPhonePaymentsScreen()),
   GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),

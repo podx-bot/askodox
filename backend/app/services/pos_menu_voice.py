@@ -171,7 +171,13 @@ def _word_matches(query_word: str, item_word: str) -> bool:
         if a != b:
             break
         common += 1
-    return common >= max(3, int(0.75 * shortest))
+    if common >= max(3, int(0.75 * shortest)):
+        return True
+    # said in another script / spelled another way: "బిర్యానీ" = "biryani", "చికెన్" = "chicken" (sound skeletons)
+    from app.services.name_sound import latin, same, sound
+
+    a, b = sound(latin(query_word)), sound(latin(item_word))
+    return len(a) >= 3 and len(b) >= 3 and (same(a, b) or same(b, a))
 
 
 def _name_variants(item: Dict[str, Any]) -> List[List[str]]:

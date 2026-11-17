@@ -107,6 +107,8 @@ class MenuItemIn(BaseModel):
     price_paise: int = Field(ge=1, le=10_00_00_000_00)
     unit: str = Field(default="plate", max_length=10)
     today_only: bool = False
+    menu_group: str = Field(default="", max_length=40)
+    food_type: str = Field(default="", pattern="^(|veg|nonveg|egg)$")
 
 
 class MenuImportIn(BaseModel):

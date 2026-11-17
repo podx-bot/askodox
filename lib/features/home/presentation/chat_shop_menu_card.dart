@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../pos/data/pos_repository.dart';
+import '../application/chat_shop_cart.dart';
 
 /// A shop's menu INSIDE the chat (owner 2026-11-16): tap + / − (or arrive with the order already prepared from the
 /// person's own words), choose parcel / delivery / eat here, and send. Nothing is ordered until the person taps Send.
@@ -20,10 +21,15 @@ class AskodoxChatShopMenuCard extends ConsumerStatefulWidget {
 
 class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCard> {
   final _qty = <String, int>{};
+  final _cardKey = GlobalKey();
   late String _kind;
   bool _busy = false;
   String? _orderId;
   String _txn = askodoxNewTxnId();
+  String _group = '';
+  String _food = ''; // '' all, 'veg', 'nonveg'
+  bool _all = false;
+  StateController<AskodoxChatShopCart?>? _cartSlot;
 
   List<AskodoxJson> get _items => askodoxPosList(widget.card['items']);
   List<String> get _modes => [for (final m in (widget.card['modes'] as List? ?? const [])) '$m'];
@@ -34,6 +40,78 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
     super.initState();
     _kind = _modes.contains('dine_in') ? 'dine_in' : 'takeaway';
     _fill(askodoxPosList(widget.card['prepared']));
+    _cartSlot = ref.read(askodoxChatShopCartProvider.notifier);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _publish());
+  }
+
+  @override
+  void dispose() {
+    final slot = _cartSlot;
+    if (slot != null && slot.state?.owner == this) {
+      Future.microtask(() {
+        if (slot.state?.owner == this) slot.state = null;
+      });
+    }
+    super.dispose();
+  }
+
+  /// The bar above the message box follows this card's cart (until it is sent).
+  void _publish() {
+    if (!mounted) return;
+    final slot = _cartSlot!;
+    if (widget.card['open'] != true || _orderId != null) {
+      if (slot.state?.owner == this) slot.state = null;
+      return;
+    }
+    slot.state = AskodoxChatShopCart(
+      owner: this,
+      shopName: '${widget.card['name'] ?? ''}',
+      count: _qty.values.fold<int>(0, (a, b) => a + b),
+      totalPaise: _total,
+      kindLabel: _kindLabel(_kind),
+      send: _send,
+      hear: _hear,
+      show: () {
+        final ctx = _cardKey.currentContext;
+        if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 250));
+      },
+    );
+  }
+
+  /// A typed / spoken line from the chat box: the shop's receptionist reads it against THIS menu.
+  Future<String?> _hear(String text) async {
+    if (_orderId != null || widget.card['open'] != true) return null;
+    try {
+      final heard = await ref.read(askodoxPosRepositoryProvider).deskAssist(
+          _code,
+          text,
+          [
+            for (final e in _qty.entries)
+              {'product_id': e.key, 'qty': e.value, 'price_paise': _priceOf(e.key)},
+          ],
+          te: widget.te);
+      if (!askodoxHeardIsAboutMenu(heard)) return null;
+      if (!mounted) return null;
+      setState(() {
+        final next = askodoxApplyHeard(_qty, heard);
+        _qty
+          ..clear()
+          ..addAll(next);
+        _txn = askodoxNewTxnId();
+      });
+      _publish();
+      if (heard['confirm'] == true && _qty.isNotEmpty) await _send();
+      return '${heard['reply'] ?? ''}'.trim().isEmpty ? null : '${heard['reply']}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _priceOf(String id) {
+    for (final m in _items) {
+      if ('${m['id']}' == id) return askodoxPosInt(m['price_paise']);
+    }
+    return 0;
   }
 
   void _fill(List<AskodoxJson> lines) {
@@ -61,15 +139,18 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
         _ => widget.te ? 'పార్సిల్' : 'Parcel',
       };
 
-  void _change(String id, int by) => setState(() {
-        final next = (_qty[id] ?? 0) + by;
-        if (next <= 0) {
-          _qty.remove(id);
-        } else if (next <= 50) {
-          _qty[id] = next;
-        }
-        _txn = askodoxNewTxnId();
-      });
+  void _change(String id, int by) {
+    setState(() {
+      final next = (_qty[id] ?? 0) + by;
+      if (next <= 0) {
+        _qty.remove(id);
+      } else if (next <= 50) {
+        _qty[id] = next;
+      }
+      _txn = askodoxNewTxnId();
+    });
+    _publish();
+  }
 
   Future<void> _send() async {
     final te = widget.te;
@@ -91,6 +172,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
         'client_txn_id': _txn,
       });
       if (mounted) setState(() => _orderId = '${order['id']}');
+      _publish();
     } on AskodoxPosException catch (e) {
       messenger.showSnackBar(SnackBar(
           content: Text(e.kind == 'sign_in'
@@ -101,6 +183,44 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
     }
   }
 
+  /// The shop's own menu sections, in menu order (none set -> no tabs).
+  List<String> get _groups => [
+        for (final g in {for (final m in _items) '${m['menu_group'] ?? ''}'.trim()}) if (g.isNotEmpty) g,
+      ];
+
+  bool get _hasFoodMarks => _items.any((m) => '${m['food_type'] ?? ''}'.isNotEmpty);
+
+  /// Items under the chosen section and veg / non-veg (egg counts as non-veg), what the person asked for first.
+  List<AskodoxJson> get _shown => [
+        for (final m in _items)
+          if ((_group.isEmpty || '${m['menu_group'] ?? ''}'.trim() == _group) &&
+              (_food.isEmpty || (_food == 'veg' ? m['food_type'] == 'veg' : const ['nonveg', 'egg'].contains(m['food_type']))))
+            m,
+      ]..sort((a, b) => ((_qty['${b['id']}'] ?? 0) > 0 ? 1 : 0).compareTo((_qty['${a['id']}'] ?? 0) > 0 ? 1 : 0));
+
+  Widget _foodDot(String type) {
+    final color = type == 'veg' ? const Color(0xFF17784C) : (type == 'egg' ? const Color(0xFFB45309) : const Color(0xFFB91C1C));
+    return Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(border: Border.all(color: color, width: 1.5), borderRadius: BorderRadius.circular(3)),
+      alignment: Alignment.center,
+      child: Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    );
+  }
+
+  Widget _foodChip(String type, String label, Color color) => FilterChip(
+        key: Key('askodoxChatShopMenuFood-$type'),
+        avatar: _foodDot(type),
+        label: Text(label),
+        selected: _food == type,
+        selectedColor: color.withValues(alpha: 0.12),
+        onSelected: (on) => setState(() {
+          _food = on ? type : '';
+          _all = false;
+        }),
+      );
+
   @override
   Widget build(BuildContext context) {
     final te = widget.te;
@@ -109,11 +229,11 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
     final more = askodoxPosInt(widget.card['more']);
     final count = _qty.values.fold<int>(0, (a, b) => a + b);
     return Card(
-      key: ValueKey('askodoxChatShopMenu-${widget.card['business_id']}'),
+      key: _cardKey,
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        child: Column(key: ValueKey('askodoxChatShopMenu-${widget.card['business_id']}'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -129,6 +249,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                   _qty.clear();
                   _fill(last);
                   _txn = askodoxNewTxnId();
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _publish());
                 }),
                 child: Text(te ? 'మళ్ళీ అదే' : 'Same again'),
               ),
@@ -152,17 +273,52 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                   key: Key('askodoxChatShopMenuKind-$m'),
                   label: Text(_kindLabel(m)),
                   selected: _kind == m,
-                  onSelected: (_) => setState(() => _kind = m),
+                  onSelected: (_) {
+                    setState(() => _kind = m);
+                    _publish();
+                  },
                 ),
             ]),
-            for (final m in _items)
+            if (_groups.length > 1 || _hasFoodMarks) ...[
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  if (_hasFoodMarks) ...[
+                    _foodChip('veg', te ? 'వెజ్' : 'Veg', const Color(0xFF17784C)),
+                    const SizedBox(width: 6),
+                    _foodChip('nonveg', te ? 'నాన్-వెజ్' : 'Non-veg', const Color(0xFFB91C1C)),
+                    const SizedBox(width: 10),
+                  ],
+                  if (_groups.length > 1)
+                    for (final g in ['', ..._groups])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          key: Key('askodoxChatShopMenuGroup-${g.isEmpty ? 'all' : g}'),
+                          label: Text(g.isEmpty ? (te ? 'అన్నీ' : 'All') : g),
+                          selected: _group == g,
+                          onSelected: (_) => setState(() {
+                            _group = g;
+                            _all = false;
+                          }),
+                        ),
+                      ),
+                ]),
+              ),
+            ],
+            for (final m in _shown.take(_all ? 500 : 8))
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(children: [
+                  if ('${m['food_type'] ?? ''}'.isNotEmpty) ...[
+                    _foodDot('${m['food_type']}'),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(
                     child: Text(
                         m['available'] == true
-                            ? '${te && '${m['name_te'] ?? ''}'.isNotEmpty ? m['name_te'] : m['name']}  ${_rupees(askodoxPosInt(m['price_paise']))}'
+                            ? '${m['item_no'] != null ? '#${m['item_no']} ' : ''}${te && '${m['name_te'] ?? ''}'.isNotEmpty ? m['name_te'] : m['name']}  ${_rupees(askodoxPosInt(m['price_paise']))}'
                             : '${m['name']} — ${te ? 'ఈరోజు అయిపోయింది' : 'finished today'}',
                         style: TextStyle(color: m['available'] == true ? null : const Color(0xFF5B6475))),
                   ),
@@ -170,7 +326,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                     OutlinedButton(
                       key: Key('askodoxChatShopMenuAdd-${m['id']}'),
                       onPressed: () => _change('${m['id']}', 1),
-                      child: Text(te ? '+ యాడ్' : '+ Add'),
+                      child: Text(te ? 'చేర్చు' : 'Add'),
                     ),
                   if (m['available'] == true && (_qty['${m['id']}'] ?? 0) > 0) ...[
                     IconButton(
@@ -187,20 +343,26 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                   ],
                 ]),
               ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
+            if (!_all && _shown.length > 8)
+              TextButton(
                 key: const Key('askodoxChatShopMenuAll'),
+                onPressed: () => setState(() => _all = true),
+                child: Text(te ? 'ఇంకా ${_shown.length - 8} ఐటమ్స్ ▾' : '${_shown.length - 8} more items ▾'),
+              )
+            else if (more > 0)
+              TextButton(
+                key: const Key('askodoxChatShopMenuWhole'),
                 onPressed: () => context.push('/order-desk?code=${Uri.encodeQueryComponent(_code)}'),
-                child: Text(more > 0 ? (te ? 'మొత్తం మెనూ చూడు (+$more)' : 'See the whole menu (+$more)') : (te ? 'మొత్తం మెనూ / చెప్పి ఆర్డర్' : 'Whole menu / order by voice')),
+                child: Text(te ? 'మొత్తం మెనూ (+$more)' : 'Whole menu (+$more)'),
               ),
-            ),
+            const SizedBox(height: 4),
             FilledButton(
               key: const Key('askodoxChatShopMenuSend'),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: count == 0 || _busy ? null : _send,
               child: Text(count == 0
-                  ? (te ? 'ఐటమ్స్ ఎంచుకోండి' : 'Choose items')
-                  : '$count ${te ? 'ఐటమ్స్' : 'items'} · ${_rupees(_total)} · ${_kindLabel(_kind)} — ${te ? 'సరే, పంపు' : 'Send'}'),
+                  ? (te ? 'ఐటమ్స్ చేర్చండి, లేదా కింద చెప్పండి' : 'Add items, or say them below')
+                  : '$count ${te ? 'ఐటమ్స్' : 'items'} · ${_rupees(_total)} · ${_kindLabel(_kind)} — ${te ? 'ఆర్డర్ పెట్టు' : 'Place order'}'),
             ),
           ] else
             Padding(

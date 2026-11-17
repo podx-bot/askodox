@@ -224,11 +224,22 @@ class AskodoxPosRepository {
   Future<AskodoxJson> gstReport(String id, String from, String to) =>
       _send('GET', '${_b(id)}/reports/gst', query: {'date_from': from, 'date_to': to});
   Future<List<AskodoxJson>> members(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/members'))['members']);
-  Future<AskodoxJson> setMember(String id, String phone, String role, {String? label}) => _send('POST', '${_b(id)}/members',
-      body: {'phone': phone, 'role': role, if (label != null && label.trim().isNotEmpty) 'label': label.trim()});
-  /// Edit a staff member's role / spoken name, or remove them (owner / manager), by the last 4 digits in the list.
-  Future<AskodoxJson> editMember(String id, String ref, {String? role, String? label}) =>
-      _send('PATCH', '${_b(id)}/members/$ref', body: {if (role != null) 'role': role, if (label != null) 'label': label});
+  Future<AskodoxJson> setMember(String id, String phone, String role, {String? label, bool? acceptsOrders}) => _send('POST', '${_b(id)}/members',
+      body: {
+        'phone': phone,
+        'role': role,
+        if (label != null && label.trim().isNotEmpty) 'label': label.trim(),
+        if (acceptsOrders != null) 'accepts_orders': acceptsOrders,
+      });
+  /// Edit a staff member's role / spoken name / "may accept orders" / pause, or bring a removed one back (send their
+  /// role), by the last 4 digits in the list.
+  Future<AskodoxJson> editMember(String id, String ref, {String? role, String? label, bool? acceptsOrders, bool? paused}) =>
+      _send('PATCH', '${_b(id)}/members/$ref', body: {
+        if (role != null) 'role': role,
+        if (label != null) 'label': label,
+        if (acceptsOrders != null) 'accepts_orders': acceptsOrders,
+        if (paused != null) 'paused': paused,
+      });
   Future<AskodoxJson> removeMember(String id, String ref) => _send('DELETE', '${_b(id)}/members/$ref');
   // restaurant
   Future<List<AskodoxJson>> tables(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/tables'))['tables']);

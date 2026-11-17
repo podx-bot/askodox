@@ -17,7 +17,10 @@ MAX_RUPEES = 100000
 PROMPT = (
     "You read a photo of a menu / price list of a shop, hotel, tiffin centre or any business (printed or hand-written, "
     "any Indian language or English). Return ONLY JSON: {\"items\": [{\"name\": string, \"price\": number or null, "
-    "\"unit\": string or null}]}. Rules: one entry per sellable item; copy the item name as printed (keep its "
+    "\"unit\": string or null, \"group\": string or null, \"food_type\": \"veg\" | \"nonveg\" | \"egg\" | null}]}. "
+    "group = the menu section heading the item is printed under (as printed, e.g. Biryani / Starters / Drinks), else "
+    "null; food_type only when the menu marks it (green / red dot, a Veg / Non-Veg heading) or the item name itself "
+    "says it (chicken, mutton, fish, egg ...), else null. Rules: one entry per sellable item; copy the item name as printed (keep its "
     "language); price = the rupee amount printed beside that item as a plain number, or null when it is not clearly "
     "visible -- NEVER guess a price; unit = plate / kg / piece / glass / cup / etc. only if printed, else null; "
     "skip headings, phone numbers, addresses, offers, GST lines and totals. If a name has two prices (half / full), "
@@ -84,8 +87,11 @@ def read_menu(image_service: Any, images: Sequence[Tuple[bytes, str]], default_u
         seen.add(key)
         unit = _UNITS.get(str(entry.get("unit") or "").strip().lower(), default_unit)
         price = _price_paise(entry.get("price"))
+        food = str(entry.get("food_type") or "").strip().lower().replace("-", "").replace(" ", "")
         items.append({"name": name, "price_paise": price or 0, "unit": unit, "today_only": False,
-                      "needs_price": price is None})
+                      "needs_price": price is None,
+                      "menu_group": re.sub(r"\s+", " ", str(entry.get("group") or "")).strip()[:40],
+                      "food_type": food if food in ("veg", "nonveg", "egg") else ""})
         if len(items) >= MAX_ITEMS:
             break
     return {"items": items, "read": True}

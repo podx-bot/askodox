@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
@@ -101,12 +102,6 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
     await _saveQuick(custom: [..._customRows, {'en': text, 'te': text}]);
   }
 
-  Future<void> _auto(bool v) => _guard(() async {
-        final d = await ref.read(askodoxPosRepositoryProvider).deskSettingsSave(widget.businessId, autoConfirm: v);
-        if (mounted) setState(() => _data = d);
-        return null;
-      });
-
   Future<void> _addStaff() => _guard(() async {
         final te = askodoxPosTe(context);
         final phone = _phone.text.replaceAll(RegExp(r'\D'), '');
@@ -153,15 +148,21 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
           : _data == null
               ? const Center(child: CircularProgressIndicator())
               : ListView(key: const Key('askodoxDeskSettings'), padding: const EdgeInsets.all(14), children: [
-                  SwitchListTile(
-                    key: const Key('askodoxDeskAutoConfirm'),
-                    contentPadding: EdgeInsets.zero,
-                    value: _data?['auto_confirm'] == true,
-                    onChanged: _auto,
-                    title: Text(te ? 'ఆటో-కన్ఫర్మ్' : 'Auto-confirm', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text(te
-                        ? 'ఆన్ చేస్తే షాప్ తెరిచి ఉన్నప్పుడు, ఈరోజు మెనూలో ఉన్న ఐటెమ్‌ల ఆర్డర్ వెంటనే అంగీకరించి వంటగదికి వెళ్తుంది.'
-                        : 'On: while the shop is open, an order of items on today\'s menu is accepted at once and goes to the kitchen.'),
+                  // Owner 2026-11-17: no auto-accept. A person accepts every order: the owner, or the people the owner allows.
+                  Card(
+                    child: ListTile(
+                      key: const Key('askodoxDeskAutoConfirm'),
+                      leading: const Icon(Icons.how_to_reg_outlined),
+                      title: Text(te ? 'ఆర్డర్ ఒప్పుకునేది ఎవరు' : 'Who accepts orders', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      subtitle: Text(te
+                          ? 'మొదట మీరే. ఎవరికైనా అనుమతి ఇవ్వండి — పేరు, ఫోన్, పాత్ర. మార్చు / ఆపు / తీసేయి.'
+                          : 'You first. Allow anyone — name, phone, role. Edit / pause / remove.'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        await context.push('/pos/${widget.businessId}/staff');
+                        await _load();
+                      },
+                    ),
                   ),
                   const Divider(),
                   Text(te ? 'ఏ స్టెప్ ఎవరికి వినిపించాలి?' : 'Who is told at each step?', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),

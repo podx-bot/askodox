@@ -446,4 +446,52 @@ object PaymentAlertParser {
         "sms" in rowKinds -> deltaMs in -SMS_AFTER_NOTE_MS..NOTE_AFTER_SMS_MS // this notification vs the row's SMS
         else -> kotlin.math.abs(deltaMs) <= NOTE_AND_NOTE_MS
     }
+
+    // ------------------------------------------------------------------ dues, EMI, balance (owner 2026-11-17)
+
+    data class Due(val amountPaise: Long, val dueDate: String, val label: String)
+
+    private val months = listOf("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+
+    private fun rupees(s: String): Long? = s.replace(",", "").toBigDecimalOrNull()?.movePointRight(2)?.toLong()
+
+    /**
+     * A bill / EMI REMINDER (not a payment): "Due date for Andhra Pradesh … ₹1,941.00 due on Nov 21, 2026", "EMI of
+     * Rs 2,500 is due on 05-12-2026", "Bill of Rs.821 due by 21/11/2026". Returns the amount, the date (yyyy-MM-dd) and a
+     * short label from the title, or null.
+     */
+    fun dueReminder(title: String?, text: String?, year: Int = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)): Due? {
+        val body = "${title ?: ""} ${text ?: ""}".replace('\n', ' ')
+        val low = body.lowercase(Locale.ROOT)
+        if (!Regex("""\b(due|payable|pay by|last date)\b""").containsMatchIn(low)) return null
+        if (Regex("""\b(credited|received|debited|paid|sent you|successful)\b""").containsMatchIn(low)) return null
+        val amt = Regex("""(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""").find(low)?.groupValues?.get(1)?.let(::rupees) ?: return null
+        if (amt <= 0) return null
+        var date: String? = null
+        Regex("""\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s*(\d{4}))?""").find(low)?.let { m ->
+            val mo = months.indexOf(m.groupValues[1]) + 1
+            date = "%04d-%02d-%02d".format(m.groupValues[3].toIntOrNull() ?: year, mo, m.groupValues[2].toInt())
+        }
+        if (date == null) Regex("""\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(?:,?\s*(\d{4}))?""").find(low)?.let { m ->
+            val mo = months.indexOf(m.groupValues[2]) + 1
+            date = "%04d-%02d-%02d".format(m.groupValues[3].toIntOrNull() ?: year, mo, m.groupValues[1].toInt())
+        }
+        if (date == null) Regex("""\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b""").find(low)?.let { m ->
+            val y = m.groupValues[3].toInt().let { if (it < 100) 2000 + it else it }
+            date = "%04d-%02d-%02d".format(y, m.groupValues[2].toInt(), m.groupValues[1].toInt())
+        }
+        val d = date ?: return null
+        val label = (title ?: "").replace(Regex("""(?i)^due date for\s+"""), "").trim().take(60).ifEmpty { "Bill" }
+        return Due(amt, d, label)
+    }
+
+    /** A debit that is an EMI / auto-debit / mandate (so the app can offer "add as a monthly EMI"). */
+    fun isEmi(text: String?): Boolean =
+        Regex("""(?i)\b(emi|nach|e-?nach|ach\s*d[r]|auto[- ]?debit|mandate|si\s+debit|standing instruction|loan a/?c)\b""").containsMatchIn(text ?: "")
+
+    /** "Avl Bal Rs 32,140.00" / "Available balance: INR 1,234.50" / "Bal: Rs.500" -> paise, or null. */
+    fun availableBalance(text: String?): Long? {
+        val m = Regex("""(?i)\b(?:avl\.?\s*bal(?:ance)?|available\s+bal(?:ance)?|a/c\s+bal(?:ance)?|bal(?:ance)?)\s*(?:is|:|-)?\s*(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""").find(text ?: "")
+        return m?.groupValues?.get(1)?.let(::rupees)
+    }
 }

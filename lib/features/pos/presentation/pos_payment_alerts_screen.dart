@@ -16,6 +16,7 @@ import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import '../domain/payment_alert_setup.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
+import 'offline_voice_card.dart';
 import 'pay_alert_staff_card.dart';
 import 'pos_common.dart';
 import 'pos_payment_alerts_setup.dart';
@@ -1186,6 +1187,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
             ],
             onChanged: _busy ? null : (v) => v == null || v == lang ? null : _save({'language': v}),
           ),
+          AskodoxOfflineVoiceCard(language: lang),
           const SizedBox(height: 10),
           // A new language has its own voice list: a fresh field so the old choice never lingers.
           KeyedSubtree(key: ValueKey('askodoxPayAlertVoiceFor-$lang'), child: DropdownButtonFormField<String>(

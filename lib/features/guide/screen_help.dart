@@ -325,6 +325,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ లెక్క ఫోన్ నోటిఫికేషన్ల నుంచి, బ్యాంక్ నుంచి కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
     '"నా QR చూపించు", "నా ఖాతాలు" మీ UPI / బ్యాంక్ తెరుస్తాయి; "అలర్ట్స్" వాయిస్ ఆన్ చేస్తుంది.',
   ]),
+  '/money': _H('My money', 'నా డబ్బు', [
+    'Every payment, bill and account in one list: switch between your own money and each shop at the top.',
+    'When a payment matches a bill, tap "Yes, join" -- nothing is joined without your tap. Tap a row to set what it was for.',
+    'Upcoming payments: add EMI, current bill, rent, recharge; the phone says them 2 days before and on the day.',
+  ], [
+    'ప్రతి పేమెంట్, బిల్లు, ఖాతా ఒకే లిస్ట్‌లో: పైన మీ సొంతం / ప్రతి షాప్ మధ్య మారండి.',
+    'పేమెంట్ ఒక బిల్‌కి సరిపోతే "అవును, జత చేయి" నొక్కండి — మీరు నొక్కకుండా ఏదీ జత అవ్వదు. వరుస నొక్కి "దేనికి" పెట్టండి.',
+    'రాబోయే చెల్లింపులు: EMI, కరెంట్ బిల్, అద్దె, రీఛార్జ్ జోడించండి; గడువుకు 2 రోజుల ముందు, ఆ రోజు ఫోన్ చెప్తుంది.',
+  ]),
   '/me/bills': _H('My bills', 'నా బిల్లులు', [
     'Bills that shops sent to your number show here.',
     'Pay by UPI opens your UPI app with the amount filled in; the money goes straight to the shop.',

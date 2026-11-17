@@ -168,6 +168,8 @@ SCHEMA = [
 ]
 
 # Columns added after the first release (added in place, never by recreating a table).
+FOOD_TYPES = ("", "veg", "nonveg", "egg")
+
 MIGRATIONS = [
     ("pos_products", "track_batches", "INTEGER NOT NULL DEFAULT 0"),
     ("pos_stock_moves", "batch_no", "TEXT"),
@@ -183,6 +185,12 @@ MIGRATIONS = [
     ("pos_products", "channel", "TEXT"),
     # A name the owner gives a person (e.g. "Bhagya", "Staff 1"); spoken with their payment alerts.
     ("pos_members", "label", "TEXT NOT NULL DEFAULT ''"),
+    # owner 2026-11-17: orders are accepted by the owner, or by the people the owner allowed; paused = kept, not told
+    ("pos_members", "accepts_orders", "INTEGER NOT NULL DEFAULT 0"),
+    ("pos_members", "paused", "INTEGER NOT NULL DEFAULT 0"),
+    # owner 2026-11-17: menus by section (biryani / starters / drinks ...) and veg / non-veg / egg, the shop's own words
+    ("pos_products", "menu_group", "TEXT NOT NULL DEFAULT ''"),
+    ("pos_products", "food_type", "TEXT NOT NULL DEFAULT ''"),
     # Ready-made catalogue (pos_catalogue.py): the shop's catalogue template + an item's details / online price.
     ("pos_businesses", "catalogue_template", "TEXT"),
     ("pos_products", "attributes", "TEXT"),
@@ -443,7 +451,8 @@ class PosStore:
         return self.business(business_id, user)
 
     def set_member(self, business_id: str, user: str, phone: str, role: str,
-                   label: Optional[str] = None) -> Dict[str, Any]:
+                   label: Optional[str] = None, accepts_orders: Optional[bool] = None,
+                   paused: Optional[bool] = None) -> Dict[str, Any]:
         key = phone_key(phone)
         name = " ".join(str(label or "").split())[:40]
         if len(key) < 10:
@@ -468,11 +477,22 @@ class PosStore:
                     " VALUES (?, ?, ?, 1, ?, ?, ?) ON CONFLICT(business_id, phone_key) DO UPDATE SET role = excluded.role,"
                     " active = 1, label = CASE WHEN ? THEN excluded.label ELSE pos_members.label END",
                     (business_id, key, role, user, now, name, 1 if label is not None else 0))
-            self._audit(conn, business_id, user, "member.set", key[-4:], {"role": role}, now)
-        return {"phone_last4": key[-4:], "role": role, "label": name}
+                if accepts_orders is not None:
+                    conn.execute("UPDATE pos_members SET accepts_orders = ? WHERE business_id = ? AND phone_key = ?",
+                                 (1 if accepts_orders else 0, business_id, key))
+                if paused is not None:
+                    conn.execute("UPDATE pos_members SET paused = ? WHERE business_id = ? AND phone_key = ?",
+                                 (1 if paused else 0, business_id, key))
+            self._audit(conn, business_id, user, "member.set", key[-4:],
+                        {"role": role, "accepts_orders": accepts_orders, "paused": paused}, now)
+            row = conn.execute("SELECT label, accepts_orders, paused FROM pos_members WHERE business_id = ? AND phone_key = ?",
+                               (business_id, key)).fetchone()
+        return {"phone_last4": key[-4:], "role": role, "label": (row["label"] if row else name) or "",
+                "accepts_orders": bool(row and row["accepts_orders"]), "paused": bool(row and row["paused"])}
 
     def member_by_ref(self, business_id: str, user: str, ref: str, role: str,
-                      label: Optional[str] = None) -> Dict[str, Any]:
+                      label: Optional[str] = None, accepts_orders: Optional[bool] = None,
+                      paused: Optional[bool] = None) -> Dict[str, Any]:
         """Edit (role / label) or remove ('removed') a member named by the last 4 digits shown in the list."""
         tail = "".join(ch for ch in str(ref) if ch.isdigit())[-4:]
         with self._connect() as conn:
@@ -483,15 +503,17 @@ class PosStore:
             raise PosError(404, "member", "No such staff member.")
         if len(rows) > 1:
             raise PosError(409, "member", "Two staff share these last 4 digits; use the full number.")
-        return self.set_member(business_id, user, rows[0]["phone_key"], role, label)
+        return self.set_member(business_id, user, rows[0]["phone_key"], role, label, accepts_orders, paused)
 
     def members(self, business_id: str, user: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             self._require(conn, business_id, user, "members")
-            rows = conn.execute("SELECT phone_key, role, active, created_at, label FROM pos_members WHERE business_id = ?"
-                                " ORDER BY created_at", (business_id,)).fetchall()
+            rows = conn.execute("SELECT phone_key, role, active, created_at, label, accepts_orders, paused FROM pos_members"
+                                " WHERE business_id = ? ORDER BY created_at", (business_id,)).fetchall()
         return [{"phone_last4": r["phone_key"][-4:], "role": r["role"], "active": bool(r["active"]),
-                 "created_at": r["created_at"], "label": r["label"] or ""} for r in rows]
+                 "created_at": r["created_at"], "label": r["label"] or "",
+                 "accepts_orders": r["role"] == "owner" or bool(r["accepts_orders"]),
+                 "paused": bool(r["paused"]) and r["role"] != "owner"} for r in rows]
 
     # -------------------------------------------------------------- products
     def _product_fields(self, data: Dict[str, Any], business: sqlite3.Row, partial: bool) -> Dict[str, Any]:
@@ -500,9 +522,13 @@ class PosStore:
             out["name"] = _clean(data.get("name"), 80)
             if not out["name"]:
                 raise PosError(400, "name", "Item name is required.")
-        for key, limit in (("name_te", 80), ("sku", 40), ("barcode", 64)):
+        for key, limit in (("name_te", 80), ("sku", 40), ("barcode", 64), ("menu_group", 40)):
             if key in data:
                 out[key] = _clean(data.get(key), limit)
+        if "food_type" in data:
+            out["food_type"] = str(data.get("food_type") or "")
+            if out["food_type"] not in FOOD_TYPES:
+                raise PosError(400, "food_type", "Food type must be veg, nonveg, egg or empty.")
         if not partial or "unit" in data:
             out["unit"] = str(data.get("unit") or "pcs")
             if out["unit"] not in UNITS:

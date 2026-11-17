@@ -72,6 +72,7 @@ class MemberIn(BaseModel):
     phone: str = Field(min_length=10, max_length=16)
     role: str = Field(pattern="^(manager|cashier|accountant|waiter|kitchen|attendant|delivery|removed)$")
     label: Optional[str] = Field(default=None, max_length=40)
+    accepts_orders: Optional[bool] = None
 
 
 class ProductIn(BaseModel):
@@ -94,6 +95,8 @@ class ProductIn(BaseModel):
     low_stock_milli: Optional[int] = Field(default=None, ge=0)
     opening_stock_milli: Optional[int] = None
     active: Optional[bool] = None
+    menu_group: Optional[str] = Field(default=None, max_length=40)
+    food_type: Optional[str] = Field(default=None, pattern="^(|veg|nonveg|egg)$")
 
 
 class StockIn(BaseModel):
@@ -259,12 +262,15 @@ def members(business_id: str, request: Request) -> dict:
 
 @router.post("/businesses/{business_id}/members")
 def set_member(business_id: str, body: MemberIn, request: Request) -> dict:
-    return _call(_store(request).set_member, business_id, _user(request), body.phone, body.role, body.label)
+    return _call(_store(request).set_member, business_id, _user(request), body.phone, body.role, body.label,
+                 body.accepts_orders)
 
 
 class MemberEditIn(BaseModel):
     role: Optional[str] = None
     label: Optional[str] = None
+    accepts_orders: Optional[bool] = None
+    paused: Optional[bool] = None
 
 
 @router.patch("/businesses/{business_id}/members/{ref}")
@@ -276,7 +282,8 @@ def edit_member(business_id: str, ref: str, body: MemberEditIn, request: Request
                      if m["phone_last4"] == ref[-4:] and m["active"]), None)
         if role is None:
             raise HTTPException(404, "No such staff member.")
-    return _call(store.member_by_ref, business_id, _user(request), ref, role, body.label)
+    return _call(store.member_by_ref, business_id, _user(request), ref, role, body.label, body.accepts_orders,
+                 body.paused)
 
 
 @router.delete("/businesses/{business_id}/members/{ref}")

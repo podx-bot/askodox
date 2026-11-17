@@ -3,11 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/backend_providers.dart';
+import '../data/pos_hardware.dart' show AskodoxScanException;
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
+import '../domain/money_accounts.dart';
+import 'offline_voice_card.dart';
+import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
 
 /// "My phone" payments (owner 2026-11-15): any signed-in person -- no shop, no registered UPI id -- gets the payment
@@ -30,6 +35,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
   AskodoxJson _status = const {};
   List<AskodoxJson> _events = const [];
   String _filter = 'all'; // all | in | out
+  String? _account; // null = all accounts
   List<AskodoxJson> _installed = const [];
   Map<String, AskodoxJson> _appState = const {}; // package -> installed / batteryUnrestricted / lastSeenAt
   Set<String> _confirmed = {}; // steps the phone cannot check, confirmed by the person
@@ -79,6 +85,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     }
     await _configure();
     await _reload();
+    unawaited(_importMethods());
   }
 
   /// Installed payment / bank / SMS apps (catalogue or by name), not yet in the list unless [includeChosen].
@@ -107,7 +114,9 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
 
   Future<void> _reload() async {
     final status = await _bridge.status();
-    final events = (await _bridge.localEvents()).where((e) => e['direction'] != null || e['test'] == true).toList();
+    final events = (await _bridge.localEvents())
+        .where((e) => (e['direction'] != null && e['direction'] != 'due') || e['test'] == true)
+        .toList();
     final apps = _mine?.apps.keys.toList() ?? const <String>[];
     final state = await _bridge.paymentApps(apps);
     if (!mounted) return;
@@ -357,6 +366,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               if (v != null) _change((x) => x.language = v);
             },
           ),
+          AskodoxOfflineVoiceCard(language: m.language),
           SwitchListTile(
             key: const Key('askodoxMineSayName'),
             contentPadding: EdgeInsets.zero,
@@ -659,40 +669,87 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     );
   }
 
+  // ------------------------------------------------------------------ my money accounts (owner 2026-11-17)
+
+  /// "Ways to get paid" the person saved (bank / UPI) become accounts here too -- added once, never twice.
+  Future<void> _importMethods() async {
+    final mine = _mine;
+    if (mine == null) return;
+    try {
+      if (ref.read(authSessionProvider).user == null) return;
+      final methods = await ref.read(askodoxPosRepositoryProvider).myPaymentMethods();
+      final fresh = askodoxPlacesFromMethods(methods, mine.places, mine.dismissedMethods);
+      if (fresh.isNotEmpty) await _change((x) => x..places = [...x.places, ...fresh]..syncAccounts());
+    } catch (_) {
+      // offline / signed out: the person can still add accounts by hand
+    }
+  }
+
+  Future<void> _savePlace(AskodoxMoneyPlace place) => _change((x) {
+        x.places = [for (final p in x.places) if (p.key != place.key) p, place];
+        x.syncAccounts();
+      });
+
+  Future<void> _deletePlace(AskodoxMoneyPlace place) => _change((x) {
+        x.places = [for (final p in x.places) if (p.key != place.key) p];
+        if (place.fromMethod.isNotEmpty) x.dismissedMethods = {...x.dismissedMethods, place.fromMethod};
+        x.assigned = {for (final e in x.assigned.entries) if (e.value != place.key) e.key: e.value};
+        if (_account == place.key) _account = null;
+        x.syncAccounts();
+      });
+
+  /// Add (or edit) an account: bank (last digits), UPI ID, wallet or QR (photo of the QR).
+  Future<void> _editPlace(AskodoxMyPhoneAlerts m, bool te, {AskodoxMoneyPlace? place, String type = 'bank', String tail = ''}) async {
+    final out = await showModalBottomSheet<AskodoxMoneyPlace>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _PlaceSheet(apps: m.apps, te: te, place: place, type: type, tail: tail, others: m.places),
+    );
+    if (out != null) await _savePlace(out);
+  }
+
   Widget _accountsCard(AskodoxMyPhoneAlerts m, bool te) {
-    final entries = m.accounts.entries.toList();
     return Card(
       key: const Key('askodoxMineAccounts'),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(te ? 'నా ఖాతాలు' : 'My accounts', style: const TextStyle(fontWeight: FontWeight.w800)),
-          Text(te ? 'బ్యాంక్ SMS లో ఖాతా చివరి అంకెలు ఉంటాయి. వాటికి పేరు పెట్టండి (సేవింగ్స్, కరెంట్…) — హిస్టరీలో ఆ పేరే కనిపిస్తుంది.' : 'Bank SMS carry the last digits of the account. Name them (Savings, Current…) and the history shows that name.',
+          Text(te ? 'నా డబ్బు ఖాతాలు' : 'My money accounts', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(
+              te
+                  ? 'బ్యాంక్ ఖాతా, UPI ID, వాలెట్, QR — ఏదైనా జోడించండి. హిస్టరీ ఖాతాల వారీగా కనిపిస్తుంది. ఒక యాప్‌ని ఖాతాకి లింక్ చేస్తే (ఉదా. PhonePe = HDFC కరెంట్) ఆ యాప్ పేమెంట్లు ఆ ఖాతాలో పడతాయి.'
+                  : 'Add any bank account, UPI ID, wallet or QR. The history is shown account by account. Link an app to an account (e.g. PhonePe = HDFC current) and its payments go there.',
               style: const TextStyle(fontSize: 12.5)),
-          for (final e in entries)
+          for (final p in m.places)
             ListTile(
-              key: ValueKey('askodoxMineAccount-${e.key}'),
+              key: ValueKey('askodoxMineAccount-${p.key}'),
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.account_balance_outlined),
-              title: Text(e.value),
-              subtitle: Text('A/c ••${e.key}'),
+              leading: Icon(switch (p.type) {
+                'upi' => Icons.alternate_email_rounded,
+                'wallet' => Icons.account_balance_wallet_outlined,
+                'qr' => Icons.qr_code_2_rounded,
+                _ => Icons.account_balance_outlined,
+              }),
+              title: Text(p.name),
+              subtitle: Text([
+                te ? askodoxMoneyPlaceTypeLabel(p.type).$2 : askodoxMoneyPlaceTypeLabel(p.type).$1,
+                if (p.tail.isNotEmpty) '••${p.tail}',
+                if (p.upi.isNotEmpty) p.upi,
+                if (p.apps.isNotEmpty) '🔗 ${p.apps.map((a) => m.apps[a] ?? a).join(', ')}',
+              ].join(' · ')),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                 IconButton(
-                  key: ValueKey('askodoxMineAccountEdit-${e.key}'),
+                  key: ValueKey('askodoxMineAccountEdit-${p.key}'),
                   icon: const Icon(Icons.edit_outlined),
-                  onPressed: () async {
-                    final name = await _ask(te ? 'ఖాతా పేరు' : 'Account name', e.value, te);
-                    if (name != null && name.isNotEmpty) await _change((x) => x.accounts = {...x.accounts, e.key: name});
-                  },
+                  onPressed: () => _editPlace(m, te, place: p),
                 ),
                 IconButton(
-                  key: ValueKey('askodoxMineAccountDelete-${e.key}'),
+                  key: ValueKey('askodoxMineAccountDelete-${p.key}'),
                   icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: () async {
-                    if (await _confirm(te ? 'ఈ ఖాతా తొలగించాలా?' : 'Remove this account name?', e.value, te)) {
-                      await _change((x) => x.accounts = {...x.accounts}..remove(e.key));
-                    }
+                    if (await _confirm(te ? 'ఈ ఖాతా తొలగించాలా?' : 'Remove this account?', p.name, te)) await _deletePlace(p);
                   },
                 ),
               ]),
@@ -700,24 +757,72 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
           const SizedBox(height: 6),
           OutlinedButton.icon(
             key: const Key('askodoxMineAccountAdd'),
-            onPressed: () async {
-              final tail = await _ask(te ? 'ఖాతా చివరి 4 అంకెలు' : 'Last 4 digits of the account', '', te, digits: true);
-              if (tail == null || tail.length < 3) return;
-              if (!mounted) return;
-              final name = await _ask(te ? 'ఈ ఖాతా పేరు' : 'Name for this account', '', te, hint: te ? 'సేవింగ్స్' : 'Savings');
-              if (name == null || name.isEmpty) return;
-              await _change((x) => x.accounts = {...x.accounts, tail: name});
-            },
+            onPressed: () => _editPlace(m, te),
             icon: const Icon(Icons.add_rounded),
             label: Text(te ? 'ఖాతా జోడించు' : 'Add an account'),
+          ),
+          SwitchListTile(
+            key: const Key('askodoxMineSayAccount'),
+            contentPadding: EdgeInsets.zero,
+            value: m.sayAccount,
+            title: Text(te ? 'వాయిస్‌లో ఖాతా పేరు చెప్పు' : 'Say the account name in the voice'),
+            subtitle: Text(te ? 'ఉదా. "HDFC కరెంట్: ₹240 వచ్చింది" (బ్యాంక్ SMS లో ఖాతా నంబర్ ఉన్నప్పుడు)' : 'e.g. "HDFC current: ₹240 came" (when the bank SMS shows the account)'),
+            onChanged: (v) => _change((x) => x.sayAccount = v),
           ),
         ]),
       ),
     );
   }
 
+  String _placeName(AskodoxMyPhoneAlerts m, String key, bool te) {
+    if (key.isEmpty) return te ? 'ఖాతా తెలియదు' : 'Account not known';
+    for (final p in m.places) {
+      if (p.key == key) return p.name;
+    }
+    return key.startsWith('bank:') ? 'A/c ••${key.substring(5)}' : key;
+  }
+
+  Map<String, String> _labelToPackage(AskodoxMyPhoneAlerts m) => {for (final e in m.apps.entries) e.value: e.key};
+
+  /// Move one history row to another account (by hand).
+  Future<void> _moveRow(AskodoxMyPhoneAlerts m, AskodoxJson e, String current, bool te) async {
+    final keys = <String>{for (final p in m.places) p.key, current, askodoxUnknownAccount};
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          ListTile(title: Text(te ? 'ఈ పేమెంట్ ఏ ఖాతాది?' : 'Which account is this payment?', style: const TextStyle(fontWeight: FontWeight.w800))),
+          for (final k in keys)
+            ListTile(
+              key: ValueKey('askodoxMineMoveTo-$k'),
+              leading: Icon(k == current ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+              title: Text(_placeName(m, k, te)),
+              onTap: () => Navigator.pop(ctx, k),
+            ),
+        ]),
+      ),
+    );
+    if (picked == null || picked == current) return;
+    await _change((x) => x.assigned = {...x.assigned, '${e['local_id']}': picked});
+  }
+
   Widget _historyCard(AskodoxMyPhoneAlerts m, bool te) {
-    final shown = _events.where((e) => _filter == 'all' || (_filter == 'in' ? e['direction'] != 'out' : e['direction'] == 'out')).toList();
+    final toPkg = _labelToPackage(m);
+    String accountOf(AskodoxJson e) => askodoxAccountOf(e, m.places, m.assigned, labelToPackage: toPkg);
+    final inAccount = _events.where((e) => _account == null || accountOf(e) == _account).toList();
+    final shown =
+        inAccount.where((e) => _filter == 'all' || (_filter == 'in' ? e['direction'] != 'out' : e['direction'] == 'out')).toList();
+    final present = <String>{for (final e in _events) accountOf(e)};
+    final chips = <String>[for (final p in m.places) if (present.contains(p.key)) p.key];
+    for (final k in present) {
+      if (!chips.contains(k) && k.isNotEmpty) chips.add(k);
+    }
+    if (present.contains(askodoxUnknownAccount)) chips.add(askodoxUnknownAccount);
+    final unnamed = askodoxUnnamedTails(_events, m.places);
+    final now = DateTime.now();
+    final today = askodoxMoneyTotals(inAccount, DateTime(now.year, now.month, now.day));
+    final month = askodoxMoneyTotals(inAccount, DateTime(now.year, now.month));
     return Card(
       key: const Key('askodoxMineHistory'),
       child: Padding(
@@ -725,6 +830,11 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(child: Text(te ? 'నా హిస్టరీ' : 'My history', style: const TextStyle(fontWeight: FontWeight.w800))),
+            TextButton(
+              key: const Key('askodoxMineOpenMoney'),
+              onPressed: () => context.push('/money'),
+              child: Text(te ? 'అన్నీ ఒకే చోట' : 'All in one'),
+            ),
             TextButton.icon(
               key: const Key('askodoxMineHistoryClear'),
               onPressed: _events.isEmpty
@@ -739,6 +849,49 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               label: Text(te ? 'అన్నీ' : 'Clear all'),
             ),
           ]),
+          // A bank account seen in an SMS but not named yet: one tap to name it.
+          for (final tail in unnamed.take(3))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(10),
+                child: ListTile(
+                  key: ValueKey('askodoxMineNameAccount-$tail'),
+                  dense: true,
+                  leading: const Icon(Icons.account_balance_outlined),
+                  title: Text(te ? 'కొత్త ఖాతా ••$tail కనిపించింది' : 'New account ••$tail found'),
+                  subtitle: Text(te ? 'పేరు పెట్టండి (ఉదా. HDFC కరెంట్)' : 'Give it a name (e.g. HDFC current)'),
+                  trailing: Text(te ? 'పేరు పెట్టు' : 'Name it', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  onTap: () => _editPlace(m, te, type: 'bank', tail: tail),
+                ),
+              ),
+            ),
+          if (chips.length > 1 || (chips.length == 1 && chips.first.isNotEmpty))
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    key: const Key('askodoxMineAccountFilter-all'),
+                    label: Text(te ? 'అన్ని ఖాతాలు' : 'All accounts'),
+                    selected: _account == null,
+                    onSelected: (_) => setState(() => _account = null),
+                  ),
+                ),
+                for (final k in chips)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      key: ValueKey('askodoxMineAccountFilter-$k'),
+                      label: Text(_placeName(m, k, te)),
+                      selected: _account == k,
+                      onSelected: (_) => setState(() => _account = k),
+                    ),
+                  ),
+              ]),
+            ),
           Wrap(spacing: 8, children: [
             for (final f in const ['all', 'in', 'out'])
               ChoiceChip(
@@ -748,6 +901,16 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                 onSelected: (_) => setState(() => _filter = f),
               ),
           ]),
+          if (inAccount.isNotEmpty)
+            Padding(
+              key: const Key('askodoxMineTotals'),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text(
+                  te
+                      ? 'ఈ రోజు: వచ్చింది ${askodoxRupees(today.inPaise)} · పోయింది ${askodoxRupees(today.outPaise)}\nఈ నెల: వచ్చింది ${askodoxRupees(month.inPaise)} · పోయింది ${askodoxRupees(month.outPaise)}'
+                      : 'Today: in ${askodoxRupees(today.inPaise)} · out ${askodoxRupees(today.outPaise)}\nThis month: in ${askodoxRupees(month.inPaise)} · out ${askodoxRupees(month.outPaise)}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
           if (shown.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -758,6 +921,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               key: ValueKey('askodoxMineEvent-${e['local_id']}'),
               dense: true,
               contentPadding: EdgeInsets.zero,
+              onTap: () => _moveRow(m, e, accountOf(e), te),
               leading: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
                   color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C)),
               title: Text(
@@ -766,7 +930,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                   style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text([
                 '${e['source_label'] ?? ''}${'${e['also_from'] ?? ''}'.isEmpty ? '' : ' + ${e['also_from']}'}',
-                m.accountName('${e['account'] ?? ''}'),
+                _placeName(m, accountOf(e), te),
                 if (askodoxBankConfirmedLabel(e) case final b?) te ? b.$2 : b.$1,
                 _time(e['detected_at']),
                 (te ? askodoxSpokenLabel('${e['spoken']}').$2 : askodoxSpokenLabel('${e['spoken']}').$1),
@@ -781,6 +945,184 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                 },
               ),
             ),
+          if (shown.isNotEmpty)
+            Text(te ? 'ఏ వరుసనైనా నొక్కి దాని ఖాతా మార్చవచ్చు.' : 'Tap any row to change its account.',
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Add / edit one money account: type, name, last digits (bank), UPI ID (typed or read from a QR photo), linked apps.
+class _PlaceSheet extends ConsumerStatefulWidget {
+  const _PlaceSheet({required this.apps, required this.te, this.place, this.type = 'bank', this.tail = '', this.others = const []});
+  final Map<String, String> apps;
+  final bool te;
+  final AskodoxMoneyPlace? place;
+  final String type;
+  final String tail;
+  final List<AskodoxMoneyPlace> others;
+
+  @override
+  ConsumerState<_PlaceSheet> createState() => _PlaceSheetState();
+}
+
+class _PlaceSheetState extends ConsumerState<_PlaceSheet> {
+  late String _type = widget.place?.type ?? widget.type;
+  late final _name = TextEditingController(text: widget.place?.name ?? '');
+  late final _tail = TextEditingController(text: widget.place?.tail ?? widget.tail);
+  late final _upi = TextEditingController(text: widget.place?.upi ?? '');
+  late Set<String> _apps = {...?widget.place?.apps};
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _tail.dispose();
+    _upi.dispose();
+    super.dispose();
+  }
+
+  Future<void> _scan(String source) async {
+    try {
+      final text = await ref.read(askodoxQrReaderProvider).read(source);
+      final upi = text == null ? null : askodoxUpiFromQr(text);
+      setState(() {
+        if (upi != null) {
+          _upi.text = upi;
+          _error = null;
+        } else if (text != null) {
+          _error = widget.te ? 'ఈ QR లో UPI ID లేదు.' : 'This QR has no UPI ID.';
+        }
+      });
+    } on AskodoxScanException catch (e) {
+      setState(() => _error = e.code == 'not_found'
+          ? (widget.te ? 'ఫోటోలో QR కనిపించలేదు. దగ్గరగా మళ్ళీ తీయండి.' : 'No QR found in the photo. Try again, closer.')
+          : (widget.te ? 'కెమెరా తెరవలేకపోయాం.' : 'Could not open the camera.'));
+    }
+  }
+
+  void _save() {
+    final te = widget.te;
+    final name = _name.text.trim();
+    final tail = _tail.text.replaceAll(RegExp(r'\D'), '');
+    final upi = _upi.text.trim();
+    if (_type == 'bank' && (tail.length < 3 || tail.length > 4)) {
+      setState(() => _error = te ? 'ఖాతా చివరి 3 లేదా 4 అంకెలు ఇవ్వండి.' : 'Give the last 3 or 4 digits of the account.');
+      return;
+    }
+    if ((_type == 'upi' || _type == 'qr') && !upi.contains('@')) {
+      setState(() => _error = te ? 'సరైన UPI ID ఇవ్వండి (ఉదా. name@ybl).' : 'Give a valid UPI ID (e.g. name@ybl).');
+      return;
+    }
+    if (name.isEmpty) {
+      setState(() => _error = te ? 'పేరు పెట్టండి.' : 'Give it a name.');
+      return;
+    }
+    final key = widget.place?.key ??
+        (_type == 'bank' ? askodoxBankKey(tail) : 'place:${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}');
+    if (widget.place == null && widget.others.any((p) => p.key == key)) {
+      setState(() => _error = te ? 'ఈ ఖాతా ఇప్పటికే ఉంది.' : 'This account is already there.');
+      return;
+    }
+    Navigator.pop(
+        context,
+        AskodoxMoneyPlace(
+            key: key,
+            type: _type,
+            name: name,
+            tail: _type == 'bank' ? tail : '',
+            upi: _type == 'bank' || _type == 'wallet' ? '' : upi,
+            apps: _apps.toList(),
+            fromMethod: widget.place?.fromMethod ?? ''));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = widget.te;
+    final editing = widget.place != null;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+          Text(editing ? (te ? 'ఖాతా మార్చు' : 'Edit account') : (te ? 'ఖాతా జోడించు' : 'Add an account'),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          if (!editing)
+            Wrap(spacing: 8, children: [
+              for (final t in askodoxMoneyPlaceTypes)
+                ChoiceChip(
+                  key: ValueKey('askodoxPlaceType-$t'),
+                  label: Text(te ? askodoxMoneyPlaceTypeLabel(t).$2 : askodoxMoneyPlaceTypeLabel(t).$1),
+                  selected: _type == t,
+                  onSelected: (_) => setState(() => _type = t),
+                ),
+            ]),
+          const SizedBox(height: 10),
+          if (_type == 'bank')
+            TextField(
+              key: const Key('askodoxPlaceTail'),
+              controller: _tail,
+              enabled: !editing,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: te ? 'ఖాతా చివరి 4 అంకెలు' : 'Last 4 digits of the account',
+                  helperText: te ? 'బ్యాంక్ SMS లో "A/c XX6911" లా ఉంటుంది' : 'Bank SMS show it as "A/c XX6911"'),
+            ),
+          if (_type == 'upi' || _type == 'qr') ...[
+            TextField(
+              key: const Key('askodoxPlaceUpi'),
+              controller: _upi,
+              decoration: InputDecoration(border: const OutlineInputBorder(), labelText: te ? 'UPI ID' : 'UPI ID', hintText: 'name@ybl'),
+            ),
+            Row(children: [
+              TextButton.icon(
+                  key: const Key('askodoxPlaceQrCamera'),
+                  onPressed: () => _scan('camera'),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: Text(te ? 'QR ఫోటో తీయి' : 'Photo of the QR')),
+              TextButton.icon(
+                  key: const Key('askodoxPlaceQrGallery'),
+                  onPressed: () => _scan('photos'),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(te ? 'గ్యాలరీ నుంచి' : 'From gallery')),
+            ]),
+          ],
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('askodoxPlaceName'),
+            controller: _name,
+            maxLength: 40,
+            decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: te ? 'పేరు' : 'Name',
+                hintText: switch (_type) {
+                  'bank' => te ? 'HDFC కరెంట్' : 'HDFC current',
+                  'wallet' => te ? 'Paytm వాలెట్' : 'Paytm wallet',
+                  _ => te ? 'షాప్ QR' : 'Shop QR',
+                }),
+          ),
+          Text(te ? 'ఏ యాప్ పేమెంట్లు ఈ ఖాతావి? (ఆప్షనల్)' : 'Which apps\' payments belong to this account? (optional)',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          Wrap(spacing: 6, children: [
+            for (final e in widget.apps.entries)
+              FilterChip(
+                key: ValueKey('askodoxPlaceApp-${e.key}'),
+                label: Text(e.value),
+                selected: _apps.contains(e.key),
+                onSelected: (v) => setState(() => _apps = v ? {..._apps, e.key} : ({..._apps}..remove(e.key))),
+              ),
+          ]),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C))),
+            ),
+          const SizedBox(height: 12),
+          FilledButton(key: const Key('askodoxPlaceSave'), onPressed: _save, child: Text(te ? 'సేవ్' : 'Save')),
         ]),
       ),
     );

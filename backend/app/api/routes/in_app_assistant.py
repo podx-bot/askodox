@@ -289,7 +289,7 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
                 caller = _authenticated_app_user(request)
             except Exception:
                 caller = ""
-            card = _desk(request).chat_card(shop["id"], caller, user_words, te)
+            card = _desk(request).chat_card(shop["id"], caller, user_words, te, limit=150)
             out["shop_menu"] = card
             if not card["open"]:
                 out["reply"] = card["message"]

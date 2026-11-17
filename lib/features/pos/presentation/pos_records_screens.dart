@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,7 @@ import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_money.dart';
 import '../domain/pos_scale.dart';
+import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import '../../../shared/widgets/askodox_field_guide.dart';
 import 'pos_advance_screens.dart';
 import 'pos_common.dart';
@@ -1105,7 +1108,10 @@ class _AskodoxPosGstScreenState extends ConsumerState<AskodoxPosGstScreen> {
   }
 }
 
-// ----------------------------------------------------------------- staff
+// ----------------------------------------------------------------- staff (owner 2026-11-17: who accepts orders)
+/// The shop's people on ONE list: add (name, phone, role, may accept orders), and on every row ✏ edit, ⏸ pause / ▶
+/// resume, 🗑 remove (asked first; a removed person can be brought back). A new order rings only the owner and the
+/// people allowed to accept; nothing is ever accepted by itself.
 class AskodoxPosStaffScreen extends ConsumerStatefulWidget {
   const AskodoxPosStaffScreen({super.key, required this.businessId});
   final String businessId;
@@ -1114,77 +1120,258 @@ class AskodoxPosStaffScreen extends ConsumerStatefulWidget {
   ConsumerState<AskodoxPosStaffScreen> createState() => _AskodoxPosStaffScreenState();
 }
 
+const _staffRoles = ['manager', 'cashier', 'waiter', 'kitchen', 'accountant', 'attendant', 'delivery'];
+
 class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
-  final _phone = TextEditingController();
-  String _role = 'cashier';
-  late Future<List<AskodoxJson>> _members;
+  List<AskodoxJson>? _members;
+  Object? _error;
 
   @override
   void initState() {
     super.initState();
-    _members = ref.read(askodoxPosRepositoryProvider).members(widget.businessId);
+    unawaited(_load());
   }
 
-  @override
-  void dispose() {
-    _phone.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final te = askodoxPosTe(context);
+  Future<void> _load() async {
     try {
-      await ref.read(askodoxPosRepositoryProvider).setMember(widget.businessId, _phone.text.trim(), _role);
-      _phone.clear();
+      final rows = await ref.read(askodoxPosRepositoryProvider).members(widget.businessId);
       if (mounted) {
         setState(() {
-          _members = ref.read(askodoxPosRepositoryProvider).members(widget.businessId);
+          _members = rows;
+          _error = null;
         });
       }
+    } catch (e) {
+      if (mounted) setState(() => _error = e);
+    }
+  }
+
+  Future<void> _do(Future<Object?> Function() action, String done) async {
+    final te = askodoxPosTe(context);
+    try {
+      await action();
+      await _load();
+      if (mounted && done.isNotEmpty) askodoxPosSnack(context, done);
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(te));
     }
   }
 
+  /// Add (m == null) or edit one person: name, phone (new only), role, may accept orders.
+  Future<void> _edit(AskodoxJson? m) async {
+    final te = askodoxPosTe(context);
+    final name = TextEditingController(text: '${m?['label'] ?? ''}');
+    final phone = TextEditingController();
+    var role = '${m?['role'] ?? 'waiter'}';
+    var accepts = m == null ? true : m['accepts_orders'] == true;
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setInner) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(ctx).bottom),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(m == null ? (te ? 'కొత్త వ్యక్తిని చేర్చు' : 'Add a person') : (te ? 'మార్చు' : 'Edit'),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('askodoxStaffName'),
+              controller: name,
+              maxLength: 40,
+              decoration: InputDecoration(border: const OutlineInputBorder(), labelText: te ? 'పేరు' : 'Name'),
+            ),
+            if (m == null)
+              TextField(
+                key: const Key('askodoxStaffPhone'),
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                maxLength: 13,
+                decoration: InputDecoration(border: const OutlineInputBorder(), labelText: te ? 'ఫోన్ నంబర్ (10 అంకెలు)' : 'Phone number (10 digits)'),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('${te ? 'ఫోన్' : 'Phone'}: ••••${m['phone_last4']}', style: const TextStyle(color: Color(0xFF5B6475))),
+              ),
+            Text(te ? 'పాత్ర' : 'Role', style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final r in _staffRoles)
+                ChoiceChip(
+                  key: Key('askodoxStaffRole-$r'),
+                  label: Text(askodoxStaffRoleLabel(r, te)),
+                  selected: role == r,
+                  onSelected: (_) => setInner(() => role = r),
+                ),
+            ]),
+            CheckboxListTile(
+              key: const Key('askodoxStaffAccepts'),
+              contentPadding: EdgeInsets.zero,
+              value: accepts,
+              onChanged: (v) => setInner(() => accepts = v ?? false),
+              title: Text(te ? 'ఆర్డర్లు ఒప్పుకోవచ్చు' : 'May accept orders', style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(te ? 'కొత్త ఆర్డర్ వస్తే వీళ్ల ఫోన్ మోగుతుంది' : 'Their phone rings for a new order'),
+            ),
+            FilledButton(
+              key: const Key('askodoxPosSaveMember'),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(m == null ? (te ? 'చేర్చు' : 'Add') : (te ? 'సేవ్' : 'Save')),
+            ),
+          ]),
+        ),
+      ),
+    );
+    final label = name.text.trim();
+    final digits = phone.text.replaceAll(RegExp(r'\D'), '');
+    name.dispose();
+    phone.dispose();
+    if (ok != true || !mounted) return;
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    if (m == null) {
+      if (digits.length < 10) {
+        askodoxPosSnack(context, te ? '10 అంకెల నంబర్ రాయండి.' : 'Enter a 10 digit number.');
+        return;
+      }
+      await _do(() => repo.setMember(widget.businessId, digits.substring(digits.length - 10), role, label: label, acceptsOrders: accepts),
+          te ? 'చేర్చాం. వాళ్లు అదే నంబర్‌తో ASKODOX లో సైన్ ఇన్ చేయాలి.' : 'Added. They sign in to ASKODOX with that number.');
+    } else {
+      await _do(() => repo.editMember(widget.businessId, '${m['phone_last4']}', role: role, label: label, acceptsOrders: accepts),
+          te ? 'సేవ్ అయింది' : 'Saved');
+    }
+  }
+
+  Future<void> _remove(AskodoxJson m) async {
+    final te = askodoxPosTe(context);
+    final who = '${m['label'] ?? ''}'.isNotEmpty ? '${m['label']}' : '••${m['phone_last4']}';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(te ? '$who ని తీసేయాలా?' : 'Remove $who?'),
+        content: Text(te ? 'ఈ షాప్ వాళ్లకి కనపడదు. పాత బిల్లుల్లో పేరు అలాగే ఉంటుంది. తర్వాత తిరిగి తేవచ్చు.' : 'They lose this shop. Old bills keep the name. You can bring them back.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+          FilledButton(key: const Key('askodoxStaffRemoveYes'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'తీసేయి' : 'Remove')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _do(() => ref.read(askodoxPosRepositoryProvider).removeMember(widget.businessId, '${m['phone_last4']}'), '');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 8),
+      content: Text(te ? '$who ని తీసేశాం' : '$who removed'),
+      action: SnackBarAction(label: te ? 'తిరిగి తెచ్చు' : 'Undo', onPressed: () => unawaited(_restore(m))),
+    ));
+  }
+
+  Future<void> _restore(AskodoxJson m) => _do(
+      () => ref.read(askodoxPosRepositoryProvider).editMember(widget.businessId, '${m['phone_last4']}', role: '${m['role']}'),
+      askodoxPosTe(context) ? 'తిరిగి వచ్చారు' : 'Back on the team');
+
+  Widget _person(AskodoxJson m, bool te) {
+    final owner = m['role'] == 'owner';
+    final active = m['active'] == true;
+    final paused = m['paused'] == true;
+    final accepts = m['accepts_orders'] == true;
+    final name = '${m['label'] ?? ''}'.isNotEmpty ? '${m['label']}' : (owner ? (te ? 'మీరు' : 'You') : '••${m['phone_last4']}');
+    final status = !active
+        ? (te ? 'తీసేశారు' : 'Removed', const Color(0xFF6B7280))
+        : paused
+            ? (te ? 'ఆపారు (Pause)' : 'Paused', const Color(0xFFB45309))
+            : accepts
+                ? (te ? 'ఆర్డర్లు ఒప్పుకోవచ్చు' : 'Accepts orders', const Color(0xFF17784C))
+                : (te ? 'ఆర్డర్లు ఒప్పుకోరు' : 'Does not accept orders', const Color(0xFF5B6475));
+    Widget btn(String key, IconData icon, String tip, VoidCallback onTap, {Color bg = const Color(0xFFF2F4F7), Color fg = const Color(0xFF16203F)}) =>
+        Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              key: Key(key),
+              borderRadius: BorderRadius.circular(10),
+              onTap: onTap,
+              child: Tooltip(message: tip, child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 20, color: fg))),
+            ),
+          ),
+        );
+    return Padding(
+      key: Key('askodoxStaffRow-${m['phone_last4']}'),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        CircleAvatar(radius: 20, child: Text(name.characters.first, style: const TextStyle(fontWeight: FontWeight.w800))),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: active ? null : const Color(0xFF6B7280))),
+            Text('${askodoxStaffRoleLabel('${m['role']}', te)} · ••••${m['phone_last4']}', style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+            Text(owner ? (te ? 'ఎప్పుడూ ఒప్పుకోవచ్చు' : 'Always accepts') : status.$1,
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: owner ? const Color(0xFF17784C) : status.$2)),
+          ]),
+        ),
+        if (!owner && active) ...[
+          btn('askodoxStaffEdit-${m['phone_last4']}', Icons.edit_outlined, te ? 'మార్చు' : 'Edit', () => unawaited(_edit(m))),
+          btn('askodoxStaffPause-${m['phone_last4']}', paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              paused ? (te ? 'మళ్లీ మొదలుపెట్టు' : 'Resume') : (te ? 'ఆపు' : 'Pause'),
+              () => unawaited(_do(
+                  () => ref.read(askodoxPosRepositoryProvider).editMember(widget.businessId, '${m['phone_last4']}', paused: !paused),
+                  paused ? (te ? 'మళ్లీ మొదలైంది' : 'Resumed') : (te ? 'ఆపాం — ఆర్డర్లు రావు' : 'Paused — no orders reach them')))),
+          btn('askodoxStaffRemove-${m['phone_last4']}', Icons.delete_outline, te ? 'తీసేయి' : 'Remove', () => unawaited(_remove(m)),
+              bg: const Color(0xFFFDECEC), fg: const Color(0xFFB91C1C)),
+        ],
+        if (!owner && !active)
+          TextButton(key: Key('askodoxStaffRestore-${m['phone_last4']}'), onPressed: () => unawaited(_restore(m)), child: Text(te ? 'తిరిగి తెచ్చు' : 'Bring back')),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
-    final roles = {
-      'manager': te ? 'మేనేజర్ (ధర మార్పు, రిటర్న్, రద్దు)' : 'Manager (price change, returns, cancel)',
-      'cashier': te ? 'క్యాషియర్ (బిల్లింగ్ మాత్రమే)' : 'Cashier (billing only)',
-      'accountant': te ? 'అకౌంటెంట్ (నివేదికలు మాత్రమే)' : 'Accountant (reports only)',
-      'waiter': te ? 'వెయిటర్ (ఆర్డర్లు, KOT)' : 'Waiter (orders, KOT)',
-      'kitchen': te ? 'వంటగది (KOT స్క్రీన్)' : 'Kitchen (KOT screen)',
-      'attendant': te ? 'అటెండెంట్ (పేమెంట్ అలర్ట్ మాత్రమే)' : 'Attendant (payment alerts only)',
-      'removed': te ? 'తొలగించు' : 'Remove access',
-    };
+    final rows = _members ?? const <AskodoxJson>[];
+    final current = [for (final m in rows) if (m['active'] == true) m]..sort((a, b) => (a['role'] == 'owner' ? 0 : 1).compareTo(b['role'] == 'owner' ? 0 : 1));
+    final removed = [for (final m in rows) if (m['active'] != true) m];
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'సిబ్బంది & పాత్రలు' : 'Staff & roles')),
-      body: ListView(key: const Key('askodoxPosStaff'), padding: const EdgeInsets.all(12), children: [
-        AskodoxPosField(controller: _phone, number: true, decimal: false, label: te ? 'సిబ్బంది మొబైల్ నంబర్' : 'Staff mobile number', maxLength: 13),
-        DropdownButtonFormField<String>(
-          initialValue: _role,
-          isExpanded: true,
-          items: [for (final e in roles.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-          onChanged: (v) => setState(() => _role = v ?? _role),
-        ),
-        const SizedBox(height: 8),
-        FilledButton(key: const Key('askodoxPosSaveMember'), onPressed: _save, child: Text(te ? 'సేవ్' : 'Save')),
-        Text(te ? 'వారు అదే నంబర్‌తో ASKODOX లో సైన్ ఇన్ చేస్తే ఈ షాపు కనిపిస్తుంది.' : 'They see this shop after signing in to ASKODOX with that number.',
-            style: const TextStyle(fontSize: 12)),
-        const Divider(),
-        FutureBuilder<List<AskodoxJson>>(
-          future: _members,
-          builder: (context, snap) => Column(children: [
-            for (final m in snap.data ?? const <AskodoxJson>[])
-              ListTile(
-                dense: true,
-                title: Text('…${m['phone_last4']}'),
-                subtitle: Text('${m['role']}${m['active'] == true ? '' : (te ? ' (తొలగించారు)' : ' (removed)')}'),
-              ),
-          ]),
-        ),
-      ]),
+      appBar: AppBar(
+        title: Text(te ? 'సిబ్బంది · ఆర్డర్ ఒప్పుకునేది ఎవరు' : 'Staff · who accepts orders'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilledButton.icon(
+              key: const Key('askodoxStaffAdd'),
+              onPressed: () => unawaited(_edit(null)),
+              icon: const Icon(Icons.add),
+              label: Text(te ? 'చేర్చు' : 'Add'),
+            ),
+          ),
+        ],
+      ),
+      body: _error != null
+          ? AskodoxPosError(error: _error!, onRetry: _load)
+          : _members == null
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(key: const Key('askodoxPosStaff'), padding: const EdgeInsets.all(14), children: [
+                    Text(
+                        te
+                            ? 'కొత్త ఆర్డర్ వస్తే "ఆర్డర్లు ఒప్పుకోవచ్చు" ఉన్నవాళ్ల ఫోన్లలో మోగుతుంది. ఎవరో ఒకరు నొక్కితే చాలు. ఎవరినీ అనుమతించకపోతే మీరొక్కరే. ఆటోమేటిక్‌గా ఒప్పుకోవడం ఉండదు.'
+                            : 'A new order rings the people who "accept orders"; one tap from any of them is enough. Allow nobody and it is only you. Nothing is accepted by itself.',
+                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                    const SizedBox(height: 8),
+                    Card(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Column(children: [for (final m in current) _person(m, te)]))),
+                    if (removed.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(te ? 'తీసేసినవాళ్లు' : 'Removed', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Card(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Column(children: [for (final m in removed) _person(m, te)]))),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(te ? 'వాళ్లు అదే నంబర్‌తో ASKODOX లో సైన్ ఇన్ చేస్తే ఈ షాప్ కనిపిస్తుంది.' : 'They see this shop after signing in to ASKODOX with that number.',
+                        style: const TextStyle(fontSize: 12)),
+                  ]),
+                ),
     );
   }
 }

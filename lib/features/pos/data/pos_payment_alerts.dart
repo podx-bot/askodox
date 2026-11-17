@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../domain/money_accounts.dart';
+import '../domain/money_ledger.dart';
 import 'pos_repository.dart';
 
 /// The phone side of payment voice alerts (native channel `com.askodox.app/payment_alerts`).
@@ -30,6 +32,12 @@ class AskodoxPaymentAlertsBridge {
   Future<AskodoxJson> configurePersonal(AskodoxJson config) =>
       _map('configure', {'config': jsonEncode(config), 'scope': 'personal'});
   Future<AskodoxJson> audioRoute() => _map('audioRoute');
+  /// Can the phone speak [language] with no internet? (ready / supported / installed / offline)
+  Future<AskodoxJson> offlineVoice(String language) => _map('offlineVoice', {'language': language});
+  /// Opens the phone's own "download voice data" page.
+  Future<void> installOfflineVoice() => _call('installOfflineVoice');
+  /// Says / shows today's upcoming payments (2 days before, on the day) -- the phone also does it by itself.
+  Future<void> checkDues() => _call('checkDues');
   Future<AskodoxJson> speakTest(int amountPaise, {bool personal = false}) =>
       _map('speakTest', {'amountPaise': amountPaise, if (personal) 'scope': 'personal'});
   Future<AskodoxJson> simulate(String title, String text) => _map('simulate', {'title': title, 'text': text});
@@ -391,6 +399,35 @@ class AskodoxMyPhoneAlerts {
   /// True once the apps found on this phone were offered the first time (never re-added after the person deletes).
   bool setupDone;
 
+  /// Owner 2026-11-17: every place money comes in / goes out -- bank accounts, UPI IDs, wallets, QR codes.
+  /// Bank places are kept in step with [accounts] (last digits -> name), which the history and the voice read.
+  List<AskodoxMoneyPlace> places = [];
+
+  /// History rows the person moved to an account by hand (localId -> account key).
+  Map<String, String> assigned = {};
+
+  /// "Ways to get paid" (server method ids) imported once and deleted by the person: never re-added.
+  Set<String> dismissedMethods = {};
+
+  /// Say the account's name in the voice ("HDFC current: Rs 240 came").
+  bool sayAccount = false;
+
+  /// One money history (owner 2026-11-17): payment row id -> the bill it paid ("mybill:TOKEN"), joined by a tap.
+  Map<String, String> links = {};
+
+  /// The person's category for one row / for every payment to one payee.
+  Map<String, String> rowCategory = {};
+  Map<String, String> payeeCategory = {};
+
+  /// Upcoming payments the person keeps (EMI, current bill, rent, recharge ...).
+  List<AskodoxDue> dues = [];
+
+  /// "paymentId|billId" pairs and due / EMI suggestions the person said no to.
+  Set<String> dismissed = {};
+
+  /// Rebuilds [accounts] from the bank places (the native side and older screens read it).
+  void syncAccounts() => accounts = {for (final p in places) if (p.type == 'bank' && p.tail.isNotEmpty) p.tail: p.name};
+
   String destinationOf(String package) =>
       destinations[package] ?? (askodoxIsBusinessApp(package) ? 'shop' : 'mine');
 
@@ -409,8 +446,23 @@ class AskodoxMyPhoneAlerts {
         final dest = j['destinations'] is Map
             ? {for (final e in (j['destinations'] as Map).entries) '${e.key}': '${e.value}'}
             : <String, String>{};
-        return AskodoxMyPhoneAlerts(j['enabled'] == true, apps, '${j['language'] ?? 'te'}', j['say_name'] != false,
+        final m = AskodoxMyPhoneAlerts(j['enabled'] == true, apps, '${j['language'] ?? 'te'}', j['say_name'] != false,
             j['announce_debits'] == true, acc, dest, j['setup_done'] == true);
+        m.places = j['places'] is List
+            ? (j['places'] as List).map(AskodoxMoneyPlace.fromJson).whereType<AskodoxMoneyPlace>().toList()
+            // first open after the update: the named bank accounts become places
+            : [for (final e in acc.entries) AskodoxMoneyPlace(key: askodoxBankKey(e.key), type: 'bank', name: e.value, tail: e.key)];
+        m.assigned = j['assigned'] is Map ? {for (final e in (j['assigned'] as Map).entries) '${e.key}': '${e.value}'} : {};
+        m.dismissedMethods = j['dismissed_methods'] is List ? {for (final x in j['dismissed_methods'] as List) '$x'} : {};
+        m.sayAccount = j['say_account'] == true;
+        Map<String, String> strMap(Object? x) => x is Map ? {for (final e in x.entries) '${e.key}': '${e.value}'} : {};
+        m.links = strMap(j['links']);
+        m.rowCategory = strMap(j['row_category']);
+        m.payeeCategory = strMap(j['payee_category']);
+        m.dues = j['dues'] is List ? (j['dues'] as List).map(AskodoxDue.fromJson).whereType<AskodoxDue>().toList() : [];
+        m.dismissed = j['dismissed'] is List ? {for (final x in j['dismissed'] as List) '$x'} : {};
+        m.syncAccounts();
+        return m;
       }
     } catch (_) {}
     return AskodoxMyPhoneAlerts(false, defaultApps(), 'te', true, false, {});
@@ -429,6 +481,16 @@ class AskodoxMyPhoneAlerts {
           'accounts': accounts,
           'destinations': destinations,
           'setup_done': setupDone,
+          'places': [for (final p in places) p.toJson()],
+          // only the newest 500 hand moves are kept
+          'assigned': Map.fromEntries(assigned.entries.toList().reversed.take(500).toList().reversed),
+          'dismissed_methods': dismissedMethods.toList(),
+          'say_account': sayAccount,
+          'links': links,
+          'row_category': Map.fromEntries(rowCategory.entries.toList().reversed.take(1000).toList().reversed),
+          'payee_category': payeeCategory,
+          'dues': [for (final d in dues) d.toJson()],
+          'dismissed': dismissed.toList().reversed.take(500).toList(),
         }));
   }
 
@@ -449,6 +511,14 @@ class AskodoxMyPhoneAlerts {
         'apps': apps,
         'kinds': {for (final e in apps.entries) e.key: askodoxMoneyAppKind(e.key, e.value)},
         'destinations': destinations,
+        'say_account': sayAccount,
+        'account_names': accounts,
+        // the next date of each upcoming payment: the phone says it 2 days before and on the day
+        'dues': [
+          for (final d in dues)
+            if (askodoxNextDue(d, DateTime.now()) case final next?)
+              {'id': d.id, 'name': d.name, 'amount_paise': d.amountPaise, 'date': askodoxDay(next)},
+        ],
         'business_id': '',
         'device_id': '',
         'base_url': baseUrl, // the chosen ElevenLabs voice for "My phone" too (device voice when empty / offline)
