@@ -202,6 +202,37 @@ class AskodoxPosRepository {
   Future<AskodoxJson> ask(String biz, String text, {String page = 'hub', String lang = 'te'}) =>
       _send('POST', '${_b(biz)}/ask', body: {'text': text, 'page': page, 'lang': lang}, timeout: const Duration(seconds: 40));
   Future<AskodoxJson> askConfirm(String biz, AskodoxJson change) => _send('POST', '${_b(biz)}/ask/confirm', body: change);
+  // Cashbook (money in from bills is read, not typed) + dues grouped by person.
+  Future<AskodoxJson> cashbook(String biz, {String month = ''}) =>
+      _send('GET', '${_b(biz)}/cashbook', query: {'month': month});
+  Future<AskodoxJson> cashbookAdd(String biz, AskodoxJson entry) => _send('POST', '${_b(biz)}/cashbook', body: entry);
+  Future<AskodoxJson> cashbookRemove(String biz, String entryId, {bool undo = false}) =>
+      _send('DELETE', '${_b(biz)}/cashbook/$entryId', query: {'undo': undo ? 'true' : 'false'});
+  Future<AskodoxJson> dues(String biz) => _send('GET', '${_b(biz)}/dues');
+  // Staff attendance, salary, tasks (pos_attendance.py). A staff ref = the last 4 digits of their number.
+  Future<AskodoxJson> attendanceToday(String biz) => _send('GET', '${_b(biz)}/attendance/today');
+  Future<AskodoxJson> attendanceCheck(String biz, AskodoxJson body) =>
+      _send('POST', '${_b(biz)}/attendance/check', body: body, timeout: const Duration(seconds: 40));
+  Future<AskodoxJson> attendanceMark(String biz, String ref, String date, String status, {int otMin = 0}) =>
+      _send('POST', '${_b(biz)}/attendance/mark', body: {'ref': ref, 'date': date, 'status': status, 'ot_min': otMin});
+  Future<AskodoxJson> attendanceSettings(String biz) => _send('GET', '${_b(biz)}/attendance/settings');
+  Future<AskodoxJson> saveAttendanceSettings(String biz, AskodoxJson body) =>
+      _send('PUT', '${_b(biz)}/attendance/settings', body: body);
+  Future<AskodoxJson> attendanceMonth(String biz, {String ref = '', String month = ''}) =>
+      _send('GET', '${_b(biz)}/attendance/month', query: {'ref': ref, 'month': month});
+  Future<AskodoxJson> attendancePhoto(String biz, String attendanceId) =>
+      _send('GET', '${_b(biz)}/attendance/photo/$attendanceId');
+  Future<AskodoxJson> staffPay(String biz, String ref, AskodoxJson body) => _send('PUT', '${_b(biz)}/staff/$ref/pay', body: body);
+  Future<AskodoxJson> staffAdvance(String biz, String ref, int paise, {String note = ''}) =>
+      _send('POST', '${_b(biz)}/staff/$ref/advance', body: {'amount_paise': paise, 'note': note});
+  Future<AskodoxJson> teamSalary(String biz, {String month = ''}) => _send('GET', '${_b(biz)}/salary', query: {'month': month});
+  Future<AskodoxJson> salaryPaid(String biz, String ref, String month) =>
+      _send('POST', '${_b(biz)}/staff/$ref/salary/$month/paid');
+  Future<AskodoxJson> tasks(String biz) => _send('GET', '${_b(biz)}/tasks');
+  Future<AskodoxJson> taskAdd(String biz, String title, String ref, {String dueAt = ''}) =>
+      _send('POST', '${_b(biz)}/tasks', body: {'title': title, 'ref': ref, 'due_at': dueAt});
+  Future<AskodoxJson> taskDone(String biz, String taskId, {bool undo = false}) =>
+      _send('POST', '${_b(biz)}/tasks/$taskId/done', query: {'undo': undo ? 'true' : 'false'});
   Future<AskodoxJson> menuSortApply(String biz, List<AskodoxJson> items) =>
       _send('POST', '${_b(biz)}/desk/menu/sort/apply', body: {'items': items});
   Future<AskodoxJson> billPaper(String biz, String invoiceId) => _send('GET', '${_b(biz)}/bills/$invoiceId/paper');

@@ -64,11 +64,12 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'orders.alerts' => '/desk/$id/settings',
       'money.bill' => '/me/business/$id/bill',
       'money.counter' => '/pos/$id/counter',
-      'money.dues' => '/pos/$id/customers',
+      'money.dues' => '/biz/$id/money/dues',
+      'money.cashbook' => '/biz/$id/money/cashbook',
       'money.sound' => askodoxPhase2 ? '/pos/$id/payment-alerts' : '/me/payment-alerts/$id',
       'money.accounts' => '/me/payment-methods',
       'money.sales' => '/desk/$id/sales',
-      'money.history' => '/pos/$id/invoices',
+      'money.history' => '/biz/$id/money/history',
       'money.gst' => '/pos/$id/gst',
       'money.day' => '/pos/$id/day',
       'money.purchases' => '/pos/$id/suppliers',
@@ -77,6 +78,10 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'menu.stock' => '/pos/$id/items',
       'staff.add' || 'staff.people' => askodoxPhase2 ? '/pos/$id/staff' : '/desk/$id/settings',
       'staff.alerts' => '/desk/$id/settings',
+      'staff.attendance' => '/biz/$id/staff',
+      'staff.checkin' => '/biz/$id/staff/checkin',
+      'staff.salary' => '/biz/$id/staff/salary',
+      'staff.tasks' => '/biz/$id/staff/tasks',
       'customers.page' || 'customers.reviews' => '/shops/$id',
       'customers.post' => '/shops/$id/post',
       'customers.welcome' => '/desk/$id/settings',
@@ -187,6 +192,8 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind) {
         tiles: [
           const AskodoxBizTileSpec('money.bill', Icons.calculate_outlined, 'Make a bill', 'బిల్లు చేయి',
               'Cash | Online | Baaki', 'క్యాష్ | ఆన్‌లైన్ | బాకీ', tone: 'green', key: 'askodoxMyBusinessBill', perm: 'sell'),
+          const AskodoxBizTileSpec('money.cashbook', Icons.import_contacts_outlined, 'Cashbook', 'క్యాష్‌బుక్',
+              'Money in + money out', 'ఆదాయం + ఖర్చు', tone: 'blue', perm: 'reports'),
           AskodoxBizTileSpec('money.dues', Icons.menu_book_outlined, 'Dues', 'బాకీలు', 'Who owes how much',
               'ఎవరు ఎంత ఇవ్వాలి', tone: 'orange', badge: (h) => _n(askodoxPosMap(h['dues'])['people']), perm: 'customers'),
           AskodoxBizTileSpec('money.sound', Icons.volume_up_outlined, 'Payment sound', 'పేమెంట్ సౌండ్',
@@ -236,7 +243,7 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind) {
           const AskodoxBizTileSpec('menu.stock', Icons.inventory_2_outlined, 'Stock & barcodes', 'స్టాక్ & బార్‌కోడ్',
               'Quantity, batches, GST', 'పరిమాణం, బ్యాచ్‌లు, GST', tone: 'gray', setup: true, perm: 'stock'),
         ]),
-    AskodoxBizGroupSpec('staff', Icons.groups_outlined, 'Staff & attendance', 'సిబ్బంది & హాజరు', perm: 'members',
+    AskodoxBizGroupSpec('staff', Icons.groups_outlined, 'Staff & attendance', 'సిబ్బంది & హాజరు',
         sub: (h, te) => te ? '${askodoxPosInt(h['staff'])} మంది' : '${askodoxPosInt(h['staff'])} people',
         strip: (h) => [
               ('Staff', 'సిబ్బంది', '${askodoxPosInt(h['staff'])}', const Color(0xFF5B2A9E)),
@@ -610,9 +617,8 @@ class _AskodoxAskBarState extends ConsumerState<AskodoxAskBar> {
         );
         if (yes != true || !mounted) return;
         await repo.askConfirm(widget.businessId, {
-          'action': confirm['action'],
-          'product_id': confirm['product_id'] ?? '',
-          if (confirm['price_paise'] != null) 'price_paise': confirm['price_paise'],
+          for (final e in confirm.entries)
+            if (e.key != 'summary' && e.value != null) e.key: e.value,
         });
         if (mounted) askodoxPosSnack(context, te ? 'చేశాను ✓' : 'Done ✓');
         return;

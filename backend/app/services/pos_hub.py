@@ -64,16 +64,18 @@ PAGES: Dict[str, tuple] = {
 }
 
 # Changes the ASK bar may PROPOSE (each runs only after the person's ✓).
-CHANGES = ("item_off", "item_on", "item_price", "menu_sort")
+CHANGES = ("item_off", "item_on", "item_price", "menu_sort", "add_expense", "add_income")
 
 PROMPT = (
     "You read ONE sentence a shop owner or staff said in any language (Telugu, English, mixed) inside their business "
     "app, and pick ONE action. Return ONLY JSON {\"action\": string, \"page\": string, \"item\": string, "
-    "\"price\": number, \"question\": string}.\n"
+    "\"price\": number, \"question\": string, \"category\": string, \"note\": string}.\n"
     "action is one of: open (they want to see a page), answer (they ask a question about today: sales, dues, orders, "
     "payments, staff), item_off (an item is finished / not available today), item_on (an item is available again), "
     "item_price (change an item's price; price in rupees), menu_sort (arrange / sort / organise the menu into "
-    "sections), unknown.\n"
+    "sections), add_expense (money spent: write it in the cashbook; price = the rupees, category = one of stock, salary, "
+    "rent, power, gas, transport, repair, other; note = what it was in a few words), add_income (money received that is "
+    "not a bill: advance, catering ...; price = rupees), unknown.\n"
     "page = one key from this list when action is open (else \"\"): {pages}\n"
     "item = the item name exactly as said (for item_* actions), else \"\". question = the question in short English "
     "for answer, else \"\".\nThe person is on the page: {here}.\nSentence: {text}"
@@ -244,7 +246,8 @@ def read(text: str, here: str, write_text: Callable[..., str]) -> Dict[str, Any]
     except (TypeError, ValueError):
         price = None
     return {"action": action, "page": page, "item": str(data.get("item") or "")[:80], "price": price,
-            "question": str(data.get("question") or "")[:200]}
+            "question": str(data.get("question") or "")[:200], "category": str(data.get("category") or "other")[:30],
+            "note": str(data.get("note") or "")[:120]}
 
 
 def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str, Any], te: bool) -> Dict[str, Any]:
@@ -258,6 +261,17 @@ def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str,
     if action == "menu_sort":
         return {"reply": "మెనూని AI తో సర్దుతాను — ముందు చూపించి, మీరు ఓకే అంటేనే సేవ్." if te
                 else "I'll sort the menu with AI — you see it first, nothing saves until you say OK.", "open": "menu.sort"}
+    if action in ("add_expense", "add_income"):
+        if not intent.get("price") or intent["price"] <= 0:
+            return {"reply": "ఎంత రూపాయలు?" if te else "How many rupees?", "open": None}
+        paise = int(round(intent["price"] * 100))
+        kind = "expense" if action == "add_expense" else "income"
+        what = intent.get("note") or intent.get("category") or ""
+        summary_text = ((f"క్యాష్‌బుక్‌లో ఖర్చు: {what} {_rupees(paise)}" if kind == "expense"
+                         else f"క్యాష్‌బుక్‌లో ఆదాయం: {what} {_rupees(paise)}") if te
+                        else f"Cashbook {'expense' if kind == 'expense' else 'income'}: {what} {_rupees(paise)}")
+        return {"reply": summary_text, "confirm": {"action": action, "amount_paise": paise, "category": intent.get("category") or "other",
+                                                   "note": intent.get("note") or "", "summary": summary_text}}
     if action in ("item_off", "item_on", "item_price"):
         item = find_item(items, intent["item"])
         if item is None:
@@ -294,4 +308,10 @@ def run(change: Dict[str, Any], *, store, desk, business_id: str, user: str) -> 
             raise PosError(400, "price", "A price is needed.")
         store.update_product(business_id, user, product_id, {"price_paise": paise})
         return {"done": True}
+    if action in ("add_expense", "add_income"):
+        from app.services.pos_cashbook import PosCashbook
+
+        return PosCashbook(store).add(business_id, user, {
+            "kind": "expense" if action == "add_expense" else "income", "amount_paise": change.get("amount_paise"),
+            "category": change.get("category") or "other", "note": change.get("note") or "", "source": "ask"})
     raise PosError(400, "action", "This change cannot run from the ASK bar.")

@@ -3,6 +3,7 @@ package com.askodox.askodox
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -10,6 +11,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.Sensor
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
@@ -20,6 +23,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
+import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
 import androidx.core.app.ActivityCompat
@@ -61,6 +65,8 @@ object AskodoxHardware {
                 "lightLevel" -> lightLevel(activity, result)
                 "soundLevel" -> soundLevel(activity, call.argument<Int>("millis") ?: 600, result)
                 "stepCount" -> stepCount(activity, result)
+                "confirmDeviceLock" -> confirmDeviceLock(activity, call.argument<String>("title") ?: "ASKODOX",
+                    call.argument<String>("subtitle") ?: "", result)
                 else -> result.notImplemented()
             }
         }
@@ -335,5 +341,55 @@ object AskodoxHardware {
                 recorder?.release()
             }
         }.start()
+    }
+
+    /**
+     * Staff attendance (owner 2026-11-18): the phone's OWN lock (fingerprint / face / PIN) proves the person holding
+     * this phone is its owner before "I have come" is saved. Framework BiometricPrompt only -- no new library.
+     * Answers "ok", "cancelled", "no_lock" (the phone has no screen lock) or "unsupported" (Android < 10).
+     */
+    private fun confirmDeviceLock(activity: Activity, title: String, subtitle: String, result: MethodChannel.Result) {
+        val keyguard = activity.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        if (keyguard?.isDeviceSecure != true) {
+            result.success("no_lock")
+            return
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            result.success("unsupported")
+            return
+        }
+        val builder = BiometricPrompt.Builder(activity).setTitle(title)
+        if (subtitle.isNotEmpty()) builder.setSubtitle(subtitle)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            builder.setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+        } else {
+            @Suppress("DEPRECATION")
+            builder.setDeviceCredentialAllowed(true)
+        }
+        var answered = false
+        try {
+            builder.build().authenticate(CancellationSignal(), activity.mainExecutor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(res: BiometricPrompt.AuthenticationResult?) {
+                        if (!answered) {
+                            answered = true
+                            result.success("ok")
+                        }
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+                        if (!answered) {
+                            answered = true
+                            result.success("cancelled")
+                        }
+                    }
+                })
+        } catch (e: Exception) {
+            if (!answered) {
+                answered = true
+                result.success("unsupported")
+            }
+        }
     }
 }

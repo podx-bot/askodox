@@ -281,6 +281,76 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ముందు "రోజూ వాడేవి" బటన్లు, తర్వాత "ఒకసారి సెట్ చేసేవి", కింద చరిత్ర.',
     'ASK బార్‌లో ఏం చేయాలో చెప్పండి — మార్పు ముందు చూపించి, ✓ నొక్కాకే చేస్తుంది.',
   ]),
+  '/biz/:id/money/cashbook': _H('Cashbook', 'క్యాష్‌బుక్', [
+    'Money in from bills comes by itself, one line a day. Add other money in or out with the two big buttons.',
+    'Or say it: "gas cylinder 1100 expense". Remove a wrong line with the bin — Undo brings it back.',
+  ], [
+    'బిల్లుల డబ్బు రోజుకు ఒక వరుసగా ఆటోగా వస్తుంది. మిగతా ఆదాయం / ఖర్చు రెండు పెద్ద బటన్లతో రాయండి.',
+    'లేదా చెప్పండి: "గ్యాస్ సిలిండర్ 1100 ఖర్చు". తప్పు వరుస చెత్తబుట్టతో తీసేయండి — "వెనక్కి" తో మళ్ళీ వస్తుంది.',
+  ]),
+  '/biz/:id/money/dues': _H('Dues', 'బాకీలు', [
+    'Everyone who still owes money, biggest first. Tap a person to see their bills.',
+    'When they pay, tap "Paid" and choose cash or online.',
+  ], [
+    'బాకీ ఉన్న అందరూ, ఎక్కువ ఉన్నవారు ముందు. పేరు నొక్కితే వారి బిల్లులు.',
+    'కట్టినప్పుడు "కట్టారు" నొక్కి క్యాష్ / ఆన్‌లైన్ ఎంచుకోండి.',
+  ]),
+  '/biz/:id/money/history': _H('Bill history', 'బిల్లుల చరిత్ర', [
+    'Search by bill or phone number. Choose the days, then cash / online / baaki / cancelled.',
+    'Bills are grouped by day with the day\'s total.',
+  ], [
+    'బిల్ నంబర్ / ఫోన్ నంబర్‌తో వెతకండి. రోజులు ఎంచుకుని, క్యాష్ / ఆన్‌లైన్ / బాకీ / రద్దు ఎంచుకోండి.',
+    'బిల్లులు రోజు వారీగా, ఆ రోజు మొత్తంతో.',
+  ]),
+  '/biz/:id/staff': _H('Staff & attendance', 'సిబ్బంది & హాజరు', [
+    'Who came today and when. Tap a person for their month, salary and advance.',
+    'Check in, tasks, the shop-phone attendance and salary are the big buttons.',
+  ], [
+    'ఈ రోజు ఎవరు ఎప్పుడు వచ్చారు. పేరు నొక్కితే వారి నెల, జీతం, అడ్వాన్స్.',
+    'హాజరు వేయి, పనులు, షాప్ ఫోన్ హాజరు, జీతాలు — పెద్ద బటన్లు.',
+  ]),
+  '/biz/:id/staff/checkin': _H('Check in / out', 'హాజరు వేయి', [
+    'Tap "I am in": your phone asks for its own fingerprint / face / PIN, then saves the time and how far you are from the shop.',
+    'No phone lock? It takes a selfie instead. Tap "Leaving" when you go.',
+  ], [
+    '"వచ్చాను" నొక్కండి: మీ ఫోన్ వేలిముద్ర / ముఖం / PIN అడిగి, టైం, షాప్ నుంచి దూరం రాస్తుంది.',
+    'ఫోన్ లాక్ లేకపోతే సెల్ఫీ అడుగుతుంది. వెళ్ళేటప్పుడు "వెళ్తున్నా" నొక్కండి.',
+  ]),
+  '/biz/:id/staff/kiosk': _H('Shop phone attendance', 'షాప్ ఫోన్ హాజరు', [
+    'For people without a phone: tap the name, then in or out, then a front-camera photo.',
+    'Only the owner / manager see the photos; they are deleted after 90 days.',
+  ], [
+    'ఫోన్ లేనివారికి: పేరు నొక్కి, వచ్చాను / వెళ్తున్నా, తర్వాత ముందు కెమెరా ఫోటో.',
+    'ఫోటోలు ఓనర్ / మేనేజర్‌కి మాత్రమే; 90 రోజుల తర్వాత తీసేస్తాం.',
+  ]),
+  '/biz/:id/staff/person/:ref': _H('One staff member', 'ఒక సిబ్బంది', [
+    'The month as rows: one tap on P, A, OT or L changes that day.',
+    'Salary is worked out below: days × rate + overtime − advance.',
+  ], [
+    'నెల వరుసలుగా: P, A, OT, సె ఒక్క నొక్కుతో ఆ రోజు మారుతుంది.',
+    'కింద జీతం లెక్క: రోజులు × రేటు + OT − అడ్వాన్స్.',
+  ]),
+  '/biz/:id/staff/salary': _H('Salary', 'జీతాలు', [
+    'Everyone's salary this month, worked out from attendance.',
+    '"Mark given" writes it into the cashbook as salary.',
+  ], [
+    'హాజరు నుంచి ఈ నెల అందరి జీతం లెక్క.',
+    '"ఇచ్చేశాను" నొక్కితే క్యాష్‌బుక్‌లో జీతంగా పడుతుంది.',
+  ]),
+  '/biz/:id/staff/tasks': _H('Tasks', 'పనులు', [
+    'Give a task to a person — their phone rings. They tick it when done.',
+    'Late tasks show in red and in the night report.',
+  ], [
+    'ఒకరికి పని ఇవ్వండి — వారి ఫోన్ మోగుతుంది. అయ్యాక వారు ✓ పెడతారు.',
+    'ఆలస్యమైన పనులు ఎరుపులో, రాత్రి రిపోర్ట్‌లో కనిపిస్తాయి.',
+  ]),
+  '/biz/:id/staff/setup': _H('Attendance setup', 'హాజరు సెటప్', [
+    'Choose: each person's own phone, the shop phone, or both.',
+    'Set the start and end time, the minutes of lateness allowed and how near the shop counts.',
+  ], [
+    'ఎంచుకోండి: ప్రతి ఒక్కరి ఫోన్, షాప్ ఫోన్, లేదా రెండూ.',
+    'మొదలు / ముగింపు సమయం, ఎన్ని నిమిషాల ఆలస్యం ఓకే, షాప్‌కి ఎంత దగ్గర — పెట్టండి.',
+  ]),
   '/biz/:id/menu': _H('Menu & items', 'మెనూ & ఐటమ్స్', [
     'Add an item, read a menu photo, sort with AI, or switch off what ran out today.',
     'Search finds an item by name or number in every section. Tap a section to see its items.',

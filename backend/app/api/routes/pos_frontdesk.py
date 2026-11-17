@@ -755,7 +755,7 @@ def bill_paper(business_id: str, invoice_id: str, request: Request) -> dict:
 
 
 # ------------------------------------------------------------------------------------------ the business hub + ASK bar
-class AskIn(BaseModel):
+class BizAskIn(BaseModel):
     text: str = Field(min_length=1, max_length=400)
     page: str = Field(default="hub", max_length=40)
     lang: str = Field(default="te", pattern="^(te|en)$")
@@ -765,6 +765,9 @@ class AskConfirmIn(BaseModel):
     action: str = Field(max_length=30)
     product_id: str = Field(default="", max_length=60)
     price_paise: Optional[int] = Field(default=None, ge=1, le=100_000_000)
+    amount_paise: Optional[int] = Field(default=None, ge=1, le=1_000_000_000)
+    category: str = Field(default="", max_length=30)
+    note: str = Field(default="", max_length=120)
 
 
 @router.get("/businesses/{business_id}/hub")
@@ -782,7 +785,7 @@ def business_hub(business_id: str, request: Request) -> dict:
 
 
 @router.post("/businesses/{business_id}/ask")
-def business_ask(business_id: str, body: AskIn, request: Request) -> dict:
+def business_ask(business_id: str, body: BizAskIn, request: Request) -> dict:
     """The ASK bar: one sentence -> open a page, answer from the shop's own numbers, or ONE change waiting for ✓."""
     from app.services import pos_hub
 
@@ -810,3 +813,168 @@ def business_ask_confirm(business_id: str, body: AskConfirmIn, request: Request)
     user = _user(request, "ask-confirm", 60)
     return _call(pos_hub.run, body.model_dump(), store=_store(request), desk=_desk(request),
                  business_id=business_id, user=user)
+
+
+# ------------------------------------------------------------------------------------------ cashbook + dues
+class CashbookIn(BaseModel):
+    kind: str = Field(pattern="^(income|expense)$")
+    amount_paise: int = Field(ge=1, le=1_000_000_000)
+    category: str = Field(default="other", max_length=30)
+    note: str = Field(default="", max_length=120)
+    local_date: str = Field(default="", max_length=10)
+    client_txn_id: str = Field(default="", max_length=60)
+
+
+def _cashbook(request: Request):
+    from app.services.pos_cashbook import PosCashbook
+
+    return PosCashbook(_store(request))
+
+
+@router.get("/businesses/{business_id}/cashbook")
+def cashbook_month(business_id: str, request: Request, month: str = "") -> dict:
+    return _call(_cashbook(request).month, business_id, _user(request, "cashbook", 240), month[:7])
+
+
+@router.post("/businesses/{business_id}/cashbook")
+def cashbook_add(business_id: str, body: CashbookIn, request: Request) -> dict:
+    return _call(_cashbook(request).add, business_id, _user(request, "cashbook-add", 120), body.model_dump())
+
+
+@router.delete("/businesses/{business_id}/cashbook/{entry_id}")
+def cashbook_remove(business_id: str, entry_id: str, request: Request, undo: bool = False) -> dict:
+    return _call(_cashbook(request).remove, business_id, _user(request, "cashbook-add", 120), entry_id, undo)
+
+
+@router.get("/businesses/{business_id}/dues")
+def dues(business_id: str, request: Request) -> dict:
+    """Everyone who still owes money, biggest first, with their bills (read from the bill history)."""
+    user = _user(request, "dues", 240)
+    bills = _call(_bills(request).history, business_id, user, only_due=True, limit=1000)["bills"]
+    return _cashbook(request).dues(business_id, user, bills)
+
+
+# ------------------------------------------------------------------------------------------ attendance, salary, tasks
+class CheckIn(BaseModel):
+    action: str = Field(pattern="^(in|out|leave)$")
+    lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    lng: Optional[float] = Field(default=None, ge=-180, le=180)
+    method: str = Field(default="device_lock", pattern="^(device_lock|photo)$")
+    photo: str = Field(default="", max_length=600_000)
+    for_ref: str = Field(default="", max_length=20)
+
+
+class MarkIn(BaseModel):
+    ref: str = Field(max_length=20)
+    date: str = Field(max_length=10)
+    status: str = Field(pattern="^(P|A|OT|leave|half)$")
+    ot_min: int = Field(default=0, ge=0, le=1440)
+    note: str = Field(default="", max_length=120)
+
+
+class AttSettingsIn(BaseModel):
+    start_time: Optional[str] = Field(default=None, max_length=5)
+    end_time: Optional[str] = Field(default=None, max_length=5)
+    grace_min: Optional[int] = Field(default=None, ge=0, le=180)
+    radius_m: Optional[int] = Field(default=None, ge=30, le=5000)
+    own_phone: Optional[bool] = None
+    kiosk: Optional[bool] = None
+
+
+class PayIn(BaseModel):
+    salary_kind: str = Field(default="month", pattern="^(month|day)$")
+    salary_paise: int = Field(default=0, ge=0, le=100_000_000)
+    ot_rate_paise: int = Field(default=0, ge=0, le=10_000_000)
+
+
+class StaffAdvanceIn(BaseModel):
+    amount_paise: int = Field(ge=1, le=100_000_000)
+    note: str = Field(default="", max_length=120)
+
+
+class TaskIn(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    ref: str = Field(max_length=20)
+    due_at: str = Field(default="", max_length=25)
+
+
+def _att(request: Request):
+    from app.services.pos_attendance import PosAttendance
+
+    desk = _desk(request)
+    return PosAttendance(_store(request), notify=getattr(desk, "notify", None))
+
+
+@router.get("/businesses/{business_id}/attendance/today")
+def attendance_today(business_id: str, request: Request) -> dict:
+    return _call(_att(request).today, business_id, _user(request, "att", 300))
+
+
+@router.post("/businesses/{business_id}/attendance/check")
+def attendance_check(business_id: str, body: CheckIn, request: Request) -> dict:
+    return _call(_att(request).check, business_id, _user(request, "att-check", 60), body.action, lat=body.lat,
+                 lng=body.lng, method=body.method, photo_b64=body.photo, for_ref=body.for_ref)
+
+
+@router.post("/businesses/{business_id}/attendance/mark")
+def attendance_mark(business_id: str, body: MarkIn, request: Request) -> dict:
+    return _call(_att(request).mark, business_id, _user(request, "att-mark", 120), body.ref, body.date, body.status,
+                 body.ot_min, body.note)
+
+
+@router.get("/businesses/{business_id}/attendance/settings")
+def attendance_settings(business_id: str, request: Request) -> dict:
+    return _call(_att(request).get_settings, business_id, _user(request, "att", 120))
+
+
+@router.put("/businesses/{business_id}/attendance/settings")
+def attendance_settings_set(business_id: str, body: AttSettingsIn, request: Request) -> dict:
+    return _call(_att(request).set_settings, business_id, _user(request, "att-mark", 60), body.model_dump())
+
+
+@router.get("/businesses/{business_id}/attendance/month")
+def attendance_month(business_id: str, request: Request, ref: str = "", month: str = "") -> dict:
+    return _call(_att(request).month, business_id, _user(request, "att", 240), ref[:20], month[:7])
+
+
+@router.get("/businesses/{business_id}/attendance/photo/{attendance_id}")
+def attendance_photo(business_id: str, attendance_id: str, request: Request) -> dict:
+    import base64
+
+    image, mime = _call(_att(request).photo, business_id, _user(request, "att", 120), attendance_id)
+    return {"image_base64": base64.b64encode(image).decode("ascii"), "mime": mime}
+
+
+@router.put("/businesses/{business_id}/staff/{ref}/pay")
+def staff_pay_set(business_id: str, ref: str, body: PayIn, request: Request) -> dict:
+    return _call(_att(request).set_pay, business_id, _user(request, "att-mark", 60), ref[:20], body.model_dump())
+
+
+@router.post("/businesses/{business_id}/staff/{ref}/advance")
+def staff_advance(business_id: str, ref: str, body: StaffAdvanceIn, request: Request) -> dict:
+    return _call(_att(request).advance, business_id, _user(request, "att-mark", 60), ref[:20], body.amount_paise, body.note)
+
+
+@router.get("/businesses/{business_id}/salary")
+def team_salary(business_id: str, request: Request, month: str = "") -> dict:
+    return _call(_att(request).team_salary, business_id, _user(request, "att", 120), month[:7])
+
+
+@router.post("/businesses/{business_id}/staff/{ref}/salary/{month}/paid")
+def salary_paid(business_id: str, ref: str, month: str, request: Request) -> dict:
+    return _call(_att(request).pay_salary, business_id, _user(request, "att-mark", 30), ref[:20], month[:7])
+
+
+@router.get("/businesses/{business_id}/tasks")
+def tasks(business_id: str, request: Request) -> dict:
+    return _call(_att(request).tasks, business_id, _user(request, "tasks", 300))
+
+
+@router.post("/businesses/{business_id}/tasks")
+def task_add(business_id: str, body: TaskIn, request: Request) -> dict:
+    return _call(_att(request).add_task, business_id, _user(request, "tasks", 120), body.title, body.ref, body.due_at)
+
+
+@router.post("/businesses/{business_id}/tasks/{task_id}/done")
+def task_done(business_id: str, task_id: str, request: Request, undo: bool = False) -> dict:
+    return _call(_att(request).task_done, business_id, _user(request, "tasks", 120), task_id, not undo)

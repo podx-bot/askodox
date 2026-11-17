@@ -53,3 +53,14 @@ def test_summary_and_confirmed_change_on_a_real_shop(env):  # noqa: F811
     from app.services.pos_store import PosError
     with pytest.raises(PosError):
         pos_hub.run({"action": "delete_everything"}, store=store, desk=desk, business_id=biz, user=OWNER)
+
+
+def test_spoken_expense_waits_for_confirm_then_lands_in_the_cashbook(env):  # noqa: F811
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    intent = pos_hub.read("kooragayalu 1200 karchu", "money", lambda p, max_tokens=0: json.dumps(
+        {"action": "add_expense", "price": 1200, "category": "stock", "note": "vegetables"}))
+    plan = pos_hub.plan(intent, [], {}, te=False)
+    assert plan["confirm"]["amount_paise"] == 120000 and "vegetables" in plan["confirm"]["summary"]
+    pos_hub.run(plan["confirm"], store=store, desk=desk, business_id=biz, user=OWNER)
+    from app.services.pos_cashbook import PosCashbook
+    assert PosCashbook(store).month(biz, OWNER)["expense_paise"] == 120000
