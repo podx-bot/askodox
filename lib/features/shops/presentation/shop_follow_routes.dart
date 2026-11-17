@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../pos/presentation/shop_rating_screens.dart';
 import 'my_business_screens.dart';
 import 'shop_follow_screens.dart';
 import 'shop_post_screens.dart';
@@ -10,7 +11,7 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(path: '/me/following', builder: (context, state) => const AskodoxFollowingShopsScreen()),
   GoRoute(
       path: '/shops/:id',
-      builder: (context, state) => AskodoxShopFollowScreen(businessId: state.pathParameters['id']!)),
+      builder: (context, state) => AskodoxShopPageScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/shops/:id/post',
       builder: (context, state) => AskodoxShopPostScreen(businessId: state.pathParameters['id']!)),

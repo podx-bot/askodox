@@ -7213,6 +7213,241 @@
           "change": "built on the owner's request (code ready, not phone verified)"
         }
       ]
+    },
+    {
+      "id": "shop_ratings_reviews",
+      "name": "Ratings after an order, shop page with reviews (like Google)",
+      "roles": [
+        "any signed-in user",
+        "shop owner / manager"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/order-desk/mine/{order_id}/rate"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/order-desk/mine/{order_id}/rate"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/shops/{business_id}/page"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/shops/{business_id}/review"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/pos/shops/{business_id}/review"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/shops/{business_id}/reviews/{review_id}/reply"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/shops/reviews/{review_id}/report"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/shops/{business_id}/photo/{kind}/{photo_id}"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxShopPage",
+          "askodoxShopFollow",
+          "askodoxShopWriteReview",
+          "askodoxReviewSave",
+          "askodoxRateSend",
+          "askodoxRateLater",
+          "askodoxOrderRate",
+          "askodoxOrderThanks"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_ratings.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "After an order the person gives stars to the shop and each item (no writing), asked once (+ once more the next day on 'later'). The shop page shows photos, rating summary, item stars, shop-only reviews with up to 3 photos, the owner's reply and report.",
+      "expected_behavior": "Reviews only from people who bought at the shop, masked (contacts + bad words); 3 reports hide a review; item ratings are stars only.",
+      "history": [
+        {
+          "date": "2026-11-17",
+          "change": "built on the owner's approval of the 14 designs (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "shop_welcome_thanks",
+      "name": "Welcome by name on a QR scan and thanks at the end",
+      "roles": [
+        "any signed-in user",
+        "shop owner / manager"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/welcome"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/welcome"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxOrderWelcome",
+          "askodoxDeskWelcomeCard",
+          "askodoxDeskWelcomeOn",
+          "askodoxDeskWelcomeSave"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_ratings.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "The customer's own phone greets them by name (first visit / returning), and thanks them when the order is finished; the shop edits the words or turns it off.",
+      "expected_behavior": "Never shown to the owner; {name} / {shop} filled; empty text = default.",
+      "history": [
+        {
+          "date": "2026-11-17",
+          "change": "built on the owner's approval of the 14 designs (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "menu_ai_sort",
+      "name": "Menu grouped by section + 'Sort with AI' preview",
+      "roles": [
+        "shop owner / manager"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/sort"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/sort/apply"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxDeskMenuAiSort",
+          "askodoxDeskMenuAiSave"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "AI reads the item names and suggests sections + veg / non-veg; nothing is saved until the owner checks the preview.",
+      "expected_behavior": "Preview only on /sort; /sort/apply saves the checked rows.",
+      "history": [
+        {
+          "date": "2026-11-17",
+          "change": "built on the owner's approval of the 14 designs (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "bill_paper_split_revise",
+      "name": "Bill: Cash | Online | Baaki, both (split), paper-style bill, same-day edit",
+      "roles": [
+        "shop staff"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/bills/{invoice_id}/paper"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxQuickBillSplit",
+          "askodoxQuickBillEdit",
+          "askodoxPaperBill",
+          "askodoxQuickBillCashPart",
+          "askodoxQuickBillOnlinePart"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_ratings.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Three big payment buttons, part cash + part online with the rest due, a payment voice alert of the same amount offered as the app, a bill drawn like the shop's paper bill, and edit = a new bill replacing the old one the same day.",
+      "expected_behavior": "cash + online > total is refused; revise cancels the old bill only after the new one exists.",
+      "history": [
+        {
+          "date": "2026-11-17",
+          "change": "built on the owner's approval of the 14 designs (code ready, not phone verified)"
+        }
+      ]
+    },
+    {
+      "id": "table_requests_big_buttons",
+      "name": "Table requests: big buttons for the customer, 'Brought it ✓' for the waiter",
+      "roles": [
+        "any signed-in user",
+        "shop staff"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxTableSay"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "The customer taps one big button; the waiter's phone rings and speaks it; the customer sees who brought it; the owner is told after 2 minutes.",
+      "expected_behavior": "Request pushes speak (type say); escalation once after 2 minutes.",
+      "history": [
+        {
+          "date": "2026-11-17",
+          "change": "built on the owner's approval of the 14 designs (code ready, not phone verified)"
+        }
+      ]
     }
   ]
 }

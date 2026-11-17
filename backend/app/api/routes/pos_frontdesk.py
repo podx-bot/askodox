@@ -705,17 +705,20 @@ def report_review(review_id: str, request: Request) -> dict:
 def shop_photo(business_id: str, kind: str, photo_id: str, request: Request):
     from fastapi.responses import Response
 
-    _user(request, "shop-page", 300)
+    from app.services import rate_limit
+
+    # Public like the shop page photos on a map (an <img> carries no sign-in); limited per client.
+    rate_limit.check(request, "shop-photo", limit=300)
     if kind == "review":
         out = _call(_desk(request).ratings.photo, photo_id)
-        return Response(out["image"], media_type=out["mime"], headers={"Cache-Control": "private, max-age=3600"})
+        return Response(out["image"], media_type=out["mime"], headers={"Cache-Control": "public, max-age=3600"})
     store = _store(request)
     with store._connect() as conn:
         row = conn.execute("SELECT image, mime FROM pos_product_photos WHERE business_id = ? AND product_id = ?",
                            (business_id, photo_id)).fetchone()
     if row is None:
         raise HTTPException(404, "Photo not found.")
-    return Response(bytes(row["image"]), media_type=row["mime"], headers={"Cache-Control": "private, max-age=3600"})
+    return Response(bytes(row["image"]), media_type=row["mime"], headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.get("/businesses/{business_id}/welcome")

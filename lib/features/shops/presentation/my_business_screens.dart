@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import '../../location/presentation/map_pin_picker.dart';
 import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxParsePaise;
+import '../../pos/presentation/paper_bill.dart';
 import '../../pos/presentation/pos_sale_screen.dart' show askodoxPrintInvoice;
 import '../domain/name_change_rule.dart';
 
@@ -791,14 +793,25 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
   bool _saving = false;
   String _txn = askodoxNewTxnId();
   AskodoxJson? _saved;
+  // Owner 2026-11-17: Cash | Online | Baaki, "both" = part cash + part online (the rest is baaki).
+  bool _split = false;
+  final _cashPart = TextEditingController();
+  final _onlinePart = TextEditingController();
+  AskodoxJson? _sound; // a payment voice alert of this amount in the last 15 min (PhonePe / GPay / bank SMS ...)
+  String? _reviseOf; // editing a saved bill = the same-day revise (a new bill replaces the old one)
+  AskodoxJson? _paper;
+
+  bool get _online => const ['online', 'phonepe', 'gpay', 'paytm', 'bhim', 'other_upi', 'card'].contains(_method);
+  int _paise(TextEditingController c) => askodoxParsePaise(c.text.trim().isEmpty ? '0' : c.text) ?? 0;
 
   double get _total => _lines.fold(0, (sum, line) => sum + line.value);
   int get _typedAdvancePaise => askodoxParsePaise(_advance.text.trim().isEmpty ? '0' : _advance.text) ?? 0;
 
   /// What was paid now: the typed amount, else the whole bill -- unless the cashier chose "pending".
   int get _advancePaise {
+    if (_split) return _paise(_cashPart) + _paise(_onlinePart);
     final typed = _typedAdvancePaise;
-    if (_method == 'due' || typed > 0) return typed;
+    if (_method == 'due') return typed;
     return (_total * 100).round();
   }
 
@@ -829,7 +842,49 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
       _custName.clear();
       _custPhone.clear();
       _method = 'cash';
+      _split = false;
+      _cashPart.clear();
+      _onlinePart.clear();
+      _sound = null;
+      _reviseOf = null;
+      _paper = null;
       _saved = null;
+      _txn = askodoxNewTxnId();
+    });
+  }
+
+  /// The app the money came in on, from a payment alert's source ("com.phonepe.app", "sms" ...).
+  static String _appOf(AskodoxJson ev) {
+    final s = '${ev['source_app']} ${ev['source_label']}'.toLowerCase();
+    if (s.contains('phonepe')) return 'phonepe';
+    if (s.contains('paisa') || s.contains('google') || s.contains('gpay')) return 'gpay';
+    if (s.contains('paytm')) return 'paytm';
+    if (s.contains('bhim')) return 'bhim';
+    return 'other_upi';
+  }
+
+  /// Looks for a payment voice alert of exactly the online amount in the last 15 minutes; the cashier confirms it.
+  Future<void> _findSound() async {
+    final want = _split ? _paise(_onlinePart) : (_total * 100).round();
+    if (want <= 0) return;
+    try {
+      final since = DateTime.now().toUtc().subtract(const Duration(minutes: 15)).toIso8601String();
+      final events = askodoxPosList((await ref
+              .read(askodoxPosRepositoryProvider)
+              .paymentEvents(widget.businessId, since: since, q: (want / 100).toStringAsFixed(want % 100 == 0 ? 0 : 2), limit: 5))['events']);
+      final hit = events.where((e) => askodoxPosInt(e['amount_paise']) == want && e['test'] != true).firstOrNull;
+      if (mounted) setState(() => _sound = hit);
+    } catch (_) {}
+  }
+
+  /// ✏ on a saved bill: the same lines come back to change; saving makes a new bill and cancels the old (same day).
+  void _revise() {
+    final saved = _saved;
+    if (saved == null) return;
+    setState(() {
+      _reviseOf = '${saved['id']}';
+      _saved = null;
+      _paper = null;
       _txn = askodoxNewTxnId();
     });
   }
@@ -878,6 +933,8 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     _advance.dispose();
     _custName.dispose();
     _custPhone.dispose();
+    _cashPart.dispose();
+    _onlinePart.dispose();
     super.dispose();
   }
 
@@ -907,14 +964,25 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                 },
               }
         ],
-        'advance_paise': _advancePaise,
+        'advance_paise': _split ? 0 : _advancePaise,
         'method': _method == 'due' ? 'cash' : _method,
+        if (_split) ...{'cash_paise': _paise(_cashPart), 'online_paise': _paise(_onlinePart)},
+        if (_reviseOf != null) 'revise_of': _reviseOf,
         'name': _custName.text.trim(),
         'phone': _custPhone.text.trim(),
         'rate_bp': _gstShop ? _rateBp : 0,
         'client_txn_id': _txn,
       });
-      if (mounted) setState(() => _saved = out);
+      if (mounted) {
+        setState(() {
+          _saved = out;
+          _reviseOf = null;
+        });
+        if ('${out['revise_note'] ?? ''}'.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${out['revise_note']}')));
+        }
+        unawaited(_loadPaper('${out['id']}'));
+      }
     } on AskodoxPosException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -925,6 +993,13 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _loadPaper(String invoiceId) async {
+    try {
+      final paper = await ref.read(askodoxPosRepositoryProvider).billPaper(widget.businessId, invoiceId);
+      if (mounted) setState(() => _paper = paper);
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -1148,33 +1223,136 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
           const SizedBox(height: 8),
           Text(te ? 'ఎలా కట్టారు?' : 'How was it paid?', style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
-          Wrap(spacing: 8, runSpacing: 4, children: [
-            for (final m in askodoxBillPayModes)
-              ChoiceChip(
-                key: Key('askodoxQuickBillPay-${m.$1}'),
-                label: Text(te ? m.$3 : m.$2),
-                selected: _method == m.$1,
-                onSelected: (_) => setState(() {
-                  _method = m.$1;
-                  _txn = askodoxNewTxnId();
-                }),
+          // Owner 2026-11-17: three big buttons, "both" for part cash + part online; what is left is baaki.
+          Row(children: [
+            for (final m in const [('cash', '💵', 'Cash', 'క్యాష్'), ('online', '📱', 'Online', 'ఆన్‌లైన్'), ('due', '📒', 'Baaki', 'బాకీ')])
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Material(
+                    color: (m.$1 == 'online' ? _online : _method == m.$1) && !_split ? const Color(0xFF1E3FA0) : const Color(0xFFF2F4F7),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      key: Key('askodoxQuickBillPay-${m.$1}'),
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        setState(() {
+                          _split = false;
+                          _method = m.$1;
+                          _txn = askodoxNewTxnId();
+                        });
+                        if (m.$1 == 'online') unawaited(_findSound());
+                      },
+                      child: SizedBox(
+                        height: 58,
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text(m.$2, style: const TextStyle(fontSize: 18)),
+                          Text(te ? m.$4 : m.$3,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: (m.$1 == 'online' ? _online : _method == m.$1) && !_split ? Colors.white : const Color(0xFF1F2937))),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
               ),
           ]),
-          const SizedBox(height: 8),
-          TextField(
-            key: const Key('askodoxQuickBillAdvance'),
-            controller: _advance,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (_) => setState(() => _txn = askodoxNewTxnId()),
-            decoration: InputDecoration(
-                labelText: te ? 'ఇప్పుడు కట్టింది ₹ (ఖాళీగా ఉంటే మొత్తం కట్టినట్టు)' : 'Paid now ₹ (empty = paid in full)',
-                border: const OutlineInputBorder()),
+          CheckboxListTile(
+            key: const Key('askodoxQuickBillSplit'),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _split,
+            title: Text(te ? 'రెండూ — కొంత క్యాష్, కొంత ఆన్‌లైన్ (మిగిలింది బాకీ)' : 'Both — part cash, part online (the rest is baaki)'),
+            onChanged: (v) => setState(() {
+              _split = v ?? false;
+              if (_split && !_online) _method = 'online';
+              _txn = askodoxNewTxnId();
+            }),
           ),
-          if (_advancePaise > 0 && _advancePaise < (total * 100).round())
+          if (_split)
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  key: const Key('askodoxQuickBillCashPart'),
+                  controller: _cashPart,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() => _txn = askodoxNewTxnId()),
+                  decoration: InputDecoration(labelText: te ? 'క్యాష్ ₹' : 'Cash ₹', border: const OutlineInputBorder()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  key: const Key('askodoxQuickBillOnlinePart'),
+                  controller: _onlinePart,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() => _txn = askodoxNewTxnId()),
+                  onEditingComplete: () => unawaited(_findSound()),
+                  decoration: InputDecoration(labelText: te ? 'ఆన్‌లైన్ ₹' : 'Online ₹', border: const OutlineInputBorder()),
+                ),
+              ),
+            ]),
+          if (_online || _split) ...[
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 4, children: [
+              for (final m in askodoxBillPayModes.where((m) => const ['phonepe', 'gpay', 'paytm', 'other_upi', 'card'].contains(m.$1)))
+                ChoiceChip(
+                  key: Key('askodoxQuickBillApp-${m.$1}'),
+                  visualDensity: VisualDensity.compact,
+                  label: Text(te ? m.$3 : m.$2),
+                  selected: _method == m.$1,
+                  onSelected: (on) => setState(() {
+                    _method = on ? m.$1 : 'online';
+                    _txn = askodoxNewTxnId();
+                  }),
+                ),
+            ]),
+            if (_sound != null)
+              Container(
+                key: const Key('askodoxQuickBillSound'),
+                margin: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFE7F5EE), borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  const Text('🔔', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        te
+                            ? '${_sound!['source_label']} లో ₹${_rupees(askodoxPosInt(_sound!['amount_paise']) / 100)} సౌండ్ వచ్చింది — ఇదేనా?'
+                            : '${_sound!['source_label']}: ₹${_rupees(askodoxPosInt(_sound!['amount_paise']) / 100)} alert came — this one?',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                  TextButton(
+                    key: const Key('askodoxQuickBillSoundYes'),
+                    onPressed: () => setState(() {
+                      _method = _appOf(_sound!);
+                      _sound = null;
+                      _txn = askodoxNewTxnId();
+                    }),
+                    child: Text(te ? 'అవును' : 'Yes'),
+                  ),
+                ]),
+              ),
+          ],
+          if (_method == 'due' && !_split) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('askodoxQuickBillAdvance'),
+              controller: _advance,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() => _txn = askodoxNewTxnId()),
+              decoration: InputDecoration(
+                  labelText: te ? 'ఇప్పుడు కట్టింది ₹ (ఏమీ లేకపోతే ఖాళీ)' : 'Paid now ₹ (empty if nothing)', border: const OutlineInputBorder()),
+            ),
+          ],
+          if (_advancePaise < (total * 100).round() && (_method == 'due' || _split) && total > 0)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(te ? 'బాకీ ₹${_rupees(total - _advancePaise / 100)}' : 'Pending ₹${_rupees(total - _advancePaise / 100)}',
-                  key: const Key('askodoxQuickBillPending'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              child: Text(te ? 'బాకీ ₹${_rupees(total - _advancePaise / 100)} — కస్టమర్ పేరు / నంబర్ రాయండి' : 'Baaki ₹${_rupees(total - _advancePaise / 100)} — add the customer name / number',
+                  key: const Key('askodoxQuickBillPending'), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
             ),
           const SizedBox(height: 6),
           Row(children: [
@@ -1214,17 +1392,35 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             key: const Key('askodoxQuickBillSave'),
             onPressed: total > 0 && !_saving && _saved == null ? _makeReal : null,
             icon: const Icon(Icons.receipt_long),
-            label: Text(te ? 'నిజమైన బిల్లు చేయండి (నంబర్ వస్తుంది)' : 'Make the real bill (gets a number)'),
+            label: Text(_reviseOf != null
+                ? (te ? 'మార్చిన బిల్లు సేవ్ చేయి (పాతది రద్దు)' : 'Save the changed bill (old one cancelled)')
+                : (te ? 'నిజమైన బిల్లు చేయండి (నంబర్ వస్తుంది)' : 'Make the real bill (gets a number)')),
           ),
           if (_saved != null)
             Card(
               key: const Key('askodoxQuickBillSaved'),
               child: Padding(
                 padding: const EdgeInsets.all(10),
-                child: Text(
-                    '${te ? 'బిల్లు' : 'Bill'} ${_saved!['number'] ?? ''} ✓  ${te ? 'కట్టింది' : 'Paid'} ₹${_rupees(askodoxPosInt(_saved!['advance_paise']) / 100)} · ${te ? 'బాకీ' : 'Pending'} ₹${_rupees(askodoxPosInt(_saved!['pending_paise']) / 100)}'),
+                child: Row(children: [
+                  Expanded(
+                    child: Text(
+                        '${te ? 'బిల్లు' : 'Bill'} ${_saved!['number'] ?? ''} ✓  ${te ? 'కట్టింది' : 'Paid'} ₹${_rupees(askodoxPosInt(_saved!['advance_paise']) / 100)} · ${te ? 'బాకీ' : 'Pending'} ₹${_rupees(askodoxPosInt(_saved!['pending_paise']) / 100)}'
+                        '${'${_saved!['revised_from'] ?? ''}'.isNotEmpty ? (te ? '\n(${_saved!['revised_from']} బదులు)' : '\n(replaces ${_saved!['revised_from']})') : ''}'),
+                  ),
+                  // Edit = the same day revise: the lines come back, saving makes a new bill and cancels this one.
+                  OutlinedButton.icon(
+                    key: const Key('askodoxQuickBillEdit'),
+                    onPressed: _revise,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: Text(te ? 'మార్చు' : 'Edit'),
+                  ),
+                ]),
               ),
             ),
+          if (_saved != null && _paper != null) ...[
+            const SizedBox(height: 6),
+            AskodoxPaperBill(paper: _paper!, te: te),
+          ],
           if (_saved != null) ...[
             const SizedBox(height: 6),
             FilledButton.icon(

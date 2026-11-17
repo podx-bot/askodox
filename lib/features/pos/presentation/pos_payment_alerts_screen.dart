@@ -11,13 +11,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/share/askodox_image_share.dart';
-import '../../../shared/widgets/askodox_inner_theme.dart' show AskodoxSectionLabel;
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import '../domain/payment_alert_setup.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import 'offline_voice_card.dart';
 import 'pay_alert_staff_card.dart';
+import '../../../shared/widgets/navigator_section.dart' show AskodoxNavSection;
 import 'pos_common.dart';
 import 'pos_payment_alerts_setup.dart';
 
@@ -832,7 +832,13 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                     ...switch (view) {
                       'history' => [_historyCard(te)],
                       'status' => [_statusCard(te)],
-                      'who' => [_shareCard(te), if (owner && !_phoneOnly) _rolesCard(te), _devicesCard(te)],
+                      // Owner 2026-11-17: "who hears it" and "staff" are ONE place
+                      'who' => [
+                          if (owner && !_phoneOnly) AskodoxPayAlertStaffCard(businessId: _id, onChanged: _refresh),
+                          _shareCard(te),
+                          if (owner && !_phoneOnly) _rolesCard(te),
+                          _devicesCard(te),
+                        ],
                       'staff' => [
                           if (owner && !_phoneOnly)
                             AskodoxPayAlertStaffCard(businessId: _id, onChanged: _refresh)
@@ -867,51 +873,85 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     final quietStart = '${_settings['quiet_start'] ?? ''}';
     final lang = switch ('${_settings['language'] ?? 'te'}') { 'hi' => 'हिन्दी', 'en' => 'English', _ => 'తెలుగు' };
     final on = _settings['enabled'] == true;
-    Widget row(String view, IconData icon, String title, String subtitle) => ListTile(
+    // Owner 2026-11-17: four small boxes (2 x 2), not long rows; the payment history lives in "My money".
+    var n = 0;
+    Widget box(String view, IconData icon, String title, String subtitle, {String? badge}) {
+      final (bg, fg) = AskodoxNavSection.palette[n++ % AskodoxNavSection.palette.length];
+      return Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
           key: ValueKey('askodoxPayAlertOpen-$view'),
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right_rounded),
+          borderRadius: BorderRadius.circular(16),
           onTap: () => context.push('/me/payment-alerts/$_id/$view'),
-        );
-    Widget group(String heading, List<Widget> rows) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          AskodoxSectionLabel(heading),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Column(children: [
-              for (var i = 0; i < rows.length; i++) ...[if (i > 0) const Divider(height: 1), rows[i]],
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 112),
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                  child: Icon(icon, color: fg, size: 21),
+                ),
+                const Spacer(),
+                if (badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(9)),
+                    child: Text(badge, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: fg)),
+                  ),
+              ]),
+              const SizedBox(height: 8),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+              Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
             ]),
           ),
-        ]);
-    return [
-      group(te ? '1. ఈ ఫోన్' : '1. This phone', [
-        row('status', Icons.toggle_on_outlined, te ? 'స్థితి & టెస్ట్' : 'Status & tests',
-            '${on ? (te ? 'అలర్ట్స్ ఆన్' : 'Alerts on') : (te ? 'అలర్ట్స్ ఆఫ్' : 'Alerts off')} · ${te ? 'స్పీకర్ / గుర్తింపు టెస్ట్' : 'speaker / detection test'}'),
-      ]),
-      group(te ? '2. ఎవరు వింటారు' : '2. Who hears it', [
-        row('who', Icons.hearing_outlined, te ? 'ఎవరు వింటారు' : 'Who hears it',
-            te ? '$people మంది · పాత్రలు · పరికరాలు' : '$people people · roles · devices'),
-        if (owner && !_phoneOnly)
-          row('staff', Icons.person_add_alt_1_outlined, te ? 'సిబ్బంది' : 'Staff',
-              te ? 'మొబైల్ నంబర్‌తో జోడించండి' : 'Add by mobile number'),
-      ]),
+        ),
+      );
+    }
+
+    final boxes = [
+      box('status', Icons.toggle_on_outlined, te ? 'స్థితి & టెస్ట్' : 'Status & tests',
+          te ? 'స్పీకర్ / గుర్తింపు టెస్ట్' : 'Speaker / detection test',
+          badge: on ? (te ? 'ఆన్' : 'On') : (te ? 'ఆఫ్' : 'Off')),
+      box('who', Icons.hearing_outlined, owner && !_phoneOnly ? (te ? 'ఎవరు వింటారు / సిబ్బంది' : 'Who hears it / staff') : (te ? 'ఎవరు వింటారు' : 'Who hears it'),
+          owner && !_phoneOnly
+              ? (te ? '$people మంది · నంబర్‌తో చేర్చు' : '$people people · add by number')
+              : (te ? '$people మంది · పరికరాలు' : '$people people · devices')),
       if (owner)
-        group(te ? '3. సెట్టింగ్స్' : '3. Settings', [
-          row('voice', Icons.record_voice_over_outlined, te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
-              '$lang · ${quietStart.isEmpty ? (te ? 'ఎప్పుడూ మాట్లాడుతుంది' : 'always speaks') : '$quietStart – ${_settings['quiet_end']}'}'),
-          row('bank', Icons.verified_outlined, te ? 'బ్యాంక్ నిర్ధారణ (ఐచ్ఛికం)' : 'Bank confirmation (optional)',
-              te ? 'ASKODOX పేమెంట్ ప్రొఫైల్' : 'ASKODOX payment profile'),
-        ]),
-      group(owner ? (te ? '4. హిస్టరీ' : '4. History') : (te ? '3. హిస్టరీ' : '3. History'), [
-        row(
-            'history',
-            Icons.receipt_long_outlined,
-            te ? 'పేమెంట్ హిస్టరీ' : 'Payment history',
-            te
-                ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
-                : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)'),
-      ]),
+        box('voice', Icons.record_voice_over_outlined, te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
+            '$lang · ${quietStart.isEmpty ? (te ? 'ఎప్పుడూ చెప్తుంది' : 'always speaks') : '$quietStart – ${_settings['quiet_end']}'}'),
+      if (owner)
+        box('bank', Icons.verified_outlined, te ? 'బ్యాంక్ నిర్ధారణ' : 'Bank confirmation',
+            te ? 'ఐచ్ఛికం · పేమెంట్ ప్రొఫైల్' : 'Optional · payment profile'),
+    ];
+    return [
+      const SizedBox(height: 8),
+      LayoutBuilder(builder: (context, c) {
+        final w = (c.maxWidth - 10) / 2;
+        return Wrap(spacing: 10, runSpacing: 10, children: [
+          for (final (i, b) in boxes.indexed)
+            SizedBox(width: boxes.length.isOdd && i == boxes.length - 1 ? c.maxWidth : w, child: b),
+        ]);
+      }),
+      const SizedBox(height: 12),
+      Material(
+        color: const Color(0xFFE8EEFB),
+        borderRadius: BorderRadius.circular(14),
+        child: ListTile(
+          key: const ValueKey('askodoxPayAlertOpen-history'),
+          leading: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF1E3FA0)),
+          title: Text(te ? 'వచ్చిన డబ్బు, చరిత్ర అంతా "నా డబ్బు" లోనే' : 'Money and history are all in "My money"',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          subtitle: Text(te
+              ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
+              : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)'),
+          trailing: Text(te ? 'తెరువు ›' : 'Open ›', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3FA0))),
+          onTap: () => context.push('/money'),
+        ),
+      ),
     ];
   }
 

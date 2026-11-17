@@ -164,6 +164,12 @@ def client_error(body: ClientErrorBody, request: Request) -> dict:
     from app.services import rate_limit
 
     rate_limit.check(request, "client_error", limit=20)
+    # Always one log line (masked first line only, never stored without consent): a screen that fails to build on a
+    # phone shows up in the Railway log `client.build_error` (owner 2026-11-17 "Home is blank").
+    import logging
+
+    logging.getLogger("askodox.client").warning(
+        "client.build_error screen=%s error=%s", body.screen[:80], mask_sensitive(body.error.split("\n")[0])[:200])
     if not body.consent:
         return {"ok": False, "stored": False}
     signature = hashlib.sha256(body.error.split("\n")[0].encode()).hexdigest()[:12]

@@ -300,13 +300,6 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీరు ఫాలో చేసే షాప్‌ల చిత్రాలు. షేర్ చేస్తే చిత్రం, క్యాప్షన్ వెళ్తాయి.',
     'ASKODOX లైన్ చిత్రంలోనే ఉంటుంది, షేర్ చేసినా అలాగే ఉంటుంది.',
   ]),
-  '/shops/:id': _H('Shop', 'షాప్', [
-    'See the shop and how many people follow it. Tap Follow to get its updates.',
-    'The shop owner sees its own shop here and cannot follow it.',
-  ], [
-    'షాప్ వివరాలు, దాన్ని ఎంతమంది ఫాలో చేస్తున్నారో చూడండి. అప్‌డేట్స్ కోసం ఫాలో నొక్కండి.',
-    'షాప్ యజమాని తన షాప్‌ను ఇక్కడ చూస్తారు, కానీ దాన్ని ఫాలో చేయలేరు.',
-  ]),
   '/me/ai-credits': _H('AI Credits', 'AI క్రెడిట్స్', [
     'Your AI Credits balance and what each AI use costs (only when charging is on).',
     'Recharge opens Razorpay; credits are added only after Razorpay confirms the payment.',
@@ -786,6 +779,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ప్రతి దశ లైవ్‌గా కనిపిస్తుంది: అంగీకరించారు, తయారవుతోంది, సిద్ధం, దారిలో.',
     'షాప్ అంగీకరించకముందే రద్దు చేయవచ్చు. కింద బిల్లు నుంచి షాప్ UPI కి కట్టండి.',
     'ఇక్కడ తింటుంటే, షాప్ అంగీకరించాక "ఏమైనా కావాలా?" లో నీళ్లు, ఎక్స్‌ట్రా గ్రేవీ, ఆనియన్స్, బిల్ నొక్కండి లేదా మాటతో చెప్పండి.',
+  ]),
+  '/shops/:id': _H('Shop page', 'షాప్ పేజీ', [
+    'Photos, rating, hours, address and the shop\'s own Instagram / Facebook / YouTube links.',
+    'Follow to get the shop\'s news in ASKODOX. Following on other apps you tap there yourself.',
+    'Items show stars only. After you have bought here you can write one review of the shop with up to 3 photos; the owner can reply.',
+  ], [
+    'ఫోటోలు, రేటింగ్, సమయం, అడ్రస్, షాప్ వాళ్ళ ఇన్‌స్టాగ్రామ్ / ఫేస్‌బుక్ / యూట్యూబ్ లింకులు.',
+    'ఫాలో నొక్కితే షాప్ వార్తలు ASKODOX లో వస్తాయి. ఇతర యాప్‌లలో ఫాలో మీరే అక్కడ నొక్కాలి.',
+    'ఐటమ్స్‌కి నక్షత్రాలు మాత్రమే. ఇక్కడ కొన్న తర్వాత షాప్ గురించి ఒక రివ్యూ (3 ఫోటోల వరకు) రాయవచ్చు; ఓనర్ జవాబు ఇవ్వవచ్చు.',
   ]),
   '/desk/:id': _H('Orders desk', 'ఆర్డర్స్ డెస్క్', [
     'All table, shop-QR, counter and reception orders in one place: New, Kitchen, Ready, Delivery, Done.',

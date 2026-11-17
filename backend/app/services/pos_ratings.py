@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.services.shop_follows import PROFILE_PRIVATE, category_labels
 from app.services.pos_store import PosError, PosStore, phone_key
 
 SCHEMA = (
@@ -279,9 +280,11 @@ class PosRatings:
             return {
                 "business": {"id": b["id"], "name": b["name"], "address": b["address"], "phone": b["phone"], "status": status,
                              "gst": b["registration_type"] != "unregistered"},
-                "profile": {k: profile.get(k, "") for k in ("category", "subcategory", "description", "hours", "landmark",
-                                                            "website", "facebook", "instagram", "youtube", "whatsapp",
-                                                            "lat", "lng")},
+                "profile": {**{k: ("" if k in PROFILE_PRIVATE else profile.get(k, ""))
+                               for k in ("category", "subcategory", "description", "hours", "landmark", "offers", "delivery",
+                                         "website", "facebook", "instagram", "youtube", "whatsapp", "lat", "lng")},
+                            "labels": category_labels(profile.get("category", ""), profile.get("subcategory", ""))},
+                "is_owner": b["owner_user_id"] == user,
                 "followers": followers, "following": bool(following),
                 "rating": self.summary(conn, business_id),
                 "item_ratings": [{"product_id": pid, "name": names[pid], **v} for pid, v in top],
