@@ -106,11 +106,33 @@ class PosQuickBill:
         payments: List[Dict[str, Any]] = []
         customer_id = None
         method, app = pay_choice(data.get("method"))
-        if advance:
+        cash_part = max(0, int(data.get("cash_paise") or 0))
+        online_part = max(0, int(data.get("online_paise") or 0))
+        if cash_part or online_part:
+            # Owner 2026-11-17: one bill paid partly in cash and partly online; what is left is "baaki" (due).
+            if cash_part + online_part > total:
+                raise PosError(400, "advance", "Cash + online is more than the bill total.")
+            if cash_part:
+                payments.append({"method": "cash", "amount_paise": cash_part})
+            if online_part:
+                payments.append({"method": "upi", "amount_paise": online_part})
+            method, app, advance = ("upi" if online_part else "cash"), (app if online_part else ""), cash_part + online_part
+        elif advance:
             payments.append({"method": method, "amount_paise": min(advance, total)})
+        revise_of = _clean(data.get("revise_of"), 60)
+        old_number = ""
+        if revise_of:
+            with self.store._connect() as conn:
+                old = conn.execute("SELECT number, status FROM pos_invoices WHERE id = ? AND business_id = ?",
+                                   (revise_of, business_id)).fetchone()
+            if old is None or old["status"] != "issued":
+                raise PosError(409, "revise", "That bill cannot be changed (not found or already cancelled).")
+            old_number = old["number"]
         # GST can make the bill a little more or less than the typed total: the pending balance is whatever is left.
-        invoice_data: Dict[str, Any] = {"lines": lines, "payments": payments, "client_txn_id": txn,
-                                        "notes": _clean(data.get("notes"), 200)}
+        notes = _clean(data.get("notes"), 200)
+        if old_number:
+            notes = _clean(f"సవరించిన బిల్ ({old_number} బదులు) {notes}", 200)
+        invoice_data: Dict[str, Any] = {"lines": lines, "payments": payments, "client_txn_id": txn, "notes": notes}
         has_customer = any(data.get(k) for k in ("customer_id", "name", "phone"))
         if has_customer:
             customer_id = self._customer(business_id, user, data)
@@ -125,6 +147,14 @@ class PosQuickBill:
             raise
         if app and result.get("id"):
             PosBills(self.store).tag_app(result["id"], app)
+        if revise_of and result.get("id"):
+            # The new bill is made first; only then the old one is cancelled (same day only -- GST rule), so a failure
+            # never leaves the customer without a bill.
+            try:
+                self.store.cancel_invoice(business_id, user, revise_of, f"revised -> {result.get('number', '')}")
+                result["revised_from"] = old_number
+            except PosError as error:
+                result["revise_note"] = error.message
         result["pay_mode"] = mode_of(method, app) if advance else ""
         result["pending_paise"] = int(result.get("balance_paise") or 0)
         result["advance_paise"] = int(result.get("paid_paise") or 0)

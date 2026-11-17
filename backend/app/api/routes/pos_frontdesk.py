@@ -24,7 +24,12 @@ def _desk(request: Request) -> PosFrontDesk:
     store = _store(request)
     existing = getattr(container, "pos_frontdesk", None)
     if existing is None or existing.store is not store:
-        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str, speak=None) -> None:
+            if speak:
+                # the phone shows ONE notification and SAYS it (type=say), even with ASKODOX closed
+                push_service(container).send_data_async(user_id, data={**speak, "route": route}, event_key=event_key,
+                                                        ttl_seconds=300)
+                return
             push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
 
         methods = payment_methods(container)
@@ -137,7 +142,10 @@ class QuickLineIn(BaseModel):
 class QuickBillIn(BaseModel):
     lines: List[QuickLineIn] = Field(min_length=1, max_length=100)
     advance_paise: int = Field(default=0, ge=0, le=10_00_00_000_00)
-    method: str = Field(default="cash", pattern="^(cash|upi|card|bank_transfer|phonepe|gpay|paytm|bhim|other_upi)$")
+    method: str = Field(default="cash", pattern="^(cash|upi|online|card|bank_transfer|phonepe|gpay|paytm|bhim|other_upi)$")
+    cash_paise: int = Field(default=0, ge=0, le=10_00_00_000_00)
+    online_paise: int = Field(default=0, ge=0, le=10_00_00_000_00)
+    revise_of: str = Field(default="", max_length=60)
     name: str = Field(default="", max_length=80)
     phone: str = Field(default="", max_length=20)
     customer_id: Optional[str] = Field(default=None, max_length=60)
@@ -448,37 +456,75 @@ def bill_page(token: str, request: Request):
     if bill is None:
         return HTMLResponse("<h3>This bill link is not valid · ఈ బిల్లు లింక్ సరైనది కాదు.</h3>", status_code=404)
     esc = _html.escape
+    M = "#9d1d5a"
+
+    def qty(l: Dict[str, Any]) -> str:
+        q = l["qty_milli"] / 1000
+        return f"{q:g} {esc(str(l.get('unit') or ''))}".strip() if l.get("unit") not in (None, "", "pcs", "plate") else f"{q:g}"
+
+    lines = bill.get("paper_lines") or bill["lines"]
     rows = "".join(
-        f'<tr><td>{esc(str(l["name"]))} × {l["qty_milli"] / 1000:g}</td><td class="r">{_rupees(int(l["amount_paise"] or 0))}</td></tr>'
-        for l in bill["lines"])
+        f'<tr><td>{esc(str(l["name"]))}</td><td class="c">{qty(l)}</td>'
+        f'<td class="r">{_rupees(int(l.get("rate_paise") or 0)) if l.get("rate_paise") else ""}</td>'
+        f'<td class="r">{_rupees(int(l["amount_paise"] or 0))}</td></tr>' for l in lines)
+    kind = bill.get("bill_kind") or ("credit" if bill["due_paise"] > 0 else "cash")
+    title = {"cash": "క్యాష్ బిల్లు", "online": "ఆన్‌లైన్ బిల్లు", "mixed": "క్యాష్ + ఆన్‌లైన్ బిల్లు",
+             "credit": "క్రెడిట్ బిల్లు", "part": "బిల్లు (కొంత బాకీ)"}.get(kind, "బిల్లు")
+    tax = (f'<div class="k"><span>GST</span><span>{_rupees(int(bill.get("tax_paise") or 0))}</span></div>'
+           if bill.get("gst") else '<div class="k"><span>GST</span><span>లేదు</span></div>')
+    disc = (f'<div class="k"><span>తగ్గింపు</span><span>−{_rupees(int(bill["discount_paise"]))}</span></div>'
+            if bill.get("discount_paise") else "")
+    apps = ", ".join(bill.get("online_apps") or [])
+    paid = ""
+    if bill.get("cash_paise"):
+        paid += f'<div class="k"><span>క్యాష్</span><b>{_rupees(int(bill["cash_paise"]))}</b></div>'
+    if bill.get("online_paise"):
+        paid += f'<div class="k"><span>ఆన్‌లైన్{(" (" + esc(apps) + ")") if apps else ""}</span><b>{_rupees(int(bill["online_paise"]))}</b></div>'
+    if bill["due_paise"] > 0:
+        paid += f'<div class="k due"><span>బాకీ (ఇంకా కట్టాలి)</span><b>{_rupees(bill["due_paise"])}</b></div>'
     upi = next((m.get("upi_link") for m in bill["pay"] if m.get("upi_link")), "")
     if bill["status"] == "cancelled":
-        action = '<p class="m">This bill was cancelled · ఈ బిల్లు రద్దు అయింది.</p>'
+        action = '<p class="m">ఈ బిల్లు రద్దు అయింది (సవరించిన బిల్ వేరే నంబర్‌తో వస్తుంది) · This bill was cancelled.</p>'
     elif bill["due_paise"] <= 0:
-        paid = (" · " + esc(", ".join(bill["paid_with"]))) if bill["paid_with"] else ""
-        action = f'<p class="ok">కట్టారు ✓ Paid{paid}</p>'
+        action = '<p class="ok">కట్టారు ✓ Paid</p>'
     elif upi:
         action = (f'<a class="b" href="{esc(upi, quote=True)}">UPI లో {_rupees(bill["due_paise"])} కట్టండి · Pay</a>'
                   '<p class="m">PhonePe / Google Pay / Paytm / BHIM / మీ బ్యాంక్ యాప్ — మొత్తం ముందే నిండి ఉంటుంది. '
                   'డబ్బు నేరుగా షాప్‌కి వెళ్తుంది; ASKODOX పట్టుకోదు.</p>')
     else:
         action = f'<p class="m">కట్టాల్సింది {_rupees(bill["due_paise"])} — షాప్‌లో కట్టండి · Pay at the shop.</p>'
+    shop_line = " · ".join(x for x in [esc(bill.get("shop_category") or ""), esc(bill.get("shop_address") or "")] if x)
+    gst_line = (f'GSTIN: {esc(bill["shop_gstin"])}' if bill.get("shop_gstin") else "GST లేదు")
+    phone = f'Cell: {esc(bill.get("shop_phone") or "")} · ' if bill.get("shop_phone") else ""
+    who = esc(bill.get("customer_name") or "")
     page = ('<!doctype html><html lang="te"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,'
             'initial-scale=1"><title>' + esc(bill["shop"]) + ' · ' + esc(str(bill["number"])) + '</title><style>'
-            'body{font-family:system-ui,sans-serif;background:#f3f4f6;margin:0;padding:16px;color:#1b2333}'
-            '.c{background:#fff;border-radius:16px;padding:18px;max-width:440px;margin:12px auto;border:1px solid #e2e5ea}'
-            'h1{font-size:22px;margin:0 0 2px;color:#16203f}table{width:100%;border-collapse:collapse;margin-top:12px}'
-            'td{padding:6px 0;border-bottom:1px solid #eef0f3;font-size:15px}.r{text-align:right}.t td{font-weight:700;'
-            'font-size:18px;border:0}.b{display:block;background:#2f5bd3;color:#fff;padding:16px;border-radius:14px;'
-            'text-decoration:none;font-weight:700;margin-top:16px;text-align:center}.m{color:#5b6475;font-size:13px}'
-            '.ok{color:#1f7a4a;font-weight:700;font-size:17px}.d{background:#16203f;color:#fff}.d .m{color:#d5daea}'
-            '.d a{display:block;background:#fff;color:#16203f;padding:12px;border-radius:12px;text-align:center;'
-            'text-decoration:none;font-weight:700;margin-top:10px}@media print{.d,.b{display:none}}</style></head><body>'
-            '<div class="c"><h1>' + esc(bill["shop"]) + '</h1><div class="m">బిల్లు ' + esc(str(bill["number"])) + ' · '
-            + esc(str(bill["issued_at"])[:10]) + '</div><table>' + rows + '<tr class="t"><td>మొత్తం · Total</td>'
-            '<td class="r">' + _rupees(bill["total_paise"]) + '</td></tr></table>' + action + '</div>'
-            '<div class="c d"><b>తర్వాతి సారి బిల్లులు నేరుగా యాప్‌లోనే</b><div class="m">ASKODOX లో మీ బిల్లులు, ఆర్డర్లు ఒకే '
-            'చోట.</div><a href="https://askodox.com">ASKODOX</a></div></body></html>')
+            'body{font-family:system-ui,sans-serif;background:#f3f4f6;margin:0;padding:12px;color:#1f1f1f}'
+            f'.p{{background:#fff;border:2px solid {M};border-radius:6px;max-width:460px;margin:8px auto;padding-bottom:10px}}'
+            f'.top{{display:flex;justify-content:space-between;padding:6px 10px;color:{M};font-weight:800;font-size:13px}}'
+            f'.hd{{background:#fce9f1;text-align:center;padding:10px;border-top:1px solid {M};border-bottom:1px solid {M}}}'
+            f'.hd h1{{margin:0;font-size:22px;color:{M}}}.hd div{{font-size:12.5px}}'
+            f'.cu{{padding:8px 10px;border-bottom:1px dotted {M};font-size:14px}}'
+            'table{width:100%;border-collapse:collapse;font-size:14px}td{padding:6px 8px}'
+            f'th{{color:{M};text-align:left;padding:6px 8px;border-bottom:1px solid {M};font-size:13px}}'
+            '.c{text-align:center}.r{text-align:right}'
+            f'.tot{{margin:4px 10px 0;border-top:1px solid {M};padding-top:4px;font-size:14px}}'
+            '.k{display:flex;justify-content:space-between;padding:2px 0}'
+            f'.g{{font-weight:900;font-size:17px;color:{M}}}.pay{{margin:8px 10px 0;background:#faf5f8;border-radius:6px;padding:6px 8px}}'
+            '.due{color:#b45309}.b{display:block;background:#2f5bd3;color:#fff;padding:14px;border-radius:12px;'
+            'text-decoration:none;font-weight:700;margin:12px 10px 0;text-align:center}.m{color:#5b6475;font-size:13px;margin:8px 10px}'
+            '.ok{color:#1f7a4a;font-weight:700;font-size:17px;margin:10px}'
+            f'.f{{text-align:center;font-size:11.5px;color:{M};padding-top:8px}}@media print{{.b{{display:none}}}}</style></head><body>'
+            '<div class="p"><div class="top"><span>నెం. ' + esc(str(bill["number"])) + '</span><span>' + title + '</span><span>'
+            + esc(str(bill["issued_at"])[:10]) + '</span></div><div class="hd"><h1>' + esc(bill["shop"]) + '</h1>'
+            + (f'<div>{shop_line}</div>' if shop_line else '') + f'<div><b>{phone}{gst_line}</b></div></div>'
+            + (f'<div class="cu">శ్రీ <b>{who}</b></div>' if who else '')
+            + '<table><tr><th>ఐటమ్</th><th class="c">పరిమాణం</th><th class="r">రేటు</th><th class="r">మొత్తం</th></tr>'
+            + rows + '</table><div class="tot">' + disc + tax
+            + (f'<div class="k"><span>రౌండ్ ఆఫ్</span><span>{_rupees(int(bill["round_off_paise"]))}</span></div>' if bill.get("round_off_paise") else "")
+            + '<div class="k g"><span>మొత్తం · Total</span><span>' + _rupees(bill["total_paise"]) + '</span></div></div>'
+            + (f'<div class="pay">{paid}</div>' if paid else '') + action
+            + '<div class="f">ధన్యవాదాలు · ASKODOX ద్వారా పంపిన బిల్లు</div></div></body></html>')
     return HTMLResponse(page, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
                                        "X-Robots-Tag": "noindex"})
 
@@ -546,3 +592,147 @@ def desk_request_settings(business_id: str, request: Request) -> dict:
 def desk_request_settings_save(business_id: str, body: RequestSettingsIn, request: Request) -> dict:
     custom = None if body.custom is None else [c.model_dump() for c in body.custom]
     return _call(_desk(request).requests.set_settings, business_id, _user(request, "desk", 120), body.off, custom)
+
+
+# ------------------------------------------------------------------------------------------- menu sort (owner 2026-11-17)
+class MenuSortRowIn(BaseModel):
+    id: str = Field(max_length=60)
+    menu_group: str = Field(default="", max_length=40)
+    food_type: str = Field(default="", pattern="^(|veg|nonveg|egg)$")
+
+
+class MenuSortApplyIn(BaseModel):
+    items: List[MenuSortRowIn] = Field(min_length=1, max_length=300)
+
+
+@router.post("/businesses/{business_id}/desk/menu/sort")
+def menu_sort(business_id: str, request: Request) -> dict:
+    """Preview only: the model reads the item NAMES and proposes sections + veg / non-veg. Nothing is saved."""
+    from app.services.pos_menu_sort import sort_menu
+
+    user = _user(request, "menu-sort", 10)
+    store = _store(request)
+    with store._connect() as conn:
+        _call(store._require, conn, business_id, user, "products")
+    items = _call(_desk(request).menu_admin, business_id, user)["items"]
+    service = getattr(request.app.state.container, "universal_ai_assistant_service", None)
+    if service is None or not hasattr(service, "write_text"):
+        raise HTTPException(503, "The AI helper is not available right now. Set sections by hand with ✏.")
+    out = sort_menu([{"id": i["id"], "name": i["name"], "menu_group": i.get("menu_group", ""),
+                      "food_type": i.get("food_type", "")} for i in items][:300], service.write_text)
+    if not out["read"]:
+        raise HTTPException(503, "Could not read the menu just now. Try again in a minute.")
+    return out
+
+
+@router.post("/businesses/{business_id}/desk/menu/sort/apply")
+def menu_sort_apply(business_id: str, body: MenuSortApplyIn, request: Request) -> dict:
+    user = _user(request, "menu-sort", 20)
+    store = _store(request)
+    saved = 0
+    for row in body.items:
+        _call(store.update_product, business_id, user, row.id, {"menu_group": row.menu_group, "food_type": row.food_type})
+        saved += 1
+    return {"saved": saved}
+
+
+# ------------------------------------------------------------------------------------------- ratings, reviews, shop page
+class RateIn(BaseModel):
+    shop: Optional[int] = Field(default=None, ge=1, le=5)
+    items: Dict[str, int] = Field(default_factory=dict)
+    later: bool = False
+
+
+class ReviewPhotoIn(BaseModel):
+    data: str = Field(max_length=600_000)
+    mime: str = Field(default="image/jpeg", max_length=20)
+
+
+class ReviewIn(BaseModel):
+    stars: int = Field(ge=1, le=5)
+    text: str = Field(default="", max_length=800)
+    photos: List[ReviewPhotoIn] = Field(default_factory=list, max_length=3)
+
+
+class ReplyIn(BaseModel):
+    text: str = Field(max_length=400)
+
+
+class WelcomeIn(BaseModel):
+    enabled: Optional[bool] = None
+    hello: Optional[str] = Field(default=None, max_length=160)
+    again: Optional[str] = Field(default=None, max_length=160)
+    thanks: Optional[str] = Field(default=None, max_length=160)
+
+
+@router.get("/order-desk/mine/{order_id}/rate")
+def rate_ask(order_id: str, request: Request) -> dict:
+    return {"ask": _call(_desk(request).ratings.ask, _user(request, "rate", 120), order_id)}
+
+
+@router.post("/order-desk/mine/{order_id}/rate")
+def rate(order_id: str, body: RateIn, request: Request) -> dict:
+    return _call(_desk(request).ratings.rate, _user(request, "rate", 30), order_id, body.shop, body.items, body.later)
+
+
+@router.get("/shops/{business_id}/page")
+def shop_page(business_id: str, request: Request) -> dict:
+    return _call(_desk(request).ratings.shop_page, business_id, _user(request, "shop-page", 120))
+
+
+@router.post("/shops/{business_id}/review")
+def write_review(business_id: str, body: ReviewIn, request: Request) -> dict:
+    return _call(_desk(request).ratings.write_review, _user(request, "review", 10), business_id, body.stars, body.text,
+                 [p.model_dump() for p in body.photos])
+
+
+@router.delete("/shops/{business_id}/review")
+def delete_review(business_id: str, request: Request) -> dict:
+    return _call(_desk(request).ratings.delete_review, _user(request, "review", 20), business_id)
+
+
+@router.post("/shops/{business_id}/reviews/{review_id}/reply")
+def reply_review(business_id: str, review_id: str, body: ReplyIn, request: Request) -> dict:
+    return _call(_desk(request).ratings.reply, business_id, _user(request, "review", 30), review_id, body.text)
+
+
+@router.post("/shops/reviews/{review_id}/report")
+def report_review(review_id: str, request: Request) -> dict:
+    return _call(_desk(request).ratings.report, _user(request, "review", 20), review_id)
+
+
+@router.get("/shops/{business_id}/photo/{kind}/{photo_id}")
+def shop_photo(business_id: str, kind: str, photo_id: str, request: Request):
+    from fastapi.responses import Response
+
+    _user(request, "shop-page", 300)
+    if kind == "review":
+        out = _call(_desk(request).ratings.photo, photo_id)
+        return Response(out["image"], media_type=out["mime"], headers={"Cache-Control": "private, max-age=3600"})
+    store = _store(request)
+    with store._connect() as conn:
+        row = conn.execute("SELECT image, mime FROM pos_product_photos WHERE business_id = ? AND product_id = ?",
+                           (business_id, photo_id)).fetchone()
+    if row is None:
+        raise HTTPException(404, "Photo not found.")
+    return Response(bytes(row["image"]), media_type=row["mime"], headers={"Cache-Control": "private, max-age=3600"})
+
+
+@router.get("/businesses/{business_id}/welcome")
+def welcome_settings(business_id: str, request: Request) -> dict:
+    user = _user(request)
+    store = _store(request)
+    with store._connect() as conn:
+        _call(store._require, conn, business_id, user, "settings")
+        return _desk(request).ratings.welcome_settings(conn, business_id)
+
+
+@router.put("/businesses/{business_id}/welcome")
+def set_welcome(business_id: str, body: WelcomeIn, request: Request) -> dict:
+    return _call(_desk(request).ratings.set_welcome, business_id, _user(request), body.model_dump())
+
+
+@router.get("/businesses/{business_id}/bills/{invoice_id}/paper")
+def bill_paper(business_id: str, invoice_id: str, request: Request) -> dict:
+    """The bill as the customer sees it (shop details, lines, GST or none, cash / online / due)."""
+    return _call(_bills(request).paper_for, business_id, _user(request), invoice_id)

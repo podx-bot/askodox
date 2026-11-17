@@ -44,7 +44,7 @@ object AskodoxPaymentAlerts {
     private const val PREFS = "askodox_payment_alerts"
     private const val MAX_EVENTS = 300
     private var channel: MethodChannel? = null
-    private val main = Handler(Looper.getMainLooper())
+    internal val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
 
     fun register(activity: Activity, messenger: BinaryMessenger) {
@@ -1403,6 +1403,28 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
 class AskodoxMessagingService : io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: com.google.firebase.messaging.RemoteMessage) {
         val data = remoteMessage.data
+        if (data["type"] == "say") {
+            // Owner 2026-11-17: a new order / a table asking for water is SAID on the staff phone, even with the app closed.
+            val ctx = applicationContext
+            val key = data["title"].orEmpty() + "|" + data["text"].orEmpty()
+            try { showPaymentNotification(ctx, key, data["title"] ?: "ASKODOX", data["text"] ?: "") } catch (_: Exception) {}
+            val sentAt = data["sent_at"]?.toLongOrNull() ?: 0L
+            val fresh = sentAt <= 0 || System.currentTimeMillis() - sentAt < 3 * 60_000L
+            val cfg = AskodoxPaymentAlerts.config(ctx)
+            if (fresh && cfg.optBoolean("speaks_remote", true) && !data["text"].isNullOrBlank()) {
+                try {
+                    val latch = java.util.concurrent.CountDownLatch(1)
+                    val text = data["text"] ?: ""
+                    val language = cfg.optString("language", "te").ifEmpty { "te" }
+                    AskodoxPaymentAlerts.main.post {
+                        AskodoxPaymentAlerts.Speaker.say(ctx, text, language, cfg) { latch.countDown() }
+                    }
+                    latch.await(15, java.util.concurrent.TimeUnit.SECONDS)
+                } catch (_: Exception) {
+                }
+            }
+            return
+        }
         if (data["type"] != "payalert") {
             super.onMessageReceived(remoteMessage)
             return

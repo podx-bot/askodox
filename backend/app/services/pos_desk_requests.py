@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import timedelta
 import sqlite3
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +23,9 @@ SCHEMA = [
     " created_at TEXT NOT NULL, done_at TEXT, done_by TEXT NOT NULL DEFAULT '')",
     "CREATE INDEX IF NOT EXISTS idx_pos_desk_req_biz ON pos_desk_requests(business_id, status)",
     "CREATE INDEX IF NOT EXISTS idx_pos_desk_req_order ON pos_desk_requests(order_id, status)",
+]
+MIGRATIONS = [
+    "ALTER TABLE pos_desk_requests ADD COLUMN escalated_at TEXT",
 ]
 
 # key, English, Telugu, words that say it (lower-case; Telugu + English + common typed-English-Telugu)
@@ -93,6 +97,11 @@ class PosDeskRequests:
         with desk.store._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            for statement in MIGRATIONS:
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError:
+                    pass
             try:  # the shop's own choice of quick requests: {"off": [keys], "custom": [{key, en, te}]}
                 conn.execute("ALTER TABLE pos_desk_settings ADD COLUMN requests_json TEXT NOT NULL DEFAULT '{}'")
             except sqlite3.OperationalError:
@@ -217,7 +226,7 @@ class PosDeskRequests:
             line = ", ".join(w["label_te"] for w in created)
             urgent = any(w["kind"] == "bill" for w in created)
             self.desk._push(targets, f"{table_name or 'టేబుల్'} · {'బిల్ కావాలి' if urgent else 'సర్వీస్ కావాలి'}"[:70], line[:160],
-                            f"/desk/{biz}", f"desk:{order_id}:req:{created[0]['id']}")
+                            f"/desk/{biz}", f"desk:{order_id}:req:{created[0]['id']}", speak=True)
         return {"asked": [{"kind": w["kind"], "label": {"en": w["label_en"], "te": w["label_te"]}} for w in created],
                 "already_waiting": len(wanted) - len(created), "requests": self.for_order(user, order_id)["requests"]}
 
@@ -229,9 +238,35 @@ class PosDeskRequests:
                 raise PosError(404, "order", "Order not found.")
             rows = conn.execute("SELECT * FROM pos_desk_requests WHERE order_id = ? ORDER BY created_at DESC LIMIT 30",
                                 (order_id,)).fetchall()
-            can_ask = row["kind"] == "dine_in" and row["stage"] not in ("done", "rejected", "cancelled", "placed")
-            return {"can_ask": can_ask, "quick": self.catalogue(conn, row["business_id"]) if can_ask else [],
-                    "requests": [self._row(r) for r in rows]}
+            can_ask = row["kind"] == "dine_in" and row["stage"] not in ("done", "rejected", "cancelled", "placed", "accepting")
+            names = self._names(conn, row["business_id"])
+            out = {"can_ask": can_ask, "quick": self.catalogue(conn, row["business_id"]) if can_ask else [],
+                   "requests": [{**self._row(r), "done_by_name": names.get(r["done_by"] or "", "")} for r in rows]}
+        self.escalate(row["business_id"])
+        return out
+
+    @staticmethod
+    def _names(conn: sqlite3.Connection, business_id: str) -> Dict[str, str]:
+        """Staff app ids -> the name the owner gave them (the customer sees "Prasad is bringing it")."""
+        return {r["app_user_id"]: (r["label"] or "") for r in conn.execute(
+            "SELECT app_user_id, label FROM pos_members WHERE business_id = ? AND app_user_id IS NOT NULL", (business_id,))}
+
+    def escalate(self, business_id: str) -> int:
+        """Owner 2026-11-17: a table request nobody answered in 2 minutes -> the OWNER is told, once."""
+        cutoff = (self.desk._now() - timedelta(minutes=2)).isoformat()
+        with self.desk.store._tx() as conn:
+            rows = conn.execute("SELECT r.id, r.label, r.order_id, t.name AS table_name FROM pos_desk_requests r LEFT JOIN"
+                                " pos_tables t ON t.id = r.table_id WHERE r.business_id = ? AND r.status = 'open' AND"
+                                " r.escalated_at IS NULL AND r.created_at <= ?", (business_id, cutoff)).fetchall()
+            for r in rows:
+                conn.execute("UPDATE pos_desk_requests SET escalated_at = ? WHERE id = ?", (self.desk._now().isoformat(), r["id"]))
+            owner = conn.execute("SELECT owner_user_id FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+        for r in rows:
+            if owner:
+                self.desk._push([owner["owner_user_id"]], f"{r['table_name'] or 'టేబుల్'}: 2 ని. అయింది"[:70],
+                                f"{r['label']} — ఎవరూ తీసుకెళ్లలేదు", f"/desk/{business_id}", f"desk:{r['order_id']}:late:{r['id']}",
+                                speak=True)
+        return len(rows)
 
     def cancel_mine(self, user: str, request_id: str) -> Dict[str, Any]:
         with self.desk.store._tx() as conn:
@@ -258,7 +293,8 @@ class PosDeskRequests:
                 "SELECT r.*, t.name AS table_name FROM pos_desk_requests r LEFT JOIN pos_tables t ON t.id = r.table_id"
                 " WHERE r.business_id = ? AND r.status = 'open' ORDER BY r.created_at", (business_id,)).fetchall()
             out = [{**self._row(r), "table_name": r["table_name"] or ""} for r in rows]
-            return {"requests": out, "count": len(out)}
+        self.escalate(business_id)
+        return {"requests": out, "count": len(out)}
 
     def done(self, business_id: str, user: str, request_id: str) -> Dict[str, Any]:
         with self.desk.store._tx() as conn:
