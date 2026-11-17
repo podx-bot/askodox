@@ -119,6 +119,7 @@ object AskodoxPaymentAlerts {
                         result.success(audioRoute(app))
                     }
                     "audioRoute" -> result.success(audioRoute(app))
+                    "checkDues" -> { checkDues(app); result.success(true) }
                     "offlineVoice" -> result.success(Speaker.offlineVoice(app, call.argument<String>("language") ?: "te"))
                     "installOfflineVoice" -> result.success(installOfflineVoice(activity))
                     "speakTest" -> {
@@ -592,6 +593,11 @@ object AskodoxPaymentAlerts {
                test: Boolean = false, cfgIn: JSONObject? = null, messageTime: Long = 0L): Map<String, Any?> {
         val cfg = cfgIn ?: config(context)
         if (!test && !cfg.optBoolean("enabled", false)) return mapOf("result" to "disabled")
+        // Owner 2026-11-17: a bill / EMI REMINDER ("₹1,941 due on Nov 21") on the person's own phone -> an upcoming due
+        // offered in "Upcoming payments" (never spoken, never a payment, never uploaded).
+        if (!test && cfg.optString("business_id").isEmpty()) {
+            PaymentAlertParser.dueReminder(title, text)?.let { d -> return saveDue(context, cfg, pkg, d) }
+        }
         val phrases = cfg.optJSONObject("phrases")
         val parsed = PaymentAlertParser.parse(title, text, strings(phrases?.optJSONArray("incoming")),
             strings(phrases?.optJSONArray("reject")), learned(context, "learned_in"), learned(context, "learned_out"))
@@ -604,7 +610,7 @@ object AskodoxPaymentAlerts {
         val personal = cfg.optString("business_id").isEmpty()
         if (parsed is PaymentAlertParser.Result.Outgoing) {
             if (!personal) return mapOf("result" to "ignored") // a shop only cares about money coming in
-            return handleOutgoing(context, cfg, pkg, parsed, notificationKey, whenMillis, test, messageTime)
+            return handleOutgoing(context, cfg, pkg, parsed, notificationKey, whenMillis, test, messageTime, text)
         }
         val amount = (parsed as? PaymentAlertParser.Result.Accepted)?.amountPaise
         val reference = (parsed as? PaymentAlertParser.Result.Accepted)?.reference
@@ -625,8 +631,10 @@ object AskodoxPaymentAlerts {
         // Owner 2026-11-17: a bank SMS from a REGISTERED sender (XX-HDFCBK-S / -T / -G) = the bank says the money landed.
         val bankSms = kindOf(cfg, pkg) == "sms" && PaymentAlertParser.isBankSender(title)
         val handle = PaymentAlertParser.upiHandleTail("${title ?: ""} ${text ?: ""}")
+        val balance = if (kindOf(cfg, pkg) == "sms") PaymentAlertParser.availableBalance(text) else null
         if (!test && amount != null) {
-            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle, notificationKey)?.let {
+            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle, notificationKey,
+                balance)?.let {
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to amount, "spoken" to false)
             }
         }
@@ -645,6 +653,7 @@ object AskodoxPaymentAlerts {
             .put("status", if (amount != null) "notification_unverified" else "ambiguous")
             .put("test", test)
         if (bankSms) event.put("bank_confirmed", true).put("bank_sms_from", title?.trim()?.take(20) ?: "")
+        if (balance != null) event.put("balance_paise", balance) // this phone only; never uploaded
         if (handle != null) event.put("upi_handle", handle) // this phone only; never uploaded
         if (amount != null) event.put("amount_paise", amount)
         if (reference != null) event.put("reference", reference)
@@ -695,7 +704,8 @@ object AskodoxPaymentAlerts {
     @Synchronized
     private fun mergeSameMoney(context: Context, cfg: JSONObject, pkg: String, direction: String, amount: Long,
                                account: String?, reference: String?, party: String?, now: Long,
-                               bankSms: Boolean = false, handle: String? = null, notificationKey: String? = null): String? {
+                               bankSms: Boolean = false, handle: String? = null, notificationKey: String? = null,
+                               balance: Long? = null, emi: Boolean = false): String? {
         // [now] = THIS message's payment time; rows keep theirs in at_ms.
         val kind = kindOf(cfg, pkg)
         val list = events(context)
@@ -731,6 +741,8 @@ object AskodoxPaymentAlerts {
         if (handle != null && !e.has("upi_handle")) e.put("upi_handle", handle)
         if (!party.isNullOrEmpty() && !e.has("party") && e.has("direction")) e.put("party", party)
         if (bankSms) e.put("bank_confirmed", true)
+        if (balance != null) e.put("balance_paise", balance)
+        if (emi) e.put("emi", true)
         if (notificationKey != null) {
             val keys = e.optJSONArray("merged_keys") ?: JSONArray()
             keys.put("$pkg|${notificationKey.take(120)}")
@@ -743,7 +755,10 @@ object AskodoxPaymentAlerts {
 
     /** Personal phone: a debit is kept in the history; it is SPOKEN only when the person turned debit alerts on. */
     private fun handleOutgoing(context: Context, cfg: JSONObject, pkg: String, o: PaymentAlertParser.Result.Outgoing,
-                               notificationKey: String, whenMillis: Long, test: Boolean, messageTime: Long = 0L): Map<String, Any?> {
+                               notificationKey: String, whenMillis: Long, test: Boolean, messageTime: Long = 0L,
+                               text: String? = null): Map<String, Any?> {
+        val balance = if (kindOf(cfg, pkg) == "sms") PaymentAlertParser.availableBalance(text) else null
+        val emi = PaymentAlertParser.isEmi(text)
         val now = System.currentTimeMillis()
         val key = "$pkg|out|$notificationKey|${o.amountPaise}|${if (messageTime > 0) messageTime else whenMillis}"
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
@@ -751,7 +766,8 @@ object AskodoxPaymentAlerts {
             return mapOf("result" to "duplicate")
         val posted = paymentTime(whenMillis, now)
         if (!test) {
-            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted, notificationKey = notificationKey)?.let {
+            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted, notificationKey = notificationKey,
+                balance = balance, emi = emi)?.let {
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to o.amountPaise, "spoken" to false)
             }
         }
@@ -772,6 +788,8 @@ object AskodoxPaymentAlerts {
             .put("test", test)
         if (o.account != null) event.put("account", o.account)
         if (!o.party.isNullOrEmpty()) event.put("party", o.party)
+        if (balance != null) event.put("balance_paise", balance)
+        if (emi) event.put("emi", true)
         val cal = Calendar.getInstance()
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
@@ -800,6 +818,71 @@ object AskodoxPaymentAlerts {
         if (account.isNullOrEmpty() || !cfg.optBoolean("say_account", false)) return parts
         val name = cfg.optJSONObject("account_names")?.optString(account).orEmpty().trim()
         return if (name.isEmpty()) parts else listOf("$name:") + parts
+    }
+
+    /** Whole days since 1970 in the phone's own time zone (API 23 safe; no java.time). */
+    private fun dayNumber(cal: Calendar): Long {
+        val c = cal.clone() as Calendar
+        val offset = c.get(Calendar.ZONE_OFFSET) + c.get(Calendar.DST_OFFSET)
+        return (c.timeInMillis + offset) / 86_400_000L
+    }
+
+    /** A bill / EMI reminder kept as a "due" row (the app offers it in Upcoming payments). Same due twice = once. */
+    private fun saveDue(context: Context, cfg: JSONObject, pkg: String, d: PaymentAlertParser.Due): Map<String, Any?> {
+        val now = System.currentTimeMillis()
+        val key = "$pkg|due|${d.amountPaise}|${d.dueDate}"
+        if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        val localId = "due-$now-${(Math.random() * 1e6).toInt()}"
+        val event = JSONObject()
+            .put("local_id", localId)
+            .put("direction", "due")
+            .put("source_app", pkg)
+            .put("source_label", cfg.optJSONObject("apps")?.optString(pkg, pkg) ?: pkg)
+            .put("detected_at", isoUtc(now))
+            .put("at_ms", now)
+            .put("kind", kindOf(cfg, pkg))
+            .put("amount_paise", d.amountPaise)
+            .put("due_date", d.dueDate)
+            .put("party", d.label)
+            .put("spoken", "none")
+            .put("test", false)
+        synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
+        main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
+        return mapOf("result" to "due", "localId" to localId)
+    }
+
+    /**
+     * Owner 2026-11-17: "Upcoming payments" the person keeps (EMI, current bill, rent, recharge ...) are said aloud and
+     * shown 2 days before and on the day -- once each. Runs whenever the listener wakes (a notification) and when the app
+     * opens; the list comes from the app (personal config "dues": id, name, amount_paise, date yyyy-MM-dd).
+     */
+    fun checkDues(context: Context) {
+        val cfg = personalConfig(context)
+        if (!cfg.optBoolean("enabled", false)) return
+        val dues = cfg.optJSONArray("dues") ?: return
+        val todayDay = dayNumber(Calendar.getInstance())
+        val p = prefs(context)
+        val language = cfg.optString("language", "te").ifEmpty { "te" }
+        for (i in 0 until dues.length()) {
+            val d = dues.optJSONObject(i) ?: continue
+            val parts = d.optString("date").split("-").mapNotNull { it.toIntOrNull() }
+            if (parts.size != 3) continue
+            val cal = Calendar.getInstance().apply { clear(); set(parts[0], parts[1] - 1, parts[2]) }
+            val left = (dayNumber(cal) - todayDay).toInt()
+            if (left != 2 && left != 0) continue
+            val mark = "due_said:${d.optString("id")}:${d.optString("date")}:$left"
+            if (p.getBoolean(mark, false)) continue
+            p.edit().putBoolean(mark, true).apply()
+            val name = d.optString("name").ifEmpty { "Bill" }
+            val rupees = d.optLong("amount_paise") / 100
+            val text = when (language) {
+                "te" -> if (left == 0) "$name ₹$rupees ఈ రోజు కట్టాలి." else "$name ₹$rupees రెండు రోజుల్లో కట్టాలి."
+                "hi" -> if (left == 0) "$name ₹$rupees आज भरना है।" else "$name ₹$rupees दो दिन में भरना है।"
+                else -> if (left == 0) "$name ₹$rupees is due today." else "$name ₹$rupees is due in 2 days."
+            }
+            showPaymentNotification(context, mark, if (language == "te") "కట్టాల్సిన చెల్లింపు" else "Payment due", text)
+            if (!cfg.optBoolean("quiet_dues", false)) CloudVoice.say(context, listOf(text), language, cfg) { }
+        }
     }
 
     /** An app showing its OWN notification again (same notification, same money, within 3 min) is not a new payment. */
@@ -1242,6 +1325,7 @@ object AskodoxPaymentAlerts {
 class AskodoxPaymentAlertListener : NotificationListenerService() {
     override fun onListenerConnected() {
         AskodoxPaymentAlerts.prefs(this).edit().putLong("listener_connected_at", System.currentTimeMillis()).apply()
+        try { AskodoxPaymentAlerts.checkDues(this) } catch (_: Exception) {}
     }
 
     override fun onListenerDisconnected() {
@@ -1251,6 +1335,7 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val n = sbn ?: return
+        try { AskodoxPaymentAlerts.checkDues(this) } catch (_: Exception) {}
         try {
             // ONE destination per notification: the shop or the person's own "My phone" (both can be on at once).
             val (_, cfg) = AskodoxPaymentAlerts.destination(AskodoxPaymentAlerts.config(this),

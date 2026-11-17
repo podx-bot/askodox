@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/backend_providers.dart';
@@ -113,7 +114,9 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
 
   Future<void> _reload() async {
     final status = await _bridge.status();
-    final events = (await _bridge.localEvents()).where((e) => e['direction'] != null || e['test'] == true).toList();
+    final events = (await _bridge.localEvents())
+        .where((e) => (e['direction'] != null && e['direction'] != 'due') || e['test'] == true)
+        .toList();
     final apps = _mine?.apps.keys.toList() ?? const <String>[];
     final state = await _bridge.paymentApps(apps);
     if (!mounted) return;
@@ -827,6 +830,11 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(child: Text(te ? 'నా హిస్టరీ' : 'My history', style: const TextStyle(fontWeight: FontWeight.w800))),
+            TextButton(
+              key: const Key('askodoxMineOpenMoney'),
+              onPressed: () => context.push('/money'),
+              child: Text(te ? 'అన్నీ ఒకే చోట' : 'All in one'),
+            ),
             TextButton.icon(
               key: const Key('askodoxMineHistoryClear'),
               onPressed: _events.isEmpty

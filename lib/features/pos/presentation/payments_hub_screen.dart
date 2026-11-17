@@ -196,6 +196,25 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
                     if (_mine && _events.isEmpty) _start(te) else _today(te),
                     const SizedBox(height: 12),
                     _doors(te, shops),
+                    // Owner 2026-11-17: ONE money history (payments + bills + accounts + EMI / bills to pay).
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Material(
+                        color: const Color(0xFFE8EEFB),
+                        borderRadius: BorderRadius.circular(14),
+                        child: ListTile(
+                          key: const Key('askodoxPaymentsHubMoney'),
+                          leading: const Icon(Icons.account_balance_wallet_outlined, color: _blue),
+                          title: Text(te ? 'నా డబ్బు — అన్నీ ఒకే చోట' : 'My money — all in one place',
+                              style: const TextStyle(fontWeight: FontWeight.w800)),
+                          subtitle: Text(te
+                              ? 'ఖాతాలు, పేమెంట్లు, బిల్లులు, EMI / కరెంట్ బిల్ గడువులు'
+                              : 'Accounts, payments, bills, EMI / bill due dates'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.push('/money'),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     _recent(te, _source),
                     if (!_mine) ...[
