@@ -164,7 +164,18 @@ def summary(conn, business_id: str) -> Dict[str, Any]:
     def menu() -> Dict[str, int]:
         rows = conn.execute("SELECT menu_group FROM pos_products WHERE business_id = ? AND active = 1", (business_id,)).fetchall()
         groups = {str(r["menu_group"] or "").strip() for r in rows} - {""}
-        return {"items": len(rows), "sections": len(groups),
+        low = 0
+        try:  # items the shop counts, at or under their own "low stock" mark
+            stock = {r["product_id"]: int(r["qty"] or 0) for r in conn.execute(
+                "SELECT product_id, SUM(qty_milli) AS qty FROM pos_stock_moves WHERE business_id = ? GROUP BY product_id",
+                (business_id,))}
+            for r in conn.execute("SELECT id, low_stock_milli FROM pos_products WHERE business_id = ? AND active = 1"
+                                  " AND track_stock = 1", (business_id,)):
+                if stock.get(r["id"], 0) <= int(r["low_stock_milli"] or 0):
+                    low += 1
+        except Exception:
+            low = 0
+        return {"items": len(rows), "sections": len(groups), "low_stock": low,
                 "no_section": sum(1 for r in rows if not str(r["menu_group"] or "").strip())}
 
     def reviews() -> Dict[str, Any]:

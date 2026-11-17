@@ -230,7 +230,10 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind) {
           return [
             ('Items', 'ఐటమ్స్', '${askodoxPosInt(m['items'])}', const Color(0xFFB45309)),
             ('Sections', 'విభాగాలు', '${askodoxPosInt(m['sections'])}', const Color(0xFF1E3FA0)),
-            ('No section', 'విభాగం లేనివి', '${askodoxPosInt(m['no_section'])}', const Color(0xFFB91C1C)),
+            if (food || askodoxPosInt(m['low_stock']) == 0)
+              ('No section', 'విభాగం లేనివి', '${askodoxPosInt(m['no_section'])}', const Color(0xFFB91C1C))
+            else
+              ('Low stock', 'స్టాక్ తక్కువ', '${askodoxPosInt(m['low_stock'])}', const Color(0xFFB91C1C)),
           ];
         },
         tiles: [
