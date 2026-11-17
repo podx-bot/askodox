@@ -767,6 +767,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               subtitle: Text([
                 '${e['source_label'] ?? ''}${'${e['also_from'] ?? ''}'.isEmpty ? '' : ' + ${e['also_from']}'}',
                 m.accountName('${e['account'] ?? ''}'),
+                if (askodoxBankConfirmedLabel(e) case final b?) te ? b.$2 : b.$1,
                 _time(e['detected_at']),
                 (te ? askodoxSpokenLabel('${e['spoken']}').$2 : askodoxSpokenLabel('${e['spoken']}').$1),
               ].where((x) => x.isNotEmpty).join(' · ')),

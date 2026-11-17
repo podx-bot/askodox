@@ -1111,6 +1111,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(why, style: const TextStyle(color: Color(0xFFB45309), fontSize: 12.5, fontWeight: FontWeight.w600)),
+        if (askodoxBankConfirmedLabel(l) case final b?) Text(te ? b.$2 : b.$1, style: const TextStyle(fontSize: 12)),
         Text('${askodoxPayAlertTime(l['detected_at'])} · ${te ? 'వాయిస్' : 'Voice'}: ${te ? spTe : spEn} · ${te ? 'ఈ ఫోన్ మాత్రమే' : 'this phone only'}',
             style: const TextStyle(fontSize: 12)),
       ]),
@@ -1136,6 +1137,13 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       title: Text('${askodoxRupees(e['amount_paise'])} · ${e['source_label']}', style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(te ? stTe : stEn, style: TextStyle(color: _statusColor(e), fontSize: 12.5, fontWeight: FontWeight.w600)),
+        if (askodoxBankConfirmedLabel(local) case final b?)
+          Text(te ? b.$2 : b.$1,
+              key: ValueKey('askodoxPayAlertBankSms-${e['id']}'),
+              style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: local?['bank_confirmed'] == true ? const Color(0xFF17784C) : const Color(0xFF6B7280))),
         Text([
           askodoxPayAlertTime(e['detected_at']),
           if (ref.isNotEmpty) 'Ref ••$ref',

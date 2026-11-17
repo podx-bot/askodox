@@ -329,6 +329,14 @@ String askodoxRupees(Object? paise) {
   };
 }
 
+/// Owner 2026-11-17: a phone row the bank's own SMS (registered sender, e.g. JD-HDFCBK-S) also reported = the money
+/// landed in the bank. (en, te), or null while only an app notification has been seen.
+(String, String)? askodoxBankConfirmedLabel(Map<String, Object?>? local) {
+  if (local == null || local['direction'] == 'out') return null;
+  if (local['bank_confirmed'] == true) return ('✅ Bank SMS confirmed', '✅ బ్యాంక్ SMS నిర్ధారించింది');
+  return ('⏳ Bank SMS not seen yet', '⏳ బ్యాంక్ SMS ఇంకా రాలేదు');
+}
+
 /// What happened to the voice on a device (en, te).
 (String, String) askodoxSpokenLabel(String state) => switch (state) {
       'announced' => ('Spoken', 'చెప్పింది'),
