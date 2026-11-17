@@ -119,6 +119,8 @@ object AskodoxPaymentAlerts {
                         result.success(audioRoute(app))
                     }
                     "audioRoute" -> result.success(audioRoute(app))
+                    "offlineVoice" -> result.success(Speaker.offlineVoice(app, call.argument<String>("language") ?: "te"))
+                    "installOfflineVoice" -> result.success(installOfflineVoice(activity))
                     "speakTest" -> {
                         val amount = (call.argument<Number>("amountPaise") ?: 100).toLong()
                         val cfg = if (call.argument<String>("scope") == "personal") personalConfig(app) else config(app)
@@ -285,6 +287,22 @@ object AskodoxPaymentAlerts {
         true
     } catch (_: Exception) {
         false
+    }
+
+    /**
+     * Owner 2026-11-17: the voice must work WITHOUT internet in the language the person chose. Opens the phone's own
+     * "download voice data" page (Google / Samsung speech engine); falls back to the text-to-speech settings page.
+     */
+    private fun installOfflineVoice(context: Context): Boolean {
+        for (intent in listOf(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA), Intent("com.android.settings.TTS_SETTINGS"))) {
+            try {
+                if (context !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                return true
+            } catch (_: Exception) {
+            }
+        }
+        return false
     }
 
     private fun status(context: Context): Map<String, Any?> {
@@ -1025,6 +1043,35 @@ object AskodoxPaymentAlerts {
             }
         }
 
+        /** The phone speech engine's own locale for an app language code ("te" -> te-IN; any Indian language). */
+        fun localeOf(language: String): Locale = Locale(language.ifEmpty { "en" }, "IN")
+
+        /**
+         * Can this phone speak [language] with NO internet? ready=null while the engine is still starting.
+         * supported = the engine knows the language at all; installed = its voice data is on the phone; offline = a voice
+         * that needs no network is installed (the alert then speaks in that language even when the net is off).
+         */
+        @Synchronized
+        fun offlineVoice(context: Context, language: String): Map<String, Any?> {
+            warm(context)
+            val engine = tts
+            if (!initDone || engine == null) return mapOf("ready" to (if (initDone) false else null), "language" to language)
+            val locale = localeOf(language)
+            return try {
+                val res = engine.isLanguageAvailable(locale)
+                val supported = res != TextToSpeech.LANG_NOT_SUPPORTED
+                val installed = supported && res != TextToSpeech.LANG_MISSING_DATA
+                val offline = installed && (engine.voices ?: emptySet()).any { v ->
+                    v.locale.language == locale.language && !v.isNetworkConnectionRequired &&
+                        !v.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+                }
+                mapOf("ready" to true, "language" to language, "supported" to supported, "installed" to installed,
+                    "offline" to offline, "engine" to (engine.defaultEngine ?: ""))
+            } catch (_: Exception) {
+                mapOf("ready" to true, "language" to language, "supported" to false, "installed" to false, "offline" to false)
+            }
+        }
+
         @Synchronized
         private fun finish(id: String?, ok: Boolean) {
             val cb = id?.let { callbacks.remove(it) } ?: return
@@ -1033,7 +1080,7 @@ object AskodoxPaymentAlerts {
 
         private fun speakNow(text: String, language: String, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
             val engine = tts ?: run { done?.invoke(false); return }
-            val locale = when (language) { "te" -> Locale("te", "IN"); "hi" -> Locale("hi", "IN"); else -> Locale("en", "IN") }
+            val locale = localeOf(language) // any Indian language the person chose (ta, kn, ml, bn, mr, gu, pa, or, ur ...)
             val res = engine.setLanguage(locale)
             languageOk = res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED
             var spoken = text

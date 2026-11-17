@@ -30,6 +30,10 @@ class AskodoxPaymentAlertsBridge {
   Future<AskodoxJson> configurePersonal(AskodoxJson config) =>
       _map('configure', {'config': jsonEncode(config), 'scope': 'personal'});
   Future<AskodoxJson> audioRoute() => _map('audioRoute');
+  /// Can the phone speak [language] with no internet? (ready / supported / installed / offline)
+  Future<AskodoxJson> offlineVoice(String language) => _map('offlineVoice', {'language': language});
+  /// Opens the phone's own "download voice data" page.
+  Future<void> installOfflineVoice() => _call('installOfflineVoice');
   Future<AskodoxJson> speakTest(int amountPaise, {bool personal = false}) =>
       _map('speakTest', {'amountPaise': amountPaise, if (personal) 'scope': 'personal'});
   Future<AskodoxJson> simulate(String title, String text) => _map('simulate', {'title': title, 'text': text});

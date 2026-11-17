@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
+import 'offline_voice_card.dart';
 import 'pos_common.dart';
 
 /// "My phone" payments (owner 2026-11-15): any signed-in person -- no shop, no registered UPI id -- gets the payment
@@ -357,6 +358,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               if (v != null) _change((x) => x.language = v);
             },
           ),
+          AskodoxOfflineVoiceCard(language: m.language),
           SwitchListTile(
             key: const Key('askodoxMineSayName'),
             contentPadding: EdgeInsets.zero,
