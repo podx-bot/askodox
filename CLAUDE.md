@@ -7,6 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #342 (2026-11-17, owner "1"; includes #339 one money history): orders are accepted only by the owner or
+  members with `pos_members.accepts_orders` (not `paused`) -- auto-confirm removed (key kept false); accept claims the order
+  in one tx (timeline repeats = `kind: note`); `name_sound.py` (one Indic table -> Latin -> consonant skeleton) for
+  find_shops / search_shops / spoken menu; `pos_products.menu_group` / `food_type`; chat shop card + cart bar above the
+  composer (`askodoxChatShopCartProvider`); order track steps (`domain/order_steps.dart`); `/money` one-page summary +
+  list; Payments hub QR card + 2x3 doors. Test build 1534. Nothing phone verified.
 - `main` PR #337 (2026-11-17, owner "1"): payment voice -- the FIRST message (bank SMS or app notification) speaks at once
   (no wait for a name); the other joins silently (`PaymentAlertParser.samePaymentWindow`: same UPI ref, or same amount from a
   kind the row lacks -- app up to 60 min after the SMS, SMS within 10 min of the app, two apps 30 min; different payer handles
