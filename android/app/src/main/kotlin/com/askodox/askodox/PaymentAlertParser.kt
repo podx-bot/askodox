@@ -412,4 +412,38 @@ object PaymentAlertParser {
         if (s == e) return false
         return if (s < e) minuteOfDay in s until e else minuteOfDay >= s || minuteOfDay < e
     }
+
+    // ------------------------------------------------------------------ one payment, several messages (owner 2026-11-17)
+    /**
+     * A bank / company SMS comes from a REGISTERED sender ID ("JD-HDFCBK-S", "AD-SBIINB-T", "VM-ICICIT"): two letters,
+     * a dash, the registered name, and (TRAI 2025) -S service / -T transactional / -G government. A person's number or a
+     * promotional (-P) sender is never a bank confirmation.
+     */
+    fun isBankSender(title: String?): Boolean {
+        val t = title?.trim()?.uppercase(Locale.ROOT) ?: return false
+        return Regex("""^[A-Z]{2}-[A-Z0-9]{3,9}(-[STG])?$""").matches(t)
+    }
+
+    /** "*2317@ibl" / "9502072317@ibl" -> "2317@ibl": the payer's UPI handle tail, to tell two payments apart. */
+    fun upiHandleTail(text: String): String? =
+        Regex("""[A-Za-z0-9.*_\-]*?(\d{4})@([A-Za-z]{2,20})""").find(text)?.let { "${it.groupValues[1]}@${it.groupValues[2].lowercase(Locale.ROOT)}" }
+
+    /** The UPI app / bank app notification may come up to an hour AFTER the bank SMS of the same payment ... */
+    const val NOTE_AFTER_SMS_MS = 60 * 60_000L
+    /** ... but a bank SMS is quick: it is the same payment only when it comes within 10 minutes of the notification. */
+    const val SMS_AFTER_NOTE_MS = 10 * 60_000L
+    /** Two notifications of different kinds (a UPI app + the bank's own app) of one payment. */
+    const val NOTE_AND_NOTE_MS = 30 * 60_000L
+
+    /**
+     * Can a message of [kind] (sms / upi / bank) be the same payment as an earlier row made of [rowKinds], when its
+     * payment time is [deltaMs] after the row's (negative = before)? A kind the row already has never joins it
+     * (two SMS = two payments).
+     */
+    fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long): Boolean = when {
+        kind in rowKinds -> false
+        kind == "sms" -> deltaMs in -NOTE_AFTER_SMS_MS..SMS_AFTER_NOTE_MS   // this SMS vs the row's notification
+        "sms" in rowKinds -> deltaMs in -SMS_AFTER_NOTE_MS..NOTE_AFTER_SMS_MS // this notification vs the row's SMS
+        else -> kotlin.math.abs(deltaMs) <= NOTE_AND_NOTE_MS
+    }
 }

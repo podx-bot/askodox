@@ -599,8 +599,11 @@ object AskodoxPaymentAlerts {
         // Owner 2026-11-16 (double sound): a UPI app's notification sometimes reaches the phone MINUTES after its SMS. The
         // payment's own time (the notification's `when`) decides whether two messages are one payment, not the arrival time.
         val posted = paymentTime(whenMillis, now)
+        // Owner 2026-11-17: a bank SMS from a REGISTERED sender (XX-HDFCBK-S / -T / -G) = the bank says the money landed.
+        val bankSms = kindOf(cfg, pkg) == "sms" && PaymentAlertParser.isBankSender(title)
+        val handle = PaymentAlertParser.upiHandleTail("${title ?: ""} ${text ?: ""}")
         if (!test && amount != null) {
-            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted)?.let {
+            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle)?.let {
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to amount, "spoken" to false)
             }
         }
@@ -617,6 +620,8 @@ object AskodoxPaymentAlerts {
             .put("kind", kindOf(cfg, pkg))
             .put("status", if (amount != null) "notification_unverified" else "ambiguous")
             .put("test", test)
+        if (bankSms) event.put("bank_confirmed", true).put("bank_sms_from", title?.trim()?.take(20) ?: "")
+        if (handle != null) event.put("upi_handle", handle) // this phone only; never uploaded
         if (amount != null) event.put("amount_paise", amount)
         if (reference != null) event.put("reference", reference)
         if (personal) {
@@ -632,88 +637,79 @@ object AskodoxPaymentAlerts {
         // written in the history but NOT spoken: a voice minutes later sounds like a second, new payment.
         val late = !test && now - posted > LATE_MS
         val mayVoice = quiet || test || late || claimVoice(context, amount, now, "local")
-        // Owner 2026-11-16: the UPI app's notification carries the payer's NAME; a bank SMS usually does not. A nameless SMS
-        // waits a few seconds for that notification (it then speaks WITH the name); none came -> the SMS is spoken as is.
-        val heldForName = !test && !quiet && !late && mayVoice && amount != null && payer.isNullOrEmpty() &&
-            kindOf(cfg, pkg).let { it == "sms" || it == "bank" }
-        event.put("spoken", if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced"
-            else if (heldForName) "held" else "pending")
+        // Owner 2026-11-17: whichever message comes FIRST (SMS or notification) speaks at once -- no waiting for a name.
+        event.put("spoken", if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet && !late && mayVoice) {
-            if (heldForName) main.postDelayed({ speakHeld(context, localId, amount, cfg) }, HOLD_FOR_NAME_MS)
-            else speak(context, amount, test, localId, payer, cfg)
-        }
+        if (!quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to (!quiet && !late && mayVoice && !heldForName))
+            "amountPaise" to amount, "spoken" to (!quiet && !late && mayVoice))
     }
 
-    private const val HOLD_FOR_NAME_MS = 4500L
-    private const val LATE_MS = 120_000L
+    /** A message whose own payment time is older than this (phone was off / asleep) is written, never spoken. */
+    private const val LATE_MS = 60 * 60_000L
+
+
 
     /** The payment's own time: the notification's `when` when it is sane (not in the future, not days old), else now. */
     private fun paymentTime(whenMillis: Long, now: Long): Long =
         if (whenMillis in (now - 2 * 24 * 3600 * 1000L)..(now + 5_000L)) minOf(whenMillis, now) else now
 
-    /** The wait for a notification with the name is over: speak the held SMS payment now (unless a notification already did). */
-    private fun speakHeld(context: Context, localId: String, amount: Long?, cfg: JSONObject) {
-        var go = false
-        synchronized(this) {
-            val list = events(context)
-            for (i in 0 until list.length()) {
-                val e = list.getJSONObject(i)
-                if (e.optString("local_id") == localId && e.optString("spoken") == "held") {
-                    e.put("spoken", "pending"); go = true; saveEvents(context, list); break
-                }
-            }
-        }
-        if (go) speak(context, amount, false, localId, null, cfg)
-    }
-
     /**
-     * Owner 2026-11-15 ("one payment = one voice, one row"): the SAME money usually reaches the phone twice -- the
-     * UPI app's notification AND the bank's SMS / bank app. When a payment of the same amount and direction came
-     * from a DIFFERENT KIND of source (upi vs bank vs sms) in the last 3 minutes, this one is folded into that row
-     * (its account / reference / name fill the gaps) and is not spoken again. Two payments from the SAME app, or
-     * from two UPI apps, always stay two payments. Returns the row it was folded into, or null.
+     * Owner 2026-11-15 / 2026-11-17 ("one payment = one voice, one row"): the SAME money reaches the phone as the bank's
+     * SMS AND the UPI app's / bank app's notification -- sometimes many minutes apart. The FIRST one was spoken; this one
+     * joins that row SILENTLY (name / account / reference fill the gaps, a bank SMS marks it bank-confirmed).
+     * Same payment =
+     *  - the same UPI / transaction reference on both (any time within a day), or
+     *  - the same amount and direction from a DIFFERENT kind of source (sms / upi / bank) that the row does not have yet,
+     *    within the window (notification up to an hour after the SMS; an SMS within 10 minutes of the notification),
+     *    and no two different references / payer handles.
+     * Two SMS never join, two messages from the same app never join: two real payments of the same amount stay two.
+     * The OLDEST waiting row wins (a late notification belongs to the earlier payment). Returns the row or null.
      */
     @Synchronized
     private fun mergeSameMoney(context: Context, cfg: JSONObject, pkg: String, direction: String, amount: Long,
-                               account: String?, reference: String?, party: String?, now: Long): String? {
-        // [now] = THIS message's payment time; rows keep theirs in at_ms. Same payment = within 3 minutes either way.
+                               account: String?, reference: String?, party: String?, now: Long,
+                               bankSms: Boolean = false, handle: String? = null): String? {
+        // [now] = THIS message's payment time; rows keep theirs in at_ms.
         val kind = kindOf(cfg, pkg)
         val list = events(context)
-        for (i in list.length() - 1 downTo 0) {
+        var hit: JSONObject? = null
+        for (i in 0 until list.length()) {
             val e = list.getJSONObject(i)
             val at = e.optLong("at_ms", 0L)
-            if (at <= 0L || kotlin.math.abs(now - at) > 180_000L) continue
-            // Both sides carry a UPI reference and they differ: two payments, whatever the amount.
-            val ref = e.optString("reference")
-            if (reference != null && ref.isNotEmpty() && ref != reference) continue
-            if (e.optBoolean("test") || e.optLong("amount_paise", -1L) != amount) continue
+            if (at <= 0L || e.optBoolean("test") || e.optString("source_app") == pkg) continue
             if ((e.optString("direction").ifEmpty { "in" }) != direction) continue
-            if (e.optString("source_app") == pkg) continue
+            val ref = e.optString("reference")
+            if (reference != null && ref.isNotEmpty()) {
+                if (ref == reference && kotlin.math.abs(now - at) <= 24 * 3600_000L) { hit = e; break }
+                continue // two different references: two payments, whatever the amount
+            }
+            if (e.optLong("amount_paise", -1L) != amount) continue
+            val other = e.optString("upi_handle")
+            if (handle != null && other.isNotEmpty() && other != handle) continue
             val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
                 (0 until a.length()).map { a.optString(it) }
             }
             if (kind in kinds) continue
-            val label = cfg.optJSONObject("apps")?.optString(pkg, pkg) ?: pkg
-            e.put("merged_kinds", JSONArray(kinds + kind))
-            e.put("also_from", listOfNotNull(e.optString("also_from").takeIf { it.isNotEmpty() }, label).joinToString(", "))
-            if (account != null && !e.has("account")) e.put("account", account)
-            if (reference != null && !e.has("reference")) e.put("reference", reference)
-            if (!party.isNullOrEmpty() && !e.has("party") && e.has("direction")) e.put("party", party)
-            val wasHeld = e.optString("spoken") == "held" && direction == "in"
-            if (wasHeld) e.put("spoken", "pending")
-            saveEvents(context, list)
-            val id = e.optString("local_id")
-            main.post { channel?.invokeMethod("paymentEvent", e.toString()) }
-            // The notification (with the name) arrived while the SMS was waiting: speak ONCE, with the name.
-            if (wasHeld) speak(context, amount, false, id, party, cfg)
-            return id
+            if (PaymentAlertParser.samePaymentWindow(kind, kinds, now - at)) { hit = e; break }
         }
-        return null
+        val e = hit ?: return null
+        val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
+            (0 until a.length()).map { a.optString(it) }
+        }
+        val label = cfg.optJSONObject("apps")?.optString(pkg, pkg) ?: pkg
+        if (kind !in kinds) e.put("merged_kinds", JSONArray(kinds + kind))
+        e.put("also_from", listOfNotNull(e.optString("also_from").takeIf { it.isNotEmpty() }, label).joinToString(", "))
+        if (account != null && !e.has("account")) e.put("account", account)
+        if (reference != null && !e.has("reference")) e.put("reference", reference)
+        if (handle != null && !e.has("upi_handle")) e.put("upi_handle", handle)
+        if (!party.isNullOrEmpty() && !e.has("party") && e.has("direction")) e.put("party", party)
+        if (bankSms) e.put("bank_confirmed", true)
+        saveEvents(context, list)
+        main.post { channel?.invokeMethod("paymentEvent", e.toString()) }
+        return e.optString("local_id")
     }
 
     /** Personal phone: a debit is kept in the history; it is SPOKEN only when the person turned debit alerts on. */
