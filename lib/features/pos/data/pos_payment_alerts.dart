@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../domain/money_accounts.dart';
 import 'pos_repository.dart';
 
 /// The phone side of payment voice alerts (native channel `com.askodox.app/payment_alerts`).
@@ -395,6 +396,22 @@ class AskodoxMyPhoneAlerts {
   /// True once the apps found on this phone were offered the first time (never re-added after the person deletes).
   bool setupDone;
 
+  /// Owner 2026-11-17: every place money comes in / goes out -- bank accounts, UPI IDs, wallets, QR codes.
+  /// Bank places are kept in step with [accounts] (last digits -> name), which the history and the voice read.
+  List<AskodoxMoneyPlace> places = [];
+
+  /// History rows the person moved to an account by hand (localId -> account key).
+  Map<String, String> assigned = {};
+
+  /// "Ways to get paid" (server method ids) imported once and deleted by the person: never re-added.
+  Set<String> dismissedMethods = {};
+
+  /// Say the account's name in the voice ("HDFC current: Rs 240 came").
+  bool sayAccount = false;
+
+  /// Rebuilds [accounts] from the bank places (the native side and older screens read it).
+  void syncAccounts() => accounts = {for (final p in places) if (p.type == 'bank' && p.tail.isNotEmpty) p.tail: p.name};
+
   String destinationOf(String package) =>
       destinations[package] ?? (askodoxIsBusinessApp(package) ? 'shop' : 'mine');
 
@@ -413,8 +430,17 @@ class AskodoxMyPhoneAlerts {
         final dest = j['destinations'] is Map
             ? {for (final e in (j['destinations'] as Map).entries) '${e.key}': '${e.value}'}
             : <String, String>{};
-        return AskodoxMyPhoneAlerts(j['enabled'] == true, apps, '${j['language'] ?? 'te'}', j['say_name'] != false,
+        final m = AskodoxMyPhoneAlerts(j['enabled'] == true, apps, '${j['language'] ?? 'te'}', j['say_name'] != false,
             j['announce_debits'] == true, acc, dest, j['setup_done'] == true);
+        m.places = j['places'] is List
+            ? (j['places'] as List).map(AskodoxMoneyPlace.fromJson).whereType<AskodoxMoneyPlace>().toList()
+            // first open after the update: the named bank accounts become places
+            : [for (final e in acc.entries) AskodoxMoneyPlace(key: askodoxBankKey(e.key), type: 'bank', name: e.value, tail: e.key)];
+        m.assigned = j['assigned'] is Map ? {for (final e in (j['assigned'] as Map).entries) '${e.key}': '${e.value}'} : {};
+        m.dismissedMethods = j['dismissed_methods'] is List ? {for (final x in j['dismissed_methods'] as List) '$x'} : {};
+        m.sayAccount = j['say_account'] == true;
+        m.syncAccounts();
+        return m;
       }
     } catch (_) {}
     return AskodoxMyPhoneAlerts(false, defaultApps(), 'te', true, false, {});
@@ -433,6 +459,11 @@ class AskodoxMyPhoneAlerts {
           'accounts': accounts,
           'destinations': destinations,
           'setup_done': setupDone,
+          'places': [for (final p in places) p.toJson()],
+          // only the newest 500 hand moves are kept
+          'assigned': Map.fromEntries(assigned.entries.toList().reversed.take(500).toList().reversed),
+          'dismissed_methods': dismissedMethods.toList(),
+          'say_account': sayAccount,
         }));
   }
 
@@ -453,6 +484,8 @@ class AskodoxMyPhoneAlerts {
         'apps': apps,
         'kinds': {for (final e in apps.entries) e.key: askodoxMoneyAppKind(e.key, e.value)},
         'destinations': destinations,
+        'say_account': sayAccount,
+        'account_names': accounts,
         'business_id': '',
         'device_id': '',
         'base_url': baseUrl, // the chosen ElevenLabs voice for "My phone" too (device voice when empty / offline)

@@ -589,7 +589,7 @@ object AskodoxPaymentAlerts {
     // -------------------------------------------------------------- pipeline
     /** Returns a small map describing what happened (for tests / the simulate button). */
     fun handle(context: Context, pkg: String, title: String?, text: String?, notificationKey: String, whenMillis: Long,
-               test: Boolean = false, cfgIn: JSONObject? = null): Map<String, Any?> {
+               test: Boolean = false, cfgIn: JSONObject? = null, messageTime: Long = 0L): Map<String, Any?> {
         val cfg = cfgIn ?: config(context)
         if (!test && !cfg.optBoolean("enabled", false)) return mapOf("result" to "disabled")
         val phrases = cfg.optJSONObject("phrases")
@@ -604,16 +604,21 @@ object AskodoxPaymentAlerts {
         val personal = cfg.optString("business_id").isEmpty()
         if (parsed is PaymentAlertParser.Result.Outgoing) {
             if (!personal) return mapOf("result" to "ignored") // a shop only cares about money coming in
-            return handleOutgoing(context, cfg, pkg, parsed, notificationKey, whenMillis, test)
+            return handleOutgoing(context, cfg, pkg, parsed, notificationKey, whenMillis, test, messageTime)
         }
         val amount = (parsed as? PaymentAlertParser.Result.Accepted)?.amountPaise
         val reference = (parsed as? PaymentAlertParser.Result.Accepted)?.reference
         // Spoken in the thank-you only; never put in the event, the log or the upload.
         val payer = (parsed as? PaymentAlertParser.Result.Accepted)?.payer
         val account = (parsed as? PaymentAlertParser.Result.Accepted)?.account
-        val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$whenMillis"
+        // Owner 2026-11-17 (Rs 1,000 twice at 09:55): an app RE-POSTS its own notification with a new time. The message's
+        // own time (chat-style notifications) is the identity; without it, the same notification + amount within 3 min.
+        val identity = if (messageTime > 0) messageTime else whenMillis
+        val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$identity"
         val now = System.currentTimeMillis()
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        if (!test && reference == null && messageTime <= 0 && amount != null &&
+            repostOf(context, pkg, notificationKey, "in", amount, paymentTime(whenMillis, now))) return mapOf("result" to "duplicate")
         // Owner 2026-11-16 (double sound): a UPI app's notification sometimes reaches the phone MINUTES after its SMS. The
         // payment's own time (the notification's `when`) decides whether two messages are one payment, not the arrival time.
         val posted = paymentTime(whenMillis, now)
@@ -621,7 +626,7 @@ object AskodoxPaymentAlerts {
         val bankSms = kindOf(cfg, pkg) == "sms" && PaymentAlertParser.isBankSender(title)
         val handle = PaymentAlertParser.upiHandleTail("${title ?: ""} ${text ?: ""}")
         if (!test && amount != null) {
-            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle)?.let {
+            mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle, notificationKey)?.let {
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to amount, "spoken" to false)
             }
         }
@@ -631,6 +636,7 @@ object AskodoxPaymentAlerts {
             .put("local_id", localId)
             .put("client_event_id", key.take(110).replace(Regex("[^A-Za-z0-9_.:|-]"), "_"))
             .put("source_app", pkg)
+            .put("notification_key", notificationKey.take(120))
             .put("source_label", if (pkg == "askodox.test") "ASKODOX test" else labels?.optString(pkg, pkg) ?: pkg)
             .put("detected_at", isoUtc(now))
             .put("at_ms", posted)
@@ -658,7 +664,7 @@ object AskodoxPaymentAlerts {
         // Owner 2026-11-17: whichever message comes FIRST (SMS or notification) speaks at once -- no waiting for a name.
         event.put("spoken", if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg)
+        if (!quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg, if (personal) account else null)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
@@ -689,7 +695,7 @@ object AskodoxPaymentAlerts {
     @Synchronized
     private fun mergeSameMoney(context: Context, cfg: JSONObject, pkg: String, direction: String, amount: Long,
                                account: String?, reference: String?, party: String?, now: Long,
-                               bankSms: Boolean = false, handle: String? = null): String? {
+                               bankSms: Boolean = false, handle: String? = null, notificationKey: String? = null): String? {
         // [now] = THIS message's payment time; rows keep theirs in at_ms.
         val kind = kindOf(cfg, pkg)
         val list = events(context)
@@ -725,6 +731,11 @@ object AskodoxPaymentAlerts {
         if (handle != null && !e.has("upi_handle")) e.put("upi_handle", handle)
         if (!party.isNullOrEmpty() && !e.has("party") && e.has("direction")) e.put("party", party)
         if (bankSms) e.put("bank_confirmed", true)
+        if (notificationKey != null) {
+            val keys = e.optJSONArray("merged_keys") ?: JSONArray()
+            keys.put("$pkg|${notificationKey.take(120)}")
+            e.put("merged_keys", keys)
+        }
         saveEvents(context, list)
         main.post { channel?.invokeMethod("paymentEvent", e.toString()) }
         return e.optString("local_id")
@@ -732,13 +743,15 @@ object AskodoxPaymentAlerts {
 
     /** Personal phone: a debit is kept in the history; it is SPOKEN only when the person turned debit alerts on. */
     private fun handleOutgoing(context: Context, cfg: JSONObject, pkg: String, o: PaymentAlertParser.Result.Outgoing,
-                               notificationKey: String, whenMillis: Long, test: Boolean): Map<String, Any?> {
+                               notificationKey: String, whenMillis: Long, test: Boolean, messageTime: Long = 0L): Map<String, Any?> {
         val now = System.currentTimeMillis()
-        val key = "$pkg|out|$notificationKey|${o.amountPaise}|$whenMillis"
+        val key = "$pkg|out|$notificationKey|${o.amountPaise}|${if (messageTime > 0) messageTime else whenMillis}"
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        if (!test && messageTime <= 0 && repostOf(context, pkg, notificationKey, "out", o.amountPaise, paymentTime(whenMillis, now)))
+            return mapOf("result" to "duplicate")
         val posted = paymentTime(whenMillis, now)
         if (!test) {
-            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted)?.let {
+            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted, notificationKey = notificationKey)?.let {
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to o.amountPaise, "spoken" to false)
             }
         }
@@ -748,6 +761,7 @@ object AskodoxPaymentAlerts {
             .put("local_id", localId)
             .put("client_event_id", key.take(110).replace(Regex("[^A-Za-z0-9_.:|-]"), "_"))
             .put("source_app", pkg)
+            .put("notification_key", notificationKey.take(120))
             .put("source_label", if (pkg == "askodox.test") "ASKODOX test" else labels?.optString(pkg, pkg) ?: pkg)
             .put("detected_at", isoUtc(now))
             .put("status", "notification_unverified")
@@ -768,7 +782,8 @@ object AskodoxPaymentAlerts {
         if (say) {
             val language = cfg.optString("language", "te").ifEmpty { "te" }
             val name = if (cfg.optBoolean("say_name", true)) o.party else null
-            CloudVoice.say(context, PaymentAlertParser.personalParts(o.amountPaise, language, false, name), language, cfg) { ok ->
+            CloudVoice.say(context, withAccount(cfg, o.account, PaymentAlertParser.personalParts(o.amountPaise, language, false, name)),
+                language, cfg) { ok ->
                 update(context, localId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
                 main.post { channel?.invokeMethod("paymentEvent", "{}") }
             }
@@ -777,12 +792,37 @@ object AskodoxPaymentAlerts {
         return mapOf("result" to "outgoing", "localId" to localId, "amountPaise" to o.amountPaise, "spoken" to say)
     }
 
+    /**
+     * Owner 2026-11-17: "say which account" (My phone, optional): the person's OWN name for the account ("HDFC current")
+     * is said first. Only when the message carried the account's last digits and the person named that account.
+     */
+    private fun withAccount(cfg: JSONObject, account: String?, parts: List<String>): List<String> {
+        if (account.isNullOrEmpty() || !cfg.optBoolean("say_account", false)) return parts
+        val name = cfg.optJSONObject("account_names")?.optString(account).orEmpty().trim()
+        return if (name.isEmpty()) parts else listOf("$name:") + parts
+    }
+
+    /** An app showing its OWN notification again (same notification, same money, within 3 min) is not a new payment. */
+    @Synchronized
+    private fun repostOf(context: Context, pkg: String, notificationKey: String, direction: String, amount: Long, at: Long): Boolean {
+        val list = events(context)
+        for (i in 0 until list.length()) {
+            val e = list.getJSONObject(i)
+            val mine = e.optString("source_app") == pkg && e.optString("notification_key") == notificationKey.take(120)
+            val joined = e.optJSONArray("merged_keys")?.let { a -> (0 until a.length()).any { a.optString(it) == "$pkg|${notificationKey.take(120)}" } } == true
+            if (!mine && !joined) continue
+            if ((e.optString("direction").ifEmpty { "in" }) != direction || e.optLong("amount_paise", -1L) != amount) continue
+            if (kotlin.math.abs(at - e.optLong("at_ms", 0L)) <= 3 * 60_000L) return true
+        }
+        return false
+    }
+
     private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?, payer: String? = null,
-                      cfg: JSONObject = config(context)) {
+                      cfg: JSONObject = config(context), account: String? = null) {
         val language = cfg.optString("language", "te").ifEmpty { "te" }
         val name = if (cfg.optBoolean("say_name", true)) payer else null
         val parts = if (cfg.optString("business_id").isEmpty() && amount != null && !test)
-            PaymentAlertParser.personalParts(amount, language, true, name)
+            withAccount(cfg, account, PaymentAlertParser.personalParts(amount, language, true, name))
         else PaymentAlertParser.announcementParts(amount, language, test, name, cfg.optString("shop_name"))
         CloudVoice.say(context, parts, language, cfg) { ok ->
             if (eventId != null) {
@@ -1225,11 +1265,14 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
             // Messaging apps (Google Messages, Samsung Messages ...) use a MessagingStyle notification: the new
             // SMS sits in EXTRA_MESSAGES (newest last) and EXTRA_TEXT can say only "2 new messages". Only the
             // NEWEST message is read, so an older payment in the same thread is never counted again.
-            val newest = try {
+            val newestBundle = try {
                 @Suppress("DEPRECATION")
                 val list = extras.getParcelableArray(android.app.Notification.EXTRA_MESSAGES)
-                (list?.lastOrNull() as? android.os.Bundle)?.getCharSequence("text")?.toString()
+                list?.lastOrNull() as? android.os.Bundle
             } catch (_: Exception) { null }
+            val newest = newestBundle?.getCharSequence("text")?.toString()
+            // The newest message's OWN time: the same message shown again keeps it (owner 2026-11-17 duplicate).
+            val messageTime = newestBundle?.getLong("time", 0L) ?: 0L
             val lines = try {
                 extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)?.lastOrNull()?.toString()
             } catch (_: Exception) { null }
@@ -1239,7 +1282,8 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
                 newest, lines,
             ).distinct().joinToString(" ")
             val whenMillis = if (notification.`when` > 0) notification.`when` else n.postTime
-            AskodoxPaymentAlerts.handle(this, n.packageName, title, text, n.key ?: "${n.id}", whenMillis, cfgIn = cfg)
+            AskodoxPaymentAlerts.handle(this, n.packageName, title, text, n.key ?: "${n.id}", whenMillis, cfgIn = cfg,
+                messageTime = messageTime)
         } catch (_: Exception) {
             // a malformed notification never crashes the listener
         }

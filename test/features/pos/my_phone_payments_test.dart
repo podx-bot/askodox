@@ -121,23 +121,24 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('askodoxMinePick-com.example.bank')).last);
     await tester.pumpAndSettle();
     expect((lastConfig['apps'] as Map)['com.example.bank'], 'Example Bank');
-    // name an account, then delete it
+    // name an account (bank, last digits + name), then delete it
     await tester.ensureVisible(find.byKey(const Key('askodoxMineAccountAdd')));
     await tester.tap(find.byKey(const Key('askodoxMineAccountAdd')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('askodoxMineAskField')), '1234');
-    await tester.tap(find.byKey(const Key('askodoxMineAskSave')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('askodoxMineAskField')), 'Savings');
-    await tester.tap(find.byKey(const Key('askodoxMineAskSave')));
+    await tester.enterText(find.byKey(const Key('askodoxPlaceTail')), '1234');
+    await tester.enterText(find.byKey(const Key('askodoxPlaceName')), 'Savings');
+    await tester.ensureVisible(find.byKey(const Key('askodoxPlaceSave')));
+    await tester.tap(find.byKey(const Key('askodoxPlaceSave')));
     await tester.pumpAndSettle();
     expect(find.text('Savings'), findsWidgets);
     expect(find.textContaining('Savings'), findsWidgets, reason: 'the history shows the account name');
-    await tester.tap(find.byKey(const ValueKey('askodoxMineAccountDelete-1234')));
+    expect((lastConfig['account_names'] as Map)['1234'], 'Savings', reason: 'the voice can say the account name');
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxMineAccountDelete-bank:1234')));
+    await tester.tap(find.byKey(const ValueKey('askodoxMineAccountDelete-bank:1234')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('askodoxMineConfirmYes')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('askodoxMineAccount-1234')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxMineAccount-bank:1234')), findsNothing);
     // debits are spoken only after the switch
     expect(lastConfig['announce_debits'], false);
     await tester.ensureVisible(find.byKey(const Key('askodoxMineDebits')));
