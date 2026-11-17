@@ -272,8 +272,9 @@ def _import_one(request: Request, url: str, *, details: bool, html: str | None =
             fields.pop("affiliate_url", None)  # saving one needs affiliate_products:links
         status = meta.get("status")
         note = meta.get("note")
-        if status == "unavailable" and not html:
-            reason = re.sub(r"[^\w .:/-]", "", (phone_error or "").strip())[:80]
+        if status == "unavailable" and (not html or meta.get("blocked")):
+            reason = "store error page" if meta.get("blocked") else ""
+            reason = reason or re.sub(r"[^\w .:/-]", "", (phone_error or "").strip())[:80]
             note = PHONE_FAILED_HINT.format(reason=reason) if reason else STORE_BLOCKED_HINT
         if html or phone_error:
             # Railway log line to see how phone reads go (no page text, no customer data).

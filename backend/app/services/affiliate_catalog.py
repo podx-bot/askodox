@@ -537,6 +537,8 @@ class AffiliateCatalog:
             raise ValueError("The product's normal URL is required")
         if not clean.get("title"):
             raise ValueError("A product name is required")
+        if is_block_page_title(clean.get("title")):
+            raise ValueError(BLOCK_TITLE_ERROR)
         platform = clean.get("platform") or detect_platform(url)
         clean["platform"] = platform
         at = now_iso()
@@ -588,6 +590,8 @@ class AffiliateCatalog:
     def update(self, product_id: int, values: dict[str, Any], *, actor: str, action: str = "edit",
                check_source: str = "manual", note: str = "") -> dict[str, Any]:
         clean = self._clean(values)
+        if is_block_page_title(clean.get("title")):
+            raise ValueError(BLOCK_TITLE_ERROR)
         with self._connect() as conn:
             before = self._row(conn, product_id)
             if not before or before.get("deleted_at"):
@@ -1250,6 +1254,29 @@ def fetch_image(url: str, *, timeout: float = 8.0, max_bytes: int = 5 * 1024 * 1
     return data
 
 
+_BLOCK_TITLE = re.compile(
+    # The WHOLE title must be an error / bot-check phrase (an optional "| Site"
+    # suffix allowed), so a product merely starting with such words still passes.
+    r"^\s*(access denied|access to this page has been denied|forbidden|unauthori[sz]ed|just a moment|"
+    r"attention required|are you a (robot|human)|robot check|verify you are human|captcha|"
+    r"request (was )?blocked|you have been blocked|page not found|not found|too many requests|"
+    r"service unavailable|bad gateway|site (can.?t|cannot) be reached|"
+    r"(http |error )?[45]\d\d( error)?( [a-z]+){0,3})"
+    r"\s*[.!?\u2026]*\s*([|\-\u2013:].{0,40})?$",
+    re.IGNORECASE)
+
+
+def is_block_page_title(title: Any) -> bool:
+    """A store's error / bot-check page title ("Access Denied", "Just a moment...",
+    "403 Forbidden") -- never a product name. Same rule for every store."""
+    text = str(title or "").strip()
+    return bool(text) and len(text) <= 80 and bool(_BLOCK_TITLE.match(text))
+
+
+BLOCK_TITLE_ERROR = ("This name is the store's error page, not the product -- type the real product name. / "
+                     "ఇది store error page పేరు, product పేరు కాదు -- అసలు product పేరు టైప్ చేయండి.")
+
+
 def extract_metadata(url: str, fetch: Callable[[str], str] | None = None) -> dict[str, Any]:
     url = https_url(url)
     if not url:
@@ -1265,6 +1292,15 @@ def extract_metadata(url: str, fetch: Callable[[str], str] | None = None) -> dic
                 "found": [], "suggested_stock": None,
                 "note": f"The page could not be read automatically ({type(error).__name__}). Enter the details by hand."}
     parsed = parse_metadata(html, url)
+    if is_block_page_title((parsed.get("fields") or {}).get("title")):
+        # The store answered with an error / bot-check page: same honest answer
+        # as a refused fetch -- never its "Access Denied" as the product name.
+        fields = {k: v for k, v in {"original_product_url": url, "platform": detect_platform(url),
+                                    "canonical_url": _strip_tracking(url), "product_id": product_id_from_url(url),
+                                    "source": PLATFORMS.get(detect_platform(url), {}).get("name") or _host(url)}.items() if v}
+        return {"status": "unavailable", "blocked": True, "fields": fields, "field_status": field_status(fields),
+                "found": [], "suggested_stock": None,
+                "note": "The store showed an error page instead of the product. Enter the details by hand."}
     parsed["status"] = "ok" if parsed["found"] else "nothing_found"
     parsed["note"] = ("Suggested from the page's own metadata -- check and correct before saving."
                       if parsed["found"] else "The page did not publish product details. Enter them by hand.")
