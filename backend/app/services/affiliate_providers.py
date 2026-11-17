@@ -372,4 +372,6 @@ def extract(url: str, fetch: Callable[[str], str] | None = None) -> dict[str, An
         return fetched[target]
 
     result = ac.extract_metadata(url, fetch=once)
-    return enrich(result, fetched.get(ac.https_url(url)), ac.https_url(url))
+    # A store error / bot-check page carries no product facts to enrich from.
+    page = None if result.get("blocked") else fetched.get(ac.https_url(url))
+    return enrich(result, page, ac.https_url(url))
