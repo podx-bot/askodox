@@ -51,6 +51,7 @@ import '../../features/orders/presentation/order_screens.dart';
 import '../../features/analytics/presentation/analytics_screens.dart';
 import '../../features/privacy/presentation/privacy_center_screen.dart';
 import '../../features/feedback/presentation/beta_feedback_screen.dart';
+import '../../features/feedback/presentation/ideas_screen.dart';
 import '../../features/mobility/presentation/mobility_screen.dart';
 import '../../features/native_video/native_video.dart';
 import '../../features/companion/companion_performance_panel.dart';
@@ -241,6 +242,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/privacy',
           builder: (context, state) => const PrivacyCenterScreen()),
+      GoRoute(
+          path: '/me/ideas',
+          builder: (context, state) => AskodoxIdeasScreen(about: state.uri.queryParameters['about'] ?? '')),
       GoRoute(
           path: '/beta-feedback',
           builder: (context, state) => const BetaFeedbackScreen()),

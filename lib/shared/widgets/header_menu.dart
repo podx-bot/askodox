@@ -97,6 +97,8 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
                         (ValueKey('askodoxMenu-${e.key}'), e.icon, te ? e.te : e.en, e.route, const Color(0xFFF1F2F4), const Color(0xFF374151)),
                       (const ValueKey('askodoxMenu-settings'), Icons.settings_outlined, te ? 'సెట్టింగ్స్' : 'Settings',
                           askodoxSettingsMenuValue, const Color(0xFFF1F2F4), const Color(0xFF374151)),
+                      (const ValueKey('askodoxMenu-ideas'), Icons.lightbulb_outline, te ? 'మీ ఐడియా చెప్పండి' : 'Tell us your idea',
+                          '/me/ideas', const Color(0xFFFFF7E0), const Color(0xFF8A6100)),
                       if (askodoxGuidesOn)
                         (const ValueKey('askodoxMenu-guide'), Icons.assistant_navigation, te ? 'స్క్రీన్ గైడ్' : 'Screen Guide',
                             askodoxGuideMenuValue, const Color(0xFFE3F4F6), const Color(0xFF0E6A84)),

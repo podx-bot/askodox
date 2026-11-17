@@ -238,6 +238,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రైడ్ లేదా పార్సెల్ ఎంచుకోండి, మ్యాప్‌లో పికప్, డ్రాప్ పెట్టండి.',
     'రిక్వెస్ట్ పంపండి; పార్ట్నర్ అంగీకరించాకే వివరాలు కనిపిస్తాయి.',
   ]),
+  '/me/ideas': _H('Tell us your idea', 'మీ ఐడియా చెప్పండి', [
+    'Choose what it is about, then say it with the mic or type it.',
+    'Tap Send. Our team reads every idea. Never write phone numbers, OTPs or card numbers.',
+  ], [
+    'దేని గురించో ఎంచుకోండి, మైక్‌తో చెప్పండి లేదా రాయండి.',
+    'పంపు నొక్కండి. మా టీమ్ ప్రతి ఐడియా చదువుతుంది. ఫోన్ నంబర్, OTP, కార్డ్ నంబర్లు రాయకండి.',
+  ]),
   '/beta-feedback': _H('Report a problem', 'సమస్య చెప్పండి', [
     'Write what went wrong; add a screenshot if you like.',
     'Diagnostics are sent only if you allow it.',

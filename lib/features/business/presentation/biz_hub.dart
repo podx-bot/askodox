@@ -821,6 +821,14 @@ class AskodoxBizHubBody extends ConsumerWidget {
                 onTap: () => context.push('/biz/$businessId/${g.id}'),
               ),
           ]),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            key: const Key('askodoxBizIdea'),
+            onPressed: () => context.push('/me/ideas?about=business'),
+            icon: const Icon(Icons.lightbulb_outline, color: Color(0xFF8A6100)),
+            label: Text(te ? 'మీ ఐడియా చెప్పండి — ఏది ఇంకా సులువుగా ఉండాలి?' : 'Tell us your idea — what should be easier?',
+                style: const TextStyle(color: Color(0xFF8A6100), fontWeight: FontWeight.w800)),
+          ),
         ]);
       },
     );
