@@ -24,7 +24,7 @@ def env(tmp_path):
                         pay_to=lambda owner, amount, note, ref: [{"kind": "upi", "upi_link": f"upi://pay?am={amount}"}])
     biz = store.create_business(OWNER, {"name": "Murali Hotel", "template": "restaurant", "invoice_prefix": "MH",
                                          "state_code": "37"})["id"]
-    store.set_member(biz, OWNER, "9400000102", "kitchen")
+    store.set_member(biz, OWNER, "9400000102", "kitchen", accepts_orders=True)  # the owner allowed the cook to accept
     store.set_member(biz, OWNER, "9400000103", "cashier")
     table = rest.add_table(biz, OWNER, {"name": "T1"})["id"]
     biryani = store.add_product(biz, OWNER, {"name": "Chicken Biryani", "unit": "plate", "price_paise": 16000})["id"]
@@ -279,6 +279,18 @@ def test_http_routes_end_to_end(monkeypatch):
     assert [r["en"] for r in saved.json()["requests"] if r["custom"]] == ["Papad"]
 
 
+def test_a_shop_name_said_in_telugu_or_hindi_finds_the_english_named_shop(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    shop = store.create_business(OWNER, {"name": "Murali Manohar Mutton Chicken Shop", "template": "restaurant",
+                                         "invoice_prefix": "MM", "state_code": "37"})["id"]
+    store.add_product(shop, OWNER, {"name": "Chicken Biryani", "unit": "plate", "price_paise": 18000})
+    for said in ("మురళి మనోహర్ చికెన్ అండ్ మటన్‌లో ఒక బిర్యానీ ఆర్డర్", "मुरली मनोहर चिकन से बिरयानी",
+                 "murali manohar chiken lo biryani"):
+        assert [s["id"] for s in desk.find_shops(said)] == [shop], said
+    assert desk.find_shops("చికెన్ బిర్యానీ ఎక్కడ దొరుకుతుంది") == []  # food words alone never pick a shop
+    assert [s["id"] for s in desk.search_shops("మురళి మనోహర్")] == [shop]
+
+
 def test_find_shops_matches_the_shop_name_the_person_said(env):
     """'Murali hotel lo biryani order' finds the ASKODOX shop by its own name; a stray generic word does not
     (owner 2026-11-16: do not send the person to Swiggy / Zomato for a shop that is on ASKODOX)."""
@@ -358,18 +370,17 @@ def test_orders_are_routed_to_the_people_the_owner_chose_not_everyone(env):
     code = f"{QR_PREFIX}{biz}"
     placed = _order(desk, code, [{"product_id": biryani, "qty": 2}], kind="takeaway", txn="route001")
     new_alerts = {p[0] for p in pushes if p[3].endswith(":new:" + p[0])}
-    assert OWNER in new_alerts and CASHIER in new_alerts   # owner + cashier by role
-    assert COOK not in new_alerts and DRIVER not in new_alerts  # not the kitchen, not the delivery person
+    assert new_alerts == {OWNER, COOK}  # the owner + the person the owner allowed to accept (never the delivery person)
     pushes.clear()
     desk.confirm(biz, OWNER, placed["id"])
     kitchen = {p[0] for p in pushes if ":kitchen:" in p[3]}
     assert kitchen == {COOK}  # the kitchen person hears it (the owner who confirmed does not)
-    # the owner picks WHO hears a new order: only the cashier (not himself)
-    out = desk.set_desk_settings(biz, OWNER, {"new": [CASHIER]}, None)
-    assert out["routing"]["new"] == [CASHIER] and {p["id"] for p in out["people"]} >= {OWNER, COOK, CASHIER, DRIVER}
+    # the owner picks WHO hears a new order among the people allowed to accept: only the cook (not himself)
+    out = desk.set_desk_settings(biz, OWNER, {"new": [COOK]}, None)
+    assert out["routing"]["new"] == [COOK] and {p["id"] for p in out["people"]} >= {OWNER, COOK, CASHIER, DRIVER}
     pushes.clear()
     _order(desk, code, [{"product_id": biryani, "qty": 1}], kind="takeaway", txn="route002")
-    assert {p[0] for p in pushes if ":new:" in p[3]} == {CASHIER}
+    assert {p[0] for p in pushes if ":new:" in p[3]} == {COOK}
     with pytest.raises(PosError):  # a cook cannot change who hears what
         desk.set_desk_settings(biz, COOK, {"new": [COOK]}, None)
     with pytest.raises(PosError):  # only this shop's staff
@@ -412,18 +423,33 @@ def test_delivery_person_sees_only_their_orders_and_assign_alerts_them(env):
     assert desk.advance(biz, DRIVER, mine["id"], "delivered")["stage"] == "delivered"
 
 
-def test_auto_confirm_accepts_an_order_when_the_shop_switched_it_on(env):
+def test_an_order_waits_for_the_owner_or_an_allowed_person_never_auto_accepted(env):
     desk, store, rest, biz, table, biryani, fry, now, pushes = env
     _staff_with_accounts(store, biz)
     code = f"{QR_PREFIX}{biz}"
-    assert _order(desk, code, [{"product_id": biryani, "qty": 1}], kind="takeaway", txn="auto0001")["stage"] == "placed"
-    desk.set_desk_settings(biz, OWNER, None, True)
+    desk.set_desk_settings(biz, OWNER, None, True)  # an old app asking for auto-confirm changes nothing
+    assert desk.desk_settings(biz, OWNER)["auto_confirm"] is False
     pushes.clear()
-    auto = _order(desk, code, [{"product_id": biryani, "qty": 1}], kind="takeaway", txn="auto0002")
-    assert auto["stage"] == "accepted"
-    assert COOK in {p[0] for p in pushes if ":kitchen:" in p[3]}  # the kitchen is told
-    desk.set_desk_settings(biz, OWNER, None, False)
-    assert _order(desk, code, [{"product_id": biryani, "qty": 1}], kind="takeaway", txn="auto0003")["stage"] == "placed"
+    order = _order(desk, code, [{"product_id": biryani, "qty": 1}], kind="takeaway", txn="wait0001")
+    assert order["stage"] == "placed"
+    told = {p[0] for p in pushes if ":new" in p[3]}
+    assert OWNER in told and COOK in told and CASHIER not in told  # only the people who may accept are rung
+    with pytest.raises(PosError) as e:
+        desk.confirm(biz, CASHIER, order["id"])  # the cashier was not allowed
+    assert e.value.status == 403
+    # the owner allows the cashier, then pauses the cook: the cook is no longer rung and cannot accept
+    store.member_by_ref(biz, OWNER, "0103", "cashier", accepts_orders=True)
+    store.member_by_ref(biz, OWNER, "0102", "kitchen", paused=True)
+    assert {m["phone_last4"]: (m["accepts_orders"], m["paused"]) for m in store.members(biz, OWNER)}["0102"] == (True, True)
+    with pytest.raises(PosError):
+        desk.confirm(biz, COOK, order["id"])
+    accepted = desk.confirm(biz, CASHIER, order["id"])
+    assert accepted["stage"] == "accepted"
+    steps = [t["stage"] for t in accepted["timeline"] if t["kind"] == "step"]
+    assert steps == ["placed", "accepted"] and accepted["flow"][:2] == ["placed", "accepted"]
+    with pytest.raises(PosError) as again:  # a second tap never makes a second acceptance
+        desk.confirm(biz, OWNER, order["id"])
+    assert again.value.status == 409
 
 
 class _PerPhotoVision:
@@ -586,3 +612,15 @@ def test_own_requests_with_telugu_names_stay_separate_and_words_match_whole_word
         assert kinds("2 plates and tissues") == ["extra_plate", "tissue"]
         assert kinds("ఉల్లిపాయలు కొంచెం") == ["onions"]
         assert kinds("bill please") == ["bill"] and kinds("call the waiter") == ["call"]
+
+
+def test_menu_sections_and_veg_marks_reach_the_chat_card(env):
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    store.update_product(biz, OWNER, biryani, {"menu_group": "Biryani", "food_type": "nonveg"})
+    desk.import_menu(biz, OWNER, [{"name": "Veg Biryani", "price_paise": 14000, "menu_group": "Biryani", "food_type": "veg"}])
+    card = desk.chat_card(biz, CUSTOMER, "", True, limit=150)
+    by_name = {i["name"]: (i["menu_group"], i["food_type"]) for i in card["items"]}
+    assert by_name["Chicken Biryani"] == ("Biryani", "nonveg") and by_name["Veg Biryani"] == ("Biryani", "veg")
+    assert by_name["Chicken Fry"] == ("", "") and card["more"] == 0
+    with pytest.raises(PosError):
+        store.update_product(biz, OWNER, fry, {"food_type": "spicy"})
