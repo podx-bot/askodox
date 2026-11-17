@@ -193,7 +193,15 @@ class AskodoxPosRepository {
           body: {if (shop != null) 'shop': shop, 'items': items, 'later': later});
   Future<AskodoxJson> welcomeSettings(String biz) => _send('GET', '${_b(biz)}/welcome');
   Future<AskodoxJson> saveWelcome(String biz, AskodoxJson body) => _send('PUT', '${_b(biz)}/welcome', body: body);
-  Future<AskodoxJson> menuSort(String biz) => _send('POST', '${_b(biz)}/desk/menu/sort');
+  // 193 items took longer than the old 20 s (owner 2026-11-18 "no internet"): the server now reads parts at once.
+  Future<AskodoxJson> menuSort(String biz) =>
+      _send('POST', '${_b(biz)}/desk/menu/sort', timeout: const Duration(seconds: 150));
+  /// Today's numbers for the business hub and its 6 group pages.
+  Future<AskodoxJson> hub(String biz) => _send('GET', '${_b(biz)}/hub');
+  /// The ASK bar: one sentence -> {reply, open?, confirm?}. A change runs only through [askConfirm].
+  Future<AskodoxJson> ask(String biz, String text, {String page = 'hub', String lang = 'te'}) =>
+      _send('POST', '${_b(biz)}/ask', body: {'text': text, 'page': page, 'lang': lang}, timeout: const Duration(seconds: 40));
+  Future<AskodoxJson> askConfirm(String biz, AskodoxJson change) => _send('POST', '${_b(biz)}/ask/confirm', body: change);
   Future<AskodoxJson> menuSortApply(String biz, List<AskodoxJson> items) =>
       _send('POST', '${_b(biz)}/desk/menu/sort/apply', body: {'items': items});
   Future<AskodoxJson> billPaper(String biz, String invoiceId) => _send('GET', '${_b(biz)}/bills/$invoiceId/paper');

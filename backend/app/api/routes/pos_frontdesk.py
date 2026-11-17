@@ -599,6 +599,8 @@ class MenuSortRowIn(BaseModel):
     id: str = Field(max_length=60)
     menu_group: str = Field(default="", max_length=40)
     food_type: str = Field(default="", pattern="^(|veg|nonveg|egg)$")
+    name: Optional[str] = Field(default=None, max_length=120)
+    item_no: Optional[int] = Field(default=None, ge=1, le=99999)
 
 
 class MenuSortApplyIn(BaseModel):
@@ -631,7 +633,18 @@ def menu_sort_apply(business_id: str, body: MenuSortApplyIn, request: Request) -
     store = _store(request)
     saved = 0
     for row in body.items:
-        _call(store.update_product, business_id, user, row.id, {"menu_group": row.menu_group, "food_type": row.food_type})
+        change = {"menu_group": row.menu_group, "food_type": row.food_type}
+        if row.name and row.name.strip():
+            change["name"] = row.name.strip()
+        _call(store.update_product, business_id, user, row.id, change)
+        if row.item_no:
+            # The printed menu number becomes the item number, unless another item of this shop already has it.
+            with store._connect() as conn:
+                taken = conn.execute("SELECT 1 FROM pos_products WHERE business_id = ? AND item_no = ? AND id != ?",
+                                     (business_id, row.item_no, row.id)).fetchone()
+                if not taken:
+                    conn.execute("UPDATE pos_products SET item_no = ? WHERE id = ? AND business_id = ?",
+                                 (row.item_no, row.id, business_id))
         saved += 1
     return {"saved": saved}
 
@@ -739,3 +752,61 @@ def set_welcome(business_id: str, body: WelcomeIn, request: Request) -> dict:
 def bill_paper(business_id: str, invoice_id: str, request: Request) -> dict:
     """The bill as the customer sees it (shop details, lines, GST or none, cash / online / due)."""
     return _call(_bills(request).paper_for, business_id, _user(request), invoice_id)
+
+
+# ------------------------------------------------------------------------------------------ the business hub + ASK bar
+class AskIn(BaseModel):
+    text: str = Field(min_length=1, max_length=400)
+    page: str = Field(default="hub", max_length=40)
+    lang: str = Field(default="te", pattern="^(te|en)$")
+
+
+class AskConfirmIn(BaseModel):
+    action: str = Field(max_length=30)
+    product_id: str = Field(default="", max_length=60)
+    price_paise: Optional[int] = Field(default=None, ge=1, le=100_000_000)
+
+
+@router.get("/businesses/{business_id}/hub")
+def business_hub(business_id: str, request: Request) -> dict:
+    """Today's numbers for the hub and the 6 group pages (owner 2026-11-18). Members of the shop only."""
+    from app.services import pos_hub
+
+    user = _user(request, "hub", 240)
+    store = _store(request)
+    with store._connect() as conn:
+        role = _call(store._require, conn, business_id, user, "view")
+        out = pos_hub.summary(conn, business_id)
+    out["role"] = role
+    return out
+
+
+@router.post("/businesses/{business_id}/ask")
+def business_ask(business_id: str, body: AskIn, request: Request) -> dict:
+    """The ASK bar: one sentence -> open a page, answer from the shop's own numbers, or ONE change waiting for ✓."""
+    from app.services import pos_hub
+
+    user = _user(request, "ask", 60)
+    store = _store(request)
+    with store._connect() as conn:
+        _call(store._require, conn, business_id, user, "view")
+        numbers = pos_hub.summary(conn, business_id)
+    service = getattr(request.app.state.container, "universal_ai_assistant_service", None)
+    if service is None or not hasattr(service, "write_text"):
+        raise HTTPException(503, "The AI helper is not available right now.")
+    intent = pos_hub.read(body.text, body.page, service.write_text)
+    items: List[Dict[str, Any]] = []
+    if intent["action"] in ("item_off", "item_on", "item_price"):
+        items = _call(_desk(request).menu_admin, business_id, user)["items"]
+    out = pos_hub.plan(intent, items, numbers, body.lang == "te")
+    out["intent"] = intent["action"]
+    return out
+
+
+@router.post("/businesses/{business_id}/ask/confirm")
+def business_ask_confirm(business_id: str, body: AskConfirmIn, request: Request) -> dict:
+    from app.services import pos_hub
+
+    user = _user(request, "ask-confirm", 60)
+    return _call(pos_hub.run, body.model_dump(), store=_store(request), desk=_desk(request),
+                 business_id=business_id, user=user)

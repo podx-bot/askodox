@@ -24,6 +24,7 @@ import '../../features/selling/presentation/my_listings_screen.dart';
 import '../../features/notifications/presentation/notification_settings_screen.dart';
 import '../../features/notifications/presentation/updates_screen.dart';
 import '../../features/business/presentation/business_center_screen.dart';
+import '../../features/business/presentation/biz_routes.dart';
 import '../../features/profile/presentation/profile_memory_screen.dart';
 import '../../features/profile/presentation/my_roles_screen.dart';
 import '../../features/business/presentation/business_promotions_screen.dart';
@@ -250,6 +251,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ...askodoxPaymentMethodRoutes,
       ...askodoxFrontDeskRoutes,
       ...askodoxShopFollowRoutes,
+      ...askodoxBizRoutes,
       GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
       if (askodoxPhase2) ...[
         GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),

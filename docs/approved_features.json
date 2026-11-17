@@ -7448,6 +7448,60 @@
           "change": "built on the owner's approval of the 14 designs (code ready, not phone verified)"
         }
       ]
+    },
+    {
+      "id": "business_hub_six_groups",
+      "name": "One business hub: 6 coloured groups, inner pages, ASK bar on every page",
+      "roles": [
+        "shop owner",
+        "shop staff"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/hub"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/ask"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/ask/confirm"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxAskBar",
+          "askodoxAskText",
+          "askodoxAskMic",
+          "askodoxAskYes",
+          "askodoxBizTrail",
+          "askodoxBizMenuSearch",
+          "askodoxMenuSortSave",
+          "askodoxMyBusinessShop"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_hub.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-18: every business page in one plan — hub › group › inner page › one thing, same shape and colour per group, today's numbers, every-day then set-once buttons, history, and an ASK bar that opens pages, answers from the shop's own numbers or proposes ONE change that runs only after ✓.",
+      "expected_behavior": "Changes from the ASK bar never run without the person's confirmation; unknown actions or pages do nothing; staff see only the groups their role allows; Phase-2 screens are not linked from a Phase-1 build.",
+      "history": [
+        {
+          "date": "2026-11-18",
+          "change": "approved design canvas CY5DeThsUHtxuvEfj29S9H; phase 1 of the build"
+        }
+      ]
     }
   ]
 }

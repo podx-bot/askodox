@@ -16,6 +16,7 @@ import '../../location/presentation/map_pin_picker.dart';
 import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxParsePaise;
+import '../../business/presentation/biz_hub.dart';
 import '../../pos/presentation/paper_bill.dart';
 import '../../pos/presentation/pos_sale_screen.dart' show askodoxPrintInvoice;
 import '../domain/name_change_rule.dart';
@@ -282,78 +283,116 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
     } else {
       final current = shops.firstWhere((b) => '${b['id']}' == _selected, orElse: () => shops.first);
       final id = '${current['id']}';
-      Widget tile(String key, IconData icon, String title, String subtitle, String route) => Card(
-            child: ListTile(
-              key: Key(key),
-              leading: Icon(icon),
-              title: Text(title),
-              subtitle: Text(subtitle),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                await context.push(route);
-                if (mounted) _load();
-              },
-            ),
-          );
-      body = ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          if (shops.length > 1)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: DropdownButtonFormField<String>(
-                key: const Key('askodoxMyBusinessPick'),
-                initialValue: id,
-                isExpanded: true,
-                decoration: InputDecoration(
-                    labelText: te ? 'ఏ బిజినెస్?' : 'Which business?', border: const OutlineInputBorder()),
-                items: [
-                  for (final b in shops)
-                    DropdownMenuItem<String>(value: '${b['id']}', child: Text(_shopLabel(b, te))),
+      final status = '${current['status'] ?? 'open'}';
+      final statusColor = switch (status) {
+        'paused' => const Color(0xFFB45309),
+        'closed' => const Color(0xFFB91C1C),
+        _ => const Color(0xFF17784C),
+      };
+      // Owner 2026-11-18: ONE hub -- the shop card (tap: switch shop / open-pause-close / details), today's
+      // numbers, three every-day buttons and the 6 groups. Every other business page opens from here.
+      body = Column(children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(askodoxBizHubProvider(id));
+              await _load();
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
+              children: [
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    key: const Key('askodoxMyBusinessShop'),
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => showModalBottomSheet<void>(
+                      context: context,
+                      showDragHandle: true,
+                      isScrollControlled: true,
+                      builder: (sheet) => SafeArea(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            if (shops.length > 1)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: DropdownButtonFormField<String>(
+                                  key: const Key('askodoxMyBusinessPick'),
+                                  initialValue: id,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                      labelText: te ? 'ఏ బిజినెస్?' : 'Which business?',
+                                      border: const OutlineInputBorder()),
+                                  items: [
+                                    for (final b in shops)
+                                      DropdownMenuItem<String>(value: '${b['id']}', child: Text(_shopLabel(b, te))),
+                                  ],
+                                  onChanged: (value) {
+                                    Navigator.pop(sheet);
+                                    setState(() => _selected = value);
+                                    _load();
+                                  },
+                                ),
+                              ),
+                            _statusCard(id, status, te),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              key: const Key('askodoxMyBusinessAdd'),
+                              onPressed: () {
+                                Navigator.pop(sheet);
+                                setState(() => _adding = true);
+                              },
+                              icon: const Icon(Icons.add_business_outlined),
+                              label: Text(te ? 'ఇంకో బిజినెస్ చేర్చండి' : 'Add another business'),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(color: const Color(0xFFFFF1E3), borderRadius: BorderRadius.circular(12)),
+                          child: const Icon(Icons.storefront_outlined, color: Color(0xFFB45309)),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('${current['name']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                            Text.rich(TextSpan(children: [
+                              TextSpan(text: '● ${_statusLabel(status, te)}',
+                                  style: TextStyle(color: statusColor, fontWeight: FontWeight.w800)),
+                              TextSpan(text: te ? ' · ${_statusText(te)} · మార్చు' : ' · ${_statusText(te)} · change'),
+                            ]), style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+                          ]),
+                        ),
+                        const Icon(Icons.expand_more),
+                      ]),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                AskodoxBizHubBody(businessId: id),
+                if (_adding) ...[
+                  const Divider(height: 28),
+                  ..._createFields(te),
+                  TextButton(onPressed: () => setState(() => _adding = false), child: Text(te ? 'వద్దు' : 'Cancel')),
                 ],
-                onChanged: (value) {
-                  setState(() => _selected = value);
-                  _load();
-                },
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text('${current['name']}', style: Theme.of(context).textTheme.titleLarge),
+              ],
             ),
-          _statusCard(id, '${current['status'] ?? 'open'}', te),
-          tile('askodoxMyBusinessDetails', Icons.badge_outlined, te ? 'బిజినెస్ వివరాలు' : 'Business details',
-              _statusText(te), '/me/business/$id/profile'),
-          tile('askodoxMyBusinessBill', Icons.calculate_outlined, te ? 'బిల్లు చేయండి' : 'Make a bill',
-              te ? 'మొత్తం వేసి, QR చూపండి, బిల్లు పంపండి' : 'Add amounts, show the QR, send the bill',
-              '/me/business/$id/bill'),
-          tile('askodoxMyBusinessDesk', Icons.receipt_long_outlined, te ? 'ఆర్డర్స్ డెస్క్' : 'Orders desk',
-              te ? 'టేబుల్ / షాప్ QR ఆర్డర్లు, మెనూ, డెలివరీ' : 'Table / shop QR orders, menu, delivery', '/desk/$id'),
-          tile('askodoxMyBusinessSales', Icons.insights_outlined, te ? 'అమ్మకాలు' : 'Sales',
-              te ? 'ఈరోజు, ఈ వారం, ఈ నెల లెక్కలు' : 'Today, this week, this month', '/desk/$id/sales'),
-          tile('askodoxMyBusinessOrderAlerts', Icons.notifications_active_outlined, te ? 'ఆర్డర్ అలర్ట్స్ & సిబ్బంది' : 'Order alerts & staff',
-              te ? 'ఏ ఆర్డర్ ఎవరికి వెళ్ళాలి, ఆటో-కన్ఫర్మ్' : 'Who is told about each order, auto-confirm', '/desk/$id/settings'),
-          tile('askodoxMyBusinessPost', Icons.campaign_outlined, te ? 'ఈ రోజు పోస్ట్' : "Today's post",
-              te ? 'ఫాలోవర్లకు ఒక చిత్రం' : 'One picture for your followers', '/shops/$id/post'),
-          tile('askodoxMyBusinessPage', Icons.storefront_outlined, te ? 'నా షాప్ పేజీ' : 'My shop page',
-              te ? 'కస్టమర్లకు కనిపించేది' : 'What customers see', '/shops/$id'),
-          tile('askodoxMyBusinessAccounts', Icons.qr_code_2, te ? 'నా QR / ఖాతాలు' : 'My QR / accounts',
-              te ? 'డబ్బు నేరుగా మీకే వస్తుంది' : 'Money comes straight to you', '/me/payment-methods'),
-          const SizedBox(height: 8),
-          if (_adding) ...[
-            const Divider(),
-            ..._createFields(te),
-            TextButton(onPressed: () => setState(() => _adding = false), child: Text(te ? 'వద్దు' : 'Cancel')),
-          ] else
-            OutlinedButton.icon(
-              key: const Key('askodoxMyBusinessAdd'),
-              onPressed: () => setState(() => _adding = true),
-              icon: const Icon(Icons.add_business_outlined),
-              label: Text(te ? 'ఇంకో బిజినెస్ చేర్చండి' : 'Add another business'),
-            ),
-        ],
-      );
+          ),
+        ),
+        AskodoxAskBar(
+          businessId: id,
+          page: 'hub',
+          hint: te ? '"ఈ రోజు ఎంత అమ్మాం?" "చికెన్ 65 ఆఫ్ చెయ్యి"' : '"How much did we sell today?"',
+        ),
+      ]);
     }
     return Scaffold(appBar: AppBar(title: Text(te ? 'నా బిజినెస్' : 'My business')), body: body);
   }

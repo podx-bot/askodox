@@ -67,49 +67,88 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
             builder: (sheet) => SafeArea(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * .8),
-                child: ListView(shrinkWrap: true, children: [
-                  if (askodoxGuidesOn)
-                  ListTile(
-                    key: const ValueKey('askodoxMenu-guide'),
-                    dense: true,
-                    leading: const Icon(Icons.assistant_navigation),
-                    title: Text(te ? 'స్క్రీన్ గైడ్ -- ఎక్కడ నొక్కాలో చూపిస్తాను' : 'Screen Guide -- where to tap'),
-                    onTap: () => Navigator.pop(sheet, askodoxGuideMenuValue),
-                  ),
-                  ListTile(
+                // Owner 2026-11-18: the menu as coloured buttons in 3 groups (same look as the business pages).
+                child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(14, 0, 14, 14), children: [
+                  FilledButton.icon(
                     key: const ValueKey('askodoxMenu-newchat'),
-                    dense: true,
-                    leading: const Icon(Icons.add_comment_outlined),
-                    title: Text(te ? 'కొత్త చాట్' : 'New chat'),
-                    onTap: () => Navigator.pop(sheet, askodoxNewChatMenuValue),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF5B2A9E),
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                    onPressed: () => Navigator.pop(sheet, askodoxNewChatMenuValue),
+                    icon: const Icon(Icons.add_comment_outlined),
+                    label: Text(te ? 'కొత్త చాట్ — ఏదైనా అడగండి' : 'New chat — ask anything'),
                   ),
-                  ListTile(
-                    key: const ValueKey('askodoxMenu-settings'),
-                    dense: true,
-                    leading: const Icon(Icons.settings_outlined),
-                    title: Text(te ? 'సెట్టింగ్స్ — లొకేషన్, వాయిస్, నోటిఫికేషన్స్, గోప్యత' : 'Settings — location, voice, notifications, privacy'),
-                    onTap: () => Navigator.pop(sheet, askodoxSettingsMenuValue),
-                  ),
-                  // Phase 1 build: Phase 2 places (business, listings, rides...) are not offered.
-                  for (final e in askodoxHeaderMenuEntries.where((e) => askodoxRouteShownNow(e.route)))
-                    ListTile(
-                      key: ValueKey('askodoxMenu-${e.key}'),
-                      dense: true,
-                      leading: Icon(e.icon),
-                      title: Text(te ? e.te : e.en),
-                      onTap: () => Navigator.pop(sheet, e.route),
-                    ),
-                  if (signedIn) ...[
-                    const Divider(height: 8),
-                    ListTile(
-                      key: const ValueKey('askodoxMenu-signout'),
-                      dense: true,
-                      leading: const Icon(Icons.logout_rounded, color: Color(0xFFB42318)),
-                      title: Text(te ? 'లాగ్ అవుట్' : 'Logout',
-                          style: const TextStyle(color: Color(0xFFB42318), fontWeight: FontWeight.w700)),
-                      onTap: () => Navigator.pop(sheet, askodoxSignOutMenuValue),
-                    ),
-                  ],
+                  for (final (title, entries) in [
+                    (te ? 'నా బిజినెస్' : 'My business', [
+                      for (final e in askodoxHeaderMenuEntries
+                          .where((e) => askodoxRouteShownNow(e.route) && const {'business', 'listings', 'enquiries'}.contains(e.key)))
+                        (ValueKey('askodoxMenu-${e.key}'), e.icon, te ? e.te : e.en, e.route, const Color(0xFFFFF1E3), const Color(0xFFB45309)),
+                      (const ValueKey('askodoxMenu-mybusiness'), Icons.storefront_outlined, te ? 'నా షాప్ / బిజినెస్' : 'My shop / business',
+                          '/me/business', const Color(0xFFFFF1E3), const Color(0xFFB45309)),
+                    ]),
+                    (te ? 'నేను కొనేవి' : 'What I buy', [
+                      for (final e in askodoxHeaderMenuEntries
+                          .where((e) => askodoxRouteShownNow(e.route) && const {'orders', 'saved', 'mobility'}.contains(e.key)))
+                        (ValueKey('askodoxMenu-${e.key}'), e.icon, te ? e.te : e.en, e.route, const Color(0xFFE8EEFB), const Color(0xFF1E3FA0)),
+                    ]),
+                    (te ? 'నా ఖాతా' : 'My account', [
+                      for (final e in askodoxHeaderMenuEntries.where((e) => askodoxRouteShownNow(e.route) && e.key == 'more'))
+                        (ValueKey('askodoxMenu-${e.key}'), e.icon, te ? e.te : e.en, e.route, const Color(0xFFF1F2F4), const Color(0xFF374151)),
+                      (const ValueKey('askodoxMenu-settings'), Icons.settings_outlined, te ? 'సెట్టింగ్స్' : 'Settings',
+                          askodoxSettingsMenuValue, const Color(0xFFF1F2F4), const Color(0xFF374151)),
+                      if (askodoxGuidesOn)
+                        (const ValueKey('askodoxMenu-guide'), Icons.assistant_navigation, te ? 'స్క్రీన్ గైడ్' : 'Screen Guide',
+                            askodoxGuideMenuValue, const Color(0xFFE3F4F6), const Color(0xFF0E6A84)),
+                      if (signedIn)
+                        (const ValueKey('askodoxMenu-signout'), Icons.logout_rounded, te ? 'లాగ్ అవుట్' : 'Logout',
+                            askodoxSignOutMenuValue, const Color(0xFFFDECEC), const Color(0xFFB42318)),
+                    ]),
+                  ])
+                    if (entries.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 14, 2, 6),
+                        child: Text(title,
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF4B5563))),
+                      ),
+                      LayoutBuilder(builder: (context, box) {
+                        final w = (box.maxWidth - 8) / 2;
+                        return Wrap(spacing: 8, runSpacing: 8, children: [
+                          for (final (key, icon, label, value, bg, fg) in entries)
+                            SizedBox(
+                              width: w,
+                              child: Material(
+                                color: bg,
+                                borderRadius: BorderRadius.circular(14),
+                                child: InkWell(
+                                  key: key,
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => Navigator.pop(sheet, value),
+                                  child: Container(
+                                    constraints: const BoxConstraints(minHeight: 56),
+                                    padding: const EdgeInsets.all(10),
+                                    child: Row(children: [
+                                      Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(9)),
+                                        child: Icon(icon, color: fg, size: 18),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(label,
+                                            maxLines: 2,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF16203F))),
+                                      ),
+                                    ]),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ]);
+                      }),
+                    ],
                 ]),
               ),
             ),

@@ -256,10 +256,58 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ]),
   '/me/business': _H('My business', 'నా బిజినెస్', [
     'First time: type your business name and choose your State.',
-    'Then: fill your details, make a bill, show the QR, and post one picture a day for followers.',
+    'Then everything lives in 6 coloured groups: Orders, Bills & money, Menu & items, Staff, Customers & shop page, Settings.',
+    'The three big buttons are the every-day ones: make a bill, orders, show the QR.',
+    'Tap the shop card to switch shop or open / pause / close it. Or say what to do in the ASK bar at the bottom.',
   ], [
     'మొదటిసారి: మీ బిజినెస్ పేరు రాసి, రాష్ట్రం ఎంచుకోండి.',
-    'తర్వాత: వివరాలు నింపండి, బిల్లు చేయండి, QR చూపండి, ఫాలోవర్లకు రోజుకు ఒక చిత్రం పోస్ట్ చేయండి.',
+    'తర్వాత అన్నీ 6 రంగుల విభాగాల్లో: ఆర్డర్లు, బిల్లులు & డబ్బు, మెనూ & ఐటమ్స్, సిబ్బంది, కస్టమర్లు & షాప్ పేజీ, సెట్టింగ్స్.',
+    'మూడు పెద్ద బటన్లు రోజూ వాడేవి: బిల్లు చేయి, ఆర్డర్లు, QR చూపు.',
+    'షాప్ కార్డ్ నొక్కితే షాప్ మార్చవచ్చు, తెరవ / ఆపవచ్చు. లేదా కింద ASK బార్‌లో ఏం చేయాలో చెప్పండి.',
+  ]),
+  '/biz/:id': _H('My business', 'నా బిజినెస్', [
+    'Today at the top, then the every-day buttons, then the 6 groups.',
+    'Say anything in the ASK bar: "how much did we sell today?", "chicken 65 off".',
+  ], [
+    'పైన ఈ రోజు లెక్క, తర్వాత రోజూ వాడే బటన్లు, తర్వాత 6 విభాగాలు.',
+    'ASK బార్‌లో ఏదైనా చెప్పండి: "ఈ రోజు ఎంత అమ్మాం?", "చికెన్ 65 ఆఫ్ చెయ్యి".',
+  ]),
+  '/biz/:id/:group': _H('Business group', 'బిజినెస్ విభాగం', [
+    'The path at the top shows where you are. Today\'s numbers first.',
+    '"Every day" buttons first, "Set once" buttons after, history at the bottom.',
+    'Say what to do in the ASK bar — a change is shown first and happens only after ✓.',
+  ], [
+    'పైన దారి మీరు ఎక్కడ ఉన్నారో చూపిస్తుంది. ముందు ఈ రోజు అంకెలు.',
+    'ముందు "రోజూ వాడేవి" బటన్లు, తర్వాత "ఒకసారి సెట్ చేసేవి", కింద చరిత్ర.',
+    'ASK బార్‌లో ఏం చేయాలో చెప్పండి — మార్పు ముందు చూపించి, ✓ నొక్కాకే చేస్తుంది.',
+  ]),
+  '/biz/:id/menu': _H('Menu & items', 'మెనూ & ఐటమ్స్', [
+    'Add an item, read a menu photo, sort with AI, or switch off what ran out today.',
+    'Search finds an item by name or number in every section. Tap a section to see its items.',
+  ], [
+    'ఐటమ్ చేర్చండి, మెనూ ఫోటో చదివించండి, AI తో సర్దండి, లేదా అయిపోయినవి ఆఫ్ చేయండి.',
+    'వెతుకుడు అన్ని విభాగాల్లో పేరు / నంబర్‌తో వెతుకుతుంది. విభాగం నొక్కితే దాని ఐటమ్స్.',
+  ]),
+  '/biz/:id/menu/sort': _H('Sort with AI', 'AI తో సర్దు', [
+    'AI reads the item names in parts at the same time — it can take a minute or two.',
+    'Open a section to move an item. Nothing changes until you tap Save.',
+  ], [
+    'AI ఐటమ్ పేర్లను భాగాలుగా ఒకేసారి చదువుతుంది — 1–2 నిమిషాలు పట్టవచ్చు.',
+    'విభాగం తెరిచి ఐటమ్ మార్చవచ్చు. సేవ్ నొక్కే వరకు ఏదీ మారదు.',
+  ]),
+  '/biz/:id/menu/section/:name': _H('One section', 'ఒక విభాగం', [
+    'Each item: photo, price, how many sold today, and the switch for today.',
+    'Use the chips to see only veg, non-veg, what is off, or the most sold.',
+  ], [
+    'ప్రతి ఐటమ్: ఫోటో, ధర, ఈ రోజు ఎన్ని అమ్మాం, ఈ రోజు స్విచ్.',
+    'చిప్స్‌తో వెజ్, నాన్-వెజ్, లేనివి, ఎక్కువ అమ్మినవి మాత్రమే చూడండి.',
+  ]),
+  '/biz/:id/menu/item/:pid': _H('One item', 'ఒక ఐటమ్', [
+    'Tap a button to change the price, today\'s switch, the veg mark or the section.',
+    'GST, HSN, stock and the photo are under "GST, photo & details".',
+  ], [
+    'ధర, ఈ రోజు స్విచ్, వెజ్ గుర్తు, విభాగం మార్చడానికి బటన్ నొక్కండి.',
+    'GST, HSN, స్టాక్, ఫోటో "GST, ఫోటో & వివరాలు" లో.',
   ]),
   '/me/business/:id/profile': _H('Business details', 'బిజినెస్ వివరాలు', [
     'Fill the four ★ boxes: what you sell, about, address, open hours.',

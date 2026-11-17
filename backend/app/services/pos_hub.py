@@ -1,0 +1,297 @@
+"""The ONE business hub (owner 2026-11-18): today's numbers for the 6 group pages and the ASK bar that every page carries.
+
+The ASK bar turns a sentence ("chicken 65 off cheyyi", "rajesh baaki entha?", "menu sardu") into ONE of a fixed catalogue
+of actions. Reading the sentence is the model's job; what may happen is decided here:
+
+- ``open``     -> the app opens that page (never changes anything)
+- ``answer``   -> a reply built ONLY from the shop's own numbers below (the model never makes numbers up)
+- a change     -> returned as ``confirm`` with a one-line summary; nothing changes until the person taps ✓
+                 (``/ask/confirm`` runs it as that person, with their own POS permissions).
+
+Every business type gets the same catalogue; the page names the app shows adapt to the type.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
+
+from app.services.pos_store import IST, PosError
+
+# Pages the ASK bar may open: key -> (English, Telugu). The app maps each key to its route.
+PAGES: Dict[str, tuple] = {
+    "hub": ("My business", "నా బిజినెస్"),
+    "orders": ("Orders", "ఆర్డర్లు"),
+    "orders.incoming": ("Incoming orders", "వచ్చిన ఆర్డర్లు"),
+    "orders.tables": ("Tables", "టేబుల్స్"),
+    "orders.calls": ("Table calls", "టేబుల్ పిలుపులు"),
+    "orders.kitchen": ("Kitchen", "వంటగది"),
+    "orders.delivery": ("Delivery / parcel", "డెలివరీ / పార్సిల్"),
+    "orders.qr": ("Table QR codes", "టేబుల్ QR కోడ్‌లు"),
+    "orders.alerts": ("Order alerts & who accepts", "ఆర్డర్ అలర్ట్స్"),
+    "money": ("Bills & money", "బిల్లులు & డబ్బు"),
+    "money.bill": ("Make a bill", "బిల్లు చేయి"),
+    "money.cashbook": ("Cashbook", "క్యాష్‌బుక్"),
+    "money.dues": ("Dues", "బాకీలు"),
+    "money.sound": ("Payment sound", "పేమెంట్ సౌండ్"),
+    "money.accounts": ("My QR / accounts", "నా QR / ఖాతాలు"),
+    "money.sales": ("Sales", "అమ్మకాలు"),
+    "money.history": ("Bill history", "బిల్లుల చరిత్ర"),
+    "money.gst": ("GST report", "GST రిపోర్ట్"),
+    "menu": ("Menu & items", "మెనూ & ఐటమ్స్"),
+    "menu.add": ("Add an item", "ఐటమ్ చేర్చు"),
+    "menu.photo": ("Menu photo", "మెనూ ఫోటో"),
+    "menu.sort": ("Sort with AI", "AI తో సర్దు"),
+    "menu.today": ("Available today", "ఈ రోజు ఉన్నవి"),
+    "staff": ("Staff & attendance", "సిబ్బంది & హాజరు"),
+    "staff.attendance": ("Attendance", "హాజరు"),
+    "staff.salary": ("Salary & advance", "జీతాలు & అడ్వాన్స్"),
+    "staff.tasks": ("Tasks", "పనులు"),
+    "staff.add": ("Add staff", "సిబ్బందిని చేర్చు"),
+    "customers": ("Customers & shop page", "కస్టమర్లు & షాప్ పేజీ"),
+    "customers.page": ("My shop page", "నా షాప్ పేజీ"),
+    "customers.reviews": ("Reviews", "రివ్యూలు"),
+    "customers.post": ("Today's post", "ఈ రోజు పోస్ట్"),
+    "customers.welcome": ("Welcome / thanks", "స్వాగతం / ధన్యవాదాలు"),
+    "customers.list": ("Customer list", "కస్టమర్ల లిస్ట్"),
+    "settings": ("Settings", "సెట్టింగ్స్"),
+    "settings.details": ("Business details", "బిజినెస్ వివరాలు"),
+    "settings.gst": ("GST", "GST"),
+    "settings.printer": ("Printer", "ప్రింటర్"),
+    "reports": ("Reports", "రిపోర్ట్స్"),
+}
+
+# Changes the ASK bar may PROPOSE (each runs only after the person's ✓).
+CHANGES = ("item_off", "item_on", "item_price", "menu_sort")
+
+PROMPT = (
+    "You read ONE sentence a shop owner or staff said in any language (Telugu, English, mixed) inside their business "
+    "app, and pick ONE action. Return ONLY JSON {\"action\": string, \"page\": string, \"item\": string, "
+    "\"price\": number, \"question\": string}.\n"
+    "action is one of: open (they want to see a page), answer (they ask a question about today: sales, dues, orders, "
+    "payments, staff), item_off (an item is finished / not available today), item_on (an item is available again), "
+    "item_price (change an item's price; price in rupees), menu_sort (arrange / sort / organise the menu into "
+    "sections), unknown.\n"
+    "page = one key from this list when action is open (else \"\"): {pages}\n"
+    "item = the item name exactly as said (for item_* actions), else \"\". question = the question in short English "
+    "for answer, else \"\".\nThe person is on the page: {here}.\nSentence: {text}"
+)
+
+
+def _today() -> str:
+    return datetime.now(IST).strftime("%Y-%m-%d")
+
+
+def _paise(totals: str) -> int:
+    try:
+        return int(json.loads(totals or "{}").get("grand_total_paise") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def summary(conn, business_id: str) -> Dict[str, Any]:
+    """Today's numbers for the hub + group pages. Each number is read on its own: a missing table gives 0, never an error."""
+    today = _today()
+    out: Dict[str, Any] = {"date": today}
+
+    def safe(key: str, fn: Callable[[], Any], default: Any = 0) -> None:
+        try:
+            out[key] = fn()
+        except Exception:  # a shop without that feature yet
+            out[key] = default
+
+    def sales() -> Dict[str, int]:
+        rows = conn.execute("SELECT totals, balance_paise, status FROM pos_invoices WHERE business_id = ? AND local_date = ?"
+                            " AND doc_kind = 'invoice'", (business_id, today)).fetchall()
+        live = [r for r in rows if r["status"] != "cancelled"]
+        return {"paise": sum(_paise(r["totals"]) for r in live), "bills": len(live)}
+
+    def split() -> Dict[str, int]:
+        cash = online = 0
+        for r in conn.execute("SELECT method, amount_paise, kind FROM pos_payments WHERE business_id = ? AND local_date = ?",
+                              (business_id, today)):
+            if r["kind"] in ("refund",):
+                continue
+            if r["method"] == "cash":
+                cash += r["amount_paise"]
+            else:
+                online += r["amount_paise"]
+        return {"cash_paise": cash, "online_paise": online}
+
+    def dues() -> Dict[str, int]:
+        row = conn.execute("SELECT COALESCE(SUM(balance_paise), 0) AS d, COUNT(DISTINCT customer_id) AS n FROM pos_invoices"
+                           " WHERE business_id = ? AND status != 'cancelled' AND balance_paise > 0", (business_id,)).fetchone()
+        return {"paise": int(row["d"] or 0), "people": int(row["n"] or 0)}
+
+    def orders() -> Dict[str, int]:
+        rows = conn.execute("SELECT stage, placed_at FROM pos_desk_orders WHERE business_id = ? AND placed_at >= ?",
+                            (business_id, (datetime.now(IST) - timedelta(hours=20)).astimezone().isoformat()[:10])).fetchall()
+        return {"new": sum(1 for r in rows if r["stage"] == "placed"),
+                "cooking": sum(1 for r in rows if r["stage"] in ("accepted", "preparing")),
+                "done": sum(1 for r in rows if r["stage"] in ("served", "handed", "delivered", "done"))}
+
+    def calls() -> int:
+        return int(conn.execute("SELECT COUNT(*) AS n FROM pos_desk_requests WHERE business_id = ? AND status = 'open'",
+                                (business_id,)).fetchone()["n"])
+
+    def sounds() -> int:
+        return int(conn.execute("SELECT COUNT(*) AS n FROM pos_payment_events WHERE business_id = ? AND test = 0"
+                                " AND substr(received_at, 1, 10) = ?", (business_id, today)).fetchone()["n"])
+
+    def staff() -> int:
+        return int(conn.execute("SELECT COUNT(*) AS n FROM pos_members WHERE business_id = ? AND active = 1 AND role != 'owner'",
+                                (business_id,)).fetchone()["n"])
+
+    def menu() -> Dict[str, int]:
+        rows = conn.execute("SELECT menu_group FROM pos_products WHERE business_id = ? AND active = 1", (business_id,)).fetchall()
+        groups = {str(r["menu_group"] or "").strip() for r in rows} - {""}
+        return {"items": len(rows), "sections": len(groups),
+                "no_section": sum(1 for r in rows if not str(r["menu_group"] or "").strip())}
+
+    def reviews() -> Dict[str, Any]:
+        row = conn.execute("SELECT COUNT(*) AS n, AVG(stars) AS a FROM pos_reviews WHERE business_id = ? AND status = 'shown'",
+                           (business_id,)).fetchone()
+        unanswered = conn.execute("SELECT COUNT(*) AS n FROM pos_reviews WHERE business_id = ? AND status = 'shown'"
+                                  " AND (reply IS NULL OR reply = '')", (business_id,)).fetchone()
+        return {"count": int(row["n"] or 0), "average": round(float(row["a"]), 1) if row["a"] else None,
+                "unanswered": int(unanswered["n"] or 0)}
+
+    safe("sales", sales, {"paise": 0, "bills": 0})
+    safe("split", split, {"cash_paise": 0, "online_paise": 0})
+    safe("dues", dues, {"paise": 0, "people": 0})
+    safe("orders", orders, {"new": 0, "cooking": 0, "done": 0})
+    safe("calls", calls)
+    safe("sounds", sounds)
+    safe("staff", staff)
+    safe("menu", menu, {"items": 0, "sections": 0, "no_section": 0})
+    safe("reviews", reviews, {"count": 0, "average": None, "unanswered": 0})
+    return out
+
+
+def _rupees(paise: int) -> str:
+    rupees = paise / 100
+    return f"₹{rupees:,.0f}" if paise % 100 == 0 else f"₹{rupees:,.2f}"
+
+
+def answer_text(numbers: Dict[str, Any], te: bool) -> str:
+    """The reply to a question about today: only the shop's own numbers, in one or two short sentences."""
+    s, d, o = numbers.get("sales", {}), numbers.get("dues", {}), numbers.get("orders", {})
+    sp = numbers.get("split", {})
+    if te:
+        return (f"ఈ రోజు {s.get('bills', 0)} బిల్లులు, అమ్మకం {_rupees(int(s.get('paise', 0)))} "
+                f"(క్యాష్ {_rupees(int(sp.get('cash_paise', 0)))}, ఆన్‌లైన్ {_rupees(int(sp.get('online_paise', 0)))}). "
+                f"బాకీ మొత్తం {_rupees(int(d.get('paise', 0)))}, {d.get('people', 0)} మంది. "
+                f"కొత్త ఆర్డర్లు {o.get('new', 0)}, వంటలో {o.get('cooking', 0)}.")
+    return (f"Today {s.get('bills', 0)} bills, sales {_rupees(int(s.get('paise', 0)))} "
+            f"(cash {_rupees(int(sp.get('cash_paise', 0)))}, online {_rupees(int(sp.get('online_paise', 0)))}). "
+            f"Dues {_rupees(int(d.get('paise', 0)))} from {d.get('people', 0)} people. "
+            f"New orders {o.get('new', 0)}, cooking {o.get('cooking', 0)}.")
+
+
+def _parse(raw: str) -> Dict[str, Any]:
+    match = re.search(r"\{.*\}", raw or "", re.S)
+    if not match:
+        return {}
+    try:
+        data = json.loads(match.group(0))
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9ఀ-౿]+", "", str(text or "").lower())
+
+
+def find_item(items: List[Dict[str, Any]], said: str) -> Optional[Dict[str, Any]]:
+    """The menu item the person named: exact, then contained, then the most shared words. None when unsure."""
+    want = _norm(said)
+    if not want:
+        return None
+    for it in items:
+        if _norm(it.get("name")) == want:
+            return it
+    contained = [it for it in items if want in _norm(it.get("name")) or _norm(it.get("name")) in want]
+    if len(contained) == 1:
+        return contained[0]
+    words = set(re.findall(r"[a-z0-9ఀ-౿]+", str(said).lower()))
+    best, score = None, 0
+    for it in items:
+        have = set(re.findall(r"[a-z0-9ఀ-౿]+", str(it.get("name") or "").lower()))
+        common = len(words & have)
+        if common > score:
+            best, score = it, common
+        elif common == score and common:
+            best = None  # two equally good matches: ask rather than guess
+    return best if score else None
+
+
+def read(text: str, here: str, write_text: Callable[..., str]) -> Dict[str, Any]:
+    prompt = PROMPT.replace("{pages}", ", ".join(PAGES)).replace("{here}", here or "hub").replace("{text}", text[:400])
+    raw = write_text(prompt, max_tokens=300)
+    data = _parse(raw or "")
+    action = str(data.get("action") or "unknown")
+    if action not in ("open", "answer", "unknown") + CHANGES:
+        action = "unknown"
+    page = str(data.get("page") or "")
+    if action == "open" and page not in PAGES:
+        action = "unknown"
+    price = data.get("price")
+    try:
+        price = float(price) if price not in (None, "") else None
+    except (TypeError, ValueError):
+        price = None
+    return {"action": action, "page": page, "item": str(data.get("item") or "")[:80], "price": price,
+            "question": str(data.get("question") or "")[:200]}
+
+
+def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str, Any], te: bool) -> Dict[str, Any]:
+    """Intent -> what the app shows: a reply, a page to open and/or ONE change waiting for ✓."""
+    action = intent["action"]
+    if action == "open":
+        en, tel = PAGES[intent["page"]]
+        return {"reply": f"{tel} తెరుస్తున్నాను." if te else f"Opening {en}.", "open": intent["page"]}
+    if action == "answer":
+        return {"reply": answer_text(numbers, te), "open": None}
+    if action == "menu_sort":
+        return {"reply": "మెనూని AI తో సర్దుతాను — ముందు చూపించి, మీరు ఓకే అంటేనే సేవ్." if te
+                else "I'll sort the menu with AI — you see it first, nothing saves until you say OK.", "open": "menu.sort"}
+    if action in ("item_off", "item_on", "item_price"):
+        item = find_item(items, intent["item"])
+        if item is None:
+            return {"reply": (f"\"{intent['item']}\" అనే ఐటమ్ మెనూలో కనబడలేదు. మెనూ తెరుస్తున్నాను." if te
+                              else f"I could not find \"{intent['item']}\" in the menu. Opening the menu."), "open": "menu"}
+        name = item["name"]
+        if action == "item_price":
+            if not intent.get("price") or intent["price"] <= 0:
+                return {"reply": f"{name} కి ఏ ధర పెట్టాలి?" if te else f"What price for {name}?", "open": None}
+            paise = int(round(intent["price"] * 100))
+            summary_text = (f"{name} ధర {_rupees(int(item.get('price_paise') or 0))} → {_rupees(paise)}" if te
+                            else f"{name}: {_rupees(int(item.get('price_paise') or 0))} → {_rupees(paise)}")
+            return {"reply": summary_text, "confirm": {"action": "item_price", "product_id": item["id"],
+                                                       "price_paise": paise, "summary": summary_text}}
+        on = action == "item_on"
+        summary_text = (f"{name} — ఈ రోజు {'ఉంది (ఆన్)' if on else 'లేదు (ఆఫ్)'}" if te
+                        else f"{name} — {'available (on)' if on else 'not available today (off)'}")
+        return {"reply": summary_text, "confirm": {"action": action, "product_id": item["id"], "summary": summary_text}}
+    return {"reply": ("అర్థం కాలేదు. ఇలా చెప్పండి: \"చికెన్ 65 ఆఫ్ చెయ్యి\", \"ఈ రోజు ఎంత అమ్మాం?\", \"బాకీలు చూపించు\"." if te
+                      else "I didn't get that. Try: \"turn chicken 65 off\", \"how much did we sell today?\", \"show dues\"."),
+            "open": None}
+
+
+def run(change: Dict[str, Any], *, store, desk, business_id: str, user: str) -> Dict[str, Any]:
+    """Runs ONE confirmed change as the person who confirmed it (their own POS permissions apply)."""
+    action = change.get("action")
+    product_id = str(change.get("product_id") or "")
+    if action in ("item_off", "item_on"):
+        desk.set_availability(business_id, user, product_id, action == "item_on")
+        return {"done": True}
+    if action == "item_price":
+        paise = int(change.get("price_paise") or 0)
+        if paise <= 0:
+            raise PosError(400, "price", "A price is needed.")
+        store.update_product(business_id, user, product_id, {"price_paise": paise})
+        return {"done": True}
+    raise PosError(400, "action", "This change cannot run from the ASK bar.")
