@@ -557,3 +557,11 @@ def test_console_page_is_served_without_data_or_secrets(api):
     assert page.status_code == 200 and "ASKODOX Console" in page.text
     assert page.headers["x-frame-options"] == "DENY" and page.headers["cache-control"] == "no-store"
     assert OWNER_KEY not in page.text
+
+
+def test_console_staff_drawer_can_deactivate_and_reactivate(api):
+    """Owner 2026-11-17: a duplicate staff entry had no way to be switched off from the console."""
+    client, _ = api
+    page = client.get("/admin/console").text
+    assert "function stActive(" in page and "Deactivate చేయండి" in page and "Activate చేయండి" in page
+    assert '"staff/"+id,"PATCH",{active:on,confirm:true' in page
