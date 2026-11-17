@@ -331,7 +331,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'కింద జీతం లెక్క: రోజులు × రేటు + OT − అడ్వాన్స్.',
   ]),
   '/biz/:id/staff/salary': _H('Salary', 'జీతాలు', [
-    'Everyone's salary this month, worked out from attendance.',
+    "Everyone's salary this month, worked out from attendance.",
     '"Mark given" writes it into the cashbook as salary.',
   ], [
     'హాజరు నుంచి ఈ నెల అందరి జీతం లెక్క.',
@@ -345,7 +345,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఆలస్యమైన పనులు ఎరుపులో, రాత్రి రిపోర్ట్‌లో కనిపిస్తాయి.',
   ]),
   '/biz/:id/staff/setup': _H('Attendance setup', 'హాజరు సెటప్', [
-    'Choose: each person's own phone, the shop phone, or both.',
+    "Choose: each person's own phone, the shop phone, or both.",
     'Set the start and end time, the minutes of lateness allowed and how near the shop counts.',
   ], [
     'ఎంచుకోండి: ప్రతి ఒక్కరి ఫోన్, షాప్ ఫోన్, లేదా రెండూ.',

@@ -662,7 +662,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
           for (final (i, c) in [
             ('${askodoxPosInt(counts['present'])}', te ? 'వచ్చారు' : 'Present', _green),
             ('${askodoxPosInt(counts['absent'])}', te ? 'రాలేదు' : 'Absent', _red),
-            ('${((askodoxPosInt(counts['ot_min'])) / 60).toStringAsFixed(1)}', te ? 'OT గం.' : 'OT h', _orange),
+            ((askodoxPosInt(counts['ot_min']) / 60).toStringAsFixed(1), te ? 'OT గం.' : 'OT h', _orange),
             (askodoxPaise(askodoxPosInt(d?['advance_paise'])), te ? 'అడ్వాన్స్' : 'Advance', _purple),
           ].indexed) ...[
             if (i > 0) const SizedBox(width: 6),

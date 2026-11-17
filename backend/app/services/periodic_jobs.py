@@ -64,6 +64,21 @@ def _crm_reminders(container: Any) -> Any:
     return {"due": len(due), "pushed": sent}
 
 
+def _night_reports(container: Any) -> Any:
+    """Each shop's day report, once per day, to the owner + people with the reports permission (pos_reports.py)."""
+    from app.services.pos_reports import PosReports
+    from app.services.pos_store import PosStore
+    from app.services.push_service import push_service
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    push = push_service(container)
+
+    def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+        push.notify(user_id, title=title, body=body, route=route, event_key=event_key)
+
+    return PosReports(store, notify=notify).run_night()
+
+
 def _availability(container: Any) -> Any:
     """"Tell me when it is available": new listings matching a buyer's watch -> one push each."""
     from app.api.routes.availability import store
@@ -91,4 +106,4 @@ def _owner_alerts(container: Any) -> Any:
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
-            ("owner_alerts", 900.0, _owner_alerts)]
+            ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports)]

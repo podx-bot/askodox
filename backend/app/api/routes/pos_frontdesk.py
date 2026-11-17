@@ -978,3 +978,35 @@ def task_add(business_id: str, body: TaskIn, request: Request) -> dict:
 @router.post("/businesses/{business_id}/tasks/{task_id}/done")
 def task_done(business_id: str, task_id: str, request: Request, undo: bool = False) -> dict:
     return _call(_att(request).task_done, business_id, _user(request, "tasks", 120), task_id, not undo)
+
+
+# ---------------------------------------------------------------- reports & analytics (owner 2026-11-18)
+class ReportSettingsIn(BaseModel):
+    night_push: Optional[bool] = None
+    send_time: Optional[str] = Field(default=None, max_length=5)
+
+
+def _reports(request: Request):
+    from app.services.pos_reports import PosReports
+
+    return PosReports(_store(request), notify=getattr(_desk(request), "notify", None))
+
+
+@router.get("/businesses/{business_id}/reports/day")
+def report_day(business_id: str, request: Request, date: str = "") -> dict:
+    return _call(_reports(request).day, business_id, _user(request, "reports", 120), date[:10])
+
+
+@router.get("/businesses/{business_id}/reports/range")
+def report_range(business_id: str, request: Request, days: int = 7) -> dict:
+    return _call(_reports(request).range, business_id, _user(request, "reports", 60), days)
+
+
+@router.get("/businesses/{business_id}/reports/settings")
+def report_settings(business_id: str, request: Request) -> dict:
+    return _call(_reports(request).settings, business_id, _user(request, "reports", 120))
+
+
+@router.put("/businesses/{business_id}/reports/settings")
+def report_settings_save(business_id: str, body: ReportSettingsIn, request: Request) -> dict:
+    return _call(_reports(request).save_settings, business_id, _user(request, "reports", 60), body.night_push, body.send_time)
