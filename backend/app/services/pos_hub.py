@@ -66,13 +66,16 @@ PAGES: Dict[str, tuple] = {
 }
 
 # Changes the ASK bar may PROPOSE (each runs only after the person's ✓).
-CHANGES = ("item_off", "item_on", "item_price", "menu_sort", "add_expense", "add_income", "staff_advance", "task_add")
+CHANGES = ("item_off", "item_on", "item_price", "menu_sort", "add_expense", "add_income", "staff_advance", "task_add",
+           "att_mark")
 OTHER = ("open", "answer", "report", "check_in", "unknown")
+WHEN = ("today", "yesterday", "week", "month")
+ATT_TE = {"P": "వచ్చారు", "A": "రాలేదు", "OT": "ఎక్కువ గంటలు", "leave": "సెలవు", "half": "సగం రోజు"}
 
 PROMPT = (
     "You read ONE sentence a shop owner or staff said in any language (Telugu, English, mixed) inside their business "
     "app, and pick ONE action. Return ONLY JSON {\"action\": string, \"page\": string, \"item\": string, "
-    "\"price\": number, \"question\": string, \"category\": string, \"note\": string, \"person\": string}.\n"
+    "\"price\": number, \"question\": string, \"category\": string, \"note\": string, \"person\": string, \"status\": string, \"when\": string}.\n"
     "action is one of: open (they want to see a page), answer (they ask a question about today: sales, dues, orders, "
     "payments, staff), item_off (an item is finished / not available today), item_on (an item is available again), "
     "item_price (change an item's price; price in rupees), menu_sort (arrange / sort / organise the menu into "
@@ -82,8 +85,10 @@ PROMPT = (
     "report (how the day / week went, problems, best or slow items, busy time, staff work, the night report), "
     "staff_advance (money given to a staff member in advance; person = their name, price = rupees), task_add (give a "
     "staff member a job to do; person = their name, note = the job in a few words), check_in (the speaker says they "
-    "came to work / are leaving), unknown (anything else, e.g. shopping, general talk, a question not about this "
+    "came to work / are leaving), att_mark (the owner marks ANOTHER person's attendance for today: person = name, "
+    "status = P present, A absent, OT extra hours (price = the hours), leave, half), unknown (anything else, e.g. shopping, general talk, a question not about this "
     "business).\n"
+    "when = today, yesterday, week or month (for report; else today).\n"
     "page = one key from this list when action is open (else \"\"): {pages}\n"
     "item = the item name exactly as said (for item_* actions), else \"\". question = the question in short English "
     "for answer, else \"\".\nThe person is on the page: {here}. When the page is chat (the app's main chat, where "
@@ -257,7 +262,9 @@ def read(text: str, here: str, write_text: Callable[..., str]) -> Dict[str, Any]
         price = None
     return {"action": action, "page": page, "item": str(data.get("item") or "")[:80], "price": price,
             "question": str(data.get("question") or "")[:200], "category": str(data.get("category") or "other")[:30],
-            "note": str(data.get("note") or "")[:120], "person": str(data.get("person") or "")[:60]}
+            "note": str(data.get("note") or "")[:120], "person": str(data.get("person") or "")[:60],
+            "status": str(data.get("status") or "")[:6],
+            "when": str(data.get("when") or "today") if str(data.get("when") or "today") in WHEN else "today"}
 
 
 def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str, Any], te: bool,
@@ -267,17 +274,33 @@ def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str,
     if action == "report":
         if not report:
             return {"reply": "రిపోర్ట్ తెరుస్తున్నాను." if te else "Opening the report.", "open": "reports"}
-        return {"reply": report.get("say_te" if te else "say_en") or "", "open": None, "link": "reports",
-                "mood": report.get("mood")}
+        text = report.get("say_te" if te else "say_en") or ""
+        first = (report.get("problems") or [None])[0]
+        if first:
+            text += ("\n💡 " + (first.get("do_te") if te else first.get("do_en")))
+        return {"reply": text, "open": None, "link": "reports", "mood": report.get("mood")}
     if action == "check_in":
         return {"reply": "హాజరు పేజీ తెరుస్తున్నాను — మీ ఫోన్ లాక్‌తో వేయండి." if te
                 else "Opening attendance — check in with your phone lock.", "open": "staff.checkin"}
-    if action in ("staff_advance", "task_add"):
+    if action in ("staff_advance", "task_add", "att_mark"):
         who = find_item(people or [], intent.get("person") or "")
         if who is None:
             return {"reply": (f"\"{intent.get('person') or ''}\" అనే సిబ్బంది కనబడలేదు. సిబ్బంది పేజీ తెరుస్తున్నాను." if te
                               else f"I could not find \"{intent.get('person') or ''}\" in your staff. Opening staff."),
                     "open": "staff"}
+        if action == "att_mark":
+            status = {"p": "P", "a": "A", "ot": "OT", "leave": "leave", "half": "half"}.get((intent.get("status") or "").lower())
+            if status is None:
+                return {"reply": f"{who['name']} — వచ్చారా, రాలేదా, సెలవా?" if te else f"{who['name']} — present, absent or leave?",
+                        "open": "staff"}
+            ot = int(round((intent.get("price") or 0) * 60)) if status == "OT" else 0
+            if status == "OT" and ot <= 0:
+                return {"reply": f"{who['name']} ఎన్ని గంటలు ఎక్కువ?" if te else f"How many extra hours for {who['name']}?", "open": None}
+            label = ATT_TE[status] if te else {"P": "present", "A": "absent", "OT": "overtime", "leave": "leave", "half": "half day"}[status]
+            text = (f"ఈ రోజు {who['name']} — {label}" + (f" ({ot // 60} గం.)" if ot else "") if te
+                    else f"Today {who['name']} — {label}" + (f" ({ot // 60} h)" if ot else ""))
+            return {"reply": text, "confirm": {"action": "att_mark", "ref": who["id"], "note": status,
+                                               "amount_paise": ot or None, "summary": text}}
         if action == "staff_advance":
             if not intent.get("price") or intent["price"] <= 0:
                 return {"reply": f"{who['name']} కి ఎంత అడ్వాన్స్?" if te else f"How much advance to {who['name']}?", "open": None}
@@ -333,6 +356,35 @@ def plan(intent: Dict[str, Any], items: List[Dict[str, Any]], numbers: Dict[str,
             "open": None}
 
 
+def range_say(r: Dict[str, Any], te: bool) -> Dict[str, Any]:
+    """A 7 / 30-day report in two or three spoken sentences (only the shop's own numbers)."""
+    days = r.get("days", 7)
+    best = r.get("best_day") or {}
+    top = (r.get("items_top") or [{}])[0].get("name") or ""
+    week_te = ["సోమ", "మంగళ", "బుధ", "గురు", "శుక్ర", "శని", "ఆది"]
+    week_en = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    wd = max(r.get("weekdays") or [{"weekday": 0, "avg_paise": 0}], key=lambda w: w["avg_paise"])
+    if te:
+        text = (f"గత {days} రోజుల్లో {r.get('bills', 0)} బిల్లులు, మొత్తం {_rupees(int(r.get('total_paise') or 0))}, "
+                f"రోజుకు సగటు {_rupees(int(r.get('avg_day_paise') or 0))}.")
+        if best:
+            text += f" ఎక్కువ అమ్మిన రోజు {best.get('date')} ({_rupees(int(best.get('paise') or 0))})."
+        if wd["avg_paise"]:
+            text += f" {week_te[wd['weekday']]}వారం ఎక్కువ అమ్ముతుంది."
+        if top:
+            text += f" ఎక్కువ అమ్ముడైనది {top}."
+    else:
+        text = (f"Last {days} days: {r.get('bills', 0)} bills, {_rupees(int(r.get('total_paise') or 0))} in all, "
+                f"{_rupees(int(r.get('avg_day_paise') or 0))} a day.")
+        if best:
+            text += f" Best day {best.get('date')} ({_rupees(int(best.get('paise') or 0))})."
+        if wd["avg_paise"]:
+            text += f" {week_en[wd['weekday']]} sells most."
+        if top:
+            text += f" Top item {top}."
+    return {"say_te": text, "say_en": text, "mood": None, "problems": []}
+
+
 def run(change: Dict[str, Any], *, store, desk, business_id: str, user: str) -> Dict[str, Any]:
     """Runs ONE confirmed change as the person who confirmed it (their own POS permissions apply)."""
     action = change.get("action")
@@ -352,11 +404,14 @@ def run(change: Dict[str, Any], *, store, desk, business_id: str, user: str) -> 
         return PosCashbook(store).add(business_id, user, {
             "kind": "expense" if action == "add_expense" else "income", "amount_paise": change.get("amount_paise"),
             "category": change.get("category") or "other", "note": change.get("note") or "", "source": "ask"})
-    if action in ("staff_advance", "task_add"):
+    if action in ("staff_advance", "task_add", "att_mark"):
         from app.services.pos_attendance import PosAttendance
 
         att = PosAttendance(store, notify=getattr(desk, "notify", None))
         ref = str(change.get("ref") or "")[:20]
+        if action == "att_mark":
+            return att.mark(business_id, user, ref, _today(), str(change.get("note") or ""),
+                            ot_min=int(change.get("amount_paise") or 0))
         if action == "staff_advance":
             return att.advance(business_id, user, ref, int(change.get("amount_paise") or 0), change.get("note") or "")
         return att.add_task(business_id, user, change.get("note") or "", ref)

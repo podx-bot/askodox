@@ -29,6 +29,7 @@ final askodoxBizRoutes = <GoRoute>[
   GoRoute(
       path: '/biz/:id/reports/settings', builder: (c, s) => AskodoxBizReportSettingsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff', builder: (c, s) => AskodoxBizStaffScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(path: '/biz/:id/staff/today', builder: (c, s) => AskodoxBizAttTodayScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/checkin', builder: (c, s) => AskodoxBizCheckInScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/kiosk', builder: (c, s) => AskodoxBizKioskScreen(businessId: s.pathParameters['id']!)),
   GoRoute(

@@ -5,6 +5,7 @@ Shop routes (floor staff, role-checked in the service): ``/api/pos/businesses/{i
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -804,11 +805,19 @@ def business_ask(business_id: str, body: BizAskIn, request: Request) -> dict:
         items = _call(_desk(request).menu_admin, business_id, user)["items"]
     people: List[Dict[str, Any]] = []
     report = None
-    if intent["action"] in ("staff_advance", "task_add"):
+    if intent["action"] in ("staff_advance", "task_add", "att_mark"):
         people = [{"id": p["ref"], "name": p["name"]} for p in _call(_att(request).today, business_id, user)["people"]]
     if intent["action"] == "report":
         try:
-            report = _reports(request).day(business_id, user)
+            when = intent.get("when") or "today"
+            if when in ("week", "month"):
+                report = pos_hub.range_say(_reports(request).range(business_id, user, 7 if when == "week" else 30),
+                                           body.lang == "te")
+            else:
+                from app.services.pos_store import IST
+
+                day = (datetime.now(IST) - timedelta(days=1)).strftime("%Y-%m-%d") if when == "yesterday" else ""
+                report = _reports(request).day(business_id, user, day)
         except Exception:
             report = None  # no reports permission: the page itself explains
     out = pos_hub.plan(intent, items, numbers, body.lang == "te", people=people, report=report)

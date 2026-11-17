@@ -92,3 +92,25 @@ def test_report_and_check_in_and_chat_unknown():
     assert "chat" in pos_hub.PROMPT
     intent = pos_hub.read("best phone under 15000", "chat", lambda p, max_tokens=0: json.dumps({"action": "unknown"}))
     assert intent["action"] == "unknown"
+
+
+def test_owner_marks_attendance_by_voice_after_confirm(env):  # noqa: F811
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    store.set_member(biz, OWNER, "9400000106", "waiter", label="Ravi")
+    people = [{"id": "0106", "name": "Ravi"}]
+    intent = pos_hub.read("ravi ee roju selavu", "chat",
+                          lambda p, max_tokens=0: json.dumps({"action": "att_mark", "person": "Ravi", "status": "leave"}))
+    plan = pos_hub.plan(intent, [], {}, te=True, people=people)
+    assert plan["confirm"]["action"] == "att_mark" and plan["confirm"]["note"] == "leave" and "సెలవు" in plan["reply"]
+    assert pos_hub.run(plan["confirm"], store=store, desk=desk, business_id=biz, user=OWNER)["ok"] is True
+    ot = pos_hub.plan({"action": "att_mark", "person": "ravi", "status": "OT", "price": 2}, [], {}, te=False, people=people)
+    assert ot["confirm"]["amount_paise"] == 120
+    ask = pos_hub.plan({"action": "att_mark", "person": "ravi", "status": "OT", "price": None}, [], {}, te=False, people=people)
+    assert "confirm" not in ask
+
+
+def test_week_report_in_words():
+    r = {"days": 7, "bills": 40, "total_paise": 2000000, "avg_day_paise": 285714, "best_day": {"date": "2026-11-16", "paise": 500000},
+         "weekdays": [{"weekday": 6, "avg_paise": 500000}, {"weekday": 0, "avg_paise": 100}], "items_top": [{"name": "Dosa"}]}
+    text = pos_hub.range_say(r, True)["say_te"]
+    assert "₹20,000" in text and "Dosa" in text and "ఆది" in text

@@ -339,6 +339,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ రోజు ఎవరు ఎప్పుడు వచ్చారు. పేరు నొక్కితే వారి నెల, జీతం, అడ్వాన్స్.',
     'హాజరు వేయి, పనులు, షాప్ ఫోన్ హాజరు, జీతాలు — పెద్ద బటన్లు.',
   ]),
+  '/biz/:id/staff/today': _H("Today's attendance", 'ఈ రోజు హాజరు', [
+    'Everyone today: when they came, how (phone lock / photo / owner), and whether they were at the shop.',
+    'One tap on P, A, OT or Leave changes today for that person.',
+  ], [
+    'ఈ రోజు అందరూ: ఎప్పుడు వచ్చారు, ఎలా వేశారు (ఫోన్ లాక్ / ఫోటో / ఓనర్), షాప్ దగ్గర ఉన్నారా.',
+    'P, A, OT, సెలవు — ఒక్క నొక్కుతో ఆ వ్యక్తి ఈ రోజు మారుతుంది.',
+  ]),
   '/biz/:id/staff/checkin': _H('Check in / out', 'హాజరు వేయి', [
     'Tap "I am in": your phone asks for its own fingerprint / face / PIN, then saves the time and how far you are from the shop.',
     'No phone lock? It takes a selfie instead. Tap "Leaving" when you go.',

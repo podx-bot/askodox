@@ -109,6 +109,8 @@ class AskodoxBizStaffScreen extends ConsumerWidget {
               tile('askodoxStaffTasks', Icons.task_alt, te ? 'పనులు' : 'Tasks', te ? 'ఎవరికి ఏ పని' : 'Who does what', 'purple',
                   '/biz/$businessId/staff/tasks'),
               if (boss) ...[
+                tile('askodoxStaffToday', Icons.how_to_reg_outlined, te ? 'ఈ రోజు హాజరు' : "Today's attendance",
+                    te ? 'ఒక్క నొక్కుతో P / A / OT / సెలవు' : 'One tap P / A / OT / leave', 'green', '/biz/$businessId/staff/today'),
                 tile('askodoxStaffKiosk', Icons.camera_front_outlined, te ? 'షాప్ ఫోన్ హాజరు' : 'Shop phone attendance',
                     te ? 'ఫోన్ లేనివారికి — ఫోటోతో' : 'For people without a phone — with a photo', 'teal',
                     '/biz/$businessId/staff/kiosk'),
@@ -1214,5 +1216,152 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
     );
     c.dispose();
     return int.tryParse((v ?? '').trim());
+  }
+}
+
+/// `/biz/:id/staff/today` -- everyone today: when they came, how (phone lock / photo / owner), near the shop or not,
+/// and ONE tap to set P / A / OT / leave.
+class AskodoxBizAttTodayScreen extends ConsumerWidget {
+  const AskodoxBizAttTodayScreen({super.key, required this.businessId});
+  final String businessId;
+
+  static String _today() {
+    final n = DateTime.now();
+    return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final te = askodoxPosTe(context);
+    final data = ref.watch(askodoxAttTodayProvider(businessId));
+    Future<void> mark(String ref0, String status) async {
+      var ot = 0;
+      if (status == 'OT') {
+        final c = TextEditingController(text: '2');
+        final v = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(te ? 'ఎన్ని గంటలు ఎక్కువ?' : 'How many extra hours?'),
+            content: TextField(controller: c, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+            actions: [FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('OK'))],
+          ),
+        );
+        c.dispose();
+        final hours = double.tryParse((v ?? '').trim());
+        if (hours == null || hours <= 0) return;
+        ot = (hours * 60).round();
+      }
+      try {
+        await ref.read(askodoxPosRepositoryProvider).attendanceMark(businessId, ref0, _today(), status, otMin: ot);
+        ref.invalidate(askodoxAttTodayProvider(businessId));
+      } on AskodoxPosException catch (e) {
+        if (context.mounted) askodoxPosSnack(context, e.message(te));
+      }
+    }
+
+    return AskodoxBizScaffold(
+      key: const Key('askodoxBizAttToday'),
+      businessId: businessId,
+      tone: askodoxBizTones['staff']!,
+      icon: Icons.how_to_reg_outlined,
+      title: te ? 'ఈ రోజు హాజరు' : "Today's attendance",
+      trail: [te ? 'సిబ్బంది & హాజరు' : 'Staff & attendance', te ? 'హాజరు' : 'Attendance'],
+      page: 'staff',
+      onRefresh: () async => ref.invalidate(askodoxAttTodayProvider(businessId)),
+      askHint: te ? '"రవి ఈ రోజు సెలవు" "ప్రసాద్ 2 గంటలు OT"' : '"Ravi is on leave today" "Prasad 2 hours OT"',
+      children: data.when(
+        loading: () => [const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))],
+        error: (e, _) => [AskodoxPosError(error: e, onRetry: () => ref.invalidate(askodoxAttTodayProvider(businessId)))],
+        data: (d) {
+          final people = askodoxPosList(d['people']);
+          final counts = askodoxPosMap(d['counts']);
+          return [
+            AskodoxBizStrip(cells: [
+              (te ? 'వచ్చారు' : 'Present', '${askodoxPosInt(counts['present'])}', _green),
+              (te ? 'రాలేదు' : 'Absent', '${(people.length - askodoxPosInt(counts['present'])).clamp(0, 999)}', _red),
+              (te ? 'ఆలస్యం' : 'Late', '${askodoxPosInt(counts['late'])}', _orange),
+            ]),
+            AskodoxBizSection(te ? 'ఎవరు ఎప్పుడు — ఎలా వేశారు, ఎక్కడ' : 'Who came when — how, and where'),
+            for (final p in people) _todayRow(context, p, te, mark),
+            const SizedBox(height: 6),
+            Text(te ? 'P = వచ్చారు · A = రాలేదు · OT = ఎక్కువ గంటలు · సె = సెలవు — రంగులతో, చదవకపోయినా అర్థమవుతుంది' : 'P present · A absent · OT overtime · L leave',
+                style: const TextStyle(fontSize: 11.5, color: _muted)),
+          ];
+        },
+      ),
+    );
+  }
+
+  Widget _todayRow(BuildContext context, AskodoxJson p, bool te, Future<void> Function(String, String) mark) {
+    final t = askodoxPosMap(p['today']);
+    final status = t.isEmpty ? '' : '${t['status']}';
+    final name = '${p['name']}'.isEmpty ? '••${p['ref']}' : '${p['name']}';
+    final how = switch ('${t['method'] ?? ''}') {
+      'device_lock' => te ? 'ఫోన్ లాక్ ✓' : 'Phone lock ✓',
+      'photo' || 'kiosk' => te ? 'ఫోటో ✓' : 'Photo ✓',
+      'owner' => te ? 'ఓనర్ రాశారు' : 'By owner',
+      _ => '',
+    };
+    return Card(
+      key: Key('askodoxAttTodayRow-${p['ref']}'),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            CircleAvatar(
+                radius: 16,
+                backgroundColor: const Color(0xFFF1EBFB),
+                child: Text(name.characters.first, style: const TextStyle(color: _purple, fontWeight: FontWeight.w900))),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$name · ${p['role']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                    [
+                      '${te ? 'వచ్చింది' : 'in'} ${_clock(t['in_at'])}',
+                      '${te ? 'వెళ్ళింది' : 'out'} ${_clock(t['out_at'])}',
+                      if (how.isNotEmpty) how,
+                    ].join(' · '),
+                    style: const TextStyle(fontSize: 12, color: _muted)),
+              ]),
+            ),
+            if (t['distance_m'] != null)
+              _pill(t['far'] == true ? (te ? 'దూరంగా' : 'Far') : (te ? 'షాప్ దగ్గర' : 'At shop'), t['far'] == true ? _red : _green),
+          ]),
+          if (askodoxPosInt(t['late_min']) > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: _pill(te ? 'ఆలస్యం ${askodoxPosInt(t['late_min'])} ని.' : 'Late ${askodoxPosInt(t['late_min'])} min', _orange),
+            ),
+          const SizedBox(height: 8),
+          Row(children: [
+            for (final (s, short, color) in [
+              ('P', 'P', _green),
+              ('A', 'A', _red),
+              ('OT', 'OT', _orange),
+              ('leave', te ? 'సెలవు' : 'Leave', _purple),
+            ])
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: OutlinedButton(
+                    key: Key('askodoxAttToday-${p['ref']}-$s'),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: status == s ? color : null,
+                      foregroundColor: status == s ? Colors.white : color,
+                      side: BorderSide(color: color, width: 1.5),
+                      minimumSize: const Size.fromHeight(40),
+                      padding: EdgeInsets.zero,
+                    ),
+                    onPressed: () => mark('${p['ref']}', s),
+                    child: Text(short, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                ),
+              ),
+          ]),
+        ]),
+      ),
+    );
   }
 }
