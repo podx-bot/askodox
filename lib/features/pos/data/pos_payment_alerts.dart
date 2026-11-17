@@ -412,7 +412,7 @@ class AskodoxMyPhoneAlerts {
   /// Say the account's name in the voice ("HDFC current: Rs 240 came").
   bool sayAccount = false;
 
-  /// One money history (owner 2026-11-17): payment row id -> the bill it paid ("mybill:<token>"), joined by a tap.
+  /// One money history (owner 2026-11-17): payment row id -> the bill it paid ("mybill:TOKEN"), joined by a tap.
   Map<String, String> links = {};
 
   /// The person's category for one row / for every payment to one payee.

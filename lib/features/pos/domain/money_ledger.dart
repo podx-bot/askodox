@@ -28,7 +28,7 @@ class AskodoxMoneyItem {
     this.raw = const {},
   });
 
-  /// phone:<local id> | mybill:<token> | shopbill:<invoice id> | shopalert:<event id> | due:<id>
+  /// phone:LOCAL_ID | mybill:TOKEN | shopbill:INVOICE_ID | shopalert:EVENT_ID | due:ID
   final String id;
 
   /// payment | bill | due
@@ -52,7 +52,7 @@ class AskodoxMoneyItem {
   final bool pending;
   final String category;
 
-  /// The other half of a join ("mybill:<token>" on a payment, "phone:<id>" on a bill).
+  /// The other half of a join ("mybill:TOKEN" on a payment, "phone:ID" on a bill).
   final String linkedTo;
   final Map<String, Object?> raw;
 }
@@ -344,7 +344,7 @@ class AskodoxDue {
   /// The FIRST / reference due date.
   final DateTime date;
 
-  /// once | monthly | quarterly | yearly | days:<n> (e.g. days:84 for a phone recharge)
+  /// once | monthly | quarterly | yearly | days:N (e.g. days:84 for a phone recharge)
   final String repeat;
   final String category;
 

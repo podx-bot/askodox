@@ -7000,6 +7000,59 @@
           "change": "built on the owner's request (code ready, not phone verified)"
         }
       ]
+    },
+    {
+      "id": "money_history_all_in_one",
+      "name": "My money: payments, bills, accounts and upcoming payments in one place",
+      "purpose": "One history for the person's own money and, separately, each shop's money: phone payments (bank SMS / UPI apps), bills received (My bills), shop bills and Razorpay alerts; joins a payment to a bill only on the person's tap; categories; month view; upcoming payments (EMI, current bill, rent, recharge) said aloud 2 days before and on the day.",
+      "expected_behavior": "Own and shop money never mixed; a join needs a tap; a my-bill join only TELLS the shop (never marks it paid); a shop join settles through the existing bill settle; balances only from a bank SMS; due reminders and EMI debits are offered, never added by themselves.",
+      "roles": [
+        "any signed-in user",
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "domains": [
+        "payments",
+        "pos"
+      ],
+      "api": [],
+      "ui": {
+        "routes": [
+          "/money"
+        ],
+        "keys": [
+          "askodoxMoney",
+          "askodoxMoneyTotals",
+          "askodoxMoneyDues",
+          "askodoxMoneyMonth",
+          "askodoxDuesScreen",
+          "askodoxDueAdd",
+          "askodoxPaymentsHubMoney",
+          "askodoxMineOpenMoney",
+          "askodoxMineAccounts",
+          "askodoxMineAccountAdd",
+          "askodoxMineSayAccount"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/money_ledger_test.dart",
+          "test/features/pos/money_accounts_test.dart"
+        ]
+      },
+      "dependencies": [
+        "bills_send_history_my_bills"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-17",
+          "change": "built on the owner's design (code ready, not phone verified)"
+        }
+      ]
     }
   ]
 }
