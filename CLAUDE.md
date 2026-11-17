@@ -7,6 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #337 (2026-11-17, owner "1"): payment voice -- the FIRST message (bank SMS or app notification) speaks at once
+  (no wait for a name); the other joins silently (`PaymentAlertParser.samePaymentWindow`: same UPI ref, or same amount from a
+  kind the row lacks -- app up to 60 min after the SMS, SMS within 10 min of the app, two apps 30 min; different payer handles
+  never join; two SMS never join). Registered sender (`isBankSender`, XX-NAME[-S/-T/-G]) = `bank_confirmed` on the phone row
+  (history "✅ బ్యాంక్ SMS నిర్ధారించింది"). Server still `notification_unverified`. Not phone verified.
 - `main` PR #336 (2026-11-16, owner "1"): one catalogue, three roles -- `pos_bills.py` (item numbers `pos_products.item_no`,
   pay app `pos_payments.app`, send bill to a typed number: ASKODOX user -> "My bills" `/me/bills` + push, else WhatsApp +
   public page `/b/{token}`; settle later = `bill_settle` payment row; history `/bills/:id`); parcel / delivery app orders billed
