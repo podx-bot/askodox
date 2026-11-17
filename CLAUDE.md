@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #343 (2026-11-18, owner "1", merge `2b1a0cf`): pages round -- shop page `/shops/:id` (`shop_rating_screens.dart`,
+  `pos_ratings.py`: stars after a finished order asked once + once more next day, shop-only reviews with photos / owner reply /
+  report, public `/api/pos/shops/{id}/photo/...`), welcome by name + thanks (`/businesses/{id}/welcome`), table request big
+  buttons + waiter "తెచ్చాను ✓" + owner told after 2 min, menu by section + AI sort preview (`pos_menu_sort.py`), quick bill
+  Cash | Online | Baaki + split (`cash_paise` / `online_paise`) + paper bill (`paper_bill.dart`, `/bills/{id}/paper`) + same-day
+  revise (`revise_of`), coloured nav tiles (`AskodoxNavColorTile`), compact voice pill, chat shop card Follow + socials. Payment
+  voice: SMS + app joined on the 12-digit RRN (`compareRefs`), cloud voice 3.5 s budget -> device TTS, payalert TTL 600 +
+  late (>3 min) = shown not spoken, `push.data` / `payalert.fanout` logs. Release builds: `askodoxInstallBuildErrorView` ->
+  log `client.build_error` (Home blank hunt). Play bundle `askodox-play-1536.aab`. Nothing phone verified.
 - `main` PR #337 (2026-11-17, owner "1"): payment voice -- the FIRST message (bank SMS or app notification) speaks at once
   (no wait for a name); the other joins silently (`PaymentAlertParser.samePaymentWindow`: same UPI ref, or same amount from a
   kind the row lacks -- app up to 60 min after the SMS, SMS within 10 min of the app, two apps 30 min; different payer handles
