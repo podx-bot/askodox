@@ -7,6 +7,9 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #345 (2026-11-18, owner "1", `a7694d9`): the full POS (`askodoxPosRoutes`), `/crm` and `/me/shop-advances` are
+  OPEN in Phase 1 builds (owner "Yes open"); `/me/agent` + `/shop-scan` and other Phase-2 areas stay closed. Hub counter
+  tile -> `/pos/:id/sale`. Build test-1540 (.aab) = this code. Not phone verified.
 - `main` PR #344 (2026-11-18, owner "1", `3a78dc3`): business hub -- `/biz/:id` 6 groups (one spec, names by business type),
   ASK bar on every page + main chat (`biz_chat.dart`: business words pre-filter, model says unknown on "chat" unless about
   their own business; changes only after ✓; `pos_hub.py` CHANGES incl. staff_advance / task_add / att_mark), cashbook
