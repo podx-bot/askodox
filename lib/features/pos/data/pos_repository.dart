@@ -107,6 +107,8 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskAssist(String code, String text, List<AskodoxJson> cart, {bool te = true}) =>
       _send('POST', '/api/pos/order-desk/assist', body: {'code': code, 'text': text, 'cart': cart, 'te': te});
   /// Shops with a menu whose name contains [q] (the search box beside the QR photo).
+  /// ASKODOX Shopping: shops on ASKODOX (name / menu) + the affiliate items for what was searched.
+  Future<AskodoxJson> shopping(String q) => _send('GET', '/api/pos/shopping', query: {'q': q});
   Future<List<AskodoxJson>> deskShops(String q) async =>
       askodoxPosList((await _send('GET', '/api/pos/order-desk/shops', query: {'q': q}))['shops']);
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);

@@ -414,7 +414,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
       child: Row(children: [
         _item('askodoxNavHome', currentBranch == 0, Icons.home_outlined, Icons.home_rounded, isTe ? 'హోమ్' : 'Home', onHome),
         // Past conversations, saved options and requests to revisit.
-        _item('askodoxNavHistory', currentBranch == 2, Icons.explore_outlined, Icons.explore_rounded, isTe ? 'ఎక్స్‌ప్లోర్' : 'Explore', onHistory),
+        _item('askodoxNavHistory', currentBranch == 2, Icons.shopping_bag_outlined, Icons.shopping_bag_rounded, isTe ? 'షాపింగ్' : 'Shopping', onHistory),
         // The ONE "Ask" button: one tap = speak to ASKODOX (tap again to stop
         // and send). Owner, 2026-11-04: the word "Ask" instead of a mic / a
         // ring of actions.

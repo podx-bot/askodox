@@ -361,6 +361,25 @@ def desk_shop_search(request: Request, q: str = "") -> dict:
     return {"shops": _desk(request).search_shops(q[:60])}
 
 
+@router.get("/shopping")
+def askodox_shopping(request: Request, q: str = "") -> dict:
+    """ASKODOX Shopping (owner 2026-11-18): businesses on ASKODOX first (by name or by what their menu has), then the
+    affiliate store items that match what was searched. No Google / web / videos here -- that stays in the main chat."""
+    from app.api.routes.affiliate_catalog import catalog
+    from app.services import affiliate_catalog as ac
+
+    _user(request, "shopping", 120)
+    q = q[:80]
+    shops = _desk(request).shopping(q)
+    items: list = []
+    if len(q.strip()) >= 2:
+        try:
+            items = [ac.result_row(i) for i in catalog(request.app.state.container).search(q, limit=8)]
+        except Exception:  # a catalog problem never hides our shops
+            items = []
+    return {"query": q, "shops": shops, "items": items}
+
+
 @router.get("/businesses/{business_id}/desk/qr")
 def desk_qr(business_id: str, request: Request) -> dict:
     return _call(_desk(request).qr_codes, business_id, _user(request, "desk", 120))

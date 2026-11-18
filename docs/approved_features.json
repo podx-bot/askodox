@@ -7780,6 +7780,46 @@
           "change": "phone report: Meesho link not adding"
         }
       ]
+    },
+    {
+      "id": "askodox_shopping",
+      "name": "ASKODOX Shopping tab: only businesses on ASKODOX (by name / menu) + affiliate items for the search",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "shopping",
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/shopping"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxShoppingBox",
+          "askodoxNavHistory"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-18: the third bottom tab (was Explore / history) becomes ASKODOX Shopping -- shops registered on ASKODOX first, affiliate links by the search; no Google / web / videos. Saved & history moves to the ☰ menu.",
+      "expected_behavior": "A shop opens its own menu to order inside ASKODOX; nothing found -> one tap to search everywhere in the main chat.",
+      "history": [
+        {
+          "date": "2026-11-18",
+          "change": "new tab"
+        }
+      ]
     }
   ]
 }
