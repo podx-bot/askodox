@@ -465,6 +465,9 @@ def test_phone_read_meesho_invite_link_fills_everything_and_keeps_the_commission
     assert phone_failed["status"] == "unavailable"
     assert "phone could not open this link" in phone_failed["note"] and "(timeout)" in phone_failed["note"]
     assert "ASKODOX app (Profile" not in phone_failed["note"]
+    # Owner 2026-11-18: the invite link is still the commission link, and the note points to the screenshot fill.
+    assert phone_failed["fields"].get("affiliate_url") == invite
+    assert "screenshot" in phone_failed["note"].lower()
     product = {"name": "Cotton Saree with Blouse", "min_product_price": 349, "original_price": 999,
                "images": ["https://images.meesho.com/images/products/1/a.jpg",
                           "https://images.meesho.com/images/products/1/b.jpg"],
@@ -738,3 +741,36 @@ def test_staff_image_edit_uses_openai_service_and_never_invents_an_image(api, mo
     bad = client.post("/admin/cc/workspace/image-edit", headers=OWNER, data={"prompt": "wig on second photo"},
                       files={"first": ("a.txt", b"hello", "text/plain"), "second": files["second"]})
     assert bad.status_code == 400
+
+
+def test_product_screenshot_fills_the_boxes(api, monkeypatch):
+    """Owner 2026-11-18: a link that will not open -> a screenshot of the product in the store app fills the details."""
+    import base64
+
+    client, container, _ = api
+
+    class Vision:
+        def analyze_with_prompt(self, images, prompt, **kw):
+            assert images and images[0][1] == "image/jpeg"
+            return {"title": "Cotton Saree with Blouse", "price": "₹349", "mrp": 999, "seller": "Sri Textiles",
+                    "sizes": ["Free Size"], "description": None}, 1
+
+    monkeypatch.setattr(container, "universal_image_service", Vision(), raising=False)
+    shot = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8" + b"x" * 200).decode()
+    got = client.post("/admin/cc/workspace/read-screenshot", headers=OWNER,
+                      json={"images": [{"data": shot, "mime": "image/jpeg"}]}).json()
+    assert got["ok"] is True
+    assert got["fields"]["title"] == "Cotton Saree with Blouse" and got["fields"]["price"] == 349.0
+    assert got["fields"]["mrp"] == 999.0 and got["fields"]["variants"] == ["Free Size"]
+    assert "description" not in got["fields"], "nothing invented"
+
+    class Blind:
+        def analyze_with_prompt(self, images, prompt, **kw):
+            return {"title": None, "price": None}, 1
+
+    monkeypatch.setattr(container, "universal_image_service", Blind(), raising=False)
+    bad = client.post("/admin/cc/workspace/read-screenshot", headers=OWNER,
+                      json={"images": [{"data": shot, "mime": "image/jpeg"}]})
+    assert bad.status_code == 503
+    assert client.post("/admin/cc/workspace/read-screenshot",
+                       json={"images": [{"data": shot, "mime": "image/jpeg"}]}).status_code in (401, 403)

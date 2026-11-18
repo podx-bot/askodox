@@ -29,6 +29,18 @@ def clean_name(name: str) -> tuple:
     return match.group(2).strip(), int(match.group(1))
 
 
+_PRINTED_NO = re.compile(r"^\s*(?:no\.?\s*)?(\d{1,4})\s*(?:[).:]|-(?=\s))\s*(\S.*)$", re.I)
+
+
+def printed_number(name: str) -> tuple:
+    """Stricter than ``clean_name`` (for automatic cleaning): "117) Fish Biryani" / "12. Tea" / "5 - Dosa" ->
+    (name, number); "7-Up", "500 ml Coke", "2 Idli" are left alone."""
+    match = _PRINTED_NO.match(str(name or ""))
+    if not match:
+        return str(name or "").strip(), None
+    return match.group(2).strip(), int(match.group(1))
+
+
 def _key(group: str) -> str:
     return re.sub(r"[^a-z0-9\u0c00-\u0c7f]+", "", group.lower()).rstrip("s")
 

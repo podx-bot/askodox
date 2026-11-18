@@ -102,7 +102,24 @@ class PosBills:
     # ------------------------------------------------------------------ item numbers
     @staticmethod
     def number_items(conn: sqlite3.Connection, business_id: str) -> None:
-        """Gives every item without a number the next free one, oldest item first. Numbers never move or repeat."""
+        """Gives every item without a number the next free one, oldest item first. Numbers never move or repeat.
+        Owner 2026-11-18 ("#55 117) Fish Biryani"): a menu read from a photo kept the PRINTED number in the name; that
+        number becomes the item number (when free) and leaves the name, so one item has ONE number everywhere."""
+        from app.services.pos_menu_sort import printed_number
+
+        try:
+            numbered = conn.execute("SELECT id, name, item_no FROM pos_products WHERE business_id = ? AND name GLOB '[0-9]*'",
+                                    (business_id,)).fetchall()
+        except sqlite3.OperationalError:
+            numbered = []
+        for row in numbered:
+            name, printed = printed_number(row["name"])
+            if printed is None or not name:
+                continue
+            taken = conn.execute("SELECT 1 FROM pos_products WHERE business_id = ? AND item_no = ? AND id != ?",
+                                 (business_id, printed, row["id"])).fetchone()
+            conn.execute("UPDATE pos_products SET name = ?, item_no = ? WHERE id = ?",
+                         (name, row["item_no"] if taken else printed, row["id"]))
         try:
             missing = conn.execute("SELECT id FROM pos_products WHERE business_id = ? AND item_no IS NULL"
                                    " ORDER BY created_at, rowid", (business_id,)).fetchall()

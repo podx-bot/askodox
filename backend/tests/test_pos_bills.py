@@ -157,3 +157,13 @@ def test_bill_routes_and_public_page(monkeypatch):
     hist = client.get(f"/api/pos/businesses/{bid}/bills?due=true", headers=h).json()
     assert hist["totals"]["due"] == 3000 and len(hist["bills"]) == 1
     assert client.get("/api/pos/me/bills").status_code == 401
+
+
+def test_printed_number_rules():
+    from app.services.pos_menu_sort import printed_number
+
+    assert printed_number("117) Fish Biryani") == ("Fish Biryani", 117)
+    assert printed_number("12. Tea") == ("Tea", 12)
+    assert printed_number("5 - Dosa") == ("Dosa", 5)
+    assert printed_number("7-Up")[1] is None
+    assert printed_number("500 ml Coke")[1] is None

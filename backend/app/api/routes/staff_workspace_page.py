@@ -115,6 +115,10 @@ function readOnPhone(url){PHONE_ERR=null;if(!window.AskodoxPageReader)return Pro
 const MYFIELDS=()=>FIELDS.filter(([k])=>(k!=="affiliate_url"||ME.can_link)&&(k!=="verified_commission_rate"||ME.can_commission));
 const MAIN_FIELDS=["title","price","description","affiliate_url","verified_commission_rate"];
 // Shared text ("Check this on Meesho https://...") -> just the link.
+// A screenshot -> a JPEG of at most 1600 px (phones save 3-4 MB PNGs).
+function shrinkShot(file){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,1600/Math.max(img.width,img.height));
+ const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+ URL.revokeObjectURL(img.src);res({data:c.toDataURL("image/jpeg",0.85),mime:"image/jpeg"})};img.onerror=()=>rej(new Error("Not a picture / ఇది ఫోటో కాదు"));img.src=URL.createObjectURL(file)})}
 function firstLink(t){const m=String(t||"").match(/https:\/\/[^\s"'<>]+/);return m?m[0]:String(t||"").trim()}
 async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page… (up to a minute) / page చదువుతోంది… (ఒక నిమిషం వరకు)</p>`;
  let d,page=null;try{page=await readOnPhone(url);
@@ -125,6 +129,7 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
  const ok=d.status==="ok";
  box.innerHTML=`<p><span class="badge">${esc((d.source||{}).name||"Unknown source")}</span> <span class="${ok?"ok":"mut"}">${ok?"✓ Details filled -- check and save / వివరాలు నిండాయి -- చూసి save చేయండి":esc(d.note||"")}</span></p>
  ${dup.length?`<p class="warn">Already in ASKODOX: ${dup.map(x=>`#${x.id} ${esc(x.title)} (${esc(x.review_status)})`).join(", ")}</p>`:""}
+ <div class="row"><label class="${ok?"s":"p"} btn" id="shotbtn">📸 Screenshot తో నింపు / Fill from screenshot<input id="shot" type="file" accept="image/*" multiple hidden></label></div><span class="mut" id="shotnote">${ok?"":"Store app లో product screenshot తీసి ఇక్కడ పెట్టండి -- పేరు, ధర, sizes నిండుతాయి."}</span>
  <label>Photos</label><div class="thumbs" id="thumbs"></div>
  <div class="row"><label class="s btn">📷 Camera<input id="photo" type="file" accept="image/*" capture="environment" hidden></label><label class="s btn">🖼️ Gallery<input id="photos" type="file" accept="image/*" multiple hidden></label></div>
  ${MYFIELDS().filter(([k])=>MAIN_FIELDS.includes(k)).map(field).join("")}
@@ -141,6 +146,13 @@ async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.
  const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
   try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);thumbs()}catch(err){toast(err.message)}}};
  $("#photo").onchange=addPhotos;$("#photos").onchange=addPhotos;
+ // Owner 2026-11-18: a store link that will not open -> a screenshot of the product fills the boxes (empty ones only).
+ $("#shot").onchange=async e=>{const files=[...e.target.files].slice(0,3);if(!files.length)return;$("#shotnote").textContent="📸 screenshot చదువుతోంది…";
+  try{const images=await Promise.all(files.map(shrinkShot));const r=await api("/admin/cc/workspace/read-screenshot","POST",{images});
+   const g=r.fields||{};let n=0;if(g.variants&&g.variants.length&&!g.description)g.description="Sizes: "+g.variants.join(", ");
+   ["title","price","mrp","seller","brand","category","description"].forEach(k=>{const el=$("#f_"+k);if(el&&g[k]!=null&&!el.value.trim()){el.value=g[k];n++}});
+   $("#shotnote").textContent=n?`✓ ${n} boxes filled from the screenshot -- check and save / screenshot నుంచి నిండాయి -- చూసి save చేయండి`:"Boxes already filled / ఇప్పటికే నిండి ఉన్నాయి";
+   if(n&&$("#f_description")&&!$("#f_description").value.trim())describe()}catch(err){$("#shotnote").textContent=err.message}};
  $("#pvid").onchange=e=>pickVideo(e.target,$("#vidnote"));
  if(PREFILL_AFF&&$("#f_affiliate_url")&&!$("#f_affiliate_url").value){$("#f_affiliate_url").value=PREFILL_AFF;PREFILL_AFF=""}
  const describe=async()=>{const fields={};MYFIELDS().forEach(([k])=>{const v=$("#f_"+k).value.trim();if(v)fields[k]=v});if(!fields.title)return;$("#aidescnote").textContent="✨ description రాస్తోంది…";

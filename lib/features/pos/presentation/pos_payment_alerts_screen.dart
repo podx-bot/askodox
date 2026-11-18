@@ -674,7 +674,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         final lang = '${_settings['language'] ?? 'te'}';
         final text = '${askodoxPosMap(e['announcement'])[lang] ?? ''}';
         var state = 'seen';
-        if (speaks && text.isNotEmpty) {
+        // Owner 2026-11-18: no amount = written only, never "amount not clear" aloud.
+        if (speaks && text.isNotEmpty && (e['amount_paise'] != null || e['test'] == true)) {
           final out = await _bridge.speakRemote(id, text, lang);
           if (out == 'duplicate') continue; // already spoken (and acknowledged) from the push while closed
           if (out == 'unavailable' || out == 'not_set_up') await _bridge.speakText(text, lang);

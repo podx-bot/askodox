@@ -362,10 +362,14 @@ class PosFrontDesk:
             raise PosError(400, "items", "Add 1-200 items.")
         created = updated = 0
         today = self._today()
+        from app.services.pos_menu_sort import printed_number
+
         for raw in items:
             name = _clean(raw.get("name"), 80)
             if not name:
                 continue
+            # "117) Fish Biryani" (read from a photo) -> name "Fish Biryani", item number 117 (owner 2026-11-18).
+            name, printed = printed_number(name)
             price = int(raw.get("price_paise") or 0)
             unit = str(raw.get("unit") or "plate")
             with self.store._connect() as conn:
@@ -389,6 +393,9 @@ class PosFrontDesk:
                     conn.execute("UPDATE pos_products SET menu_group = ? WHERE id = ?", (group, product_id))
                 if food in ("veg", "nonveg", "egg"):
                     conn.execute("UPDATE pos_products SET food_type = ? WHERE id = ?", (food, product_id))
+                if printed and not conn.execute("SELECT 1 FROM pos_products WHERE business_id = ? AND item_no = ?"
+                                                " AND id != ?", (business_id, printed, product_id)).fetchone():
+                    conn.execute("UPDATE pos_products SET item_no = ? WHERE id = ?", (printed, product_id))
         return {"created": created, "updated": updated}
 
     def set_availability(self, business_id: str, user: str, product_id: str, available: bool) -> Dict[str, Any]:

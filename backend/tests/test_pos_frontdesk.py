@@ -624,3 +624,18 @@ def test_menu_sections_and_veg_marks_reach_the_chat_card(env):
     assert by_name["Chicken Fry"] == ("", "") and card["more"] == 0
     with pytest.raises(PosError):
         store.update_product(biz, OWNER, fry, {"food_type": "spicy"})
+
+
+def test_printed_menu_number_leaves_the_name_and_becomes_the_item_number(env):
+    """Owner 2026-11-18: the chat menu showed "#55 117) Fish Biryani" -- ONE number per item."""
+    desk, store, rest, biz, *_ = env
+    desk.import_menu(biz, OWNER, [{"name": "117) Fish Biryani", "price_paise": 26000},
+                                  {"name": "7-Up", "price_paise": 4000},
+                                  {"name": "2 Idli", "price_paise": 3000}])
+    items = {i["name"]: i for i in desk.menu_admin(biz, OWNER)["items"]}
+    assert "Fish Biryani" in items and items["Fish Biryani"]["item_no"] == 117
+    assert "7-Up" in items and "2 Idli" in items, "a name that merely starts with a number is left alone"
+    # an old row saved with the number in its name is cleaned the next time the menu is read
+    old = store.add_product(biz, OWNER, {"name": "69) Kadal Chicken", "unit": "plate", "price_paise": 27000})
+    names = {i["id"]: (i["name"], i["item_no"]) for i in desk.menu_admin(biz, OWNER)["items"]}
+    assert names[old["id"]] == ("Kadal Chicken", 69)

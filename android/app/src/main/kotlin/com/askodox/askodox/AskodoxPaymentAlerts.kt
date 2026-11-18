@@ -669,15 +669,18 @@ object AskodoxPaymentAlerts {
         // A payment that happened long before the phone saw it (phone asleep, app stopped by the battery saver) is
         // written in the history but NOT spoken: a voice minutes later sounds like a second, new payment.
         val late = !test && now - posted > LATE_MS
-        val mayVoice = quiet || test || late || claimVoice(context, amount, now, "local")
+        // Owner 2026-11-18: a payment message with NO amount is written in the history, never spoken ("amount not
+        // clear" only confused people -- e.g. PhonePe UPI Circle notifications).
+        val unclear = amount == null && !test
+        val mayVoice = !unclear && (quiet || test || late || claimVoice(context, amount, now, "local"))
         // Owner 2026-11-17: whichever message comes FIRST (SMS or notification) speaks at once -- no waiting for a name.
-        event.put("spoken", if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
+        event.put("spoken", if (unclear) "seen" else if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg, if (personal) account else null)
+        if (!unclear && !quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg, if (personal) account else null)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to (!quiet && !late && mayVoice))
+            "amountPaise" to amount, "spoken" to (!unclear && !quiet && !late && mayVoice))
     }
 
     /** A message whose own payment time is older than this (phone was off / asleep) is written, never spoken. */

@@ -176,3 +176,21 @@ def test_periodic_job_is_registered_and_runs(env, monkeypatch):
     owners = [s for s in sent if s[0] == OWNER]
     assert len(owners) == 2 and owners[0][1] == f"/me/payment-alerts/{biz}/who"
     assert {s[0] for s in sent} == {OWNER, CASHIER, WAITER}
+
+
+def test_message_without_amount_is_never_spoken_on_other_phones(tmp_path):
+    clock = Clock()
+    store = PosStore(str(tmp_path / "pos2.db"), clock=clock)
+    pushes = []
+    alerts = PosPaymentAlerts(store, notify=lambda *a: pushes.append(a))
+    biz = store.create_business(OWNER, {"name": "Shop", "state_code": "37"})["id"]
+    store.set_member(biz, OWNER, "9400000402", "cashier")
+    store.business(biz, CASHIER)
+    alerts.update_settings(biz, OWNER, {"enabled": True})
+    dev = alerts.register_device(biz, OWNER, {"device_key": "owner-phone-9"})["device_id"]
+    alerts.register_device(biz, CASHIER, {"device_key": "cashier-phone-9"})
+    e = alerts.report(biz, OWNER, {"client_event_id": f"{PHONEPE}|nokey|1", "source_app": PHONEPE, "device_id": dev})
+    assert e["status"] == "ambiguous"
+    assert pushes == [], "no amount: kept in the history, no voice push"
+    clock.now += timedelta(minutes=10)
+    assert alerts.missed_sounds() == []

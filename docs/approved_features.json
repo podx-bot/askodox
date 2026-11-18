@@ -7744,6 +7744,42 @@
           "change": "round list items 1 + 10"
         }
       ]
+    },
+    {
+      "id": "staff_screenshot_fill",
+      "name": "Staff Workspace: fill a store item from a product screenshot; an invite link stays the commission link",
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "catalog"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/read-screenshot"
+        }
+      ],
+      "ui": {
+        "keys": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_sources_workspace_early_access.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-18: a Meesho af_invite link would not open on the staff phone, so the item could not be added. A screenshot of the product in the store app fills title / price / MRP / seller / sizes; the pasted invite link is kept as the commission link.",
+      "expected_behavior": "Only what the screenshot clearly shows is filled (a price never guessed); empty boxes only; nothing is saved until staff save.",
+      "history": [
+        {
+          "date": "2026-11-18",
+          "change": "phone report: Meesho link not adding"
+        }
+      ]
     }
   ]
 }

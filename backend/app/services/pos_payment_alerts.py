@@ -844,6 +844,9 @@ class PosPaymentAlerts:
             row = conn.execute("SELECT * FROM pos_payment_events WHERE id = ?", (event_id,)).fetchone()
             event = self._event_out(conn, row, user)
             receivers = self._receivers(conn, business_id, settings, exclude=user, source=user)
+            # Owner 2026-11-18: a message with no amount is kept in the history, never spoken on any phone.
+            if amount is None and not test:
+                receivers = []
             self._plan_deliveries(conn, business_id, event_id, receivers)
             shop = self.store._business_row(conn, business_id)["name"]
             who = self._display_name(conn, business_id, user, settings["language"])

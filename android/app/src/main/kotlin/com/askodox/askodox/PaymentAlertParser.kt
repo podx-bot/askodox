@@ -107,6 +107,14 @@ object PaymentAlertParser {
         if (shape.isNotEmpty() && learnedOut.any { it.isNotEmpty() && shape.contains(it) }) return Result.Ignored
         val learned = shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) }
         val rejected = (reject + moreReject).any { it.isNotEmpty() && lower.contains(it.lowercase()) }
+        // Owner 2026-11-18 (PhonePe UPI Circle): "Manohar has paid BHUKYA SUJATHA" / "Payment of ₹2 successful by 2283"
+        // = someone (a circle member, a family / on-behalf payment) paid a THIRD person -- never money this phone received.
+        // With one amount it is money that left the account; without one it is ignored (never "amount not clear").
+        if (!learned && thirdPartyPayment(joined, lower)) {
+            val amounts = paymentAmounts(joined)
+            if (amounts.isEmpty()) return Result.Ignored
+            return Result.Outgoing(amounts.first(), thirdPartyPayee(body) ?: thirdPartyPayee(title), accountTail(joined))
+        }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
             if (rejected) return outgoingOrIgnored(joined, lower, body, title)
             val only = paymentAmounts(joined).toSet()
@@ -132,6 +140,21 @@ object PaymentAlertParser {
             ?: refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.count(Char::isDigit) >= 6 }
         return Result.Accepted(amounts.first(), reference, payerName(body) ?: payerName(title), accountTail(joined))
     }
+
+    private val circleWords = listOf("upi circle", "on your behalf", "on behalf of", "secondary user", "delegate")
+    private val hasPaidSomeone = Regex("""\b(?:has|have)\s+paid\s+(?!you\b)(?!(?:₹|rs\b|rs\.|inr\b))[a-z]""", RegexOption.IGNORE_CASE)
+    private val successfulBy = Regex("""\bpayment\s+of\s+$AMT\s+(?:was\s+)?successful\s+by\b""", RegexOption.IGNORE_CASE)
+
+    /** A payment made BY someone TO someone else (UPI Circle, on-behalf) -- the phone's owner is neither paid nor asked. */
+    fun thirdPartyPayment(joined: String, lower: String = " ${joined.lowercase()} "): Boolean {
+        if (lower.contains(" to you") || lower.contains("paid you") || lower.contains("sent you")) return false
+        return circleWords.any { lower.contains(it) } || hasPaidSomeone.containsMatchIn(joined) || successfulBy.containsMatchIn(joined)
+    }
+
+    private val thirdPartyPayeePattern = listOf(Regex("""\b(?:has|have)\s+paid\s+(.{2,60}?)$END""", RegexOption.IGNORE_CASE))
+
+    /** Who a third-party payment went to ("... has paid BHUKYA SUJATHA." -> "BHUKYA SUJATHA"). */
+    fun thirdPartyPayee(text: String?): String? = nameFrom(thirdPartyPayeePattern, text)
 
     private val sentFrom = Regex("""\bsent\s+$AMT\s+from\b""", RegexOption.IGNORE_CASE)
 

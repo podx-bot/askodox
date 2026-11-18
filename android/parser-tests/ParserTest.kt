@@ -71,6 +71,13 @@ fun main() {
     check("hdfc app 240", "Money Received!", "MOHAMMAD HAFIZ (9502072317@ibl) sent you ₹240.00.", "IN 24000")
     check("phonepe 2000", "GH", "sent ₹2,000 to you.", "IN 200000")
     check("gpay due", "Due date for Andhra Pradesh electricity", "₹821.00 due on Nov 21, 2026.", "IGNORED")
+    // Owner 2026-11-18: PhonePe UPI Circle -- a member paid a third person from the account. Never "received",
+    // never "amount not clear".
+    check("circle no amount", "Payment successful!", "Manohar Annayya has paid BHUKYA SUJATHA.", "IGNORED")
+    check("circle with amount", "Payment of ₹2 successful by 2283", "Sujatha has paid BHUKYA SUJATHA.", "OUT 200 to=BHUKYA SUJATHA")
+    check("circle words", null, "₹50 paid from your UPI Circle by Ravi to Kirana Store", "OUT 5000")
+    check("has paid you stays in", null, "Ramesh has paid you ₹300", "IN 30000 payer=Ramesh")
+    check("has paid to you stays in", null, "Ramesh has paid ₹300 to you", "IN 30000")
     fun yes(name: String, ok: Boolean) { if (!ok) fails++; println((if (ok) "ok   " else "FAIL ") + name) }
     yes("bank sender JD-HDFCBK-S", PaymentAlertParser.isBankSender("JD-HDFCBK-S"))
     yes("bank sender old AD-HDFCBK", PaymentAlertParser.isBankSender("AD-HDFCBK"))
