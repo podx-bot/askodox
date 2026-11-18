@@ -61,7 +61,7 @@ class _Http:
         self.fail = fail
 
     def post(self, url, *, headers=None, json=None, timeout=None):
-        prompt_text = (json or {}).get("messages", [{}])[0].get("content", "")
+        prompt_text = svc.UniversalAIAssistantService.content_text((json or {}).get("messages", [{}])[0].get("content", ""))
         if "You plan ONE turn of ASKODOX" in prompt_text:
             # The planner (search? query? how hard?) is checked in its own tests; these count the answer calls.
             self.plans = getattr(self, "plans", 0) + 1

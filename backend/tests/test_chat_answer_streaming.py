@@ -2,6 +2,7 @@
 writes it, so it feels like 2-3 seconds instead of 15. The final JSON stays the real answer.
 Universal: the same stream for every domain and language; old app builds keep /assistant."""
 import json
+import json as json_module
 
 from tests.test_guide_mode_claude_brain import SCREENSHOT, _brain, _decision
 from app.services import universal_ai_assistant_service as svc
@@ -40,13 +41,22 @@ class _StreamResp:
         yield from self.lines
 
 
+def _on_screen(pieces):
+    """What the app shows at the end: the text after the last reset."""
+    last = max((i for i, p in enumerate(pieces) if p is None), default=-1)
+    return "".join(p for p in pieces[last + 1:] if p)
+
+
 def _streaming(brain, http, lines, status=200):
     sent = []
 
     def stream(method, url, *, headers=None, json=None, timeout=None):
         sent.append(json)
         http.calls.append({"url": url, "model": (json or {}).get("model"),
-                           "prompt": (json or {}).get("messages", [{}])[0].get("content", "")})
+                           "prompt": svc.UniversalAIAssistantService.content_text((json or {}).get("messages", [{}])[0].get("content", ""))})
+        prompt = http.calls[-1]["prompt"]
+        if "Return ONLY the JSON object" in prompt:  # the routing decision streams as JSON (owner 2026-11-18)
+            return _StreamResp(_sse(json_module.dumps(http.decision)), 200)
         return _StreamResp(lines, status)
 
     http.stream = stream
@@ -69,7 +79,7 @@ def test_the_machine_advice_line_is_never_streamed():
     _streaming(brain, http, _sse("Renting is safer ", "for now.\nADVICE", '_META: {"key": "emi_load"}'))
     pieces = []
     out = brain.decide("should I take a home loan or keep renting, I earn 80k", locale="en", on_text=pieces.append)
-    shown = "".join(p for p in pieces if p)
+    shown = _on_screen(pieces)
     assert "ADVICE_META" not in shown and "emi_load" not in shown
     assert shown.startswith("Renting is safer for now")
     assert "ADVICE_META" not in out["reply"]
@@ -162,3 +172,38 @@ def test_stream_route_works_with_a_brain_that_cannot_stream(monkeypatch):
     events = _lines(client.post("/api/in-app/assistant/stream", json={"message": "buy AC", "locale": "en"}))
     assert [e["type"] for e in events] == ["final"]
     assert events[0]["decision"]["action"] == "find_local"
+
+
+def test_the_routing_reply_streams_word_by_word_from_the_json():
+    """Owner 2026-11-18 (answers in 1-2 s): the routing JSON's "reply" shows while the rest is still being written."""
+    got = []
+    feed = svc._ReplyStream(got.append)
+    for piece in ['{"dom', 'ain": "FOOD", "re', 'ply": "బిర్యానీ ', 'ఎక్కడ \\"best\\"', '\\nకావాలి?", "action": "x"}']:
+        feed(piece)
+    assert "".join(got) == 'బిర్యానీ ఎక్కడ "best"\nకావాలి?'
+    assert feed.shown and feed.done
+    out = []
+    split = svc._ReplyStream(out.append)
+    for ch in '{"reply": "caf\\u00e9 ok"}':  # one character at a time, escapes cut in the middle
+        split(ch)
+    assert "".join(out) == "café ok"
+
+
+def test_fixed_instructions_are_sent_as_a_cached_block():
+    blocks = svc.UniversalAIAssistantService._content("FIXEDpart-then-dynamic", cache_upto=5)
+    assert blocks[0] == {"type": "text", "text": "FIXED", "cache_control": {"type": "ephemeral"}}
+    assert blocks[1]["text"] == "part-then-dynamic"
+    assert svc.UniversalAIAssistantService.content_text(blocks) == "FIXEDpart-then-dynamic"
+    assert svc.UniversalAIAssistantService._content("short", cache_upto=0) == "short"
+
+
+def test_a_routed_answer_is_shown_from_the_routing_stream():
+    brain, _, http = _brain(claude=True, decision=_decision(transactional=True, action="search_food", domain="FOOD"))
+    sent = _streaming(brain, http, _sse("unused"))
+    pieces = []
+    out = brain.decide("biryani kavali", locale="te", on_text=pieces.append)
+    assert _on_screen(pieces) and out["reply"].startswith(_on_screen(pieces)[:10])
+    routing = [s for s in sent if "Return ONLY the JSON object" in svc.UniversalAIAssistantService.content_text(
+        s["messages"][0]["content"])]
+    assert routing and routing[0]["messages"][0]["content"][0].get("cache_control"), "the fixed part is cached"
+    assert routing[0]["model"] == "claude-haiku-5-5"
