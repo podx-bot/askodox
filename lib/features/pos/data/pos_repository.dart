@@ -112,6 +112,9 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
+  /// The customer's choice: 'cash' (pay at the counter / table) or 'online' (the shop's own UPI).
+  Future<AskodoxJson> deskPayChoice(String id, String choice) =>
+      _send('POST', '/api/pos/order-desk/mine/$id/pay-choice', body: {'choice': choice});
   Future<AskodoxJson> deskMyRequests(String orderId) => _send('GET', '/api/pos/order-desk/mine/$orderId/requests');
   Future<AskodoxJson> deskAsk(String orderId, {List<String> kinds = const [], String text = ''}) =>
       _send('POST', '/api/pos/order-desk/mine/$orderId/requests', body: {'kinds': kinds, 'text': text});

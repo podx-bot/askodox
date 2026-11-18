@@ -639,3 +639,63 @@ def test_printed_menu_number_leaves_the_name_and_becomes_the_item_number(env):
     old = store.add_product(biz, OWNER, {"name": "69) Kadal Chicken", "unit": "plate", "price_paise": 27000})
     names = {i["id"]: (i["name"], i["item_no"]) for i in desk.menu_admin(biz, OWNER)["items"]}
     assert names[old["id"]] == ("Kadal Chicken", 69)
+
+
+def test_every_push_route_exists_in_the_app():
+    """Owner 2026-11-18: tapping an order notification showed "Page not found" (/order/track/...)."""
+    import pathlib
+    import re as _re
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    app_routes = set()
+    for dart in (root / "lib").rglob("*.dart"):
+        app_routes.update(_re.findall(r"path: '(/[^']*)'", dart.read_text(encoding="utf-8")))
+    patterns = [_re.compile("^" + _re.sub(r":\w+", r"[^/]+", r) + "$") for r in app_routes]
+    sent = set()
+    for py in (root / "backend" / "app" / "services").glob("pos_*.py"):
+        for route in _re.findall(r'f"(/[a-z][a-z-]*/[^"\s?]*)"', py.read_text(encoding="utf-8")):
+            sent.add(_re.sub(r"\{[^}]+\}", "x1", route))
+    sent.discard("/b/x1")  # the public bill web page (WhatsApp link), served by the backend, not an app screen
+    missing = sorted(r for r in sent if not any(p.match(r) for p in patterns))
+    assert missing == [], missing
+
+
+def test_short_follow_up_opens_the_shop_named_earlier_in_the_chat(env, monkeypatch):
+    """Owner 2026-11-18: after talking about an ASKODOX shop, "menu" showed unrelated search results."""
+    from types import SimpleNamespace
+
+    from app.api.routes import in_app_assistant, pos_frontdesk
+
+    desk, store, rest, biz, *_ = env
+    monkeypatch.setattr(pos_frontdesk, "_desk", lambda request: desk)
+    turn = lambda role, text: SimpleNamespace(role=role, text=text)  # noqa: E731
+    payload = SimpleNamespace(history=[turn("user", "Murali Hotel lo biryani undha"), turn("assistant", "Undi.")])
+    reply = {"reply": "సరే, Murali Hotel మెనూ చూడండి."}
+    got = in_app_assistant._shop_in_conversation(None, payload, reply, "menu")
+    assert [s["id"] for s in got] == [biz]
+    # the brain did not name the shop -> no guess
+    assert in_app_assistant._shop_in_conversation(None, payload, {"reply": "Which shop?"}, "menu") == []
+    # a long new request is not a follow-up
+    assert in_app_assistant._shop_in_conversation(None, payload, reply, "show me good mobile phones under ten thousand") == []
+    # nothing about the shop in the chat -> nothing
+    assert in_app_assistant._shop_in_conversation(None, SimpleNamespace(history=[]), reply, "menu") == []
+
+
+def test_customer_chooses_cash_or_online(env):
+    """Owner 2026-11-18: the order page offered only "Pay by UPI" -- the customer chooses cash or online."""
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    o = _order(desk, f"{QR_PREFIX}{biz}", [{"product_id": biryani, "qty": 1}])
+    assert o["pay_choice"] == ""
+    got = desk.set_pay_choice(CUSTOMER, o["id"], "cash")
+    assert got["pay_choice"] == "cash"
+    assert any("Cash" in p[1] for p in pushes), "the floor staff hear that cash will be paid"
+    n = len(pushes)
+    desk.set_pay_choice(CUSTOMER, o["id"], "cash")
+    assert len(pushes) == n, "told once"
+    assert desk.set_pay_choice(CUSTOMER, o["id"], "online")["pay_choice"] == "online"
+    with pytest.raises(PosError):
+        desk.set_pay_choice(CUSTOMER, o["id"], "card")
+    with pytest.raises(PosError):
+        desk.set_pay_choice("app-phone-9999999999", o["id"], "cash")
+    staff_view = [x for x in desk.orders(biz, OWNER)["orders"] if x["id"] == o["id"]][0]
+    assert staff_view["pay_choice"] == "online"

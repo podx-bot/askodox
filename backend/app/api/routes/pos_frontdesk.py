@@ -212,6 +212,16 @@ def mine_one(order_id: str, request: Request) -> dict:
     return _call(_desk(request).view_mine, _user(request, "desk-track", 240), order_id)
 
 
+class PayChoiceIn(BaseModel):
+    choice: str = Field(pattern="^(cash|online)$")
+
+
+@router.post("/order-desk/mine/{order_id}/pay-choice")
+def mine_pay_choice(order_id: str, body: PayChoiceIn, request: Request) -> dict:
+    """The customer says how they will pay: cash (at the counter / table) or online (the shop's own UPI)."""
+    return _call(_desk(request).set_pay_choice, _user(request, "desk-paychoice", 30), order_id, body.choice)
+
+
 @router.post("/order-desk/mine/{order_id}/cancel")
 def mine_cancel(order_id: str, request: Request) -> dict:
     return _call(_desk(request).cancel_mine, _user(request, "desk-cancel", 30), order_id)

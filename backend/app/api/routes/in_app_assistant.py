@@ -242,6 +242,25 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
                              credits=(metered or {}).get("credits"))
 
 
+def _shop_in_conversation(request: Request, payload: "AssistantRequest", decision: dict, user_words: str) -> list:
+    """Owner 2026-11-18: after talking about an ASKODOX shop, a short follow-up ("menu", "order", "మెనూ చూపించు")
+    must open THAT shop's menu -- not an unrelated search. The shop counts only when the latest turns of this chat
+    named it AND the brain's own reply names it too (data match, no keyword lists)."""
+    from app.api.routes.pos_frontdesk import _desk
+
+    if len(user_words.split()) > 4:
+        return []
+    desk = _desk(request)
+    in_reply = {s["id"] for s in desk.find_shops(str(decision.get("reply") or ""), 2)}
+    if not in_reply:
+        return []
+    for turn in list(payload.history or [])[-4:][::-1]:
+        named = desk.find_shops(str(getattr(turn, "text", "") or ""), 2)
+        if named:
+            return [s for s in named if s["id"] in in_reply][:1]
+    return []
+
+
 def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dict) -> dict:
     """A shop that is on ASKODOX (open, with a menu) and was NAMED by the person is ordered from ASKODOX, never sent
     to Swiggy / Zomato (owner 2026-11-16). The brain's text yields to a real button that opens that shop's menu."""
@@ -252,6 +271,8 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
 
         user_words = str(payload.message or "").split("\n\n")[0]
         shops = _desk(request).find_shops(user_words, 1)
+        if not shops:
+            shops = _shop_in_conversation(request, payload, decision, user_words)
         te = str(payload.locale or "").lower().startswith("te")
         if not shops:
             # Not named: but when the person is asking for something to buy / order, the ASKODOX shops whose own menu

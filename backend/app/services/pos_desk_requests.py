@@ -307,5 +307,5 @@ class PosDeskRequests:
                              (self.desk._now().isoformat(), user, request_id))
             cust, order_id, label = r["customer_user"], r["order_id"], r["label"]
         if cust:
-            self.desk._push([cust], "వస్తోంది · On the way", f"{label}", f"/order/track/{order_id}", f"desk:{order_id}:reqdone:{request_id}")
+            self.desk._push([cust], "వస్తోంది · On the way", f"{label}", f"/order-desk/track/{order_id}", f"desk:{order_id}:reqdone:{request_id}")
         return self.open_list(business_id, user)
