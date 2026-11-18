@@ -790,6 +790,22 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
     if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  /// Owner 2026-11-18: cash or online is the customer's choice; the shop sees it on the order.
+  Future<void> _choose(String choice, String? payLink) async {
+    final te = askodoxPosTe(context);
+    try {
+      final o = await ref.read(askodoxPosRepositoryProvider).deskPayChoice(widget.orderId, choice);
+      if (mounted) setState(() => _order = o);
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
+    if (choice == 'online' && payLink != null) await _pay(payLink);
+    if (choice == 'cash' && mounted) {
+      askodoxPosSnack(context, te ? 'క్యాష్ కడతారని షాప్‌కి చెప్పాం' : 'The shop knows you will pay cash');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
@@ -807,17 +823,40 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-                child: FilledButton.icon(
-                  key: const Key('askodoxOrderPayUpi'),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-                  onPressed: payLink == null ? null : () => _pay(payLink),
-                  icon: const Icon(Icons.payments_outlined),
-                  label: Text(waiting
-                      ? (te ? '${askodoxPaise(toPay)} — షాప్ ఒప్పుకున్నాక కట్టండి' : '${askodoxPaise(toPay)} — pay after the shop accepts')
-                      : payLink == null
-                          ? (te ? 'బిల్లు రాగానే ఇక్కడ కట్టొచ్చు' : 'Pay here once the bill comes')
-                          : (te ? '${askodoxPaise(toPay)} షాప్ UPI కి కట్టు' : "Pay ${askodoxPaise(toPay)} to the shop's UPI")),
-                ),
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(
+                      waiting
+                          ? (te ? '${askodoxPaise(toPay)} — ఎలా కడతారు? (షాప్ ఒప్పుకున్నాక కట్టండి)' : '${askodoxPaise(toPay)} — how will you pay? (after the shop accepts)')
+                          : (te ? '${askodoxPaise(toPay)} — ఎలా కడతారు?' : '${askodoxPaise(toPay)} — how will you pay?'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('askodoxOrderPayCash'),
+                        style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            backgroundColor: o['pay_choice'] == 'cash' ? const Color(0xFFDCFCE7) : null),
+                        onPressed: () => _choose('cash', payLink),
+                        icon: const Icon(Icons.payments_outlined),
+                        label: Text(o['pay_choice'] == 'cash' ? (te ? '✓ క్యాష్' : '✓ Cash') : (te ? 'క్యాష్' : 'Cash')),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('askodoxOrderPayUpi'),
+                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                        onPressed: waiting || payLink == null ? null : () => _choose('online', payLink),
+                        icon: const Icon(Icons.qr_code_2),
+                        label: Text(payLink == null && !waiting
+                            ? (te ? 'బిల్లు రాగానే ఆన్‌లైన్' : 'Online once billed')
+                            : (te ? 'ఆన్‌లైన్ (UPI)' : 'Online (UPI)')),
+                      ),
+                    ),
+                  ]),
+                ]),
               ),
             ),
       body: _error != null

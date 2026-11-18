@@ -55,6 +55,9 @@ final askodoxFrontDeskRoutes = <GoRoute>[
           cart: state.uri.queryParameters['cart'] ?? '')),
   GoRoute(path: '/order-desk/enter', builder: (context, state) => const AskodoxOrderCodeScreen()),
   GoRoute(path: '/order-desk/track/:oid', builder: (context, state) => AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)),
+  // Owner 2026-11-18: order notifications sent before the fix point here ("Page not found").
+  GoRoute(path: '/order/track/:oid', redirect: (context, state) => '/order-desk/track/${state.pathParameters['oid']}'),
+  GoRoute(path: '/pos/:id/orders', redirect: (context, state) => '/desk/${state.pathParameters['id']}'),
   GoRoute(path: '/desk/:id', builder: (context, state) => AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/desk/:id/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/desk/:id/settings', builder: (context, state) => AskodoxDeskSettingsScreen(businessId: state.pathParameters['id']!)),

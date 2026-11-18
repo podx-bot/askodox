@@ -326,22 +326,22 @@ String askodoxRupees(Object? paise) {
   return rest == 0 ? '₹$grouped' : '₹$grouped.${rest.toString().padLeft(2, '0')}';
 }
 
-/// Status label (en, te) -- a notification is never called "received" money.
+/// Status label (en, te). Owner 2026-11-18: only "received" (అందింది), never "confirmed" / "verified".
 (String, String) askodoxPaymentStatusLabel(AskodoxJson e) {
   if (e['test'] == true) return ('Test alert', 'టెస్ట్ అలర్ట్');
   return switch ('${e['status']}') {
-    'provider_verified' => ('Bank / provider verified', 'బ్యాంక్ / ప్రొవైడర్ నిర్ధారించింది'),
+    'provider_verified' => ('Received (Razorpay)', 'Razorpay లో అందింది'),
     'ambiguous' => ('Ambiguous — check the app', 'స్పష్టంగా లేదు — యాప్‌లో చూడండి'),
     'failed' => ('Failed', 'విఫలమైంది'),
-    _ => ('Notification detected — unverified', 'నోటిఫికేషన్ వచ్చింది — నిర్ధారించలేదు'),
+    _ => ('Received (app notification) — check your bank app', 'నోటిఫికేషన్‌లో అందింది — బ్యాంక్ యాప్‌లో చూసుకోండి'),
   };
 }
 
 /// Owner 2026-11-17: a phone row the bank's own SMS (registered sender, e.g. JD-HDFCBK-S) also reported = the money
-/// landed in the bank. (en, te), or null while only an app notification has been seen.
+/// came. (en, te), or null for money sent. Owner 2026-11-18: "received" only, never "confirmed".
 (String, String)? askodoxBankConfirmedLabel(Map<String, Object?>? local) {
   if (local == null || local['direction'] == 'out') return null;
-  if (local['bank_confirmed'] == true) return ('✅ Bank SMS confirmed', '✅ బ్యాంక్ SMS నిర్ధారించింది');
+  if (local['bank_confirmed'] == true) return ('✅ Received (bank SMS)', '✅ బ్యాంక్ SMS లో అందింది');
   return ('⏳ Bank SMS not seen yet', '⏳ బ్యాంక్ SMS ఇంకా రాలేదు');
 }
 
@@ -355,7 +355,7 @@ String askodoxRupees(Object? paise) {
       'seen' => ('Seen', 'చూశారు'),
       'delivered' => ('Delivered', 'అందింది'),
       'pending' => ('Speaking…', 'చెబుతోంది…'),
-      _ => ('Not confirmed', 'నిర్ధారణ లేదు'),
+      _ => ('No answer from the phone', 'ఫోన్ నుంచి సమాచారం లేదు'),
     };
 
 /// CSV of non-sensitive fields (no names, phones or notification text).
@@ -372,7 +372,7 @@ String askodoxPaymentAlertsCsv(List<AskodoxJson> events) {
       e['test'] == true ? '1' : '0',
     ].join(','));
   }
-  lines.add('# Notifications only. Not bank-verified. Not revenue or settled collections.');
+  lines.add('# Received per phone notifications only - check your bank app. Not revenue or settled collections.');
   return '${lines.join('\n')}\n';
 }
 

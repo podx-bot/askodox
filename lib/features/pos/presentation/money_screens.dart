@@ -11,6 +11,7 @@ import '../domain/money_accounts.dart';
 import '../domain/money_ledger.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
+import 'pay_alert_disclaimer.dart';
 
 /// ONE money history (owner 2026-11-17, design "ASKODOX డబ్బు హిస్టరీ — అన్నీ ఒకే చోట"): the phone's payments, the bills
 /// the person got, a shop's bills and Razorpay alerts, upcoming dues -- one list, with "which bill did this pay", "what
@@ -347,9 +348,9 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
       return (te ? '✓ కట్టారు' : '✓ Paid', _green);
     }
     return switch (i.confirmed) {
-      'bank_sms' => (te ? '✓ బ్యాంక్ SMS నిర్ధారించింది' : '✓ Bank SMS confirmed', _green),
-      'provider' => (te ? '✓ బ్యాంక్ / Razorpay నిర్ధారించింది' : '✓ Bank / Razorpay verified', _green),
-      'cashier' => (te ? '✓ క్యాషియర్ నిర్ధారించింది' : '✓ Cashier confirmed', _green),
+      'bank_sms' => (te ? '✓ బ్యాంక్ SMS లో అందింది' : '✓ Received (bank SMS)', _green),
+      'provider' => (te ? '✓ Razorpay లో అందింది' : '✓ Received (Razorpay)', _green),
+      'cashier' => (te ? '✓ క్యాషియర్ నమోదు చేశారు' : '✓ Entered by the cashier', _green),
       _ => i.kind == 'payment' ? (te ? '⏳ బ్యాంక్ SMS ఇంకా రాలేదు' : '⏳ Bank SMS not seen yet', const Color(0xFF6B7280)) : null,
     };
   }
@@ -385,12 +386,16 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
   Widget _footNote(bool te) => Padding(
         key: const Key('askodoxMoneyFootNote'),
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-        child: Text(
-            te
-                ? '⏳ = బ్యాంక్ నుంచి ఇంకా నిర్ధారణ రాలేదు (యాప్ నోటిఫికేషన్ మాత్రమే). మిగతావి బ్యాంక్ SMS / బ్యాంక్ నిర్ధారించినవి.'
-                : '⏳ = not confirmed by the bank yet (an app notification only). The rest were confirmed by a bank SMS / the bank.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+        child: Column(children: [
+          Text(
+              te
+                  ? '⏳ = యాప్ నోటిఫికేషన్‌లో మాత్రమే అందింది, బ్యాంక్ SMS ఇంకా రాలేదు.'
+                  : '⏳ = received in an app notification only; no bank SMS yet.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+          const SizedBox(height: 8),
+          AskodoxPayAlertDisclaimer(te: te),
+        ]),
       );
 
   // ------------------------------------------------------------------ the one page (owner 2026-11-17)

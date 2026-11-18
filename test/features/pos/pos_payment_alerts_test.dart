@@ -119,12 +119,17 @@ void main() {
     expect(askodoxRupees(12345050), '₹1,23,450.50');
     expect(askodoxRupees(50000), '₹500');
     expect(askodoxRupees(null), '₹—');
-    expect(askodoxPaymentStatusLabel({'status': 'notification_unverified'}).$1, 'Notification detected — unverified');
+    expect(askodoxPaymentStatusLabel({'status': 'notification_unverified'}).$1, 'Received (app notification) — check your bank app');
+    // Owner 2026-11-18: never "confirmed" / "verified" in any label.
+    for (final s in ['notification_unverified', 'provider_verified', 'ambiguous']) {
+      final l = askodoxPaymentStatusLabel({'status': s});
+      expect('${l.$1} ${l.$2}', isNot(matches(RegExp('onfirm|erified|నిర్ధార'))), reason: s);
+    }
     expect(askodoxPaymentStatusLabel({'status': 'ambiguous'}).$1, contains('Ambiguous'));
     expect(askodoxPaymentStatusLabel({'status': 'notification_unverified', 'test': true}).$1, 'Test alert');
     final csv = askodoxPaymentAlertsCsv([_event('e1')]);
     expect(csv, contains('500.00'));
-    expect(csv, contains('Not bank-verified'));
+    expect(csv, contains('check your bank app'));
     expect(csv, isNot(contains('Counter phone')), reason: 'no device / person data in the export');
   });
 
@@ -173,7 +178,8 @@ void main() {
     }
     expect(find.byKey(const Key('askodoxPayAlertStatus')), findsNothing);
     expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsNothing);
-    expect(find.textContaining('(unverified)'), findsOneWidget);
+    expect(find.textContaining('(received in notifications)'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxPayAlertDisclaimer')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'status')));
@@ -235,7 +241,7 @@ void main() {
     expect(find.text('Payment history'), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPayAlertEvent-e1')), findsOneWidget);
     expect(find.text('₹500 · PhonePe Business'), findsOneWidget);
-    expect(find.text('Notification detected — unverified'), findsOneWidget);
+    expect(find.text('Received (app notification) — check your bank app'), findsOneWidget);
     expect(find.textContaining('Voice: Spoken'), findsOneWidget);
     expect(find.byKey(const Key('askodoxPayAlertStatus')), findsNothing);
     expect(find.byKey(const Key('askodoxPayAlertExport')), findsOneWidget);

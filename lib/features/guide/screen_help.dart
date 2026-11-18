@@ -530,29 +530,29 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   '/me/payment-alerts/:id': _H('Payment alerts', 'పేమెంట్ అలర్ట్స్', [
     'Do the setup card at the top first, one step at a time.',
     'Each row opens its own page: 1 This phone, 2 Who hears it, 3 Settings, 4 History.',
-    'Big amounts: always check your bank app — a notification is not a bank confirmation.',
+    'Big amounts: always check your bank app — alerts only say "received".',
   ], [
     'ముందు పైన ఉన్న సెటప్ కార్డ్ ఒక్కో అడుగు పూర్తి చేయండి.',
     'ప్రతి వరుస దాని పేజీ తెరుస్తుంది: 1 ఈ ఫోన్, 2 ఎవరు వింటారు, 3 సెట్టింగ్స్, 4 హిస్టరీ.',
-    'పెద్ద మొత్తాలు ఎప్పుడూ బ్యాంక్ యాప్‌లో చూసుకోండి — నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు.',
+    'పెద్ద మొత్తాలు ఎప్పుడూ బ్యాంక్ యాప్‌లో చూసుకోండి — అలర్ట్ "అందింది" అని మాత్రమే చెబుతుంది.',
   ]),
   '/me/payment-alerts/:id/:view': _H('Payment alerts — one part', 'పేమెంట్ అలర్ట్స్ — ఒక భాగం', [
     'This page is one part of Payment alerts; the back arrow returns to the list of parts.',
     'Status & tests switches alerts on and tests the speaker; Who hears it and Staff choose the people.',
-    'Voice & quiet time sets the voice; Payment history lists every alert — a notification is not a bank confirmation.',
+    'Voice & quiet time sets the voice; Payment history lists every alert — check big amounts in your bank app.',
   ], [
     'ఈ పేజీ పేమెంట్ అలర్ట్స్‌లో ఒక భాగం; వెనక బాణం భాగాల జాబితాకు తీసుకెళ్తుంది.',
     'స్థితి & టెస్ట్ లో అలర్ట్స్ ఆన్ చేసి స్పీకర్ టెస్ట్ చేయండి; ఎవరు వింటారు, సిబ్బంది లో మనుషులను ఎంచుకోండి.',
-    'వాయిస్ & నిశ్శబ్ద సమయం లో గొంతు; పేమెంట్ హిస్టరీ లో అన్ని అలర్ట్స్ — నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు.',
+    'వాయిస్ & నిశ్శబ్ద సమయం లో గొంతు; పేమెంట్ హిస్టరీ లో అన్ని అలర్ట్స్ — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
   ]),
   '/pos/:id/payment-alerts': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
     'Turn on alerts for the shop, then "Turn on" notification access and switch ASKODOX on in Android settings.',
     'Press "Speaker test" — connect a Bluetooth speaker first if you want the voice there.',
-    'Every payment notification is listed with its time, app, voice status and "unverified" — check big amounts in your bank.',
+    'Every payment notification is listed with its time, app, voice status and "received" — check big amounts in your bank app.',
   ], [
     'షాపుకు అలర్ట్స్ ఆన్ చేసి, నోటిఫికేషన్ యాక్సెస్ "ఆన్ చేయండి" నొక్కి Android సెట్టింగ్స్‌లో ASKODOX ఆన్ చేయండి.',
     '"స్పీకర్ టెస్ట్" నొక్కండి — బ్లూటూత్ స్పీకర్‌లో కావాలంటే ముందు దాన్ని కనెక్ట్ చేయండి.',
-    'ప్రతి పేమెంట్ నోటిఫికేషన్ సమయం, యాప్, వాయిస్ స్థితితో "నిర్ధారించలేదు" అని కనిపిస్తుంది — పెద్ద మొత్తాలు బ్యాంకులో చూసుకోండి.',
+    'ప్రతి పేమెంట్ నోటిఫికేషన్ సమయం, యాప్, వాయిస్ స్థితితో "అందింది" అని కనిపిస్తుంది — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
   ]),
   '/pos/:id/selfshop': _H('Self-shopping', 'సెల్ఫ్ షాపింగ్', [
     'Turn it on to let customers scan items with their own phone.',

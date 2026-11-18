@@ -20,6 +20,9 @@ import 'pay_alert_staff_card.dart';
 import '../../../shared/widgets/navigator_section.dart' show AskodoxNavSection;
 import 'pos_common.dart';
 import 'pos_payment_alerts_setup.dart';
+import 'pay_alert_disclaimer.dart';
+import 'pay_alert_phones_card.dart';
+import 'payment_alert_banner.dart' show askodoxPayAlertHearOnlyKey;
 
 /// Short time "10:21 AM" (local) from an ISO timestamp.
 String askodoxPayAlertTime(Object? iso) {
@@ -163,7 +166,7 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
         subtitle: Text(last == null && !_listener && !_playOnly
             ? (te ? 'ఈ ఫోన్‌లో నోటిఫికేషన్ యాక్సెస్ ఆఫ్‌లో ఉంది — తాకండి' : 'Notification access is off on this phone — tap to fix')
             : last == null && !_listener
-                ? (te ? 'బ్యాంక్-నిర్ధారణ / సిబ్బంది అలర్ట్స్ ఈ ఫోన్ చెబుతుంది' : 'This phone speaks bank-confirmed and staff alerts')
+                ? (te ? 'Razorpay / సిబ్బంది అలర్ట్స్ ఈ ఫోన్ చెబుతుంది' : 'This phone speaks Razorpay and staff alerts')
             : last == null
                 ? (te ? 'వింటోంది. పేమెంట్ వస్తే చెబుతుంది.' : 'Listening. It will speak when a payment notification comes.')
                 : '${te ? stTe : stEn}${spoken.isEmpty ? '' : ' · ${te ? spokenTe : spokenEn}'}'),
@@ -519,10 +522,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       key: const Key('askodoxPayAlertRazorpaySignup'),
       child: ListTile(
         leading: const Icon(Icons.verified_outlined),
-        title: Text(te ? 'బ్యాంక్ నిర్ధారణ కావాలా? ASKODOX పేమెంట్ ప్రొఫైల్‌లో చేరండి' : 'Want bank-confirmed alerts? Join the ASKODOX payment profile'),
+        title: Text(te ? 'Razorpay ద్వారా అలర్ట్ కావాలా? ASKODOX పేమెంట్ ప్రొఫైల్‌లో చేరండి' : 'Want alerts from Razorpay? Join the ASKODOX payment profile'),
         subtitle: Text(te
-            ? 'ప్రొఫైల్ QR కి వచ్చిన డబ్బు బ్యాంక్ నిర్ధారించాకే మాట్లాడుతుంది, డబ్బు నేరుగా మీ బ్యాంక్ కి. చేరాక కింద "కనెక్ట్ చేయి".'
-            : 'Money paid to the profile QR is spoken only after the bank confirms it; money goes straight to your bank. After joining, use "Connect" below.'),
+            ? 'ప్రొఫైల్ QR కి వచ్చిన డబ్బు Razorpay "అందింది" అని చెప్పాకే మాట్లాడుతుంది, డబ్బు నేరుగా మీ బ్యాంక్ కి. చేరాక కింద "కనెక్ట్ చేయి".'
+            : 'Money paid to the profile QR is spoken once Razorpay reports it received; money goes straight to your bank. After joining, use "Connect" below.'),
         trailing: const Icon(Icons.open_in_new),
         onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       ),
@@ -582,6 +585,12 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     try {
       _status = await _bridge.status();
       _settings = await _repo.paymentAlertSettings(_id);
+      try {
+        // Owner 2026-11-18: a phone that only hears the shop's payments needs no notification access (Home strip).
+        if (_settings['reports_payments'] is bool) {
+          await (await SharedPreferences.getInstance()).setBool(askodoxPayAlertHearOnlyKey, _settings['reports_payments'] == false);
+        }
+      } catch (_) {}
       if (first || _deviceId == null) await _registerDevice();
       await _configureNative();
       await askodoxSyncPaymentAlerts(_repo, _bridge, _id, _deviceId);
@@ -665,7 +674,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         final lang = '${_settings['language'] ?? 'te'}';
         final text = '${askodoxPosMap(e['announcement'])[lang] ?? ''}';
         var state = 'seen';
-        if (speaks && text.isNotEmpty) {
+        // Owner 2026-11-18: no amount = written only, never "amount not clear" aloud.
+        if (speaks && text.isNotEmpty && (e['amount_paise'] != null || e['test'] == true)) {
           final out = await _bridge.speakRemote(id, text, lang);
           if (out == 'duplicate') continue; // already spoken (and acknowledged) from the push while closed
           if (out == 'unavailable' || out == 'not_set_up') await _bridge.speakText(text, lang);
@@ -710,10 +720,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         content: Text(te
             ? 'ASKODOX పేమెంట్ యాప్‌ల (PhonePe Business, Google Pay, Paytm, BHIM…) నోటిఫికేషన్‌లలో '
                 'మొత్తం, యాప్ పేరు, రిఫరెన్స్ చివరి 4 అంకెలు మాత్రమే చదువుతుంది. ఇతర యాప్‌లు, మెసేజ్‌లు, OTP లు చదవదు, '
-                'నోటిఫికేషన్ టెక్స్ట్ సేవ్ చేయదు. ఇది బ్యాంక్ నిర్ధారణ కాదు. తర్వాతి స్క్రీన్‌లో ASKODOX ను ఆన్ చేయండి.'
+                'నోటిఫికేషన్ టెక్స్ట్ సేవ్ చేయదు. ఖాతాలో పడిందో బ్యాంక్ యాప్‌లో చూసుకోండి. తర్వాతి స్క్రీన్‌లో ASKODOX ను ఆన్ చేయండి.'
             : 'ASKODOX reads only the amount, app name and last 4 characters of the reference from notifications of the '
                 'payment apps (PhonePe Business, Google Pay, Paytm, BHIM…). It never reads other apps, messages '
-                'or OTPs and never stores the notification text. A notification is not a bank confirmation. '
+                'or OTPs and never stores the notification text. Check your bank app for the money in your account. '
                 'On the next screen, switch ASKODOX on.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Not now')),
@@ -791,7 +801,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       'who' => te ? 'ఎవరు వింటారు' : 'Who hears it',
       'staff' => te ? 'సిబ్బంది' : 'Staff',
       'voice' => te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
-      'bank' => te ? 'బ్యాంక్ నిర్ధారణ' : 'Bank confirmation',
+      'bank' => te ? 'Razorpay అలర్ట్స్' : 'Razorpay alerts',
       _ => te ? 'పేమెంట్ అలర్ట్స్' : 'Payment alerts',
     };
     return Scaffold(
@@ -835,6 +845,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                       // Owner 2026-11-17: "who hears it" and "staff" are ONE place
                       'who' => [
                           if (owner && !_phoneOnly) AskodoxPayAlertStaffCard(businessId: _id, onChanged: _refresh),
+                          if (!_phoneOnly) AskodoxPayAlertPhonesCard(businessId: _id),
                           _shareCard(te),
                           if (owner && !_phoneOnly) _rolesCard(te),
                           _devicesCard(te),
@@ -850,18 +861,17 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                           _razorpaySignup(te),
                           if (owner && !_phoneOnly) AskodoxPosProviderCard(businessId: _id) else _onlyOwner(te),
                         ],
-                      _ => [_setupCard(te), _unknownCard(te), ..._menu(te, owner)],
+                      _ => [
+                          if (!_phoneOnly && (owner || _settings['my_role'] == 'manager'))
+                            AskodoxPayAlertPhonesCard(businessId: _id, warningOnly: true),
+                          _setupCard(te),
+                          _unknownCard(te),
+                          ..._menu(te, owner),
+                        ],
                     },
                     if (view == 'main' || history) const SizedBox(height: 8),
                     if (view == 'main' || history)
-                    Text(
-                      te
-                          ? 'ASKODOX డబ్బు తీసుకోదు, పంపదు. కస్టమర్లు మీ UPI ID / QR కే నేరుగా కడతారు. నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు — '
-                              'పెద్ద మొత్తాలు బ్యాంక్ / పేమెంట్ యాప్‌లో చూసుకోండి. ఇవి ఆదాయం / సెటిల్‌మెంట్‌గా లెక్కించబడవు.'
-                          : 'ASKODOX never takes or sends money — customers pay your own UPI ID / QR. A notification is not a bank '
-                              'confirmation: check big amounts in your bank / payment app. These are never counted as revenue or settlements.',
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                    AskodoxPayAlertDisclaimer(te: te),
                   ]),
                 ),
     );
@@ -924,7 +934,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         box('voice', Icons.record_voice_over_outlined, te ? 'వాయిస్ & నిశ్శబ్ద సమయం' : 'Voice & quiet time',
             '$lang · ${quietStart.isEmpty ? (te ? 'ఎప్పుడూ చెప్తుంది' : 'always speaks') : '$quietStart – ${_settings['quiet_end']}'}'),
       if (owner)
-        box('bank', Icons.verified_outlined, te ? 'బ్యాంక్ నిర్ధారణ' : 'Bank confirmation',
+        box('bank', Icons.verified_outlined, te ? 'Razorpay అలర్ట్స్' : 'Razorpay alerts',
             te ? 'ఐచ్ఛికం · పేమెంట్ ప్రొఫైల్' : 'Optional · payment profile'),
     ];
     return [
@@ -946,8 +956,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           title: Text(te ? 'వచ్చిన డబ్బు, చరిత్ర అంతా "నా డబ్బు" లోనే' : 'Money and history are all in "My money"',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
           subtitle: Text(te
-              ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
-              : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)'),
+              ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నోటిఫికేషన్‌లో అందినవి)'
+              : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (received in notifications)'),
           trailing: Text(te ? 'తెరువు ›' : 'Open ›', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3FA0))),
           onTap: () => context.push('/money'),
         ),
@@ -1072,10 +1082,10 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
   Widget _historyCard(bool te) {
     const filters = [
       ('', 'All', 'అన్నీ'),
-      ('notification_unverified', 'Unverified', 'నిర్ధారించనివి'),
+      ('notification_unverified', 'Notification', 'నోటిఫికేషన్'),
       ('ambiguous', 'Ambiguous', 'స్పష్టంగా లేనివి'),
       ('duplicate', 'Duplicates', 'డూప్లికేట్'),
-      ('provider_verified', 'Verified', 'నిర్ధారించినవి'),
+      ('provider_verified', 'Razorpay', 'Razorpay'),
     ];
     final pendingLocal = _local.where((e) => e['server_id'] == null && e['upload_error'] == null && e['test'] != true).length;
     return Card(
@@ -1086,8 +1096,8 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           Text(te ? 'పేమెంట్ అలర్ట్స్' : 'Payment alerts', style: const TextStyle(fontWeight: FontWeight.w800)),
           Text(
             te
-                ? 'గత 24 గం: ${_summary['count'] ?? 0} నోటిఫికేషన్లు · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నిర్ధారించలేదు)'
-                : 'Last 24 h: ${_summary['count'] ?? 0} notifications · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (unverified)',
+                ? 'గత 24 గం: ${_summary['count'] ?? 0} నోటిఫికేషన్లు · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (అందినవి)'
+                : 'Last 24 h: ${_summary['count'] ?? 0} notifications · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (received)',
             key: const Key('askodoxPayAlertSummary'),
             style: const TextStyle(fontSize: 12.5),
           ),
@@ -1438,12 +1448,12 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(te ? 'ASKODOX పేమెంట్ ప్రొఫైల్ (బ్యాంక్ నిర్ధారణ)' : 'ASKODOX payment profile (bank-confirmed)',
+          Text(te ? 'ASKODOX పేమెంట్ ప్రొఫైల్ (Razorpay)' : 'ASKODOX payment profile (Razorpay)',
               style: const TextStyle(fontWeight: FontWeight.w800)),
           Text(
               te
-                  ? 'మీ ప్రొఫైల్ QR కి కస్టమర్ కడితే, బ్యాంక్ నిర్ధారించిన తర్వాతే "మీకు ... రూపాయలు అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే; ASKODOX డబ్బు పట్టుకోదు.'
-                  : 'When a customer pays your profile QR, phones say "you received ..." only after the bank confirms it. Money goes straight to your account; ASKODOX never holds it.',
+                  ? 'మీ ప్రొఫైల్ QR కి కస్టమర్ కడితే, Razorpay "అందింది" అని చెప్పాకే "మీకు ... రూపాయలు అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే; ASKODOX డబ్బు పట్టుకోదు.'
+                  : 'When a customer pays your profile QR, phones say "you received ..." once Razorpay reports it. Money goes straight to your account; ASKODOX never holds it.',
               style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 6),
           if (connected) ...[

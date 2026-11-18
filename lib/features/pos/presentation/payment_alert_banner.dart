@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/backend_providers.dart';
 import '../data/pos_payment_alerts.dart';
+import '../data/pos_repository.dart';
 
 /// Why this phone would stay silent for a payment (owner 2026-11-16: the app must SAY it, not stay quiet).
 enum AskodoxAlertHealth { unknown, ok, off, needsAccess, noListener, noApps, noVoice }
@@ -21,6 +22,30 @@ AskodoxAlertHealth askodoxAlertHealthOf(Map<String, Object?> status, {required b
   if (status['ttsReady'] == false || status['ttsLanguageOk'] == false) return AskodoxAlertHealth.noVoice;
   return AskodoxAlertHealth.ok;
 }
+
+/// Owner 2026-11-18: a phone that only HEARS the shop's payments (waiter, kitchen ...) needs no notification access
+/// or payment-app choice; only its voice / switch matter. Saved by the shop alert page from the server's
+/// `reports_payments`.
+const askodoxPayAlertHearOnlyKey = 'askodox.payalert.hear_only.v1';
+
+AskodoxAlertHealth askodoxHearOnlyHealth(AskodoxAlertHealth h, {required bool hearOnly, required bool mineEnabled}) {
+  if (!hearOnly || mineEnabled) return h;
+  return switch (h) {
+    AskodoxAlertHealth.needsAccess || AskodoxAlertHealth.noApps || AskodoxAlertHealth.noListener => AskodoxAlertHealth.ok,
+    _ => h,
+  };
+}
+
+/// The server's word for a health state (`pos_payment_alerts.HEALTH_STATES`).
+String askodoxAlertHealthWire(AskodoxAlertHealth h) => switch (h) {
+      AskodoxAlertHealth.ok => 'ok',
+      AskodoxAlertHealth.off => 'off',
+      AskodoxAlertHealth.needsAccess => 'needs_access',
+      AskodoxAlertHealth.noListener => 'no_listener',
+      AskodoxAlertHealth.noApps => 'no_apps',
+      AskodoxAlertHealth.noVoice => 'no_voice',
+      AskodoxAlertHealth.unknown => 'unknown',
+    };
 
 /// How long a dismissed warning stays hidden: the "never turned on" nudge is quiet for a week, a broken setup
 /// (switched on but one part missing) comes back after a day.
@@ -65,7 +90,20 @@ final askodoxPaymentAlertHealthProvider = FutureProvider.autoDispose<AskodoxAler
     } catch (_) {}
   }
   final status = await bridge.status();
-  return askodoxAlertHealthOf(status, mineEnabled: mine.enabled, mineApps: mine.apps.length);
+  final raw = askodoxAlertHealthOf(status, mineEnabled: mine.enabled, mineApps: mine.apps.length);
+  var hearOnly = false;
+  try {
+    hearOnly = (await SharedPreferences.getInstance()).getBool(askodoxPayAlertHearOnlyKey) ?? false;
+  } catch (_) {}
+  final health = askodoxHearOnlyHealth(raw, hearOnly: hearOnly, mineEnabled: mine.enabled);
+  // Tell the shop how this phone is (owner's phone status); best effort, never blocks Home.
+  if (health != AskodoxAlertHealth.unknown) {
+    try {
+      final key = await askodoxPaymentAlertInstallKey();
+      await ref.read(askodoxPosRepositoryProvider).paymentAlertHeartbeat(key, askodoxAlertHealthWire(raw));
+    } catch (_) {}
+  }
+  return health;
 });
 
 /// One red / amber strip at the top of Home: says what is missing and opens the ONE page that fixes it.

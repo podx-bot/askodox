@@ -2353,6 +2353,8 @@ class _AskodoxPrimaryHomeScreenState
     }
     if (aiUsable && decision!.shopMenu != null && askodoxRouteShownNow('/order-desk')) {
       _shopMenuByTurn[userTurnIndex] = decision.shopMenu!;
+      // Owner 2026-11-18: the shop's menu is the answer -- earlier search cards fold into the pill (tap restores).
+      if (_pinnedResultsTurn case final pinned?) _boardMinimizedFor = pinned;
     }
     final chips = aiUsable ? askodoxSuggestionChips(decision!.suggestions) : const <String>[];
     if (chips.isNotEmpty) _suggestionsByTurn[userTurnIndex] = chips;

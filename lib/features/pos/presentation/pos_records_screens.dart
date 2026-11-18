@@ -906,7 +906,7 @@ class _AskodoxPosInvoiceScreenState extends ConsumerState<AskodoxPosInvoiceScree
             ),
             for (final p in askodoxPosList(inv['payments']))
               if (p['verification'] == 'cashier_confirmed')
-                Text(te ? '${p['method']}: క్యాషియర్ నిర్ధారించారు (బ్యాంక్ నిర్ధారణ కాదు)' : '${p['method']}: confirmed by the cashier (not bank-verified)',
+                Text(te ? '${p['method']}: క్యాషియర్ నమోదు చేశారు' : '${p['method']}: entered by the cashier',
                     style: const TextStyle(fontSize: 11.5)),
             Wrap(spacing: 8, children: [
               FilledButton.icon(

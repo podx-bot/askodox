@@ -112,6 +112,9 @@ class AskodoxPosRepository {
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
+  /// The customer's choice: 'cash' (pay at the counter / table) or 'online' (the shop's own UPI).
+  Future<AskodoxJson> deskPayChoice(String id, String choice) =>
+      _send('POST', '/api/pos/order-desk/mine/$id/pay-choice', body: {'choice': choice});
   Future<AskodoxJson> deskMyRequests(String orderId) => _send('GET', '/api/pos/order-desk/mine/$orderId/requests');
   Future<AskodoxJson> deskAsk(String orderId, {List<String> kinds = const [], String text = ''}) =>
       _send('POST', '/api/pos/order-desk/mine/$orderId/requests', body: {'kinds': kinds, 'text': text});
@@ -502,6 +505,11 @@ class AskodoxPosRepository {
   Future<AskodoxJson> paymentAlertSettings(String id) => _send('GET', '${_pa(id)}/settings');
   Future<AskodoxJson> updatePaymentAlertSettings(String id, AskodoxJson body) => _send('PUT', '${_pa(id)}/settings', body: body);
   Future<AskodoxJson> registerAlertDevice(String id, AskodoxJson body) => _send('POST', '${_pa(id)}/devices', body: body);
+  /// Owner 2026-11-18: each phone's payment sound (working / permission off / not answering).
+  Future<AskodoxJson> paymentAlertPhones(String id) => _send('GET', '${_pa(id)}/phones');
+  /// This phone says how its payment sound is (every shop row of this install).
+  Future<AskodoxJson> paymentAlertHeartbeat(String deviceKey, String health) =>
+      _send('POST', '/api/pos/me/payment-alerts/heartbeat', body: {'device_key': deviceKey, 'health': health});
   /// Who hears MY payments: mode all / none / some (+ chosen people refs). Returns the settings.
   Future<AskodoxJson> setAlertShare(String id, String mode, {List<String> listeners = const []}) =>
       _send('PUT', '${_pa(id)}/share', body: {'mode': mode, 'listeners': listeners});

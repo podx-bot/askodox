@@ -37,7 +37,10 @@ List<AskodoxPayAlertSetupStep> askodoxPayAlertSetupSteps({
   bool phoneOnly = false,
 }) {
   if (status['unavailable'] == true) return const []; // not an Android phone: nothing to set up
-  final canReadNotifications = status['listenerDeclared'] != false; // Play build
+  // Owner 2026-11-18: a phone that only HEARS the shop's payments (server `reports_payments` false) gets only the
+  // steps it needs -- no notification access, no payment-app steps.
+  final hearOnly = !phoneOnly && settings['reports_payments'] == false;
+  final canReadNotifications = status['listenerDeclared'] != false && !hearOnly; // Play build
   final labels = settings['apps'] is Map ? (settings['apps'] as Map) : const {};
   final steps = <AskodoxPayAlertSetupStep>[
     AskodoxPayAlertSetupStep('shop_on',

@@ -434,6 +434,12 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
                 style: TextStyle(decoration: i['status'] == 'unavailable' ? TextDecoration.lineThrough : null)),
           if ('${o['notes']}'.isNotEmpty) Text('📝 ${o['notes']}'),
           Text(askodoxPaise(askodoxPosInt(o['estimate_paise'])), style: const TextStyle(fontWeight: FontWeight.w700)),
+          // Owner 2026-11-18: the customer's own choice -- cash at the counter / table, or online to the shop's UPI.
+          if (o['pay_choice'] == 'cash' || o['pay_choice'] == 'online')
+            Text(
+                o['pay_choice'] == 'cash' ? (te ? '💵 క్యాష్ కడతారు' : '💵 Will pay cash') : (te ? '📱 ఆన్‌లైన్ (UPI) కడతారు' : '📱 Will pay online (UPI)'),
+                key: ValueKey('askodoxDeskPayChoice-${o['id']}'),
+                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF15803D))),
           if (isDelivery) ...[
             Text('${o['address']}${'${o['landmark']}'.isEmpty ? '' : ' · ${o['landmark']}'}'),
             if ('${o['maps_url']}'.isNotEmpty)
@@ -1119,6 +1125,41 @@ class _AskodoxDeskQrScreenState extends ConsumerState<AskodoxDeskQrScreen> {
         : 'You can now order from $shop on ASKODOX. Open the ASKODOX app, go to Profile → "Order at a shop" and enter this code: ${d['shop']}';
   }
 
+  /// Owner 2026-11-18: "how do I make QR codes for dine-in tables?" -- say how many tables; T1..Tn are made (names
+  /// already there are kept) and each gets its own QR below. Scanning a table's QR opens the menu as dine-in.
+  Future<void> _addTables(bool te) async {
+    final count = TextEditingController(text: '5');
+    final n = await showDialog<int>(
+        context: context,
+        builder: (c) => AlertDialog(
+              title: Text(te ? 'ఎన్ని టేబుల్స్ ఉన్నాయి?' : 'How many tables?'),
+              content: TextField(
+                  key: const Key('askodoxDeskTablesCount'),
+                  controller: count,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration: InputDecoration(helperText: te ? 'T1, T2 ... గా పేర్లు వస్తాయి' : 'Named T1, T2 ...')),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(c).pop(), child: Text(te ? 'వద్దు' : 'Cancel')),
+                FilledButton(
+                    key: const Key('askodoxDeskTablesMake'),
+                    onPressed: () => Navigator.of(c).pop(int.tryParse(count.text.trim())),
+                    child: Text(te ? 'QR లు చేయి' : 'Make QRs')),
+              ],
+            ));
+    if (n == null || n < 1) return;
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    final have = {for (final t in askodoxPosList(_data?['tables'])) '${t['name']}'.trim().toLowerCase()};
+    try {
+      for (var i = 1; i <= n.clamp(1, 60); i++) {
+        if (!have.contains('t$i')) await repo.addTable(widget.businessId, 'T$i');
+      }
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+    await _load();
+  }
+
   Widget _qr(String title, String code) => Card(
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -1174,6 +1215,24 @@ class _AskodoxDeskQrScreenState extends ConsumerState<AskodoxDeskQrScreen> {
                     ),
                   ),
                   _qr(te ? 'షాప్ (పార్సిల్ / డెలివరీ)' : 'Shop (takeaway / delivery)', '${d['shop']}'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Text(
+                          te
+                              ? 'టేబుల్ మీద కూర్చుని తినేవారికి (dine-in): ప్రతి టేబుల్‌కి వేరే QR. స్కాన్ చేస్తే ఆ టేబుల్ పేరుతో ఆర్డర్ వస్తుంది.'
+                              : 'Dine-in: every table has its own QR. Scanning it orders for that table.',
+                          style: const TextStyle(fontSize: 12.5)),
+                      const SizedBox(height: 6),
+                      OutlinedButton.icon(
+                          key: const Key('askodoxDeskAddTables'),
+                          onPressed: () => _addTables(te),
+                          icon: const Icon(Icons.table_restaurant_outlined),
+                          label: Text(askodoxPosList(d['tables']).isEmpty
+                              ? (te ? '+ టేబుల్ QR లు చేయి' : '+ Make table QRs')
+                              : (te ? '+ ఇంకా టేబుల్స్' : '+ More tables'))),
+                    ]),
+                  ),
                   for (final t in askodoxPosList(d['tables'])) _qr(te ? 'టేబుల్ ${t['name']}' : 'Table ${t['name']}', '${t['code']}'),
                 ]),
     );

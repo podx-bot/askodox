@@ -280,7 +280,7 @@ def test_http_flow(monkeypatch):
     listed = client.get(f"{base}/events", headers=auth(owner)).json()
     assert len(listed["events"]) == 1 and listed["last_24h"]["notified_total_paise"] == 25000
     csv = client.get(f"{base}/export.csv", headers=auth(owner))
-    assert csv.status_code == 200 and "Not bank-verified" in csv.text and "250.00" in csv.text
+    assert csv.status_code == 200 and "check your bank app" in csv.text and "250.00" in csv.text
     assert "pos.payment_alerts" in client.get("/api/flags").json()["flags"]
 
 

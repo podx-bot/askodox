@@ -196,10 +196,12 @@ STORE_BLOCKED_HINT = ("This store does not let our server read its pages. Open S
                       "ASKODOX app (Profile → Staff Workspace) and paste the link there -- your phone reads the "
                       "page and everything fills in (or enter the details by hand). / ఈ store మన server ని page చదవనివ్వదు. ASKODOX app లో "
                       "Staff Workspace తెరిచి link పెట్టండి -- phone page చదివి అన్నీ నింపుతుంది.")
-PHONE_FAILED_HINT = ("Your phone could not open this link either ({reason}). Check the internet and tap Fetch details "
-                     "again. If it still fails, open the product in the store's app -> Share -> copy the link, and "
-                     "paste that. / ఫోన్ కూడా ఈ link తెరవలేకపోయింది ({reason}). Internet చూసి మళ్లీ Fetch details "
-                     "నొక్కండి. అయినా రాకపోతే store app లో product తెరిచి Share -> link copy చేసి ఇక్కడ పెట్టండి.")
+PHONE_FAILED_HINT = ("Your phone could not open this link either ({reason}). Easiest: open the product in the store's "
+                     "app, take a screenshot and tap \"📸 Fill from screenshot\" below -- the details fill by themselves. "
+                     "/ ఫోన్ కూడా ఈ link తెరవలేకపోయింది ({reason}). Store app లో product తెరిచి screenshot తీసి, కింద "
+                     "\"📸 Screenshot తో నింపు\" నొక్కండి -- వివరాలు వాటంతట అవే నిండుతాయి.")
+# Store invite / short links are the staff's COMMISSION links (owner 2026-10-29: Meesho commission links).
+_COMMISSION_LINK = re.compile(r"/af_invite/|^https://(?:www\.)?(?:msho\.in|amzn\.to|amzn\.in|fkrt\.(?:it|cc|co))/", re.I)
 
 
 def _detect(request: Request, url: str) -> dict:
@@ -276,6 +278,9 @@ def _import_one(request: Request, url: str, *, details: bool, html: str | None =
             reason = "store error page" if meta.get("blocked") else ""
             reason = reason or re.sub(r"[^\w .:/-]", "", (phone_error or "").strip())[:80]
             note = PHONE_FAILED_HINT.format(reason=reason) if reason else STORE_BLOCKED_HINT
+            # The page could not be read, but the pasted invite link is still the commission link: keep it.
+            if may_link and not fields.get("affiliate_url") and _COMMISSION_LINK.search(clean):
+                fields["affiliate_url"] = clean
         if html or phone_error:
             # Railway log line to see how phone reads go (no page text, no customer data).
             _LOG.info("workspace.phone_read host=%s read=%s status=%s title=%s error=%s",
@@ -331,6 +336,44 @@ def _photo_facts(request: Request, photos: list[str]) -> list[str]:
         if facts:
             out.append(str(facts)[:600])
     return out
+
+
+class ScreenshotIn(BaseModel):
+    data: str = Field(min_length=100, max_length=3_000_000)  # base64 of one screenshot
+    mime: str = Field(default="image/jpeg", max_length=20)
+
+
+class ScreenshotBody(BaseModel):
+    images: list[ScreenshotIn] = Field(min_length=1, max_length=3)
+
+
+@router.post("/admin/cc/workspace/read-screenshot")
+def read_screenshot(body: ScreenshotBody, request: Request) -> dict:
+    """Owner 2026-11-18: a store link that will not open -> a screenshot of the product in the store's app fills the
+    details (title, price, MRP, seller, sizes). Nothing is saved; staff check and save."""
+    import base64
+
+    from app.services import product_screenshot, rate_limit
+
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    rate_limit.check(request, "workspace_screenshot", limit=30)
+    images = []
+    for img in body.images:
+        if img.mime not in ("image/jpeg", "image/png", "image/webp"):
+            raise HTTPException(status_code=400, detail="Only JPG / PNG / WEBP screenshots.")
+        raw = img.data.split(",", 1)[1] if img.data.startswith("data:") else img.data
+        try:
+            images.append((base64.b64decode(raw, validate=False), img.mime))
+        except Exception:
+            raise HTTPException(status_code=400, detail="The screenshot could not be read.")
+    out = product_screenshot.read_product(getattr(request.app.state.container, "universal_image_service", None), images)
+    if not out["read"]:
+        raise HTTPException(status_code=503, detail="Could not read the screenshot. Take it again with the product name "
+                                                    "and price visible. / Screenshot చదవలేకపోయాం -- product పేరు, ధర "
+                                                    "కనిపించేలా మళ్లీ తీయండి.")
+    return {"ok": True, "fields": out["fields"]}
 
 
 @router.post("/admin/cc/workspace/describe")

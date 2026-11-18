@@ -532,7 +532,7 @@ class _AskodoxDeskSalesScreenState extends ConsumerState<AskodoxDeskSalesScreen>
                         trailing: Text(askodoxPaise(askodoxPosInt(b['total_paise'])))),
                 ],
                 const SizedBox(height: 8),
-                Text(te ? 'మీ బిల్లుల నుంచి మాత్రమే. UPI / కార్డ్ మొత్తాలు క్యాషియర్ నిర్ధారించినవి.' : '${d['note']}', style: const TextStyle(fontSize: 12)),
+                Text(te ? 'మీ బిల్లుల నుంచి మాత్రమే. UPI / కార్డ్ మొత్తాలు క్యాషియర్ నమోదు చేసినవి.' : '${d['note']}', style: const TextStyle(fontSize: 12)),
               ],
             ]),
     );

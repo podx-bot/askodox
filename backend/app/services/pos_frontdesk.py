@@ -103,6 +103,14 @@ def parse_code(code: str) -> Dict[str, Optional[str]]:
     return {"business_id": parts[0], "table_id": table}
 
 
+
+def _rupees(paise: Any) -> str:
+    try:
+        n = int(paise or 0)
+    except (TypeError, ValueError):
+        n = 0
+    return f"₹{n // 100}" + (f".{n % 100:02d}" if n % 100 else "")
+
 class PosFrontDesk:
     def __init__(self, store: PosStore, restaurant: Any, *,
                  notify: Optional[Callable[[str, str, str, str, str], None]] = None,
@@ -125,6 +133,10 @@ class PosFrontDesk:
                 pass
             try:  # who the order is assigned to (an app user), next to the typed name
                 conn.execute("ALTER TABLE pos_desk_orders ADD COLUMN assignee_user TEXT NOT NULL DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
+            try:  # owner 2026-11-18: the customer says how they will pay -- cash or online ('' = not said)
+                conn.execute("ALTER TABLE pos_desk_orders ADD COLUMN pay_choice TEXT NOT NULL DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
 
@@ -362,10 +374,14 @@ class PosFrontDesk:
             raise PosError(400, "items", "Add 1-200 items.")
         created = updated = 0
         today = self._today()
+        from app.services.pos_menu_sort import printed_number
+
         for raw in items:
             name = _clean(raw.get("name"), 80)
             if not name:
                 continue
+            # "117) Fish Biryani" (read from a photo) -> name "Fish Biryani", item number 117 (owner 2026-11-18).
+            name, printed = printed_number(name)
             price = int(raw.get("price_paise") or 0)
             unit = str(raw.get("unit") or "plate")
             with self.store._connect() as conn:
@@ -389,6 +405,9 @@ class PosFrontDesk:
                     conn.execute("UPDATE pos_products SET menu_group = ? WHERE id = ?", (group, product_id))
                 if food in ("veg", "nonveg", "egg"):
                     conn.execute("UPDATE pos_products SET food_type = ? WHERE id = ?", (food, product_id))
+                if printed and not conn.execute("SELECT 1 FROM pos_products WHERE business_id = ? AND item_no = ?"
+                                                " AND id != ?", (business_id, printed, product_id)).fetchone():
+                    conn.execute("UPDATE pos_products SET item_no = ? WHERE id = ?", (printed, product_id))
         return {"created": created, "updated": updated}
 
     def set_availability(self, business_id: str, user: str, product_id: str, available: bool) -> Dict[str, Any]:
@@ -727,6 +746,7 @@ class PosFrontDesk:
             "can_cancel": row["stage"] == "placed", "timeline": self._timeline(conn, row["id"]),
             "gst": bool(business and business["registration_type"] != "unregistered"),
             "business_phone": business["phone"] if business else "", "invoice": None, "pay": [],
+            "pay_choice": row.get("pay_choice") or "",
         }
         if row["invoice_id"]:
             inv = conn.execute("SELECT number, totals, paid_paise, balance_paise FROM pos_invoices WHERE id = ?",
@@ -789,7 +809,7 @@ class PosFrontDesk:
         for d in due:
             if owners.get(d["id"]):
                 self._push([owners[d["id"]]], "ఆర్డర్ వేచి ఉంది · Order waiting", "ఒక నిమిషం అయింది, ఎవరూ అంగీకరించలేదు",
-                           f"/pos/{d['business_id']}/orders", f"desk:{d['id']}:late")
+                           f"/desk/{d['business_id']}", f"desk:{d['id']}:late")
         return len(due)
 
     # ------------------------------------------------------------------ customer side
@@ -818,6 +838,30 @@ class PosFrontDesk:
             conn.execute("UPDATE pos_desk_orders SET stage = 'cancelled', updated_at = ? WHERE id = ?", (self._now().isoformat(), order_id))
             self._event(conn, order_id, row["business_id"], "cancelled", user, "cancelled by the customer")
             return self._view(conn, dict(conn.execute("SELECT * FROM pos_desk_orders WHERE id = ?", (order_id,)).fetchone()), user)
+
+    def set_pay_choice(self, user: str, order_id: str, choice: str) -> Dict[str, Any]:
+        """Owner 2026-11-18: the customer chooses cash or online. Cash = the shop collects it at the counter / table;
+        nothing is marked paid here (the cashier still records the money). The floor staff are told once."""
+        if choice not in ("cash", "online"):
+            raise PosError(400, "choice", "choice must be cash or online.")
+        with self.store._tx() as conn:
+            row = conn.execute("SELECT * FROM pos_desk_orders WHERE id = ? AND customer_user = ?", (order_id, user)).fetchone()
+            if row is None:
+                raise PosError(404, "order", "Order not found.")
+            if row["stage"] in ("rejected", "cancelled"):
+                raise PosError(409, "stage", "This order is closed.")
+            changed = (row["pay_choice"] if "pay_choice" in row.keys() else "") != choice
+            conn.execute("UPDATE pos_desk_orders SET pay_choice = ?, updated_at = ? WHERE id = ?",
+                         (choice, self._now().isoformat(), order_id))
+            table = conn.execute("SELECT name FROM pos_tables WHERE id = ?", (row["table_id"],)).fetchone() \
+                if row["table_id"] else None
+            staff = self._staff_users(conn, row["business_id"]) if changed and choice == "cash" else []
+            out = self._view(conn, dict(conn.execute("SELECT * FROM pos_desk_orders WHERE id = ?", (order_id,)).fetchone()), user)
+        if staff:
+            where = f"{table['name']} · " if table else ""
+            self._push(staff, "💵 క్యాష్ కడతారు · Cash", f"{where}{row['customer_name'] or ''} {_rupees(out['estimate_paise'])}".strip(),
+                       f"/desk/{row['business_id']}", f"desk:{order_id}:paycash")
+        return out
 
     # ------------------------------------------------------------------ staff side
     def orders(self, business_id: str, user: str, lane: str = "active") -> Dict[str, Any]:
@@ -867,7 +911,7 @@ class PosFrontDesk:
             return
         en, te = STAGE_TEXT[stage]
         title = f"{te.split('.')[0]}" if stage not in _THANKS else te
-        self._push([row["customer_user"]], title[:70], (extra or en)[:160], f"/order/track/{row['id']}", f"desk:{row['id']}:{stage}")
+        self._push([row["customer_user"]], title[:70], (extra or en)[:160], f"/order-desk/track/{row['id']}", f"desk:{row['id']}:{stage}")
 
     def confirm(self, business_id: str, user: str, order_id: str, decisions: Optional[Dict[str, bool]] = None,
                 note: str = "") -> Dict[str, Any]:

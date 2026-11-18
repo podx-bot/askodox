@@ -127,7 +127,7 @@ void main() {
     expect(find.text('Today ₹470 · 2 payments'), findsOneWidget, reason: '350 + 120 today; the test payment and yesterday are left out');
     expect(find.text('spoke 1 times today'), findsOneWidget);
     expect(find.byKey(const Key('askodoxPaymentsHubMoney')), findsOneWidget);
-    expect(find.textContaining('not bank-confirmed'), findsOneWidget);
+    expect(find.textContaining('Check your bank app for the money in your account'), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPaymentsHubEvent-e1')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPaymentsHubEvent-e2')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPaymentsHubEvent-e3')), findsOneWidget);
