@@ -65,7 +65,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ రిక్వెస్ట్‌లకు జవాబులు, ఆర్డర్లు, అలర్ట్‌లు ఇక్కడ వస్తాయి.',
     'అప్‌డేట్ నొక్కితే దానికి సంబంధించిన రిక్వెస్ట్ / ఆర్డర్ తెరుచుకుంటుంది.',
   ]),
-  '/profile': _H('Profile', 'ప్రొఫైల్', [
+  '/profile': _H('Tools', 'టూల్స్', [
     'Say or type what you need in the box at the top (for example "notifications" or "my shop") — it finds it.',
     'Three tabs: Me (shopping, rides, tools, roles), Business (bills, items, enquiries, videos), Settings.',
     'Things you opened recently show first, under "Recent".',
@@ -464,7 +464,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రీఛార్జ్ Razorpay తెరుస్తుంది; Razorpay confirm చేశాకే credits చేరతాయి.',
     'Credits ASKODOX AI కి మాత్రమే — cash కాదు, వేరేవాళ్ళకు పంపలేరు, seller కి కట్టడానికి వాడరు.',
   ]),
-  '/me/payments': _H('Payments', 'పేమెంట్లు', [
+  '/me/payments': _H('Money', 'మనీ', [
     'Today shows the payments your phone heard and how many times it spoke them.',
     'These totals come from phone notifications, not the bank — check big amounts in your bank app.',
     'Show my QR and My accounts open your own UPI / bank; Alerts switches the voice on.',

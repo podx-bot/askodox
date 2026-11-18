@@ -243,13 +243,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('askodoxScreenHelpButton')));
     await tester.pumpAndSettle();
-    expect(_spoken.single, startsWith('Profile'), reason: 'the guide reads the screen help aloud');
+    expect(_spoken.single, startsWith('Tools'), reason: 'the guide reads the screen help aloud');
     expect(find.textContaining('Complete my profile'), findsOneWidget, reason: "the profile screen's own walkthrough");
     expect(find.textContaining('Upload a video'), findsNothing, reason: 'never the video guide on another screen');
     await tester.enterText(find.byKey(const Key('askodoxGuideAskField')), 'how do I upload a video?');
     await tester.tap(find.byKey(const Key('askodoxGuideAskGo')));
     await tester.pumpAndSettle();
-    expect(_asked.single, 'Profile|how do I upload a video?');
+    expect(_asked.single, 'Tools|how do I upload a video?');
     expect(find.byKey(const Key('askodoxGuideAnswer')), findsOneWidget);
     // Uploading own videos is a Phase 2 screen: a Phase 1 build answers but offers no walkthrough to it.
     expect(find.byKey(const ValueKey('askodoxGuideAnswerFlow-upload_video')),

@@ -192,7 +192,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
                   key: const Key('askodoxPaymentsHub'),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   children: [
-                    Text(te ? 'పేమెంట్లు' : 'Payments',
+                    Text(te ? 'మనీ' : 'Money',
                         style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: _ink)),
                     const SizedBox(height: 2),
                     Text(te ? 'డబ్బు నేరుగా మీ ఖాతాకే వస్తుంది' : 'Money comes straight to your account',

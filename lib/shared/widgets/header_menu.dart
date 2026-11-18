@@ -7,6 +7,8 @@ import '../../core/flags/askodox_release_phase.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../features/guide/in_app_guide.dart';
 import '../../features/home/application/conversation_archive.dart' show AskodoxChatRequest, askodoxChatRequestProvider;
+import '../../features/profile/data/user_profile_repository.dart' show askodoxUserProfileProvider;
+import '../../features/profile/presentation/profile_editor.dart' show askodoxOpenProfileEditor;
 import '../../features/profile/presentation/profile_screen.dart' show askodoxProfileViewProvider;
 
 /// Header Menu: ONE list of the places that already exist (no new screens,
@@ -30,7 +32,8 @@ const askodoxHeaderMenuEntries = <AskodoxMenuEntry>[
   AskodoxMenuEntry('orders', '/orders/mine', Icons.receipt_long_outlined, 'My requests & orders', 'నా అభ్యర్థనలు & ఆర్డర్లు'),
   AskodoxMenuEntry('saved', '/watchlist', Icons.bookmark_border_rounded, 'Saved & history', 'సేవ్ చేసినవి & చరిత్ర'),
   AskodoxMenuEntry('mobility', '/mobility', Icons.local_shipping_outlined, 'Rides, parcels & delivery', 'రైడ్స్, పార్సెల్స్ & డెలివరీ'),
-  AskodoxMenuEntry('more', '/profile', Icons.person_outline_rounded, 'My profile', 'నా ప్రొఫైల్'),
+  AskodoxMenuEntry('more', askodoxProfileDetailsMenuValue, Icons.person_outline_rounded, 'My details (personal & business)',
+      'నా వివరాలు (వ్యక్తిగత & బిజినెస్)'),
 ];
 
 /// Menu value that is not a route: the ONE secure sign-out flow.
@@ -44,6 +47,9 @@ const askodoxGuideMenuValue = '__screen_guide__';
 /// privacy, AI Credits). Owner 2026-11-09: settings live in the Menu so the
 /// Profile page stays clean.
 const askodoxSettingsMenuValue = '__settings__';
+
+/// Owner 2026-11-18: personal + business details open from the Menu (the bottom tab became "Tools").
+const askodoxProfileDetailsMenuValue = '__profile_details__';
 
 /// Menu value that starts a clean conversation (the old one stays in History).
 const askodoxNewChatMenuValue = '__new_chat__';
@@ -93,7 +99,7 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
                         (ValueKey('askodoxMenu-${e.key}'), e.icon, te ? e.te : e.en, e.route, const Color(0xFFE8EEFB), const Color(0xFF1E3FA0)),
                     ]),
                     (te ? 'నా ఖాతా' : 'My account', [
-                      for (final e in askodoxHeaderMenuEntries.where((e) => askodoxRouteShownNow(e.route) && e.key == 'more'))
+                      for (final e in askodoxHeaderMenuEntries.where((e) => e.key == 'more'))
                         (ValueKey('askodoxMenu-${e.key}'), e.icon, te ? e.te : e.en, e.route, const Color(0xFFF1F2F4), const Color(0xFF374151)),
                       (const ValueKey('askodoxMenu-settings'), Icons.settings_outlined, te ? 'సెట్టింగ్స్' : 'Settings',
                           askodoxSettingsMenuValue, const Color(0xFFF1F2F4), const Color(0xFF374151)),
@@ -163,6 +169,15 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
           if (route == askodoxSignOutMenuValue) {
             if (await askodoxConfirmSignOut(context, te: te) && context.mounted) {
               await askodoxSignOut(ref, restartFrom: context);
+            }
+            return;
+          }
+          if (route == askodoxProfileDetailsMenuValue) {
+            final profile = ref.read(askodoxUserProfileProvider).valueOrNull;
+            if (profile == null) {
+              context.push('/onboarding?signin=1');
+            } else {
+              await askodoxOpenProfileEditor(context, ref, profile, telugu: te);
             }
             return;
           }

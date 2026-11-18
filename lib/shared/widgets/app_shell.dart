@@ -452,12 +452,13 @@ class _PrimaryBottomBar extends ConsumerWidget {
         )),
         // Phase 1 (owner 2026-11-10): My payment methods sits right beside Ask.
         if (!askodoxPhase2)
-          _item('askodoxNavPayments', false, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, isTe ? 'పేమెంట్' : 'Payments', onPayments),
+          _item('askodoxNavPayments', false, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, isTe ? 'మనీ' : 'Money', onPayments),
         // Phase 1 (owner 2026-11-09): ASKODOX neither sells nor buys, so no "Orders" tab; request
         // updates stay one tap away on the header bell.
         if (askodoxPhase2)
           _item('askodoxNavUpdates', currentBranch == 3, Icons.receipt_long_outlined, Icons.receipt_long_rounded, isTe ? 'ఆర్డర్లు' : 'Orders', onUpdates),
-        _item('askodoxNavProfile', currentBranch == 4, Icons.person_outline_rounded, Icons.person_rounded, isTe ? 'ప్రొఫైల్' : 'Profile', onProfile),
+        // Owner 2026-11-18: this tab is the everyday TOOLS; personal / business details moved to the ☰ menu.
+        _item('askodoxNavProfile', currentBranch == 4, Icons.apps_outlined, Icons.apps_rounded, isTe ? 'టూల్స్' : 'Tools', onProfile),
       ]),
     ));
   }
