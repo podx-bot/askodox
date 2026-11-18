@@ -243,7 +243,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('askodoxScreenHelpButton')));
     await tester.pumpAndSettle();
-    expect(_spoken.single, startsWith('Profile'), reason: 'the guide reads the screen help aloud');
+    expect(_spoken.single, startsWith('Tools'), reason: 'the guide reads the screen help aloud');
     expect(find.textContaining('Complete my profile'), findsOneWidget, reason: "the profile screen's own walkthrough");
     expect(find.textContaining('Upload a video'), findsNothing, reason: 'never the video guide on another screen');
     await tester.enterText(find.byKey(const Key('askodoxGuideAskField')), 'how do I upload a video?');
