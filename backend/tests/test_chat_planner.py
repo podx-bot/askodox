@@ -25,7 +25,7 @@ class _Http:
         self.models = []
 
     def post(self, url, *, headers=None, json=None, timeout=None):
-        prompt = (json or {}).get("messages", [{}])[0].get("content", "")
+        prompt = svc.UniversalAIAssistantService.content_text((json or {}).get("messages", [{}])[0].get("content", ""))
         self.models.append(((json or {}).get("model"), "plan" if "You plan ONE turn of ASKODOX" in prompt else "answer"))
         if "You plan ONE turn of ASKODOX" in prompt:
             text = __import__("json").dumps(self.plan)
@@ -65,7 +65,8 @@ def test_the_planner_searches_the_real_subject_not_the_users_words():
 
 
 def test_level_picks_the_model():
-    for level, model in (("simple", "claude-haiku-5-5"), ("medium", "claude-sonnet-5-5"), ("hard", "claude-opus-5-5")):
+    # Owner 2026-11-18 (answers in 1-2 s): the routing decision is the fast model unless the question is hard.
+    for level, model in (("simple", "claude-haiku-5-5"), ("medium", "claude-haiku-5-5"), ("hard", "claude-opus-5-5")):
         brain, _ = _brain({"search": False, "query": "", "level": level})
         brain.decide("razorpay ఎందుకు ఓపెన్ అవ్వట్లేదు", locale="te")
         answer_models = [m for m, kind in brain.http.models if kind == "answer"]

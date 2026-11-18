@@ -255,6 +255,86 @@ CONVERSATION_STATE_RULES = (
 # Set by decide() for the request's own thread only.
 _REQUEST = threading.local()
 
+# Marks where the fixed (cached) part of the routing prompt ends; removed before sending.
+_CACHE_MARK = "\u0000CACHE\u0000"
+
+
+class _ReplyStream:
+    """Feeds the routing call's streamed JSON and passes on ONLY the text of its "reply" value, as it grows
+    (owner 2026-11-18: first words in 1-2 s). Handles JSON escapes; stops at the closing quote."""
+
+    _START = re.compile(r'"reply"\s*:\s*"')
+
+    def __init__(self, out: Any) -> None:
+        self.out = out
+        self.buf = ""
+        self.pos = -1  # index in buf where the reply's characters start (-1 = not found yet)
+        self.done = False
+        self.shown = False
+        self.first_at: float | None = None  # monotonic time of the first word shown (for the timing log)
+
+    def __call__(self, piece: Any) -> None:
+        if piece is None:  # the stream broke: withdraw what was shown
+            if self.shown:
+                self.out(None)
+            self.shown = False
+            return
+        if self.done:
+            return
+        self.buf += str(piece)
+        if self.pos < 0:
+            m = self._START.search(self.buf)
+            if not m:
+                return
+            self.pos = m.end()
+        text, i = [], self.pos
+        while i < len(self.buf):
+            ch = self.buf[i]
+            if ch == "\\":
+                if i + 1 >= len(self.buf):
+                    break  # wait for the escaped character
+                nxt = self.buf[i + 1]
+                if nxt == "u":
+                    if i + 6 > len(self.buf):
+                        break
+                    try:
+                        text.append(chr(int(self.buf[i + 2:i + 6], 16)))
+                    except ValueError:
+                        pass
+                    i += 6
+                    continue
+                text.append({"n": "\n", "t": "\t", "r": "", "b": "", "f": ""}.get(nxt, nxt))
+                i += 2
+                continue
+            if ch == '"':
+                self.done = True
+                i += 1
+                break
+            text.append(ch)
+            i += 1
+        self.pos = i
+        if text:
+            if self.first_at is None:
+                self.first_at = time.monotonic()
+            self.shown = True
+            self.out("".join(text))
+
+
+class _ResetFirst:
+    """Wraps ``on_text`` so the first piece of a NEW answer is preceded by a reset (the routing reply shown so
+    far is replaced, never mixed in)."""
+
+    def __init__(self, out: Any) -> None:
+        self.out = out
+        self.reset = False
+
+    def __call__(self, piece: Any) -> None:
+        if not self.reset and piece is not None:
+            self.out(None)
+            self.reset = True
+        self.out(piece)
+
+
 PLANNER_PROMPT = (
     "You plan ONE turn of ASKODOX, an AI assistant used in India in many languages. Read the conversation and the "
     "latest message (it may include text read from a photo / screenshot the user attached) and return ONLY a JSON "
@@ -374,7 +454,7 @@ class UniversalAIAssistantService:
         prompt = (PLANNER_PROMPT + "\nConversation (oldest first):\n" + ("\n".join(lines) or "(none)")
                   + ("\n\nAttachment text:\n" + attachment if attachment else "")
                   + "\n\nLatest message:\n" + user_text[:1200])
-        raw = self._call_claude(prompt, max_tokens=200, temperature=0.0, timeout=8.0)
+        raw = self._call_claude(prompt, max_tokens=200, temperature=0.0, timeout=8.0, cache_upto=len(PLANNER_PROMPT))
         if not raw:
             return {}
         try:
@@ -386,8 +466,26 @@ class UniversalAIAssistantService:
                 "query": " ".join(str(data.get("query") or "").split())[:200],
                 "level": level if level in ("simple", "medium", "hard") else "medium"}
 
+    @staticmethod
+    def content_text(content: Any) -> str:
+        """The plain text of a message content (a string or cached blocks) -- for logs and tests."""
+        if isinstance(content, list):
+            return "".join(str(b.get("text") or "") for b in content if isinstance(b, dict))
+        return str(content or "")
+
+    @staticmethod
+    def _content(prompt: str, cache_upto: int = 0) -> Any:
+        """The user message content. ``cache_upto`` > 0: the first ``cache_upto`` characters are the SAME on every
+        request (the fixed instructions) -> sent as a cached block (owner 2026-11-18: answers in 1-2 s; Anthropic
+        prompt caching skips re-reading ~4k fixed tokens every turn). Same text either way."""
+        if cache_upto <= 0 or cache_upto >= len(prompt):
+            return prompt
+        return [{"type": "text", "text": prompt[:cache_upto], "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": prompt[cache_upto:]}]
+
     def _call_claude(self, prompt: str, *, model: str = "", max_tokens: int = 2048,
-                     temperature: float = 0.2, timeout: float = 45.0, on_text: Any = None) -> str:
+                     temperature: float = 0.2, timeout: float = 45.0, on_text: Any = None,
+                     cache_upto: int = 0) -> str:
         """One Claude Messages API call; "" when no key or no answer (callers fall back).
 
         ``on_text`` (per request, never stored on the service): called with each piece of
@@ -397,7 +495,7 @@ class UniversalAIAssistantService:
             return ""
         chosen = model or self.anthropic_model
         if on_text is not None and hasattr(self.http, "stream"):
-            return self._stream_claude(prompt, chosen, max_tokens, timeout, on_text)
+            return self._stream_claude(prompt, chosen, max_tokens, timeout, on_text, cache_upto=cache_upto)
         try:
             response = self.http.post(
                 "https://api.anthropic.com/v1/messages",
@@ -407,7 +505,7 @@ class UniversalAIAssistantService:
                 # ("temperature is deprecated for this model"), which silently sent every
                 # answer to Gemini. The argument stays so callers do not change.
                 json={"model": chosen, "max_tokens": max_tokens,
-                      "messages": [{"role": "user", "content": prompt}]},
+                      "messages": [{"role": "user", "content": self._content(prompt, cache_upto)}]},
                 timeout=timeout,
             )
             response.raise_for_status()
@@ -436,7 +534,8 @@ class UniversalAIAssistantService:
                            chosen, type(exc).__name__, status, kind, detail)
             return ""
 
-    def _stream_claude(self, prompt: str, chosen: str, max_tokens: int, timeout: float, on_text: Any) -> str:
+    def _stream_claude(self, prompt: str, chosen: str, max_tokens: int, timeout: float, on_text: Any,
+                       cache_upto: int = 0) -> str:
         """Claude Messages API with ``stream: true`` (server-sent events). Same answer as the
         plain call; each text delta goes to ``on_text`` as it arrives."""
         parts: list[str] = []
@@ -447,7 +546,7 @@ class UniversalAIAssistantService:
                 headers={"x-api-key": self.anthropic_api_key, "anthropic-version": "2023-06-01",
                          "content-type": "application/json"},
                 json={"model": chosen, "max_tokens": max_tokens, "stream": True,
-                      "messages": [{"role": "user", "content": prompt}]},
+                      "messages": [{"role": "user", "content": self._content(prompt, cache_upto)}]},
                 timeout=timeout,
             ) as response:
                 if response.status_code >= 400:
@@ -1180,12 +1279,13 @@ class UniversalAIAssistantService:
             + (chat_actions.prompt_block(chat_actions.PHASE1_CAPABILITY in (capabilities or ()))
                if chat_actions.CAPABILITY in (capabilities or ()) else "")
             + reply_suggestions.prompt_block(capabilities)
-            + advice_memory.prompt_block(ledger) +
-            "Known user location rule: if a known location is given below, treat the location "
+            + "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
             "location again, and do not include a location question in reply. Only ask about "
             "location if the user is explicitly asking to use a different/new location than the "
             "known one. You may still copy the known location into entities.location when relevant.\n"
+            + _CACHE_MARK  # everything above is the same every turn (for this app version) -> cached
+            + advice_memory.prompt_block(ledger)
             + _reply_language_rule(locale) +
             f"Known user location: {clean_location or 'none (ask if the request needs it)'}\n"
             + _user_memory_block(user_memory) + answer_corrections.prompt_block(lessons) +
@@ -1204,6 +1304,8 @@ class UniversalAIAssistantService:
             + grounding_block
             + f"Current user message: {clean}"
         )
+        cache_upto = prompt.index(_CACHE_MARK)
+        prompt = prompt.replace(_CACHE_MARK, "", 1)
         # Fast guide path (owner 2026-11-10: quality AND speed): when the user's OWN words
         # (or a screenshot / document) already make this a how-to and nothing asks to buy
         # or find, the routing call's reply would be thrown away anyway -- write the guide
@@ -1213,6 +1315,7 @@ class UniversalAIAssistantService:
         facts_early = self.attachment_facts_of(clean)
         prepared_guide = ""
         route_ms = answer_ms = 0
+        first_ms = -1
         path = "routed"
         if not self.split_app_context(clean)[2] and self.wants_guide(said_early, facts_early, ""):
             t0 = time.monotonic()
@@ -1229,8 +1332,15 @@ class UniversalAIAssistantService:
                     "search_ready": False, "next_question": None, "search_subject": None}
         else:
             t0 = time.monotonic()
-            data = self._decision_json(prompt, clean, clean_location)
+            streamed_reply = _ReplyStream(on_text) if on_text is not None else None
+            data = self._decision_json(prompt, clean, clean_location, cache_upto=cache_upto, on_text=streamed_reply)
             route_ms = int((time.monotonic() - t0) * 1000)
+            if streamed_reply is not None and streamed_reply.first_at is not None:
+                first_ms = int((streamed_reply.first_at - started) * 1000)
+            if streamed_reply is not None and streamed_reply.shown:
+                # Owner 2026-11-18 (answers in 1-2 s): the routing reply was shown word by word. When a written answer
+                # (guide / advice) replaces it below, that one streams after a reset.
+                on_text = _ResetFirst(on_text)
         if not isinstance(data, dict):
             return None
         try:
@@ -1277,7 +1387,7 @@ class UniversalAIAssistantService:
                     if grounding is not None and not self.wants_advice(user_text):
                         again = self._decision_json(
                             prompt.replace("Current user message:", grounding_block + "Current user message:", 1),
-                            clean, clean_location)
+                            clean, clean_location, cache_upto=cache_upto)
                         again_reply = str((again or {}).get("reply") or "").strip()
                         if again_reply:
                             reply = self._strip_location_question(again_reply, locale) if clean_location else again_reply
@@ -1425,7 +1535,7 @@ class UniversalAIAssistantService:
             # Where the time goes (no user text, no keys): one line per answer.
             # print, like "ASKODOX IMAGE BRAIN": the app logger's INFO lines never reach Railway.
             print(f"ASKODOX BRAIN TIMING: path={path} action={action} grounding_ms={grounding_ms} "
-                  f"route_ms={route_ms} answer_ms={answer_ms} "
+                  f"route_ms={route_ms} answer_ms={answer_ms} first_ms={first_ms} "
                   f"total_ms={int((time.monotonic() - started) * 1000)}", flush=True)
             return {
                 **brain,
@@ -1458,14 +1568,19 @@ class UniversalAIAssistantService:
             )
             return None
 
-    def _decision_json(self, prompt: str, clean: str, clean_location: str) -> dict[str, Any] | None:
-        """One structured decision from Gemini, then OpenAI (None when no model answered)."""
+    def _decision_json(self, prompt: str, clean: str, clean_location: str, *, cache_upto: int = 0,
+                       on_text: Any = None) -> dict[str, Any] | None:
+        """One structured decision from Claude, then Gemini, then OpenAI (None when no model answered).
+        Owner 2026-11-18 (answers in 1-2 s): the routing decision runs on the FAST model unless the planner called the
+        question hard (long written answers -- guide / advice -- still use the reasoning model); the fixed instructions
+        are cached; with ``on_text`` the JSON's "reply" is shown word by word while the rest is written."""
         data: dict[str, Any] | None = None
         level = getattr(_REQUEST, "level", "")
-        brain = self._model_for(level)
+        brain = self.anthropic_hard_model if level == "hard" else self.anthropic_model
         claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown.", model=brain,
                                         max_tokens=4096, temperature=0.15,
-                                        timeout=25.0 if brain == self.anthropic_model else 60.0)
+                                        timeout=25.0 if brain == self.anthropic_model else 60.0,
+                                        on_text=on_text, cache_upto=cache_upto)
         if claude_text:
             try:
                 data = self._parse_json(claude_text)
