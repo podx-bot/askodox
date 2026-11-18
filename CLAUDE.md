@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #344 (2026-11-18, owner "1", `3a78dc3`): business hub -- `/biz/:id` 6 groups (one spec, names by business type),
+  ASK bar on every page + main chat (`biz_chat.dart`: business words pre-filter, model says unknown on "chat" unless about
+  their own business; changes only after ✓; `pos_hub.py` CHANGES incl. staff_advance / task_add / att_mark), cashbook
+  (`pos_cashbook.py`), dues, attendance on the person's OWN phone lock + distance / shop-phone photo (`pos_attendance.py`,
+  Kotlin `confirmDeviceLock`), salary / advances / tasks, reports (`pos_reports.py`: day face + problems with why / do,
+  7/30 days, night push job `night_reports`), Ideas `/me/ideas`. Route request models must have unique names per file
+  (`test_route_model_names_unique.py`). Build test-1538 (.aab). Not phone verified.
 - `main` PR #337 (2026-11-17, owner "1"): payment voice -- the FIRST message (bank SMS or app notification) speaks at once
   (no wait for a name); the other joins silently (`PaymentAlertParser.samePaymentWindow`: same UPI ref, or same amount from a
   kind the row lacks -- app up to 60 min after the SMS, SMS within 10 min of the app, two apps 30 min; different payer handles
