@@ -163,7 +163,8 @@ def test_env_keys_enable_test_mode_and_the_hosted_checkout_pays_on_a_verified_si
     events = [e["event"] for e in detail["events"]]
     assert events[0] == "checkout_started" and events.count("verify_rejected") == 2
     assert events.count("test_paid_no_entitlement") == 1 and "activated" not in events
-    assert "4111" not in json.dumps(detail) and "cvv" not in json.dumps(detail).lower()
+    # A card number never lands in the record (ids are random hex, so look for the test card's full run of digits).
+    assert "4111111111111111" not in json.dumps(detail) and "cvv" not in json.dumps(detail).lower()
     assert [i["status"] for i in client.get("/api/billing/purchases/mine", headers=me).json()["items"]] == ["TEST_PAID"]
 
 

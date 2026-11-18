@@ -256,11 +256,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ...askodoxFrontDeskRoutes,
       ...askodoxShopFollowRoutes,
       ...askodoxBizRoutes,
+      // Owner 2026-11-18: the full POS + CRM ship in Phase 1 (a few customer-side pages in the list, e.g. the
+      // buyer agent and self-shopping, stay closed by askodoxRouteShownNow).
+      ...askodoxPosRoutes,
       GoRoute(path: '/me/ai-credits', builder: (context, state) => const AskodoxAiCreditsScreen()),
       if (askodoxPhase2) ...[
         GoRoute(path: '/videos/native', builder: (context, state) => const NativeVideoScreen()),
         ...askodoxTalkRoutes,
-        ...askodoxPosRoutes,
         GoRoute(path: '/plans', builder: (context, state) => const AskodoxPlansScreen()),
         GoRoute(path: '/verification', builder: (context, state) => const AskodoxKycScreen()),
         GoRoute(

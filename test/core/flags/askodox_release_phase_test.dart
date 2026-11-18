@@ -12,7 +12,7 @@ void main() {
   });
 
   test('Phase 2 routes are closed (with their sub-screens), Phase 1 routes stay open', () {
-    for (final route in ['/pos', '/pos/b1/items', '/business/promotions', '/mobility?tab=3', '/profile/roles',
+    for (final route in ['/business/promotions', '/me/agent', '/shop-scan', '/mobility?tab=3', '/profile/roles',
         '/listings/mine', '/orders/incoming', '/me/finance', '/intel/tax', '/videos/native', '/verification',
         // Owner 2026-11-09 / 11-10: Radio, the cross-app guide and developer pages are not in Phase 1.
         '/radio', '/talk', '/companion/screen-guide', '/companion-lab']) {
@@ -22,7 +22,9 @@ void main() {
         '/privacy', '/settings/notifications', '/updates', '/watchlist', '/tools', '/location', '/businesses',
         // Owner 2026-11-14: the simple My business desk and the shop page are open in Phase 1 (the full POS is not).
         '/me/business', '/me/business/b1/profile', '/me/business/b1/bill', '/shops/b1', '/shops/b1/post',
-        '/me/following', '/me/shop-feed']) {
+        '/me/following', '/me/shop-feed',
+        // Owner 2026-11-18: the full POS, CRM and shop advances open in Phase 1 too.
+        '/pos', '/pos/b1/items', '/pos/b1/tables', '/pos/b1/kitchen', '/pos/b1/gst', '/crm', '/me/shop-advances']) {
       expect(askodoxRouteShownNow(route), isTrue, reason: route);
     }
   });
