@@ -577,7 +577,7 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
   (String, String) _statusText(String status) => switch (status) {
         'matched' => ('A notification says this amount was received — check your bank app, then mark it received',
             'ఈ మొత్తం అందినట్టు నోటిఫికేషన్ వచ్చింది — బ్యాంక్ యాప్‌లో చూసి "అందింది" నొక్కండి'),
-        'confirmed_checked' => ('Marked received by the shop (checked the bank app — no notification matched)',
+        'confirmed_checked' => ('Marked received by the shop (checked bank app — no notification matched)',
             'అందింది — షాపు బ్యాంక్ యాప్‌లో చూసి గుర్తించింది (నోటిఫికేషన్ రాలేదు)'),
         'confirmed' => ('Marked received by the shop (payment notification matched)', 'అందింది — షాపు గుర్తించింది (పేమెంట్ నోటిఫికేషన్ వచ్చింది)'),
         'cancelled' => ('Cancelled', 'రద్దు'),
