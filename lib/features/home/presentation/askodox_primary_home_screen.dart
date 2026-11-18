@@ -1,4 +1,5 @@
 import '../../../core/flags/askodox_remote_flags.dart';
+import '../../business/presentation/biz_chat.dart';
 import '../../../core/flags/askodox_release_phase.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -1897,6 +1898,32 @@ class _AskodoxPrimaryHomeScreenState
         _scrollBottom();
         return;
       }
+    }
+
+    // A person who runs a business: "ఈ రోజు ఎంత అమ్మాం?" / "చికెన్ 65 ఆఫ్ చెయ్యి" works here too (owner 2026-11-18) --
+    // the answer appears in the chat, a page opens, or ONE change waits for ✓. Anything else carries on below.
+    if (attachments.isEmpty && typed.isNotEmpty && askodoxLooksLikeBusinessTalk(typed)) {
+      setState(() => _sending = true);
+      final biz = await askodoxChatBusinessAsk(ref, typed, _te);
+      if (!mounted) return;
+      if (biz != null) {
+        setState(() {
+          _active = true;
+          _turns.add(ConversationTurnRecord(text: typed, isUser: true));
+          if (biz.reply.isNotEmpty) _turns.add(ConversationTurnRecord(text: biz.reply, isUser: false));
+          _sending = false;
+        });
+        if (preset == null) _controller.clear();
+        _scrollBottom();
+        await askodoxChatBusinessFollowUp(context, ref, biz, _te, say: (line) {
+          if (!mounted) return;
+          setState(() => _turns.add(ConversationTurnRecord(text: line, isUser: false)));
+          _scrollBottom();
+        });
+        unawaited(_saveSnapshot());
+        return;
+      }
+      setState(() => _sending = false);
     }
 
     var attachmentContext = '';

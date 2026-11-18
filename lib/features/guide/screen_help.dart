@@ -238,6 +238,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రైడ్ లేదా పార్సెల్ ఎంచుకోండి, మ్యాప్‌లో పికప్, డ్రాప్ పెట్టండి.',
     'రిక్వెస్ట్ పంపండి; పార్ట్నర్ అంగీకరించాకే వివరాలు కనిపిస్తాయి.',
   ]),
+  '/me/ideas': _H('Tell us your idea', 'మీ ఐడియా చెప్పండి', [
+    'Choose what it is about, then say it with the mic or type it.',
+    'Tap Send. Our team reads every idea. Never write phone numbers, OTPs or card numbers.',
+  ], [
+    'దేని గురించో ఎంచుకోండి, మైక్‌తో చెప్పండి లేదా రాయండి.',
+    'పంపు నొక్కండి. మా టీమ్ ప్రతి ఐడియా చదువుతుంది. ఫోన్ నంబర్, OTP, కార్డ్ నంబర్లు రాయకండి.',
+  ]),
   '/beta-feedback': _H('Report a problem', 'సమస్య చెప్పండి', [
     'Write what went wrong; add a screenshot if you like.',
     'Diagnostics are sent only if you allow it.',
@@ -256,10 +263,158 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ]),
   '/me/business': _H('My business', 'నా బిజినెస్', [
     'First time: type your business name and choose your State.',
-    'Then: fill your details, make a bill, show the QR, and post one picture a day for followers.',
+    'Then everything lives in 6 coloured groups: Orders, Bills & money, Menu & items, Staff, Customers & shop page, Settings.',
+    'The three big buttons are the every-day ones: make a bill, orders, show the QR.',
+    'Tap the shop card to switch shop or open / pause / close it. Or say what to do in the ASK bar at the bottom.',
   ], [
     'మొదటిసారి: మీ బిజినెస్ పేరు రాసి, రాష్ట్రం ఎంచుకోండి.',
-    'తర్వాత: వివరాలు నింపండి, బిల్లు చేయండి, QR చూపండి, ఫాలోవర్లకు రోజుకు ఒక చిత్రం పోస్ట్ చేయండి.',
+    'తర్వాత అన్నీ 6 రంగుల విభాగాల్లో: ఆర్డర్లు, బిల్లులు & డబ్బు, మెనూ & ఐటమ్స్, సిబ్బంది, కస్టమర్లు & షాప్ పేజీ, సెట్టింగ్స్.',
+    'మూడు పెద్ద బటన్లు రోజూ వాడేవి: బిల్లు చేయి, ఆర్డర్లు, QR చూపు.',
+    'షాప్ కార్డ్ నొక్కితే షాప్ మార్చవచ్చు, తెరవ / ఆపవచ్చు. లేదా కింద ASK బార్‌లో ఏం చేయాలో చెప్పండి.',
+  ]),
+  '/biz/:id': _H('My business', 'నా బిజినెస్', [
+    'Today at the top, then the every-day buttons, then the 6 groups.',
+    'Say anything in the ASK bar: "how much did we sell today?", "chicken 65 off".',
+  ], [
+    'పైన ఈ రోజు లెక్క, తర్వాత రోజూ వాడే బటన్లు, తర్వాత 6 విభాగాలు.',
+    'ASK బార్‌లో ఏదైనా చెప్పండి: "ఈ రోజు ఎంత అమ్మాం?", "చికెన్ 65 ఆఫ్ చెయ్యి".',
+  ]),
+  '/biz/:id/:group': _H('Business group', 'బిజినెస్ విభాగం', [
+    'The path at the top shows where you are. Today\'s numbers first.',
+    '"Every day" buttons first, "Set once" buttons after, history at the bottom.',
+    'Say what to do in the ASK bar — a change is shown first and happens only after ✓.',
+  ], [
+    'పైన దారి మీరు ఎక్కడ ఉన్నారో చూపిస్తుంది. ముందు ఈ రోజు అంకెలు.',
+    'ముందు "రోజూ వాడేవి" బటన్లు, తర్వాత "ఒకసారి సెట్ చేసేవి", కింద చరిత్ర.',
+    'ASK బార్‌లో ఏం చేయాలో చెప్పండి — మార్పు ముందు చూపించి, ✓ నొక్కాకే చేస్తుంది.',
+  ]),
+  '/biz/:id/money/cashbook': _H('Cashbook', 'క్యాష్‌బుక్', [
+    'Money in from bills comes by itself, one line a day. Add other money in or out with the two big buttons.',
+    'Or say it: "gas cylinder 1100 expense". Remove a wrong line with the bin — Undo brings it back.',
+  ], [
+    'బిల్లుల డబ్బు రోజుకు ఒక వరుసగా ఆటోగా వస్తుంది. మిగతా ఆదాయం / ఖర్చు రెండు పెద్ద బటన్లతో రాయండి.',
+    'లేదా చెప్పండి: "గ్యాస్ సిలిండర్ 1100 ఖర్చు". తప్పు వరుస చెత్తబుట్టతో తీసేయండి — "వెనక్కి" తో మళ్ళీ వస్తుంది.',
+  ]),
+  '/biz/:id/money/dues': _H('Dues', 'బాకీలు', [
+    'Everyone who still owes money, biggest first. Tap a person to see their bills.',
+    'When they pay, tap "Paid" and choose cash or online.',
+  ], [
+    'బాకీ ఉన్న అందరూ, ఎక్కువ ఉన్నవారు ముందు. పేరు నొక్కితే వారి బిల్లులు.',
+    'కట్టినప్పుడు "కట్టారు" నొక్కి క్యాష్ / ఆన్‌లైన్ ఎంచుకోండి.',
+  ]),
+  '/biz/:id/money/history': _H('Bill history', 'బిల్లుల చరిత్ర', [
+    'Search by bill or phone number. Choose the days, then cash / online / baaki / cancelled.',
+    'Bills are grouped by day with the day\'s total.',
+  ], [
+    'బిల్ నంబర్ / ఫోన్ నంబర్‌తో వెతకండి. రోజులు ఎంచుకుని, క్యాష్ / ఆన్‌లైన్ / బాకీ / రద్దు ఎంచుకోండి.',
+    'బిల్లులు రోజు వారీగా, ఆ రోజు మొత్తంతో.',
+  ]),
+  '/biz/:id/reports': _H('Reports', 'రిపోర్ట్స్', [
+    'The face shows how the day went. Tap Listen to hear it.',
+    'Each problem says why it happened and one thing to do; Go there opens the page to fix it.',
+    'Switch to 7 or 30 days for bars of each day, weekdays, busy hours, items, spending and staff.',
+  ], [
+    'ముఖం చూస్తే రోజు ఎలా ఉందో తెలుస్తుంది. వినండి నొక్కితే చదివి చెబుతుంది.',
+    'ప్రతి సమస్యకు కారణం, ఏం చేయాలో ఉంటుంది; అక్కడికి వెళ్ళు నొక్కితే సరిచేసే పేజీ.',
+    '7 / 30 రోజులు నొక్కితే రోజూ అమ్మకం, వారం రోజులు, రద్దీ టైం, ఐటమ్స్, ఖర్చులు, సిబ్బంది బార్లలో.',
+  ]),
+  '/biz/:id/reports/day': _H('Day report', 'రోజు రిపోర్ట్', [
+    'The report of the day in the night notification.',
+    "Tap Listen to hear it; tap a problem's Go there to fix it.",
+  ], [
+    'రాత్రి నోటిఫికేషన్‌లో వచ్చిన రోజు రిపోర్ట్.',
+    'వినండి నొక్కండి; సమస్య దగ్గర అక్కడికి వెళ్ళు నొక్కి సరిచేయండి.',
+  ]),
+  '/biz/:id/reports/settings': _H('Night report', 'రాత్రి రిపోర్ట్', [
+    'Turn the night report on or off and choose the time.',
+    'It goes to you and to the manager / accountant who can see reports.',
+  ], [
+    'రాత్రి రిపోర్ట్ ఆన్ / ఆఫ్, టైం ఎంచుకోండి.',
+    'మీకు, రిపోర్ట్స్ చూడగలిగే మేనేజర్ / అకౌంటెంట్‌కి వెళ్తుంది.',
+  ]),
+  '/biz/:id/staff': _H('Staff & attendance', 'సిబ్బంది & హాజరు', [
+    'Who came today and when. Tap a person for their month, salary and advance.',
+    'Check in, tasks, the shop-phone attendance and salary are the big buttons.',
+  ], [
+    'ఈ రోజు ఎవరు ఎప్పుడు వచ్చారు. పేరు నొక్కితే వారి నెల, జీతం, అడ్వాన్స్.',
+    'హాజరు వేయి, పనులు, షాప్ ఫోన్ హాజరు, జీతాలు — పెద్ద బటన్లు.',
+  ]),
+  '/biz/:id/staff/today': _H("Today's attendance", 'ఈ రోజు హాజరు', [
+    'Everyone today: when they came, how (phone lock / photo / owner), and whether they were at the shop.',
+    'One tap on P, A, OT or Leave changes today for that person.',
+  ], [
+    'ఈ రోజు అందరూ: ఎప్పుడు వచ్చారు, ఎలా వేశారు (ఫోన్ లాక్ / ఫోటో / ఓనర్), షాప్ దగ్గర ఉన్నారా.',
+    'P, A, OT, సెలవు — ఒక్క నొక్కుతో ఆ వ్యక్తి ఈ రోజు మారుతుంది.',
+  ]),
+  '/biz/:id/staff/checkin': _H('Check in / out', 'హాజరు వేయి', [
+    'Tap "I am in": your phone asks for its own fingerprint / face / PIN, then saves the time and how far you are from the shop.',
+    'No phone lock? It takes a selfie instead. Tap "Leaving" when you go.',
+  ], [
+    '"వచ్చాను" నొక్కండి: మీ ఫోన్ వేలిముద్ర / ముఖం / PIN అడిగి, టైం, షాప్ నుంచి దూరం రాస్తుంది.',
+    'ఫోన్ లాక్ లేకపోతే సెల్ఫీ అడుగుతుంది. వెళ్ళేటప్పుడు "వెళ్తున్నా" నొక్కండి.',
+  ]),
+  '/biz/:id/staff/kiosk': _H('Shop phone attendance', 'షాప్ ఫోన్ హాజరు', [
+    'For people without a phone: tap the name, then in or out, then a front-camera photo.',
+    'Only the owner / manager see the photos; they are deleted after 90 days.',
+  ], [
+    'ఫోన్ లేనివారికి: పేరు నొక్కి, వచ్చాను / వెళ్తున్నా, తర్వాత ముందు కెమెరా ఫోటో.',
+    'ఫోటోలు ఓనర్ / మేనేజర్‌కి మాత్రమే; 90 రోజుల తర్వాత తీసేస్తాం.',
+  ]),
+  '/biz/:id/staff/person/:ref': _H('One staff member', 'ఒక సిబ్బంది', [
+    'The month as rows: one tap on P, A, OT or L changes that day.',
+    'Salary is worked out below: days × rate + overtime − advance.',
+  ], [
+    'నెల వరుసలుగా: P, A, OT, సె ఒక్క నొక్కుతో ఆ రోజు మారుతుంది.',
+    'కింద జీతం లెక్క: రోజులు × రేటు + OT − అడ్వాన్స్.',
+  ]),
+  '/biz/:id/staff/salary': _H('Salary', 'జీతాలు', [
+    "Everyone's salary this month, worked out from attendance.",
+    '"Mark given" writes it into the cashbook as salary.',
+  ], [
+    'హాజరు నుంచి ఈ నెల అందరి జీతం లెక్క.',
+    '"ఇచ్చేశాను" నొక్కితే క్యాష్‌బుక్‌లో జీతంగా పడుతుంది.',
+  ]),
+  '/biz/:id/staff/tasks': _H('Tasks', 'పనులు', [
+    'Give a task to a person — their phone rings. They tick it when done.',
+    'Late tasks show in red and in the night report.',
+  ], [
+    'ఒకరికి పని ఇవ్వండి — వారి ఫోన్ మోగుతుంది. అయ్యాక వారు ✓ పెడతారు.',
+    'ఆలస్యమైన పనులు ఎరుపులో, రాత్రి రిపోర్ట్‌లో కనిపిస్తాయి.',
+  ]),
+  '/biz/:id/staff/setup': _H('Attendance setup', 'హాజరు సెటప్', [
+    "Choose: each person's own phone, the shop phone, or both.",
+    'Set the start and end time, the minutes of lateness allowed and how near the shop counts.',
+  ], [
+    'ఎంచుకోండి: ప్రతి ఒక్కరి ఫోన్, షాప్ ఫోన్, లేదా రెండూ.',
+    'మొదలు / ముగింపు సమయం, ఎన్ని నిమిషాల ఆలస్యం ఓకే, షాప్‌కి ఎంత దగ్గర — పెట్టండి.',
+  ]),
+  '/biz/:id/menu': _H('Menu & items', 'మెనూ & ఐటమ్స్', [
+    'Add an item, read a menu photo, sort with AI, or switch off what ran out today.',
+    'Search finds an item by name or number in every section. Tap a section to see its items.',
+  ], [
+    'ఐటమ్ చేర్చండి, మెనూ ఫోటో చదివించండి, AI తో సర్దండి, లేదా అయిపోయినవి ఆఫ్ చేయండి.',
+    'వెతుకుడు అన్ని విభాగాల్లో పేరు / నంబర్‌తో వెతుకుతుంది. విభాగం నొక్కితే దాని ఐటమ్స్.',
+  ]),
+  '/biz/:id/menu/sort': _H('Sort with AI', 'AI తో సర్దు', [
+    'AI reads the item names in parts at the same time — it can take a minute or two.',
+    'Open a section to move an item. Nothing changes until you tap Save.',
+  ], [
+    'AI ఐటమ్ పేర్లను భాగాలుగా ఒకేసారి చదువుతుంది — 1–2 నిమిషాలు పట్టవచ్చు.',
+    'విభాగం తెరిచి ఐటమ్ మార్చవచ్చు. సేవ్ నొక్కే వరకు ఏదీ మారదు.',
+  ]),
+  '/biz/:id/menu/section/:name': _H('One section', 'ఒక విభాగం', [
+    'Each item: photo, price, how many sold today, and the switch for today.',
+    'Use the chips to see only veg, non-veg, what is off, or the most sold.',
+  ], [
+    'ప్రతి ఐటమ్: ఫోటో, ధర, ఈ రోజు ఎన్ని అమ్మాం, ఈ రోజు స్విచ్.',
+    'చిప్స్‌తో వెజ్, నాన్-వెజ్, లేనివి, ఎక్కువ అమ్మినవి మాత్రమే చూడండి.',
+  ]),
+  '/biz/:id/menu/item/:pid': _H('One item', 'ఒక ఐటమ్', [
+    'Tap a button to change the price, today\'s switch, the veg mark or the section.',
+    'GST, HSN, stock and the photo are under "GST, photo & details".',
+  ], [
+    'ధర, ఈ రోజు స్విచ్, వెజ్ గుర్తు, విభాగం మార్చడానికి బటన్ నొక్కండి.',
+    'GST, HSN, స్టాక్, ఫోటో "GST, ఫోటో & వివరాలు" లో.',
   ]),
   '/me/business/:id/profile': _H('Business details', 'బిజినెస్ వివరాలు', [
     'Fill the four ★ boxes: what you sell, about, address, open hours.',

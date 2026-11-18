@@ -284,6 +284,20 @@ class PosFrontDesk:
         stock = self.store._stock_map(conn, business_id)
         PosBills.number_items(conn, business_id)  # every item has its menu number (billing by number)
         out = []
+        photos: set = set()
+        sold: Dict[str, int] = {}
+        if everything:  # the owner's menu pages show the photo and how many sold today (owner 2026-11-18)
+            try:
+                photos = {r[0] for r in conn.execute("SELECT product_id FROM pos_product_photos WHERE business_id = ?",
+                                                     (business_id,))}
+                for r in conn.execute(
+                        "SELECT l.product_id AS pid, SUM(l.qty_milli) AS q FROM pos_invoice_lines l JOIN pos_invoices i"
+                        " ON i.id = l.invoice_id WHERE i.business_id = ? AND i.local_date = ? AND i.status != 'cancelled'"
+                        " AND i.doc_kind = 'invoice' GROUP BY l.product_id", (business_id, today)):
+                    if r["pid"]:
+                        sold[r["pid"]] = int((r["q"] or 0) // 1000)
+            except Exception:
+                pass
         for r in conn.execute("SELECT * FROM pos_products WHERE business_id = ? AND active = 1 ORDER BY item_no, name", (business_id,)):
             only_on = r["only_on"] if "only_on" in r.keys() else None
             if only_on and only_on != today and not everything:
@@ -300,6 +314,8 @@ class PosFrontDesk:
             if everything:
                 item["today_only_flag"] = bool(only_on)
                 item["sold_out"] = sold_out
+                item["has_photo"] = r["id"] in photos
+                item["sold_today"] = sold.get(r["id"], 0)
             out.append(item)
         return out
 
