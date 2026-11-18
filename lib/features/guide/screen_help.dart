@@ -58,6 +58,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ పాత సంభాషణలు, సేవ్ చేసినవి ఇక్కడ ఉంటాయి.',
     'ఒకదాన్ని నొక్కితే ఆపిన చోటు నుండి కొనసాగించవచ్చు.',
   ]),
+  '/shopping': _H('ASKODOX Shopping', 'ASKODOX షాపింగ్', [
+    'Only shops and hotels on ASKODOX: say or type what you want (a dish, an item or a shop name).',
+    'Tap a shop to see its menu and order right here; online store items for your search show below.',
+  ], [
+    'ASKODOX లో ఉన్న షాపులు, హోటళ్ళు మాత్రమే: ఏం కావాలో చెప్పండి లేదా టైప్ చేయండి (వంటకం, వస్తువు లేదా షాప్ పేరు).',
+    'షాప్ నొక్కితే దాని మెనూ వస్తుంది, ఇక్కడే ఆర్డర్ చేయవచ్చు; మీరు వెతికిన దానికి ఆన్‌లైన్ స్టోర్ ఐటమ్స్ కింద వస్తాయి.',
+  ]),
   '/updates': _H('Updates', 'అప్‌డేట్స్', [
     'Replies to your requests, orders and alerts arrive here.',
     'Tap an update to open the request or order it belongs to.',

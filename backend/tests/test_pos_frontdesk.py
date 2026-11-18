@@ -699,3 +699,38 @@ def test_customer_chooses_cash_or_online(env):
         desk.set_pay_choice("app-phone-9999999999", o["id"], "cash")
     staff_view = [x for x in desk.orders(biz, OWNER)["orders"] if x["id"] == o["id"]][0]
     assert staff_view["pay_choice"] == "online"
+
+
+def test_askodox_shopping_lists_only_askodox_businesses(env):
+    """Owner 2026-11-18: ASKODOX Shopping -- shops on ASKODOX by name or by what their menu has."""
+    desk, store, rest, biz, *_ = env
+    by_name = desk.shopping("murali")
+    assert [s["id"] for s in by_name] == [biz] and by_name[0]["why"] == "name"
+    by_menu = desk.shopping("biryani")
+    assert by_menu[0]["id"] == biz and by_menu[0]["items"][0]["name"] == "Chicken Biryani"
+    assert desk.shopping("television") == []
+    browse = desk.shopping("")
+    assert [s["id"] for s in browse] == [biz] and browse[0]["item_count"] == 2
+
+
+def test_http_shopping_route(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.services import rate_limit
+    from app.services.session_tokens import issue_token
+    from server import app, container
+
+    rate_limit.reset_for_tests()
+    monkeypatch.setattr(container, "pos_store", None, raising=False)
+    monkeypatch.setattr(container, "pos_frontdesk", None, raising=False)
+    auth = {"Authorization": f"Bearer {issue_token('app-phone-9411100071', container.settings.session_token_secret)}"}
+    client = TestClient(app)
+    biz = client.post("/api/pos/businesses", headers=auth, json={"name": "Lakshmi Tiffins", "state_code": "36",
+                                                                 "template": "restaurant"}).json()["id"]
+    client.post(f"/api/pos/businesses/{biz}/products", headers=auth, json={"name": "Masala Dosa", "unit": "plate",
+                                                                           "price_paise": 6000})
+    assert client.get("/api/pos/shopping", params={"q": "dosa"}).status_code == 401
+    got = client.get("/api/pos/shopping", params={"q": "dosa"}, headers=auth).json()
+    mine = [s for s in got["shops"] if s["id"] == biz]
+    assert mine and mine[0]["items"][0]["name"] == "Masala Dosa"
+    assert isinstance(got["items"], list)

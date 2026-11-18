@@ -555,7 +555,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
   void _takeMeThere(String route) {
     final router = widget.router;
     if (router == null) return;
-    const branches = ['/', '/profile', '/updates', '/watchlist'];
+    const branches = ['/', '/profile', '/updates', '/shopping'];
     if (branches.contains(route)) {
       router.go(route);
     } else {

@@ -499,6 +499,35 @@ class PosFrontDesk:
         found.sort(key=lambda s: (not s["open"], not s["name"].lower().startswith(q), s["name"].lower()))
         return found[:limit]
 
+    def shopping(self, text: str, limit: int = 12) -> List[Dict[str, Any]]:
+        """ASKODOX Shopping (owner 2026-11-18): ONLY businesses on ASKODOX -- shops whose NAME matches, then shops whose
+        MENU has it (with those items + prices). Nothing typed = the open shops with a menu (newest first). Data match only."""
+        q = re.sub(r"\s+", " ", str(text or "")).strip()
+        if len(q) < 2:
+            out: List[Dict[str, Any]] = []
+            with self.store._connect() as conn:
+                for r in conn.execute("SELECT id, name, address, status FROM pos_businesses ORDER BY created_at DESC LIMIT 200"):
+                    status = ((r["status"] if "status" in r.keys() else "open") or "open")
+                    if status != "open":
+                        continue
+                    n = conn.execute("SELECT COUNT(*) AS n FROM pos_products WHERE business_id = ? AND active = 1",
+                                     (r["id"],)).fetchone()["n"]
+                    if n:
+                        out.append({"id": r["id"], "name": r["name"], "address": r["address"], "open": True,
+                                    "code": f"{QR_PREFIX}{r['id']}", "items": [], "item_count": n, "why": "shop"})
+                    if len(out) >= limit:
+                        break
+            return out
+        seen: Dict[str, Dict[str, Any]] = {}
+        for s in self.search_shops(q, limit):
+            seen[s["id"]] = {"id": s["id"], "name": s["name"], "address": s.get("address") or "", "open": s["open"],
+                             "code": s["code"], "items": [], "item_count": s.get("items"), "why": "name"}
+        for s in self.find_items(q, limit):
+            row = seen.setdefault(s["id"], {"id": s["id"], "name": s["name"], "address": "", "open": True,
+                                            "code": s["code"], "items": [], "item_count": None, "why": "menu"})
+            row["items"] = s["items"]
+        return list(seen.values())[:limit]
+
     def chat_card(self, business_id: str, user: str, text: str = "", te: bool = True, limit: int = 8) -> Dict[str, Any]:
         """The shop's menu as a card INSIDE the chat (owner 2026-11-16): the items to tap, the ways to get it, the
         person's last order ("again"), and -- when their own words already name items ("2 biryani 1 tea") or ask for
