@@ -1589,6 +1589,23 @@ def payment_alert_devices(business_id: str, request: Request) -> dict:
     return {"devices": _call(_payment_alerts(request).devices, business_id, _user(request))}
 
 
+class AlertHeartbeatIn(BaseModel):
+    device_key: str = Field(min_length=8, max_length=80)
+    health: str = Field(max_length=20)
+
+
+@router.post("/me/payment-alerts/heartbeat")
+def payment_alert_heartbeat(body: AlertHeartbeatIn, request: Request) -> dict:
+    """This phone says how its payment sound is (app start / alerts page) -- for the owner's phone status."""
+    return _call(_payment_alerts(request).heartbeat, _user(request), body.model_dump())
+
+
+@router.get("/businesses/{business_id}/payment-alerts/phones")
+def payment_alert_phones(business_id: str, request: Request) -> dict:
+    """Owner 2026-11-18: each phone's payment sound -- working / permission off / not answering."""
+    return _call(_payment_alerts(request).phone_status, business_id, _user(request))
+
+
 @router.post("/businesses/{business_id}/payment-alerts/devices/{device_id}/revoke")
 def revoke_payment_alert_device(business_id: str, device_id: str, request: Request) -> dict:
     return {"devices": _call(_payment_alerts(request).revoke_device, business_id, _user(request), device_id)}

@@ -234,7 +234,7 @@ Future<Uint8List> askodoxInvoicePdf(AskodoxJson invoice, {bool compress = true})
       pw.SizedBox(height: 6),
       pw.Text(askodoxAmountInWords(askodoxPosInt(totals['grand_total_paise'])), style: small.copyWith(fontWeight: pw.FontWeight.bold)),
       if (payments.any((p) => p['verification'] == 'cashier_confirmed'))
-        pw.Text('UPI / card / bank amounts were confirmed by the cashier, not verified with the bank.', style: small),
+        pw.Text('UPI / card / bank amounts were entered by the cashier.', style: small),
       pw.SizedBox(height: 28),
       pw.Align(
         alignment: pw.Alignment.centerRight,

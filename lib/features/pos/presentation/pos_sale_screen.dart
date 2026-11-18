@@ -788,8 +788,8 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
           key: const Key('askodoxPosOfflineIssued'),
           title: Text(te ? 'ఆఫ్‌లైన్ బిల్లు $number' : 'Offline bill $number'),
           content: Text(te
-              ? 'ఈ ఫోన్‌లో దాచాం; ఇంటర్నెట్ వచ్చాక సర్వర్‌కి పంపుతాం. UPI/కార్డ్ డబ్బు మీరు నిర్ధారించినది మాత్రమే — బ్యాంక్ నిర్ధారణ కాదు.'
-              : 'Kept on this phone and sent when the internet is back. UPI / card amounts are what you confirmed — not bank-verified.'),
+              ? 'ఈ ఫోన్‌లో దాచాం; ఇంటర్నెట్ వచ్చాక సర్వర్‌కి పంపుతాం. UPI/కార్డ్ మొత్తాలు మీరు నమోదు చేసినవి — ఖాతాలో పడిందో బ్యాంక్ యాప్‌లో చూసుకోండి.'
+              : 'Kept on this phone and sent when the internet is back. UPI / card amounts are what you entered — check your bank app for the money.'),
           actions: [
             TextButton(onPressed: () => askodoxPrintInvoice(ctx, ref, local), child: Text(te ? 'ప్రింట్' : 'Print')),
             FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),

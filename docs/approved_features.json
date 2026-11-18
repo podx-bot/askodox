@@ -7696,6 +7696,54 @@
           "change": "design canvas CY5DeThsUHtxuvEfj29S9H; business hub build"
         }
       ]
+    },
+    {
+      "id": "payment_alert_phone_status",
+      "name": "Payment sound: each phone's status (working / permission off / not answering), owner warning, received-only wording + disclaimer",
+      "roles": [
+        "shop owner",
+        "shop staff"
+      ],
+      "domains": [
+        "pos",
+        "payments"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/phones"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/me/payment-alerts/heartbeat"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPayAlertPhones",
+          "askodoxPayAlertPhonesWarning",
+          "askodoxPayAlertDisclaimer"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_payment_alert_phones.py"
+        ],
+        "flutter": [
+          "test/features/pos/pay_alert_phones_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-18: payment alerts say only \"received\" (never \"confirmed\"); one disclaimer note (not a bank, no guarantee, not linked to NPCI / UPI / RBI); the owner sees whether every phone hears the sound and is warned once when a phone missed one; a hear-only phone is asked only the steps it needs.",
+      "expected_behavior": "A sent sound with no answer from the phone after 3 minutes = missed: one push to the owner (whose phone, why) and one to that phone's person; settings are never changed from another phone.",
+      "history": [
+        {
+          "date": "2026-11-18",
+          "change": "round list items 1 + 10"
+        }
+      ]
     }
   ]
 }

@@ -551,8 +551,8 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
                 key: const Key('askodoxPosCollectCheckBank'),
                 title: Text(te ? 'డబ్బు నిజంగా వచ్చిందా?' : 'Did the money really arrive?'),
                 content: Text(te
-                    ? 'ఈ మొత్తానికి ఇంకా పేమెంట్ నోటిఫికేషన్ రాలేదు. మీ UPI / బ్యాంక్ యాప్ తెరిచి ఈ మొత్తం వచ్చినట్టు చూశాకే నిర్ధారించండి.'
-                    : 'No payment notification for this amount yet. Open your UPI / bank app and confirm only after you SEE this amount received.'),
+                    ? 'ఈ మొత్తానికి ఇంకా పేమెంట్ నోటిఫికేషన్ రాలేదు. మీ UPI / బ్యాంక్ యాప్ తెరిచి ఈ మొత్తం వచ్చినట్టు చూశాకే "అందింది" నొక్కండి.'
+                    : 'No payment notification for this amount yet. Open your UPI / bank app and mark it received only after you SEE this amount.'),
                 actions: [
                   TextButton(onPressed: () => Navigator.of(c).pop(false), child: Text(te ? 'ఇంకా లేదు' : 'Not yet')),
                   FilledButton(
@@ -575,11 +575,11 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
   }
 
   (String, String) _statusText(String status) => switch (status) {
-        'matched' => ('Payment notification with this amount arrived — check your bank app, then confirm',
-            'ఈ మొత్తం పేమెంట్ నోటిఫికేషన్ వచ్చింది — బ్యాంక్ యాప్‌లో చూసి నిర్ధారించండి'),
-        'confirmed_checked' => ('Confirmed by the shop (checked bank app — no notification matched)',
-            'షాపు నిర్ధారించింది (బ్యాంక్ యాప్‌లో చూసి — నోటిఫికేషన్ రాలేదు)'),
-        'confirmed' => ('Confirmed by the shop (payment notification matched)', 'షాపు నిర్ధారించింది (పేమెంట్ నోటిఫికేషన్ వచ్చింది)'),
+        'matched' => ('A notification says this amount was received — check your bank app, then mark it received',
+            'ఈ మొత్తం అందినట్టు నోటిఫికేషన్ వచ్చింది — బ్యాంక్ యాప్‌లో చూసి "అందింది" నొక్కండి'),
+        'confirmed_checked' => ('Marked received by the shop (checked the bank app — no notification matched)',
+            'అందింది — షాపు బ్యాంక్ యాప్‌లో చూసి గుర్తించింది (నోటిఫికేషన్ రాలేదు)'),
+        'confirmed' => ('Marked received by the shop (payment notification matched)', 'అందింది — షాపు గుర్తించింది (పేమెంట్ నోటిఫికేషన్ వచ్చింది)'),
         'cancelled' => ('Cancelled', 'రద్దు'),
         _ => ('Waiting for the customer to pay…', 'కస్టమర్ కట్టే వరకు వేచి ఉంది…'),
       };
@@ -785,10 +785,10 @@ class AskodoxPaymentOptionsNotice extends StatelessWidget {
                 'అదనపు భద్రత (త్వరలో): లైసెన్స్ ఉన్న third-party escrow ద్వారా కట్టవచ్చు — మీరు ఇద్దరూ ఒప్పుకున్న షరతుల ప్రకారమే (ఉదా. డెలివరీ తర్వాత) డబ్బు విక్రేతకు విడుదల అవుతుంది. ఇంకా అందుబాటులో లేదు.'),
           ]
         : <(IconData, String, String)>[
-            (Icons.notifications_none, 'Your own QR (PhonePe, Google Pay, Paytm, any bank): ASKODOX can only read the payment NOTIFICATION on your phone and say "notification received". That is not a bank confirmation — check your bank app before handing over goods.',
-                'మీ సొంత QR (PhonePe, Google Pay, Paytm, ఏ బ్యాంక్ అయినా): మీ ఫోన్‌లో వచ్చే పేమెంట్ నోటిఫికేషన్‌ని మాత్రమే ASKODOX చదివి "నోటిఫికేషన్ వచ్చింది" అని చెబుతుంది. అది బ్యాంక్ నిర్ధారణ కాదు — సరుకు ఇచ్చే ముందు బ్యాంక్ యాప్‌లో చూసుకోండి.'),
-            (Icons.verified_outlined, 'ASKODOX payment profile (optional): payments to its QR are confirmed by the bank before phones say "you received ₹…". Money still goes straight to your account.',
-                'ASKODOX పేమెంట్ ప్రొఫైల్ (ఐచ్ఛికం): దాని QR కి వచ్చే పేమెంట్‌ని బ్యాంక్ నిర్ధారించాకే ఫోన్ "మీకు ₹… అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే.'),
+            (Icons.notifications_none, 'Your own QR (PhonePe, Google Pay, Paytm, any bank): ASKODOX can only read the payment NOTIFICATION on your phone and say "received". Check your bank app before handing over goods.',
+                'మీ సొంత QR (PhonePe, Google Pay, Paytm, ఏ బ్యాంక్ అయినా): మీ ఫోన్‌లో వచ్చే పేమెంట్ నోటిఫికేషన్‌ని మాత్రమే ASKODOX చదివి "అందింది" అని చెబుతుంది. సరుకు ఇచ్చే ముందు బ్యాంక్ యాప్‌లో చూసుకోండి.'),
+            (Icons.verified_outlined, 'ASKODOX payment profile (optional): payments to its QR are reported by Razorpay before phones say "you received ₹…". Money still goes straight to your account.',
+                'ASKODOX పేమెంట్ ప్రొఫైల్ (ఐచ్ఛికం): దాని QR కి వచ్చే పేమెంట్‌ని Razorpay "అందింది" అని చెప్పాకే ఫోన్ "మీకు ₹… అందాయి" అని చెబుతుంది. డబ్బు నేరుగా మీ ఖాతాకే.'),
             (Icons.shield_outlined, 'Escrow (coming, optional): for online deals where the buyer wants extra safety — a licensed third-party partner holds the money and releases it to you on the agreed terms. ASKODOX never holds it.',
                 'Escrow (త్వరలో, ఐచ్ఛికం): online డీల్స్‌లో కొనేవారికి అదనపు భద్రత కావాలంటే — లైసెన్స్ ఉన్న third-party భాగస్వామి డబ్బు పట్టుకుని, ఒప్పుకున్న షరతుల ప్రకారం మీకు విడుదల చేస్తుంది. ASKODOX ఎప్పుడూ పట్టుకోదు.'),
           ];

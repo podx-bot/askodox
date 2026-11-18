@@ -103,7 +103,35 @@ def _owner_alerts(container: Any) -> Any:
                             has_permission=gov.has_permission)
 
 
+def _payalert_missed(container: Any) -> Any:
+    """Owner 2026-11-18: a phone that was sent a payment sound and never answered -> ONE push to the shop owner
+    (whose phone, why) + ONE push to that phone's person (open ASKODOX, do the one step)."""
+    from app.services.pos_payment_alerts import PosPaymentAlerts, missed_texts
+    from app.services.pos_store import PosStore
+    from app.services.push_service import push_service
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    alerts = getattr(container, "pos_payment_alerts", None)
+    if alerts is None or alerts.store is not store:
+        alerts = PosPaymentAlerts(store)
+    push = push_service(container)
+    items = alerts.missed_sounds()
+    sent = 0
+    for item in items:
+        t = missed_texts(item)
+        biz = item["business_id"]
+        sent += bool(push.notify(item["owner"], title=t["owner_title"], body=t["owner_body"],
+                                 route=f"/me/payment-alerts/{biz}/who",
+                                 event_key=f"payalert_missed:{item['event_id']}:{item['device_id']}"))
+        if item["user_id"] != item["owner"]:
+            sent += bool(push.notify(item["user_id"], title=t["phone_title"], body=t["phone_body"],
+                                     route=f"/pos/{biz}/payment-alerts",
+                                     event_key=f"payalert_missed_me:{item['event_id']}:{item['device_id']}"))
+    return {"missed": len(items), "pushed": sent}
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
-            ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports)]
+            ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports),
+            ("payalert_missed", 60.0, _payalert_missed)]

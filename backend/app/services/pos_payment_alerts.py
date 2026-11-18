@@ -165,7 +165,21 @@ SCHEMA = [
     "CREATE INDEX IF NOT EXISTS idx_pos_payment_requests_biz ON pos_payment_requests(business_id, status, created_at)",
     "CREATE TABLE IF NOT EXISTS pos_payment_acks (event_id TEXT NOT NULL, device_id TEXT NOT NULL, user_id TEXT NOT NULL,"
     " state TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (event_id, device_id))",
+    # Owner 2026-11-18: which phone a payment's sound was SENT to, so a phone that never answered (no ack) is found
+    # and the owner is warned once (warned = 1). Rows go with the event (retention purge).
+    "CREATE TABLE IF NOT EXISTS pos_alert_deliveries (event_id TEXT NOT NULL, business_id TEXT NOT NULL,"
+    " device_id TEXT NOT NULL, user_id TEXT NOT NULL, sent_at TEXT NOT NULL, warned INTEGER NOT NULL DEFAULT 0,"
+    " PRIMARY KEY (event_id, device_id))",
+    "CREATE INDEX IF NOT EXISTS idx_pos_alert_deliveries_sent ON pos_alert_deliveries(warned, sent_at)",
 ]
+
+# What a phone says about itself (app `AskodoxAlertHealth`): ok, or the ONE thing that stops its payment sound.
+HEALTH_STATES = ("ok", "off", "needs_access", "no_listener", "no_apps", "no_voice", "unknown")
+# A sent sound with no answer from the phone after this long = missed (the push + speaking takes seconds).
+MISSED_AFTER = timedelta(minutes=3)
+# Only recent misses are warned about (an old one found late is not news any more).
+WARN_WINDOW = timedelta(minutes=60)
+HEARD_STATES = ("announced", "delivered", "seen", "quiet_hours", "muted")
 
 
 def _hash(*parts: str) -> str:
@@ -226,6 +240,36 @@ def announcement(amount_paise: Optional[int], language: str, verified: bool = Fa
     return ("Test. " + text) if test else text
 
 
+_MISSED_REASON = {
+    "te": {"no_answer": "ఫోన్ స్పందించలేదు (ఫోన్ ఆఫ్ / నెట్ లేదు / ఫోన్ యాప్‌ను ఆపేసింది)",
+           "needs_access": "నోటిఫికేషన్ అనుమతి ఆఫ్", "no_listener": "యాప్ పాత వెర్షన్", "no_apps": "పేమెంట్ యాప్ ఎంచుకోలేదు",
+           "off": "ఆ ఫోన్‌లో పేమెంట్ సౌండ్ ఆఫ్", "no_voice": "ఫోన్ వాయిస్ పనిచేయలేదు"},
+    "en": {"no_answer": "the phone did not answer (switched off / no internet / the phone stopped the app)",
+           "needs_access": "notification access is off", "no_listener": "old app version", "no_apps": "no payment app chosen",
+           "off": "payment sound is off on that phone", "no_voice": "the phone voice failed"},
+}
+
+
+def missed_texts(item: Dict[str, Any]) -> Dict[str, Any]:
+    """(owner title, owner body, phone title, phone body) for one missed sound (owner 2026-11-18)."""
+    te = item.get("language") == "te"
+    words = _MISSED_REASON["te" if te else "en"]
+    reason = words.get(item.get("reason") or "", words["no_answer"])
+    amount = item.get("amount_paise")
+    money = f"₹{amount // 100}" if isinstance(amount, int) else ("పేమెంట్" if te else "payment")
+    test = " (టెస్ట్)" if te and item.get("test") else (" (test)" if item.get("test") else "")
+    name = item.get("name") or ("మీ ఫోన్" if te else "Your phone")
+    if te:
+        return {"owner_title": f"{item.get('shop') or 'షాప్'}: సౌండ్ రాలేదు",
+                "owner_body": f"{name} ఫోన్‌లో {money}{test} సౌండ్ రాలేదు. కారణం: {reason}.",
+                "phone_title": "పేమెంట్ సౌండ్ రాలేదు",
+                "phone_body": f"{money}{test} సౌండ్ మీ ఫోన్‌లో రాలేదు. ASKODOX తెరిచి చూపించే ఒక్క స్టెప్ చేయండి."}
+    return {"owner_title": f"{item.get('shop') or 'Shop'}: sound missed",
+            "owner_body": f"{name}: the {money}{test} sound did not play. Why: {reason}.",
+            "phone_title": "Payment sound missed",
+            "phone_body": f"The {money}{test} sound did not play on this phone. Open ASKODOX and do the one step it shows."}
+
+
 class PosPaymentAlerts:
     def __init__(self, store: PosStore,
                  notify: Optional[Callable[..., None]] = None,
@@ -244,6 +288,11 @@ class PosPaymentAlerts:
                 conn.execute("ALTER TABLE pos_alert_settings ADD COLUMN say_name INTEGER NOT NULL DEFAULT 1")
             except sqlite3.OperationalError:
                 pass
+            for column in ("health TEXT NOT NULL DEFAULT ''", "health_at TEXT NOT NULL DEFAULT ''"):  # 2026-11-18
+                try:
+                    conn.execute(f"ALTER TABLE pos_alert_devices ADD COLUMN {column}")
+                except sqlite3.OperationalError:
+                    pass
             for column in ("confirm_basis TEXT", "confirmed_at TEXT"):  # added 2026-10-27 (ALTER, never recreate)
                 try:
                     conn.execute(f"ALTER TABLE pos_payment_requests ADD COLUMN {column}")
@@ -282,6 +331,8 @@ class PosPaymentAlerts:
             raise PosError(503, "feature_disabled", "Payment voice alerts are switched off by ASKODOX for now.")
 
     def _purge(self, conn: sqlite3.Connection) -> None:
+        conn.execute("DELETE FROM pos_alert_deliveries WHERE event_id IN (SELECT id FROM pos_payment_events WHERE expires_at < ?)",
+                     (self._now().isoformat(),))
         conn.execute("DELETE FROM pos_payment_acks WHERE event_id IN (SELECT id FROM pos_payment_events WHERE expires_at < ?)",
                      (self._now().isoformat(),))
         conn.execute("DELETE FROM pos_payment_events WHERE expires_at < ?", (self._now().isoformat(),))
@@ -295,6 +346,8 @@ class PosPaymentAlerts:
             # The shop name the phone speaks in "... reached <shop>" (the phone never sends the payer's name anywhere).
             out["shop_name"] = str(self.store._business_row(conn, business_id)["name"] or "")
         out.update({"my_role": role, "feature_on": self.feature_on(), "can_edit": role == "owner",
+                    # Owner 2026-11-18: a phone that only HEARS (no collect permission) needs no notification access.
+                    "reports_payments": self.reports_payments(role),
                     "all_roles": [r for r in ROLES if r != "owner"],
                     "verified_provider": self._provider_connected(business_id),
                     "razorpay_signup_url": _razorpay_signup_url(),
@@ -501,9 +554,12 @@ class PosPaymentAlerts:
             row = conn.execute("SELECT * FROM pos_payment_events WHERE id = ?", (event_id,)).fetchone()
             event = self._event_out(conn, row, "")
             receivers = self._receivers(conn, business_id, settings, exclude="")
+            sends = self.feature_on() and (settings["enabled"] or test)
+            if sends:
+                self._plan_deliveries(conn, business_id, event_id, receivers)
             shop = self.store._business_row(conn, business_id)["name"]
         event["duplicate"] = False
-        if self.feature_on() and (settings["enabled"] or test):
+        if sends:
             title = f"{shop}: payment received ({label})" + (" (test)" if test else "")
             body = announcement(int(amount_paise), settings["language"], verified=True, test=test)
             speak = {"type": "payalert", "event_id": event_id, "business_id": business_id, "text": body,
@@ -584,6 +640,125 @@ class PosPaymentAlerts:
             raise PosError(403, "device_revoked", "This device was removed from the shop's payment alerts.")
         conn.execute("UPDATE pos_alert_devices SET last_seen_at = ? WHERE id = ?", (self._now().isoformat(), device_id))
         return device_id
+
+    # ------------------------------------------------------- phone status (owner 2026-11-18)
+    def _plan_deliveries(self, conn: sqlite3.Connection, business_id: str, event_id: str, receivers: List[str]) -> None:
+        """Remember every phone this event's sound is sent to (active devices of each receiver)."""
+        if not receivers:
+            return
+        now = self._now().isoformat()
+        marks = ",".join("?" * len(receivers))
+        for d in conn.execute(f"SELECT id, user_id FROM pos_alert_devices WHERE business_id = ? AND revoked = 0"
+                              f" AND alerts_on = 1 AND speaks_remote = 1 AND user_id IN ({marks})",
+                              (business_id, *receivers)).fetchall():
+            conn.execute("INSERT OR IGNORE INTO pos_alert_deliveries (event_id, business_id, device_id, user_id, sent_at)"
+                         " VALUES (?,?,?,?,?)", (event_id, business_id, d["id"], d["user_id"], now))
+
+    def heartbeat(self, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """A phone tells how its payment sound is (app start / alerts page): every shop row of this install."""
+        device_key = str(data.get("device_key") or "").strip()
+        if not re.match(r"^[A-Za-z0-9_.:-]{8,80}$", device_key):
+            raise PosError(400, "device_key", "device_key must be 8-80 letters / digits.")
+        health = str(data.get("health") or "unknown")
+        if health not in HEALTH_STATES:
+            raise PosError(400, "health", "Unknown health state.")
+        now = self._now().isoformat()
+        with self.store._tx() as conn:
+            cur = conn.execute("UPDATE pos_alert_devices SET health = ?, health_at = ?, last_seen_at = ?"
+                               " WHERE user_id = ? AND device_key = ? AND revoked = 0", (health, now, now, user, device_key))
+        return {"updated": cur.rowcount, "health": health}
+
+    @staticmethod
+    def reports_payments(role: str) -> bool:
+        """Owner + roles that collect money report payments (need notification access); the rest only HEAR."""
+        return role == "owner" or "collect" in PERMISSIONS.get(role, frozenset())
+
+    def _device_state(self, conn: sqlite3.Connection, d: sqlite3.Row, role: str) -> Dict[str, Any]:
+        """working / permission_off / not_answering / off / unknown, with the reason and the last missed sound."""
+        health = (d["health"] if "health" in d.keys() else "") or ""
+        health_at = _parse_time(d["health_at"] if "health_at" in d.keys() else "")
+        if not d["alerts_on"]:
+            return {"state": "off", "reason": "alerts_off"}
+        hear_only = not self.reports_payments(role)
+        bad = {"off", "no_voice"} | (set() if hear_only else {"needs_access", "no_listener", "no_apps"})
+        if health in bad:
+            return {"state": "permission_off", "reason": health, "at": d["health_at"]}
+        cutoff = (self._now() - MISSED_AFTER).isoformat()
+        last = conn.execute(
+            "SELECT x.event_id, x.sent_at, e.amount_paise, a.state, a.at FROM pos_alert_deliveries x"
+            " JOIN pos_payment_events e ON e.id = x.event_id"
+            " LEFT JOIN pos_payment_acks a ON a.event_id = x.event_id AND a.device_id = x.device_id"
+            " WHERE x.device_id = ? AND x.sent_at <= ? ORDER BY x.sent_at DESC LIMIT 1", (d["id"], cutoff)).fetchone()
+        good = [t for t in (_parse_time(last["at"]) if last and last["state"] in HEARD_STATES else None,
+                            health_at if health == "ok" else None) if t is not None]
+        last_good = max(good) if good else None
+        if last is not None and (last["state"] is None or last["state"] == "tts_failed"):
+            sent = _parse_time(last["sent_at"])
+            if sent is not None and (last_good is None or last_good < sent):
+                return {"state": "not_answering", "reason": "no_voice" if last["state"] == "tts_failed" else "no_answer",
+                        "missed_amount_paise": last["amount_paise"], "missed_at": last["sent_at"]}
+        if last_good is not None:
+            return {"state": "working", "reason": "", "at": last_good.isoformat()}
+        return {"state": "unknown", "reason": "no_signal"}
+
+    def phone_status(self, business_id: str, user: str) -> Dict[str, Any]:
+        """Each phone that hears this shop's payments and how its sound is. Owner / manager see every phone; others
+        see only their own (with the ONE step to fix it on the phone)."""
+        with self.store._connect() as conn:
+            role = self._member(conn, business_id, user)
+            owner = self.store._business_row(conn, business_id)["owner_user_id"]
+            members = {r["app_user_id"]: r for r in conn.execute(
+                "SELECT * FROM pos_members WHERE business_id = ? AND active = 1", (business_id,)) if r["app_user_id"]}
+            settings = self._settings_row(conn, business_id)
+            rows = conn.execute("SELECT * FROM pos_alert_devices WHERE business_id = ? AND revoked = 0 ORDER BY created_at",
+                                (business_id,)).fetchall()
+            phones = []
+            for d in rows:
+                if role not in ("owner", "manager") and d["user_id"] != user:
+                    continue
+                who_role = "owner" if d["user_id"] == owner else (members[d["user_id"]]["role"] if d["user_id"] in members else "")
+                if not who_role:
+                    continue  # removed staff
+                name = self._display_name(conn, business_id, d["user_id"], settings["language"]) if d["user_id"] != owner else ""
+                phones.append({"id": d["id"], "mine": d["user_id"] == user, "role": who_role, "name": name,
+                               "label": d["label"], "last_seen_at": d["last_seen_at"],
+                               "hear_only": not self.reports_payments(who_role),
+                               **self._device_state(conn, d, who_role)})
+        problems = sum(1 for p in phones if p["state"] in ("permission_off", "not_answering"))
+        return {"phones": phones, "problems": problems, "my_role": role, "hear_only": not self.reports_payments(role)}
+
+    def missed_sounds(self) -> List[Dict[str, Any]]:
+        """Sounds sent 3-60 min ago that no phone answered: warned ONCE each (warned = 1). For the periodic job."""
+        now = self._now()
+        lo, hi = (now - WARN_WINDOW).isoformat(), (now - MISSED_AFTER).isoformat()
+        out: List[Dict[str, Any]] = []
+        with self.store._tx() as conn:
+            rows = conn.execute(
+                "SELECT x.*, e.amount_paise, e.test, a.state FROM pos_alert_deliveries x"
+                " JOIN pos_payment_events e ON e.id = x.event_id"
+                " LEFT JOIN pos_payment_acks a ON a.event_id = x.event_id AND a.device_id = x.device_id"
+                " WHERE x.warned = 0 AND x.sent_at BETWEEN ? AND ?", (lo, hi)).fetchall()
+            for r in rows:
+                conn.execute("UPDATE pos_alert_deliveries SET warned = 1 WHERE event_id = ? AND device_id = ?",
+                             (r["event_id"], r["device_id"]))
+                if r["state"] is not None and r["state"] != "tts_failed":
+                    continue  # the phone answered
+                biz = self.store._business_row(conn, r["business_id"])
+                settings = self._settings_row(conn, r["business_id"])
+                d = conn.execute("SELECT * FROM pos_alert_devices WHERE id = ?", (r["device_id"],)).fetchone()
+                if d is None or d["revoked"]:
+                    continue
+                role = "owner" if r["user_id"] == biz["owner_user_id"] else (self.store.role_of(conn, r["business_id"], r["user_id"]) or "")
+                health = (d["health"] or "") if "health" in d.keys() else ""
+                reason = "no_voice" if r["state"] == "tts_failed" else (
+                    health if health in ("off", "no_voice") or (health in ("needs_access", "no_listener", "no_apps")
+                                                                 and self.reports_payments(role)) else "no_answer")
+                out.append({"business_id": r["business_id"], "shop": biz["name"], "owner": biz["owner_user_id"],
+                            "user_id": r["user_id"], "device_id": r["device_id"], "event_id": r["event_id"],
+                            "amount_paise": r["amount_paise"], "test": bool(r["test"]), "reason": reason,
+                            "name": self._display_name(conn, r["business_id"], r["user_id"], settings["language"]),
+                            "language": settings["language"]})
+        return out
 
     # -------------------------------------------------------------- events
     def report(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -669,6 +844,7 @@ class PosPaymentAlerts:
             row = conn.execute("SELECT * FROM pos_payment_events WHERE id = ?", (event_id,)).fetchone()
             event = self._event_out(conn, row, user)
             receivers = self._receivers(conn, business_id, settings, exclude=user, source=user)
+            self._plan_deliveries(conn, business_id, event_id, receivers)
             shop = self.store._business_row(conn, business_id)["name"]
             who = self._display_name(conn, business_id, user, settings["language"])
         event["duplicate"] = False
@@ -830,7 +1006,7 @@ class PosPaymentAlerts:
             amount = "" if e["amount_paise"] is None else f"{e['amount_paise'] / 100:.2f}"
             lines.append(",".join([e["detected_at"], amount, e["source_label"].replace(",", " "), e["reference_tail"],
                                    e["status"], e["verification"], str(int(e["test"])), str(e["duplicates"])]))
-        lines.append("# Notifications only. Not bank-verified. Not revenue or settled collections.")
+        lines.append("# Received per phone notifications only - check your bank app. Not revenue or settled collections.")
         return "\n".join(lines) + "\n"
 
     # ------------------------------------------------------- collect to the shop's OWN UPI

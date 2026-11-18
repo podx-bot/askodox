@@ -72,7 +72,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPayMethodsEmpty')), findsOneWidget);
     expect(find.byKey(const Key('askodoxPayOptionsNotice')), findsOneWidget);
-    expect(find.textContaining('not a bank confirmation'), findsOneWidget);
+    expect(find.textContaining('Check your bank app before handing over goods'), findsOneWidget);
     await tester.tap(find.byKey(const Key('askodoxPayMethodQrPhoto')));
     await tester.pumpAndSettle();
     expect(find.text('lk@ybl'), findsOneWidget);

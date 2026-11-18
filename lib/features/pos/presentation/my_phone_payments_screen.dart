@@ -14,6 +14,7 @@ import '../domain/money_accounts.dart';
 import 'offline_voice_card.dart';
 import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
+import 'pay_alert_disclaimer.dart';
 
 /// "My phone" payments (owner 2026-11-15): any signed-in person -- no shop, no registered UPI id -- gets the payment
 /// notifications and bank SMS of the apps THEY choose read out on their own phone and kept in their own history.
@@ -247,10 +248,12 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               const SizedBox(height: 8),
               Text(
                 te
-                    ? 'ఇవన్నీ ఈ ఫోన్‌లోనే ఉంటాయి. యాప్ నోటిఫికేషన్ / బ్యాంక్ SMS నోటిఫికేషన్ మాత్రమే చదువుతుంది — SMS ఇన్‌బాక్స్ కాదు. నోటిఫికేషన్ అంటే బ్యాంక్ నిర్ధారణ కాదు.'
-                    : 'All of this stays on this phone. It reads only the notification of the apps / bank SMS you choose — never your SMS inbox. A notification is not a bank confirmation.',
+                    ? 'ఇవన్నీ ఈ ఫోన్‌లోనే ఉంటాయి. మీరు ఎంచుకున్న యాప్‌ల నోటిఫికేషన్ / బ్యాంక్ SMS నోటిఫికేషన్ మాత్రమే చదువుతుంది — SMS ఇన్‌బాక్స్ కాదు.'
+                    : 'All of this stays on this phone. It reads only the notification of the apps / bank SMS you choose — never your SMS inbox.',
                 style: const TextStyle(fontSize: 12),
               ),
+              const SizedBox(height: 8),
+              AskodoxPayAlertDisclaimer(te: te),
             ]),
     );
   }

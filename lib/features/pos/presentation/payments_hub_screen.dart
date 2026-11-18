@@ -209,8 +209,8 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                           te
-                              ? 'ఫోన్ నోటిఫికేషన్ల లెక్క — బ్యాంక్ నిర్ధారణ కాదు. బ్యాంక్ SMS వచ్చినవి మాత్రమే నిర్ధారించినవి.'
-                              : 'Counted from phone notifications — not bank-confirmed unless a bank SMS came.',
+                              ? 'ఫోన్ నోటిఫికేషన్ / బ్యాంక్ SMS లో "అందింది" అన్న లెక్క. ఖాతాలో పడిందో మీ బ్యాంక్ యాప్‌లో చూసుకోండి.'
+                              : 'Counted from "received" phone notifications / bank SMS. Check your bank app for the money in your account.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 11.5, color: _muted)),
                     ),
