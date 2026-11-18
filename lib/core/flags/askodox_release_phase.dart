@@ -31,7 +31,6 @@ const askodoxPhase2ProfileKeys = <String>{
   'profile-mobility',
   'profile-tax-assistant',
   'profile-personal-finance',
-  'profile-shop-advances',
   'askodoxMyRolesEntry',
   'askodoxProfileEditRoles',
   'profile-opportunities',
@@ -52,9 +51,8 @@ const askodoxPhase2ProfileKeys = <String>{
 /// App screens that belong to Phase 2. A chat action pointing at one shows no
 /// button, and a guide that walks to one is not offered.
 const askodoxPhase2Routes = <String>{
-  // The full POS stays Phase 2. Phase 1 has the simple My business desk (/me/business), owner 2026-11-14.
-  '/pos',
-  '/crm',
+  // Owner 2026-11-18: the full POS (/pos: tables, kitchen, GST, counter, stock, staff roles, printer ...), the
+  // business CRM (/crm) and shop advances (/me/shop-advances) are OPEN in Phase 1 too -- reached from the business hub.
   '/business',
   '/listings/mine',
   '/orders/mine',
@@ -66,7 +64,6 @@ const askodoxPhase2Routes = <String>{
   '/opportunities',
   '/me/finance',
   '/intel/tax',
-  '/me/shop-advances',
   '/shop-scan',
   '/plans',
   '/me/agent',
