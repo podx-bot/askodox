@@ -249,7 +249,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('askodoxGuideAskField')), 'how do I upload a video?');
     await tester.tap(find.byKey(const Key('askodoxGuideAskGo')));
     await tester.pumpAndSettle();
-    expect(_asked.single, 'Profile|how do I upload a video?');
+    expect(_asked.single, 'Tools|how do I upload a video?');
     expect(find.byKey(const Key('askodoxGuideAnswer')), findsOneWidget);
     // Uploading own videos is a Phase 2 screen: a Phase 1 build answers but offers no walkthrough to it.
     expect(find.byKey(const ValueKey('askodoxGuideAnswerFlow-upload_video')),
