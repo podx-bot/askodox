@@ -22,8 +22,36 @@ CAPABILITY = "app_actions"
 
 # key, app route, English label, Telugu-English label, what it is for (for the brain)
 CATALOG: tuple[tuple[str, str, str, str, str], ...] = (
+    # Shop tools, straight to the page (the app finds the person's shop). Owner 2026-11-19.
+    ("shop_new_bill", "/my-shop/sale", "New bill", "కొత్త బిల్లు",
+     "new bill / కొత్త బిల్లు / bill వేయి: start a new bill for a shop customer right now"),
+    ("shop_agents", "/my-shop/agents", "My AI agents", "నా AI Agents",
+     "ai agents / my ai agents: the shop's own AI helpers (sales, stock, accounts agents) -- open them, never explain what AI agents are"),
+    ("shop_items", "/my-shop/items", "Items & stock", "సరుకులు & స్టాక్",
+     "my items / stock / menu / products / prices of my shop: add, edit, stock count"),
+    ("shop_suppliers", "/my-shop/suppliers", "Suppliers & purchases", "సప్లయర్లు & కొనుగోళ్లు",
+     "suppliers, purchase bills, stock bought, supplier ledger"),
+    ("shop_expiry", "/my-shop/expiry", "Expiry & stock value", "ఎక్స్‌పైరీ & స్టాక్ విలువ",
+     "items expiring soon, stock value"),
+    ("shop_customers", "/my-shop/customers", "Customers & credit", "కస్టమర్లు & ఖాతా",
+     "my shop's customers, baaki / credit / dues, who owes me"),
+    ("shop_bills", "/my-shop/bills", "Bills I made", "నేను వేసిన బిల్లులు",
+     "bills / invoices my shop issued, today's bills, reprint or share a bill"),
+    ("shop_day", "/my-shop/day", "Day close", "రోజు ముగింపు", "today's sales total, cash count, close the day"),
+    ("shop_gst", "/my-shop/gst", "GST summary", "GST సారాంశం", "my shop's GST summary / report"),
+    ("shop_staff", "/my-shop/staff", "Staff & roles", "సిబ్బంది", "add or change my shop staff and their roles"),
+    ("shop_printer", "/my-shop/printer", "Printer", "ప్రింటర్", "connect or test the bill printer"),
+    ("shop_orders", "/my-shop/orders", "Orders desk", "ఆర్డర్స్ డెస్క్",
+     "orders customers placed at my shop (table, parcel, delivery): accept, kitchen, ready"),
+    ("shop_tables", "/my-shop/tables", "Tables & KOT", "టేబుల్స్ & KOT", "restaurant tables, KOT, table bills"),
+    ("shop_kitchen", "/my-shop/kitchen", "Kitchen screen", "వంటగది స్క్రీన్", "kitchen display of running orders"),
+    ("shop_collect", "/my-shop/collect", "Collect by UPI", "UPI తో కట్టించుకోండి", "show my QR / ask a customer to pay by UPI"),
+    ("shop_advance", "/my-shop/advance", "Shop advance", "షాప్ అడ్వాన్స్", "customer advances kept with my shop"),
+    ("shop_selfshop", "/my-shop/selfshop", "Self-shopping", "సెల్ఫ్ షాపింగ్", "customers scan and shop by themselves in my shop"),
+    ("shop_payment_alerts", "/my-shop/payment-alerts", "Shop payment alerts", "షాప్ పేమెంట్ అలర్ట్స్",
+     "payment voice for the shop: who hears it, voice, quiet time"),
     ("pos_bill", "/pos", "Billing / POS", "Bill వేయండి (POS)",
-     "new bill / కొత్త బిల్లు / bill వేయి: make a bill / invoice for a shop customer, open the shop counter, stock, GST bills, KOT for a restaurant"),
+     "the shop counter home (list of my shops, set up a shop): open the shop counter, stock, GST bills, KOT for a restaurant"),
     ("pos_payment_alerts", "/me/payments/phone", "Payment voice alerts", "Payment voice alerts",
      "UPI payment sound alerts for the shop (soundbox on the phone): turn payment-app / bank SMS alerts on, set up notification access"),
     ("crm", "/crm", "Customers & leads (CRM)", "Customers & Leads (CRM)",
@@ -97,7 +125,9 @@ _KEY = re.compile(r"^[a-z_]{2,40}$")
 # roles, KYC, money tools, own video uploads), so the brain is offered -- and may
 # return -- only these destinations. Old APKs and Phase 2 builds get the whole catalog.
 PHASE1_CAPABILITY = "phase1_only"
-PHASE1_KEYS = frozenset({
+SHOP_TOOL_KEYS = frozenset(row[0] for row in CATALOG if row[1].startswith("/my-shop/"))
+PHASE1_KEYS = SHOP_TOOL_KEYS | frozenset({
+    "pos_bill", "pos_payment_alerts", "crm", "my_bills", "my_money", "my_payments",
     "ai_credits", "payment_methods", "profile_memory", "notification_settings",
     "privacy", "watchlist", "updates", "profile",
 })
@@ -131,6 +161,8 @@ def prompt_block(phase1_only=False) -> str:
         "APP ACTIONS: if (and only if) the user asks to DO, OPEN, MANAGE or SET UP one of these ASKODOX features "
         "(not just to find or buy something -- searches stay searches), also return app_action = "
         '{"key": "<one key below>"} and keep the reply to one short line saying what they can do there. '
+        'A bare feature name or "my <feature>" (e.g. "new bill", "my ai agents", "stock", "staff") IS a request to '
+        "open it: return the app_action; do not explain the general concept and do not ask which kind. "
         "Pick by meaning in any language; if none fits clearly, omit app_action. Never claim the screen was "
         "opened or that anything was saved -- the user taps a button to open it.\n" + lines + "\n"
     )

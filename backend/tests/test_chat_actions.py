@@ -77,15 +77,15 @@ def test_phase1_app_is_offered_and_given_only_phase1_screens():
     """Owner decision 2026-11-04: a Phase 1 app hides business / POS / rides / roles screens."""
     assert ca.PHASE1_KEYS <= {row[0] for row in ca.CATALOG}
     block = ca.prompt_block(phase1_only=True)
-    assert "ai_credits" in block and "pos_bill" not in block and "rides_parcels" not in block
-    assert "pos_bill" in ca.prompt_block(), "old APKs / Phase 2 still get the whole catalog"
-    assert ca.resolve({"key": "pos_bill"}, phase1_only=True) is None
+    assert "ai_credits" in block and "rides_parcels" not in block
+    assert "rides_parcels" in ca.prompt_block(), "old APKs / Phase 2 still get the whole catalog"
+    assert ca.resolve({"key": "rides_parcels"}, phase1_only=True) is None
     assert ca.resolve({"key": "ai_credits"}, phase1_only=True)["route"] == "/me/ai-credits"
 
-    brain, models = _brain({"key": "pos_bill"})
+    brain, models = _brain({"key": "rides_parcels"})
     caps = ["meaning_tags", ca.CAPABILITY, ca.PHASE1_CAPABILITY]
     out = brain.decide("bill veyyali", capabilities=caps)
-    assert "pos_bill" not in models.prompts[-1] and "app_action" not in out
+    assert "rides_parcels" not in models.prompts[-1] and "app_action" not in out
     brain, models = _brain({"key": "payment_methods"})
     out = brain.decide("naa upi qr add cheyyali", capabilities=caps)
     assert out["app_action"]["route"] == "/me/payment-methods"
@@ -122,7 +122,8 @@ def test_shopping_switch_adds_the_shop_tools_to_a_phase1_build():
     phase1 = ca.keys_for(["app_actions", "phase1_only"])
     shopping = ca.keys_for(["app_actions", "phase1_only", "shopping_tools"])
     assert ca.keys_for(["app_actions"]) is None
-    assert "pos_bill" not in phase1 and "pos_bill" in shopping
-    assert ca.resolve({"key": "pos_bill"}, False, shopping)["route"] == "/pos"
-    assert ca.resolve({"key": "pos_bill"}, False, phase1) is None
-    assert ca.resolve({"key": "mobility"}, False, shopping) is None
+    # Owner 2026-11-19 (later the same day): shop tools open from the chat in every Phase 1 build.
+    assert "pos_bill" in phase1 and "shop_agents" in phase1 and "shop_new_bill" in shopping
+    assert ca.resolve({"key": "shop_agents"}, False, phase1)["route"] == "/my-shop/agents"
+    assert ca.resolve({"key": "rides_parcels"}, False, shopping) is None
+    assert "my ai agents" in ca.prompt_block(phase1)
