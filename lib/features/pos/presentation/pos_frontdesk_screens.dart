@@ -758,6 +758,11 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
     try {
       final o = await ref.read(askodoxPosRepositoryProvider).deskMineOne(widget.orderId);
       if (mounted) {
+        // The moment the order is finished, its shortcut above the chat goes away (owner 2026-11-19).
+        final wasOpen = !const {'done', 'rejected', 'cancelled'}.contains('${_order?['stage']}');
+        if (wasOpen && const {'done', 'rejected', 'cancelled'}.contains('${o['stage']}')) {
+          unawaited(ref.read(askodoxLiveOrdersProvider.notifier).refresh());
+        }
         setState(() {
           _order = o;
           _error = null;

@@ -8129,6 +8129,178 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "supplier_bill_photo",
+      "name": "Supplier bill photo -> review -> stock, items, supplier ledger, input GST",
+      "roles": [
+        "customer",
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/purchases/photo"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/purchases/from-photo"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "AskodoxPosBillPhotoScreen"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_bill_photo.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: one photo of the bill fills everything; only what is missing is asked.",
+      "expected_behavior": "Preview never guesses a number; new items are marked and created on save; the same purchase record as a typed bill; a second tap never doubles.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "baaki_followup",
+      "name": "Baaki follow-up by itself: reminders, customer's promised date, owner told",
+      "roles": [
+        "customer",
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/me/bills/{token}/promise"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "myBillPromise"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_dues_followup.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: nobody follows up credit by hand.",
+      "expected_behavior": "Reminder after 2 days then every 3 (max 10), quiet until a promised date, owner told the date and on the day, stops when paid. In-app only (no calls).",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "expiry_daily_alert",
+      "name": "Stock nearing expiry: one push a day to the shop owner",
+      "roles": [
+        "customer",
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [],
+      "ui": {},
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_dues_followup.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: the app itself warns; no searching.",
+      "expected_behavior": "Batches expiring within 15 days (or expired, in stock) -> one push per shop per day opening the expiry page.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "table_reservation",
+      "name": "Reserve a table ahead of time (free tables around a time)",
+      "roles": [
+        "customer",
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/order-desk/{business_id}/tables/free"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/order-desk/{business_id}/reservations"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/me/reservations"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/me/reservations/{reservation_id}/cancel"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reservations"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/reservations/{reservation_id}/status"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxReserveTable",
+          "askodoxShowShopReservations"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_reservations.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: a customer coming in 1-2 hours sees free tables and reserves.",
+      "expected_behavior": "Confirmed at once, owner told; held 15 minutes after the time; either side cancels; chip above the chat while booked.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

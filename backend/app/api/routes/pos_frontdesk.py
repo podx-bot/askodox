@@ -485,13 +485,114 @@ def bill_history(business_id: str, request: Request, date_from: str = "", date_t
 @router.get("/me/bills")
 def my_bills(request: Request) -> dict:
     """Bills shops sent to the signed-in person's number, with the shop's own UPI pay link for any balance."""
-    return {"bills": _call(_bills(request).my_bills, _user(request, "my-bills", 300))}
+    bills = _call(_bills(request).my_bills, _user(request, "my-bills", 300))
+    try:  # the date the person gave for a pending bill ("I will pay on ...")
+        given = dues_followup(request.app.state.container, _store(request), _bills(request)).promises(
+            [b["invoice_id"] for b in bills if int(b.get("due_paise") or 0) > 0])
+        for b in bills:
+            b["promised_date"] = given.get(b["invoice_id"], "")
+    except Exception:
+        pass
+    return {"bills": bills}
 
 
 @router.post("/me/bills/{token}/paid")
 def my_bill_paid(token: str, body: SaysPaidIn, request: Request) -> dict:
     _user(request, "my-bills", 60)
     return _call(_bills(request).customer_says_paid, token, body.app)
+
+
+class PromiseIn(BaseModel):
+    date: str
+
+
+def dues_followup(container: Any, store: Any, bills: Any):
+    from app.services.pos_dues_followup import PosDuesFollowup
+    from app.services.push_service import push_service
+
+    existing = getattr(container, "pos_dues_followup", None)
+    if existing is None or existing.store is not store:
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+            push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+
+        existing = PosDuesFollowup(store, bills, notify=notify)
+        try:
+            container.pos_dues_followup = existing
+        except Exception:
+            pass
+    return existing
+
+
+@router.post("/me/bills/{token}/promise")
+def my_bill_promise(token: str, body: PromiseIn, request: Request) -> dict:
+    """The customer's own answer to a baaki reminder: the date they will pay (the shop is told; reminders wait)."""
+    user = _user(request, "my-bills", 60)
+    return _call(dues_followup(request.app.state.container, _store(request), _bills(request)).promise, user, token,
+                 body.date[:10])
+
+
+class ReserveIn(BaseModel):
+    table_id: str
+    at: str
+    people: int = 2
+    name: str = ""
+    note: str = ""
+    client_txn_id: str = ""
+
+
+class ReservationStatusIn(BaseModel):
+    status: str
+
+
+def _reservations(request: Request):
+    from app.services.pos_reservations import PosReservations
+    from app.services.push_service import push_service
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_reservations", None)
+    if existing is None or existing.store is not store:
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+            push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+
+        existing = PosReservations(store, notify=notify)
+        try:
+            container.pos_reservations = existing
+        except Exception:
+            pass
+    return existing
+
+
+@router.get("/order-desk/{business_id}/tables/free")
+def free_tables(business_id: str, at: str, request: Request, people: int = 2) -> dict:
+    """Tables that are free around a time (for reserving ahead)."""
+    _user(request, "table-res", 120)
+    return _call(_reservations(request).free_tables, business_id, at, people)
+
+
+@router.post("/order-desk/{business_id}/reservations")
+def reserve_table(business_id: str, body: ReserveIn, request: Request) -> dict:
+    return _call(_reservations(request).book, _user(request, "table-res-book", 20), business_id, body.model_dump())
+
+
+@router.get("/me/reservations")
+def my_reservations(request: Request) -> dict:
+    return {"reservations": _call(_reservations(request).mine, _user(request, "table-res", 120))}
+
+
+@router.post("/me/reservations/{reservation_id}/cancel")
+def cancel_my_reservation(reservation_id: str, request: Request) -> dict:
+    return _call(_reservations(request).cancel_mine, _user(request, "table-res", 120), reservation_id)
+
+
+@router.get("/businesses/{business_id}/reservations")
+def shop_reservations(business_id: str, request: Request) -> dict:
+    return {"reservations": _call(_reservations(request).for_business, business_id, _user(request, "table-res", 120))}
+
+
+@router.post("/businesses/{business_id}/reservations/{reservation_id}/status")
+def shop_reservation_status(business_id: str, reservation_id: str, body: ReservationStatusIn, request: Request) -> dict:
+    return _call(_reservations(request).set_status, business_id, _user(request, "table-res", 120), reservation_id, body.status)
 
 
 bill_page_router = APIRouter(tags=["POS"])

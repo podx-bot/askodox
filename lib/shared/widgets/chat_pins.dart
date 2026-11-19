@@ -190,8 +190,20 @@ class AskodoxLiveOrdersController extends StateNotifier<List<AskodoxJson>> {
   Future<void> refresh() async {
     if (!askodoxLiveOrderChip) return;
     try {
-      final orders = await _ref.read(askodoxPosRepositoryProvider).deskMine();
-      if (mounted) state = [for (final o in orders) if (!_closed.contains('${o['stage']}')) o];
+      final repo = _ref.read(askodoxPosRepositoryProvider);
+      final orders = await repo.deskMine();
+      var reserved = const <AskodoxJson>[];
+      try {
+        reserved = await repo.myReservations();
+      } catch (_) {
+        // an older server: orders only
+      }
+      if (mounted) {
+        state = [
+          for (final r in reserved) if ('${r['status']}' == 'booked') {...r, 'reservation': true},
+          for (final o in orders) if (!_closed.contains('${o['stage']}')) o,
+        ];
+      }
     } catch (_) {
       // signed out / offline: no chip
     }
@@ -200,6 +212,37 @@ class AskodoxLiveOrdersController extends StateNotifier<List<AskodoxJson>> {
 
 final askodoxLiveOrdersProvider =
     StateNotifierProvider<AskodoxLiveOrdersController, List<AskodoxJson>>((ref) => AskodoxLiveOrdersController(ref));
+
+/// A reserved table: where, when, and one button to cancel it.
+Future<void> _showReservation(BuildContext context, WidgetRef ref, AskodoxJson r, bool te) async {
+  final at = DateTime.tryParse('${r['at']}')?.toLocal();
+  final when = at == null ? '' : '${at.day}/${at.month} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+  final cancel = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheet) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(
+          leading: const Icon(Icons.event_seat_outlined),
+          title: Text('${r['shop']} · ${r['table_name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text('$when · ${r['people']} ${te ? 'మంది' : 'people'}'),
+        ),
+        ListTile(
+          key: const Key('askodoxReservationCancel'),
+          leading: const Icon(Icons.close_rounded, color: Color(0xFFB42318)),
+          title: Text(te ? 'రిజర్వేషన్ రద్దు చేయి' : 'Cancel this reservation'),
+          onTap: () => Navigator.pop(sheet, true),
+        ),
+      ]),
+    ),
+  );
+  if (cancel != true) return;
+  try {
+    await ref.read(askodoxPosRepositoryProvider).cancelMyReservation('${r['id']}');
+  } catch (_) {
+    // the refresh after this shows the real state
+  }
+}
 
 /// The strip above the chat box: the person's pins (a tap opens the page; long-press offers removal) and an arrow
 /// that folds it to a thin handle. Nothing is drawn when nothing is pinned.
@@ -245,10 +288,16 @@ class AskodoxChatPinStrip extends ConsumerWidget {
                     avatar: Icon('${o['kind']}' == 'dine_in' ? Icons.table_restaurant_outlined : Icons.receipt_long_outlined,
                         size: 16, color: const Color(0xFF17784C)),
                     label: Text(
-                        '${o['table_name'] ?? o['business_name'] ?? ''} · ${'${o['kind']}' == 'dine_in' ? (te ? 'అడగండి' : 'Ask') : (te ? 'ఆర్డర్' : 'Order')}',
+                        o['reservation'] == true
+                            ? '${o['table_name']} · ${te ? 'రిజర్వ్' : 'Reserved'}'
+                            : '${o['table_name'] ?? o['business_name'] ?? ''} · ${'${o['kind']}' == 'dine_in' ? (te ? 'అడగండి' : 'Ask') : (te ? 'ఆర్డర్' : 'Order')}',
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     onPressed: () async {
-                      await context.push('/order-desk/track/${o['id']}');
+                      if (o['reservation'] == true) {
+                        await _showReservation(context, ref, o, te);
+                      } else {
+                        await context.push('/order-desk/track/${o['id']}');
+                      }
                       await ref.read(askodoxLiveOrdersProvider.notifier).refresh();
                     },
                   ),

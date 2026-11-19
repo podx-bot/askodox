@@ -8,6 +8,7 @@ import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import '../domain/pos_tax.dart';
 import 'pos_common.dart';
+import 'pos_reservation_sheets.dart';
 import 'pos_sale_screen.dart' show AskodoxPosPaymentSheet;
 
 /// Floor view: tables with their open orders; takeaway / delivery orders below.
@@ -79,6 +80,11 @@ class _AskodoxPosTablesScreenState extends ConsumerState<AskodoxPosTablesScreen>
       appBar: AppBar(
         title: Text(te ? 'టేబుల్స్ & ఆర్డర్లు' : 'Tables & orders'),
         actions: [
+          IconButton(
+              key: const Key('askodoxPosReservationsOpen'),
+              tooltip: te ? 'రిజర్వేషన్లు' : 'Reservations',
+              onPressed: () => askodoxShowShopReservations(context, ref, widget.businessId),
+              icon: const Icon(Icons.event_seat_outlined)),
           IconButton(key: const Key('askodoxPosKitchenOpen'), onPressed: () => context.push('/pos/${widget.businessId}/kitchen'),
               icon: const Icon(Icons.soup_kitchen_outlined)),
           IconButton(key: const Key('askodoxPosAddTable'), onPressed: _addTable, icon: const Icon(Icons.table_restaurant_outlined)),

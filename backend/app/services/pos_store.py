@@ -828,6 +828,24 @@ class PosStore:
             return [{**b, "expired": bool(b["expiry_date"] and b["expiry_date"] < today)}
                     for b in self.batch_balances(conn, business_id, product_id)]
 
+    def expiring_soon_all(self, days: int = 15) -> List[Dict[str, Any]]:
+        """Every shop with stock that is expired or expires within ``days`` (for the daily owner alert)."""
+        today = self._local(self.clock())
+        until = (datetime.fromisoformat(today) + timedelta(days=days)).date().isoformat()
+        shops: Dict[str, Dict[str, Any]] = {}
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT m.business_id, b.name AS shop, b.owner_user_id, p.name, m.batch_no, m.expiry_date, SUM(m.qty_milli) AS qty"
+                " FROM pos_stock_moves m JOIN pos_products p ON p.id = m.product_id JOIN pos_businesses b ON b.id = m.business_id"
+                " WHERE m.expiry_date IS NOT NULL GROUP BY m.business_id, m.product_id, m.batch_no, m.expiry_date"
+                " HAVING SUM(m.qty_milli) > 0 AND m.expiry_date <= ? ORDER BY m.expiry_date", (until,)).fetchall()
+        for r in rows:
+            shop = shops.setdefault(r["business_id"], {"business_id": r["business_id"], "name": r["shop"],
+                                                       "owner": r["owner_user_id"], "names": [], "count": 0, "day": today})
+            shop["count"] += 1
+            shop["names"].append(f"{r['name']} ({r['expiry_date']})")
+        return list(shops.values())
+
     def expiry_report(self, business_id: str, user: str, days: int = 30) -> Dict[str, Any]:
         """Batches in stock that are expired or expire within ``days``."""
         days = max(0, min(int(days), 365))

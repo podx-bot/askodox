@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/widgets/chat_pins.dart' show askodoxLiveOrdersProvider;
 import '../../pos/data/pos_repository.dart';
+import '../../pos/presentation/pos_reservation_sheets.dart';
 import '../../pos/presentation/shop_rating_screens.dart' show askodoxRatingLine;
 import '../application/chat_shop_cart.dart';
 
@@ -360,6 +361,20 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                         },
                 ),
             ]),
+            if (_modes.contains('dine_in'))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('askodoxChatShopMenuReserve'),
+                  onPressed: () async {
+                    final booked = await askodoxReserveTable(
+                        context, ref, '${widget.card['business_id']}', '${widget.card['name'] ?? ''}');
+                    if (booked && mounted) await ref.read(askodoxLiveOrdersProvider.notifier).refresh();
+                  },
+                  icon: const Icon(Icons.event_seat_outlined, size: 18),
+                  label: Text(te ? 'తర్వాత వస్తారా? టేబుల్ ముందే రిజర్వ్ చేయండి' : 'Coming later? Reserve a table now'),
+                ),
+              ),
             if (_kind == 'dine_in')
               Align(
                 alignment: Alignment.centerLeft,

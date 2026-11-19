@@ -114,6 +114,17 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> deskShops(String q) async =>
       askodoxPosList((await _send('GET', '/api/pos/order-desk/shops', query: {'q': q}))['shops']);
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
+  // Table reservation ahead of time (owner 2026-11-19).
+  Future<AskodoxJson> freeTables(String biz, String atIso, int people) =>
+      _send('GET', '/api/pos/order-desk/$biz/tables/free', query: {'at': atIso, 'people': '$people'});
+  Future<AskodoxJson> reserveTable(String biz, AskodoxJson body) => _send('POST', '/api/pos/order-desk/$biz/reservations', body: body);
+  Future<List<AskodoxJson>> myReservations() async =>
+      askodoxPosList((await _send('GET', '/api/pos/me/reservations'))['reservations']);
+  Future<AskodoxJson> cancelMyReservation(String id) => _send('POST', '/api/pos/me/reservations/$id/cancel');
+  Future<List<AskodoxJson>> shopReservations(String biz) async =>
+      askodoxPosList((await _send('GET', '${_b(biz)}/reservations'))['reservations']);
+  Future<AskodoxJson> shopReservationStatus(String biz, String id, String status) =>
+      _send('POST', '${_b(biz)}/reservations/$id/status', body: {'status': status});
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
   /// The customer's choice: 'cash' (pay at the counter / table) or 'online' (the shop's own UPI).
@@ -188,6 +199,9 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> myBills() async => askodoxPosList((await _send('GET', '/api/pos/me/bills'))['bills']);
   Future<AskodoxJson> myBillPaid(String token, String app) =>
       _send('POST', '/api/pos/me/bills/$token/paid', body: {'app': app});
+  /// "I will pay on (date)" for a pending bill: the shop is told, reminders wait until then.
+  Future<AskodoxJson> myBillPromise(String token, String date) =>
+      _send('POST', '/api/pos/me/bills/$token/promise', body: {'date': date});
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
   // Shop follows: any signed-in person, shop owners included (backend: routes/shop_follows.py).
   Future<AskodoxJson> shopState(String id) => _send('GET', '/api/shops/$id');
@@ -413,6 +427,10 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> purchases(String id, {String supplierId = ''}) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/purchases', query: {if (supplierId.isNotEmpty) 'supplier_id': supplierId}))['purchases']);
   Future<AskodoxJson> recordPurchase(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchases', body: body);
+  /// Supplier bill PHOTO -> preview (nothing saved); the confirmed bill is saved in one call (owner 2026-11-19).
+  Future<AskodoxJson> purchaseBillPhoto(String id, List<AskodoxJson> images) =>
+      _send('POST', '${_b(id)}/purchases/photo', body: {'images': images}, timeout: const Duration(seconds: 90));
+  Future<AskodoxJson> purchaseFromPhoto(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchases/from-photo', body: body);
   Future<AskodoxJson> cancelPurchase(String id, String purchaseId, String reason) =>
       _send('POST', '${_b(id)}/purchases/$purchaseId/cancel', body: {'reason': reason});
   Future<List<AskodoxJson>> batches(String id, String productId) async =>
