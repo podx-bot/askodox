@@ -16,16 +16,15 @@ String _dayClock(DateTime t, bool te) {
 }
 
 /// Customer: reserve a table ahead of time (owner 2026-11-19). Pick when you will come and how many people; the
-/// tables free around that time are listed; one tap reserves. Returns true when a table was reserved.
-Future<bool> askodoxReserveTable(BuildContext context, WidgetRef ref, String businessId, String shopName) async {
+/// tables free around that time are listed; one tap reserves. Returns the reservation, or null when none was made.
+Future<AskodoxJson?> askodoxReserveTable(BuildContext context, WidgetRef ref, String businessId, String shopName) {
   final te = askodoxPosTe(context);
-  final done = await showModalBottomSheet<bool>(
+  return showModalBottomSheet<AskodoxJson>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (sheet) => _ReserveSheet(businessId: businessId, shopName: shopName, te: te),
   );
-  return done == true;
 }
 
 class _ReserveSheet extends ConsumerStatefulWidget {
@@ -104,7 +103,7 @@ class _ReserveSheetState extends ConsumerState<_ReserveSheet> {
           content: Text(te
               ? '${out['table_name']} రిజర్వ్ అయింది ✓ ${_dayClock(_at, te)} · 15 నిమిషాలు ఆగుతుంది'
               : '${out['table_name']} reserved ✓ ${_dayClock(_at, te)} · held for 15 minutes')));
-      navigator.pop(true);
+      navigator.pop(out);
     } on AskodoxPosException catch (e) {
       if (mounted) {
         setState(() => _error = e.message(te));

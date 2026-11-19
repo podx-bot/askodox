@@ -58,3 +58,21 @@ def test_no_show_frees_the_table_and_either_side_can_cancel(env):
     with pytest.raises(PosError):
         res.cancel_mine(RAVI, third["id"])
     assert booked["id"] != third["id"]
+
+
+def test_food_can_be_ordered_before_arriving_on_the_reserved_table(env, tmp_path):
+    from app.services.pos_frontdesk import PosFrontDesk, QR_PREFIX
+
+    res, biz, t2, _t6, _pushes, clock = env
+    store = res.store
+    item = store.add_product(biz, OWNER, {"name": "Idli", "unit": "plate", "price_paise": 4000, "rate_bp": 0})
+    desk = PosFrontDesk(store, PosRestaurant(store))
+    booked = res.book(RAVI, biz, {"table_id": t2, "at": (clock["now"] + timedelta(hours=1)).isoformat(), "people": 2})
+    order = desk.place(RAVI, f"{QR_PREFIX}{biz}", {"client_txn_id": "pre-order-1", "kind": "dine_in",
+                                                   "reservation_id": booked["id"],
+                                                   "items": [{"product_id": item["id"], "qty": 2}]})
+    assert order["kind"] == "dine_in" and order["table_name"] == "T1"
+    with pytest.raises(PosError) as e:
+        desk.place(SITA, f"{QR_PREFIX}{biz}", {"client_txn_id": "pre-order-2", "kind": "dine_in",
+                                               "reservation_id": booked["id"], "items": [{"product_id": item["id"], "qty": 1}]})
+    assert e.value.code == "reservation", "only the person who reserved"

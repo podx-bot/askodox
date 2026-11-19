@@ -33,6 +33,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
   String _group = '';
   String _food = ''; // '' all, 'veg', 'nonveg'
   bool _all = false;
+  AskodoxJson? _reservation; // a table reserved from this card: the order may go on it before arriving
   bool _focusOn = true; // asked for one thing -> only those items until "whole menu"
   StateController<AskodoxChatShopCart?>? _cartSlot;
   AskodoxJson? _shop; // follow state + the shop's own links (best effort)
@@ -239,6 +240,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
         'code': _code,
         'items': [for (final e in _qty.entries) {'product_id': e.key, 'qty': e.value}],
         'kind': _kind,
+        if (_kind == 'dine_in' && _reservation != null) 'reservation_id': _reservation!['id'],
         'client_txn_id': _txn,
       });
       if (mounted) setState(() => _orderId = '${order['id']}');
@@ -369,10 +371,21 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                   onPressed: () async {
                     final booked = await askodoxReserveTable(
                         context, ref, '${widget.card['business_id']}', '${widget.card['name'] ?? ''}');
-                    if (booked && mounted) await ref.read(askodoxLiveOrdersProvider.notifier).refresh();
+                    if (booked == null || !mounted) return;
+                    // The food can be ordered right away on that table (the shop sees when they will come).
+                    setState(() {
+                      _reservation = booked;
+                      _kind = 'dine_in';
+                    });
+                    _publish();
+                    await ref.read(askodoxLiveOrdersProvider.notifier).refresh();
                   },
                   icon: const Icon(Icons.event_seat_outlined, size: 18),
-                  label: Text(te ? 'తర్వాత వస్తారా? టేబుల్ ముందే రిజర్వ్ చేయండి' : 'Coming later? Reserve a table now'),
+                  label: Text(_reservation != null
+                      ? (te
+                          ? '${_reservation!['table_name']} రిజర్వ్ అయింది ✓ ఇప్పుడే ఐటమ్స్ ఆర్డర్ పెట్టవచ్చు'
+                          : '${_reservation!['table_name']} reserved ✓ you can order the food now')
+                      : (te ? 'తర్వాత వస్తారా? టేబుల్ ముందే రిజర్వ్ చేయండి' : 'Coming later? Reserve a table now')),
                 ),
               ),
             if (_kind == 'dine_in')

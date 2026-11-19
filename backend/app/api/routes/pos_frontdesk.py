@@ -63,6 +63,7 @@ class OrderIn(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     notes: str = Field(default="", max_length=160)
+    reservation_id: Optional[str] = Field(default=None, max_length=40)
     client_txn_id: str = Field(min_length=8, max_length=64)
 
 
