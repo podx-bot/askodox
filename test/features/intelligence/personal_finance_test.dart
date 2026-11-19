@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:podx/features/intelligence/presentation/personal_finance_screen.dart';
@@ -15,7 +16,7 @@ void main() {
         '/me/payment-methods', '/me/ai-credits'])
         GoRoute(path: r, builder: (_, __) => page(r)),
     ]);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(ProviderScope(child: MaterialApp.router(routerConfig: router)));
     await tester.pumpAndSettle();
     expect(find.text('Personal Tax Assistant'), findsOneWidget);
     for (final (id, route) in [
