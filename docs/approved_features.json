@@ -7948,6 +7948,40 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "tile_drag_layout",
+      "name": "Hub tiles: press-and-hold, drag to a new place (phone style), saved per person",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "layout"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "askodoxPageLayoutProvider",
+          "askodoxArrangedIds"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/shared/tile_drag_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: arrange hub buttons like phone apps.",
+      "expected_behavior": "Long-press lifts a tile; dropping on another tile moves it there; order saved per account; Arrange sheet still renames / hides / resets; nothing is deleted.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

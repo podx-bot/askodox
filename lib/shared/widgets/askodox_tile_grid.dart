@@ -74,7 +74,18 @@ class AskodoxTileGrid extends StatelessWidget {
         ];
       }
     }
-    final grid = _grid(tiles);
+    void move(String dragged, String target) {
+      if (dragged == target) return;
+      final control = ref.read(askodoxPageLayoutProvider.notifier);
+      final current = control.of(section);
+      final ids = askodoxArrangedIds(this.tiles.map((t) => t.id).toList(), current);
+      ids.remove(dragged);
+      final at = ids.indexOf(target);
+      ids.insert(at < 0 ? ids.length : at, dragged);
+      control.put(section, current.copyWith(order: ids));
+    }
+
+    final grid = _grid(tiles, onMove: this.tiles.length < 2 ? null : move);
     if (this.tiles.length < 2) return grid;
     final te = Localizations.localeOf(context).languageCode == 'te';
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -94,7 +105,35 @@ class AskodoxTileGrid extends StatelessWidget {
     ]);
   }
 
-  Widget _grid(List<AskodoxTile> tiles) {
+  /// Phone style (owner 2026-11-19): press and hold a tile, it lifts, drag it onto another tile's place to move it.
+  Widget _draggable(AskodoxTile t, double width, void Function(String dragged, String target) onMove) {
+    final card = _TileCard(tile: t, keyPrefix: keyPrefix, minHeight: minTileHeight);
+    return DragTarget<String>(
+      key: ValueKey('askodoxDrop-${t.id}'),
+      onWillAcceptWithDetails: (d) => d.data != t.id,
+      onAcceptWithDetails: (d) => onMove(d.data, t.id),
+      builder: (context, candidate, _) => LongPressDraggable<String>(
+        key: ValueKey('askodoxDrag-${t.id}'),
+        data: t.id,
+        feedback: Material(
+          color: Colors.transparent,
+          elevation: 8,
+          child: Transform.scale(scale: 1.06, child: SizedBox(width: width, child: card)),
+        ),
+        childWhenDragging: Opacity(opacity: .25, child: card),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: candidate.isEmpty ? null : Border.all(color: const Color(0xFF2563EB), width: 2),
+          ),
+          child: card,
+        ),
+      ),
+    );
+  }
+
+  Widget _grid(List<AskodoxTile> tiles, {void Function(String dragged, String target)? onMove}) {
     return LayoutBuilder(builder: (context, box) {
       final columns = box.maxWidth >= 720 ? 3 : 2;
       const gap = 10.0;
@@ -106,7 +145,9 @@ class AskodoxTileGrid extends StatelessWidget {
           for (final t in tiles)
             SizedBox(
               width: width,
-              child: _TileCard(tile: t, keyPrefix: keyPrefix, minHeight: minTileHeight),
+              child: onMove == null
+                  ? _TileCard(tile: t, keyPrefix: keyPrefix, minHeight: minTileHeight)
+                  : _draggable(t, width, onMove),
             ),
         ],
       );

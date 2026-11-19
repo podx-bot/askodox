@@ -25,7 +25,7 @@ class AskodoxPersonalFinanceScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
         children: [
           head(t('Personal Tax Assistant', 'Personal Tax Assistant')),
-          AskodoxTileGrid(keyPrefix: 'askodoxFinance', tiles: [
+          AskodoxTileGrid(layoutId: 'personal_finance-1', keyPrefix: 'askodoxFinance', tiles: [
             AskodoxTile(
                 id: 'income_tax',
                 icon: Icons.account_balance_outlined,
@@ -46,7 +46,7 @@ class AskodoxPersonalFinanceScreen extends StatelessWidget {
             ),
           ),
           head(t('Money decisions & safety', 'డబ్బు నిర్ణయాలు & జాగ్రత్త')),
-          AskodoxTileGrid(keyPrefix: 'askodoxFinance', tiles: [
+          AskodoxTileGrid(layoutId: 'personal_finance-2', keyPrefix: 'askodoxFinance', tiles: [
             AskodoxTile(
                 id: 'smart_tricks',
                 icon: Icons.lightbulb_outline,
@@ -59,7 +59,7 @@ class AskodoxPersonalFinanceScreen extends StatelessWidget {
                 onTap: () => context.push('/intel/fraud')),
           ]),
           head(t('My money records', 'నా డబ్బు records')),
-          AskodoxTileGrid(keyPrefix: 'askodoxFinance', tiles: [
+          AskodoxTileGrid(layoutId: 'personal_finance-3', keyPrefix: 'askodoxFinance', tiles: [
             AskodoxTile(
                 id: 'shop_advances',
                 icon: Icons.savings_outlined,
