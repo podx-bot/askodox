@@ -132,6 +132,42 @@ def read_bill(image_service: Any, images: Sequence[Tuple[bytes, str]]) -> Dict[s
     return out
 
 
+PRODUCT_PROMPT = (
+    "You read a photo of ONE product as a shop keeps it (a packet, bottle, box, tin or its label; any Indian language "
+    "or English). Return ONLY JSON: {\"name\": string or null, \"mrp\": number or null, \"unit\": string or null, "
+    "\"expiry\": \"YYYY-MM-DD\" or null, \"barcode\": string or null}. name = brand + product + size as printed "
+    "(e.g. \"Good Day Butter Cookies 100g\"); mrp = the MRP printed on the pack (rupees, a plain number); unit = pcs "
+    "for a packed item; expiry = the expiry / best-before date printed (use the last day of the month when only "
+    "month / year is printed; if only a manufacture date and \"best before N months\" are printed, add them); "
+    "barcode = the digits printed under the barcode. A value that is not clearly readable is null -- NEVER guess."
+)
+
+
+def read_product(image_service: Any, images: Sequence[Tuple[bytes, str]]) -> Dict[str, Any]:
+    """One packet photo -> the item's name, MRP, expiry and barcode for the "new item" form. Nothing is saved."""
+    photos = [(data, mime) for data, mime in list(images)[:2] if data]
+    empty = {"read": False, "name": "", "price_paise": None, "unit": "pcs", "expiry_date": "", "barcode": ""}
+    if not photos or image_service is None or not hasattr(image_service, "analyze_with_prompt"):
+        return empty
+    try:
+        try:
+            payload, _calls = image_service.analyze_with_prompt(photos, PRODUCT_PROMPT, max_models=2,
+                                                                allow_second_provider=True, fast=True)
+        except TypeError:
+            payload, _calls = image_service.analyze_with_prompt(photos, PRODUCT_PROMPT, max_models=2,
+                                                                allow_second_provider=True)
+    except Exception:
+        return empty
+    if not isinstance(payload, dict):
+        return empty
+    name = re.sub(r"\s+", " ", str(payload.get("name") or "")).strip()[:80]
+    mrp = _number(payload.get("mrp"))
+    barcode = re.sub(r"\D", "", str(payload.get("barcode") or ""))
+    return {"read": bool(name), "name": name, "price_paise": int(round(mrp * 100)) if mrp else None,
+            "unit": _unit(payload.get("unit")), "expiry_date": _date(payload.get("expiry")),
+            "barcode": barcode if 8 <= len(barcode) <= 14 else ""}
+
+
 class PosBillPhoto:
     def __init__(self, store: Any, purchases: Any) -> None:
         self.store = store

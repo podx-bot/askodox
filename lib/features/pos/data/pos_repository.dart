@@ -285,6 +285,9 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> products(String id, {String q = ''}) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/products', query: {if (q.isNotEmpty) 'q': q}))['products']);
   Future<AskodoxJson> addProduct(String id, AskodoxJson body) => _send('POST', '${_b(id)}/products', body: body);
+  /// One packet photo -> name, MRP, expiry, barcode for the new-item form (owner 2026-11-19). Nothing is saved.
+  Future<AskodoxJson> productPhoto(String id, List<AskodoxJson> images) =>
+      _send('POST', '${_b(id)}/products/photo', body: {'images': images}, timeout: const Duration(seconds: 60));
   Future<AskodoxJson> updateProduct(String id, String productId, AskodoxJson body) =>
       _send('PATCH', '${_b(id)}/products/$productId', body: body);
   Future<AskodoxJson> stock(String id, AskodoxJson body) => _send('POST', '${_b(id)}/stock', body: body);

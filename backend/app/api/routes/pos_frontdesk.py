@@ -63,6 +63,7 @@ class OrderIn(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     notes: str = Field(default="", max_length=160)
+    reservation_id: Optional[str] = Field(default=None, max_length=40)
     client_txn_id: str = Field(min_length=8, max_length=64)
 
 
@@ -1032,7 +1033,7 @@ def dues(business_id: str, request: Request) -> dict:
 
 # ------------------------------------------------------------------------------------------ attendance, salary, tasks
 class CheckIn(BaseModel):
-    action: str = Field(pattern="^(in|out|leave)$")
+    action: str = Field(pattern="^(in|out|leave|half)$")
     lat: Optional[float] = Field(default=None, ge=-90, le=90)
     lng: Optional[float] = Field(default=None, ge=-180, le=180)
     method: str = Field(default="device_lock", pattern="^(device_lock|photo)$")

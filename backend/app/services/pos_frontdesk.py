@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from app.services import pos_menu_voice
@@ -812,6 +812,21 @@ class PosFrontDesk:
                                 (business_id, txn)).fetchone()
             if seen:
                 return self._view(conn, dict(seen), user)
+            reserved_note = ""
+            if kind == "dine_in" and not table_id and payload.get("reservation_id") and not staff_made:
+                # Owner 2026-11-19: a person who reserved a table may order the food BEFORE arriving -- the table comes
+                # from their own reservation and the order says when they will come.
+                try:
+                    res = conn.execute("SELECT table_id, at_utc FROM pos_table_reservations WHERE id = ? AND business_id = ?"
+                                       " AND customer_user = ? AND status = 'booked'",
+                                       (str(payload["reservation_id"]), business_id, user)).fetchone()
+                except sqlite3.OperationalError:
+                    res = None
+                if res is None:
+                    raise PosError(409, "reservation", "That table reservation is not active any more.")
+                table_id = res["table_id"]
+                when = datetime.fromisoformat(res["at_utc"]).astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%I:%M %p")
+                reserved_note = f"రిజర్వ్ · వచ్చే సమయం {when} (Reserved, arriving {when}). "
             if kind == "dine_in":
                 if not table_id or conn.execute("SELECT 1 FROM pos_tables WHERE id = ? AND business_id = ? AND active = 1",
                                                 (table_id, business_id)).fetchone() is None:
@@ -839,7 +854,7 @@ class PosFrontDesk:
                 " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'placed', ?, ?, ?)",
                 (order_id, business_id, src, kind, table_id, "" if staff_made else user,
                  _clean(payload.get("name"), 40), phone[-15:], address, _clean(payload.get("landmark"), 80), lat, lng,
-                 json.dumps(items), _clean(payload.get("notes"), 160), txn, now, now))
+                 json.dumps(items), _clean(reserved_note + str(payload.get("notes") or ""), 160), txn, now, now))
             self._event(conn, order_id, business_id, "placed", user)
             row = dict(conn.execute("SELECT * FROM pos_desk_orders WHERE id = ?", (order_id,)).fetchone())
             targets = self._targets(conn, business_id, "new")

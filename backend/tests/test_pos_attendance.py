@@ -89,3 +89,12 @@ def test_tasks_ring_the_assignee_and_only_they_finish_it(env):  # noqa: F811
         att.task_done(biz, COOK, task["id"])
     att.task_done(biz, CASHIER, task["id"])
     assert att.tasks(biz, OWNER)["counts"]["done"] == 1
+
+
+def test_staff_mark_their_own_half_day_and_a_short_day_becomes_half(env):  # noqa: F811
+    _desk, store, _rest, biz, *_ = env
+    att, clock, _ = _att(store, datetime(2026, 11, 18, 9, 5, tzinfo=IST))
+    assert att.check(biz, CASHIER, "half")["status"] == "half", "the staff member says half day themselves"
+    assert att.check(biz, COOK, "in")["status"] == "P"
+    clock[0] = datetime(2026, 11, 18, 12, 0, tzinfo=IST)  # under half of the 09:00-21:00 shift
+    assert att.check(biz, COOK, "out")["status"] == "half"
