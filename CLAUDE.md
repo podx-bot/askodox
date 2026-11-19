@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #351-#359 (2026-11-19, owner "1"; Play bundle `askodox-play-1567.aab`, Live Build run 44560273135): QR poster, ASKODOX
+  Shopping bottom-bar switch (green / grey; `shopping_mode` + `shopping_tools` capabilities add pos_bill / crm / my_bills / money /
+  payments to the Phase 1 chat catalogue), tile drag + pin button on shop tiles (existing `chat_pins.dart`), live barcode scan
+  (`camera_android` pinned; camera features optional), money answers from the phone's own records, sign-in = Firebase SMS first
+  (`_firebaseWhenServerSilent`, server/WhatsApp failure -> Firebase at once; verify errors report plugin-code), every reply text + voice
+  (`askodoxSpeakTypedReplies`, set in `main()`; Mute is the only off), no `[S#]` markers / sources list in replies
+  (`live_lookup.strip_source_markers`, app `askodoxWithoutSources`), no empty bill card. Nothing phone verified.
 - `main` PR #337 (2026-11-17, owner "1"): payment voice -- the FIRST message (bank SMS or app notification) speaks at once
   (no wait for a name); the other joins silently (`PaymentAlertParser.samePaymentWindow`: same UPI ref, or same amount from a
   kind the row lacks -- app up to 60 min after the SMS, SMS within 10 min of the app, two apps 30 min; different payer handles
