@@ -114,6 +114,17 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> deskShops(String q) async =>
       askodoxPosList((await _send('GET', '/api/pos/order-desk/shops', query: {'q': q}))['shops']);
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
+  // Table reservation ahead of time (owner 2026-11-19).
+  Future<AskodoxJson> freeTables(String biz, String atIso, int people) =>
+      _send('GET', '/api/pos/order-desk/$biz/tables/free', query: {'at': atIso, 'people': '$people'});
+  Future<AskodoxJson> reserveTable(String biz, AskodoxJson body) => _send('POST', '/api/pos/order-desk/$biz/reservations', body: body);
+  Future<List<AskodoxJson>> myReservations() async =>
+      askodoxPosList((await _send('GET', '/api/pos/me/reservations'))['reservations']);
+  Future<AskodoxJson> cancelMyReservation(String id) => _send('POST', '/api/pos/me/reservations/$id/cancel');
+  Future<List<AskodoxJson>> shopReservations(String biz) async =>
+      askodoxPosList((await _send('GET', '${_b(biz)}/reservations'))['reservations']);
+  Future<AskodoxJson> shopReservationStatus(String biz, String id, String status) =>
+      _send('POST', '${_b(biz)}/reservations/$id/status', body: {'status': status});
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
   /// The customer's choice: 'cash' (pay at the counter / table) or 'online' (the shop's own UPI).

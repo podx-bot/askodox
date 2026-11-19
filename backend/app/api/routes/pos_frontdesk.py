@@ -531,6 +531,70 @@ def my_bill_promise(token: str, body: PromiseIn, request: Request) -> dict:
                  body.date[:10])
 
 
+class ReserveIn(BaseModel):
+    table_id: str
+    at: str
+    people: int = 2
+    name: str = ""
+    note: str = ""
+    client_txn_id: str = ""
+
+
+class ReservationStatusIn(BaseModel):
+    status: str
+
+
+def _reservations(request: Request):
+    from app.services.pos_reservations import PosReservations
+    from app.services.push_service import push_service
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_reservations", None)
+    if existing is None or existing.store is not store:
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+            push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+
+        existing = PosReservations(store, notify=notify)
+        try:
+            container.pos_reservations = existing
+        except Exception:
+            pass
+    return existing
+
+
+@router.get("/order-desk/{business_id}/tables/free")
+def free_tables(business_id: str, at: str, request: Request, people: int = 2) -> dict:
+    """Tables that are free around a time (for reserving ahead)."""
+    _user(request, "table-res", 120)
+    return _call(_reservations(request).free_tables, business_id, at, people)
+
+
+@router.post("/order-desk/{business_id}/reservations")
+def reserve_table(business_id: str, body: ReserveIn, request: Request) -> dict:
+    return _call(_reservations(request).book, _user(request, "table-res-book", 20), business_id, body.model_dump())
+
+
+@router.get("/me/reservations")
+def my_reservations(request: Request) -> dict:
+    return {"reservations": _call(_reservations(request).mine, _user(request, "table-res", 120))}
+
+
+@router.post("/me/reservations/{reservation_id}/cancel")
+def cancel_my_reservation(reservation_id: str, request: Request) -> dict:
+    return _call(_reservations(request).cancel_mine, _user(request, "table-res", 120), reservation_id)
+
+
+@router.get("/businesses/{business_id}/reservations")
+def shop_reservations(business_id: str, request: Request) -> dict:
+    return {"reservations": _call(_reservations(request).for_business, business_id, _user(request, "table-res", 120))}
+
+
+@router.post("/businesses/{business_id}/reservations/{reservation_id}/status")
+def shop_reservation_status(business_id: str, reservation_id: str, body: ReservationStatusIn, request: Request) -> dict:
+    return _call(_reservations(request).set_status, business_id, _user(request, "table-res", 120), reservation_id, body.status)
+
+
 bill_page_router = APIRouter(tags=["POS"])
 
 
