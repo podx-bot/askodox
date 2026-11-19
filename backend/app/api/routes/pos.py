@@ -1567,7 +1567,9 @@ def _payment_alerts(request: Request):
             push = push_service(container)
             if speak:
                 # the phone's own service shows the ONE visible notification + speaks (no second FCM notification)
-                push.send_data_async(user_id, data=speak, event_key=event_key, ttl_seconds=600)
+                # Owner 2026-11-19: a staff phone whose internet was off still hears it when the net comes back -- the
+                # message waits 30 minutes (was 10). One event is spoken once however late (event id on the phone).
+                push.send_data_async(user_id, data=speak, event_key=event_key, ttl_seconds=1800)
             else:
                 push.notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
 

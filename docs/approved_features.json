@@ -8301,6 +8301,111 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "packet_photo_item",
+      "name": "Packet photo fills the new-item form",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/products/photo"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxPosItemPhoto"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_bill_photo.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: no typing what the pack shows.",
+      "expected_behavior": "Name, MRP, barcode filled; expiry shown as a note; nothing saved until Save; never guesses.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "counter_offers",
+      "name": "Counter offers per item: buy X get Y free, % off",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "askodoxOfferDiscount",
+          "askodoxOfferLabel"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_bill_photo.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: 1+1, 2+1 style offers.",
+      "expected_behavior": "Set from the items list; the bill screen applies it as that line's discount and it follows the quantity; a typed discount is never replaced. Counter bills only.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "reserved_table_preorder",
+      "name": "Order food before arriving on a reserved table",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "_reservation"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_reservations.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: reserve and pre-order.",
+      "expected_behavior": "dine_in order with reservation_id takes the reserved table; the order note carries the arrival time; only the person who reserved.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }
