@@ -4436,7 +4436,12 @@ class _AskodoxPrimaryHomeScreenState
       _VoicePhase.idle => (te ? 'మైక్ సిద్ధం చేస్తున్నాను…' : 'Getting the mic ready…', const Color(0xFF94A3B8)),
     };
     final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: true));
-    final lastReply = _turns.lastWhere((t) => !t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: false));
+    // The previous answer is never shown under a NEW question (owner phone test 2026-11-19): until this question's
+    // answer starts to arrive, the answer line stays empty.
+    final awaitingReply = _turns.isNotEmpty && _turns.last.isUser;
+    final lastReply = awaitingReply
+        ? const ConversationTurnRecord(text: '', isUser: false)
+        : _turns.lastWhere((t) => !t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: false));
     final size = 150.0 + (_voicePhase == _VoicePhase.recording ? level * 70 : 0) + (_voicePhase == _VoicePhase.speaking ? 18 : 0);
     return Positioned.fill(
       child: Material(

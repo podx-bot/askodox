@@ -1419,6 +1419,7 @@ class UniversalAIAssistantService:
                             if chips_wanted:
                                 suggestions_raw = (again or {}).get("suggestions")
             mode = "commerce" if transactional else "chat"
+            model_action = action  # what the routing call itself decided (action is rewritten below)
             guide = not about_shown and self.wants_guide(said, facts, action)
             if about_shown:
                 # A follow-up about options already on screen: answer it from
@@ -1436,6 +1437,11 @@ class UniversalAIAssistantService:
                     domain = "GENERAL"
                 if prepared_guide:
                     answer = prepared_guide
+                elif model_action == "explain_steps" and not facts and len(reply) >= 80 and not self.wants_guide(said, facts, ""):
+                    # Speed (owner 2026-11-19, 20 s turn): the routing call already wrote this explanation itself and the
+                    # person's own words are not a how-to that needs the separate guide writer -- do not write it twice.
+                    answer = reply
+                    path = "routed_explain"
                 else:
                     t0 = time.monotonic()
                     answer, _meta = self._advise(said, compact_history, locale, clean_location, ledger,
