@@ -45,6 +45,8 @@ const askodoxAccountScopedKeys = <String>[
   'askodox.pos.device.v1',
   'askodox.pos.printer.v1',
   'askodox.roles.v1',
+  'askodox.chat.pins.v1',
+  'askodox.chat.pins.folded.v1',
   'askodox.notifications.v1',
   'askodox.updates.seen.v1',
   'askodox.conversation_current.v1',

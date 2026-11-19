@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/flags/askodox_release_phase.dart';
 import '../../features/guide/in_app_guide.dart';
 import 'askodox_mascot.dart';
+import 'chat_pins.dart';
 
 /// ASKODOX Navigator: ONE compact grouped-section look for Profile, My
 /// Business, Listings and every nested page -- a small heading with an icon,
@@ -112,6 +113,7 @@ class AskodoxNavColorTile extends ConsumerWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: row.onTap,
+          onLongPress: row.longPress(context),
           child: Container(
             constraints: const BoxConstraints(minHeight: 100),
             padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
@@ -168,6 +170,7 @@ class AskodoxNavListRow extends ConsumerWidget {
       key: row.key,
       child: InkWell(
         onTap: row.onTap,
+          onLongPress: row.longPress(context),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
           child: Row(children: [
@@ -235,6 +238,7 @@ class AskodoxNavTile extends ConsumerWidget {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: row.onTap,
+          onLongPress: row.longPress(context),
             child: Container(
               constraints: const BoxConstraints(minHeight: 96),
               padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
@@ -289,10 +293,18 @@ class AskodoxNavRow extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.guide,
+    this.pin,
   });
 
   /// Id of the in-app guide flow for this destination (Guide button).
   final String? guide;
+
+  /// Long-press offers "Pin above the chat" (owner 2026-11-19); null = not pinnable.
+  final AskodoxChatPin? pin;
+
+  /// The long-press action for any drawing of this row (tile, list row, plain ListTile).
+  GestureLongPressCallback? longPress(BuildContext context) =>
+      pin == null ? null : () => askodoxOfferChatPin(context, pin!);
   final IconData icon;
   final String title;
   final String? subtitle;
@@ -311,5 +323,6 @@ class AskodoxNavRow extends StatelessWidget {
             : Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
         trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: Color(0xFF98A2B3)),
         onTap: onTap,
+        onLongPress: longPress(context),
       );
 }

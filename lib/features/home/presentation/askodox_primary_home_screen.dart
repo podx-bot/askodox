@@ -1,6 +1,7 @@
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../business/presentation/biz_chat.dart';
 import '../../pos/data/pos_repository.dart' show AskodoxJson, askodoxPosRepositoryProvider;
+import '../../../shared/widgets/chat_pins.dart' show AskodoxChatPinStrip;
 import '../../../core/flags/askodox_release_phase.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -4221,6 +4222,8 @@ class _AskodoxPrimaryHomeScreenState
               },
               Expanded(child: _active ? _chat(te) : _home(te)),
               if (_active) _shopCartBar(te),
+              // The person's own pinned shortcuts (max 3, owner 2026-11-19); folds to a handle, never over the keyboard.
+              if (!keyboard) const AskodoxChatPinStrip(),
               _composer(te)
             ]);
           }),

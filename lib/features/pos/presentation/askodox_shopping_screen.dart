@@ -169,6 +169,22 @@ class _AskodoxShoppingScreenState extends ConsumerState<AskodoxShoppingScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
+        // Owner 2026-11-19: shop-side shortcuts live HERE only (no copies in Tools / Profile).
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 6, children: [
+          ActionChip(
+            key: const Key('askodoxShoppingOrderCode'),
+            avatar: const Icon(Icons.qr_code_scanner, size: 18),
+            label: Text(te ? 'షాప్ కోడ్ / QR తో ఆర్డర్' : 'Order with shop code / QR'),
+            onPressed: () => context.push('/order-desk/enter'),
+          ),
+          ActionChip(
+            key: const Key('askodoxShoppingFollowing'),
+            avatar: const Icon(Icons.storefront_outlined, size: 18),
+            label: Text(te ? 'నేను ఫాలో చేసే షాప్‌లు' : 'Shops I follow'),
+            onPressed: () => context.push('/me/following'),
+          ),
+        ]),
         if (_loading) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator()),
         if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
         const SizedBox(height: 10),
