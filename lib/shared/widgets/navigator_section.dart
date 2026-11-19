@@ -5,6 +5,7 @@ import '../../core/flags/askodox_release_phase.dart';
 import '../../features/guide/in_app_guide.dart';
 import 'askodox_mascot.dart';
 import 'chat_pins.dart';
+import 'page_layout.dart';
 
 /// ASKODOX Navigator: ONE compact grouped-section look for Profile, My
 /// Business, Listings and every nested page -- a small heading with an icon,
@@ -13,7 +14,7 @@ import 'chat_pins.dart';
 /// Redesign 2026-11-17 (owner: "buttons, not long rows; add colours"): every section is a heading +
 /// a 2-column grid of coloured tiles; rows with their own control stay as rows. [grid] is kept only so
 /// callers compile.
-class AskodoxNavSection extends StatelessWidget {
+class AskodoxNavSection extends ConsumerWidget {
   const AskodoxNavSection(
       {super.key, required this.title, required this.icon, required this.children, this.grid = false, this.mascot});
 
@@ -38,15 +39,46 @@ class AskodoxNavSection extends StatelessWidget {
     (Color(0xFFFCE9F1), Color(0xFFA3215C)),
   ];
 
+  /// The section's fixed id for the person's own layout: its key (`Key('askodoxProfileSection-x')`); none = fixed.
+  String? get layoutId => key is ValueKey<String> ? (key as ValueKey<String>).value : null;
+
+  /// A button's fixed id: its key (`ValueKey('profile-x')`); buttons without one are not arranged.
+  static String? rowId(AskodoxNavRow row) => row.key is ValueKey<String> ? (row.key as ValueKey<String>).value : null;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final rows = [for (final c in children) if (c is! SizedBox || c.child != null) c];
     if (rows.isEmpty) return const SizedBox.shrink();
     // Owner 2026-11-17: pages are BUTTONS, not long rows -- every plain destination row is a coloured tile in a 2-column
     // grid; rows that carry their own control (a switch, a value) stay as rows in one card below.
-    final tiles = [for (final r in rows) if (r is AskodoxNavRow && r.trailing == null) r];
+    var tiles = [for (final r in rows) if (r is AskodoxNavRow && r.trailing == null) r];
+    // Owner 2026-11-19: the person's own order / names / hidden buttons (page_layout.dart); keys never change.
+    final section = layoutId;
+    final arrangeable = [for (final t in tiles) if (rowId(t) != null) t];
+    final layout = section == null ? const AskodoxSectionLayout() : ref.watch(askodoxPageLayoutProvider)[section] ?? const AskodoxSectionLayout();
+    if (section != null && arrangeable.length > 1 && !layout.isDefault) {
+      final byId = {for (final t in arrangeable) rowId(t)!: t};
+      final fixed = [for (final t in tiles) if (rowId(t) == null) t];
+      tiles = [
+        for (final id in askodoxArrangedIds(byId.keys.toList(), layout))
+          if (!layout.hidden.contains(id))
+            layout.names[id] == null
+                ? byId[id]!
+                : AskodoxNavRow(
+                    key: byId[id]!.key,
+                    icon: byId[id]!.icon,
+                    title: layout.names[id]!,
+                    subtitle: byId[id]!.subtitle,
+                    onTap: byId[id]!.onTap,
+                    guide: byId[id]!.guide,
+                    pin: byId[id]!.pin,
+                  ),
+        ...fixed,
+      ];
+    }
+    final shownTitle = layout.title ?? title;
     final others = [for (final r in rows) if (!(r is AskodoxNavRow && r.trailing == null)) r];
-    final start = title.codeUnits.fold<int>(0, (a, b) => a + b) % palette.length;
+    final start = title.codeUnits.fold<int>(0, (a, b) => a + b) % palette.length; // shipped title: colours stay
     return Padding(
       padding: const EdgeInsets.only(top: 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -57,8 +89,18 @@ class AskodoxNavSection extends StatelessWidget {
             if (mascot != null && askodoxGuidesOn) AskodoxMascot(role: mascot!, size: 26) else Icon(icon, size: 18, color: accent),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(title, style: const TextStyle(color: ink, fontSize: 15, fontWeight: FontWeight.w900)),
+              child: Text(shownTitle, style: const TextStyle(color: ink, fontSize: 15, fontWeight: FontWeight.w900)),
             ),
+            if (section != null && arrangeable.length > 1)
+              IconButton(
+                key: ValueKey('askodoxArrange-$section'),
+                tooltip: Localizations.localeOf(context).languageCode == 'te' ? 'క్రమం / పేర్లు మార్చు' : 'Arrange / rename',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.tune_rounded, size: 18, color: Color(0xFF6B7280)),
+                onPressed: () => askodoxArrangeSection(context, section, title, [
+                  for (final t in arrangeable) AskodoxLayoutItem(id: rowId(t)!, title: t.title, icon: t.icon),
+                ]),
+              ),
           ]),
         ),
         if (tiles.isNotEmpty)

@@ -45,6 +45,8 @@ class AskodoxSmartToolsHubScreen extends StatelessWidget {
             ),
             AskodoxTileGrid(
               keyPrefix: 'askodoxTool',
+              layoutId: 'tools-${group.name}',
+              layoutTitle: groupLabel(group, te),
               tiles: [
                 // Money, tax & scam tools moved to Profile -> Personal Finance (one place per function).
                 if (group == AskodoxToolGroup.money)

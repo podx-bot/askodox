@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'page_layout.dart';
 
 /// One tile of the shared tile grid (the POS dashboard look): icon + bold
 /// title (+ optional small subtitle / status label).
@@ -28,14 +31,70 @@ class AskodoxTile {
 /// The shared tile grid: 2 columns on phones, 3 on wide screens. Tiles grow to
 /// fit two-line titles (no clipping in Telugu).
 class AskodoxTileGrid extends StatelessWidget {
-  const AskodoxTileGrid({super.key, required this.tiles, this.keyPrefix = 'askodoxTile', this.minTileHeight = 96});
+  const AskodoxTileGrid(
+      {super.key, required this.tiles, this.keyPrefix = 'askodoxTile', this.minTileHeight = 96, this.layoutId, this.layoutTitle});
 
   final List<AskodoxTile> tiles;
   final String keyPrefix;
   final double minTileHeight;
 
+  /// Owner 2026-11-19: with an id, the person may reorder / rename / hide these tiles (page_layout.dart); the tile
+  /// ids and keys never change. [layoutTitle] = the grid's name in the arrange sheet.
+  final String? layoutId;
+  final String? layoutTitle;
+
   @override
   Widget build(BuildContext context) {
+    final section = layoutId;
+    // Without a layout id no provider is touched (screens / tests without a ProviderScope keep working).
+    if (section == null) return _grid(tiles);
+    return Consumer(builder: (context, ref, _) => _arranged(context, ref, section));
+  }
+
+  Widget _arranged(BuildContext context, WidgetRef ref, String section) {
+    var tiles = this.tiles;
+    {
+      final layout = ref.watch(askodoxPageLayoutProvider)[section] ?? const AskodoxSectionLayout();
+      if (!layout.isDefault) {
+        final byId = {for (final t in this.tiles) t.id: t};
+        tiles = [
+          for (final id in askodoxArrangedIds(byId.keys.toList(), layout))
+            if (!layout.hidden.contains(id))
+              layout.names[id] == null
+                  ? byId[id]!
+                  : AskodoxTile(
+                      id: id,
+                      icon: byId[id]!.icon,
+                      title: layout.names[id]!,
+                      subtitle: byId[id]!.subtitle,
+                      badge: byId[id]!.badge,
+                      enabled: byId[id]!.enabled,
+                      onTap: byId[id]!.onTap,
+                    ),
+        ];
+      }
+    }
+    final grid = _grid(tiles);
+    if (this.tiles.length < 2) return grid;
+    final te = Localizations.localeOf(context).languageCode == 'te';
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          key: ValueKey('askodoxArrange-$section'),
+          style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: const Color(0xFF6B7280)),
+          onPressed: () => askodoxArrangeSection(context, section, layoutTitle ?? '', [
+            for (final t in this.tiles) AskodoxLayoutItem(id: t.id, title: t.title, icon: t.icon),
+          ]),
+          icon: const Icon(Icons.tune_rounded, size: 16),
+          label: Text(te ? 'క్రమం మార్చు' : 'Arrange', style: const TextStyle(fontSize: 12)),
+        ),
+      ),
+      grid,
+    ]);
+  }
+
+  Widget _grid(List<AskodoxTile> tiles) {
     return LayoutBuilder(builder: (context, box) {
       final columns = box.maxWidth >= 720 ? 3 : 2;
       const gap = 10.0;

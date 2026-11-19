@@ -355,6 +355,8 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
               const SizedBox(height: 8),
               AskodoxTileGrid(
                 keyPrefix: 'askodoxPosTile',
+                layoutId: 'pos-dashboard',
+                layoutTitle: te ? 'షాప్ బటన్లు' : 'Shop buttons',
                 tiles: [
                   for (final (key, icon, en, tel, route) in tiles)
                     AskodoxTile(
