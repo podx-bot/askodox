@@ -394,7 +394,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                             : '${m['name']} — ${te ? 'ఈరోజు అయిపోయింది' : 'finished today'}',
                         style: TextStyle(color: m['available'] == true ? null : const Color(0xFF5B6475))),
                   ),
-                  askodoxRatingLine(m['rating'], size: 11),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: askodoxRatingLine(m['rating'], size: 11)),
                   if (m['available'] == true && (_qty['${m['id']}'] ?? 0) == 0)
                     OutlinedButton(
                       key: Key('askodoxChatShopMenuAdd-${m['id']}'),

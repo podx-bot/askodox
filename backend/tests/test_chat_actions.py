@@ -115,3 +115,14 @@ def test_route_carries_app_action_through_the_response_model(monkeypatch):
                                 json={"message": "naa orders choopinchu", "capabilities": [ca.CAPABILITY]}).json()
     assert seen[-1] == [ca.CAPABILITY]
     assert body.get("app_action") == {"key": "orders_mine", "route": "/orders/mine", "label": "My orders"}
+
+
+def test_shopping_switch_adds_the_shop_tools_to_a_phase1_build():
+    from app.services import chat_actions as ca
+    phase1 = ca.keys_for(["app_actions", "phase1_only"])
+    shopping = ca.keys_for(["app_actions", "phase1_only", "shopping_tools"])
+    assert ca.keys_for(["app_actions"]) is None
+    assert "pos_bill" not in phase1 and "pos_bill" in shopping
+    assert ca.resolve({"key": "pos_bill"}, False, shopping)["route"] == "/pos"
+    assert ca.resolve({"key": "pos_bill"}, False, phase1) is None
+    assert ca.resolve({"key": "mobility"}, False, shopping) is None

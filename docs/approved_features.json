@@ -7982,6 +7982,79 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "tile_pin_button",
+      "name": "Tile pin button: pin a shop dashboard tile (e.g. New bill) above the chat",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "layout",
+        "chat"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "pinRoute",
+          "askodoxOfferChatPin"
+        ],
+        "keys": [
+          "askodoxChatPinAdd"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/shared/tile_pin_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: put 'New bill' (and any shop tile) on the chat screen when wanted, remove when not.",
+      "expected_behavior": "A tile with a screen shows a small pin; tap -> pin above the chat (max 3, replace one when full) or remove. Pins are links, stored per account.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "shopping_tools_in_chat",
+      "name": "With ASKODOX Shopping ON, shop tools open from the chat in a Phase 1 build",
+      "roles": [
+        "customer",
+        "seller"
+      ],
+      "domains": [
+        "chat",
+        "shopping"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "shopping_tools"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_chat_actions.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: registered business people ask for new bill / customers / money by talking.",
+      "expected_behavior": "capability shopping_tools adds pos_bill, pos_payment_alerts, crm, my_bills, my_money, my_payments to the Phase 1 chat catalogue; never a screen the build lacks.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

@@ -363,6 +363,7 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
                       id: key,
                       icon: icon,
                       title: te ? tel : en,
+                      pinRoute: route.contains(':') ? null : route,
                       onTap: () async {
                         await context.push(route);
                         if (mounted) await _refreshQueue();

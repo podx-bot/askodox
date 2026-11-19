@@ -103,11 +103,29 @@ PHASE1_KEYS = frozenset({
 })
 
 
-def _rows(phase1_only: bool = False):
-    return [row for row in CATALOG if not phase1_only or row[0] in PHASE1_KEYS]
+# ASKODOX Shopping switch ON in a Phase 1 build (owner 2026-11-19): a registered business person can ALSO open the
+# shop tools (counter / new bill, payment alerts, customers, bills, money, payments) by talking. Only routes that
+# exist in a Phase 1 app (POS routes ship there since 2026-11-18) -- never a button to a screen the build lacks.
+SHOPPING_CAPABILITY = "shopping_tools"
+SHOPPING_KEYS = PHASE1_KEYS | frozenset({
+    "pos_bill", "pos_payment_alerts", "crm", "my_bills", "my_money", "my_payments",
+})
 
 
-def prompt_block(phase1_only: bool = False) -> str:
+def keys_for(capabilities) -> Optional[frozenset]:
+    """None = the whole catalog (Phase 2 / old builds); else the keys this build may open."""
+    caps = capabilities or ()
+    if PHASE1_CAPABILITY not in caps:
+        return None
+    return SHOPPING_KEYS if SHOPPING_CAPABILITY in caps else PHASE1_KEYS
+
+
+def _rows(phase1_only=False):
+    allowed = PHASE1_KEYS if phase1_only is True else (phase1_only or None)
+    return [row for row in CATALOG if not allowed or row[0] in allowed]
+
+
+def prompt_block(phase1_only=False) -> str:
     lines = "\n".join(f"- {key}: {about}" for key, _route, _en, _te, about in _rows(phase1_only))
     return (
         "APP ACTIONS: if (and only if) the user asks to DO, OPEN, MANAGE or SET UP one of these ASKODOX features "
@@ -118,13 +136,14 @@ def prompt_block(phase1_only: bool = False) -> str:
     )
 
 
-def resolve(raw: Any, telugu: bool = False, phase1_only: bool = False) -> Optional[dict[str, str]]:
+def resolve(raw: Any, telugu: bool = False, phase1_only=False) -> Optional[dict[str, str]]:
     """The model's ``app_action`` -> a known destination, or None."""
     key = raw.get("key") if isinstance(raw, dict) else raw
     key = str(key or "").strip().lower()
     if not _KEY.fullmatch(key) or key not in _BY_KEY:
         return None
-    if phase1_only and key not in PHASE1_KEYS:
+    allowed = PHASE1_KEYS if phase1_only is True else (phase1_only or None)
+    if allowed and key not in allowed:
         return None
     _key, route, en, te, _about = _BY_KEY[key]
     return {"key": key, "route": route, "label": te if telugu else en}

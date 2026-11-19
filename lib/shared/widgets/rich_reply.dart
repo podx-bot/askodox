@@ -79,8 +79,11 @@ bool askodoxHasMarkup(String text) => _inlineMarkup.hasMatch(text) || _hasSeveri
 /// The reply without its trailing sources list (backend live_lookup.py
 /// appends "**Sources:**" / "**ఆధారాలు (Sources):**" with links): links are
 /// for the eye, never read aloud.
-String askodoxWithoutSources(String text) =>
-    text.replaceFirst(RegExp(r'\n\s*\*\*(?:Sources|ఆధారాలు)[^\n]*\*\*[\s\S]*$'), '').trimRight();
+String askodoxWithoutSources(String text) => text
+    .replaceFirst(RegExp(r'\n\s*\*\*(?:Sources|ఆధారాలు)[^\n]*\*\*[\s\S]*$'), '')
+    // Internal evidence numbers ([S1][S2]) mean nothing to the reader (owner 2026-11-19).
+    .replaceAll(RegExp(r'\s*(?:\[S\d+\])+'), '')
+    .trimRight();
 
 String askodoxPlainReply(String text) => askodoxSplitInlineTags(text)
     .replaceAll(RegExp(r'^(\s*(?:[-*•]|\d{1,2}[.)])?\s*)(?:\[(?:ok|good|caution|warning|risk|danger)\]|✅|✔️|✔|⚠️|⚠|❌|🚫|⛔)\s*',
@@ -217,6 +220,8 @@ List<InlineSpan> askodoxInlineSpans(String text, TextStyle base, {Color? linkCol
   return spans;
 }
 
+String _withoutEvidenceNumbers(String value) => value.replaceAll(RegExp(r'\s*(?:\[S\d+\])+'), '');
+
 /// Renders an assistant reply. Plain text -> one Text, as before.
 class AskodoxRichReply extends StatelessWidget {
   const AskodoxRichReply(this.text, {super.key, required this.style});
@@ -253,6 +258,7 @@ class AskodoxRichReply extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = _withoutEvidenceNumbers(this.text);
     final tall = askodoxNeedsTallLines(text);
     final style = tall && (this.style.height ?? 1.0) < 1.5 ? this.style.copyWith(height: 1.5) : this.style;
     if (!askodoxHasMarkup(text)) return Text(text, style: style);

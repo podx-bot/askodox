@@ -1301,7 +1301,7 @@ class UniversalAIAssistantService:
             + DECISION_GUIDANCE_RULES
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
-            + (chat_actions.prompt_block(chat_actions.PHASE1_CAPABILITY in (capabilities or ()))
+            + (chat_actions.prompt_block(chat_actions.keys_for(capabilities) or False)
                if chat_actions.CAPABILITY in (capabilities or ()) else "")
             + reply_suggestions.prompt_block(capabilities)
             + "Known user location rule: if a known location is given below, treat the location "
@@ -1551,15 +1551,11 @@ class UniversalAIAssistantService:
                 # Deterministic honesty: never let an unverified current fact look checked.
                 reply = f"{reply}\n\n{self._unverified_note(clean, locale)}"
             app_action = (chat_actions.resolve(data.get("app_action"), telugu,
-                                               chat_actions.PHASE1_CAPABILITY in (capabilities or ()))
+                                               chat_actions.keys_for(capabilities) or False)
                           if chat_actions.CAPABILITY in (capabilities or ()) else None)
-            if verified:
-                reply = reply + live_lookup.sources_footer(
-                    grounding.get("sources") or [],
-                    locale,
-                    telugu,
-                    cited=live_lookup.cited_source_ids(reply),
-                )
+            # Owner 2026-11-19: no [S1] markers and no repeated links list under the reply --
+            # the same pages are already on the result cards.
+            reply = live_lookup.strip_source_markers(reply)
             # clarify_need already shows its own option chips in the app.
             suggestions = ([] if action == "clarify_need" or suggestions_raw is None
                            else reply_suggestions.clean(suggestions_raw, reply=reply))

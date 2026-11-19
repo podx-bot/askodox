@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'chat_pins.dart';
 import 'page_layout.dart';
 
 /// One tile of the shared tile grid (the POS dashboard look): icon + bold
@@ -14,6 +15,7 @@ class AskodoxTile {
     this.subtitle,
     this.badge,
     this.enabled = true,
+    this.pinRoute,
   });
 
   /// Stable id: the tile's widget key is `ValueKey('<keyPrefix>-<id>')`.
@@ -26,6 +28,9 @@ class AskodoxTile {
   final String? badge;
   final bool enabled;
   final VoidCallback onTap;
+
+  /// Owner 2026-11-19: with a route, the tile shows a small pin button: pin it to Home / the chat (and unpin).
+  final String? pinRoute;
 }
 
 /// The shared tile grid: 2 columns on phones, 3 on wide screens. Tiles grow to
@@ -70,6 +75,7 @@ class AskodoxTileGrid extends StatelessWidget {
                       badge: byId[id]!.badge,
                       enabled: byId[id]!.enabled,
                       onTap: byId[id]!.onTap,
+                      pinRoute: byId[id]!.pinRoute,
                     ),
         ];
       }
@@ -174,7 +180,8 @@ class _TileCard extends StatelessWidget {
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
+      child: Stack(children: [
+        InkWell(
         key: ValueKey('$keyPrefix-${tile.id}'),
         onTap: tile.onTap,
         child: ConstrainedBox(
@@ -215,6 +222,28 @@ class _TileCard extends StatelessWidget {
           ),
         ),
       ),
+        if (tile.pinRoute != null) Positioned(right: 0, top: 0, child: _PinButton(tile: tile)),
+      ]),
+    );
+  }
+}
+
+class _PinButton extends ConsumerWidget {
+  const _PinButton({required this.tile});
+  final AskodoxTile tile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final route = tile.pinRoute!;
+    final pinned = ref.watch(askodoxChatPinsProvider).pins.any((p) => p.id == tile.id);
+    final te = Localizations.localeOf(context).languageCode == 'te';
+    return IconButton(
+      key: ValueKey('askodoxPin-${tile.id}'),
+      visualDensity: VisualDensity.compact,
+      iconSize: 18,
+      tooltip: pinned ? (te ? 'చాట్ పైనుంచి తీసేయి' : 'Remove from above the chat') : (te ? 'చాట్ పైన పిన్ చేయి' : 'Pin above the chat'),
+      icon: Icon(pinned ? Icons.push_pin : Icons.push_pin_outlined, color: pinned ? const Color(0xFF2563EB) : const Color(0xFF9CA3AF)),
+      onPressed: () => askodoxOfferChatPin(context, AskodoxChatPin(id: tile.id, route: route, en: tile.title, te: tile.title)),
     );
   }
 }
