@@ -229,6 +229,12 @@ class FirebasePhoneAuth implements AskodoxPhoneAuth {
       throw AskodoxPhoneAuthError(e.code, detail);
     } on AskodoxPhoneAuthError {
       rethrow;
+    } on FirebaseException catch (e) {
+      // A plain FirebaseException (not an auth one) used to be reported only as "platform-FirebaseException",
+      // hiding its real code (owner phone test 2026-11-19: verify failed 20 ms after the code was filled).
+      final detail = e.message == null ? null : askodoxRedactDigits(e.message!).trim();
+      askodoxAuthLog('firebase.confirm_failed', {'code': e.code, 'plugin': e.plugin, 'message': detail ?? ''});
+      throw AskodoxPhoneAuthError('${e.plugin}-${e.code}', detail);
     } catch (e) {
       throw AskodoxPhoneAuthError('platform-${e.runtimeType}');
     }
