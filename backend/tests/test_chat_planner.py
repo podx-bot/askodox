@@ -85,3 +85,14 @@ def test_planner_failure_falls_back_to_the_old_lists(monkeypatch):
     monkeypatch.setattr(brain, "_plan", lambda message, history: {})
     brain.decide("search Oppo Find X10 price", locale="en")
     assert research.queries, "the old search words still trigger a lookup"
+
+
+def test_small_talk_skips_the_planner_call():
+    """Owner 2026-11-19: no planning step for a plain greeting / thanks / ok -- one model call fewer."""
+    for text in ("hi", "Hello!", "థాంక్స్ 🙏", "సరే", "ok.", "नमस्ते", "Good morning"):
+        assert svc.is_small_talk(text), text
+    for text in ("hi need a plumber", "ok book it for tomorrow", "రేపు 5 కేజీ బియ్యం", "price of iphone", ""):
+        assert not svc.is_small_talk(text), text
+    brain, research = _brain({"search": True, "query": "should not be used", "level": "hard"})
+    assert brain._plan("thank you", []) == {"search": False, "query": "", "level": "simple"}
+    assert brain.http.models == [] and research.queries == []

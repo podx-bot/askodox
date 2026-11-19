@@ -344,7 +344,10 @@ class PosFrontDesk:
             existing = {pos_menu_voice.normalize(r["name"]): r["price_paise"] for r in conn.execute(
                 "SELECT name, price_paise FROM pos_products WHERE business_id = ? AND active = 1", (business_id,))}
         default_unit = "plate" if business["template"] in ("restaurant", "bakery") else "pcs"
-        items = pos_menu_voice.parse_menu(text, default_unit)
+        # Owner 2026-11-19 (bulk upload): rows pasted from Excel / Sheets / CSV are read as a table first.
+        from app.services import pos_menu_table
+
+        items = pos_menu_table.parse(text, default_unit) or pos_menu_voice.parse_menu(text, default_unit)
         for item in items:
             key = pos_menu_voice.normalize(item["name"])
             item["exists"] = key in existing
@@ -499,9 +502,118 @@ class PosFrontDesk:
         found.sort(key=lambda s: (not s["open"], not s["name"].lower().startswith(q), s["name"].lower()))
         return found[:limit]
 
-    def shopping(self, text: str, limit: int = 12) -> List[Dict[str, Any]]:
+    def shop_pins(self, ids: List[str]) -> Dict[str, tuple]:
+        """Map pins the owners set in their shop profile (shop_follows.shop_profiles: lat / lng). {} when none."""
+        if not ids:
+            return {}
+        pins: Dict[str, tuple] = {}
+        try:
+            with self.store._connect() as conn:
+                marks = ",".join("?" for _ in ids)
+                for r in conn.execute(f"SELECT business_id, data FROM shop_profiles WHERE business_id IN ({marks})", ids):
+                    try:
+                        data = json.loads(r["data"] or "{}")
+                        lat, lng = float(data.get("lat")), float(data.get("lng"))
+                    except (TypeError, ValueError):
+                        continue
+                    if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
+                        pins[r["business_id"]] = (lat, lng)
+        except sqlite3.OperationalError:
+            return {}
+        return pins
+
+    # Owner 2026-11-19: questions about a named ASKODOX shop are answered from the shop's OWN data (its profile +
+    # menu), never guessed. Words that ask about a shop (en / te / hi / typed Telugu).
+    _ASKS = {
+        "hours": ("timing", "timings", "time", "open", "close", "hours", "టైమింగ్", "సమయం", "తెరిచి", "తెరుస్తారు",
+                  "समय", "kab", "eppudu", "ఎప్పుడు", "తెరుస్త", "మూస"),
+        "address": ("address", "where", "location", "అడ్రస్", "ఎక్కడ", "చిరునామా", "पता", "kahan", "ekkada", "landmark"),
+        "delivery": ("delivery", "deliver", "home delivery", "డెలివరీ", "ఇంటికి", "डिलीवरी", "parcel", "పార్సెల్"),
+        "offers": ("offer", "offers", "discount", "ఆఫర్", "డిస్కౌంట్", "छूट"),
+        "contact": ("phone", "number", "contact", "whatsapp", "నంబర్", "ఫోన్", "నెంబర్", "नंबर"),
+        "price": ("price", "cost", "rate", "how much", "ధర", "ఎంత", "రేటు", "कीमत", "kitna", "entha"),
+    }
+
+    def shop_answer(self, business_id: str, text: str, te: bool) -> str:
+        """A short answer about the shop from its own profile / menu for what the person asked, or '' when the words
+        ask nothing about the shop (or the shop never filled that detail -- then it says so, never invents)."""
+        words = " " + str(text or "").lower() + " "
+        asked = [k for k, cues in self._ASKS.items() if any(c in words for c in cues)]
+        if not asked:
+            return ""
+        profile: Dict[str, Any] = {}
+        name = ""
+        try:
+            with self.store._connect() as conn:
+                b = conn.execute("SELECT name, address FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+                name = b["name"] if b else ""
+                if b and b["address"]:
+                    profile["address"] = b["address"]
+                try:
+                    row = conn.execute("SELECT data FROM shop_profiles WHERE business_id = ?", (business_id,)).fetchone()
+                    if row:
+                        profile.update({k: v for k, v in json.loads(row["data"] or "{}").items() if str(v or "").strip()})
+                except sqlite3.OperationalError:
+                    pass
+                menu = self._menu(conn, business_id) if "price" in asked else []
+        except Exception:
+            return ""
+        lines: List[str] = []
+        missing = "{} ఈ వివరం ఇంకా ASKODOX లో పెట్టలేదు." if te else "{} has not added this detail on ASKODOX yet."
+        for k in asked:
+            if k == "hours":
+                v = profile.get("hours")
+                lines.append((f"⏰ టైమింగ్స్: {v}" if te else f"⏰ Hours: {v}") if v else missing.format(name))
+            elif k == "address":
+                v = ", ".join(x for x in (profile.get("address"), profile.get("landmark")) if x)
+                lines.append((f"📍 అడ్రస్: {v}" if te else f"📍 Address: {v}") if v else missing.format(name))
+            elif k == "delivery":
+                v = profile.get("delivery")
+                lines.append((f"🛵 డెలివరీ: {v}" if te else f"🛵 Delivery: {v}") if v else missing.format(name))
+            elif k == "offers":
+                v = profile.get("offers")
+                lines.append((f"🏷 ఆఫర్లు: {v}" if te else f"🏷 Offers: {v}") if v else
+                             (f"{name} లో ఇప్పుడు ఆఫర్లు లేవు." if te else f"{name} has no offers listed now."))
+            elif k == "contact":
+                v = profile.get("whatsapp")
+                lines.append((f"📞 WhatsApp: {v}" if te else f"📞 WhatsApp: {v}") if v else missing.format(name))
+            elif k == "price":
+                said = self._words(text) - self._GENERIC
+                hits = [m for m in menu if m["available"] and said & (self._words(m["name"]) | self._words(m.get("name_te") or ""))]
+                for m in hits[:4]:
+                    p = int(m["price_paise"])
+                    lines.append(f"• {m['name']}: ₹{p // 100}" if p % 100 == 0 else f"• {m['name']}: ₹{p / 100:.2f}")
+        return "\n".join(dict.fromkeys(lines))
+
+    @staticmethod
+    def _km(a: tuple, b: tuple) -> float:
+        import math
+
+        la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+        h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+        return 6371.0 * 2 * math.asin(min(1.0, math.sqrt(h)))
+
+    def nearest_first(self, shops: List[Dict[str, Any]], near: Optional[tuple]) -> List[Dict[str, Any]]:
+        """Owner 2026-11-19: the nearest ASKODOX shops first. Shops with a map pin are ordered by distance (and carry
+        ``distance_km``); shops without a pin keep their order after them. No location -> unchanged."""
+        if not near or not shops:
+            return shops
+        pins = self.shop_pins([s["id"] for s in shops])
+        pinned = []
+        for s in shops:
+            if s["id"] in pins:
+                s["distance_km"] = round(self._km(near, pins[s["id"]]), 1)
+                pinned.append(s)
+        pinned.sort(key=lambda s: s["distance_km"])
+        return pinned + [s for s in shops if s["id"] not in pins]
+
+    def shopping(self, text: str, limit: int = 12, near: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """ASKODOX Shopping (owner 2026-11-18): ONLY businesses on ASKODOX -- shops whose NAME matches, then shops whose
-        MENU has it (with those items + prices). Nothing typed = the open shops with a menu (newest first). Data match only."""
+        MENU has it (with those items + prices). Nothing typed = the open shops with a menu (newest first). Data match only.
+        With [near] (the person's place) the nearest pinned shops come first (owner 2026-11-19)."""
+        return self.nearest_first(self._shopping(text, limit if not near else max(limit, 40)), near)[:limit]
+
+    def _shopping(self, text: str, limit: int = 12) -> List[Dict[str, Any]]:
         q = re.sub(r"\s+", " ", str(text or "")).strip()
         if len(q) < 2:
             out: List[Dict[str, Any]] = []

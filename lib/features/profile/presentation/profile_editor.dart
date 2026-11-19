@@ -688,7 +688,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
             key: const Key('askodoxEditRoles'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
         const SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 4, children: [
-          for (final role in {...askodoxProfileRoles, roles.active})
+          for (final role in {...(askodoxPhase2 ? askodoxProfileRoles : askodoxPhase1ProfileRoles), ...held, roles.active})
             FilterChip(
               key: ValueKey('profileRole-${role.name}'),
               visualDensity: VisualDensity.compact,

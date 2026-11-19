@@ -734,3 +734,73 @@ def test_http_shopping_route(monkeypatch):
     mine = [s for s in got["shops"] if s["id"] == biz]
     assert mine and mine[0]["items"][0]["name"] == "Masala Dosa"
     assert isinstance(got["items"], list)
+
+
+def test_shopping_mode_puts_askodox_shops_first_and_labels_outside_results(env, monkeypatch):
+    """Owner 2026-11-19: the chat's Shopping mode switch ON -> ASKODOX shops answer first, even for a plain question;
+    nothing there -> the normal answer labelled as from outside ASKODOX. OFF -> unchanged behaviour."""
+    from types import SimpleNamespace
+
+    from app.api.routes import in_app_assistant, pos_frontdesk
+
+    desk, *_ = env
+    monkeypatch.setattr(pos_frontdesk, "_desk", lambda request: desk)
+    chat = {"reply": "Biryani is a rice dish.", "mode": "chat", "transactional": False, "search_ready": False}
+
+    def ask(text, caps, decision):
+        payload = SimpleNamespace(message=text, history=[], locale="en", capabilities=caps)
+        return in_app_assistant._own_shop_order(None, payload, dict(decision))
+
+    off = ask("biryani", ["app_actions"], chat)
+    assert off["reply"] == "Biryani is a rice dish." and "app_action" not in off
+    on = ask("biryani", ["app_actions", "shopping_mode"], chat)
+    assert on["reply"].startswith("On ASKODOX") and on["app_action"]["key"] == "order_shop"
+    buy = {**chat, "mode": "commerce", "reply": "Here are TVs."}
+    outside = ask("television", ["app_actions", "shopping_mode"], buy)
+    assert outside["outside_askodox"] is True and "outside" in outside["reply"] and outside["reply"].endswith("Here are TVs.")
+    small_talk = ask("hello", ["app_actions", "shopping_mode"], {**chat, "reply": "Hi!"})
+    assert small_talk["reply"] == "Hi!", "no outside label on small talk"
+
+
+def test_nearest_askodox_shops_come_first(env):
+    """Owner 2026-11-19: ASKODOX Shopping shows the nearest shops first (owner's map pin in the shop profile);
+    shops without a pin keep their place after them; no location -> unchanged order."""
+    import json as _json
+    import sqlite3 as _sqlite
+
+    desk, store, rest, biz, *_ = env
+    far = store.create_business(OWNER, {"name": "Far Biryani House", "template": "restaurant", "invoice_prefix": "FB",
+                                        "state_code": "37"})["id"]
+    store.add_product(far, OWNER, {"name": "Mutton Biryani", "unit": "plate", "price_paise": 25000})
+    nopin = store.create_business(OWNER, {"name": "Biryani Corner", "template": "restaurant", "invoice_prefix": "BC",
+                                          "state_code": "37"})["id"]
+    store.add_product(nopin, OWNER, {"name": "Egg Biryani", "unit": "plate", "price_paise": 12000})
+    with _sqlite.connect(store.db_path) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS shop_profiles (business_id TEXT PRIMARY KEY, data TEXT NOT NULL,"
+                     " updated_at TEXT NOT NULL, verified_at TEXT)")
+        conn.execute("INSERT INTO shop_profiles VALUES (?, ?, '', NULL)", (biz, _json.dumps({"lat": "16.43", "lng": "80.99"})))
+        conn.execute("INSERT INTO shop_profiles VALUES (?, ?, '', NULL)", (far, _json.dumps({"lat": "17.38", "lng": "78.48"})))
+    me = (16.44, 80.98)  # next to the first shop
+    got = desk.shopping("biryani", near=me)
+    assert [s["id"] for s in got] == [biz, far, nopin]
+    assert got[0]["distance_km"] < 2 and got[1]["distance_km"] > 200 and "distance_km" not in got[2]
+    assert {s["id"] for s in desk.shopping("biryani")} == {biz, far, nopin}
+
+
+def test_questions_about_a_named_shop_use_its_own_data(env):
+    """Owner 2026-11-19: "Murali Hotel timings?" / "biryani price?" -> the shop's own profile / menu; a detail the shop
+    never filled is said to be missing, never guessed; words that ask nothing -> ''."""
+    import json as _json
+    import sqlite3 as _sqlite
+
+    desk, store, rest, biz, *_ = env
+    with _sqlite.connect(store.db_path) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS shop_profiles (business_id TEXT PRIMARY KEY, data TEXT NOT NULL,"
+                     " updated_at TEXT NOT NULL, verified_at TEXT)")
+        conn.execute("INSERT INTO shop_profiles VALUES (?, ?, '', NULL)",
+                     (biz, _json.dumps({"hours": "7 AM - 10 PM", "address": "Main Road, Vuyyuru", "delivery": ""})))
+    assert "7 AM - 10 PM" in desk.shop_answer(biz, "Murali Hotel timings?", False)
+    assert "Main Road, Vuyyuru" in desk.shop_answer(biz, "మురళి హోటల్ ఎక్కడ ఉంది", True)
+    assert "not added" in desk.shop_answer(biz, "do they do home delivery", False)
+    assert "₹160" in desk.shop_answer(biz, "chicken biryani price", False)
+    assert desk.shop_answer(biz, "Murali Hotel", False) == ""

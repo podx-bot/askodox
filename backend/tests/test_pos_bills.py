@@ -167,3 +167,19 @@ def test_printed_number_rules():
     assert printed_number("5 - Dosa") == ("Dosa", 5)
     assert printed_number("7-Up")[1] is None
     assert printed_number("500 ml Coke")[1] is None
+
+
+def test_history_flags_bills_not_printed_until_the_phone_prints(env):
+    """Owner 2026-11-19: "Next bill" skips printing; history shows which bills still need printing."""
+    store, bills, biz, _tea, _biryani, _ = env
+    out = PosQuickBill(store).make(biz, OWNER, {"lines": [{"item_no": 1, "count": 1}], "advance_paise": 1000,
+                                                "method": "cash", "client_txn_id": "qb-print-1"})
+    row = bills.history(biz, OWNER)["bills"][0]
+    assert row["id"] == out["id"] and row["printed"] is False
+    first = bills.mark_printed(biz, OWNER, out["id"])
+    assert first["printed"] is True and first["printed_at"]
+    again = bills.mark_printed(biz, OWNER, out["id"])
+    assert again["printed_at"] == first["printed_at"]  # a reprint keeps the first print time
+    assert bills.history(biz, OWNER)["bills"][0]["printed"] is True
+    with pytest.raises(PosError):
+        bills.mark_printed(biz, "app-phone-9400000777", out["id"])  # a stranger cannot touch the shop's bills

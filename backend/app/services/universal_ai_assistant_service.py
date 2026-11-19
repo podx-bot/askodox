@@ -352,6 +352,27 @@ PLANNER_PROMPT = (
     "problems, money / legal / tax / business decisions, or anything where a wrong answer would really hurt the user.\n"
 )
 
+
+# Whole-message greetings / thanks / acknowledgements in the languages ASKODOX speaks (owner 2026-11-19: skip the
+# planner for these). Only an EXACT short message matches -- "hi, need a plumber" still goes through the planner.
+_SMALL_TALK = frozenset({
+    "hi", "hii", "hiii", "hello", "helo", "hey", "hai", "namaste", "namaskaram", "good morning", "good afternoon",
+    "good evening", "good night", "gm", "gn", "thanks", "thank you", "thank u", "thanku", "thx", "ty", "ok", "okay",
+    "okk", "k", "fine", "nice", "super", "great", "cool", "bye", "see you", "yes", "no", "hmm", "sare", "sari",
+    "avunu", "kadu", "dhanyavadalu",
+    "హాయ్", "హలో", "నమస్తే", "నమస్కారం", "నమస్కారాలు", "శుభోదయం", "గుడ్ మార్నింగ్", "థాంక్స్", "థ్యాంక్స్", "థాంక్యూ",
+    "థ్యాంక్యూ", "ధన్యవాదాలు", "సరే", "ఓకే", "అవును", "కాదు", "బాగుంది", "సూపర్", "బై",
+    "नमस्ते", "धन्यवाद", "शुक्रिया", "ठीक है", "हाँ", "हां", "नहीं", "अच्छा",
+})
+
+
+def is_small_talk(text: str) -> bool:
+    """True when the whole message is only a greeting / thanks / ok (punctuation and emoji ignored)."""
+    clean = re.sub(r"[^\w\s\u0900-\u097F\u0C00-\u0C7F]", " ", str(text or "").lower())
+    clean = " ".join(clean.split())
+    return bool(clean) and len(clean) <= 24 and clean in _SMALL_TALK
+
+
 class UniversalAIAssistantService:
     GENERAL_MARKER = "OASAT domain=GENERAL;"
     ALLOWED_DOMAINS = {
@@ -449,6 +470,10 @@ class UniversalAIAssistantService:
         user_text, context, about_shown = self.split_app_context(message)
         if about_shown:
             return {"search": False, "query": "", "level": "medium"}
+        if not context and is_small_talk(user_text):
+            # Owner 2026-11-19: no planning step when the turn is clearly just a greeting / thanks / ok --
+            # the answer starts one model call sooner.
+            return {"search": False, "query": "", "level": "simple"}
         lines = [f"{t['role']}: {t['text'][:400]}" for t in history[-6:]]
         attachment = context[:1500] if "The customer shared attachment" in context else ""
         prompt = (PLANNER_PROMPT + "\nConversation (oldest first):\n" + ("\n".join(lines) or "(none)")

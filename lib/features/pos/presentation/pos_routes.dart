@@ -127,7 +127,10 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(
       path: '/pos/:id/invoice/:iid',
       builder: (context, state) =>
-          AskodoxPosInvoiceScreen(businessId: state.pathParameters['id']!, invoiceId: state.pathParameters['iid']!)),
+          AskodoxPosInvoiceScreen(
+              businessId: state.pathParameters['id']!,
+              invoiceId: state.pathParameters['iid']!,
+              fresh: state.uri.queryParameters['fresh'] == '1')),
   GoRoute(path: '/pos/:id/day', builder: (context, state) => AskodoxPosDayScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/gst', builder: (context, state) => AskodoxPosGstScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/staff', builder: (context, state) => AskodoxPosStaffScreen(businessId: state.pathParameters['id']!)),

@@ -92,6 +92,8 @@ class AssistantDecision(BaseModel):
     app_action: dict[str, str] | None = None
     # A shop on ASKODOX named by the person: its menu as a card inside the chat (capability ``shop_menu``).
     shop_menu: dict[str, Any] | None = None
+    # Shopping mode ON and no ASKODOX shop had it: the reply is from outside ASKODOX (the app labels the results).
+    outside_askodox: bool = False
     # Master command round 2: tax / GST, fraud & market reality and smart
     # tricks attach here (intelligence_gate.py) -- deterministic, sourced,
     # only when the user's own words ask; never a separate bot.
@@ -274,13 +276,22 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
         if not shops:
             shops = _shop_in_conversation(request, payload, decision, user_words)
         te = str(payload.locale or "").lower().startswith("te")
+        # Shopping mode switch ON in the chat (owner 2026-11-19): every turn looks in ASKODOX-registered shops first;
+        # nothing there -> the normal answer, clearly labelled as from outside ASKODOX.
+        shopping = "shopping_mode" in (payload.capabilities or [])
         if not shops:
             # Not named: but when the person is asking for something to buy / order, the ASKODOX shops whose own menu
             # has it come FIRST, with their menu prices (the search for other sources goes on beside it).
-            if not (decision.get("mode") == "commerce" or decision.get("transactional") or decision.get("search_ready")):
+            wants = bool(decision.get("mode") == "commerce" or decision.get("transactional") or decision.get("search_ready"))
+            if not (shopping or wants):
                 return decision
             found = _desk(request).find_items(user_words, 3)
             if not found:
+                if shopping and wants:
+                    note = ("ASKODOX షాపుల్లో దొరకలేదు — ఇవి బయటి ఫలితాలు:" if te
+                            else "Not found in ASKODOX shops — these are results from outside:")
+                    old = str(decision.get("reply") or "").strip()
+                    return {**decision, "reply": note + ("\n\n" + old if old else ""), "outside_askodox": True}
                 return decision
             best = found[0]
 
@@ -298,6 +309,10 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
         shop = shops[0]
         reply = (f"{shop['name']} ASKODOX లో ఉంది. కింద బటన్ నొక్కి మెనూ చూసి ఇక్కడే ఆర్డర్ చేయండి."
                  if te else f"{shop['name']} is on ASKODOX. Tap below to see its menu and order here.")
+        # Owner 2026-11-19: a question about the shop (hours / address / delivery / price ...) gets the shop's OWN data.
+        facts = _desk(request).shop_answer(shop["id"], user_words, te)
+        if facts:
+            reply = f"{shop['name']}:\n{facts}"
         out = {**decision, "reply": reply, "mode": "advice", "transactional": False, "search_ready": False, "app_action": {
             "key": "order_shop", "route": f"/order-desk?code={shop['code']}",
             "label": f"{shop['name']} ఆర్డర్" if te else f"{shop['name']} order"}}
@@ -312,7 +327,9 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
                 caller = ""
             card = _desk(request).chat_card(shop["id"], caller, user_words, te, limit=150)
             out["shop_menu"] = card
-            if not card["open"]:
+            if facts:
+                out["reply"] = f"{shop['name']}:\n{facts}"
+            elif not card["open"]:
                 out["reply"] = card["message"]
             elif card["prepared"]:
                 out["reply"] = (f"{shop['name']} కి ఆర్డర్ సిద్ధం చేశాను. కింద చూసి \"సరే, పంపు\" నొక్కండి."

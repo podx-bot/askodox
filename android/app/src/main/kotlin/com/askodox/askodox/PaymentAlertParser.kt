@@ -450,6 +450,18 @@ object PaymentAlertParser {
         return Regex("""^[A-Z]{2}-[A-Z0-9]{3,9}(-[STG])?$""").matches(t)
     }
 
+    /**
+     * Owner 2026-11-19 (fake SMS): a "money received" SMS from a PERSON's number ("+91 98765 43210", "9876543210") is
+     * how fraudsters fake a payment -- banks send from registered sender ids, never a mobile number. Such an SMS is
+     * written in the history with a warning and is never spoken as received. A name the phone shows (a contact, or a
+     * verified business name like "HDFC Bank") is not judged here.
+     */
+    fun looksLikePersonNumber(title: String?): Boolean {
+        val t = title?.trim() ?: return false
+        if (t.any { it.isLetter() }) return false
+        return t.count { it.isDigit() } >= 7
+    }
+
     /** "*2317@ibl" / "9502072317@ibl" -> "2317@ibl": the payer's UPI handle tail, to tell two payments apart. */
     fun upiHandleTail(text: String): String? =
         Regex("""[A-Za-z0-9.*_\-]*?(\d{4})@([A-Za-z]{2,20})""").find(text)?.let { "${it.groupValues[1]}@${it.groupValues[2].lowercase(Locale.ROOT)}" }

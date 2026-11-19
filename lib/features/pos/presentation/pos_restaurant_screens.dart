@@ -334,7 +334,7 @@ class _AskodoxPosOrderScreenState extends ConsumerState<AskodoxPosOrderScreen> {
       if (!mounted) return;
       _chosen.clear();
       setState(() => _order = askodoxPosMap(invoice['order']));
-      context.push('/pos/${widget.businessId}/invoice/${invoice['id']}');
+      context.push('/pos/${widget.businessId}/invoice/${invoice['id']}?fresh=1');
     } on AskodoxPosException catch (e) {
       if (!mounted) return;
       if (e.code == 'unsent') {

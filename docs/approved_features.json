@@ -4880,7 +4880,7 @@
       "api": [],
       "ui": {
         "keys": [
-          "askodoxProfileSection-payments"
+          "askodoxPaymentsHub"
         ],
         "symbols": [
           "askodoxPhase2",
@@ -5621,7 +5621,7 @@
       "id": "payment_alerts_phase1_staff",
       "name": "Payment sound alerts in Phase 1, shared with chosen staff",
       "purpose": "Owner 2026-11-10: money reaches the owner's account and the chosen staff (manager / cashier / attendant) hear it on their phones too, without the POS.",
-      "expected_behavior": "/me/payment-alerts (Profile -> Payments row profile-payment-alerts, and a card on My payment methods) lets a signed-in person name the shop + State once, add staff by 10-digit mobile number and role, and open the existing payment alerts screen at /me/payment-alerts/{id}. Staff see the shop with their role and only the sound switch. A payment-alert push to /pos/{id}/payment-alerts opens /me/payment-alerts/{id} in a Phase 1 build. POS role 'attendant' has view only; it gets alerts only after the owner ticks the role; it cannot bill or manage staff. Phone-notification events stay notification_unverified; ASKODOX never holds money.",
+      "expected_behavior": "/me/payment-alerts (Money tab, and a card on My payment methods; the Profile row moved to Money 2026-11-19) lets a signed-in person name the shop + State once, add staff by 10-digit mobile number and role, and open the existing payment alerts screen at /me/payment-alerts/{id}. Staff see the shop with their role and only the sound switch. A payment-alert push to /pos/{id}/payment-alerts opens /me/payment-alerts/{id} in a Phase 1 build. POS role 'attendant' has view only; it gets alerts only after the owner ticks the role; it cannot bill or manage staff. Phone-notification events stay notification_unverified; ASKODOX never holds money.",
       "roles": [
         "customer",
         "seller",
@@ -5860,9 +5860,9 @@
       ],
       "ui": {
         "keys": [
-          "askodoxProfileSection-following",
-          "profile-following",
-          "profile-my-business",
+          "askodoxShoppingOrderCode",
+          "askodoxShoppingFollowing",
+          "askodoxMenu-mybusiness",
           "askodoxMyBusinessDetails",
           "askodoxMyBusinessBill",
           "askodoxQuickBillShowQr",
@@ -7818,6 +7818,87 @@
         {
           "date": "2026-11-18",
           "change": "new tab"
+        }
+      ]
+    },
+    {
+      "id": "bill_next_and_print_pending",
+      "name": "Bill screens: Next bill main button, Print / PDF / Share one row, print pending in history",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/bills/{invoice_id}/printed"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxQuickBillNext",
+          "askodoxPosNextBill"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_bills.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: fast counters move on with one tap; rare Return / Cancel under more; bills never printed are flagged in history.",
+      "expected_behavior": "After a bill is made, Next bill opens an empty bill; history shows 'print pending' with a Print button until printed.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new"
+        }
+      ]
+    },
+    {
+      "id": "chat_number_bill",
+      "name": "Main chat bill by the shop's own item numbers",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos",
+        "chat"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/chat-bill"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxChatBillMake",
+          "askodoxChatBillPrint"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_chat_bill.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "bill_next_and_print_pending"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: an in-app task asked in chat completes in the chat -- numbers -> items from the shop's own item numbers -> bill -> print / share in chat; never asks names for known numbers, never guesses items.",
+      "expected_behavior": "Shop staff type or say 'bill 1 2, 3 1' -> a bill card with the shop's items, unknown numbers named; one tap makes the real bill (quick-bill API).",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new"
         }
       ]
     }

@@ -189,7 +189,7 @@ void main() {
     for (final (tab, sections) in [
       if (askodoxPhase2) ('business', ['business', 'studio']),
       ('settings', askodoxPhase2 ? ['settings', 'help', 'account'] : ['settings', 'account']),
-      ('me', askodoxPhase2 ? ['shopping', 'finance', 'roles'] : ['shopping', 'payments', 'help']),
+      ('me', askodoxPhase2 ? ['shopping', 'finance', 'roles'] : ['shopping', 'help']),
     ]) {
       await _openProfileView(tester, container, tab);
       for (final section in sections) {
@@ -212,9 +212,6 @@ void main() {
         ('me', 'profile-tax-assistant', '/intel/tax'),
         ('me', 'profile-personal-finance', '/me/finance'),
         ('me', 'profile-smart-tools', '/tools'),
-      ] else ...[
-        ('me', 'profile-payment-methods', '/me/payment-methods'),
-        ('me', 'profile-my-business', '/me/business'),
       ],
     ]) {
       await _openProfileView(tester, container, tab);

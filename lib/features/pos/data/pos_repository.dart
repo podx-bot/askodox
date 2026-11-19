@@ -108,7 +108,9 @@ class AskodoxPosRepository {
       _send('POST', '/api/pos/order-desk/assist', body: {'code': code, 'text': text, 'cart': cart, 'te': te});
   /// Shops with a menu whose name contains [q] (the search box beside the QR photo).
   /// ASKODOX Shopping: shops on ASKODOX (name / menu) + the affiliate items for what was searched.
-  Future<AskodoxJson> shopping(String q) => _send('GET', '/api/pos/shopping', query: {'q': q});
+  /// [lat] / [lng] = the person's place: the nearest ASKODOX shops come first (owner 2026-11-19).
+  Future<AskodoxJson> shopping(String q, {double? lat, double? lng}) => _send('GET', '/api/pos/shopping',
+      query: {'q': q, if (lat != null && lng != null) 'lat': '$lat', if (lat != null && lng != null) 'lng': '$lng'});
   Future<List<AskodoxJson>> deskShops(String q) async =>
       askodoxPosList((await _send('GET', '/api/pos/order-desk/shops', query: {'q': q}))['shops']);
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);
@@ -176,6 +178,11 @@ class AskodoxPosRepository {
       _send('POST', '${_b(biz)}/bills/$invoiceId/send', body: {'phone': phone});
   Future<AskodoxJson> billSettle(String biz, String invoiceId, String pay, String txn) =>
       _send('POST', '${_b(biz)}/bills/$invoiceId/settle', body: {'pay': pay, 'client_txn_id': txn});
+  /// Main chat bill by item numbers (owner 2026-11-19): {card, reply}; card null = not a number bill / not a seller.
+  Future<AskodoxJson> chatBill(String text, {required bool te}) =>
+      _send('POST', '/api/pos/chat-bill', body: {'text': text, 'te': te});
+  /// The phone printed this bill (owner 2026-11-19: history flags bills never printed).
+  Future<AskodoxJson> billPrinted(String biz, String invoiceId) => _send('POST', '${_b(biz)}/bills/$invoiceId/printed');
   Future<AskodoxJson> billHistory(String biz, {String from = '', String to = '', bool due = false, String q = ''}) =>
       _send('GET', '${_b(biz)}/bills', query: {'date_from': from, 'date_to': to, 'due': due ? 'true' : 'false', 'q': q});
   Future<List<AskodoxJson>> myBills() async => askodoxPosList((await _send('GET', '/api/pos/me/bills'))['bills']);

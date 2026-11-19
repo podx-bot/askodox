@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/backend_providers.dart' show authSessionProvider;
+import '../../../services/image_studio_service.dart' show imageStudioServiceProvider;
 import '../../../services/media_picker.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
@@ -244,6 +246,84 @@ class _AskodoxPosRatesCardState extends ConsumerState<AskodoxPosRatesCard> {
     }
   }
 
+  /// Owner 2026-11-19 (clothes shop model photo, with a cost note): the owner's own photo of the item -> an AI studio
+  /// photo. Clothes / sarees / footwear: worn by a model; everything else: a clean shop photo on a plain background.
+  /// The cost is told BEFORE it is made; the new photo is saved only when the owner taps "Use this photo".
+  Future<void> _studio() async {
+    final te = askodoxPosTe(context);
+    final business = ref.read(askodoxPosBusinessProvider(widget.businessId)).valueOrNull ?? const <String, Object?>{};
+    final wear = const {'clothing', 'footwear'}.contains('${business['template'] ?? ''}');
+    final go = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(te ? 'AI స్టూడియో ఫోటో' : 'AI studio photo'),
+        content: Text(te
+            ? '${wear ? 'మీ బట్ట ఫోటో నుంచి మోడల్ వేసుకున్నట్టు ఫోటో' : 'మీ ఐటమ్ ఫోటో నుంచి షాప్-స్టైల్ శుభ్రమైన ఫోటో'} తయారవుతుంది.\n\n'
+                '💰 ఖర్చు: ఒక్కో ఫోటోకి 1 AI క్రెడిట్ (ఛార్జింగ్ ఆఫ్ ఉన్నప్పుడు రోజుకి కొన్ని ఉచితం). నచ్చితేనే సేవ్ చేయండి.'
+            : 'Makes ${wear ? 'a photo of a model wearing it' : 'a clean shop-style photo'} from your own photo of the item.\n\n'
+                '💰 Cost: 1 AI Credit per picture (a few free each day while charging is off). Save it only if you like it.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog), child: Text(te ? 'వద్దు' : 'Cancel')),
+          OutlinedButton(onPressed: () => Navigator.pop(dialog, 'camera'), child: Text(te ? 'ఫోటో తీయి' : 'Take photo')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, 'gallery'), child: Text(te ? 'గ్యాలరీ' : 'Gallery')),
+        ],
+      ),
+    );
+    if (go == null || !mounted) return;
+    final picked = (await ref.read(askodoxMediaPickerProvider).pick(go)).where((x) => x.isImage).firstOrNull;
+    if (picked == null || !mounted) return;
+    final name = '${widget.product['name'] ?? ''}';
+    final prompt = wear
+        ? 'Show this exact garment "$name" worn by a natural-looking Indian model, full view, plain light studio background, '
+            'true colours and design of the cloth exactly as in the photo, no text, no logos.'
+        : 'Make a clean shop catalogue photo of this exact product "$name": centred, plain white background, soft light, '
+            'true colours and labels as in the photo, no extra objects, no text.';
+    setState(() => _busy = true);
+    try {
+      final token = ref.read(authSessionProvider).tokenPlaceholder;
+      final out = await ref
+          .read(imageStudioServiceProvider)
+          .edit(prompt: prompt, images: [picked.bytes], language: te ? 'te' : 'en', authToken: token);
+      if (!mounted) return;
+      final bytes = out.bytes;
+      if (!out.ok || bytes == null) {
+        askodoxPosSnack(
+            context,
+            switch (out.code) {
+              'daily_limit' => te ? 'ఈరోజు ఉచిత ఫోటోలు అయిపోయాయి. రేపు మళ్ళీ ప్రయత్నించండి.' : "Today's free pictures are used up. Try tomorrow.",
+              'credits_low' => te ? 'AI క్రెడిట్స్ సరిపోవు — కొంచెం రీఛార్జ్ చేయండి.' : 'Not enough AI Credits — please recharge a little.',
+              'sign_in' => te ? 'ముందు సైన్ ఇన్ చేయండి.' : 'Please sign in first.',
+              _ => te ? 'ఈసారి ఫోటో రాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'The picture could not be made this time. Please try again.',
+            });
+        return;
+      }
+      final keep = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          content: Image.memory(bytes, fit: BoxFit.contain),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(te ? 'వద్దు' : 'No')),
+            FilledButton(
+                key: const Key('askodoxPosStudioUse'),
+                onPressed: () => Navigator.pop(dialog, true),
+                child: Text(te ? 'ఈ ఫోటో వాడు' : 'Use this photo')),
+          ],
+        ),
+      );
+      if (keep != true || !mounted) return;
+      final data = await askodoxPosShrinkPhoto(bytes, width: 480);
+      if (data == null || !mounted) return;
+      await ref.read(askodoxPosRepositoryProvider).setPhoto(widget.businessId, '${widget.product['id']}', data);
+      if (!mounted) return;
+      askodoxPosSnack(context, te ? 'ఫోటో సేవ్ అయింది.' : 'Photo saved.');
+      widget.onSaved();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
@@ -280,6 +360,13 @@ class _AskodoxPosRatesCardState extends ConsumerState<AskodoxPosRatesCard> {
                   onPressed: _busy ? null : () => _photo('gallery'),
                   icon: const Icon(Icons.photo_library_outlined, size: 18),
                   label: Text(te ? 'గ్యాలరీ' : 'Gallery'),
+                ),
+                // Owner 2026-11-19: AI studio photo (clothes -> worn by a model; anything else -> a clean shop photo).
+                OutlinedButton.icon(
+                  key: const Key('askodoxPosPhotoStudio'),
+                  onPressed: _busy ? null : _studio,
+                  icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                  label: Text(te ? 'AI స్టూడియో ఫోటో' : 'AI studio photo'),
                 ),
               ]),
             ),

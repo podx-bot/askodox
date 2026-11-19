@@ -126,3 +126,38 @@ Future<void> askodoxChatBusinessFollowUp(BuildContext context, WidgetRef ref, As
     ));
   }
 }
+
+
+/// Owner 2026-11-19 (agents inside the main chat): which role agent the words name, or null. "stock agent ఏం తక్కువ
+/// ఉంది", "ఫైనాన్స్ ఏజెంట్", "@sales" ... Only the shop's role agents (pos_agents.AGENTS); the agent still answers only
+/// from the shop's own records within the person's role.
+String? askodoxChatAgentOf(String text) {
+  final t = text.toLowerCase();
+  if (!(t.contains('agent') || t.contains('ఏజెంట్') || t.contains('एजेंट') || t.startsWith('@'))) return null;
+  const names = <String, List<String>>{
+    'inventory': ['inventory', 'stock', 'స్టాక్', 'సరుకు', 'स्टॉक'],
+    'finance': ['finance', 'money', 'ఫైనాన్స్', 'డబ్బు', 'फाइनेंस'],
+    'sales': ['sales', 'సేల్స్', 'అమ్మకాల', 'सेल्स'],
+    'support': ['support', 'complaint', 'సపోర్ట్', 'ఫిర్యాదు', 'सपोर्ट'],
+    'tax': ['tax', 'gst', 'టాక్స్', 'పన్ను', 'జీఎస్టీ', 'टैक्स'],
+    'hr': ['hr', 'staff', 'సిబ్బంది', 'స్టాఫ్', 'स्टाफ'],
+    'owner': ['owner', 'ఓనర్', 'ఓనరు', 'मालिक'],
+  };
+  for (final e in names.entries) {
+    if (e.value.any((w) => RegExp('(^|[^a-z])${RegExp.escape(w)}').hasMatch(t))) return e.key;
+  }
+  return null;
+}
+
+/// Asks that agent of the person's shop; null when there is no shop / no permission / no answer (chat goes on).
+Future<String?> askodoxChatAgentAsk(WidgetRef ref, String agent, String text, bool te) async {
+  final id = await ref.read(askodoxChatBusinessProvider.future);
+  if (id == null) return null;
+  try {
+    final out = await ref.read(askodoxPosRepositoryProvider).agentAsk(id, agent, text, te ? 'te' : 'en');
+    final answer = '${out['answer'] ?? ''}'.trim();
+    return answer.isEmpty ? null : answer;
+  } catch (_) {
+    return null;
+  }
+}

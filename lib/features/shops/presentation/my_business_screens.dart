@@ -18,6 +18,7 @@ import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxParsePaise;
 import '../../business/presentation/biz_hub.dart';
 import '../../pos/presentation/paper_bill.dart';
+import '../../pos/data/pos_invoice_pdf.dart' show askodoxShareInvoicePdf;
 import '../../pos/presentation/pos_sale_screen.dart' show askodoxPrintInvoice;
 import '../domain/name_change_rule.dart';
 
@@ -869,6 +870,15 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     _txn = askodoxNewTxnId();
   }
 
+  /// "Next bill": an empty bill at once, scrolled to the top so the first item box is in view.
+  void _nextBill() {
+    _newBill();
+    final scroll = PrimaryScrollController.maybeOf(context);
+    if (scroll != null && scroll.hasClients) {
+      unawaited(scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut));
+    }
+  }
+
   void _newBill() {
     setState(() {
       for (final line in _lines) {
@@ -1406,6 +1416,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               child: TextField(
                   controller: _custPhone,
                   keyboardType: TextInputType.phone,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                       labelText: te ? 'కస్టమర్ నంబర్ (బిల్లు పంపడానికి)' : 'Customer number (to send the bill)',
                       border: const OutlineInputBorder())),
@@ -1461,19 +1472,22 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             AskodoxPaperBill(paper: _paper!, te: te),
           ],
           if (_saved != null) ...[
-            const SizedBox(height: 6),
+            // Owner 2026-11-19: the bill is saved with its number already, so the counter moves on with ONE tap.
+            // Print / PDF / Share share one equal row; sending to the typed number stays one tap below.
+            const SizedBox(height: 8),
             FilledButton.icon(
-              key: const Key('askodoxQuickBillSendNumber'),
-              onPressed: _sendToNumber,
-              icon: const Icon(Icons.send_rounded),
-              label: Text(te ? 'ఈ నంబర్‌కి బిల్లు పంపు (ASKODOX / WhatsApp)' : 'Send the bill to this number (ASKODOX / WhatsApp)'),
+              key: const Key('askodoxQuickBillNext'),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              onPressed: _nextBill,
+              icon: const Icon(Icons.add_circle_outline),
+              label: Text(te ? 'తర్వాతి బిల్లు' : 'Next bill', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             ),
             const SizedBox(height: 6),
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
                   key: const Key('askodoxQuickBillPrint'),
-                  onPressed: () => askodoxPrintInvoice(context, ref, _saved!),
+                  onPressed: () => askodoxPrintInvoice(context, ref, _saved!, businessId: widget.businessId),
                   icon: const Icon(Icons.print_outlined),
                   label: Text(te ? 'ప్రింట్' : 'Print'),
                 ),
@@ -1481,22 +1495,57 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               const SizedBox(width: 6),
               Expanded(
                 child: OutlinedButton.icon(
-                  key: const Key('askodoxQuickBillHistory'),
-                  onPressed: () => context.push('/bills/${widget.businessId}'),
-                  icon: const Icon(Icons.history),
-                  label: Text(te ? 'హిస్టరీ' : 'History'),
+                  key: const Key('askodoxQuickBillPdf'),
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final ok = await askodoxShareInvoicePdf(_saved!);
+                    if (!ok) {
+                      messenger.showSnackBar(SnackBar(
+                          content: Text(te ? 'PDF పంపలేకపోయాను (యాప్ అప్‌డేట్ చేయండి).' : 'Could not share the PDF (update the app).')));
+                    }
+                  },
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: const Text('PDF'),
                 ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: OutlinedButton.icon(
-                  key: const Key('askodoxQuickBillNew'),
-                  onPressed: _newBill,
-                  icon: const Icon(Icons.add),
-                  label: Text(te ? 'కొత్త బిల్లు' : 'New bill'),
+                  key: const Key('askodoxQuickBillShare'),
+                  onPressed: () => _share(),
+                  icon: const Icon(Icons.share_outlined),
+                  label: Text(te ? 'షేర్' : 'Share'),
                 ),
               ),
+              PopupMenuButton<String>(
+                key: const Key('askodoxQuickBillMore'),
+                tooltip: te ? 'మరిన్ని' : 'More',
+                icon: const Icon(Icons.more_vert),
+                onSelected: (v) {
+                  if (v == 'whatsapp') {
+                    unawaited(_share(whatsapp: true));
+                  } else if (v == 'history') {
+                    unawaited(context.push('/bills/${widget.businessId}'));
+                  } else {
+                    _revise();
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'whatsapp', child: Text(te ? 'WhatsApp లో బిల్లు ఫోటో' : 'Bill picture on WhatsApp')),
+                  PopupMenuItem(value: 'history', child: Text(te ? 'బిల్లుల హిస్టరీ' : 'Bill history')),
+                  PopupMenuItem(value: 'edit', child: Text(te ? 'బిల్లు మార్చు' : 'Change this bill')),
+                ],
+              ),
             ]),
+            if (_custPhone.text.replaceAll(RegExp(r'[^0-9]'), '').length >= 10) ...[
+              const SizedBox(height: 6),
+              FilledButton.tonalIcon(
+                key: const Key('askodoxQuickBillSendNumber'),
+                onPressed: _sendToNumber,
+                icon: const Icon(Icons.send_rounded),
+                label: Text(te ? 'ఈ నంబర్‌కి బిల్లు పంపు (ASKODOX / WhatsApp)' : 'Send the bill to this number (ASKODOX / WhatsApp)'),
+              ),
+            ],
           ],
           const SizedBox(height: 8),
           RepaintBoundary(
@@ -1562,6 +1611,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             icon: const Icon(Icons.qr_code_2),
             label: Text(te ? 'QR చూపండి (స్కాన్ చేసి కట్టడానికి)' : 'Show QR (scan to pay)'),
           ),
+          if (_saved == null) ...[
           const SizedBox(height: 8),
           FilledButton.tonalIcon(
             key: const Key('askodoxQuickBillWhatsApp'),
@@ -1571,11 +1621,12 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            key: const Key('askodoxQuickBillShare'),
+            key: const Key('askodoxQuickBillShareDraft'),
             onPressed: total > 0 ? () => _share() : null,
             icon: const Icon(Icons.share_outlined),
             label: Text(te ? 'ఇతర యాప్‌లలో పంపండి' : 'Send in another app'),
           ),
+          ],
           const SizedBox(height: 8),
           Text(te
               ? 'బిల్లు పంపడం మీ ఇష్టం. డబ్బు నేరుగా మీ UPI కే వస్తుంది; ASKODOX డబ్బు పట్టుకోదు.'

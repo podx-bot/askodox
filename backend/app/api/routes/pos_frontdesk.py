@@ -100,7 +100,7 @@ class BillIn(BaseModel):
 
 
 class MenuTextIn(BaseModel):
-    text: str = Field(min_length=1, max_length=4000)
+    text: str = Field(min_length=1, max_length=20000)
 
 
 class MenuPhotoIn(BaseModel):
@@ -362,7 +362,7 @@ def desk_shop_search(request: Request, q: str = "") -> dict:
 
 
 @router.get("/shopping")
-def askodox_shopping(request: Request, q: str = "") -> dict:
+def askodox_shopping(request: Request, q: str = "", lat: Optional[float] = None, lng: Optional[float] = None) -> dict:
     """ASKODOX Shopping (owner 2026-11-18): businesses on ASKODOX first (by name or by what their menu has), then the
     affiliate store items that match what was searched. No Google / web / videos here -- that stays in the main chat."""
     from app.api.routes.affiliate_catalog import catalog
@@ -370,7 +370,8 @@ def askodox_shopping(request: Request, q: str = "") -> dict:
 
     _user(request, "shopping", 120)
     q = q[:80]
-    shops = _desk(request).shopping(q)
+    near = (lat, lng) if lat is not None and lng is not None and -90 <= lat <= 90 and -180 <= lng <= 180 else None
+    shops = _desk(request).shopping(q, near=near)  # owner 2026-11-19: nearest first when the place is known
     items: list = []
     if len(q.strip()) >= 2:
         try:
@@ -446,6 +447,32 @@ def bill_send(business_id: str, invoice_id: str, body: BillSendIn, request: Requ
 def bill_settle(business_id: str, invoice_id: str, body: BillSettleIn, request: Request) -> dict:
     return _call(_bills(request).settle, business_id, _user(request, "bill-settle", 120), invoice_id, body.pay,
                  body.amount_paise, body.client_txn_id)
+
+
+class ChatBillIn(BaseModel):
+    text: str = Field(min_length=1, max_length=400)
+    te: bool = True
+
+
+@router.post("/chat-bill")
+def chat_bill(body: ChatBillIn, request: Request) -> dict:
+    """Main chat, owner 2026-11-19: item NUMBERS said by a shop's own staff -> the bill preview from the shop's own
+    numbered items (no AI call, no guessed items). ``card`` is null when the words are not a number bill or the caller
+    sells in no shop -- the chat then answers normally. The real bill = ``/businesses/{id}/quick-bill``."""
+    from app.services.pos_chat_bill import PosChatBill, parse, reply_text
+
+    if not parse(body.text):
+        return {"card": None}
+    card = _call(PosChatBill(_store(request)).card, _user(request, "chat-bill", 120), body.text)
+    if card is None:
+        return {"card": None}
+    return {"card": card, "reply": reply_text(card, body.te)}
+
+
+@router.post("/businesses/{business_id}/bills/{invoice_id}/printed")
+def bill_printed(business_id: str, invoice_id: str, request: Request) -> dict:
+    """The phone printed this bill; history stops flagging it as "print pending"."""
+    return _call(_bills(request).mark_printed, business_id, _user(request, "bill-printed", 300), invoice_id)
 
 
 @router.get("/businesses/{business_id}/bills")

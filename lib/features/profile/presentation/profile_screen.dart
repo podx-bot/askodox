@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/chat_pins.dart';
 import '../../../shared/widgets/navigator_section.dart';
 import '../../home/application/voice_mode.dart';
 import '../../../core/diagnostics/test_mode.dart';
@@ -212,12 +213,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Every destination once: its tab, words people use for it, and where it goes.
     final entries = <_ProfileEntry>[];
     AskodoxNavRow row(String id, String tab, IconData icon, String en, String telugu, String subEn, String subTe,
-        VoidCallback go, {String? guide, String? subtitle, List<String> words = const [], Key? key}) {
+        VoidCallback go, {String? guide, String? subtitle, List<String> words = const [], Key? key, String? route}) {
       final entry = _ProfileEntry(id, tab, icon, en, telugu, words, go);
       entries.add(entry);
       return AskodoxNavRow(
           key: key ?? ValueKey(id),
           guide: guide,
+          pin: route == null ? null : AskodoxChatPin(id: id, route: route, en: en, te: telugu),
           icon: icon,
           title: t(en, telugu),
           subtitle: subtitle ?? t(subEn, subTe),
@@ -262,15 +264,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             if (askodoxShownNow('profile-shop-scan'))
             row('profile-shop-scan', 'me', Icons.qr_code_scanner, 'Scan & shop in a store', 'షాప్‌లో స్కాన్ చేసి కొనండి',
                 'Scan items; show the exit code at the counter.', 'సరుకులు స్కాన్ చేసి కౌంటర్‌లో కోడ్ చూపించండి.',
-                () => context.push('/shop-scan'), words: ['scan', 'supermarket', 'స్కాన్']),
+                () => context.push('/shop-scan'), route: '/shop-scan', words: ['scan', 'supermarket', 'స్కాన్']),
             if (askodoxShownNow('profile-mobility'))
             row('profile-mobility', 'me', Icons.local_taxi_outlined, 'Rides, parcels & carpool', 'రైడ్స్, పార్సెల్స్ & కార్‌పూల్',
-                'Book, track, or drive / deliver.', 'బుక్, ట్రాక్, లేదా డ్రైవ్ / డెలివర్.', () => context.push('/mobility'),
+                'Book, track, or drive / deliver.', 'బుక్, ట్రాక్, లేదా డ్రైవ్ / డెలివర్.', () => context.push('/mobility'), route: '/mobility',
                 guide: 'screen_mobility', words: ['ride', 'parcel', 'auto', 'taxi', 'రైడ్', 'పార్సెల్']),
             if (askodoxShownNow('profile-smart-tools'))
             row('profile-smart-tools', 'me', Icons.handyman_outlined, 'Smart Tools', 'స్మార్ట్ టూల్స్',
                 'Level, compass, calculators, photo inspection.', 'లెవెల్, దిక్సూచి, లెక్కలు, ఫోటో పరిశీలన.',
-                () => context.push('/tools'), words: ['tools', 'calculator', 'compass', 'టూల్స్']),
+                () => context.push('/tools'), route: '/tools', words: ['tools', 'calculator', 'compass', 'టూల్స్']),
             if (ref.watch(askodoxSavedOptionsProvider).isNotEmpty) KeyedSubtree(key: const Key('askodoxSavedOptionsTile'), child: ListTile(
                     leading: const Icon(Icons.bookmark_rounded),
                     title: Text('${t('Saved options', 'సేవ్ చేసినవి')} (${ref.watch(askodoxSavedOptionsProvider).length})'),
@@ -305,41 +307,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }),
                         ))),
           ]),
-      AskodoxNavSection(
-          key: const Key('askodoxProfileSection-following'),
-          title: t('Shops', 'షాప్‌లు'),
-          icon: Icons.storefront_outlined,
-          children: [
-            row('profile-my-business', 'me', Icons.storefront, 'My business', 'నా బిజినెస్',
-                'Your shop details, quick bill, QR payment, today\'s post.',
-                'మీ షాప్ వివరాలు, వెంటనే బిల్లు, QR పేమెంట్, ఈ రోజు పోస్ట్.',
-                () => context.push('/me/business'), words: ['business', 'shop', 'bill', 'బిజినెస్', 'షాప్', 'బిల్లు']),
-            // Owner 2026-11-16: ordering at a hotel / shop by its code must be reachable without My Roles (hidden in Phase 1).
-            row('profile-order-desk', 'me', Icons.restaurant_menu, 'Order at a shop / table', 'షాప్ / టేబుల్ ఆర్డర్',
-                'Enter the shop code or scan its QR, pick items, order.',
-                'షాప్ కోడ్ రాయండి లేదా QR స్కాన్ చేయండి, ఐటమ్స్ ఎంచుకుని ఆర్డర్ చేయండి.',
-                () => context.push('/order-desk/enter'), words: ['order', 'hotel', 'menu', 'table', 'ఆర్డర్', 'హోటల్', 'మెనూ']),
-            row('profile-following', 'me', Icons.storefront_outlined, 'Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు',
-                'Updates from the shops you follow.', 'మీరు ఫాలో చేసే షాప్‌ల అప్‌డేట్స్.',
-                () => context.push('/me/following'), words: ['follow', 'shop', 'ఫాలో', 'షాప్']),
-          ]),
-      // Phase 1: the Business tab is hidden, so "My payment methods" (own UPI QR / bank, used to
-      // collect money) lives here as a plain list row (also on the bottom bar's Payments).
-      if (!askodoxPhase2)
-        AskodoxNavSection(
-            key: const Key('askodoxProfileSection-payments'),
-            title: t('Payments', 'పేమెంట్స్'),
-            icon: Icons.account_balance_wallet_outlined,
-            children: [
-              row('profile-payment-methods', 'me', Icons.account_balance_wallet_outlined, 'My accounts',
-                  'నా ఖాతాలు', 'Your QR, UPI and bank — people pay you directly.',
-                  'మీ QR, UPI, బ్యాంక్ — నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
-                  words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
-              row('profile-payment-alerts', 'me', Icons.volume_up_outlined, 'Payment alerts',
-                  'పేమెంట్ అలర్ట్స్', 'Status, who hears it, staff, voice, history.',
-                  'స్థితి, ఎవరు వింటారు, సిబ్బంది, వాయిస్, హిస్టరీ.', () => context.push('/me/payment-alerts'),
-                  words: ['alert', 'sound', 'soundbox', 'staff', 'అలర్ట్', 'సౌండ్', 'సిబ్బంది']),
-            ]),
+      // Owner 2026-11-19: no duplicates -- shop shortcuts live in the Shopping tab (order by code, shops I follow),
+      // My business in the ☰ menu, payment accounts + alerts in the Money tab. This page keeps the person's own things.
       // Personal Finance: the Personal Tax Assistant (existing /intel/* screens) + the person's money records.
       if (askodoxPhase2)
       AskodoxNavSection(
@@ -350,14 +319,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             row('profile-tax-assistant', 'me', Icons.account_balance_outlined, 'Personal Tax Assistant',
                 'Personal Tax Assistant', 'Income tax (new vs old) and GST estimates.',
-                'Income tax (new vs old), GST అంచనాలు.', () => context.push('/intel/tax'),
+                'Income tax (new vs old), GST అంచనాలు.', () => context.push('/intel/tax'), route: '/intel/tax',
                 words: ['tax', 'income tax', 'itr', 'gst', 'పన్ను', 'ట్యాక్స్']),
             row('profile-personal-finance', 'me', Icons.wallet_outlined, 'All money tools', 'డబ్బు tools అన్నీ',
                 'Tax, GST, smart tricks, scam checks, payment methods.', 'Tax, GST, smart tricks, మోసాల checks, payment methods.',
-                () => context.push('/me/finance'), words: ['finance', 'money', 'fraud', 'scam', 'డబ్బు', 'మోసం']),
+                () => context.push('/me/finance'), route: '/me/finance', words: ['finance', 'money', 'fraud', 'scam', 'డబ్బు', 'మోసం']),
             row('profile-shop-advances', 'me', Icons.savings_outlined, 'Shop advances', 'షాప్ అడ్వాన్సులు',
                 'Approve what a shop recorded for you.', 'షాప్ నమోదు చేసినవి ఆమోదించండి.',
-                () => context.push('/me/shop-advances'), words: ['advance', 'approve', 'money', 'డబ్బు', 'ఆమోదం']),
+                () => context.push('/me/shop-advances'), route: '/me/shop-advances', words: ['advance', 'approve', 'money', 'డబ్బు', 'ఆమోదం']),
           ]),
       // Phase 1 = one role (a customer): no role chips, role editor or opportunities.
       if (askodoxPhase2)
@@ -463,15 +432,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     if (profile != null) askodoxOpenProfileEditor(context, ref, profile, telugu: te, section: 'roles');
                   }),
             row('askodoxMyRolesEntry', 'me', Icons.badge_outlined, 'My roles', 'నా పాత్రలు', 'What each role adds.',
-                'ప్రతి పాత్ర విభాగాలు.', () => context.push('/profile/roles'),
+                'ప్రతి పాత్ర విభాగాలు.', () => context.push('/profile/roles'), route: '/profile/roles',
                 guide: 'screen_roles', key: const Key('askodoxMyRolesEntry'), words: ['role', 'పాత్ర']),
             row('profile-opportunities', 'me', Icons.trending_up_rounded, 'Opportunities near you', 'మీ దగ్గరి అవకాశాలు',
-                'What nearby customers ask for.', 'దగ్గరి కస్టమర్లు అడుగుతున్నవి.', () => context.push('/opportunities'),
+                'What nearby customers ask for.', 'దగ్గరి కస్టమర్లు అడుగుతున్నవి.', () => context.push('/opportunities'), route: '/opportunities',
                 guide: 'screen_opportunities', words: ['demand', 'customers', 'అవకాశాలు']),
             if (owned.contains(AskodoxUserRole.deliveryPartner))
               row('askodoxProfileDeliveryOpportunities', 'me', Icons.delivery_dining_rounded, 'Delivery & ride partner',
                   'డెలివరీ & రైడ్ పార్ట్‌నర్', 'Go online and accept nearby requests.',
-                  'ఆన్‌లైన్‌కి వెళ్లి దగ్గరి రిక్వెస్ట్‌లు అంగీకరించండి.', () => context.push('/mobility?tab=3'),
+                  'ఆన్‌లైన్‌కి వెళ్లి దగ్గరి రిక్వెస్ట్‌లు అంగీకరించండి.', () => context.push('/mobility?tab=3'), route: '/mobility?tab=3',
                   guide: 'screen_partner', key: const Key('askodoxProfileDeliveryOpportunities'), words: ['partner', 'driver']),
           ]),
     ];
@@ -487,24 +456,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             row('profile-business-center', 'business', Icons.insights_rounded, 'Business dashboard', 'వ్యాపార డాష్‌బోర్డ్',
                 'Bills (POS), requests, new demand.', 'బిల్లులు (POS), అభ్యర్థనలు, కొత్త డిమాండ్.',
-                () => context.push('/business'),
+                () => context.push('/business'), route: '/business',
                 guide: 'screen_business', words: ['pos', 'bill', 'shop', 'billing', 'బిల్లు', 'షాప్', 'వ్యాపారం']),
             row('profile-my-listings', 'business', Icons.inventory_2_outlined, 'My listings & catalog', 'నా లిస్టింగ్‌లు & కేటలాగ్',
-                'What buyers can find from you.', 'కొనుగోలుదారులకు కనిపించేవి.', () => context.push('/listings/mine'),
+                'What buyers can find from you.', 'కొనుగోలుదారులకు కనిపించేవి.', () => context.push('/listings/mine'), route: '/listings/mine',
                 guide: 'screen_listings', words: ['listing', 'products', 'catalog', 'sell', 'అమ్మ', 'లిస్టింగ్']),
             row('profile-payment-methods', 'business', Icons.account_balance_wallet_outlined, 'My payment methods',
                 'నా పేమెంట్ పద్ధతులు', 'Your own UPI QR / bank — buyers pay you directly.',
-                'మీ UPI QR / బ్యాంక్ — కొనేవారు నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'),
+                'మీ UPI QR / బ్యాంక్ — కొనేవారు నేరుగా మీకే కడతారు.', () => context.push('/me/payment-methods'), route: '/me/payment-methods',
                 words: ['upi', 'qr', 'bank', 'payment', 'phonepe', 'gpay', 'paytm', 'పేమెంట్', 'బ్యాంక్']),
             row('profile-enquiries', 'business', Icons.mark_email_unread_outlined, 'Customer enquiries', 'కస్టమర్ ఎంక్వైరీలు',
                 'Accept or decline; contact shared only after you accept.', 'అంగీకరించాకే కాంటాక్ట్ షేర్ అవుతుంది.',
-                () => context.push('/orders/incoming'), guide: 'screen_enquiries', words: ['orders', 'enquiry', 'ఆర్డర్']),
+                () => context.push('/orders/incoming'), route: '/orders/incoming', guide: 'screen_enquiries', words: ['orders', 'enquiry', 'ఆర్డర్']),
             row('profile-promotions', 'business', Icons.local_offer_outlined, 'Offers & promotions', 'ఆఫర్లు & ప్రమోషన్లు',
-                'Create discounts customers see.', 'కస్టమర్లకు కనిపించే తగ్గింపులు.', () => context.push('/business/promotions'),
+                'Create discounts customers see.', 'కస్టమర్లకు కనిపించే తగ్గింపులు.', () => context.push('/business/promotions'), route: '/business/promotions',
                 guide: 'screen_promotions', words: ['offer', 'discount', 'ఆఫర్', 'తగ్గింపు']),
             row('profile-automation', 'business', Icons.bolt_rounded, 'Auto-replies', 'ఆటో-రిప్లైలు',
                 'Answers sent for you when you are busy.', 'మీరు బిజీగా ఉన్నప్పుడు పంపే జవాబులు.',
-                () => context.push('/business/automation'), guide: 'screen_automation', words: ['reply', 'automatic', 'జవాబు']),
+                () => context.push('/business/automation'), route: '/business/automation', guide: 'screen_automation', words: ['reply', 'automatic', 'జవాబు']),
           ]),
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-studio'),
@@ -515,9 +484,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             row('profile-native-video', 'business', Icons.ondemand_video_rounded, 'My videos', 'నా వీడియోలు',
                 'Upload, preview and publish after review.', 'అప్‌లోడ్, ప్రివ్యూ, రివ్యూ తర్వాత పబ్లిష్.',
-                () => context.push('/videos/native'), guide: 'screen_videos', words: ['video', 'upload', 'వీడియో']),
+                () => context.push('/videos/native'), route: '/videos/native', guide: 'screen_videos', words: ['video', 'upload', 'వీడియో']),
             row('profile-creations', 'business', Icons.auto_awesome_outlined, 'My creations', 'నా క్రియేషన్స్',
-                'AI writing drafts from your own facts.', 'మీ వివరాలతో AI డ్రాఫ్ట్‌లు.', () => context.push('/business/creations'),
+                'AI writing drafts from your own facts.', 'మీ వివరాలతో AI డ్రాఫ్ట్‌లు.', () => context.push('/business/creations'), route: '/business/creations',
                 guide: 'screen_creations', words: ['ai', 'write', 'post', 'క్రియేషన్']),
           ]),
     ];
@@ -534,24 +503,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             children: [
               if (askodoxShownNow('profile-verification'))
               row('profile-verification', 'settings', Icons.verified_user_outlined, 'Verification (KYC)', 'ధృవీకరణ (KYC)',
-                  'Verified sellers get more trust.', 'ధృవీకరించిన వారికి ఎక్కువ నమ్మకం.', () => context.push('/verification'),
+                  'Verified sellers get more trust.', 'ధృవీకరించిన వారికి ఎక్కువ నమ్మకం.', () => context.push('/verification'), route: '/verification',
                   guide: 'screen_kyc', words: ['kyc', 'verify', 'ధృవీకరణ']),
               if (askodoxShownNow('profile-plans'))
               row('profile-plans', 'settings', Icons.workspace_premium_outlined, 'Plans & subscription', 'ప్లాన్లు & సబ్‌స్క్రిప్షన్',
-                  'Your plan and what each plan adds.', 'మీ ప్లాన్, ప్రతి ప్లాన్‌లో ఏముంది.', () => context.push('/plans'),
+                  'Your plan and what each plan adds.', 'మీ ప్లాన్, ప్రతి ప్లాన్‌లో ఏముంది.', () => context.push('/plans'), route: '/plans',
                   guide: 'screen_plans', words: ['plan', 'subscription', 'ప్లాన్']),
               row('profile-ai-credits', 'settings', Icons.bolt_outlined, 'AI Credits', 'AI క్రెడిట్స్',
                   'Balance, recharge and what each AI use costs.', 'బ్యాలెన్స్, రీఛార్జ్, ఒక్కో AI వాడకానికి ఎంత.',
-                  () => context.push('/me/ai-credits'),
+                  () => context.push('/me/ai-credits'), route: '/me/ai-credits',
                   words: ['credits', 'recharge', 'balance', 'wallet', 'రీఛార్జ్', 'క్రెడిట్స్']),
               if (askodoxShownNow('profile-buyer-agent'))
               row('profile-buyer-agent', 'settings', Icons.smart_toy_outlined, 'My buyer agent', 'నా Buyer agent',
                   'What waits for you: shop advances, payment methods.', 'మీ కోసం ఆగినవి: shop advances, payment methods.',
-                  () => context.push('/me/agent'), words: ['agent', 'assistant', 'pending', 'ఏజెంట్']),
+                  () => context.push('/me/agent'), route: '/me/agent', words: ['agent', 'assistant', 'pending', 'ఏజెంట్']),
               // Travel Radio is Phase 2 only (owner 2026-11-09): hidden from the Phase 1 Profile.
               if (askodoxShownNow('profile-radio'))
               row('profile-radio', 'settings', Icons.radio_outlined, 'Travel Radio', 'ట్రావెల్ రేడియో',
-                  'Hear about places on your route.', 'మీ దారిలోని ప్రాంతాల గురించి వినండి.', () => context.push('/radio'),
+                  'Hear about places on your route.', 'మీ దారిలోని ప్రాంతాల గురించి వినండి.', () => context.push('/radio'), route: '/radio',
                   guide: 'screen_radio', words: ['radio', 'రేడియో']),
             ]),
       AskodoxNavSection(
@@ -561,7 +530,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           icon: Icons.settings_outlined,
           children: [
             row('profile-location', 'settings', Icons.location_on_outlined, 'Location', 'లొకేషన్', '', '',
-                () => context.push('/location'), guide: 'screen_location', subtitle: locationLabel, words: ['place', 'city', 'ఊరు', 'ప్రాంతం']),
+                () => context.push('/location'), route: '/location', guide: 'screen_location', subtitle: locationLabel, words: ['place', 'city', 'ఊరు', 'ప్రాంతం']),
             SwitchListTile(
               key: const Key('askodoxVoiceModeSwitch'),
               dense: true,
@@ -589,15 +558,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             row('profile-voice', 'settings', Icons.record_voice_over_outlined, 'Voice preference', 'వాయిస్ ప్రాధాన్యత', '', '',
                 () => _pickVoicePreference(te), subtitle: _voiceLabel(voicePreference, te), words: ['voice', 'వాయిస్', 'గొంతు']),
             row('profile-notifications', 'settings', Icons.notifications_none_rounded, 'Notifications', 'నోటిఫికేషన్స్',
-                'Choose what you are told about.', 'ఏ విషయాలు తెలియజేయాలో ఎంచుకోండి.', () => context.push('/settings/notifications'),
+                'Choose what you are told about.', 'ఏ విషయాలు తెలియజేయాలో ఎంచుకోండి.', () => context.push('/settings/notifications'), route: '/settings/notifications',
                 guide: 'screen_notifications', words: ['notification', 'alerts', 'నోటిఫికేషన్']),
             if (signedIn)
               row('askodoxProfileMemoryEntry', 'settings', Icons.psychology_alt_outlined, 'Memory & personalization',
                   'మెమరీ & వ్యక్తిగతీకరణ', 'Private; correct, delete or switch off.', 'ప్రైవేట్; సరిచేయండి, తొలగించండి లేదా ఆపండి.',
-                  () => context.push('/profile/memory'),
+                  () => context.push('/profile/memory'), route: '/profile/memory',
                   guide: 'screen_memory', key: const Key('askodoxProfileMemoryEntry'), words: ['memory', 'history', 'మెమరీ', 'చరిత్ర']),
             row('profile-privacy', 'settings', Icons.privacy_tip_outlined, 'Privacy & data', 'గోప్యత & డేటా',
-                'See, download or delete your data.', 'మీ డేటా చూడండి, డౌన్‌లోడ్ లేదా తొలగించండి.', () => context.push('/privacy'),
+                'See, download or delete your data.', 'మీ డేటా చూడండి, డౌన్‌లోడ్ లేదా తొలగించండి.', () => context.push('/privacy'), route: '/privacy',
                 guide: 'screen_privacy', words: ['privacy', 'delete', 'data', 'గోప్యత']),
           ]),
     ];
@@ -661,7 +630,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ))),
             row('profile-feedback', 'settings', Icons.bug_report_outlined, 'Report a problem / Send feedback',
-                'సమస్య చెప్పండి / ఫీడ్‌బ్యాక్ పంపండి', '', '', () => context.push('/beta-feedback'),
+                'సమస్య చెప్పండి / ఫీడ్‌బ్యాక్ పంపండి', '', '', () => context.push('/beta-feedback'), route: '/beta-feedback',
                 guide: 'screen_feedback',
                 words: ['problem', 'bug', 'feedback', 'సమస్య'],
                 subtitle: early.active

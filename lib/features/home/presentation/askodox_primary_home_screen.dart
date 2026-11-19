@@ -1,5 +1,7 @@
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../business/presentation/biz_chat.dart';
+import '../../pos/data/pos_repository.dart' show AskodoxJson, askodoxPosRepositoryProvider;
+import '../../../shared/widgets/chat_pins.dart' show AskodoxChatPinStrip;
 import '../../../core/flags/askodox_release_phase.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -84,6 +86,7 @@ import '../../staff/askodox_staff_access.dart';
 import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
+import 'chat_bill_card.dart';
 import 'chat_shop_menu_card.dart';
 import '../application/chat_shop_cart.dart';
 import '../application/voice_mode.dart';
@@ -391,6 +394,13 @@ class _AskodoxPrimaryHomeScreenState
   /// and a newer reply bump it, so an older reply whose audio was cut off
   /// can never fall back to device TTS and talk over the new one.
   int _speechTurn = 0;
+
+  /// Voice that starts with the words (owner 2026-11-19): while a spoken turn's answer is still streaming, the
+  /// first sentence's audio is fetched at once, so speaking begins the moment the answer lands instead of
+  /// waiting for a fresh TTS call. Keyed `language|plain text`; a miss simply fetches as before.
+  final Map<String, Future<Uint8List?>> _earlyAudio = {};
+  bool _streamSpeaks = false;
+  bool _earlyAudioAsked = false;
 
   /// The reply being spoken, which engine speaks it ('sarvam' / 'device'),
   /// where the device voice reached (native speechRange), pause and mute.
@@ -1145,6 +1155,13 @@ class _AskodoxPrimaryHomeScreenState
   /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
   /// to open, keyed by the USER turn; a button under the next assistant turn.
   final Map<int, AskodoxAppAction> _appActionByTurn = {};
+  // Shopping mode (owner 2026-11-19): OFF when the app opens; ON = ASKODOX-registered shops answer first.
+  bool _shoppingMode = false;
+  // The short "Shopping mode on / off" banner in the chat box: ~2 s, blinks, never saved in the history.
+  String? _modeBanner;
+  Timer? _modeBannerTimer;
+  // A bill made in the chat from the shop's own item numbers, by ASSISTANT turn index (owner 2026-11-19).
+  final Map<int, AskodoxJson> _chatBillByTurn = {};
   // A named ASKODOX shop's menu, drawn as a card under that reply (replaces the "open" button of the same turn).
   final Map<int, Map<String, Object?>> _shopMenuByTurn = {};
   /// Smart Answer chips (backend reply_suggestions.py) keyed by the USER turn;
@@ -1159,6 +1176,7 @@ class _AskodoxPrimaryHomeScreenState
     _guideByTurn.clear();
     _intelByTurn.clear();
     _appActionByTurn.clear();
+    _chatBillByTurn.clear();
     _shopMenuByTurn.clear();
     _suggestionsByTurn.clear();
     _turns.clear();
@@ -1900,6 +1918,61 @@ class _AskodoxPrimaryHomeScreenState
       }
     }
 
+    // A shop's own staff billing by item NUMBERS ("బిల్ 1 2, 3 1", owner 2026-11-19): the bill is made right here from
+    // the shop's own numbered items -- no AI call, no guessed items, no name questions. Not a seller / not a number
+    // bill -> the server says "no card" and the chat carries on below.
+    if (attachments.isEmpty && typed.isNotEmpty && askodoxLooksLikeNumberBill(typed) &&
+        ref.read(authSessionProvider).user != null) {
+      setState(() => _sending = true);
+      AskodoxJson? bill;
+      try {
+        bill = await ref.read(askodoxPosRepositoryProvider).chatBill(typed, te: _te);
+      } catch (_) {
+        bill = null;
+      }
+      if (!mounted) return;
+      final card = bill?['card'];
+      final billReply = '${bill?['reply'] ?? ''}';
+      if (card is Map) {
+        final billCard = Map<String, Object?>.from(card);
+        setState(() {
+          _active = true;
+          _turns.add(ConversationTurnRecord(text: typed, isUser: true));
+          _turns.add(ConversationTurnRecord(text: billReply, isUser: false));
+          _chatBillByTurn[_turns.length - 1] = billCard;
+          _sending = false;
+        });
+        if (preset == null) _controller.clear();
+        _scrollBottom();
+        if (speakResponse) unawaited(_speakReply(billReply, userText: typed));
+        unawaited(_saveSnapshot());
+        return;
+      }
+      setState(() => _sending = false);
+    }
+
+    // A shop's role agent named in the chat ("స్టాక్ ఏజెంట్ ఏం తక్కువ ఉంది?", owner 2026-11-19): that agent answers
+    // here from the shop's own records within the person's role; no shop / no permission -> the chat carries on.
+    if (attachments.isEmpty && typed.isNotEmpty && askodoxChatAgentOf(typed) != null) {
+      setState(() => _sending = true);
+      final answer = await askodoxChatAgentAsk(ref, askodoxChatAgentOf(typed)!, typed, _te);
+      if (!mounted) return;
+      if (answer != null) {
+        setState(() {
+          _active = true;
+          _turns.add(ConversationTurnRecord(text: typed, isUser: true));
+          _turns.add(ConversationTurnRecord(text: answer, isUser: false));
+          _sending = false;
+        });
+        if (preset == null) _controller.clear();
+        _scrollBottom();
+        if (speakResponse) unawaited(_speakReply(answer, userText: typed));
+        unawaited(_saveSnapshot());
+        return;
+      }
+      setState(() => _sending = false);
+    }
+
     // A person who runs a business: "ఈ రోజు ఎంత అమ్మాం?" / "చికెన్ 65 ఆఫ్ చెయ్యి" works here too (owner 2026-11-18) --
     // the answer appears in the chat, a page opens, or ONE change waits for ✓. Anything else carries on below.
     if (attachments.isEmpty && typed.isNotEmpty && askodoxLooksLikeBusinessTalk(typed)) {
@@ -2318,6 +2391,9 @@ class _AskodoxPrimaryHomeScreenState
     // A long answer (how-to guide / advice) appears while it is written (owner 2026-11-10:
     // feels like 2-3 s); the decision that comes back is still the real answer.
     _streamingScrolledAt = 0;
+    _streamSpeaks = speakResponse && !_speechMuted;
+    _earlyAudioAsked = false;
+    _earlyAudio.clear();
     askodoxTalkBrief = _talkMode;
     final decision = await ref.read(askodoxAssistantServiceProvider).decideStreaming(
       message: aiMessage,
@@ -3908,9 +3984,9 @@ class _AskodoxPrimaryHomeScreenState
     final lips = ref.read(askodoxCompanionVoiceProvider);
     final useSarvam = !deviceOnly && ref.read(askodoxFlagProvider('voice.sarvam_tts'));
     Future<Uint8List?> fetch(String text) async => useSarvam
-        ? await ref
+        ? await (_earlyAudio.remove('$language|$text') ?? ref
             .read(askodoxReplySpeechServiceProvider)
-            .sarvamAudio(text, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue)
+            .sarvamAudio(text, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue))
         : null;
     try {
       var next = fetch(plain.first);
@@ -4085,12 +4161,32 @@ class _AskodoxPrimaryHomeScreenState
 
   void _showStreamingReply(String textSoFar) {
     if (!mounted || !_sending) return;
+    _prefetchFirstSpokenChunk(textSoFar);
     setState(() => _streamingReply = textSoFar.isEmpty ? null : textSoFar);
     // Follow the growing answer without animating on every piece.
     if (textSoFar.length - _streamingScrolledAt >= 80 || _streamingScrolledAt == 0) {
       _streamingScrolledAt = textSoFar.length;
       _scrollBottom();
     }
+  }
+
+  /// Once the streamed answer holds a whole first chunk (a second one has begun, so its end can no longer move),
+  /// its server audio is requested in the background. Only for spoken turns, once per turn.
+  void _prefetchFirstSpokenChunk(String textSoFar) {
+    if (!_streamSpeaks || _earlyAudioAsked || _speechMuted) return;
+    if (!ref.read(askodoxFlagProvider('voice.sarvam_tts'))) return;
+    final markup = askodoxWithoutSources(textSoFar);
+    final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160);
+    if (chunks.length < 2) return;
+    final first = askodoxPlainReply(markup.substring(chunks.first.start, chunks.first.end)).trim();
+    if (first.isEmpty) return;
+    _earlyAudioAsked = true;
+    final language = askodoxSpeechLanguage(reply: askodoxPlainReply(markup), userText: '', uiTelugu: _te);
+    final audio = ref
+        .read(askodoxReplySpeechServiceProvider)
+        .sarvamAudio(first, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue);
+    _earlyAudio['$language|$first'] = audio.catchError((Object _) => null);
+    askodoxTestLog('voice_early', detail: {'chars': first.length, 'language': language});
   }
 
   void _scrollBottom() {
@@ -4153,10 +4249,107 @@ class _AskodoxPrimaryHomeScreenState
               },
               Expanded(child: _active ? _chat(te) : _home(te)),
               if (_active) _shopCartBar(te),
+              // The person's own pinned shortcuts (max 3, owner 2026-11-19); folds to a handle, never over the keyboard.
+              if (!keyboard) const AskodoxChatPinStrip(),
+              _shoppingModeBar(te),
               _composer(te)
             ]);
           }),
         ])));
+  }
+
+  void _toggleShoppingMode(bool te) {
+    final on = !_shoppingMode;
+    askodoxShoppingMode = on;
+    final text = on ? (te ? 'షాపింగ్ మోడ్ ఆన్' : 'Shopping mode on') : (te ? 'షాపింగ్ మోడ్ ఆఫ్' : 'Shopping mode off');
+    _modeBannerTimer?.cancel();
+    setState(() {
+      _shoppingMode = on;
+      _modeBanner = text;
+    });
+    _modeBannerTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _modeBanner = null);
+    });
+  }
+
+  /// "షాపింగ్ మోడ్" switch just above the chat box: grey = OFF, green = ON, always with the words ఆన్ / ఆఫ్ and a
+  /// moving knob (colour is never the only sign). The banner shows for ~2 s after a tap and blinks.
+  Widget _shoppingModeBar(bool te) {
+    final on = _shoppingMode;
+    final banner = _modeBanner;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Row(children: [
+        Semantics(
+          button: true,
+          toggled: on,
+          label: te ? 'షాపింగ్ మోడ్' : 'Shopping mode',
+          child: InkWell(
+            key: const Key('askodoxShoppingModeSwitch'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _toggleShoppingMode(te),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+              decoration: BoxDecoration(
+                color: on ? const Color(0xFFE6F6EC) : const Color(0xFFF1F2F4),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: on ? const Color(0xFF1F9D55) : const Color(0xFFC4C9D2)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.shopping_bag_outlined, size: 16, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF6B7280)),
+                const SizedBox(width: 4),
+                Text(te ? 'షాపింగ్ మోడ్' : 'Shopping mode',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
+                const SizedBox(width: 6),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 50,
+                  height: 24,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                      color: on ? const Color(0xFF1F9D55) : const Color(0xFF9CA3AF), borderRadius: BorderRadius.circular(12)),
+                  child: Stack(children: [
+                    Align(
+                      alignment: on ? Alignment.centerLeft : Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(on ? (te ? 'ఆన్' : 'ON') : (te ? 'ఆఫ్' : 'OFF'),
+                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                    ),
+                    AnimatedAlign(
+                      duration: const Duration(milliseconds: 180),
+                      alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                          width: 20, height: 20, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (banner != null)
+          Expanded(
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey('askodoxShoppingModeBanner-$banner'),
+              tween: Tween(begin: 0, end: 4),
+              duration: const Duration(milliseconds: 1600),
+              builder: (context, t, child) => Opacity(opacity: 0.45 + 0.55 * ((t % 1) < 0.5 ? 1 : 0), child: child),
+              // liveRegion: screen readers read the banner out when it appears.
+              child: Semantics(
+                liveRegion: true,
+                child: Text(banner,
+                  key: const Key('askodoxShoppingModeBanner'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
+              ),
+            ),
+          ),
+      ]),
+    );
   }
 
   /// The ONE companion state, shared with the nav avatar and the floating
@@ -4276,10 +4469,10 @@ class _AskodoxPrimaryHomeScreenState
     final (label, color) = switch (_voicePhase) {
       _ when _talkPaused => (te ? 'ఆగింది — మాట్లాడటానికి గోళం నొక్కండి' : 'Paused — tap the orb to talk', const Color(0xFF94A3B8)),
       _VoicePhase.recording => (te ? 'వింటున్నాను…' : 'Listening…', const Color(0xFF38BDF8)),
-      _VoicePhase.transcribing || _VoicePhase.thinking => (te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…', const Color(0xFFA78BFA)),
+      // Owner 2026-11-19: no "Thinking…" wait text -- the orb moves and the answer's words appear as they come.
+      _VoicePhase.transcribing || _VoicePhase.thinking => ('', const Color(0xFFA78BFA)),
       _VoicePhase.speaking => (te ? 'మాట్లాడుతున్నాను… (ఆపడానికి గోళం నొక్కండి)' : 'Speaking… (tap the orb to interrupt)', const Color(0xFF34D399)),
-      _VoicePhase.idle when _sending || _analyzingAttachments =>
-        (te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…', const Color(0xFFA78BFA)),
+      _VoicePhase.idle when _sending || _analyzingAttachments => ('', const Color(0xFFA78BFA)),
       _VoicePhase.idle => (te ? 'మైక్ సిద్ధం చేస్తున్నాను…' : 'Getting the mic ready…', const Color(0xFF94A3B8)),
     };
     final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: true));
@@ -5269,6 +5462,7 @@ class _AskodoxPrimaryHomeScreenState
               ),
             if (_shopMenuByTurn[index - 1] case final shopMenu? when !turn.isUser)
               AskodoxChatShopMenuCard(card: shopMenu, te: te),
+            if (_chatBillByTurn[index] case final bill? when !turn.isUser) AskodoxChatBillCard(card: bill, te: te),
             if (_appActionByTurn[index - 1] case final appAction? when !turn.isUser && _shopMenuByTurn[index - 1] == null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -5549,7 +5743,7 @@ class _AskodoxPrimaryHomeScreenState
     final status = switch (_voicePhase) {
       _VoicePhase.recording => te ? 'వింటున్నాను…' : 'Listening…',
       _VoicePhase.transcribing => te ? 'అర్థం చేసుకుంటున్నాను…' : 'Understanding…',
-      _VoicePhase.thinking => te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…',
+      _VoicePhase.thinking => '',
       _VoicePhase.speaking => te ? 'మాట్లాడుతున్నాను…' : 'Speaking…',
       _VoicePhase.idle => '',
     };
@@ -5929,6 +6123,8 @@ class _AskodoxPrimaryHomeScreenState
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _device.setMethodCallHandler(null);
+    _modeBannerTimer?.cancel();
+    askodoxShoppingMode = false; // OFF again next time the app opens
     _lipSyncTimer?.cancel();
     // (No ref use while disposing.)
     _voiceTimer?.cancel();

@@ -808,9 +808,12 @@ class AskodoxPosInvoicesScreen extends ConsumerWidget {
 }
 
 class AskodoxPosInvoiceScreen extends ConsumerStatefulWidget {
-  const AskodoxPosInvoiceScreen({super.key, required this.businessId, required this.invoiceId});
+  const AskodoxPosInvoiceScreen({super.key, required this.businessId, required this.invoiceId, this.fresh = false});
   final String businessId;
   final String invoiceId;
+
+  /// Just issued at the counter: "Next bill" is the main button (owner 2026-11-19, fast counters).
+  final bool fresh;
 
   @override
   ConsumerState<AskodoxPosInvoiceScreen> createState() => _AskodoxPosInvoiceScreenState();
@@ -869,6 +872,15 @@ class _AskodoxPosInvoiceScreenState extends ConsumerState<AskodoxPosInvoiceScree
     }
   }
 
+  /// Back to an empty counter: the sale screen that issued this bill when it is underneath, else a new one.
+  void _nextBill() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/pos/${widget.businessId}/sale');
+    }
+  }
+
   Future<void> _cancel() async {
     final te = askodoxPosTe(context);
     final reason = await _reason(te ? 'ఈ బిల్లు రద్దు చేయాలా? (రికార్డు ఉంటుంది)' : 'Cancel this bill? (the record stays)');
@@ -908,40 +920,73 @@ class _AskodoxPosInvoiceScreenState extends ConsumerState<AskodoxPosInvoiceScree
               if (p['verification'] == 'cashier_confirmed')
                 Text(te ? '${p['method']}: క్యాషియర్ నమోదు చేశారు' : '${p['method']}: entered by the cashier',
                     style: const TextStyle(fontSize: 11.5)),
-            Wrap(spacing: 8, children: [
+            // Owner 2026-11-19: the bill is already saved with its number, so the cashier moves on with one tap.
+            // Print / PDF / Share sit on ONE equal row; Return and Cancel (rare) live under "more".
+            if (widget.fresh && inv['status'] == 'issued') ...[
+              const SizedBox(height: 8),
               FilledButton.icon(
-                key: const Key('askodoxPosPrint'),
-                onPressed: () => askodoxPrintInvoice(context, ref, inv),
-                icon: const Icon(Icons.print_outlined),
-                label: Text(te ? 'ప్రింట్' : 'Print'),
+                key: const Key('askodoxPosNextBill'),
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                onPressed: () => _nextBill(),
+                icon: const Icon(Icons.add_circle_outline),
+                label: Text(te ? 'తర్వాతి బిల్లు' : 'Next bill', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               ),
-              OutlinedButton.icon(
-                key: const Key('askodoxPosSharePdf'),
-                onPressed: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final ok = await askodoxShareInvoicePdf(inv);
-                  if (!ok) {
-                    messenger.showSnackBar(SnackBar(
-                        content: Text(te ? 'PDF పంపలేకపోయాను (యాప్ అప్‌డేట్ చేయండి).' : 'Could not share the PDF (update the app).')));
-                  }
-                },
-                icon: const Icon(Icons.picture_as_pdf_outlined),
-                label: const Text('PDF'),
+            ],
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('askodoxPosPrint'),
+                  onPressed: () => askodoxPrintInvoice(context, ref, inv, businessId: widget.businessId),
+                  icon: const Icon(Icons.print_outlined),
+                  label: Text(te ? 'ప్రింట్' : 'Print'),
+                ),
               ),
-              OutlinedButton.icon(
-                key: const Key('askodoxPosShare'),
-                onPressed: () async {
-                  try {
-                    await _device.invokeMethod<bool>('shareText', <String, Object?>{'text': receipt.join('\n'), 'title': '${inv['number']}'});
-                  } catch (_) {}
-                },
-                icon: const Icon(Icons.share_outlined),
-                label: Text(te ? 'షేర్ (WhatsApp మొ.)' : 'Share (WhatsApp etc.)'),
+              const SizedBox(width: 6),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('askodoxPosSharePdf'),
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final ok = await askodoxShareInvoicePdf(inv);
+                    if (!ok) {
+                      messenger.showSnackBar(SnackBar(
+                          content: Text(te ? 'PDF పంపలేకపోయాను (యాప్ అప్‌డేట్ చేయండి).' : 'Could not share the PDF (update the app).')));
+                    }
+                  },
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: const Text('PDF'),
+                ),
               ),
-              if (isInvoice && askodoxPosCan(business, 'return'))
-                OutlinedButton(key: const Key('askodoxPosReturn'), onPressed: () => _creditAll(inv), child: Text(te ? 'రిటర్న్ / క్రెడిట్ నోట్' : 'Return / credit note')),
-              if (isInvoice && askodoxPosCan(business, 'cancel'))
-                TextButton(key: const Key('askodoxPosCancel'), onPressed: _cancel, child: Text(te ? 'రద్దు' : 'Cancel bill')),
+              const SizedBox(width: 6),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('askodoxPosShare'),
+                  onPressed: () async {
+                    try {
+                      await _device.invokeMethod<bool>('shareText', <String, Object?>{'text': receipt.join('\n'), 'title': '${inv['number']}'});
+                    } catch (_) {}
+                  },
+                  icon: const Icon(Icons.share_outlined),
+                  label: Text(te ? 'షేర్' : 'Share'),
+                ),
+              ),
+              if (isInvoice && (askodoxPosCan(business, 'return') || askodoxPosCan(business, 'cancel')))
+                PopupMenuButton<String>(
+                  key: const Key('askodoxPosMore'),
+                  tooltip: te ? 'మరిన్ని' : 'More',
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (v) => v == 'return' ? _creditAll(inv) : _cancel(),
+                  itemBuilder: (_) => [
+                    if (askodoxPosCan(business, 'return'))
+                      PopupMenuItem(
+                          key: const Key('askodoxPosReturn'),
+                          value: 'return',
+                          child: Text(te ? 'రిటర్న్ / క్రెడిట్ నోట్' : 'Return / credit note')),
+                    if (askodoxPosCan(business, 'cancel'))
+                      PopupMenuItem(key: const Key('askodoxPosCancel'), value: 'cancel', child: Text(te ? 'బిల్లు రద్దు' : 'Cancel bill')),
+                  ],
+                ),
             ]),
           ]);
         },

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
+import 'pos_sale_screen.dart' show askodoxPrintInvoice;
 
 /// Bills after the counter (owner 2026-11-16): the shop's bill history (how each bill was paid, what is pending,
 /// remind / mark paid) and the customer's own "My bills" (pay the shop's UPI straight from the bill).
@@ -176,6 +177,26 @@ class _AskodoxBillHistoryScreenState extends ConsumerState<AskodoxBillHistoryScr
     }
   }
 
+  /// Prints a bill the counter skipped with "Next bill"; the server marks it printed, the row loses its flag.
+  Future<void> _print(AskodoxJson bill) async {
+    final te = askodoxPosTe(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      final inv = await ref.read(askodoxPosRepositoryProvider).invoice(widget.businessId, '${bill['id']}');
+      if (!mounted) return;
+      final ok = await askodoxPrintInvoice(context, ref, inv);
+      if (ok) {
+        await ref.read(askodoxPosRepositoryProvider).billPrinted(widget.businessId, '${bill['id']}');
+        await _load();
+      }
+    } on AskodoxPosException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message(te))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Widget _totals(bool te, AskodoxJson totals) {
     Widget tile(String label, int paise, {bool due = false}) => Container(
           padding: const EdgeInsets.all(10),
@@ -287,6 +308,13 @@ class _AskodoxBillHistoryScreenState extends ConsumerState<AskodoxBillHistoryScr
                                   if (b['seen'] == true) te ? 'చూశారు' : 'seen',
                                 ].join(' · '),
                                 style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                            if ('${b['status']}' == 'issued' && b['printed'] == false)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(te ? '🖨 ప్రింట్ చేయాలి' : '🖨 Not printed yet',
+                                    key: Key('askodoxBillNotPrinted-${b['id']}'),
+                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
+                              ),
                             if (b['customer_says_paid'] == true && askodoxPosInt(b['due_paise']) > 0)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
@@ -303,6 +331,11 @@ class _AskodoxBillHistoryScreenState extends ConsumerState<AskodoxBillHistoryScr
                                       key: Key('askodoxBillPaid-${b['id']}'),
                                       onPressed: _busy ? null : () => _markPaid(b),
                                       child: Text(te ? 'కట్టారు' : 'Paid')),
+                                if (b['printed'] == false)
+                                  TextButton(
+                                      key: Key('askodoxBillPrint-${b['id']}'),
+                                      onPressed: _busy ? null : () => _print(b),
+                                      child: Text(te ? 'ప్రింట్' : 'Print')),
                                 TextButton(
                                     key: Key('askodoxBillSend-${b['id']}'),
                                     onPressed: () => _send(b),
