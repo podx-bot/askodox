@@ -413,6 +413,10 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> purchases(String id, {String supplierId = ''}) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/purchases', query: {if (supplierId.isNotEmpty) 'supplier_id': supplierId}))['purchases']);
   Future<AskodoxJson> recordPurchase(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchases', body: body);
+  /// Supplier bill PHOTO -> preview (nothing saved); the confirmed bill is saved in one call (owner 2026-11-19).
+  Future<AskodoxJson> purchaseBillPhoto(String id, List<AskodoxJson> images) =>
+      _send('POST', '${_b(id)}/purchases/photo', body: {'images': images}, timeout: const Duration(seconds: 90));
+  Future<AskodoxJson> purchaseFromPhoto(String id, AskodoxJson body) => _send('POST', '${_b(id)}/purchases/from-photo', body: body);
   Future<AskodoxJson> cancelPurchase(String id, String purchaseId, String reason) =>
       _send('POST', '${_b(id)}/purchases/$purchaseId/cancel', body: {'reason': reason});
   Future<List<AskodoxJson>> batches(String id, String productId) async =>

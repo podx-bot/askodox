@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import '../domain/pos_tax.dart';
+import 'pos_bill_photo_screen.dart';
 import 'pos_common.dart';
 
 /// Suppliers with what the shop owes them; add supplier; record a purchase bill.
@@ -386,6 +387,20 @@ class _AskodoxPosPurchaseScreenState extends ConsumerState<AskodoxPosPurchaseScr
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'కొనుగోలు బిల్లు నమోదు' : 'Record purchase bill')),
       body: ListView(key: const Key('askodoxPosPurchaseForm'), padding: const EdgeInsets.all(12), children: [
+        // Owner 2026-11-19: one photo of the bill fills everything; typing below stays for a bill without a photo.
+        FilledButton.tonalIcon(
+          key: const Key('askodoxPosPurchasePhoto'),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            final saved = await navigator.push<bool>(
+                MaterialPageRoute(builder: (_) => AskodoxPosBillPhotoScreen(businessId: widget.businessId)));
+            if (saved == true && mounted) navigator.pop();
+          },
+          icon: const Icon(Icons.photo_camera_outlined),
+          label: Text(te ? 'బిల్లు ఫోటో తీయండి — అన్నీ దానంతట అదే నిండుతాయి' : 'Photo of the bill — everything fills by itself'),
+        ),
+        const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           key: const Key('askodoxPosPurchaseSupplier'),
           initialValue: _supplierId,
