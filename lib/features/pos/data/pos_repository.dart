@@ -251,6 +251,13 @@ class AskodoxPosRepository {
   Future<AskodoxJson> staffPay(String biz, String ref, AskodoxJson body) => _send('PUT', '${_b(biz)}/staff/$ref/pay', body: body);
   Future<AskodoxJson> staffAdvance(String biz, String ref, int paise, {String note = ''}) =>
       _send('POST', '${_b(biz)}/staff/$ref/advance', body: {'amount_paise': paise, 'note': note});
+  /// Extra money for this month (festival bonus ...): added to the salary worked out for the month.
+  Future<AskodoxJson> staffBonus(String biz, String ref, int paise, {String note = ''}) =>
+      _send('POST', '${_b(biz)}/staff/$ref/bonus', body: {'amount_paise': paise, 'note': note});
+  Future<List<AskodoxJson>> shopHolidays(String biz) async =>
+      askodoxPosList((await _send('GET', '${_b(biz)}/attendance/holidays'))['holidays']);
+  Future<List<AskodoxJson>> setShopHoliday(String biz, String date, {String name = '', bool remove = false}) async =>
+      askodoxPosList((await _send('POST', '${_b(biz)}/attendance/holidays', body: {'date': date, 'name': name, 'remove': remove}))['holidays']);
   Future<AskodoxJson> reportDay(String biz, {String date = ''}) =>
       _send('GET', '${_b(biz)}/reports/day', query: {'date': date});
   Future<AskodoxJson> reportRange(String biz, {int days = 7}) =>

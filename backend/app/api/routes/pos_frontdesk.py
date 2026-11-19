@@ -1132,6 +1132,33 @@ def staff_advance(business_id: str, ref: str, body: StaffAdvanceIn, request: Req
     return _call(_att(request).advance, business_id, _user(request, "att-mark", 60), ref[:20], body.amount_paise, body.note)
 
 
+class StaffBonusIn(StaffAdvanceIn):
+    month: str = Field(default="", max_length=7)
+
+
+class HolidayIn(BaseModel):
+    date: str = Field(max_length=10)
+    name: str = Field(default="", max_length=40)
+    remove: bool = False
+
+
+@router.post("/businesses/{business_id}/staff/{ref}/bonus")
+def staff_bonus(business_id: str, ref: str, body: StaffBonusIn, request: Request) -> dict:
+    return _call(_att(request).bonus, business_id, _user(request, "att-mark", 60), ref[:20], body.amount_paise, body.note,
+                 body.month)
+
+
+@router.get("/businesses/{business_id}/attendance/holidays")
+def attendance_holidays(business_id: str, request: Request) -> dict:
+    return {"holidays": _call(_att(request).holidays, business_id, _user(request, "att", 120))}
+
+
+@router.post("/businesses/{business_id}/attendance/holidays")
+def attendance_set_holiday(business_id: str, body: HolidayIn, request: Request) -> dict:
+    return {"holidays": _call(_att(request).set_holiday, business_id, _user(request, "att-mark", 60), body.date, body.name,
+                              body.remove)}
+
+
 @router.get("/businesses/{business_id}/salary")
 def team_salary(business_id: str, request: Request, month: str = "") -> dict:
     return _call(_att(request).team_salary, business_id, _user(request, "att", 120), month[:7])

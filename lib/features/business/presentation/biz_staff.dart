@@ -567,6 +567,37 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
     return double.tryParse((v ?? '').trim());
   }
 
+  Future<void> _bonus() async {
+    final te = askodoxPosTe(context);
+    final c = TextEditingController();
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(te ? 'బోనస్ ఎంత?' : 'Bonus amount'),
+        content: TextField(
+            key: const Key('askodoxBonusBox'),
+            controller: c,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(prefixText: '₹ ')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(te ? 'వద్దు' : 'Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(te ? 'రాయి' : 'Save')),
+        ],
+      ),
+    );
+    c.dispose();
+    final paise = askodoxParsePaise(v ?? '');
+    if (paise == null || paise <= 0) return;
+    try {
+      await ref.read(askodoxPosRepositoryProvider).staffBonus(widget.businessId, widget.staffRef, paise);
+      await _load();
+      if (mounted) askodoxPosSnack(context, te ? 'బోనస్ ఈ నెల జీతంలో కలిసింది ✓' : 'Bonus added to this month ✓');
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
   Future<void> _advance() async {
     final te = askodoxPosTe(context);
     final c = TextEditingController();
@@ -782,6 +813,10 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
                     _line(te ? 'జీతం (${salary['days']} రోజులు × ${askodoxPaise(askodoxPosInt(salary['per_day_paise']))})' : 'Salary (${salary['days']} days × ${askodoxPaise(askodoxPosInt(salary['per_day_paise']))})',
                         askodoxPaise(askodoxPosInt(salary['base_paise']))),
                     _line('OT ${salary['ot_hours']} ${te ? 'గం.' : 'h'}', '+ ${askodoxPaise(askodoxPosInt(salary['ot_paise']))}'),
+                    if (askodoxPosInt(salary['holiday_days']) > 0)
+                      _line(te ? 'షాప్ సెలవు రోజులు (జీతంతో)' : 'Shop holidays (paid)', '${salary['holiday_days']}'),
+                    if (askodoxPosInt(salary['bonus_paise']) > 0)
+                      _line(te ? 'బోనస్' : 'Bonus', '+ ${askodoxPaise(askodoxPosInt(salary['bonus_paise']))}', color: _green),
                     _line(te ? 'అడ్వాన్స్' : 'Advance', '− ${askodoxPaise(askodoxPosInt(salary['advance_paise']))}', color: _red),
                     const Divider(),
                     _line(te ? 'ఇవ్వాల్సింది' : 'To give', askodoxPaise(askodoxPosInt(salary['net_paise'])), bold: true, color: _green),
@@ -798,6 +833,15 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
             tone: askodoxBizTones['purple']!,
             minHeight: 76,
             onTap: _advance,
+          ),
+          AskodoxBizTile(
+            key: const Key('askodoxStaffBonus'),
+            icon: Icons.card_giftcard,
+            title: te ? 'బోనస్ ఇస్తున్నా' : 'Give a bonus',
+            sub: te ? 'ఈ నెల జీతంలో కలుస్తుంది' : 'Added to this month',
+            tone: askodoxBizTones['green']!,
+            minHeight: 76,
+            onTap: _bonus,
           ),
           AskodoxBizTile(
             key: const Key('askodoxStaffPaySettings'),
@@ -1115,6 +1159,81 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
     }
   }
 
+  /// Shop holidays (owner 2026-11-20): a paid day off for monthly-salary staff. Add with the calendar, remove with ✕.
+  Future<void> _holidays() async {
+    final te = askodoxPosTe(context);
+    final repo = ref.read(askodoxPosRepositoryProvider);
+    var rows = <AskodoxJson>[];
+    try {
+      rows = await repo.shopHolidays(widget.businessId);
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+      return;
+    }
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (sheet, setLocal) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(te ? 'షాప్ సెలవు రోజులు' : 'Shop holidays', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text(
+                  te
+                      ? 'ఈ రోజుల్లో నెల జీతం ఉన్నవారికి జీతం కట్ అవ్వదు.'
+                      : 'People on a monthly salary are paid for these days.',
+                  style: const TextStyle(fontSize: 12.5)),
+              for (final h in rows)
+                ListTile(
+                  key: ValueKey('askodoxHoliday-${h['date']}'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.celebration_outlined),
+                  title: Text('${h['date']}${'${h['name'] ?? ''}'.isEmpty ? '' : ' · ${h['name']}'}'),
+                  trailing: IconButton(
+                    tooltip: te ? 'తీసేయి' : 'Remove',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () async {
+                      try {
+                        final next = await repo.setShopHoliday(widget.businessId, '${h['date']}', remove: true);
+                        setLocal(() => rows = next);
+                      } on AskodoxPosException catch (_) {
+                        // the list stays as it was
+                      }
+                    },
+                  ),
+                ),
+              OutlinedButton.icon(
+                key: const Key('askodoxHolidayAdd'),
+                icon: const Icon(Icons.add),
+                label: Text(te ? 'సెలవు రోజు చేర్చు' : 'Add a holiday'),
+                onPressed: () async {
+                  final now = DateTime.now();
+                  final day = await showDatePicker(
+                      context: sheet,
+                      initialDate: now,
+                      firstDate: now.subtract(const Duration(days: 31)),
+                      lastDate: now.add(const Duration(days: 366)));
+                  if (day == null) return;
+                  final date =
+                      '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+                  try {
+                    final next = await repo.setShopHoliday(widget.businessId, date);
+                    setLocal(() => rows = next);
+                  } on AskodoxPosException catch (_) {
+                    // the list stays as it was
+                  }
+                },
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _time(String key) async {
     final cur = '${_s?[key] ?? '09:00'}'.split(':');
     final t = await showTimePicker(
@@ -1187,6 +1306,15 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
                   tone: askodoxBizTones['orange']!,
                   minHeight: 72,
                   onTap: () => _time('end_time'),
+                ),
+                AskodoxBizTile(
+                  key: const Key('askodoxAttHolidays'),
+                  icon: Icons.celebration_outlined,
+                  title: te ? 'షాప్ సెలవు రోజులు' : 'Shop holidays',
+                  sub: te ? 'జీతంతో సెలవు' : 'Paid days off',
+                  tone: askodoxBizTones['purple']!,
+                  minHeight: 72,
+                  onTap: _holidays,
                 ),
                 AskodoxBizTile(
                   key: const Key('askodoxAttGrace'),
