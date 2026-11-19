@@ -207,6 +207,13 @@ def cited_source_ids(reply: str) -> set[int]:
     return {int(m) for m in re.findall(r"\[S(\d+)\]", reply or "")}
 
 
+def strip_source_markers(reply: str) -> str:
+    """Remove the internal ``[S1]`` / ``[S2][S4]`` markers from a reply the person reads
+    (the sources are already on the result cards; the markers mean nothing to them)."""
+    out = re.sub(r"\s*(?:\[S\d+\])+", "", reply or "")
+    return re.sub(r"[ \t]+([.,;:!?।])", r"\1", out)
+
+
 def sources_footer(
     sources: list[dict[str, Any]],
     locale: str,

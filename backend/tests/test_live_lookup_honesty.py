@@ -104,9 +104,9 @@ def test_new_phone_gets_live_evidence_labelled_sources_and_no_fake_verdict():
     assert labels["https://www.oppo.com/in/smartphones/find-x10/"] == "official"
     assert labels["https://www.91mobiles.com/x10"] == "news"
     assert labels["https://leaks.example.com/x10u"] == "rumor"
-    assert "ఆధారాలు (Sources)" in decision["reply"]
-    assert "[oppo.com](https://www.oppo.com/in/smartphones/find-x10/)" in decision["reply"]
-    assert "🔮 Leak / Rumor" in decision["reply"]
+    # Owner 2026-11-19: no [S#] markers and no repeated links list in the reply (the pages are on the cards).
+    assert "ఆధారాలు (Sources)" not in decision["reply"]
+    assert "[S" not in decision["reply"]
 
 
 def test_official_website_follow_up_takes_the_model_from_the_earlier_turn():
@@ -274,3 +274,9 @@ def test_sources_footer_is_empty_when_the_reply_cites_nothing():
 def test_sources_footer_without_cited_keeps_the_old_listing():
     sources = [{"label": "web", "url": "https://www.example.com/a", "title": "A"}]
     assert "example.com" in live_lookup.sources_footer(sources, "en", False)
+
+
+def test_strip_source_markers_removes_internal_numbers():
+    out = live_lookup.strip_source_markers("ధర ₹27,999 వరకు ఉంది [S1][S2][S4]. కొన్ని పేజీల్లో EMI [S2].")
+    assert "[S" not in out
+    assert out == "ధర ₹27,999 వరకు ఉంది. కొన్ని పేజీల్లో EMI."

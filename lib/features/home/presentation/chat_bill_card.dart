@@ -142,6 +142,8 @@ class _AskodoxChatBillCardState extends ConsumerState<AskodoxChatBillCard> {
     final te = widget.te;
     final unknown = [for (final n in (widget.card['unknown'] as List? ?? const [])) '#$n'];
     final bill = _bill;
+    // Nothing on the menu matched: the chat line above already says so -- no empty ₹0 bill card (owner 2026-11-19).
+    if (bill == null && _lines.isEmpty) return const SizedBox.shrink(key: Key('askodoxChatBillEmpty'));
     return Container(
       key: ValueKey('askodoxChatBill-$_txn'),
       margin: const EdgeInsets.only(bottom: 10),

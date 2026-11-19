@@ -358,7 +358,7 @@ class InAppAssistantService {
         // shows a chat-action button (app_action) under a reply. A Phase 1
         // build opens only Phase 1 screens, so the brain offers only those.
         // 'suggestions' = this build draws tap chips under the reply.
-        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief', if (askodoxShoppingMode) 'shopping_mode'],
+        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief', if (askodoxShoppingMode) 'shopping_mode', if (!askodoxPhase2 && askodoxShoppingMode) 'shopping_tools'],
       };
 
   /// The same decision as [decide], but a long answer (how-to guide / advice) is shown
