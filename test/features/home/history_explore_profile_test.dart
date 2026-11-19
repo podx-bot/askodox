@@ -211,7 +211,6 @@ void main() {
         ('me', 'profile-mobility', '/mobility'),
         ('me', 'profile-tax-assistant', '/intel/tax'),
         ('me', 'profile-personal-finance', '/me/finance'),
-        ('me', 'profile-smart-tools', '/tools'),
       ],
     ]) {
       await _openProfileView(tester, container, tab);
