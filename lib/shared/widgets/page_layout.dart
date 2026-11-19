@@ -180,10 +180,11 @@ Future<void> askodoxArrangeSection(
                   scale: Tween<double>(begin: 1, end: 1.06).animate(animation),
                   child: Material(elevation: 6, borderRadius: BorderRadius.circular(14), child: child),
                 ),
-                onReorder: (from, to) {
+                onReorderItem: (from, to) {
+                  // the new index is already adjusted for the removed item
                   final list = [...ids];
                   final moved = list.removeAt(from);
-                  list.insert(to > from ? to - 1 : to, moved);
+                  list.insert(to.clamp(0, list.length), moved);
                   ids = list;
                   save(layout.copyWith(order: list));
                 },
