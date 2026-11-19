@@ -130,8 +130,42 @@ def _payalert_missed(container: Any) -> Any:
     return {"missed": len(items), "pushed": sent}
 
 
+def _dues_followup(container: Any) -> Any:
+    """Baaki follow-up by itself: reminders to the customer, the promised date back to the shop (pos_dues_followup.py)."""
+    from app.services.pos_bills import PosBills
+    from app.services.pos_dues_followup import PosDuesFollowup
+    from app.services.pos_store import PosStore
+    from app.services.push_service import push_service
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    push = push_service(container)
+
+    def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+        push.notify(user_id, title=title, body=body, route=route, event_key=event_key)
+
+    return PosDuesFollowup(store, PosBills(store), notify=notify).run()
+
+
+def _expiry_alerts(container: Any) -> Any:
+    """Stock that expires soon -> ONE push a day to the shop owner (no searching by hand; owner 2026-11-19)."""
+    from app.services.pos_store import PosStore
+    from app.services.push_service import push_service
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    push = push_service(container)
+    shops = store.expiring_soon_all()
+    sent = 0
+    for shop in shops:
+        names = ", ".join(shop["names"][:3]) + (f" +{shop['count'] - 3}" if shop["count"] > 3 else "")
+        sent += bool(push.notify(shop["owner"], title=f"{shop['name']}: {shop['count']} expiring / ఎక్స్‌పైరీ దగ్గర",
+                                 body=names, route=f"/pos/{shop['business_id']}/stock-report",
+                                 event_key=f"expiry:{shop['business_id']}:{shop['day']}"))
+    return {"shops": len(shops), "pushed": sent}
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
             ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports),
-            ("payalert_missed", 60.0, _payalert_missed)]
+            ("payalert_missed", 60.0, _payalert_missed), ("dues_followup", 3600.0, _dues_followup),
+            ("expiry_alerts", 3600.0, _expiry_alerts)]

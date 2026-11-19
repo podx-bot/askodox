@@ -485,13 +485,50 @@ def bill_history(business_id: str, request: Request, date_from: str = "", date_t
 @router.get("/me/bills")
 def my_bills(request: Request) -> dict:
     """Bills shops sent to the signed-in person's number, with the shop's own UPI pay link for any balance."""
-    return {"bills": _call(_bills(request).my_bills, _user(request, "my-bills", 300))}
+    bills = _call(_bills(request).my_bills, _user(request, "my-bills", 300))
+    try:  # the date the person gave for a pending bill ("I will pay on ...")
+        given = dues_followup(request.app.state.container, _store(request), _bills(request)).promises(
+            [b["invoice_id"] for b in bills if int(b.get("due_paise") or 0) > 0])
+        for b in bills:
+            b["promised_date"] = given.get(b["invoice_id"], "")
+    except Exception:
+        pass
+    return {"bills": bills}
 
 
 @router.post("/me/bills/{token}/paid")
 def my_bill_paid(token: str, body: SaysPaidIn, request: Request) -> dict:
     _user(request, "my-bills", 60)
     return _call(_bills(request).customer_says_paid, token, body.app)
+
+
+class PromiseIn(BaseModel):
+    date: str
+
+
+def dues_followup(container: Any, store: Any, bills: Any):
+    from app.services.pos_dues_followup import PosDuesFollowup
+    from app.services.push_service import push_service
+
+    existing = getattr(container, "pos_dues_followup", None)
+    if existing is None or existing.store is not store:
+        def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
+            push_service(container).notify_async(user_id, title=title, body=body, route=route, event_key=event_key)
+
+        existing = PosDuesFollowup(store, bills, notify=notify)
+        try:
+            container.pos_dues_followup = existing
+        except Exception:
+            pass
+    return existing
+
+
+@router.post("/me/bills/{token}/promise")
+def my_bill_promise(token: str, body: PromiseIn, request: Request) -> dict:
+    """The customer's own answer to a baaki reminder: the date they will pay (the shop is told; reminders wait)."""
+    user = _user(request, "my-bills", 60)
+    return _call(dues_followup(request.app.state.container, _store(request), _bills(request)).promise, user, token,
+                 body.date[:10])
 
 
 bill_page_router = APIRouter(tags=["POS"])

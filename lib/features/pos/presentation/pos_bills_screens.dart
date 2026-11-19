@@ -440,6 +440,28 @@ class _AskodoxMyBillsScreenState extends ConsumerState<AskodoxMyBillsScreen> {
     }
   }
 
+  Future<void> _promise(AskodoxJson bill) async {
+    final te = askodoxPosTe(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final today = DateTime.now();
+    final day = await showDatePicker(
+        context: context,
+        initialDate: today.add(const Duration(days: 1)),
+        firstDate: today,
+        lastDate: today.add(const Duration(days: 60)),
+        helpText: te ? 'ఎప్పుడు కడతారు?' : 'When will you pay?');
+    if (day == null) return;
+    final date = '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+    try {
+      await ref.read(askodoxPosRepositoryProvider).myBillPromise('${bill['token']}', date);
+      messenger.showSnackBar(SnackBar(
+          content: Text(te ? 'షాప్‌కి తేదీ చెప్పాం ✓ అప్పటి వరకు గుర్తు చేయం.' : 'The shop has the date ✓ No reminders until then.')));
+      await _load();
+    } on AskodoxPosException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message(te))));
+    }
+  }
+
   Widget _card(bool te, AskodoxJson b) {
     final due = askodoxPosInt(b['due_paise']);
     final upi = _upi(b);
@@ -504,6 +526,18 @@ class _AskodoxMyBillsScreenState extends ConsumerState<AskodoxMyBillsScreen> {
                   style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
             ] else
               Text(te ? 'షాప్‌లో కట్టండి (షాప్ UPI ఇంకా జోడించలేదు).' : 'Pay at the shop (the shop has not added its UPI yet).'),
+            // Owner 2026-11-19: not paying today? One tap gives the shop a date; reminders wait until then.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: Key('askodoxMyBillPromise-${b['token']}'),
+                onPressed: () => _promise(b),
+                icon: const Icon(Icons.event_outlined, size: 18),
+                label: Text('${b['promised_date'] ?? ''}'.isNotEmpty
+                    ? (te ? '${b['promised_date']} న కడతానన్నారు · మార్చు' : 'You said ${b['promised_date']} · change')
+                    : (te ? 'ఇప్పుడు కాదా? ఎప్పుడు కడతారో చెప్పండి' : 'Not now? Tell the shop when you will pay')),
+              ),
+            ),
           ],
         ]),
       ),
