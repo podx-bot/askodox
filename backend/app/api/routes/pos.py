@@ -992,6 +992,57 @@ def record_purchase(business_id: str, body: PurchaseIn, request: Request) -> dic
     return out
 
 
+class BillPhotoIn(BaseModel):
+    images: List[Dict[str, Any]] = Field(default_factory=list, max_length=4)
+
+
+class BillPhotoSaveIn(BaseModel):
+    client_txn_id: str
+    supplier_id: Optional[str] = None
+    supplier: Dict[str, Any] = Field(default_factory=dict)
+    supplier_bill_no: str = ""
+    bill_date: Optional[str] = None
+    supplier_total_paise: Optional[int] = None
+    lines: List[Dict[str, Any]] = Field(default_factory=list, max_length=300)
+
+
+def _bill_photo(request: Request):
+    from app.services.pos_bill_photo import PosBillPhoto
+
+    return PosBillPhoto(_store(request), _purchases(request))
+
+
+@router.post("/businesses/{business_id}/purchases/photo")
+def purchase_bill_photo(business_id: str, body: BillPhotoIn, request: Request) -> dict:
+    """A photo of the supplier's bill -> supplier, bill number and every line as a PREVIEW (nothing is saved)."""
+    import base64
+
+    photos = []
+    for entry in body.images:
+        raw = str(entry.get("data") or "")
+        if len(raw) > 6_000_000:
+            raise HTTPException(status_code=413, detail="Photo too large. Use a smaller picture.")
+        try:
+            data = base64.b64decode(raw, validate=False)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Photo could not be read.")
+        mime = str(entry.get("mime") or "image/jpeg").lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp"):
+            raise HTTPException(status_code=400, detail="Send a JPEG or PNG photo.")
+        photos.append((data, mime))
+    container = getattr(request.app.state, "container", None)
+    service = getattr(container, "universal_image_service", None)
+    return _call(_bill_photo(request).preview, business_id, _user(request, "bill-photo", 20), photos, service)
+
+
+@router.post("/businesses/{business_id}/purchases/from-photo")
+def purchase_from_photo(business_id: str, body: BillPhotoSaveIn, request: Request) -> dict:
+    """The confirmed bill: missing supplier / items are created, then the SAME purchase record as a typed bill."""
+    out = _call(_bill_photo(request).save, business_id, _user(request), body.model_dump())
+    _online_sync(request, business_id, out.get("product_ids") or [])
+    return out
+
+
 @router.get("/businesses/{business_id}/purchases/{purchase_id}")
 def purchase(business_id: str, purchase_id: str, request: Request) -> dict:
     return _call(_purchases(request).purchase, business_id, _user(request), purchase_id)
