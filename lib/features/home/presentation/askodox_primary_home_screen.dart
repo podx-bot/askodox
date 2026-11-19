@@ -3879,7 +3879,9 @@ class _AskodoxPrimaryHomeScreenState
     reply = askodoxWithoutSources(reply); // source links are read, not spoken
     final markup = reply;
     final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160); // talk: the first words start sooner
-    if (chunks.length > 1) {
+    // Owner 2026-11-19: the words appear WITH the voice, not before it -- a short (one-chunk) reply takes the same
+    // reveal path as a long one in the real app.
+    if (chunks.length > 1 || (askodoxSpeakTypedReplies && chunks.length == 1 && !force && !deviceOnly)) {
       await _speakChunks(markup, chunks, userText: userText, deviceOnly: deviceOnly);
       return;
     }
@@ -4181,6 +4183,9 @@ class _AskodoxPrimaryHomeScreenState
   void _showStreamingReply(String textSoFar) {
     if (!mounted || !_sending) return;
     _prefetchFirstSpokenChunk(textSoFar);
+    // A spoken turn in the real app: the growing text stays hidden (the "thinking" state shows) and is revealed
+    // sentence by sentence as the voice says it.
+    if (askodoxSpeakTypedReplies && _streamSpeaks) return;
     setState(() => _streamingReply = textSoFar.isEmpty ? null : textSoFar);
     // Follow the growing answer without animating on every piece.
     if (textSoFar.length - _streamingScrolledAt >= 80 || _streamingScrolledAt == 0) {

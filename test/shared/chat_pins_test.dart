@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 AskodoxChatPin _pin(String id) => AskodoxChatPin(id: id, route: '/$id', en: id, te: id);
 
 void main() {
-  test('at most three pins; a fourth replaces the chosen one; pins are links by key id (owner 2026-11-19)', () async {
+  test('at most five pins; a sixth replaces the chosen one; pins are links by key id (owner 2026-11-19)', () async {
     SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -15,10 +15,16 @@ void main() {
     pins.pin(_pin('a'));
     pins.pin(_pin('b'));
     pins.pin(_pin('c'));
+    pins.pin(_pin('e1'));
+    pins.pin(_pin('e2'));
     pins.pin(_pin('d')); // no room, nothing named to replace -> ignored
-    expect([for (final p in container.read(askodoxChatPinsProvider).pins) p.id], ['a', 'b', 'c']);
+    expect([for (final p in container.read(askodoxChatPinsProvider).pins) p.id], ['a', 'b', 'c', 'e1', 'e2']);
     pins.pin(_pin('d'), replace: 'b');
-    expect([for (final p in container.read(askodoxChatPinsProvider).pins) p.id], ['a', 'c', 'd']);
+    expect([for (final p in container.read(askodoxChatPinsProvider).pins) p.id], ['a', 'c', 'e1', 'e2', 'd']);
+    pins.move('d', -1);
+    expect([for (final p in container.read(askodoxChatPinsProvider).pins) p.id], ['a', 'c', 'e1', 'd', 'e2']);
+    pins.move('a', -1); // already first: stays
+    expect(container.read(askodoxChatPinsProvider).pins.first.id, 'a');
     pins.pin(_pin('a')); // pinning again does not duplicate
     expect(container.read(askodoxChatPinsProvider).pins.where((p) => p.id == 'a').length, 1);
     pins.unpin('c');

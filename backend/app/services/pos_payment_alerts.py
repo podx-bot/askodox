@@ -385,10 +385,21 @@ class PosPaymentAlerts:
             key = "*" if r["source"] == "*" else self._ref(business_id, r["source"])
             listening[key] = {"muted": bool(r["muted"]),
                               "paused_until": r["paused_until"] if r["paused_until"] > now else ""}
+        # Owner 2026-11-19: the staff list is the OWNER's. A staff member sees only the owner and the people who chose
+        # to let them hear their payments -- never the other staff the owner added.
+        owner = people[0]["user"]
+        if user != owner:
+            my_ref = self._ref(business_id, user)
+            shares_with_me = set()
+            for r in conn.execute("SELECT source, mode, listeners FROM pos_alert_share WHERE business_id = ?", (business_id,)):
+                if r["mode"] == "all" or (r["mode"] == "some" and my_ref in json.loads(r["listeners"] or "[]")):
+                    shares_with_me.add(r["source"])
+            people = [p for p in people if p["user"] in (user, owner) or p["user"] in shares_with_me]
         return {
             "people": [{"ref": p["ref"], "name": p["label"], "role": p["role"], "me": p["user"] == user} for p in people],
-            "my_share": {"mode": share["mode"] if share else "all",
-                         "listeners": [x for x in json.loads(share["listeners"]) if x in refs] if share else []},
+            "my_share": {"mode": share["mode"] if share else ("all" if user == owner else "some"),
+                         "listeners": ([x for x in json.loads(share["listeners"]) if x in refs] if share
+                                       else ([] if user == owner else [self._ref(business_id, owner)]))},
             "my_listening": listening,
         }
 
@@ -884,6 +895,11 @@ class PosPaymentAlerts:
                                  (business_id, source)).fetchone()
             if share and share["mode"] == "none":
                 return []
+            # No choice made yet: the owner's payments go to the allowed people; a staff member's go to the owner only
+            # (never to the other staff) until that person chooses otherwise.
+            owner = self.store._business_row(conn, business_id)["owner_user_id"]
+            if not share and source != owner:
+                people = [u for u in people if u == owner]
             if share and share["mode"] == "some":
                 chosen = set(json.loads(share["listeners"] or "[]"))
                 people = [u for u in people if self._ref(business_id, u) in chosen]
@@ -1000,6 +1016,9 @@ class PosPaymentAlerts:
                 raise PosError(404, "event", "Event not found.")
             conn.execute("INSERT OR REPLACE INTO pos_payment_acks (event_id, device_id, user_id, state, at)"
                          " VALUES (?,?,?,?,?)", (event_id, device_id, user, state, self._now().isoformat()))
+            # What the phone did with it (announced / tts_failed / muted / quiet_hours ...): the one trail that tells
+            # "notification came, no sound" apart from "never arrived".
+            print(f"ASKODOX PAYALERT ACK: event={event_id[-6:]} user=..{user[-4:]} state={state}", flush=True)
             return self._event_out(conn, row, user)
 
     def export_csv(self, business_id: str, user: str) -> str:

@@ -15,6 +15,7 @@ import '../domain/pos_money.dart';
 import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
 import 'shop_rating_screens.dart';
+import '../../../shared/widgets/chat_pins.dart' show askodoxLiveOrdersProvider;
 
 /// Front desk, customer side (owner 2026-11-15): scan / type the shop's order code -> the menu + a receptionist
 /// (voice or typing) -> one order that goes to the kitchen, then follow it live. Money is paid to the shop's own UPI.
@@ -406,6 +407,9 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
         'notes': _notes.text.trim(),
         'client_txn_id': _txn,
       });
+      if (mounted) {
+        await ref.read(askodoxLiveOrdersProvider.notifier).refresh();
+      }
       if (mounted) context.pushReplacement('/order-desk/track/${order['id']}');
     } on AskodoxPosException catch (e) {
       if (mounted) {

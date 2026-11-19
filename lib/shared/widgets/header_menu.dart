@@ -10,6 +10,7 @@ import '../../features/home/application/conversation_archive.dart' show AskodoxC
 import '../../features/profile/data/user_profile_repository.dart' show askodoxUserProfileProvider;
 import '../../features/profile/presentation/profile_editor.dart' show askodoxOpenProfileEditor;
 import '../../features/profile/presentation/profile_screen.dart' show askodoxProfileViewProvider;
+import 'chat_pins.dart';
 
 /// Header Menu: ONE list of the places that already exist (no new screens,
 /// no duplicate entry points -- each item opens the existing route).
@@ -137,6 +138,11 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
                                   key: key,
                                   borderRadius: BorderRadius.circular(14),
                                   onTap: () => Navigator.pop(sheet, value),
+                                  // Owner 2026-11-19: any menu page can be pinned above the chat (press and hold).
+                                  onLongPress: value.startsWith('/')
+                                      ? () => askodoxOfferChatPin(
+                                          context, AskodoxChatPin(id: 'menu:$value', route: value, en: label, te: label))
+                                      : null,
                                   child: Container(
                                     constraints: const BoxConstraints(minHeight: 56),
                                     padding: const EdgeInsets.all(10),

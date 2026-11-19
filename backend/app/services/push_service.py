@@ -231,6 +231,10 @@ class PushService:
         # Owner 2026-11-17 (a staff phone hears it one time, not the next): the delivery trail, no identities.
         logger.info("push.data key=%s user=..%s tokens=%d sent=%d codes=%s", event_key[:40], user_id[-4:], len(tokens),
                     sent, codes)
+        # print: the app logger's INFO lines never reach Railway (a staff phone that shows the alert but stays silent
+        # could not be traced, owner 2026-11-19). No identities beyond the last 4.
+        print(f"ASKODOX PUSH DATA: key={event_key[:40]} user=..{user_id[-4:]} tokens={len(tokens)} sent={sent} codes={codes}",
+              flush=True)
         return sent
 
     def send_data_async(self, user_id: str, **kwargs: Any) -> None:

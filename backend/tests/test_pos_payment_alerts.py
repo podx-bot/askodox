@@ -445,3 +445,15 @@ def test_member_can_be_edited_and_removed_by_the_last_four_digits(env):
     with pytest.raises(PosError) as err:
         store.member_by_ref(biz, OWNER, "9999", "cashier")
     assert err.value.status == 404
+
+
+def test_staff_never_see_the_other_staff_the_owner_added(env):
+    store, alerts, biz, owner_dev, cashier_dev, pushes, _feature, clock = env
+    store.set_member(biz, OWNER, "9400000302", "cashier", "Ravi")
+    store.set_member(biz, OWNER, "9400000303", "waiter", "Prasad")
+    store.business(biz, "app-phone-9400000303")  # Prasad signs in: the member row gets his account
+    assert {p["name"] for p in alerts.settings(biz, OWNER)["people"]} >= {"Ravi", "Prasad"}
+    mine = alerts.settings(biz, CASHIER)
+    assert "Prasad" not in {p["name"] for p in mine["people"]}, "the staff list belongs to the owner"
+    assert {p["role"] for p in mine["people"]} == {"owner", "cashier"}
+    assert mine["my_share"]["mode"] == "some" and len(mine["my_share"]["listeners"]) == 1

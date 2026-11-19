@@ -16,11 +16,13 @@ import 'features/companion/companion_performance_panel.dart';
 import 'features/analytics/application/analytics_providers.dart';
 import 'features/analytics/domain/analytics_models.dart';
 import 'core/startup/startup_hint.dart';
+import 'shared/widgets/chat_pins.dart' show askodoxLiveOrderChip;
 import 'features/home/presentation/askodox_primary_home_screen.dart' show askodoxSpeakTypedReplies;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AskodoxStartupMetrics.markMain();
+  askodoxLiveOrderChip = true; // running orders sit above the chat by themselves
   askodoxSpeakTypedReplies = true; // owner 2026-11-19: text + voice on every reply
   // A restart scope around the ONE provider container: sign-out rebuilds the
   // app with fresh state (no data of the previous account survives in memory).

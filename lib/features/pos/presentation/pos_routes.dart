@@ -20,6 +20,7 @@ import 'pos_records_screens.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
 import 'pos_selfshop_screens.dart';
+import 'pos_shop_tool_screen.dart';
 
 /// Universal POS routes (entry: My Business -> Shop billing).
 /// Shown in Phase 1 too: a person's own UPI QR / bank, so people pay them directly.
@@ -66,6 +67,25 @@ final askodoxFrontDeskRoutes = <GoRoute>[
 ];
 
 final askodoxPosRoutes = <GoRoute>[
+  // /my-shop/<tool>: the shop is found for the person (owner 2026-11-19: any shop tool from the chat or a pin).
+  GoRoute(path: '/my-shop/sale', builder: (context, state) => const AskodoxShopToolScreen(tool: 'sale')),
+  GoRoute(path: '/my-shop/payment-alerts', builder: (context, state) => const AskodoxShopToolScreen(tool: 'payment-alerts')),
+  GoRoute(path: '/my-shop/collect', builder: (context, state) => const AskodoxShopToolScreen(tool: 'collect')),
+  GoRoute(path: '/my-shop/orders', builder: (context, state) => const AskodoxShopToolScreen(tool: 'orders')),
+  GoRoute(path: '/my-shop/tables', builder: (context, state) => const AskodoxShopToolScreen(tool: 'tables')),
+  GoRoute(path: '/my-shop/kitchen', builder: (context, state) => const AskodoxShopToolScreen(tool: 'kitchen')),
+  GoRoute(path: '/my-shop/items', builder: (context, state) => const AskodoxShopToolScreen(tool: 'items')),
+  GoRoute(path: '/my-shop/suppliers', builder: (context, state) => const AskodoxShopToolScreen(tool: 'suppliers')),
+  GoRoute(path: '/my-shop/expiry', builder: (context, state) => const AskodoxShopToolScreen(tool: 'expiry')),
+  GoRoute(path: '/my-shop/customers', builder: (context, state) => const AskodoxShopToolScreen(tool: 'customers')),
+  GoRoute(path: '/my-shop/agents', builder: (context, state) => const AskodoxShopToolScreen(tool: 'agents')),
+  GoRoute(path: '/my-shop/bills', builder: (context, state) => const AskodoxShopToolScreen(tool: 'bills')),
+  GoRoute(path: '/my-shop/day', builder: (context, state) => const AskodoxShopToolScreen(tool: 'day')),
+  GoRoute(path: '/my-shop/gst', builder: (context, state) => const AskodoxShopToolScreen(tool: 'gst')),
+  GoRoute(path: '/my-shop/staff', builder: (context, state) => const AskodoxShopToolScreen(tool: 'staff')),
+  GoRoute(path: '/my-shop/printer', builder: (context, state) => const AskodoxShopToolScreen(tool: 'printer')),
+  GoRoute(path: '/my-shop/advance', builder: (context, state) => const AskodoxShopToolScreen(tool: 'advance')),
+  GoRoute(path: '/my-shop/selfshop', builder: (context, state) => const AskodoxShopToolScreen(tool: 'selfshop')),
   GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
   GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/collect', builder: (context, state) => AskodoxPosCollectScreen(businessId: state.pathParameters['id']!)),
