@@ -1951,6 +1951,28 @@ class _AskodoxPrimaryHomeScreenState
       setState(() => _sending = false);
     }
 
+    // A shop's role agent named in the chat ("స్టాక్ ఏజెంట్ ఏం తక్కువ ఉంది?", owner 2026-11-19): that agent answers
+    // here from the shop's own records within the person's role; no shop / no permission -> the chat carries on.
+    if (attachments.isEmpty && typed.isNotEmpty && askodoxChatAgentOf(typed) != null) {
+      setState(() => _sending = true);
+      final answer = await askodoxChatAgentAsk(ref, askodoxChatAgentOf(typed)!, typed, _te);
+      if (!mounted) return;
+      if (answer != null) {
+        setState(() {
+          _active = true;
+          _turns.add(ConversationTurnRecord(text: typed, isUser: true));
+          _turns.add(ConversationTurnRecord(text: answer, isUser: false));
+          _sending = false;
+        });
+        if (preset == null) _controller.clear();
+        _scrollBottom();
+        if (speakResponse) unawaited(_speakReply(answer, userText: typed));
+        unawaited(_saveSnapshot());
+        return;
+      }
+      setState(() => _sending = false);
+    }
+
     // A person who runs a business: "ఈ రోజు ఎంత అమ్మాం?" / "చికెన్ 65 ఆఫ్ చెయ్యి" works here too (owner 2026-11-18) --
     // the answer appears in the chat, a page opens, or ONE change waits for ✓. Anything else carries on below.
     if (attachments.isEmpty && typed.isNotEmpty && askodoxLooksLikeBusinessTalk(typed)) {

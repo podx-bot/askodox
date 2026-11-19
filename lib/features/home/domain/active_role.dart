@@ -36,6 +36,10 @@ const askodoxProfileRoles = [
   AskodoxUserRole.deliveryPartner,
 ];
 
+/// Owner 2026-11-18 / 19: Phase 1 offers only these two roles in the roles card (others wait for Phase 2; roles a
+/// person already holds stay shown).
+const askodoxPhase1ProfileRoles = [AskodoxUserRole.buyer, AskodoxUserRole.seller];
+
 String askodoxUserRoleLabel(AskodoxUserRole role, {bool telugu = false}) {
   if (telugu) {
     return switch (role) {

@@ -957,11 +957,19 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
           ? AskodoxPosError(error: _error!, onRetry: _load)
           : ListView(key: const Key('askodoxDeskMenu'), padding: const EdgeInsets.all(14), children: [
               Text(te ? 'చెప్పండి లేదా రాయండి: "మటన్ బిర్యానీ 250 ఈ రోజు మాత్రమే, చికెన్ బిర్యానీ 170, టీ 10"' : 'Say or type: "mutton biryani 250 today only, chicken biryani 170, tea 10"'),
+              // Owner 2026-11-19: bulk upload -- rows copied from Excel / Google Sheets / a CSV file are read as a table.
+              Text(
+                  te
+                      ? 'ఎక్కువ ఐటమ్స్ ఉంటే: Excel / Google Sheets నుంచి వరుసలు (పేరు, ధర, యూనిట్, కేటగిరీ) కాపీ చేసి ఇక్కడ పేస్ట్ చేయండి — ఒకేసారి 200 వరకు.'
+                      : 'Many items? Copy rows (name, price, unit, category) from Excel / Google Sheets and paste here — up to 200 at once.',
+                  key: const Key('askodoxDeskMenuBulkHint'),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('askodoxDeskMenuText'),
                 controller: _text,
-                maxLines: 3,
+                minLines: 3,
+                maxLines: 8,
                 decoration: InputDecoration(border: const OutlineInputBorder(), suffixIcon: askodoxBoxMic(context, _text)),
               ),
               const SizedBox(height: 8),

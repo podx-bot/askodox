@@ -344,7 +344,10 @@ class PosFrontDesk:
             existing = {pos_menu_voice.normalize(r["name"]): r["price_paise"] for r in conn.execute(
                 "SELECT name, price_paise FROM pos_products WHERE business_id = ? AND active = 1", (business_id,))}
         default_unit = "plate" if business["template"] in ("restaurant", "bakery") else "pcs"
-        items = pos_menu_voice.parse_menu(text, default_unit)
+        # Owner 2026-11-19 (bulk upload): rows pasted from Excel / Sheets / CSV are read as a table first.
+        from app.services import pos_menu_table
+
+        items = pos_menu_table.parse(text, default_unit) or pos_menu_voice.parse_menu(text, default_unit)
         for item in items:
             key = pos_menu_voice.normalize(item["name"])
             item["exists"] = key in existing

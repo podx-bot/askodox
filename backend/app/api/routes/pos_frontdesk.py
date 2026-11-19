@@ -100,7 +100,7 @@ class BillIn(BaseModel):
 
 
 class MenuTextIn(BaseModel):
-    text: str = Field(min_length=1, max_length=4000)
+    text: str = Field(min_length=1, max_length=20000)
 
 
 class MenuPhotoIn(BaseModel):
