@@ -1,7 +1,7 @@
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../business/presentation/biz_chat.dart';
 import '../../pos/data/pos_repository.dart' show AskodoxJson, askodoxPosRepositoryProvider;
-import '../../../shared/widgets/chat_pins.dart' show AskodoxChatPinStrip;
+import '../../../shared/widgets/chat_pins.dart' show AskodoxChatPinStrip, askodoxLiveOrderChip, askodoxLiveOrdersProvider;
 import '../../../core/flags/askodox_release_phase.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -1897,6 +1897,8 @@ class _AskodoxPrimaryHomeScreenState
     if (_sending || _analyzingAttachments || (typed.isEmpty && attachments.isEmpty)) {
       return;
     }
+    // The running-order chips above the chat follow what is happening (a new order, a finished one).
+    if (askodoxLiveOrderChip) unawaited(ref.read(askodoxLiveOrdersProvider.notifier).refresh());
     // Owner 2026-11-19: EVERY reply is text + voice (typed turns too); the Mute button is the only way off.
     speakResponse = speakResponse || (askodoxSpeakTypedReplies && !_speechMuted);
     var text = typed;

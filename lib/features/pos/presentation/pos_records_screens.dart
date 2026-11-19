@@ -262,7 +262,7 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
     };
     try {
       await ref.read(askodoxPosRepositoryProvider).updateProduct(widget.businessId, '${p['id']}', {'offer': offer});
-      _reload();
+      if (mounted) _reload();
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(te));
     }

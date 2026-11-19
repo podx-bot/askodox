@@ -198,8 +198,21 @@ class AskodoxLiveOrdersController extends StateNotifier<List<AskodoxJson>> {
       } catch (_) {
         // an older server: orders only
       }
+      // A shop person: the running orders of their own shop(s), one chip per shop, while any is running.
+      final shopChips = <AskodoxJson>[];
+      try {
+        for (final shop in (await repo.businesses()).take(3)) {
+          final running = askodoxPosList((await repo.deskOrders('${shop['id']}'))['orders']);
+          if (running.isNotEmpty) {
+            shopChips.add({'shop_orders': true, 'id': 'shop-${shop['id']}', 'business_id': shop['id'], 'count': running.length});
+          }
+        }
+      } catch (_) {
+        // not a shop person, or no permission for the orders desk: no chip
+      }
       if (mounted) {
         state = [
+          ...shopChips,
           for (final r in reserved) if ('${r['status']}' == 'booked') {...r, 'reservation': true},
           for (final o in orders) if (!_closed.contains('${o['stage']}')) o,
         ];
@@ -288,12 +301,16 @@ class AskodoxChatPinStrip extends ConsumerWidget {
                     avatar: Icon('${o['kind']}' == 'dine_in' ? Icons.table_restaurant_outlined : Icons.receipt_long_outlined,
                         size: 16, color: const Color(0xFF17784C)),
                     label: Text(
-                        o['reservation'] == true
+                        o['shop_orders'] == true
+                            ? (te ? 'నడుస్తున్న ఆర్డర్లు (${o['count']})' : 'Running orders (${o['count']})')
+                            : o['reservation'] == true
                             ? '${o['table_name']} · ${te ? 'రిజర్వ్' : 'Reserved'}'
                             : '${o['table_name'] ?? o['business_name'] ?? ''} · ${'${o['kind']}' == 'dine_in' ? (te ? 'అడగండి' : 'Ask') : (te ? 'ఆర్డర్' : 'Order')}',
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     onPressed: () async {
-                      if (o['reservation'] == true) {
+                      if (o['shop_orders'] == true) {
+                        await context.push('/desk/${o['business_id']}');
+                      } else if (o['reservation'] == true) {
                         await _showReservation(context, ref, o, te);
                       } else {
                         await context.push('/order-desk/track/${o['id']}');
