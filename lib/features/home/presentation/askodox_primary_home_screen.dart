@@ -22,6 +22,8 @@ import '../../../services/multimodal_capture_service.dart';
 import '../../../services/reply_speech_service.dart';
 import '../../../services/support_escalation_service.dart';
 import '../domain/app_care.dart';
+import '../domain/own_money_records.dart';
+import '../../pos/data/pos_payment_alerts.dart' show askodoxPaymentAlertsBridgeProvider;
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
@@ -2185,6 +2187,18 @@ class _AskodoxPrimaryHomeScreenState
         (askodoxWantsCustomerCare(typed) || (_issueTurns > 0 && askodoxLooksLikeIssue(typed)))) {
       _pendingAiContext = askodoxAppCareGuidance();
       _pendingDiscussOnly = true;
+    }
+
+    // "Was money cut from my bank / did the payment come?" -> answered from THIS phone's own payment records
+    // (owner 2026-11-19), not from a guess; no search.
+    if (_pendingAiContext == null && attachments.isEmpty && askodoxAsksOwnMoney(typed)) {
+      try {
+        final events = await ref.read(askodoxPaymentAlertsBridgeProvider).localEvents();
+        _pendingAiContext = askodoxMoneyFactsGuidance(events);
+        _pendingDiscussOnly = true;
+      } catch (_) {
+        // no records readable: the normal answer still says it cannot see the bank
+      }
     }
 
     // A question about the video attached here -> its grounded study
