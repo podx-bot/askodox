@@ -757,7 +757,14 @@ def test_shopping_mode_puts_askodox_shops_first_and_labels_outside_results(env, 
     assert on["reply"].startswith("On ASKODOX") and on["app_action"]["key"] == "order_shop"
     buy = {**chat, "mode": "commerce", "reply": "Here are TVs."}
     outside = ask("television", ["app_actions", "shopping_mode"], buy)
-    assert outside["outside_askodox"] is True and "outside" in outside["reply"] and outside["reply"].endswith("Here are TVs.")
+    # No search runs this turn (search_ready False): the note must NOT promise outside results.
+    assert outside["outside_askodox"] is True and outside["reply"].startswith("Not found in ASKODOX shops.")
+    assert "outside" not in outside["reply"].lower() and outside["reply"].endswith("Here are TVs.")
+    searching = ask("television", ["app_actions", "shopping_mode"], {**buy, "search_ready": True})
+    assert "searching outside" in searching["reply"]
+    ask_more = ask("one biryani order", ["app_actions", "shopping_mode"],
+                   {**buy, "reply": "How many plates?", "transactional": True})
+    assert "outside" not in ask_more["reply"].lower() and ask_more["reply"].endswith("How many plates?")
     small_talk = ask("hello", ["app_actions", "shopping_mode"], {**chat, "reply": "Hi!"})
     assert small_talk["reply"] == "Hi!", "no outside label on small talk"
 

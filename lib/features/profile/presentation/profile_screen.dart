@@ -571,7 +571,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ]),
     ];
 
-    // ---- Help & app (Phase 1: at the bottom of Profile itself; Phase 2: in the Settings tab)
+    // ---- Work tools (owner 2026-11-19): the tools a shop runs on, one row each; they open the existing screens.
+    final toolsSections = <Widget>[
+      AskodoxNavSection(
+          key: const Key('askodoxProfileSection-worktools'),
+          title: t('Work tools', 'పని సాధనాలు'),
+          icon: Icons.handyman_outlined,
+          children: [
+            row('profile-pos', 'me', Icons.point_of_sale_rounded, 'POS, billing, GST & stock', 'POS, బిల్లింగ్, GST & స్టాక్',
+                'Counter bills, invoices, purchases, staff, printer.', 'కౌంటర్ బిల్లులు, ఇన్వాయిస్, కొనుగోళ్లు, స్టాఫ్, ప్రింటర్.',
+                () => context.push('/pos'), route: '/pos', words: ['pos', 'bill', 'gst', 'stock', 'invoice', 'బిల్', 'స్టాక్']),
+            row('profile-crm', 'me', Icons.people_alt_outlined, 'Customers & leads', 'కస్టమర్లు & లీడ్స్',
+                'Customers, quotations, follow-ups, dues.', 'కస్టమర్లు, కొటేషన్లు, ఫాలో-అప్‌లు, బాకీలు.',
+                () => context.push('/crm'), route: '/crm', words: ['crm', 'customer', 'lead', 'కస్టమర్']),
+          ]),
+    ];
+
+    // ---- Help & app (Settings view; the in-app update button only in a flagged tester build)
     final helpSections = <Widget>[
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-help'),
@@ -644,7 +660,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 'ASKODOX ఏమి దాస్తుంది, ఎందుకు, మీ హక్కులు.',
                 () => launchUrl(Uri.parse('https://askodox.com/privacy/'), mode: LaunchMode.externalApplication),
                 words: ['privacy', 'policy', 'terms', 'గోప్యత', 'నిబంధనలు']),
-            if (ref.watch(askodoxIsStaffProvider).valueOrNull == true) (ListTile(
+            if (askodoxShowStaffTile && ref.watch(askodoxIsStaffProvider).valueOrNull == true) (ListTile(
                     key: const ValueKey('profile-staff-workspace'),
                     leading: const Icon(Icons.badge_outlined),
                     title: Text(t('Staff Workspace', 'స్టాఫ్ వర్క్‌స్పేస్')),
@@ -659,6 +675,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       }
                     })),
           ]),
+      if (askodoxShowInAppUpdate)
       AskodoxNavSection(
           key: const Key('askodoxProfileSection-app'),
           title: t('App', 'యాప్'),
@@ -740,10 +757,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ]),
     ];
 
-    // Help lives in Settings (Phase 2) / on Profile (Phase 1); saying "help" / "సహాయం" finds it too.
-    entries.add(_ProfileEntry('profile-help', askodoxPhase2 ? 'settings' : 'me', Icons.support_agent_rounded, 'Help & Customer Care',
+    // Owner 2026-11-19: Tools = work tools only (POS / GST / stock, customers). Help, report a problem and the
+    // privacy policy live in Settings; saying "help" / "సహాయం" finds them there.
+    entries.add(_ProfileEntry('profile-help', 'settings', Icons.support_agent_rounded, 'Help & Customer Care',
         'సహాయం & కస్టమర్ కేర్', const ['help', 'support', 'care', 'సహాయం', 'కస్టమర్'],
-        () => setState(() => _tab = askodoxPhase2 ? 'settings' : 'me')));
+        () => setState(() => _tab = 'settings')));
     // A running walkthrough whose next button sits in another tab: open that tab.
     final guide = ref.watch(askodoxGuideProvider);
     if (guide != null && !guide.done) {
@@ -815,9 +833,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ]),
         ),
         ...settingsSections,
+        ...helpSections,
       ];
     } else {
-      shown = [...meSections, ...helpSections];
+      shown = [...meSections, ...toolsSections];
     }
 
     return Scaffold(

@@ -7811,15 +7811,24 @@
         "flutter": []
       },
       "dependencies": [],
-      "status": "approved",
+      "status": "deprecated",
       "purpose": "Owner 2026-11-18: the third bottom tab (was Explore / history) becomes ASKODOX Shopping -- shops registered on ASKODOX first, affiliate links by the search; no Google / web / videos. Saved & history moves to the ☰ menu.",
       "expected_behavior": "A shop opens its own menu to order inside ASKODOX; nothing found -> one tap to search everywhere in the main chat.",
       "history": [
         {
           "date": "2026-11-18",
           "change": "new tab"
+        },
+        {
+          "date": "2026-11-19",
+          "change": "page removed; bottom-bar button became the shopping-mode switch"
         }
-      ]
+      ],
+      "deprecation": {
+        "approved_by": "owner (2026-11-19, chat)",
+        "date": "2026-11-19",
+        "migration": "The separate ASKODOX Shopping page is removed. The bottom-bar Shopping button is now the shopping-mode ON/OFF switch (see shopping_mode_button); the conversation stays in the chat; \"Order with shop code / QR\" and \"Shops I follow\" moved to the ☰ menu. GET /api/pos/shopping stays for the chat."
+      }
     },
     {
       "id": "bill_next_and_print_pending",
@@ -7899,6 +7908,78 @@
         {
           "date": "2026-11-19",
           "change": "new"
+        }
+      ]
+    },
+    {
+      "id": "shopping_mode_button",
+      "name": "Shopping mode = the bottom-bar Shopping button (green ON / grey OFF), banner in the chat, no separate page",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "shopping",
+        "chat"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxNavHistory",
+          "askodoxNavShoppingState",
+          "askodoxShoppingModeBanner",
+          "askodoxShoppingOrderCode",
+          "askodoxShoppingFollowing"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/home/shopping_mode_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: the existing Shopping button next to Home is the switch; ON = green, OFF = grey, OFF every time the app opens. ON = ASKODOX-registered shops answer first in the chat; there is no second page.",
+      "expected_behavior": "One tap flips the mode and shows the chat; a short banner 'షాపింగ్ మోడ్ ఆన్ / ఆఫ్' blinks ~2 s in the chat (not saved in history, read out to screen readers). The ☰ menu holds 'Order with shop code / QR' and 'Shops I follow'.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "tile_drag_layout",
+      "name": "Hub tiles: press-and-hold, drag to a new place (phone style), saved per person",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "layout"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "askodoxPageLayoutProvider",
+          "askodoxArrangedIds"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/shared/tile_drag_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: arrange hub buttons like phone apps.",
+      "expected_behavior": "Long-press lifts a tile; dropping on another tile moves it there; order saved per account; Arrange sheet still renames / hides / resets; nothing is deleted.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new; not phone verified"
         }
       ]
     }

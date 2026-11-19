@@ -15,7 +15,6 @@ import '../../features/plans/presentation/ai_credits_screen.dart';
 import '../../features/plans/presentation/plans_screen.dart';
 import '../../features/radio/presentation/travel_radio_screen.dart';
 import '../../features/pos/presentation/pos_routes.dart';
-import '../../features/pos/presentation/askodox_shopping_screen.dart';
 import '../../features/shops/presentation/shop_follow_routes.dart';
 import '../../features/smart_tools/presentation/smart_tools_routes.dart';
 import '../../features/talk/presentation/talk_routes.dart';
@@ -133,11 +132,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             StatefulShellBranch(routes: [
               GoRoute(path: '/search', redirect: (context, state) => '/')
             ]),
-            // Owner 2026-11-18: the third tab is ASKODOX Shopping; Saved & history opens from the ☰ menu.
+            // Owner 2026-11-19: no Shopping page. The third tab slot is only the shopping-mode switch (the
+            // bottom-bar button never opens this branch); an old link to /shopping lands on the chat.
             StatefulShellBranch(routes: [
-              GoRoute(
-                  path: '/shopping',
-                  builder: (context, state) => const AskodoxShoppingScreen())
+              GoRoute(path: '/shopping', redirect: (context, state) => '/')
             ]),
             StatefulShellBranch(routes: [
               GoRoute(

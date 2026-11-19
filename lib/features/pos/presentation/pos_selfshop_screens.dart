@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../home/application/conversation_archive.dart';
 import '../data/pos_hardware.dart';
@@ -9,6 +8,7 @@ import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
 import 'pos_sale_screen.dart' show AskodoxPosPaymentSheet;
+import '../../../shared/widgets/qr_poster.dart';
 
 String _itemName(AskodoxJson item, bool te) =>
     te && '${item['name_te'] ?? ''}'.isNotEmpty ? '${item['name_te']}' : '${item['name'] ?? ''}';
@@ -123,7 +123,16 @@ class _AskodoxPosSelfShopScreenState extends ConsumerState<AskodoxPosSelfShopScr
                             Text(te ? 'ఈ రోజు ప్రవేశ కోడ్ (ద్వారం దగ్గర చూపించండి)' : "Today's entry code (show it at the entrance)",
                                 style: const TextStyle(fontWeight: FontWeight.w700)),
                             const SizedBox(height: 8),
-                            QrImageView(key: const Key('askodoxPosSelfShopQr'), data: '${d['qr']}', size: 190),
+                            AskodoxQrPoster(
+                              qrKey: const Key('askodoxPosSelfShopQr'),
+                              data: '${d['qr']}',
+                              te: te,
+                              title: '${d['shop'] ?? d['name'] ?? ''}',
+                              size: 190,
+                              fileName: 'askodox-entry-code',
+                              instructionEn: 'Scan with ASKODOX to start self-shopping',
+                              instructionTe: 'ASKODOX తో స్కాన్ చేసి సెల్ఫ్ షాపింగ్ మొదలుపెట్టండి',
+                            ),
                             Text('${d['code']}',
                                 key: const Key('askodoxPosSelfShopCode'),
                                 style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 6)),

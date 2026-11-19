@@ -20,6 +20,12 @@ const bool askodoxPhase2 = bool.fromEnvironment('ASKODOX_PHASE2');
 /// walkthroughs stay (nothing deleted); ASKODOX_GUIDE_BUTTON=true also turns them on for a test build.
 const bool askodoxGuidesOn = askodoxPhase2 || bool.fromEnvironment('ASKODOX_GUIDE_BUTTON');
 
+/// Owner 2026-11-19: the Tools tab holds only work tools. Staff Workspace lives on the Home chat shortcut and
+/// updates come from the Play Store, so these two Profile entries stay OFF unless a test build asks for them
+/// (--dart-define=ASKODOX_STAFF_TILE=true / ASKODOX_APP_UPDATE_BUTTON=true for a sideloaded tester APK).
+const bool askodoxShowStaffTile = bool.fromEnvironment('ASKODOX_STAFF_TILE');
+const bool askodoxShowInAppUpdate = bool.fromEnvironment('ASKODOX_APP_UPDATE_BUTTON');
+
 /// The Google Play bundle (owner 2026-11-10). Digital goods there must go through Play Billing, so
 /// the Razorpay AI Credits recharge is not offered in this build (balance + history still show).
 const bool askodoxPlayStoreBuild = bool.fromEnvironment('ASKODOX_PLAY_STORE');

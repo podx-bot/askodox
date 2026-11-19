@@ -207,3 +207,14 @@ def test_a_routed_answer_is_shown_from_the_routing_stream():
         s["messages"][0]["content"])]
     assert routing and routing[0]["messages"][0]["content"][0].get("cache_control"), "the fixed part is cached"
     assert routing[0]["model"] == "claude-haiku-5-5"
+
+
+def test_an_explanation_the_routing_call_already_wrote_is_not_written_twice():
+    """Owner 2026-11-19 (20 s turn): when the routing call itself answered with explain_steps and the user's own words
+    are not a how-to, the separate guide writer is skipped (one model call, not two)."""
+    long_reply = "Your HDFC debit shows only on this phone's records; open My money to see each amount. " * 2
+    brain, _, http = _brain(claude=True, decision=_decision(
+        transactional=False, action="explain_steps", domain="GENERAL", reply=long_reply))
+    _streaming(brain, http, _sse("SECOND CALL"))
+    out = brain.decide("my account balance changed today", locale="en")
+    assert out["reply"].startswith(long_reply.strip()) and "SECOND CALL" not in out["reply"]

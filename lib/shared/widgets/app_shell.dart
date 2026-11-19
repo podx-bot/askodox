@@ -25,6 +25,7 @@ import 'askodox_inner_theme.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../features/companion/companion_floating.dart';
 import '../../features/companion/companion_hub.dart';
+import '../../features/home/domain/shopping_mode.dart';
 
 const _navInk = Color(0xFF10204A);
 const _navAccent = Color(0xFF4F46FF);
@@ -364,7 +365,12 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         currentBranch: shell.currentIndex,
         isTe: isTe,
         onHome: () => shell.goBranch(0, initialLocation: true),
-        onHistory: () => shell.goBranch(2, initialLocation: true),
+        // The Shopping button is the shopping-mode switch (owner 2026-11-19): one tap flips it and shows the chat
+        // (there is no separate Shopping page). Green = ON, grey = OFF.
+        onHistory: () {
+          ref.read(askodoxShoppingModeProvider.notifier).state = !ref.read(askodoxShoppingModeProvider);
+          if (shell.currentIndex != 0) shell.goBranch(0, initialLocation: true);
+        },
         onPayments: () => context.push('/me/payments'),
         onCompanion: () {
           // "Ask" = ONE tap starts listening (a second tap stops and sends).
@@ -414,7 +420,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
       child: Row(children: [
         _item('askodoxNavHome', currentBranch == 0, Icons.home_outlined, Icons.home_rounded, isTe ? 'హోమ్' : 'Home', onHome),
         // Past conversations, saved options and requests to revisit.
-        _item('askodoxNavHistory', currentBranch == 2, Icons.shopping_bag_outlined, Icons.shopping_bag_rounded, isTe ? 'షాపింగ్' : 'Shopping', onHistory),
+        _shoppingItem(ref.watch(askodoxShoppingModeProvider)),
         // The ONE "Ask" button: one tap = speak to ASKODOX (tap again to stop
         // and send). Owner, 2026-11-04: the word "Ask" instead of a mic / a
         // ring of actions.
@@ -460,6 +466,30 @@ class _PrimaryBottomBar extends ConsumerWidget {
         // Owner 2026-11-18: this tab is the everyday TOOLS; personal / business details moved to the ☰ menu.
         _item('askodoxNavProfile', currentBranch == 4, Icons.apps_outlined, Icons.apps_rounded, isTe ? 'టూల్స్' : 'Tools', onProfile),
       ]),
+    ));
+  }
+
+  Widget _shoppingItem(bool on) {
+    const green = Color(0xFF1F9D55);
+    final color = on ? green : _navInk;
+    return Expanded(
+        child: Semantics(
+      button: true,
+      toggled: on,
+      label: isTe ? (on ? 'షాపింగ్ మోడ్ ఆన్' : 'షాపింగ్ మోడ్ ఆఫ్') : (on ? 'Shopping mode on' : 'Shopping mode off'),
+      child: InkWell(
+        key: const Key('askodoxNavHistory'),
+        onTap: onHistory,
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(on ? Icons.shopping_bag_rounded : Icons.shopping_bag_outlined, color: on ? green : const Color(0xFF9CA3AF), size: 24),
+          const SizedBox(height: 4),
+          Text(isTe ? 'షాపింగ్' : 'Shopping',
+              style: TextStyle(fontSize: 11, fontWeight: on ? FontWeight.w800 : FontWeight.w700, color: on ? color : const Color(0xFF6B7280))),
+          Text(on ? (isTe ? 'ఆన్' : 'ON') : (isTe ? 'ఆఫ్' : 'OFF'),
+              key: const Key('askodoxNavShoppingState'),
+              style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: on ? green : const Color(0xFF9CA3AF))),
+        ]),
+      ),
     ));
   }
 

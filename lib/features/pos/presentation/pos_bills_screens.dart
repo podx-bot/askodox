@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
 import 'pos_sale_screen.dart' show askodoxPrintInvoice;
+import '../../../shared/widgets/qr_poster.dart';
 
 /// Bills after the counter (owner 2026-11-16): the shop's bill history (how each bill was paid, what is pending,
 /// remind / mark paid) and the customer's own "My bills" (pay the shop's UPI straight from the bill).
@@ -411,7 +411,18 @@ class _AskodoxMyBillsScreenState extends ConsumerState<AskodoxMyBillsScreen> {
         builder: (dialog) => AlertDialog(
               title: Text('${bill['shop']} · ${askodoxBillRupees(askodoxPosInt(bill['due_paise']))}'),
               content: SizedBox(
-                  width: 240, child: QrImageView(key: const Key('askodoxMyBillQr'), data: _upi(bill), size: 220)),
+                  width: 260,
+                  child: AskodoxQrPoster(
+                    qrKey: const Key('askodoxMyBillQr'),
+                    data: _upi(bill),
+                    te: te,
+                    title: '${bill['shop']}',
+                    size: 190,
+                    actions: false,
+                    fileName: 'askodox-bill-qr',
+                    footnoteEn: "Shop's own UPI · ASKODOX never holds your money",
+                    footnoteTe: 'షాప్ సొంత UPI · ASKODOX మీ డబ్బు ఉంచుకోదు',
+                  )),
               actions: [TextButton(onPressed: () => Navigator.of(dialog).pop(), child: Text(te ? 'సరే' : 'OK'))],
             ));
   }

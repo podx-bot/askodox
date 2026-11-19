@@ -22,6 +22,8 @@ import '../../../services/multimodal_capture_service.dart';
 import '../../../services/reply_speech_service.dart';
 import '../../../services/support_escalation_service.dart';
 import '../domain/app_care.dart';
+import '../domain/own_money_records.dart';
+import '../../pos/data/pos_payment_alerts.dart' show askodoxPaymentAlertsBridgeProvider;
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
@@ -41,6 +43,7 @@ import '../../companion/companion_hub.dart';
 import '../application/saved_options.dart';
 import '../domain/follow_up_router.dart';
 import '../domain/search_readiness.dart';
+import '../domain/shopping_mode.dart';
 import '../../../services/self_heal_reporter.dart';
 import '../data/greeting_repository.dart';
 import '../domain/attachment_intent.dart';
@@ -1155,8 +1158,7 @@ class _AskodoxPrimaryHomeScreenState
   /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
   /// to open, keyed by the USER turn; a button under the next assistant turn.
   final Map<int, AskodoxAppAction> _appActionByTurn = {};
-  // Shopping mode (owner 2026-11-19): OFF when the app opens; ON = ASKODOX-registered shops answer first.
-  bool _shoppingMode = false;
+  // Shopping mode (owner 2026-11-19) = askodoxShoppingModeProvider, switched by the bottom-bar Shopping button.
   // The short "Shopping mode on / off" banner in the chat box: ~2 s, blinks, never saved in the history.
   String? _modeBanner;
   Timer? _modeBannerTimer;
@@ -2185,6 +2187,18 @@ class _AskodoxPrimaryHomeScreenState
         (askodoxWantsCustomerCare(typed) || (_issueTurns > 0 && askodoxLooksLikeIssue(typed)))) {
       _pendingAiContext = askodoxAppCareGuidance();
       _pendingDiscussOnly = true;
+    }
+
+    // "Was money cut from my bank / did the payment come?" -> answered from THIS phone's own payment records
+    // (owner 2026-11-19), not from a guess; no search.
+    if (_pendingAiContext == null && attachments.isEmpty && askodoxAsksOwnMoney(typed)) {
+      try {
+        final events = await ref.read(askodoxPaymentAlertsBridgeProvider).localEvents();
+        _pendingAiContext = askodoxMoneyFactsGuidance(events);
+        _pendingDiscussOnly = true;
+      } catch (_) {
+        // no records readable: the normal answer still says it cannot see the bank
+      }
     }
 
     // A question about the video attached here -> its grounded study
@@ -4200,6 +4214,9 @@ class _AskodoxPrimaryHomeScreenState
   @override
   Widget build(BuildContext context) {
     ref.watch(askodoxReplyLanguageProvider);
+    ref.listen<bool>(askodoxShoppingModeProvider, (previous, on) {
+      if (previous != on) _onShoppingMode(on, _te);
+    });
     final te = _te;
     _publishCompanion();
     // The centre mic / companion opens on Main Chat: a video, details or
@@ -4251,104 +4268,47 @@ class _AskodoxPrimaryHomeScreenState
               if (_active) _shopCartBar(te),
               // The person's own pinned shortcuts (max 3, owner 2026-11-19); folds to a handle, never over the keyboard.
               if (!keyboard) const AskodoxChatPinStrip(),
-              _shoppingModeBar(te),
+              _shoppingModeBanner(te),
               _composer(te)
             ]);
           }),
         ])));
   }
 
-  void _toggleShoppingMode(bool te) {
-    final on = !_shoppingMode;
+  /// The bottom-bar Shopping button flipped the mode: keep the assistant flag in step and show the short banner
+  /// ("షాపింగ్ మోడ్ ఆన్ / ఆఫ్") that blinks for ~2 s and is never saved in the chat history.
+  void _onShoppingMode(bool on, bool te) {
     askodoxShoppingMode = on;
     final text = on ? (te ? 'షాపింగ్ మోడ్ ఆన్' : 'Shopping mode on') : (te ? 'షాపింగ్ మోడ్ ఆఫ్' : 'Shopping mode off');
     _modeBannerTimer?.cancel();
-    setState(() {
-      _shoppingMode = on;
-      _modeBanner = text;
-    });
+    setState(() => _modeBanner = text);
     _modeBannerTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) setState(() => _modeBanner = null);
     });
   }
 
-  /// "షాపింగ్ మోడ్" switch just above the chat box: grey = OFF, green = ON, always with the words ఆన్ / ఆఫ్ and a
-  /// moving knob (colour is never the only sign). The banner shows for ~2 s after a tap and blinks.
-  Widget _shoppingModeBar(bool te) {
-    final on = _shoppingMode;
+  /// Only the banner (no switch here: the switch is the bottom-bar button). Green text = ON, grey = OFF.
+  Widget _shoppingModeBanner(bool te) {
     final banner = _modeBanner;
+    if (banner == null) return const SizedBox.shrink();
+    final on = ref.read(askodoxShoppingModeProvider);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      child: Row(children: [
-        Semantics(
-          button: true,
-          toggled: on,
-          label: te ? 'షాపింగ్ మోడ్' : 'Shopping mode',
-          child: InkWell(
-            key: const Key('askodoxShoppingModeSwitch'),
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => _toggleShoppingMode(te),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
-              decoration: BoxDecoration(
-                color: on ? const Color(0xFFE6F6EC) : const Color(0xFFF1F2F4),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: on ? const Color(0xFF1F9D55) : const Color(0xFFC4C9D2)),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.shopping_bag_outlined, size: 16, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF6B7280)),
-                const SizedBox(width: 4),
-                Text(te ? 'షాపింగ్ మోడ్' : 'Shopping mode',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
-                const SizedBox(width: 6),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 50,
-                  height: 24,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                      color: on ? const Color(0xFF1F9D55) : const Color(0xFF9CA3AF), borderRadius: BorderRadius.circular(12)),
-                  child: Stack(children: [
-                    Align(
-                      alignment: on ? Alignment.centerLeft : Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(on ? (te ? 'ఆన్' : 'ON') : (te ? 'ఆఫ్' : 'OFF'),
-                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.white)),
-                      ),
-                    ),
-                    AnimatedAlign(
-                      duration: const Duration(milliseconds: 180),
-                      alignment: on ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                          width: 20, height: 20, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                    ),
-                  ]),
-                ),
-              ]),
-            ),
-          ),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: TweenAnimationBuilder<double>(
+        key: ValueKey('askodoxShoppingModeBanner-$banner'),
+        tween: Tween(begin: 0, end: 4),
+        duration: const Duration(milliseconds: 1600),
+        builder: (context, t, child) => Opacity(opacity: 0.45 + 0.55 * ((t % 1) < 0.5 ? 1 : 0), child: child),
+        // liveRegion: screen readers read the banner out when it appears.
+        child: Semantics(
+          liveRegion: true,
+          child: Text(banner,
+              key: const Key('askodoxShoppingModeBanner'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
         ),
-        const SizedBox(width: 8),
-        if (banner != null)
-          Expanded(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey('askodoxShoppingModeBanner-$banner'),
-              tween: Tween(begin: 0, end: 4),
-              duration: const Duration(milliseconds: 1600),
-              builder: (context, t, child) => Opacity(opacity: 0.45 + 0.55 * ((t % 1) < 0.5 ? 1 : 0), child: child),
-              // liveRegion: screen readers read the banner out when it appears.
-              child: Semantics(
-                liveRegion: true,
-                child: Text(banner,
-                  key: const Key('askodoxShoppingModeBanner'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
-              ),
-            ),
-          ),
-      ]),
+      ),
     );
   }
 
@@ -4476,7 +4436,12 @@ class _AskodoxPrimaryHomeScreenState
       _VoicePhase.idle => (te ? 'మైక్ సిద్ధం చేస్తున్నాను…' : 'Getting the mic ready…', const Color(0xFF94A3B8)),
     };
     final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: true));
-    final lastReply = _turns.lastWhere((t) => !t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: false));
+    // The previous answer is never shown under a NEW question (owner phone test 2026-11-19): until this question's
+    // answer starts to arrive, the answer line stays empty.
+    final awaitingReply = _turns.isNotEmpty && _turns.last.isUser;
+    final lastReply = awaitingReply
+        ? const ConversationTurnRecord(text: '', isUser: false)
+        : _turns.lastWhere((t) => !t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: false));
     final size = 150.0 + (_voicePhase == _VoicePhase.recording ? level * 70 : 0) + (_voicePhase == _VoicePhase.speaking ? 18 : 0);
     return Positioned.fill(
       child: Material(

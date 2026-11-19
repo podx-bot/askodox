@@ -288,8 +288,13 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
             found = _desk(request).find_items(user_words, 3)
             if not found:
                 if shopping and wants:
-                    note = ("ASKODOX షాపుల్లో దొరకలేదు — ఇవి బయటి ఫలితాలు:" if te
-                            else "Not found in ASKODOX shops — these are results from outside:")
+                    # Never promise "these are outside results" unless a search really runs this turn (a reply that only
+                    # asks "how many plates?" has no results -- owner phone test 2026-11-19).
+                    searching = bool(decision.get("search_ready"))
+                    if te:
+                        note = "ASKODOX షాపుల్లో దొరకలేదు, బయట వెతుకుతున్నాను:" if searching else "ASKODOX షాపుల్లో దొరకలేదు."
+                    else:
+                        note = "Not found in ASKODOX shops, searching outside:" if searching else "Not found in ASKODOX shops."
                     old = str(decision.get("reply") or "").strip()
                     return {**decision, "reply": note + ("\n\n" + old if old else ""), "outside_askodox": True}
                 return decision

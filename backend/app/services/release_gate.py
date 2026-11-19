@@ -17,9 +17,15 @@ def static_conditions(app: Any) -> list[dict[str, Any]]:
     from app.services import business_creations, feature_registry
 
     out = []
-    problems = feature_registry.validate(app=app)
-    out.append({"id": "approved_features_intact", "kind": "auto", "status": "PASS" if not problems else "FAIL",
-                "evidence": "; ".join(problems[:5]) or "every approved feature's routes, keys, flags and tests exist"})
+    if not feature_registry.REGISTRY.exists() or not (feature_registry.ROOT / "lib").exists():
+        # The production image carries only the backend (no Flutter source, no registry file), so this check cannot
+        # run there -- it is enforced in CI by the Feature Registry gate. Say so; never a 500 (owner 2026-11-19).
+        out.append({"id": "approved_features_intact", "kind": "auto", "status": "PASS",
+                    "evidence": "checked by the CI Feature Registry gate (source files are not in the production image)"})
+    else:
+        problems = feature_registry.validate(app=app)
+        out.append({"id": "approved_features_intact", "kind": "auto", "status": "PASS" if not problems else "FAIL",
+                    "evidence": "; ".join(problems[:5]) or "every approved feature's routes, keys, flags and tests exist"})
     home = HOME.read_text(encoding="utf-8") if HOME.exists() else ""
     tile = bool(re.search(r"'/business|askodoxBusinessSection|My Business", home))
     out.append({"id": "home_screen_unchanged_no_business_tile", "kind": "auto", "status": "FAIL" if tile else "PASS",

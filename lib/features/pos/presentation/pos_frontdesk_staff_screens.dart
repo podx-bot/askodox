@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/media_picker.dart';
@@ -16,6 +15,7 @@ import '../domain/pos_money.dart';
 import '../domain/order_steps.dart' show askodoxClockWords;
 import 'pos_common.dart';
 import 'pos_frontdesk_screens.dart' show askodoxTableAskIcon;
+import '../../../shared/widgets/qr_poster.dart';
 
 /// Front desk, shop side (owner 2026-11-15): ONE orders desk for table / shop-QR / counter / reception orders,
 /// the spoken menu, and the QR page. Cooks accept + move the stages, a cashier bills; every rule is the server's.
@@ -1168,17 +1168,28 @@ class _AskodoxDeskQrScreenState extends ConsumerState<AskodoxDeskQrScreen> {
     await _load();
   }
 
-  Widget _qr(String title, String code) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            QrImageView(data: code, size: 180),
-            SelectableText(code, style: const TextStyle(fontSize: 11)),
-          ]),
-        ),
-      );
+  Widget _qr(String title, String code) {
+    final te = askodoxPosTe(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(children: [
+          AskodoxQrPoster(
+            data: code,
+            te: te,
+            title: '${_data?['shop'] ?? _data?['name'] ?? ''}',
+            label: title,
+            size: 180,
+            fileName: 'askodox-qr-${title.replaceAll(RegExp(r'\s+'), '-')}',
+            instructionEn: 'Scan with ASKODOX to see the menu and order',
+            instructionTe: 'ASKODOX తో స్కాన్ చేసి మెనూ చూడండి, ఆర్డర్ చేయండి',
+          ),
+          const SizedBox(height: 6),
+          SelectableText(code, style: const TextStyle(fontSize: 11)),
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

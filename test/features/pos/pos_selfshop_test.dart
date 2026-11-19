@@ -82,6 +82,9 @@ void main() {
       }
       return <String, Object?>{};
     });
+    tester.view.physicalSize = const Size(900, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(api, const AskodoxPosSelfShopScreen(businessId: 'b1')));
     await tester.pumpAndSettle();
     expect(find.text('483920'), findsOneWidget);
