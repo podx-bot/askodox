@@ -394,7 +394,7 @@ class _AskodoxPrimaryHomeScreenState
 
   /// Voice that starts with the words (owner 2026-11-19): while a spoken turn's answer is still streaming, the
   /// first sentence's audio is fetched at once, so speaking begins the moment the answer lands instead of
-  /// waiting for a fresh TTS call. Keyed "<language>|<plain text>"; a miss simply fetches as before.
+  /// waiting for a fresh TTS call. Keyed `language|plain text`; a miss simply fetches as before.
   final Map<String, Future<Uint8List?>> _earlyAudio = {};
   bool _streamSpeaks = false;
   bool _earlyAudioAsked = false;
