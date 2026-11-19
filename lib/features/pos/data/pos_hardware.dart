@@ -14,6 +14,7 @@ import '../../../services/chat_attachment_service.dart';
 import '../../../services/media_picker.dart';
 import '../../devices/data/ble_gateway.dart';
 import '../domain/pos_scale.dart';
+import '../presentation/live_scan_screen.dart';
 
 /// Barcode scanning from a camera PHOTO, decoded on the phone in pure Dart
 /// (zxing_lib: EAN / UPC / Code 128 / QR ...). A live camera-preview scanner
@@ -117,8 +118,8 @@ List<String> askodoxDecodeAllBarcodesPixels(AskodoxScanImage image) {
   return found;
 }
 
-final askodoxBarcodeScannerProvider =
-    Provider<AskodoxBarcodeScanner>((ref) => PhotoBarcodeScanner(ref.watch(askodoxMediaPickerProvider)));
+final askodoxBarcodeScannerProvider = Provider<AskodoxBarcodeScanner>(
+    (ref) => LiveBarcodeScanner(PhotoBarcodeScanner(ref.watch(askodoxMediaPickerProvider))));
 
 /// Pixels of a photo, scaled so the long side is at most [maxSide] (speed), as ARGB ints.
 Future<AskodoxScanImage> askodoxDecodeForScan(Uint8List bytes, {int maxSide = 1400}) async {
@@ -319,3 +320,31 @@ class AskodoxScaleReader {
 }
 
 final askodoxScaleReaderProvider = Provider<AskodoxScaleReader>((ref) => AskodoxScaleReader(ref.watch(askodoxBleGatewayProvider)));
+
+/// Live camera scan (owner 2026-11-19): point the camera, the code is read by itself. When the live camera cannot
+/// start (no camera, permission refused) it falls back to the photo way, so a counter is never stuck.
+class LiveBarcodeScanner implements AskodoxBarcodeScanner {
+  const LiveBarcodeScanner(this._photo);
+  final PhotoBarcodeScanner _photo;
+
+  @override
+  Future<String?> scan(BuildContext context) async {
+    final result = await Navigator.of(context).push<Object?>(MaterialPageRoute(builder: (_) => const AskodoxLiveScanScreen()));
+    if (result is String) return result;
+    if (result == AskodoxLiveScanScreen.usePhoto) return _photo.scan(context);
+    return null; // closed without a code
+  }
+}
+
+/// Luminance (Y plane, with its row padding) of a camera frame as ARGB grey pixels for zxing.
+AskodoxScanImage askodoxScanImageFromLuma(Uint8List y, int width, int height, int bytesPerRow) {
+  final out = Int32List(width * height);
+  for (var row = 0; row < height; row++) {
+    final base = row * bytesPerRow;
+    for (var col = 0; col < width; col++) {
+      final v = y[base + col];
+      out[row * width + col] = 0xFF000000 | (v << 16) | (v << 8) | v;
+    }
+  }
+  return AskodoxScanImage(width, height, out);
+}
