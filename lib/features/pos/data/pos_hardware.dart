@@ -331,7 +331,7 @@ class LiveBarcodeScanner implements AskodoxBarcodeScanner {
   Future<String?> scan(BuildContext context) async {
     final result = await Navigator.of(context).push<Object?>(MaterialPageRoute(builder: (_) => const AskodoxLiveScanScreen()));
     if (result is String) return result;
-    if (result == AskodoxLiveScanScreen.usePhoto) return _photo.scan(context);
+    if (result == AskodoxLiveScanScreen.usePhoto && context.mounted) return _photo.scan(context);
     return null; // closed without a code
   }
 }
