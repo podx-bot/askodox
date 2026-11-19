@@ -24,6 +24,8 @@ const bool askodoxGuidesOn = askodoxPhase2 || bool.fromEnvironment('ASKODOX_GUID
 /// updates come from the Play Store, so these two Profile entries stay OFF unless a test build asks for them
 /// (--dart-define=ASKODOX_STAFF_TILE=true / ASKODOX_APP_UPDATE_BUTTON=true for a sideloaded tester APK).
 const bool askodoxShowStaffTile = bool.fromEnvironment('ASKODOX_STAFF_TILE');
+/// Smart Tools (camera / measure / meters) are off the app until the owner says so (2026-11-19); the code and backend stay.
+const bool askodoxShowSmartTools = bool.fromEnvironment('ASKODOX_SMART_TOOLS');
 const bool askodoxShowInAppUpdate = bool.fromEnvironment('ASKODOX_APP_UPDATE_BUTTON');
 
 /// The Google Play bundle (owner 2026-11-10). Digital goods there must go through Play Billing, so
