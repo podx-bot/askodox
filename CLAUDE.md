@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #361 + #362 (2026-11-20, owner "start"; Play bundle from Live Build run 44589361201): pins = 5, movable, any header-menu
+  page (`chat_pins.dart`); every shop tool by talking / pin via `/my-shop/<tool>` (`pos_shop_tool_screen.dart`, chat rows `shop_*` in
+  PHASE1_KEYS); chat shop menu = asked items (`focus`), three ways always, compact - n +; reply words appear WITH the voice in the real
+  app (`askodoxSpeakTypedReplies`); payment alerts: a staff member never sees other staff, staff payments default to the owner only,
+  `ASKODOX PUSH DATA` / `ASKODOX PAYALERT ACK` lines in the deploy log; running order / reserved table chip above the chat
+  (`askodoxLiveOrdersProvider`, on only in `main()`); supplier bill photo (`pos_bill_photo.py`, `/purchases/photo` + `/from-photo`, review
+  screen pushed from the purchase page -- no router path); baaki follow-up job (`pos_dues_followup.py`, customer "I will pay on" in My
+  bills, in-app pushes only); daily expiry push (`expiring_soon_all`); table reservation (`pos_reservations.py`, 90 min slot, 15 min hold,
+  sheets in `pos_reservation_sheets.dart`). Staff attendance + salary already existed (`pos_attendance.py`). Nothing phone verified.
 - `main` PR #351-#359 (2026-11-19, owner "1"; Play bundle `askodox-play-1567.aab`, Live Build run 44560273135): QR poster, ASKODOX
   Shopping bottom-bar switch (green / grey; `shopping_mode` + `shopping_tools` capabilities add pos_bill / crm / my_bills / money /
   payments to the Phase 1 chat catalogue), tile drag + pin button on shop tiles (existing `chat_pins.dart`), live barcode scan
@@ -608,8 +617,8 @@ this file, don't trust it blindly.
   four FIREBASE_* GitHub variables -> git-ignored `android/app/google-services.json` + Dart define file; the Google
   Services plugin (4.5.0, settings.gradle.kts) is applied only when that file exists; `check-apk` proves the APK
   carries it. Never commit google-services.json or print the values.
-- `flutter analyze` in `android-apk.yml` (build-apk) is FATAL on infos too; CI logs are not readable through the
-  proxy -- push a throwaway branch whose workflow echoes analyzer / test lines as `::warning::` annotations.
+- `flutter analyze` in `android-apk.yml` (build-apk) is FATAL on infos too (e.g. `<x>` in a `///` comment outside backticks). The
+  job log IS readable: `gh api repos/podx-bot/askodox/actions/jobs/<job id>/logs | grep "info •"`.
 - AXE (`executive_ai.py`) only composes existing gate / incidents / billing / registry; it never runs actions.
 - Universal POS = `pos_tax.py` (pure GST arithmetic, versioned `RULES_VERSION`, sourced) + `pos_store.py` (tables `pos_*`)
   + `routes/pos.py` (`/api/pos/*`); app `lib/features/pos` (entry My Business -> `/pos`). Money = integer paise, qty =
