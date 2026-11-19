@@ -476,15 +476,19 @@ class _PrimaryBottomBar extends ConsumerWidget {
         child: Semantics(
       button: true,
       toggled: on,
-      label: isTe ? (on ? 'షాపింగ్ మోడ్ ఆన్' : 'షాపింగ్ మోడ్ ఆఫ్') : (on ? 'Shopping mode on' : 'Shopping mode off'),
+      label: isTe ? (on ? 'ASKODOX షాపింగ్ ఆన్' : 'ASKODOX షాపింగ్ ఆఫ్') : (on ? 'ASKODOX Shopping on' : 'ASKODOX Shopping off'),
       child: InkWell(
         key: const Key('askodoxNavHistory'),
         onTap: onHistory,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(on ? Icons.shopping_bag_rounded : Icons.shopping_bag_outlined, color: on ? green : const Color(0xFF9CA3AF), size: 24),
           const SizedBox(height: 4),
-          Text(isTe ? 'షాపింగ్' : 'Shopping',
-              style: TextStyle(fontSize: 11, fontWeight: on ? FontWeight.w800 : FontWeight.w700, color: on ? color : const Color(0xFF6B7280))),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(isTe ? 'ASKODOX షాపింగ్' : 'ASKODOX Shopping',
+                maxLines: 1,
+                style: TextStyle(fontSize: 11, fontWeight: on ? FontWeight.w800 : FontWeight.w700, color: on ? color : const Color(0xFF6B7280))),
+          ),
           Text(on ? (isTe ? 'ఆన్' : 'ON') : (isTe ? 'ఆఫ్' : 'OFF'),
               key: const Key('askodoxNavShoppingState'),
               style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: on ? green : const Color(0xFF9CA3AF))),

@@ -16,10 +16,12 @@ import 'features/companion/companion_performance_panel.dart';
 import 'features/analytics/application/analytics_providers.dart';
 import 'features/analytics/domain/analytics_models.dart';
 import 'core/startup/startup_hint.dart';
+import 'features/home/presentation/askodox_primary_home_screen.dart' show askodoxSpeakTypedReplies;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AskodoxStartupMetrics.markMain();
+  askodoxSpeakTypedReplies = true; // owner 2026-11-19: text + voice on every reply
   // A restart scope around the ONE provider container: sign-out rebuilds the
   // app with fresh state (no data of the previous account survives in memory).
   runApp(const AskodoxAppRestart(child: _AnalyticsBootstrap()));
