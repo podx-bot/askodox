@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../shared/widgets/chat_pins.dart' show askodoxLiveOrdersProvider;
 import '../../pos/data/pos_repository.dart';
 import '../../pos/presentation/shop_rating_screens.dart' show askodoxRatingLine;
 import '../application/chat_shop_cart.dart';
@@ -241,6 +242,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
       });
       if (mounted) setState(() => _orderId = '${order['id']}');
       _publish();
+      if (mounted) await ref.read(askodoxLiveOrdersProvider.notifier).refresh(); // the shortcut appears above the chat
     } on AskodoxPosException catch (e) {
       messenger.showSnackBar(SnackBar(
           content: Text(e.kind == 'sign_in'

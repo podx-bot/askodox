@@ -8013,11 +8013,15 @@
       "dependencies": [],
       "status": "approved",
       "purpose": "Owner 2026-11-19: put 'New bill' (and any shop tile) on the chat screen when wanted, remove when not.",
-      "expected_behavior": "A tile with a screen shows a small pin; tap -> pin above the chat (max 3, replace one when full) or remove. Pins are links, stored per account.",
+      "expected_behavior": "A tile with a screen shows a small pin; tap -> pin above the chat (max 5, replace one when full) or remove. Pins are links, stored per account.",
       "history": [
         {
           "date": "2026-11-19",
           "change": "new; not phone verified"
+        },
+        {
+          "date": "2026-11-19",
+          "change": "five pins, move earlier / later, pin from the header menu"
         }
       ]
     },
@@ -8049,6 +8053,76 @@
       "status": "approved",
       "purpose": "Owner 2026-11-19: registered business people ask for new bill / customers / money by talking.",
       "expected_behavior": "capability shopping_tools adds pos_bill, pos_payment_alerts, crm, my_bills, my_money, my_payments to the Phase 1 chat catalogue; never a screen the build lacks.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "shop_tools_by_talking",
+      "name": "Every shop tool opens by talking or from a pin (/my-shop/<tool> finds the shop)",
+      "roles": [
+        "customer",
+        "seller"
+      ],
+      "domains": [
+        "chat"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "AskodoxShopToolScreen",
+          "askodoxShopTools"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_chat_actions.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: 'new bill', 'my ai agents', 'stock' ... open the page; no hunting for the shop dashboard.",
+      "expected_behavior": "One shop -> straight to the tool; several -> choose; none -> add a shop. Chat catalogue rows shop_* are in Phase 1.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "live_order_chip",
+      "name": "Running order shortcut above the chat, by itself, until the order is finished",
+      "roles": [
+        "customer",
+        "seller"
+      ],
+      "domains": [
+        "chat"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "askodoxLiveOrdersProvider",
+          "askodoxLiveOrderChip"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/shared/chat_pins_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: after ordering, asking for water / spoon / bill must be one tap away without pinning anything.",
+      "expected_behavior": "Chip per running order (table name or shop) opens the order page; refreshed after placing and on return; gone when done / cancelled. Not counted in the five pins.",
       "history": [
         {
           "date": "2026-11-19",

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/pos/data/pos_repository.dart';
+
 /// Chat shortcut strip (owner 2026-11-19): at most THREE buttons the person pinned themselves, shown just above the
 /// chat box. Long-press a tile / row anywhere -> "Pin above the chat". A pin is a LINK to the same page (never a copy
 /// of the button); a 4th pin asks which one to replace. The strip folds to a thin handle and opens again on a tap.
@@ -172,6 +174,33 @@ Future<void> askodoxOfferChatPin(BuildContext context, AskodoxChatPin pin) async
   }
 }
 
+/// ON in the real app (main.dart): the person's RUNNING shop orders show as an automatic chip in the strip.
+/// Widget tests keep it off (no surprise API call).
+bool askodoxLiveOrderChip = false;
+
+/// Owner 2026-11-19: once a table / parcel / delivery order is placed, a shortcut to it sits above the chat by itself
+/// ("ask for water, a spoon, the bill ...") until the order is finished, then goes away. Not one of the five pins.
+class AskodoxLiveOrdersController extends StateNotifier<List<AskodoxJson>> {
+  AskodoxLiveOrdersController(this._ref) : super(const []) {
+    refresh();
+  }
+  final Ref _ref;
+  static const _closed = {'done', 'rejected', 'cancelled'};
+
+  Future<void> refresh() async {
+    if (!askodoxLiveOrderChip) return;
+    try {
+      final orders = await _ref.read(askodoxPosRepositoryProvider).deskMine();
+      if (mounted) state = [for (final o in orders) if (!_closed.contains('${o['stage']}')) o];
+    } catch (_) {
+      // signed out / offline: no chip
+    }
+  }
+}
+
+final askodoxLiveOrdersProvider =
+    StateNotifierProvider<AskodoxLiveOrdersController, List<AskodoxJson>>((ref) => AskodoxLiveOrdersController(ref));
+
 /// The strip above the chat box: the person's pins (a tap opens the page; long-press offers removal) and an arrow
 /// that folds it to a thin handle. Nothing is drawn when nothing is pinned.
 class AskodoxChatPinStrip extends ConsumerWidget {
@@ -180,10 +209,11 @@ class AskodoxChatPinStrip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(askodoxChatPinsProvider);
-    if (state.pins.isEmpty) return const SizedBox.shrink();
+    final live = askodoxLiveOrderChip ? ref.watch(askodoxLiveOrdersProvider) : const <AskodoxJson>[];
+    if (state.pins.isEmpty && live.isEmpty) return const SizedBox.shrink();
     final te = _te(context);
     final control = ref.read(askodoxChatPinsProvider.notifier);
-    if (state.folded) {
+    if (state.folded && live.isEmpty) {
       return Center(
         child: InkWell(
           key: const Key('askodoxChatPinsOpen'),
@@ -206,7 +236,24 @@ class AskodoxChatPinStrip extends ConsumerWidget {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
-              for (final p in state.pins)
+              for (final o in live)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ActionChip(
+                    key: ValueKey('askodoxLiveOrder-${o['id']}'),
+                    backgroundColor: const Color(0xFFE8F5EC),
+                    avatar: Icon('${o['kind']}' == 'dine_in' ? Icons.table_restaurant_outlined : Icons.receipt_long_outlined,
+                        size: 16, color: const Color(0xFF17784C)),
+                    label: Text(
+                        '${o['table_name'] ?? o['business_name'] ?? ''} · ${'${o['kind']}' == 'dine_in' ? (te ? 'అడగండి' : 'Ask') : (te ? 'ఆర్డర్' : 'Order')}',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    onPressed: () async {
+                      await context.push('/order-desk/track/${o['id']}');
+                      await ref.read(askodoxLiveOrdersProvider.notifier).refresh();
+                    },
+                  ),
+                ),
+              for (final p in state.folded ? const <AskodoxChatPin>[] : state.pins)
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: GestureDetector(
