@@ -97,6 +97,11 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
                       for (final e in askodoxHeaderMenuEntries
                           .where((e) => askodoxRouteShownNow(e.route) && const {'orders', 'saved', 'mobility'}.contains(e.key)))
                         (ValueKey('askodoxMenu-${e.key}'), e.icon, te ? e.te : e.en, e.route, const Color(0xFFE8EEFB), const Color(0xFF1E3FA0)),
+                      // Owner 2026-11-19: the shopping shortcuts moved here from the removed Shopping page.
+                      (const ValueKey('askodoxShoppingOrderCode'), Icons.qr_code_scanner, te ? 'షాప్ కోడ్ / QR తో ఆర్డర్' : 'Order with shop code / QR',
+                          '/order-desk/enter', const Color(0xFFE8EEFB), const Color(0xFF1E3FA0)),
+                      (const ValueKey('askodoxShoppingFollowing'), Icons.storefront_outlined, te ? 'నేను ఫాలో చేసే షాప్‌లు' : 'Shops I follow',
+                          '/me/following', const Color(0xFFE8EEFB), const Color(0xFF1E3FA0)),
                     ]),
                     (te ? 'నా ఖాతా' : 'My account', [
                       for (final e in askodoxHeaderMenuEntries.where((e) => e.key == 'more'))
