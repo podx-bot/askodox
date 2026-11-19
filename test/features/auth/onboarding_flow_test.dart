@@ -203,6 +203,17 @@ void main() {
     await _dispose(tester);
   });
 
+  testWidgets('server "methods" answer fails or is slow: a Firebase-ready build still uses Firebase SMS (never WhatsApp)',
+      (tester) async {
+    final api = _api(firebase: true)..on('GET /onboarding/methods', (_) => httpError(503, 'busy'));
+    final phone = FakePhoneAuth();
+    await _pumpApp(tester, api, phoneAuth: phone);
+    await _sendCode(tester, '9876543210');
+    expect(phone.started, ['+919876543210']);
+    expect(api.to('POST', '/onboarding/otp/send'), isEmpty);
+    await _dispose(tester);
+  });
+
   testWidgets('Firebase not set up for this app: falls back to the server code', (tester) async {
     final api = _api(firebase: true);
     final phone = FakePhoneAuth(startResult: const AskodoxPhoneAuthFailed('app-not-authorized'));

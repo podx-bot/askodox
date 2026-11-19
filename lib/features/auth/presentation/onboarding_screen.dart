@@ -83,6 +83,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // server says it is switched on AND this build has Firebase) or the
   // server's own code (WhatsApp / SMS).
   bool _useFirebase = false;
+  bool _methodsKnown = false;
   Future<void>? _methodsLoaded;
   // Firebase error that sent this attempt to the server code (shown with its result).
   String? _firebaseFallbackCode;
@@ -320,6 +321,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _methodsLoaded = _loadMethods();
   }
 
+  /// Owner 2026-11-19: ASKODOX sign-in is Firebase SMS. When the server's "methods" answer is slow or missing,
+  /// a build that carries the Firebase values still uses Firebase -- it never drops to the server (WhatsApp) code.
+  void _firebaseWhenServerSilent() {
+    if (!mounted || _methodsKnown) return;
+    if (ref.read(askodoxPhoneAuthProvider).available) setState(() => _useFirebase = true);
+  }
+
   /// Best effort: an older server (or the offline mock) without this route
   /// keeps the server code as the way in.
   Future<void> _loadMethods() async {
@@ -327,10 +335,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       result = await ref.read(apiClientProvider).get<Map<String, dynamic>>('/onboarding/methods');
     } catch (_) {
+      _firebaseWhenServerSilent();
       return;
     }
-    if (!mounted || result is! ApiSuccess<Map<String, dynamic>>) return;
+    if (!mounted) return;
+    if (result is! ApiSuccess<Map<String, dynamic>>) {
+      _firebaseWhenServerSilent();
+      return;
+    }
     final data = result.data;
+    _methodsKnown = true;
     setState(() {
       _useFirebase = data['firebase_phone_auth'] == true && ref.read(askodoxPhoneAuthProvider).available;
       _serverOtp = data['server_otp'] != false;
@@ -559,6 +573,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // the server's answer about sign-in methods has not arrived yet.
     if (_methodsLoaded != null && !resend) {
       await _methodsLoaded!.timeout(const Duration(seconds: 6), onTimeout: () {});
+      _firebaseWhenServerSilent();
     }
     askodoxAuthTrail.reset();
     askodoxAuthLog('send_otp.tap', {
