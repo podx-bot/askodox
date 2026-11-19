@@ -452,14 +452,18 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     return te ? '$who పేజీ → Battery → Unrestricted / Don\'t optimise.' : '$who page → Battery → Unrestricted / Don\'t optimise.';
   }
 
+  bool _showDone = false;
+
   /// One checklist for every phone: each row opens the exact Android page and turns ✓ by itself when the phone can
   /// check it (the rest are ticked by the person after doing them).
   Widget _setupCard(AskodoxMyPhoneAlerts m, bool te) {
     final rows = <Widget>[];
+    final doneRows = <Widget>[];
     var open = 0;
     void row(String id, bool done, String title, String how, Future<void> Function() go, {bool selfConfirm = false}) {
       if (!done) open++;
-      rows.add(ListTile(
+      // Owner 2026-11-19: what is LEFT comes first; finished steps fold under one line (the list was 20+ rows long).
+      (done ? doneRows : rows).add(ListTile(
         key: ValueKey('askodoxMineStep-$id'),
         dense: true,
         contentPadding: EdgeInsets.zero,
@@ -548,6 +552,18 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               key: const Key('askodoxMineSetupTitle'),
               style: const TextStyle(fontWeight: FontWeight.w800)),
           if (open > 0) ...rows,
+          if (open > 0 && doneRows.isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('askodoxMineSetupDoneToggle'),
+                onPressed: () => setState(() => _showDone = !_showDone),
+                child: Text(_showDone
+                    ? (te ? 'పూర్తయినవి దాచు ▴' : 'Hide finished ▴')
+                    : (te ? '${doneRows.length} పూర్తయ్యాయి ✓ · చూపించు ▾' : '${doneRows.length} done ✓ · show ▾')),
+              ),
+            ),
+          if (open > 0 && _showDone) ...doneRows,
         ]),
       ),
     );
