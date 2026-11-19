@@ -1035,6 +1035,32 @@ def purchase_bill_photo(business_id: str, body: BillPhotoIn, request: Request) -
     return _call(_bill_photo(request).preview, business_id, _user(request, "bill-photo", 20), photos, service)
 
 
+@router.post("/businesses/{business_id}/products/photo")
+def product_photo(business_id: str, body: BillPhotoIn, request: Request) -> dict:
+    """A photo of one packet -> name, MRP, expiry, barcode for the new-item form (nothing is saved)."""
+    import base64
+
+    from app.services import pos_bill_photo
+
+    user = _user(request, "product-photo", 40)
+    _call(_store(request).products, business_id, user)  # members only (404 for anyone else)
+    photos = []
+    for entry in body.images[:2]:
+        raw = str(entry.get("data") or "")
+        if len(raw) > 6_000_000:
+            raise HTTPException(status_code=413, detail="Photo too large. Use a smaller picture.")
+        try:
+            data = base64.b64decode(raw, validate=False)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Photo could not be read.")
+        mime = str(entry.get("mime") or "image/jpeg").lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp"):
+            raise HTTPException(status_code=400, detail="Send a JPEG or PNG photo.")
+        photos.append((data, mime))
+    container = getattr(request.app.state, "container", None)
+    return pos_bill_photo.read_product(getattr(container, "universal_image_service", None), photos)
+
+
 @router.post("/businesses/{business_id}/purchases/from-photo")
 def purchase_from_photo(business_id: str, body: BillPhotoSaveIn, request: Request) -> dict:
     """The confirmed bill: missing supplier / items are created, then the SAME purchase record as a typed bill."""

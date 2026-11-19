@@ -88,3 +88,24 @@ def test_save_refuses_a_half_read_line_before_creating_anything(env):
         photo.save(biz, OWNER, {"client_txn_id": "photo-bill-2", "supplier": preview["supplier"],
                                 "supplier_bill_no": "SL/204", "lines": preview["lines"]})
     assert e.value.code == "line" and len(store.products(biz, OWNER)) == 1
+
+
+def test_packet_photo_fills_the_new_item_form_without_guessing():
+    from app.services.pos_bill_photo import read_product
+
+    class Vision:
+        def analyze_with_prompt(self, photos, prompt, **_kwargs):
+            assert "ONE product" in prompt
+            return {"name": "Good Day Butter Cookies 100g", "mrp": 12, "unit": "pcs", "expiry": "2027-03-31",
+                    "barcode": "8901063 010215"}, 1
+
+    out = read_product(Vision(), [(b"x", "image/jpeg")])
+    assert out == {"read": True, "name": "Good Day Butter Cookies 100g", "price_paise": 1200, "unit": "pcs",
+                   "expiry_date": "2027-03-31", "barcode": "8901063010215"}
+
+    class Blank:
+        def analyze_with_prompt(self, photos, prompt, **_kwargs):
+            return {"name": None, "mrp": None}, 1
+
+    blank = read_product(Blank(), [(b"x", "image/jpeg")])
+    assert blank["read"] is False and blank["price_paise"] is None
