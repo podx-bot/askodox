@@ -7,6 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #364 + #366 (2026-11-20, owner "finish everything" / "Go"): packet photo -> new-item form (`pos_bill_photo.read_product`,
+  `/products/photo`); counter offers per item (`pos_products.offer` bxgy / percent) and COMBOS (`pos_businesses.combos`, `/combos`,
+  `pos_combo_sheet.dart`): `PosStore.offer_discount` / `combo_shares` == app `askodoxOfferDiscount` / `askodoxComboShares` (keep equal),
+  applied as LINE DISCOUNTS by the sale screen (`_applyOffers`) and by `PosRestaurant.bill` via `order_discounts` (table / parcel /
+  delivery orders); no stacking (combo share wins); pre-order on a reserved table (`reservation_id` in desk `place`); shop people get
+  a "Running orders (n)" chip; attendance action `half`, a day under half the shift = half, shop holidays (`pos_att_holidays`, paid
+  for monthly salary) + `pos_staff_bonus`; payalert FCM data ttl 1800 s. NOT built: automatic calls / WhatsApp for baaki, Bill page
+  redesign, tiles on My phone payments. Nothing phone verified.
 - `main` PR #364 (2026-11-20, owner "finish everything, I test later"; Play bundle from Live Build run 44596581525): packet photo
   -> new-item form (`pos_bill_photo.read_product`, `/products/photo`); counter offers per item (`pos_products.offer` JSON bxgy /
   percent, `PosStore.offer_discount` == app `askodoxOfferDiscount`, applied by the sale screen as the LINE DISCOUNT in `_applyOffers`,
