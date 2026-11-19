@@ -199,7 +199,7 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> myBills() async => askodoxPosList((await _send('GET', '/api/pos/me/bills'))['bills']);
   Future<AskodoxJson> myBillPaid(String token, String app) =>
       _send('POST', '/api/pos/me/bills/$token/paid', body: {'app': app});
-  /// "I will pay on <date>" for a pending bill: the shop is told, reminders wait until then.
+  /// "I will pay on (date)" for a pending bill: the shop is told, reminders wait until then.
   Future<AskodoxJson> myBillPromise(String token, String date) =>
       _send('POST', '/api/pos/me/bills/$token/promise', body: {'date': date});
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
