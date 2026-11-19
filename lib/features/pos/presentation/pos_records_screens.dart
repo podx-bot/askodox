@@ -14,6 +14,7 @@ import '../data/pos_printer.dart';
 import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
 import '../domain/pos_money.dart';
+import '../domain/pos_pricing.dart';
 import '../domain/pos_scale.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import '../../../shared/widgets/askodox_field_guide.dart';
@@ -194,6 +195,79 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
     }
   }
 
+  /// Counter offer on an item (owner 2026-11-19): 1 + 1, 2 + 1 ... or a percentage off. The bill screen applies it
+  /// by itself as that line's discount.
+  Future<void> _offer(AskodoxJson p) async {
+    final te = askodoxPosTe(context);
+    final current = p['offer'] is Map ? p['offer'] as Map : const {};
+    var kind = '${current['kind'] ?? 'none'}';
+    final buy = TextEditingController(text: '${current['buy'] ?? 1}');
+    final free = TextEditingController(text: '${current['free'] ?? 1}');
+    final percent = TextEditingController(text: current['bp'] is num ? '${(current['bp'] as num) / 100}' : '10');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('${p['name']} · ${te ? 'ఆఫర్' : 'Offer'}'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Wrap(spacing: 6, children: [
+              for (final (value, en, tel) in const [('none', 'No offer', 'ఆఫర్ లేదు'), ('bxgy', 'Buy + free', 'కొంటే ఉచితం'), ('percent', '% off', '% తగ్గింపు')])
+                ChoiceChip(
+                    key: ValueKey('askodoxPosOfferKind-$value'),
+                    label: Text(te ? tel : en),
+                    selected: kind == value,
+                    onSelected: (_) => setLocal(() => kind = value)),
+            ]),
+            if (kind == 'bxgy')
+              Row(children: [
+                Expanded(
+                    child: TextField(
+                        key: const Key('askodoxPosOfferBuy'),
+                        controller: buy,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(labelText: te ? 'ఎన్ని కొంటే' : 'Buy'))),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: TextField(
+                        key: const Key('askodoxPosOfferFree'),
+                        controller: free,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(labelText: te ? 'ఎన్ని ఉచితం' : 'Free'))),
+              ]),
+            if (kind == 'percent')
+              TextField(
+                  key: const Key('askodoxPosOfferPercent'),
+                  controller: percent,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: te ? 'తగ్గింపు %' : 'Discount %')),
+            const SizedBox(height: 8),
+            Text(
+                te
+                    ? 'కౌంటర్ బిల్లులో ఈ ఐటమ్ వేసినప్పుడు తగ్గింపు దానంతట అదే పడుతుంది.'
+                    : 'On a counter bill the discount is applied to this item by itself.',
+                style: const TextStyle(fontSize: 12)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'వద్దు' : 'Cancel')),
+            FilledButton(key: const Key('askodoxPosOfferSave'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final Map<String, Object?> offer = switch (kind) {
+      'bxgy' => {'kind': 'bxgy', 'buy': int.tryParse(buy.text.trim()) ?? 0, 'free': int.tryParse(free.text.trim()) ?? 0},
+      'percent' => {'kind': 'percent', 'bp': ((double.tryParse(percent.text.trim()) ?? 0) * 100).round()},
+      _ => <String, Object?>{},
+    };
+    try {
+      await ref.read(askodoxPosRepositoryProvider).updateProduct(widget.businessId, '${p['id']}', {'offer': offer});
+      _reload();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
   Future<void> _stock(AskodoxJson p) async {
     final te = askodoxPosTe(context);
     final qty = TextEditingController();
@@ -311,6 +385,7 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
                   if ('${p['hsn_sac'] ?? ''}'.isNotEmpty) 'HSN ${p['hsn_sac']}',
                   if (p['stock_milli'] != null) '${te ? 'స్టాక్' : 'stock'} ${askodoxQty(askodoxPosInt(p['stock_milli']), '${p['unit']}')}',
                   if (p['low_stock'] == true) (te ? 'తక్కువ స్టాక్' : 'LOW'),
+                  if (askodoxOfferLabel(p, te).isNotEmpty) '🏷 ${askodoxOfferLabel(p, te)}',
                 ].join(' · ')),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   if (online != null)
@@ -327,6 +402,11 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
                           style: const TextStyle(fontSize: 11.5)),
                       onPressed: () => _channel(p),
                     ),
+                  IconButton(
+                      key: ValueKey('askodoxPosItemOffer-${p['id']}'),
+                      tooltip: te ? 'ఆఫర్' : 'Offer',
+                      onPressed: () => _offer(p),
+                      icon: Icon(Icons.local_offer_outlined, color: p['offer'] == null ? null : const Color(0xFF17784C))),
                   if (p['track_stock'] == true && p['track_serials'] != true)
                     IconButton(onPressed: () => _stock(p), icon: const Icon(Icons.inventory_outlined)),
                 ]),

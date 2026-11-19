@@ -109,3 +109,15 @@ def test_packet_photo_fills_the_new_item_form_without_guessing():
 
     blank = read_product(Blank(), [(b"x", "image/jpeg")])
     assert blank["read"] is False and blank["price_paise"] is None
+
+
+def test_counter_offer_is_saved_on_the_item_and_gives_the_line_discount(env):
+    store, _purchases, _photo, biz, oil = env
+    out = store.update_product(biz, OWNER, oil, {"offer": {"kind": "bxgy", "buy": 2, "free": 1}})
+    assert out["offer"] == {"kind": "bxgy", "buy": 2, "free": 1}
+    assert PosStore.offer_discount(out["offer"], 7000, 17500) == 2 * 17500, "7 pieces = two full groups of 3 -> 2 free"
+    assert PosStore.offer_discount({"kind": "percent", "bp": 1000}, 2000, 17500) == 3500
+    assert PosStore.offer_discount(None, 2000, 17500) == 0
+    with pytest.raises(PosError):
+        store.update_product(biz, OWNER, oil, {"offer": {"kind": "bxgy", "buy": 0, "free": 1}})
+    assert store.update_product(biz, OWNER, oil, {"offer": {}})["offer"] is None

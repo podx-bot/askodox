@@ -37,6 +37,9 @@ class AskodoxCartLine {
   int pricePaise;
   bool override;
   int discountPaise;
+
+  /// The discount on this line came from the item's own offer (it follows the quantity; a typed discount does not).
+  bool offerApplied = false;
   int? grossMilli;
   int? tareMilli;
 
@@ -154,6 +157,17 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         .where((p) => '${p['name']}'.toLowerCase().contains(q) || '${p['name_te']}'.contains(q) || '${p['barcode']}' == q ||
             '${p['sku']}'.toLowerCase() == q)
         .toList();
+  }
+
+  /// The item's own counter offer (1 + 1, 2 + 1, % off) becomes that line's discount and follows the quantity. A
+  /// discount the cashier typed or spoke is never replaced.
+  void _applyOffers() {
+    for (final l in _cart) {
+      if (l.pack != null || (l.discountPaise > 0 && !l.offerApplied)) continue;
+      final offer = askodoxOfferDiscount(l.product, l.qtyMilli, l.pricePaise);
+      l.discountPaise = offer;
+      l.offerApplied = offer > 0;
+    }
   }
 
   /// Lines priced by the item (no typed price, no pack, no customer rate) follow the shop's rate by quantity.
@@ -545,12 +559,14 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         for (final l in _cart) {
           final gross = askodoxRoundDiv(l.qtyMilli * l.pricePaise, 1000);
           l.discountPaise = askodoxRoundDiv(gross * cmd.discountBp!, 10000);
+          l.offerApplied = false;
         }
       } else {
         // a rupee discount goes on the last line (never more than that line's value)
         final l = _cart.last;
         final gross = askodoxRoundDiv(l.qtyMilli * l.pricePaise, 1000);
         l.discountPaise = (cmd.discountPaise ?? 0).clamp(0, gross);
+        l.offerApplied = false;
       }
     });
   }
@@ -839,6 +855,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _applyOffers(); // idempotent: the offer discount follows the quantity on every rebuild
     final te = askodoxPosTe(context);
     final business = ref.watch(askodoxPosBusinessProvider(widget.businessId)).valueOrNull;
     final preview = business == null ? null : _preview(business);

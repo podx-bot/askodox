@@ -198,6 +198,8 @@ MIGRATIONS = [
     # Quantity pricing: the least a customer may buy (base units); rates by quantity live in pos_price_tiers.
     ("pos_products", "min_qty_milli", "INTEGER"),
     ("pos_products", "photo_at", "TEXT"),
+    # Counter offers (owner 2026-11-19): buy X get Y free / a percentage off, set per item by the shop.
+    ("pos_products", "offer", "TEXT"),
     # Open / paused / closed (owner 2026-11-15) and the business-name change rule (name_change_policy.py).
     ("pos_businesses", "status", "TEXT NOT NULL DEFAULT 'open'"),
     ("pos_businesses", "status_changed_at", "TEXT"),
@@ -565,6 +567,8 @@ class PosStore:
                 if online <= 0 or online > 10_00_00_000_00:
                     raise PosError(400, "online_price", "Enter the online price, or leave it the same as the shop price.")
                 out["online_price_paise"] = online
+        if "offer" in data:
+            out["offer"] = json.dumps(self._offer(data.get("offer"))) if data.get("offer") else None
         if "cess_bp" in data:
             out["cess_bp"] = int(data.get("cess_bp") or 0)
         if "hsn_sac" in data or not partial:
@@ -632,8 +636,43 @@ class PosStore:
             (business_id,))}
 
     @staticmethod
+    def _offer(raw: Any) -> Dict[str, Any]:
+        """The shop's own counter offer: {"kind": "bxgy", "buy": 1, "free": 1} (1+1, 2+1 ...) or {"kind": "percent",
+        "bp": 1000} (10% off). Shown to the cashier and applied as that line's discount -- never a hidden price change."""
+        if not isinstance(raw, dict):
+            raise PosError(400, "offer", "Unknown offer.")
+        if raw.get("kind") == "bxgy":
+            buy, free = int(raw.get("buy") or 0), int(raw.get("free") or 0)
+            if not (1 <= buy <= 100 and 1 <= free <= 100):
+                raise PosError(400, "offer", "Buy and free counts must be 1-100.")
+            return {"kind": "bxgy", "buy": buy, "free": free}
+        if raw.get("kind") == "percent":
+            bp = int(raw.get("bp") or 0)
+            if not 1 <= bp <= 9000:
+                raise PosError(400, "offer", "The discount must be between 0.01% and 90%.")
+            return {"kind": "percent", "bp": bp}
+        raise PosError(400, "offer", "Unknown offer.")
+
+    @staticmethod
+    def offer_discount(offer: Any, qty_milli: int, unit_price_paise: int) -> int:
+        """The discount an offer gives on a line (the app's ``askodoxOfferDiscount`` is the same rule)."""
+        if not isinstance(offer, dict) or qty_milli <= 0 or unit_price_paise <= 0:
+            return 0
+        if offer.get("kind") == "bxgy":
+            group = (int(offer["buy"]) + int(offer["free"])) * 1000
+            return (qty_milli // group) * int(offer["free"]) * unit_price_paise
+        if offer.get("kind") == "percent":
+            gross = qty_milli * unit_price_paise // 1000
+            return (gross * int(offer["bp"]) + 5000) // 10000
+        return 0
+
+    @staticmethod
     def _product_out(row: sqlite3.Row, stock: Optional[int]) -> Dict[str, Any]:
         out = dict(row)
+        try:
+            out["offer"] = json.loads(out["offer"]) if out.get("offer") else None
+        except (TypeError, ValueError):
+            out["offer"] = None
         for key in ("price_includes_tax", "track_stock", "is_service", "active", "track_batches", "track_serials"):
             out[key] = bool(out.get(key))
         out["stock_milli"] = stock if out["track_stock"] else None

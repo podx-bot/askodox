@@ -97,6 +97,7 @@ class ProductIn(BaseModel):
     active: Optional[bool] = None
     menu_group: Optional[str] = Field(default=None, max_length=40)
     food_type: Optional[str] = Field(default=None, pattern="^(|veg|nonveg|egg)$")
+    offer: Optional[Dict[str, Any]] = None  # {} / null clears it
 
 
 class StockIn(BaseModel):
