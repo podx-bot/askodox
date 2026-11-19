@@ -6,7 +6,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/share/askodox_image_share.dart';
@@ -21,6 +20,7 @@ import '../../pos/presentation/paper_bill.dart';
 import '../../pos/data/pos_invoice_pdf.dart' show askodoxShareInvoicePdf;
 import '../../pos/presentation/pos_sale_screen.dart' show askodoxPrintInvoice;
 import '../domain/name_change_rule.dart';
+import '../../../shared/widgets/qr_poster.dart';
 
 bool _bizTe(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
 
@@ -1098,12 +1098,18 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             : SizedBox(
                 width: 240,
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  QrImageView(
-                    key: const Key('askodoxQuickBillQr'),
+                  AskodoxQrPoster(
+                    qrKey: const Key('askodoxQuickBillQr'),
                     data: 'upi://pay?pa=${Uri.encodeComponent(_upi)}'
                         '${_payee.isEmpty ? '' : '&pn=${Uri.encodeComponent(_payee)}'}'
                         '&am=${total.toStringAsFixed(2)}&cu=INR',
-                    size: 220,
+                    te: te,
+                    title: _payee,
+                    size: 190,
+                    actions: false,
+                    fileName: 'askodox-quick-bill-qr',
+                    footnoteEn: "Shop's own UPI · ASKODOX never holds your money",
+                    footnoteTe: 'షాప్ సొంత UPI · ASKODOX మీ డబ్బు ఉంచుకోదు',
                   ),
                   const SizedBox(height: 8),
                   Text(_upi),

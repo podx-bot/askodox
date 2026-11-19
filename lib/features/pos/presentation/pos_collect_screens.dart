@@ -7,7 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/share/askodox_image_share.dart';
@@ -17,6 +16,7 @@ import '../data/pos_hardware.dart';
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import 'pos_common.dart';
+import '../../../shared/widgets/qr_poster.dart';
 
 /// Reads the text inside a QR from a photo (camera or gallery). Injectable for tests.
 abstract interface class AskodoxQrReader {
@@ -329,12 +329,20 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
             color: Colors.white,
             padding: const EdgeInsets.all(12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              QrImageView(key: const Key('askodoxPayMethodsQr'), data: link, size: 200, backgroundColor: Colors.white),
-              const SizedBox(height: 8),
-              if (name.isNotEmpty) Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _payInk)),
+              AskodoxQrPoster(
+                qrKey: const Key('askodoxPayMethodsQr'),
+                data: link,
+                te: te,
+                title: name,
+                size: 200,
+                actions: false,
+                fileName: 'askodox-upi-qr',
+                instructionEn: 'Scan & pay with any UPI app',
+                instructionTe: 'ఏ UPI యాప్‌తో అయినా స్కాన్ చేసి చెల్లించండి',
+                footnoteEn: "Shop's own UPI · ASKODOX never holds your money",
+                footnoteTe: 'షాప్ సొంత UPI · ASKODOX మీ డబ్బు ఉంచుకోదు',
+              ),
               SelectableText(upi, style: const TextStyle(fontSize: 13, color: _payMuted)),
-              const SizedBox(height: 4),
-              const Text('Scan & pay with any UPI app · ASKODOX', style: TextStyle(fontSize: 10.5, color: _payMuted)),
             ]),
           ),
         ),
@@ -704,10 +712,16 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
                       Text('${current['payee']} · ${current['upi_id']}', style: const TextStyle(fontSize: 12.5)),
                       const SizedBox(height: 8),
                       if ('${current['upi_link'] ?? ''}'.isNotEmpty)
-                        Container(
-                          color: Colors.white,
-                          padding: const EdgeInsets.all(8),
-                          child: QrImageView(key: const Key('askodoxPosCollectQr'), data: '${current['upi_link']}', size: 230),
+                        AskodoxQrPoster(
+                          qrKey: const Key('askodoxPosCollectQr'),
+                          data: '${current['upi_link']}',
+                          te: te,
+                          title: '${current['payee'] ?? ''}',
+                          size: 230,
+                          actions: false,
+                          fileName: 'askodox-collect-qr',
+                          footnoteEn: "Shop's own UPI · ASKODOX never holds your money",
+                          footnoteTe: 'షాప్ సొంత UPI · ASKODOX మీ డబ్బు ఉంచుకోదు',
                         ),
                       Text(te ? 'ఏ UPI యాప్‌తో అయినా స్కాన్ చేయండి' : 'Scan with any UPI app', style: const TextStyle(fontSize: 12)),
                       const SizedBox(height: 8),
