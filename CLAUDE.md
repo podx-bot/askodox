@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #364 (2026-11-20, owner "finish everything, I test later"; Play bundle from Live Build run 44596581525): packet photo
+  -> new-item form (`pos_bill_photo.read_product`, `/products/photo`); counter offers per item (`pos_products.offer` JSON bxgy /
+  percent, `PosStore.offer_discount` == app `askodoxOfferDiscount`, applied by the sale screen as the LINE DISCOUNT in `_applyOffers`,
+  counter bills only -- keep both rules equal); pre-order on a reserved table (`reservation_id` in desk `place`); shop people get a
+  "Running orders (n)" chip; attendance action `half` + a day under half the shift = half; payalert FCM data ttl 1800 s (offline
+  staff phone hears it within 30 min, once). NOT built: combo offers, offers on customer / online orders, automatic calls or
+  WhatsApp for baaki, shop holidays / bonus in salary. Nothing phone verified.
 - `main` PR #361 + #362 (2026-11-20, owner "start"; Play bundle from Live Build run 44589361201): pins = 5, movable, any header-menu
   page (`chat_pins.dart`); every shop tool by talking / pin via `/my-shop/<tool>` (`pos_shop_tool_screen.dart`, chat rows `shop_*` in
   PHASE1_KEYS); chat shop menu = asked items (`focus`), three ways always, compact - n +; reply words appear WITH the voice in the real
