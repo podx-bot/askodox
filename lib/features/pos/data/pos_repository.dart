@@ -108,7 +108,9 @@ class AskodoxPosRepository {
       _send('POST', '/api/pos/order-desk/assist', body: {'code': code, 'text': text, 'cart': cart, 'te': te});
   /// Shops with a menu whose name contains [q] (the search box beside the QR photo).
   /// ASKODOX Shopping: shops on ASKODOX (name / menu) + the affiliate items for what was searched.
-  Future<AskodoxJson> shopping(String q) => _send('GET', '/api/pos/shopping', query: {'q': q});
+  /// [lat] / [lng] = the person's place: the nearest ASKODOX shops come first (owner 2026-11-19).
+  Future<AskodoxJson> shopping(String q, {double? lat, double? lng}) => _send('GET', '/api/pos/shopping',
+      query: {'q': q, if (lat != null && lng != null) 'lat': '$lat', if (lat != null && lng != null) 'lng': '$lng'});
   Future<List<AskodoxJson>> deskShops(String q) async =>
       askodoxPosList((await _send('GET', '/api/pos/order-desk/shops', query: {'q': q}))['shops']);
   Future<AskodoxJson> deskPlace(AskodoxJson body) => _send('POST', '/api/pos/order-desk/orders', body: body);

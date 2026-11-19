@@ -18,6 +18,7 @@ import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import 'offline_voice_card.dart';
 import 'pay_alert_staff_card.dart';
 import '../../../shared/widgets/navigator_section.dart' show AskodoxNavSection;
+import 'payment_source_icon.dart';
 import 'pos_common.dart';
 import 'pos_payment_alerts_setup.dart';
 import 'pay_alert_disclaimer.dart';
@@ -1181,9 +1182,12 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     return ListTile(
       key: ValueKey('askodoxPayAlertEvent-${e['id']}'),
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: _statusColor(e).withValues(alpha: 0.12),
-        child: Icon(e['status'] == 'ambiguous' ? Icons.help_outline : Icons.currency_rupee, color: _statusColor(e)),
+      leading: AskodoxPaymentSourceIcon(
+        event: {...e, if (local != null) 'bank_sms_from': local['bank_sms_from'], if (local != null) 'kind': local['kind']},
+        fallback: CircleAvatar(
+          backgroundColor: _statusColor(e).withValues(alpha: 0.12),
+          child: Icon(e['status'] == 'ambiguous' ? Icons.help_outline : Icons.currency_rupee, color: _statusColor(e)),
+        ),
       ),
       title: Text('${askodoxRupees(e['amount_paise'])} · ${e['source_label']}', style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

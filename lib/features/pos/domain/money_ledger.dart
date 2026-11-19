@@ -152,6 +152,8 @@ List<AskodoxMoneyItem> askodoxItemsFromPhone(Iterable<Map<String, Object?>> even
   final out = <AskodoxMoneyItem>[];
   for (final e in events) {
     if (e['test'] == true || e['direction'] == 'due' || e['amount_paise'] is! num) continue;
+    // Owner 2026-11-19: a 'received' SMS from a person's number is a likely fake -- never counted as money.
+    if (e['status'] == 'suspect_sender') continue;
     final id = 'phone:${e['local_id']}';
     final party = '${e['party'] ?? ''}'.trim();
     final label = '${e['source_label'] ?? ''}';

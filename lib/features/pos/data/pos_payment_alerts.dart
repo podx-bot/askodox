@@ -332,6 +332,9 @@ String askodoxRupees(Object? paise) {
   return switch ('${e['status']}') {
     'provider_verified' => ('Received (Razorpay)', 'Razorpay లో అందింది'),
     'ambiguous' => ('Ambiguous — check the app', 'స్పష్టంగా లేదు — యాప్‌లో చూడండి'),
+    // Owner 2026-11-19: a "money received" SMS from a person's mobile number -- banks never send from one.
+    'suspect_sender' => ('⚠️ SMS from a person\'s number, not a bank — likely fake. Check your bank app.',
+        '⚠️ ఇది బ్యాంక్ నుంచి కాదు, ఒక వ్యక్తి నంబర్ నుంచి వచ్చిన SMS — మోసం కావచ్చు. బ్యాంక్ యాప్‌లో చూసుకోండి.'),
     'failed' => ('Failed', 'విఫలమైంది'),
     _ => ('Received (app notification) — check your bank app', 'నోటిఫికేషన్‌లో అందింది — బ్యాంక్ యాప్‌లో చూసుకోండి'),
   };
@@ -341,6 +344,9 @@ String askodoxRupees(Object? paise) {
 /// came. (en, te), or null for money sent. Owner 2026-11-18: "received" only, never "confirmed".
 (String, String)? askodoxBankConfirmedLabel(Map<String, Object?>? local) {
   if (local == null || local['direction'] == 'out') return null;
+  if (local['status'] == 'suspect_sender') {
+    return ('⚠️ Not from a bank — likely fake SMS', '⚠️ బ్యాంక్ నుంచి కాదు — మోసపు SMS కావచ్చు');
+  }
   if (local['bank_confirmed'] == true) return ('✅ Received (bank SMS)', '✅ బ్యాంక్ SMS లో అందింది');
   return ('⏳ Bank SMS not seen yet', '⏳ బ్యాంక్ SMS ఇంకా రాలేదు');
 }
@@ -353,6 +359,7 @@ String askodoxRupees(Object? paise) {
       'tts_failed' => ('Voice failed', 'వాయిస్ రాలేదు'),
       'muted' => ('Muted', 'మ్యూట్'),
       'seen' => ('Seen', 'చూశారు'),
+      'suspect' => ('Not spoken (suspicious SMS)', 'చెప్పలేదు (అనుమానాస్పద SMS)'),
       'delivered' => ('Delivered', 'అందింది'),
       'pending' => ('Speaking…', 'చెబుతోంది…'),
       _ => ('No answer from the phone', 'ఫోన్ నుంచి సమాచారం లేదు'),

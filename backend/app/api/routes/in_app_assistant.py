@@ -309,6 +309,10 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
         shop = shops[0]
         reply = (f"{shop['name']} ASKODOX లో ఉంది. కింద బటన్ నొక్కి మెనూ చూసి ఇక్కడే ఆర్డర్ చేయండి."
                  if te else f"{shop['name']} is on ASKODOX. Tap below to see its menu and order here.")
+        # Owner 2026-11-19: a question about the shop (hours / address / delivery / price ...) gets the shop's OWN data.
+        facts = _desk(request).shop_answer(shop["id"], user_words, te)
+        if facts:
+            reply = f"{shop['name']}:\n{facts}"
         out = {**decision, "reply": reply, "mode": "advice", "transactional": False, "search_ready": False, "app_action": {
             "key": "order_shop", "route": f"/order-desk?code={shop['code']}",
             "label": f"{shop['name']} ఆర్డర్" if te else f"{shop['name']} order"}}
@@ -323,7 +327,9 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
                 caller = ""
             card = _desk(request).chat_card(shop["id"], caller, user_words, te, limit=150)
             out["shop_menu"] = card
-            if not card["open"]:
+            if facts:
+                out["reply"] = f"{shop['name']}:\n{facts}"
+            elif not card["open"]:
                 out["reply"] = card["message"]
             elif card["prepared"]:
                 out["reply"] = (f"{shop['name']} కి ఆర్డర్ సిద్ధం చేశాను. కింద చూసి \"సరే, పంపు\" నొక్కండి."

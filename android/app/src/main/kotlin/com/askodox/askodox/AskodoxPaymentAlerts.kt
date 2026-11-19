@@ -99,6 +99,9 @@ object AskodoxPaymentAlerts {
                         result.success(pkg)
                     }
                     "defaultSmsApp" -> result.success(defaultSmsPackage(app))
+                    // Owner 2026-11-19: the history row shows the icon of the app the alert came from (the phone's own
+                    // installed icon -- no copied logos). PNG bytes, or null when the app is not installed.
+                    "appIcon" -> result.success(appIconPng(app, call.argument<String>("package") ?: ""))
                     "paymentApps" -> result.success(paymentApps(app, call.argument<List<String>>("packages") ?: emptyList()))
                     "openAppNotificationSettings" -> {
                         activity.startActivity(appNotificationSettings(app, call.argument<String>("package") ?: app.packageName))
@@ -211,6 +214,22 @@ object AskodoxPaymentAlerts {
                 p.contains("super.payments") || p.contains("mobikwik") || p.contains("freecharge") || p.contains("cred") -> "upi"
             else -> "bank"
         }
+    }
+
+    private fun appIconPng(context: Context, pkg: String): ByteArray? = try {
+        if (pkg.isBlank()) null else {
+            val drawable = context.packageManager.getApplicationIcon(pkg)
+            val size = 96
+            val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            val out = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            out.toByteArray()
+        }
+    } catch (_: Exception) {
+        null
     }
 
     private fun defaultSmsPackage(context: Context): String? = try {
@@ -632,6 +651,27 @@ object AskodoxPaymentAlerts {
         val bankSms = kindOf(cfg, pkg) == "sms" && PaymentAlertParser.isBankSender(title)
         val handle = PaymentAlertParser.upiHandleTail("${title ?: ""} ${text ?: ""}")
         val balance = if (kindOf(cfg, pkg) == "sms") PaymentAlertParser.availableBalance(text) else null
+        // Owner 2026-11-19: "money received" SMS from a PERSON's mobile number = a likely fake. Written with a warning,
+        // never spoken, never joined to a real payment, never sent to the shop's other phones.
+        if (!test && amount != null && kindOf(cfg, pkg) == "sms" && PaymentAlertParser.looksLikePersonNumber(title)) {
+            val fakeId = "pa-$now-${(Math.random() * 1e6).toInt()}"
+            val fake = JSONObject()
+                .put("local_id", fakeId)
+                .put("client_event_id", key.take(110).replace(Regex("[^A-Za-z0-9_.:|-]"), "_"))
+                .put("source_app", pkg)
+                .put("source_label", "SMS ${title?.trim()?.takeLast(4) ?: ""}")
+                .put("detected_at", isoUtc(now))
+                .put("at_ms", posted)
+                .put("kind", "sms")
+                .put("status", "suspect_sender")
+                .put("spoken", "suspect")
+                .put("amount_paise", amount)
+                .put("test", false)
+            if (personal) fake.put("direction", "in")
+            synchronized(this) { val list = events(context); list.put(fake); saveEvents(context, list) }
+            main.post { channel?.invokeMethod("paymentEvent", fake.toString()) }
+            return mapOf("result" to "suspect", "localId" to fakeId, "amountPaise" to amount, "spoken" to false)
+        }
         if (!test && amount != null) {
             mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle, notificationKey,
                 balance)?.let {

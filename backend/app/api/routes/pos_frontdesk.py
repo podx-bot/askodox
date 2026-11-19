@@ -362,7 +362,7 @@ def desk_shop_search(request: Request, q: str = "") -> dict:
 
 
 @router.get("/shopping")
-def askodox_shopping(request: Request, q: str = "") -> dict:
+def askodox_shopping(request: Request, q: str = "", lat: Optional[float] = None, lng: Optional[float] = None) -> dict:
     """ASKODOX Shopping (owner 2026-11-18): businesses on ASKODOX first (by name or by what their menu has), then the
     affiliate store items that match what was searched. No Google / web / videos here -- that stays in the main chat."""
     from app.api.routes.affiliate_catalog import catalog
@@ -370,7 +370,8 @@ def askodox_shopping(request: Request, q: str = "") -> dict:
 
     _user(request, "shopping", 120)
     q = q[:80]
-    shops = _desk(request).shopping(q)
+    near = (lat, lng) if lat is not None and lng is not None and -90 <= lat <= 90 and -180 <= lng <= 180 else None
+    shops = _desk(request).shopping(q, near=near)  # owner 2026-11-19: nearest first when the place is known
     items: list = []
     if len(q.strip()) >= 2:
         try:

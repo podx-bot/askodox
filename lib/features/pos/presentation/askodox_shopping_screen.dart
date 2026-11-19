@@ -9,6 +9,7 @@ import '../../home/application/conversation_archive.dart' show AskodoxChatReques
 import '../../home/presentation/question_mic.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart' show askodoxPaise;
+import '../../location/application/location_controller.dart' show locationControllerProvider;
 import 'pos_common.dart';
 
 /// ASKODOX Shopping (owner 2026-11-18): only businesses on ASKODOX -- found by their name or by what their menu has --
@@ -49,7 +50,9 @@ class _AskodoxShoppingScreenState extends ConsumerState<AskodoxShoppingScreen> {
       _error = null;
     });
     try {
-      final out = await ref.read(askodoxPosRepositoryProvider).shopping(q.trim());
+      final place = ref.read(locationControllerProvider).defaultLocation?.point;
+      final out = await ref.read(askodoxPosRepositoryProvider).shopping(q.trim(),
+          lat: place != null && place.isValid ? place.latitude : null, lng: place != null && place.isValid ? place.longitude : null);
       if (mounted && mine == _ask) setState(() => _data = out);
     } on AskodoxPosException catch (e) {
       if (mounted && mine == _ask) setState(() => _error = e.message(askodoxPosTe(context)));
@@ -87,8 +90,16 @@ class _AskodoxShoppingScreenState extends ConsumerState<AskodoxShoppingScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${s['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
-                  if (address.isNotEmpty)
-                    Text(address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                  if (address.isNotEmpty || s['distance_km'] is num)
+                    Text(
+                        [
+                          if (s['distance_km'] is num) te ? '${s['distance_km']} కి.మీ' : '${s['distance_km']} km',
+                          if (address.isNotEmpty) address,
+                        ].join(' · '),
+                        key: ValueKey('askodoxShoppingDistance-${s['id']}'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
                 ]),
               ),
               Chip(

@@ -15,6 +15,7 @@ import 'offline_voice_card.dart';
 import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
 import 'pay_alert_disclaimer.dart';
+import 'payment_source_icon.dart';
 
 /// "My phone" payments (owner 2026-11-15): any signed-in person -- no shop, no registered UPI id -- gets the payment
 /// notifications and bank SMS of the apps THEY choose read out on their own phone and kept in their own history.
@@ -925,8 +926,10 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               dense: true,
               contentPadding: EdgeInsets.zero,
               onTap: () => _moveRow(m, e, accountOf(e), te),
-              leading: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
-                  color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C)),
+              leading: AskodoxPaymentSourceIcon(
+                  event: e,
+                  fallback: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
+                      color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C))),
               title: Text(
                   '${e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
                   '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
