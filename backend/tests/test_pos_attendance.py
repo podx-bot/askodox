@@ -98,3 +98,18 @@ def test_staff_mark_their_own_half_day_and_a_short_day_becomes_half(env):  # noq
     assert att.check(biz, COOK, "in")["status"] == "P"
     clock[0] = datetime(2026, 11, 18, 12, 0, tzinfo=IST)  # under half of the 09:00-21:00 shift
     assert att.check(biz, COOK, "out")["status"] == "half"
+
+
+def test_holiday_is_a_paid_day_and_bonus_adds_to_the_month(env):  # noqa: F811
+    _desk, store, _rest, biz, *_ = env
+    att, clock, _ = _att(store, datetime(2026, 11, 18, 9, 0, tzinfo=IST))
+    ref = CASHIER[-10:]
+    att.set_pay(biz, OWNER, ref, {"salary_kind": "month", "salary_paise": 30 * 50000})
+    att.check(biz, CASHIER, "in")
+    before = att.month(biz, OWNER, ref)["salary"]
+    assert att.set_holiday(biz, OWNER, "2026-11-17", "Festival") == [{"date": "2026-11-17", "name": "Festival"}]
+    att.bonus(biz, OWNER, ref, 100000, "festival")
+    after = att.month(biz, OWNER, ref)["salary"]
+    assert after["holiday_days"] == 1 and after["bonus_paise"] == 100000
+    assert after["net_paise"] == before["net_paise"] + 50000 + 100000
+    assert att.set_holiday(biz, OWNER, "2026-11-17", remove=True) == []

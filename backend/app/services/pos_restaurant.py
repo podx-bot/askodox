@@ -322,7 +322,10 @@ class PosRestaurant:
                 merged: Dict[str, int] = {}
                 for r in rows:
                     merged[r["product_id"]] = merged.get(r["product_id"], 0) + r["qty_milli"]
-                invoice_data = {"lines": [{"product_id": p, "qty_milli": q} for p, q in merged.items()],
+                # Owner 2026-11-20: the shop's offers (item offer / combo) apply to table, parcel and delivery orders too.
+                saved = self.store.order_discounts(conn, business_id, merged)
+                invoice_data = {"lines": [{"product_id": p, "qty_milli": q, **({"discount_paise": saved[p]} if saved.get(p) else {})}
+                                          for p, q in merged.items()],
                                 "customer_id": data.get("customer_id"), "payments": data.get("payments") or [],
                                 "notes": f"order {order_id}"}
                 digest = _digest({"order": order_id, "items": sorted(r["id"] for r in rows),

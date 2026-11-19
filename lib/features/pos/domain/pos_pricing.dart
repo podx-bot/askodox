@@ -51,3 +51,29 @@ String askodoxOfferLabel(Map product, bool te) {
   }
   return '';
 }
+
+/// Combo savings per product id, the same rule as the server (`PosStore.combo_shares`): one set = one piece of each
+/// combo item; the saving (the items' prices minus the combo price) is split over those items by price, the last one
+/// taking the remainder; a product counts in the first combo that uses it. [lines] = one entry per product.
+Map<String, int> askodoxComboShares(List combos, List<({String id, int qtyMilli, int pricePaise})> lines) {
+  final left = {for (final l in lines) l.id: l.qtyMilli ~/ 1000};
+  final price = {for (final l in lines) l.id: l.pricePaise};
+  final out = <String, int>{};
+  for (final combo in combos) {
+    if (combo is! Map) continue;
+    final items = [for (final i in (combo['items'] as List? ?? const [])) '$i'];
+    if (items.length < 2 || items.any((i) => !left.containsKey(i) || out.containsKey(i))) continue;
+    final sets = items.map((i) => left[i]!).reduce((a, b) => a < b ? a : b);
+    final base = items.fold<int>(0, (sum, i) => sum + price[i]!);
+    final saving = base - ((combo['price_paise'] as num?)?.toInt() ?? 0);
+    if (sets <= 0 || saving <= 0) continue;
+    final total = sets * saving;
+    var given = 0;
+    for (var n = 0; n < items.length; n++) {
+      final share = n == items.length - 1 ? total - given : total * price[items[n]]! ~/ base;
+      out[items[n]] = share;
+      given += share;
+    }
+  }
+  return out;
+}

@@ -251,6 +251,13 @@ class AskodoxPosRepository {
   Future<AskodoxJson> staffPay(String biz, String ref, AskodoxJson body) => _send('PUT', '${_b(biz)}/staff/$ref/pay', body: body);
   Future<AskodoxJson> staffAdvance(String biz, String ref, int paise, {String note = ''}) =>
       _send('POST', '${_b(biz)}/staff/$ref/advance', body: {'amount_paise': paise, 'note': note});
+  /// Extra money for this month (festival bonus ...): added to the salary worked out for the month.
+  Future<AskodoxJson> staffBonus(String biz, String ref, int paise, {String note = ''}) =>
+      _send('POST', '${_b(biz)}/staff/$ref/bonus', body: {'amount_paise': paise, 'note': note});
+  Future<List<AskodoxJson>> shopHolidays(String biz) async =>
+      askodoxPosList((await _send('GET', '${_b(biz)}/attendance/holidays'))['holidays']);
+  Future<List<AskodoxJson>> setShopHoliday(String biz, String date, {String name = '', bool remove = false}) async =>
+      askodoxPosList((await _send('POST', '${_b(biz)}/attendance/holidays', body: {'date': date, 'name': name, 'remove': remove}))['holidays']);
   Future<AskodoxJson> reportDay(String biz, {String date = ''}) =>
       _send('GET', '${_b(biz)}/reports/day', query: {'date': date});
   Future<AskodoxJson> reportRange(String biz, {int days = 7}) =>
@@ -285,6 +292,10 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> products(String id, {String q = ''}) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/products', query: {if (q.isNotEmpty) 'q': q}))['products']);
   Future<AskodoxJson> addProduct(String id, AskodoxJson body) => _send('POST', '${_b(id)}/products', body: body);
+  /// Combo offers of the shop (2-6 items for one price).
+  Future<List<AskodoxJson>> combos(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/combos'))['combos']);
+  Future<List<AskodoxJson>> saveCombos(String id, List<AskodoxJson> combos) async =>
+      askodoxPosList((await _send('PUT', '${_b(id)}/combos', body: {'combos': combos}))['combos']);
   /// One packet photo -> name, MRP, expiry, barcode for the new-item form (owner 2026-11-19). Nothing is saved.
   Future<AskodoxJson> productPhoto(String id, List<AskodoxJson> images) =>
       _send('POST', '${_b(id)}/products/photo', body: {'images': images}, timeout: const Duration(seconds: 60));

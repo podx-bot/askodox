@@ -47,6 +47,12 @@ SCHEMA = (
     "CREATE TABLE IF NOT EXISTS pos_staff_advances (id TEXT PRIMARY KEY, business_id TEXT NOT NULL, phone_key TEXT NOT NULL,"
     " amount_paise INTEGER NOT NULL, local_date TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', by_user TEXT NOT NULL,"
     " removed_at TEXT, created_at TEXT NOT NULL)",
+    # Owner 2026-11-20: shop holidays (a paid day for monthly-salary staff) and extra bonus for a month.
+    "CREATE TABLE IF NOT EXISTS pos_att_holidays (business_id TEXT NOT NULL, local_date TEXT NOT NULL, name TEXT NOT NULL"
+    " DEFAULT '', PRIMARY KEY (business_id, local_date))",
+    "CREATE TABLE IF NOT EXISTS pos_staff_bonus (id TEXT PRIMARY KEY, business_id TEXT NOT NULL, phone_key TEXT NOT NULL,"
+    " month TEXT NOT NULL, amount_paise INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', by_user TEXT NOT NULL,"
+    " created_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS pos_salary_paid (business_id TEXT NOT NULL, phone_key TEXT NOT NULL, month TEXT NOT NULL,"
     " amount_paise INTEGER NOT NULL, paid_at TEXT NOT NULL, by_user TEXT NOT NULL, cashbook_id TEXT,"
     " PRIMARY KEY (business_id, phone_key, month))",
@@ -335,6 +341,11 @@ class PosAttendance:
                                   (business_id, key, f"{month}-01", f"{month}-31")):
                 adv[r["local_date"]] = int(r["a"] or 0)
             pay = self._pay(conn, business_id, key)
+            holidays = {r["local_date"]: r["name"] for r in conn.execute(
+                "SELECT local_date, name FROM pos_att_holidays WHERE business_id = ? AND local_date BETWEEN ? AND ?",
+                (business_id, f"{month}-01", f"{month}-31"))}
+            bonus = int(conn.execute("SELECT COALESCE(SUM(amount_paise), 0) AS a FROM pos_staff_bonus WHERE business_id = ?"
+                                     " AND phone_key = ? AND month = ?", (business_id, key, month)).fetchone()["a"])
             paid = conn.execute("SELECT amount_paise, paid_at FROM pos_salary_paid WHERE business_id = ? AND phone_key = ?"
                                 " AND month = ?", (business_id, key, month)).fetchone()
         days = []
@@ -343,9 +354,13 @@ class PosAttendance:
             if day > now.strftime("%Y-%m-%d"):
                 break
             days.append({"date": day, "weekday": datetime(y, m, d).weekday(), "att": rows.get(day),
-                         "advance_paise": adv.get(day, 0)})
+                         "advance_paise": adv.get(day, 0), "holiday": holidays.get(day)})
         counts = self._counts(rows.values())
-        salary = self._salary(pay, counts, sum(adv.values()), last)
+        # a shop holiday already passed, on which the person did not work, is a paid day (monthly salary)
+        today = now.strftime("%Y-%m-%d")
+        counts["holiday"] = sum(1 for day in holidays
+                                if day <= today and (rows.get(day) or {}).get("status") not in ("P", "OT", "half"))
+        salary = self._salary(pay, counts, sum(adv.values()), last, bonus)
         return {"month": month, "ref": key[-4:], "name": (member["label"] if member else "") or "",
                 "role": member["role"] if member else "", "days": days, "counts": counts,
                 "advance_paise": sum(adv.values()), "pay": pay, "salary": salary,
@@ -367,18 +382,21 @@ class PosAttendance:
                 "late": sum(1 for r in rows if int(r["late_min"] or 0) > 0)}
 
     @staticmethod
-    def _salary(pay: Dict[str, Any], counts: Dict[str, Any], advance: int, days_in_month: int) -> Dict[str, Any]:
-        """Salary worked out in lines the owner can read: days × rate + OT − advance."""
-        worked = counts["present"] + counts["half"] * 0.5
+    def _salary(pay: Dict[str, Any], counts: Dict[str, Any], advance: int, days_in_month: int, bonus: int = 0) -> Dict[str, Any]:
+        """Salary worked out in lines the owner can read: days × rate + OT + bonus − advance. Shop holidays are paid
+        days for a monthly salary (a per-day salary pays worked days only)."""
+        holiday = int(counts.get("holiday") or 0) if pay["salary_kind"] != "day" else 0
+        worked = counts["present"] + counts["half"] * 0.5 + holiday
         if pay["salary_kind"] == "day":
             per_day = int(pay["salary_paise"])
         else:
             per_day = int(round(int(pay["salary_paise"]) / max(days_in_month, 1)))
         base = int(round(per_day * worked))
         ot = int(round(int(pay["ot_rate_paise"]) * counts["ot_min"] / 60))
-        net = base + ot - int(advance)
+        net = base + ot + int(bonus) - int(advance)
         return {"per_day_paise": per_day, "days": worked, "base_paise": base, "ot_hours": round(counts["ot_min"] / 60, 1),
-                "ot_paise": ot, "advance_paise": int(advance), "net_paise": net, "set": int(pay["salary_paise"]) > 0}
+                "ot_paise": ot, "advance_paise": int(advance), "bonus_paise": int(bonus), "holiday_days": holiday,
+                "net_paise": net, "set": int(pay["salary_paise"]) > 0}
 
     def team_salary(self, business_id: str, user: str, month: str = "") -> Dict[str, Any]:
         with self.store._connect() as conn:
@@ -412,6 +430,42 @@ class PosAttendance:
                                                         "category": "salary", "note": f"advance {name}".strip(),
                                                         "source": "salary", "ref": adv_id, "client_txn_id": adv_id})
         return {"id": adv_id}
+
+    def bonus(self, business_id: str, user: str, ref: str, amount_paise: int, note: str = "", month: str = "") -> Dict[str, Any]:
+        """Extra money for a month (festival bonus, good work): added to that month's salary."""
+        if int(amount_paise or 0) <= 0:
+            raise PosError(400, "amount", "Write the amount.")
+        now = self.clock()
+        month = month if re.fullmatch(r"\d{4}-\d{2}", month or "") else now.strftime("%Y-%m")
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "members")
+            key = self._staff_key(conn, business_id, ref)
+            bonus_id = "bon_" + uuid.uuid4().hex[:14]
+            conn.execute("INSERT INTO pos_staff_bonus (id, business_id, phone_key, month, amount_paise, note, by_user,"
+                         " created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                         (bonus_id, business_id, key, month, int(amount_paise), str(note or "")[:120], user, now.isoformat()))
+        return {"id": bonus_id, "month": month}
+
+    def holidays(self, business_id: str, user: str) -> List[Dict[str, Any]]:
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "view")
+            since = (self.clock() - timedelta(days=40)).strftime("%Y-%m-%d")
+            return [{"date": r["local_date"], "name": r["name"]} for r in conn.execute(
+                "SELECT local_date, name FROM pos_att_holidays WHERE business_id = ? AND local_date >= ? ORDER BY local_date",
+                (business_id, since))]
+
+    def set_holiday(self, business_id: str, user: str, day: str, name: str = "", remove: bool = False) -> List[Dict[str, Any]]:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day or ""):
+            raise PosError(400, "date", "Choose the day.")
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "members")
+            if remove:
+                conn.execute("DELETE FROM pos_att_holidays WHERE business_id = ? AND local_date = ?", (business_id, day))
+            else:
+                conn.execute("INSERT INTO pos_att_holidays (business_id, local_date, name) VALUES (?, ?, ?)"
+                             " ON CONFLICT(business_id, local_date) DO UPDATE SET name = excluded.name",
+                             (business_id, day, re.sub(r"\s+", " ", str(name or "")).strip()[:40]))
+        return self.holidays(business_id, user)
 
     def pay_salary(self, business_id: str, user: str, ref: str, month: str) -> Dict[str, Any]:
         """Records "salary given" for one month: the net amount (advances already taken off) goes into the cashbook."""

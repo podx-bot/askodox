@@ -8406,6 +8406,96 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "combo_offers",
+      "name": "Combo offers: 2-6 items together for one price",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/combos"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/combos"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxComboShares",
+          "askodoxShowCombos"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_bill_photo.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19/20: combo offers.",
+      "expected_behavior": "Saving split over the combo's lines as discounts; one set per piece of each item; no stacking with the item's own offer; counter + table / parcel / delivery bills.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "salary_holidays_bonus",
+      "name": "Shop holidays (paid for monthly staff) and a bonus for the month",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/staff/{ref}/bonus"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/attendance/holidays"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/attendance/holidays"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxStaffBonus",
+          "askodoxAttHolidays"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_attendance.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: holidays and extra bonus.",
+      "expected_behavior": "A past shop holiday not worked = a paid day for a monthly salary; bonus adds to the month's net; both shown as their own salary lines.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

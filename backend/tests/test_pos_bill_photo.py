@@ -121,3 +121,19 @@ def test_counter_offer_is_saved_on_the_item_and_gives_the_line_discount(env):
     with pytest.raises(PosError):
         store.update_product(biz, OWNER, oil, {"offer": {"kind": "bxgy", "buy": 0, "free": 1}})
     assert store.update_product(biz, OWNER, oil, {"offer": {}})["offer"] is None
+
+
+def test_combo_saving_is_split_over_its_items_and_never_stacks(env):
+    store, _purchases, _photo, biz, oil = env
+    rice = store.add_product(biz, OWNER, {"name": "Rice 1kg", "unit": "pcs", "price_paise": 6000, "rate_bp": 0})
+    combos = store.set_combos(biz, OWNER, [{"name": "Oil + Rice", "items": [oil, rice["id"]], "price_paise": 20000}])
+    assert store.combos(biz, OWNER) == combos and combos[0]["name"] == "Oil + Rice"
+    store.update_product(biz, OWNER, oil, {"offer": {"kind": "percent", "bp": 1000}})
+    with store._connect() as conn:
+        # 2 oil (175 each) + 1 rice (60): ONE set -> saving 235 - 200 = 35, split 26.06.. / rest; oil's own 10% not added
+        saved = store.order_discounts(conn, biz, {oil: 2000, rice["id"]: 1000})
+        assert sum(saved.values()) == 3500 and saved[rice["id"]] == 3500 - 3500 * 17500 // 23500
+        alone = store.order_discounts(conn, biz, {oil: 2000})
+        assert alone == {oil: 3500}, "no combo -> the item's own offer"
+    with pytest.raises(PosError):
+        store.set_combos(biz, OWNER, [{"name": "Bad", "items": [oil], "price_paise": 100}])
