@@ -29,6 +29,8 @@ REQUIRED = ("id", "name", "purpose", "expected_behavior", "roles", "domains", "t
 
 
 def load(path: Path | str = REGISTRY) -> dict[str, Any]:
+    if not Path(path).exists():  # production image: no docs/ folder -- an empty registry, never a 500
+        return {"features": []}
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
