@@ -214,6 +214,17 @@ void main() {
     await _dispose(tester);
   });
 
+  testWidgets('server code (WhatsApp) not delivered: Firebase SMS starts at once', (tester) async {
+    final api = _api()..on('POST /otp/send'.replaceFirst('/otp', '/onboarding/otp'), (_) => httpError(503, 'OTP delivery failed (whatsapp).'));
+    final phone = FakePhoneAuth();
+    await _pumpApp(tester, api, phoneAuth: phone);
+    await _sendCode(tester, '9876543210');
+    expect(api.to('POST', '/onboarding/otp/send').length, 1);
+    expect(phone.started, ['+919876543210']);
+    expect(find.byKey(const ValueKey('otp-input')), findsOneWidget);
+    await _dispose(tester);
+  });
+
   testWidgets('Firebase not set up for this app: falls back to the server code', (tester) async {
     final api = _api(firebase: true);
     final phone = FakePhoneAuth(startResult: const AskodoxPhoneAuthFailed('app-not-authorized'));
