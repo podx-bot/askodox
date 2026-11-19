@@ -97,6 +97,9 @@ import '../../../core/diagnostics/test_mode.dart';
 import '../data/availability_watch_repository.dart';
 
 const _ink = Color(0xFF10204A);
+/// ON in the real app (main.dart): typed turns are answered with voice too. Widget tests keep it OFF.
+bool askodoxSpeakTypedReplies = false;
+
 const _muted = Color(0xFF667085);
 const _blue = Color(0xFF1769FF);
 
@@ -1895,7 +1898,7 @@ class _AskodoxPrimaryHomeScreenState
       return;
     }
     // Owner 2026-11-19: EVERY reply is text + voice (typed turns too); the Mute button is the only way off.
-    speakResponse = speakResponse || !_speechMuted;
+    speakResponse = speakResponse || (askodoxSpeakTypedReplies && !_speechMuted);
     var text = typed;
     _companionError = false;
     if (!speakResponse) unawaited(_stopSpeaking());
