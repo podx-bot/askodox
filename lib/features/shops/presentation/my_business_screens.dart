@@ -1234,7 +1234,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                       controller: _lines[i].rate,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() => _lines[i].recompute()),
-                      decoration: InputDecoration(labelText: te ? 'ఈ రోజు రేటు ₹' : "Today's rate ₹", border: const OutlineInputBorder()),
+                      decoration: InputDecoration(labelText: te ? 'రేటు ₹' : 'Rate ₹', border: const OutlineInputBorder()),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1244,7 +1244,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                       controller: _lines[i].qty,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() => _lines[i].recompute()),
-                      decoration: InputDecoration(labelText: te ? 'ఎన్ని / బరువు' : 'Count / weight', border: const OutlineInputBorder()),
+                      decoration: InputDecoration(labelText: te ? 'ఎన్ని / కేజీ' : 'Qty / kg', border: const OutlineInputBorder()),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1415,7 +1415,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               child: TextField(
                   controller: _custName,
                   onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(labelText: te ? 'కస్టమర్ పేరు' : 'Customer name', border: const OutlineInputBorder(), suffixIcon: askodoxBoxMic(context, _custName))),
+                  decoration: InputDecoration(labelText: te ? 'కస్టమర్ పేరు' : 'Customer', border: const OutlineInputBorder(), suffixIcon: askodoxBoxMic(context, _custName))),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -1424,7 +1424,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                   keyboardType: TextInputType.phone,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                      labelText: te ? 'కస్టమర్ నంబర్ (బిల్లు పంపడానికి)' : 'Customer number (to send the bill)',
+                      labelText: te ? 'మొబైల్ నంబర్' : 'Mobile number',
                       border: const OutlineInputBorder())),
             ),
           ]),
