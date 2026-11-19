@@ -5069,7 +5069,8 @@ void main() {
 
       h.voice.hold!.complete();
       await _Harness.settle(tester);
-      expect(find.text('Thinking…'), findsOneWidget);
+      // Owner 2026-11-19: no "Thinking…" wait text while the answer is coming.
+      expect(find.text('Thinking…'), findsNothing);
 
       h.assistant.hold!.complete();
       await _Harness.settle(tester);

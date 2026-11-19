@@ -392,6 +392,13 @@ class _AskodoxPrimaryHomeScreenState
   /// can never fall back to device TTS and talk over the new one.
   int _speechTurn = 0;
 
+  /// Voice that starts with the words (owner 2026-11-19): while a spoken turn's answer is still streaming, the
+  /// first sentence's audio is fetched at once, so speaking begins the moment the answer lands instead of
+  /// waiting for a fresh TTS call. Keyed "<language>|<plain text>"; a miss simply fetches as before.
+  final Map<String, Future<Uint8List?>> _earlyAudio = {};
+  bool _streamSpeaks = false;
+  bool _earlyAudioAsked = false;
+
   /// The reply being spoken, which engine speaks it ('sarvam' / 'device'),
   /// where the device voice reached (native speechRange), pause and mute.
   String? _speakingText;
@@ -2318,6 +2325,9 @@ class _AskodoxPrimaryHomeScreenState
     // A long answer (how-to guide / advice) appears while it is written (owner 2026-11-10:
     // feels like 2-3 s); the decision that comes back is still the real answer.
     _streamingScrolledAt = 0;
+    _streamSpeaks = speakResponse && !_speechMuted;
+    _earlyAudioAsked = false;
+    _earlyAudio.clear();
     askodoxTalkBrief = _talkMode;
     final decision = await ref.read(askodoxAssistantServiceProvider).decideStreaming(
       message: aiMessage,
@@ -3908,9 +3918,9 @@ class _AskodoxPrimaryHomeScreenState
     final lips = ref.read(askodoxCompanionVoiceProvider);
     final useSarvam = !deviceOnly && ref.read(askodoxFlagProvider('voice.sarvam_tts'));
     Future<Uint8List?> fetch(String text) async => useSarvam
-        ? await ref
+        ? await (_earlyAudio.remove('$language|$text') ?? ref
             .read(askodoxReplySpeechServiceProvider)
-            .sarvamAudio(text, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue)
+            .sarvamAudio(text, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue))
         : null;
     try {
       var next = fetch(plain.first);
@@ -4085,12 +4095,32 @@ class _AskodoxPrimaryHomeScreenState
 
   void _showStreamingReply(String textSoFar) {
     if (!mounted || !_sending) return;
+    _prefetchFirstSpokenChunk(textSoFar);
     setState(() => _streamingReply = textSoFar.isEmpty ? null : textSoFar);
     // Follow the growing answer without animating on every piece.
     if (textSoFar.length - _streamingScrolledAt >= 80 || _streamingScrolledAt == 0) {
       _streamingScrolledAt = textSoFar.length;
       _scrollBottom();
     }
+  }
+
+  /// Once the streamed answer holds a whole first chunk (a second one has begun, so its end can no longer move),
+  /// its server audio is requested in the background. Only for spoken turns, once per turn.
+  void _prefetchFirstSpokenChunk(String textSoFar) {
+    if (!_streamSpeaks || _earlyAudioAsked || _speechMuted) return;
+    if (!ref.read(askodoxFlagProvider('voice.sarvam_tts'))) return;
+    final markup = askodoxWithoutSources(textSoFar);
+    final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160);
+    if (chunks.length < 2) return;
+    final first = askodoxPlainReply(markup.substring(chunks.first.start, chunks.first.end)).trim();
+    if (first.isEmpty) return;
+    _earlyAudioAsked = true;
+    final language = askodoxSpeechLanguage(reply: askodoxPlainReply(markup), userText: '', uiTelugu: _te);
+    final audio = ref
+        .read(askodoxReplySpeechServiceProvider)
+        .sarvamAudio(first, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue);
+    _earlyAudio['$language|$first'] = audio.catchError((Object _) => null);
+    askodoxTestLog('voice_early', detail: {'chars': first.length, 'language': language});
   }
 
   void _scrollBottom() {
@@ -4276,10 +4306,10 @@ class _AskodoxPrimaryHomeScreenState
     final (label, color) = switch (_voicePhase) {
       _ when _talkPaused => (te ? 'ఆగింది — మాట్లాడటానికి గోళం నొక్కండి' : 'Paused — tap the orb to talk', const Color(0xFF94A3B8)),
       _VoicePhase.recording => (te ? 'వింటున్నాను…' : 'Listening…', const Color(0xFF38BDF8)),
-      _VoicePhase.transcribing || _VoicePhase.thinking => (te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…', const Color(0xFFA78BFA)),
+      // Owner 2026-11-19: no "Thinking…" wait text -- the orb moves and the answer's words appear as they come.
+      _VoicePhase.transcribing || _VoicePhase.thinking => ('', const Color(0xFFA78BFA)),
       _VoicePhase.speaking => (te ? 'మాట్లాడుతున్నాను… (ఆపడానికి గోళం నొక్కండి)' : 'Speaking… (tap the orb to interrupt)', const Color(0xFF34D399)),
-      _VoicePhase.idle when _sending || _analyzingAttachments =>
-        (te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…', const Color(0xFFA78BFA)),
+      _VoicePhase.idle when _sending || _analyzingAttachments => ('', const Color(0xFFA78BFA)),
       _VoicePhase.idle => (te ? 'మైక్ సిద్ధం చేస్తున్నాను…' : 'Getting the mic ready…', const Color(0xFF94A3B8)),
     };
     final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: true));
@@ -5549,7 +5579,7 @@ class _AskodoxPrimaryHomeScreenState
     final status = switch (_voicePhase) {
       _VoicePhase.recording => te ? 'వింటున్నాను…' : 'Listening…',
       _VoicePhase.transcribing => te ? 'అర్థం చేసుకుంటున్నాను…' : 'Understanding…',
-      _VoicePhase.thinking => te ? 'ఆలోచిస్తున్నాను…' : 'Thinking…',
+      _VoicePhase.thinking => '',
       _VoicePhase.speaking => te ? 'మాట్లాడుతున్నాను…' : 'Speaking…',
       _VoicePhase.idle => '',
     };

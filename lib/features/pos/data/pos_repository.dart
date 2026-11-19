@@ -176,6 +176,8 @@ class AskodoxPosRepository {
       _send('POST', '${_b(biz)}/bills/$invoiceId/send', body: {'phone': phone});
   Future<AskodoxJson> billSettle(String biz, String invoiceId, String pay, String txn) =>
       _send('POST', '${_b(biz)}/bills/$invoiceId/settle', body: {'pay': pay, 'client_txn_id': txn});
+  /// The phone printed this bill (owner 2026-11-19: history flags bills never printed).
+  Future<AskodoxJson> billPrinted(String biz, String invoiceId) => _send('POST', '${_b(biz)}/bills/$invoiceId/printed');
   Future<AskodoxJson> billHistory(String biz, {String from = '', String to = '', bool due = false, String q = ''}) =>
       _send('GET', '${_b(biz)}/bills', query: {'date_from': from, 'date_to': to, 'due': due ? 'true' : 'false', 'q': q});
   Future<List<AskodoxJson>> myBills() async => askodoxPosList((await _send('GET', '/api/pos/me/bills'))['bills']);

@@ -448,6 +448,12 @@ def bill_settle(business_id: str, invoice_id: str, body: BillSettleIn, request: 
                  body.amount_paise, body.client_txn_id)
 
 
+@router.post("/businesses/{business_id}/bills/{invoice_id}/printed")
+def bill_printed(business_id: str, invoice_id: str, request: Request) -> dict:
+    """The phone printed this bill; history stops flagging it as "print pending"."""
+    return _call(_bills(request).mark_printed, business_id, _user(request, "bill-printed", 300), invoice_id)
+
+
 @router.get("/businesses/{business_id}/bills")
 def bill_history(business_id: str, request: Request, date_from: str = "", date_to: str = "", due: bool = False,
                  q: str = "") -> dict:

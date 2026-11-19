@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -752,7 +754,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       final invoice = await repo.createInvoice(widget.businessId, body);
       if (!mounted) return;
       setState(_cart.clear);
-      context.push('/pos/${widget.businessId}/invoice/${invoice['id']}');
+      context.push('/pos/${widget.businessId}/invoice/${invoice['id']}?fresh=1');
     } on AskodoxPosException catch (e) {
       if (!e.retryable) {
         if (mounted) setState(() => _error = e.message(te));
@@ -1119,14 +1121,15 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
 }
 
 /// Prints [invoice] on the saved printer (plain-text ESC/POS). Hardware result is
-/// reported exactly as the printer link answered.
-Future<void> askodoxPrintInvoice(BuildContext context, WidgetRef ref, AskodoxJson invoice) async {
+/// reported exactly as the printer link answered. Returns true only when the printer took the bytes; with
+/// [businessId] the server also records the print, so bill history stops showing "print pending".
+Future<bool> askodoxPrintInvoice(BuildContext context, WidgetRef ref, AskodoxJson invoice, {String? businessId}) async {
   final te = askodoxPosTe(context);
   final messenger = ScaffoldMessenger.maybeOf(context);
   final printer = await AskodoxSavedPrinter.load();
   if (printer == null) {
     messenger?.showSnackBar(SnackBar(content: Text(te ? 'ముందు ప్రింటర్ ఎంచుకోండి.' : 'Choose a printer first (Printer).')));
-    return;
+    return false;
   }
   try {
     final bytes = askodoxInvoiceNeedsRaster(invoice)
@@ -1136,7 +1139,14 @@ Future<void> askodoxPrintInvoice(BuildContext context, WidgetRef ref, AskodoxJso
         : askodoxReceiptBytes(invoice, paperMm: printer.paperMm);
     await ref.read(askodoxPrinterTransportProvider).write(printer.id, bytes);
     messenger?.showSnackBar(SnackBar(content: Text(te ? 'ప్రింటర్‌కి పంపాం.' : 'Sent to the printer.')));
+    final id = '${invoice['id'] ?? ''}';
+    if (businessId != null && businessId.isNotEmpty && id.isNotEmpty) {
+      // Best effort: a lost network only leaves the "print pending" mark in history.
+      unawaited(ref.read(askodoxPosRepositoryProvider).billPrinted(businessId, id).then((_) {}, onError: (_) {}));
+    }
+    return true;
   } on AskodoxPrinterException catch (e) {
     messenger?.showSnackBar(SnackBar(content: Text(e.message(te))));
+    return false;
   }
 }

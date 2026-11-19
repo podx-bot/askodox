@@ -39,12 +39,18 @@ SCHEMA = [
 MIGRATIONS = [
     ("pos_products", "item_no", "INTEGER"),
     ("pos_payments", "app", "TEXT NOT NULL DEFAULT ''"),
+    # Owner 2026-11-19: "Next bill" moves on without printing, so history flags bills never printed.
+    ("pos_invoices", "printed_at", "TEXT"),
 ]
 
 # What the cashier taps -> (method, app). "other_upi" = any UPI app not named; "upi" alone = UPI, app not said.
 PAY_APPS = ("phonepe", "gpay", "paytm", "bhim", "other_upi")
 APP_LABELS = {"phonepe": "PhonePe", "gpay": "Google Pay", "paytm": "Paytm", "bhim": "BHIM", "other_upi": "UPI"}
 MODE_KEYS = ("cash", "phonepe", "gpay", "paytm", "other_upi", "card", "bank_transfer", "cheque")
+
+
+def _col(row: sqlite3.Row, name: str) -> Any:
+    return row[name] if name in row.keys() else None
 
 
 def pay_choice(value: Any) -> tuple:
@@ -432,6 +438,16 @@ class PosBills:
             left = self._due(conn, inv)
         return {"replayed": False, "invoice_id": invoice_id, "payment_id": payment_id, "due_paise": left}
 
+    def mark_printed(self, business_id: str, user: str, invoice_id: str) -> Dict[str, Any]:
+        """The phone printed this bill (first print time is kept; reprints do not move it)."""
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "view")
+            inv = self._invoice_row(conn, business_id, invoice_id)
+            at = self.clock().isoformat()
+            conn.execute("UPDATE pos_invoices SET printed_at = ? WHERE id = ? AND printed_at IS NULL", (at, inv["id"]))
+            row = conn.execute("SELECT printed_at FROM pos_invoices WHERE id = ?", (inv["id"],)).fetchone()
+        return {"invoice_id": invoice_id, "printed": True, "printed_at": row["printed_at"]}
+
     def history(self, business_id: str, user: str, *, date_from: str = "", date_to: str = "", only_due: bool = False,
                 query: str = "", limit: int = 300) -> Dict[str, Any]:
         """Bills with how each was paid, what is still due, and whether it was sent; totals per way of paying."""
@@ -481,5 +497,6 @@ class PosBills:
                     "customer_name": customer.get("name") or "", "customer_phone_last4": _digits(phone)[-4:],
                     "sent": share["channel"] if share else "", "seen": bool(share and share["seen_at"]),
                     "customer_says_paid": bool(share and share["customer_says_paid_at"]),
+                    "printed": bool(_col(inv, "printed_at")),
                 })
         return {"bills": bills, "totals": totals, "labels": APP_LABELS}
