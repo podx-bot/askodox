@@ -11,6 +11,8 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <!-- POS: USB receipt printers (permission asked per device when the user prints). -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
