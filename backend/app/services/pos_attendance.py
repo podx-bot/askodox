@@ -173,8 +173,8 @@ class PosAttendance:
               for_ref: str = "") -> Dict[str, Any]:
         """``action`` in / out / leave. On the person's own phone ``for_ref`` is empty; the shop phone (kiosk, owner /
         manager signed in) passes the staff reference and a photo."""
-        if action not in ("in", "out", "leave"):
-            raise PosError(400, "action", "Choose in, out or leave.")
+        if action not in ("in", "out", "leave", "half"):
+            raise PosError(400, "action", "Choose in, out, half or leave.")
         now = self.clock()
         today = now.strftime("%Y-%m-%d")
         with self.store._tx() as conn:
@@ -198,6 +198,11 @@ class PosAttendance:
                                (business_id, key, today)).fetchone()
             if action == "leave":
                 status, in_at, out_at, late, ot = "leave", None, None, 0, 0
+            elif action == "half":
+                # Owner 2026-11-19: the staff member says "half day" themselves; the owner does not mark it.
+                status, late, ot = "half", (row["late_min"] if row else 0), 0
+                in_at = row["in_at"] if row and row["in_at"] else now.isoformat()
+                out_at = now.isoformat() if row and row["in_at"] else None
             elif action == "in":
                 if row and row["in_at"]:
                     return {"already": True, **self._view(dict(row))}
@@ -212,6 +217,9 @@ class PosAttendance:
                 worked = now - in_time
                 ot = max(0, int((worked - shift).total_seconds() // 60))
                 status = "OT" if ot >= 30 else row["status"]
+                # Less than half the shift worked -> a half day by itself (the owner can still change it).
+                if status == "P" and shift.total_seconds() > 0 and worked.total_seconds() < shift.total_seconds() / 2:
+                    status = "half"
                 in_at, out_at, late = row["in_at"], now.isoformat(), row["late_min"]
             att_id = row["id"] if row else "att_" + uuid.uuid4().hex[:14]
             conn.execute(

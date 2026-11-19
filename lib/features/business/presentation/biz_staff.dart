@@ -351,12 +351,25 @@ class _AskodoxBizCheckInScreenState extends ConsumerState<AskodoxBizCheckInScree
           big('askodoxCheckInOut', te ? 'వెళ్తున్నా' : 'Leaving', Icons.logout, _red, 'out'),
         ]),
         const SizedBox(height: 8),
-        OutlinedButton(
-          key: const Key('askodoxCheckInLeave'),
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-          onPressed: _busy ? null : () => _go('leave'),
-          child: Text(te ? 'ఈ రోజు సెలవు' : 'On leave today'),
-        ),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton(
+              key: const Key('askodoxCheckInHalf'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              onPressed: _busy ? null : () => _go('half'),
+              child: Text(te ? 'ఈ రోజు హాఫ్ డే' : 'Half day today'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton(
+              key: const Key('askodoxCheckInLeave'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              onPressed: _busy ? null : () => _go('leave'),
+              child: Text(te ? 'ఈ రోజు సెలవు' : 'On leave today'),
+            ),
+          ),
+        ]),
         const SizedBox(height: 8),
         Text(
             te

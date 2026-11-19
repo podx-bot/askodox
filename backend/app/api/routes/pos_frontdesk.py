@@ -1033,7 +1033,7 @@ def dues(business_id: str, request: Request) -> dict:
 
 # ------------------------------------------------------------------------------------------ attendance, salary, tasks
 class CheckIn(BaseModel):
-    action: str = Field(pattern="^(in|out|leave)$")
+    action: str = Field(pattern="^(in|out|leave|half)$")
     lat: Optional[float] = Field(default=None, ge=-90, le=90)
     lng: Optional[float] = Field(default=None, ge=-180, le=180)
     method: str = Field(default="device_lock", pattern="^(device_lock|photo)$")
