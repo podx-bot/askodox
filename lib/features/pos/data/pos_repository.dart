@@ -176,6 +176,9 @@ class AskodoxPosRepository {
       _send('POST', '${_b(biz)}/bills/$invoiceId/send', body: {'phone': phone});
   Future<AskodoxJson> billSettle(String biz, String invoiceId, String pay, String txn) =>
       _send('POST', '${_b(biz)}/bills/$invoiceId/settle', body: {'pay': pay, 'client_txn_id': txn});
+  /// Main chat bill by item numbers (owner 2026-11-19): {card, reply}; card null = not a number bill / not a seller.
+  Future<AskodoxJson> chatBill(String text, {required bool te}) =>
+      _send('POST', '/api/pos/chat-bill', body: {'text': text, 'te': te});
   /// The phone printed this bill (owner 2026-11-19: history flags bills never printed).
   Future<AskodoxJson> billPrinted(String biz, String invoiceId) => _send('POST', '${_b(biz)}/bills/$invoiceId/printed');
   Future<AskodoxJson> billHistory(String biz, {String from = '', String to = '', bool due = false, String q = ''}) =>

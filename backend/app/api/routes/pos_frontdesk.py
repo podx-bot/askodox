@@ -448,6 +448,26 @@ def bill_settle(business_id: str, invoice_id: str, body: BillSettleIn, request: 
                  body.amount_paise, body.client_txn_id)
 
 
+class ChatBillIn(BaseModel):
+    text: str = Field(min_length=1, max_length=400)
+    te: bool = True
+
+
+@router.post("/chat-bill")
+def chat_bill(body: ChatBillIn, request: Request) -> dict:
+    """Main chat, owner 2026-11-19: item NUMBERS said by a shop's own staff -> the bill preview from the shop's own
+    numbered items (no AI call, no guessed items). ``card`` is null when the words are not a number bill or the caller
+    sells in no shop -- the chat then answers normally. The real bill = ``/businesses/{id}/quick-bill``."""
+    from app.services.pos_chat_bill import PosChatBill, parse, reply_text
+
+    if not parse(body.text):
+        return {"card": None}
+    card = _call(PosChatBill(_store(request)).card, _user(request, "chat-bill", 120), body.text)
+    if card is None:
+        return {"card": None}
+    return {"card": card, "reply": reply_text(card, body.te)}
+
+
 @router.post("/businesses/{business_id}/bills/{invoice_id}/printed")
 def bill_printed(business_id: str, invoice_id: str, request: Request) -> dict:
     """The phone printed this bill; history stops flagging it as "print pending"."""

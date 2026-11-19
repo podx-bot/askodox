@@ -7820,6 +7820,87 @@
           "change": "new tab"
         }
       ]
+    },
+    {
+      "id": "bill_next_and_print_pending",
+      "name": "Bill screens: Next bill main button, Print / PDF / Share one row, print pending in history",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/bills/{invoice_id}/printed"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxQuickBillNext",
+          "askodoxPosNextBill"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_bills.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: fast counters move on with one tap; rare Return / Cancel under more; bills never printed are flagged in history.",
+      "expected_behavior": "After a bill is made, Next bill opens an empty bill; history shows 'print pending' with a Print button until printed.",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new"
+        }
+      ]
+    },
+    {
+      "id": "chat_number_bill",
+      "name": "Main chat bill by the shop's own item numbers",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos",
+        "chat"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/chat-bill"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxChatBillMake",
+          "askodoxChatBillPrint"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_chat_bill.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "bill_next_and_print_pending"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-19: an in-app task asked in chat completes in the chat -- numbers -> items from the shop's own item numbers -> bill -> print / share in chat; never asks names for known numbers, never guesses items.",
+      "expected_behavior": "Shop staff type or say 'bill 1 2, 3 1' -> a bill card with the shop's items, unknown numbers named; one tap makes the real bill (quick-bill API).",
+      "history": [
+        {
+          "date": "2026-11-19",
+          "change": "new"
+        }
+      ]
     }
   ]
 }

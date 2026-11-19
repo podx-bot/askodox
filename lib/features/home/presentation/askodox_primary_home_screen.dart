@@ -1,5 +1,6 @@
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../business/presentation/biz_chat.dart';
+import '../../pos/data/pos_repository.dart' show AskodoxJson, askodoxPosRepositoryProvider;
 import '../../../core/flags/askodox_release_phase.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -84,6 +85,7 @@ import '../../staff/askodox_staff_access.dart';
 import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
+import 'chat_bill_card.dart';
 import 'chat_shop_menu_card.dart';
 import '../application/chat_shop_cart.dart';
 import '../application/voice_mode.dart';
@@ -1152,6 +1154,8 @@ class _AskodoxPrimaryHomeScreenState
   /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
   /// to open, keyed by the USER turn; a button under the next assistant turn.
   final Map<int, AskodoxAppAction> _appActionByTurn = {};
+  // A bill made in the chat from the shop's own item numbers, by ASSISTANT turn index (owner 2026-11-19).
+  final Map<int, AskodoxJson> _chatBillByTurn = {};
   // A named ASKODOX shop's menu, drawn as a card under that reply (replaces the "open" button of the same turn).
   final Map<int, Map<String, Object?>> _shopMenuByTurn = {};
   /// Smart Answer chips (backend reply_suggestions.py) keyed by the USER turn;
@@ -1166,6 +1170,7 @@ class _AskodoxPrimaryHomeScreenState
     _guideByTurn.clear();
     _intelByTurn.clear();
     _appActionByTurn.clear();
+    _chatBillByTurn.clear();
     _shopMenuByTurn.clear();
     _suggestionsByTurn.clear();
     _turns.clear();
@@ -1905,6 +1910,39 @@ class _AskodoxPrimaryHomeScreenState
         _scrollBottom();
         return;
       }
+    }
+
+    // A shop's own staff billing by item NUMBERS ("బిల్ 1 2, 3 1", owner 2026-11-19): the bill is made right here from
+    // the shop's own numbered items -- no AI call, no guessed items, no name questions. Not a seller / not a number
+    // bill -> the server says "no card" and the chat carries on below.
+    if (attachments.isEmpty && typed.isNotEmpty && askodoxLooksLikeNumberBill(typed) &&
+        ref.read(authSessionProvider).user != null) {
+      setState(() => _sending = true);
+      AskodoxJson? bill;
+      try {
+        bill = await ref.read(askodoxPosRepositoryProvider).chatBill(typed, te: _te);
+      } catch (_) {
+        bill = null;
+      }
+      if (!mounted) return;
+      final card = bill?['card'];
+      final billReply = '${bill?['reply'] ?? ''}';
+      if (card is Map) {
+        final billCard = Map<String, Object?>.from(card);
+        setState(() {
+          _active = true;
+          _turns.add(ConversationTurnRecord(text: typed, isUser: true));
+          _turns.add(ConversationTurnRecord(text: billReply, isUser: false));
+          _chatBillByTurn[_turns.length - 1] = billCard;
+          _sending = false;
+        });
+        if (preset == null) _controller.clear();
+        _scrollBottom();
+        if (speakResponse) unawaited(_speakReply(billReply, userText: typed));
+        unawaited(_saveSnapshot());
+        return;
+      }
+      setState(() => _sending = false);
     }
 
     // A person who runs a business: "ఈ రోజు ఎంత అమ్మాం?" / "చికెన్ 65 ఆఫ్ చెయ్యి" works here too (owner 2026-11-18) --
@@ -5299,6 +5337,7 @@ class _AskodoxPrimaryHomeScreenState
               ),
             if (_shopMenuByTurn[index - 1] case final shopMenu? when !turn.isUser)
               AskodoxChatShopMenuCard(card: shopMenu, te: te),
+            if (_chatBillByTurn[index] case final bill? when !turn.isUser) AskodoxChatBillCard(card: bill, te: te),
             if (_appActionByTurn[index - 1] case final appAction? when !turn.isUser && _shopMenuByTurn[index - 1] == null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
