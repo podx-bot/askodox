@@ -19,6 +19,7 @@ import '../domain/pos_scale.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import '../../../shared/widgets/askodox_field_guide.dart';
 import 'pos_advance_screens.dart';
+import 'pos_combo_sheet.dart';
 import 'pos_common.dart';
 import 'pos_sale_screen.dart' show askodoxPrintInvoice;
 
@@ -315,6 +316,15 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
     final te = askodoxPosTe(context);
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'సరుకులు' : 'Items'), actions: [
+        IconButton(
+          key: const Key('askodoxPosOpenCombos'),
+          tooltip: te ? 'కాంబో ఆఫర్లు' : 'Combo offers',
+          onPressed: () async {
+            final items = await _items;
+            if (context.mounted) await askodoxShowCombos(context, ref, widget.businessId, items);
+          },
+          icon: const Icon(Icons.local_offer_outlined),
+        ),
         TextButton.icon(
           key: const Key('askodoxPosOpenCatalogue'),
           onPressed: () async {

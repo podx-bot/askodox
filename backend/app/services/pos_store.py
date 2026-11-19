@@ -200,6 +200,8 @@ MIGRATIONS = [
     ("pos_products", "photo_at", "TEXT"),
     # Counter offers (owner 2026-11-19): buy X get Y free / a percentage off, set per item by the shop.
     ("pos_products", "offer", "TEXT"),
+    # Combo offers (owner 2026-11-20): items bought together for one price; JSON list on the shop.
+    ("pos_businesses", "combos", "TEXT"),
     # Open / paused / closed (owner 2026-11-15) and the business-name change rule (name_change_policy.py).
     ("pos_businesses", "status", "TEXT NOT NULL DEFAULT 'open'"),
     ("pos_businesses", "status_changed_at", "TEXT"),
@@ -665,6 +667,82 @@ class PosStore:
             gross = qty_milli * unit_price_paise // 1000
             return (gross * int(offer["bp"]) + 5000) // 10000
         return 0
+
+    @staticmethod
+    def combo_shares(combos: Any, lines: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Combo savings per product id. ``lines`` = [{"product_id", "qty_milli", "price_paise"}] (one per product).
+        A combo applies once per complete set (one piece of each of its items); the saving (the items' own prices minus
+        the combo price) is split over those items by price, the last one taking the remainder. A product counts in the
+        first combo that uses it. The app's ``askodoxComboShares`` is the same rule -- change both together."""
+        left = {l["product_id"]: int(l["qty_milli"]) // 1000 for l in lines}
+        price = {l["product_id"]: int(l["price_paise"]) for l in lines}
+        out: Dict[str, int] = {}
+        for combo in combos if isinstance(combos, list) else []:
+            items = [str(i) for i in (combo.get("items") or [])]
+            if len(items) < 2 or any(i not in left or i in out for i in items):
+                continue
+            sets = min(left[i] for i in items)
+            saving = sum(price[i] for i in items) - int(combo.get("price_paise") or 0)
+            if sets <= 0 or saving <= 0:
+                continue
+            total, base, given = sets * saving, sum(price[i] for i in items), 0
+            for n, i in enumerate(items):
+                share = total - given if n == len(items) - 1 else total * price[i] // base
+                out[i] = share
+                given += share
+        return out
+
+    def order_discounts(self, conn: sqlite3.Connection, business_id: str, merged: Dict[str, int]) -> Dict[str, int]:
+        """The shop's offers on an order's items (product id -> qty): a combo share when the item is in an applied
+        combo, otherwise the item's own offer. No stacking."""
+        rows = {r["id"]: r for r in conn.execute(
+            f"SELECT id, price_paise, offer FROM pos_products WHERE business_id = ? AND id IN ({', '.join('?' for _ in merged)})",
+            (business_id, *merged))} if merged else {}
+        lines = [{"product_id": pid, "qty_milli": qty, "price_paise": rows[pid]["price_paise"]}
+                 for pid, qty in merged.items() if pid in rows]
+        try:
+            combos = json.loads(self._business_row(conn, business_id)["combos"] or "[]")
+        except (TypeError, ValueError, IndexError, KeyError):
+            combos = []
+        out = self.combo_shares(combos, lines)
+        for line in lines:
+            if line["product_id"] in out:
+                continue
+            try:
+                offer = json.loads(rows[line["product_id"]]["offer"] or "null")
+            except (TypeError, ValueError):
+                offer = None
+            saving = self.offer_discount(offer, line["qty_milli"], line["price_paise"])
+            if saving > 0:
+                out[line["product_id"]] = saving
+        return out
+
+    def combos(self, business_id: str, user: str) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "view")
+            try:
+                return json.loads(self._business_row(conn, business_id)["combos"] or "[]")
+            except (TypeError, ValueError):
+                return []
+
+    def set_combos(self, business_id: str, user: str, combos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if len(combos) > 30:
+            raise PosError(400, "combos", "At most 30 combos.")
+        with self._tx() as conn:
+            self._require(conn, business_id, user, "products")
+            known = {r["id"] for r in conn.execute("SELECT id FROM pos_products WHERE business_id = ?", (business_id,))}
+            clean = []
+            for n, raw in enumerate(combos, start=1):
+                name = _clean(raw.get("name"), 60)
+                items = list(dict.fromkeys(str(i) for i in (raw.get("items") or [])))
+                price = int(raw.get("price_paise") or 0)
+                if not name or not 2 <= len(items) <= 6 or any(i not in known for i in items) or price <= 0:
+                    raise PosError(400, "combo", f"Combo {n}: give a name, 2-6 of your items and the combo price.")
+                clean.append({"id": str(raw.get("id") or _id("cmb")), "name": name, "items": items, "price_paise": price})
+            now = self.clock().isoformat()
+            conn.execute("UPDATE pos_businesses SET combos = ? WHERE id = ?", (json.dumps(clean), business_id))
+            self._audit(conn, business_id, user, "combos.set", business_id, {"count": len(clean)}, now)
+        return clean
 
     @staticmethod
     def _product_out(row: sqlite3.Row, stock: Optional[int]) -> Dict[str, Any]:

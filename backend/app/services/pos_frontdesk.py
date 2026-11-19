@@ -323,6 +323,10 @@ class PosFrontDesk:
                     "item_no": r["item_no"] if "item_no" in r.keys() else None,
                     "menu_group": (r["menu_group"] if "menu_group" in r.keys() else "") or "",
                     "food_type": (r["food_type"] if "food_type" in r.keys() else "") or ""}
+            try:  # the shop's own offer on this item (shown to the customer; applied when the order is billed)
+                item["offer"] = json.loads(r["offer"]) if "offer" in r.keys() and r["offer"] else None
+            except (TypeError, ValueError):
+                item["offer"] = None
             if everything:
                 item["today_only_flag"] = bool(only_on)
                 item["sold_out"] = sold_out
@@ -664,7 +668,8 @@ class PosFrontDesk:
                 "open": data["open"], "message": data["message"], "modes": data["modes"],
                 "items": [{"id": m["id"], "name": m["name"], "name_te": m["name_te"], "price_paise": m["price_paise"],
                            "available": m["available"], "item_no": m.get("item_no"), "menu_group": m.get("menu_group", ""),
-                           "food_type": m.get("food_type", ""), "rating": m.get("rating")} for m in ordered[:limit]],
+                           "food_type": m.get("food_type", ""), "rating": m.get("rating"), "offer": m.get("offer")}
+                          for m in ordered[:limit]],
                 "rating": data["business"].get("rating"), "welcome": data.get("welcome"),
                 "more": max(0, len(menu) - limit), "last_items": data["last_items"], "prepared": prepared,
                 "focus": focus[:12]}

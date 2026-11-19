@@ -1036,6 +1036,21 @@ def purchase_bill_photo(business_id: str, body: BillPhotoIn, request: Request) -
     return _call(_bill_photo(request).preview, business_id, _user(request, "bill-photo", 20), photos, service)
 
 
+class CombosIn(BaseModel):
+    combos: List[Dict[str, Any]] = Field(default_factory=list, max_length=30)
+
+
+@router.get("/businesses/{business_id}/combos")
+def get_combos(business_id: str, request: Request) -> dict:
+    return {"combos": _call(_store(request).combos, business_id, _user(request))}
+
+
+@router.put("/businesses/{business_id}/combos")
+def put_combos(business_id: str, body: CombosIn, request: Request) -> dict:
+    """Combo offers: 2-6 of the shop's own items for one price (applied by the bill as line discounts)."""
+    return {"combos": _call(_store(request).set_combos, business_id, _user(request), body.combos)}
+
+
 @router.post("/businesses/{business_id}/products/photo")
 def product_photo(business_id: str, body: BillPhotoIn, request: Request) -> dict:
     """A photo of one packet -> name, MRP, expiry, barcode for the new-item form (nothing is saved)."""

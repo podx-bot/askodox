@@ -100,6 +100,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   final _search = TextEditingController();
   final _command = TextEditingController();
   List<AskodoxJson> _products = const [];
+  List<AskodoxJson> _combos = const []; // the shop's combo offers (applied as line discounts)
   final List<AskodoxCartLine> _cart = [];
   AskodoxJson? _customer;
   Map<String, int> _customerPrices = const {};
@@ -131,6 +132,12 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       // "Online only" items are offered in ASKODOX, not at the counter.
       final counter = [for (final p in list) if (askodoxPosChannel(p, shopDefault) != 'online') p];
       if (mounted) setState(() => _products = counter);
+      try {
+        final combos = await ref.read(askodoxPosRepositoryProvider).combos(widget.businessId);
+        if (mounted) setState(() => _combos = combos);
+      } catch (_) {
+        // no combos (or an older server): items sell at their own prices
+      }
       final customerId = widget.customerId;
       if (customerId != null && customerId.isNotEmpty) {
         final full = await ref.read(askodoxPosRepositoryProvider).customer(widget.businessId, customerId);
@@ -162,11 +169,28 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   /// The item's own counter offer (1 + 1, 2 + 1, % off) becomes that line's discount and follows the quantity. A
   /// discount the cashier typed or spoke is never replaced.
   void _applyOffers() {
+    bool open(AskodoxCartLine l) => l.pack == null && !(l.discountPaise > 0 && !l.offerApplied);
+    // Combos first (one entry per product: the summed quantity at the first line's price), then the item's own offer.
+    final totals = <String, ({String id, int qtyMilli, int pricePaise})>{};
+    for (final l in _cart.where(open)) {
+      final id = '${l.product['id']}';
+      final seen = totals[id];
+      totals[id] = (id: id, qtyMilli: (seen?.qtyMilli ?? 0) + l.qtyMilli, pricePaise: seen?.pricePaise ?? l.pricePaise);
+    }
+    final combo = _combos.isEmpty ? const <String, int>{} : askodoxComboShares(_combos, totals.values.toList());
+    final placed = <String>{};
     for (final l in _cart) {
-      if (l.pack != null || (l.discountPaise > 0 && !l.offerApplied)) continue;
-      final offer = askodoxOfferDiscount(l.product, l.qtyMilli, l.pricePaise);
-      l.discountPaise = offer;
-      l.offerApplied = offer > 0;
+      if (!open(l)) continue;
+      final id = '${l.product['id']}';
+      var saving = 0;
+      if (combo.containsKey(id)) {
+        // the product's whole combo share sits on its first line (never more than that line is worth)
+        if (placed.add(id)) saving = combo[id]!.clamp(0, l.qtyMilli * l.pricePaise ~/ 1000);
+      } else {
+        saving = askodoxOfferDiscount(l.product, l.qtyMilli, l.pricePaise);
+      }
+      l.discountPaise = saving;
+      l.offerApplied = saving > 0;
     }
   }
 

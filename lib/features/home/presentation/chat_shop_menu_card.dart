@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/widgets/chat_pins.dart' show askodoxLiveOrdersProvider;
 import '../../pos/data/pos_repository.dart';
+import '../../pos/domain/pos_pricing.dart';
 import '../../pos/presentation/pos_reservation_sheets.dart';
 import '../../pos/presentation/shop_rating_screens.dart' show askodoxRatingLine;
 import '../application/chat_shop_cart.dart';
@@ -197,7 +198,10 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
   int get _total {
     var sum = 0;
     for (final m in _items) {
-      sum += askodoxPosInt(m['price_paise']) * (_qty['${m['id']}'] ?? 0);
+      final count = _qty['${m['id']}'] ?? 0;
+      final price = askodoxPosInt(m['price_paise']);
+      // the item's own offer comes off (the same rule the shop's bill uses)
+      sum += price * count - askodoxOfferDiscount(m, count * 1000, price);
     }
     return sum;
   }
@@ -448,6 +452,14 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                             style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
                         const SizedBox(width: 8),
                         askodoxRatingLine(m['rating'], size: 11),
+                        if (askodoxOfferLabel(m, te).isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text('🏷 ${askodoxOfferLabel(m, te)}',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF17784C), fontWeight: FontWeight.w700)),
+                          ),
+                        ],
                       ]),
                     ]),
                   ),
