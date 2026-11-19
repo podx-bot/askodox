@@ -1016,6 +1016,9 @@ class PosPaymentAlerts:
                 raise PosError(404, "event", "Event not found.")
             conn.execute("INSERT OR REPLACE INTO pos_payment_acks (event_id, device_id, user_id, state, at)"
                          " VALUES (?,?,?,?,?)", (event_id, device_id, user, state, self._now().isoformat()))
+            # What the phone did with it (announced / tts_failed / muted / quiet_hours ...): the one trail that tells
+            # "notification came, no sound" apart from "never arrived".
+            print(f"ASKODOX PAYALERT ACK: event={event_id[-6:]} user=..{user[-4:]} state={state}", flush=True)
             return self._event_out(conn, row, user)
 
     def export_csv(self, business_id: str, user: str) -> str:
