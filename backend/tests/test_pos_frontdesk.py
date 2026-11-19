@@ -734,3 +734,29 @@ def test_http_shopping_route(monkeypatch):
     mine = [s for s in got["shops"] if s["id"] == biz]
     assert mine and mine[0]["items"][0]["name"] == "Masala Dosa"
     assert isinstance(got["items"], list)
+
+
+def test_shopping_mode_puts_askodox_shops_first_and_labels_outside_results(env, monkeypatch):
+    """Owner 2026-11-19: the chat's Shopping mode switch ON -> ASKODOX shops answer first, even for a plain question;
+    nothing there -> the normal answer labelled as from outside ASKODOX. OFF -> unchanged behaviour."""
+    from types import SimpleNamespace
+
+    from app.api.routes import in_app_assistant, pos_frontdesk
+
+    desk, *_ = env
+    monkeypatch.setattr(pos_frontdesk, "_desk", lambda request: desk)
+    chat = {"reply": "Biryani is a rice dish.", "mode": "chat", "transactional": False, "search_ready": False}
+
+    def ask(text, caps, decision):
+        payload = SimpleNamespace(message=text, history=[], locale="en", capabilities=caps)
+        return in_app_assistant._own_shop_order(None, payload, dict(decision))
+
+    off = ask("biryani", ["app_actions"], chat)
+    assert off["reply"] == "Biryani is a rice dish." and "app_action" not in off
+    on = ask("biryani", ["app_actions", "shopping_mode"], chat)
+    assert on["reply"].startswith("On ASKODOX") and on["app_action"]["key"] == "order_shop"
+    buy = {**chat, "mode": "commerce", "reply": "Here are TVs."}
+    outside = ask("television", ["app_actions", "shopping_mode"], buy)
+    assert outside["outside_askodox"] is True and "outside" in outside["reply"] and outside["reply"].endswith("Here are TVs.")
+    small_talk = ask("hello", ["app_actions", "shopping_mode"], {**chat, "reply": "Hi!"})
+    assert small_talk["reply"] == "Hi!", "no outside label on small talk"

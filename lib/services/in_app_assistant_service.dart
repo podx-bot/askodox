@@ -8,6 +8,9 @@ import '../core/flags/askodox_release_phase.dart';
 /// Live voice conversation (talk mode): the brain keeps answers to a couple of short spoken sentences.
 bool askodoxTalkBrief = false;
 
+/// Shopping mode switch in the chat (owner 2026-11-19): ON -> ASKODOX-registered shops answer first. OFF at app start.
+bool askodoxShoppingMode = false;
+
 class InAppAssistantTurn {
   const InAppAssistantTurn({required this.role, required this.text});
 
@@ -355,7 +358,7 @@ class InAppAssistantService {
         // shows a chat-action button (app_action) under a reply. A Phase 1
         // build opens only Phase 1 screens, so the brain offers only those.
         // 'suggestions' = this build draws tap chips under the reply.
-        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief'],
+        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief', if (askodoxShoppingMode) 'shopping_mode'],
       };
 
   /// The same decision as [decide], but a long answer (how-to guide / advice) is shown

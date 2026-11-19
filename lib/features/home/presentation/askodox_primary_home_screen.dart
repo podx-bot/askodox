@@ -1155,6 +1155,11 @@ class _AskodoxPrimaryHomeScreenState
   /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
   /// to open, keyed by the USER turn; a button under the next assistant turn.
   final Map<int, AskodoxAppAction> _appActionByTurn = {};
+  // Shopping mode (owner 2026-11-19): OFF when the app opens; ON = ASKODOX-registered shops answer first.
+  bool _shoppingMode = false;
+  // The short "Shopping mode on / off" banner in the chat box: ~2 s, blinks, never saved in the history.
+  String? _modeBanner;
+  Timer? _modeBannerTimer;
   // A bill made in the chat from the shop's own item numbers, by ASSISTANT turn index (owner 2026-11-19).
   final Map<int, AskodoxJson> _chatBillByTurn = {};
   // A named ASKODOX shop's menu, drawn as a card under that reply (replaces the "open" button of the same turn).
@@ -4224,10 +4229,105 @@ class _AskodoxPrimaryHomeScreenState
               if (_active) _shopCartBar(te),
               // The person's own pinned shortcuts (max 3, owner 2026-11-19); folds to a handle, never over the keyboard.
               if (!keyboard) const AskodoxChatPinStrip(),
+              _shoppingModeBar(te),
               _composer(te)
             ]);
           }),
         ])));
+  }
+
+  void _toggleShoppingMode(bool te) {
+    final on = !_shoppingMode;
+    askodoxShoppingMode = on;
+    final text = on ? (te ? 'షాపింగ్ మోడ్ ఆన్' : 'Shopping mode on') : (te ? 'షాపింగ్ మోడ్ ఆఫ్' : 'Shopping mode off');
+    _modeBannerTimer?.cancel();
+    setState(() {
+      _shoppingMode = on;
+      _modeBanner = text;
+    });
+    _modeBannerTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _modeBanner = null);
+    });
+  }
+
+  /// "షాపింగ్ మోడ్" switch just above the chat box: grey = OFF, green = ON, always with the words ఆన్ / ఆఫ్ and a
+  /// moving knob (colour is never the only sign). The banner shows for ~2 s after a tap and blinks.
+  Widget _shoppingModeBar(bool te) {
+    final on = _shoppingMode;
+    final banner = _modeBanner;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Row(children: [
+        Semantics(
+          button: true,
+          toggled: on,
+          label: te ? 'షాపింగ్ మోడ్' : 'Shopping mode',
+          child: InkWell(
+            key: const Key('askodoxShoppingModeSwitch'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _toggleShoppingMode(te),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+              decoration: BoxDecoration(
+                color: on ? const Color(0xFFE6F6EC) : const Color(0xFFF1F2F4),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: on ? const Color(0xFF1F9D55) : const Color(0xFFC4C9D2)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.shopping_bag_outlined, size: 16, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF6B7280)),
+                const SizedBox(width: 4),
+                Text(te ? 'షాపింగ్ మోడ్' : 'Shopping mode',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
+                const SizedBox(width: 6),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 50,
+                  height: 24,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                      color: on ? const Color(0xFF1F9D55) : const Color(0xFF9CA3AF), borderRadius: BorderRadius.circular(12)),
+                  child: Stack(children: [
+                    Align(
+                      alignment: on ? Alignment.centerLeft : Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(on ? (te ? 'ఆన్' : 'ON') : (te ? 'ఆఫ్' : 'OFF'),
+                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                    ),
+                    AnimatedAlign(
+                      duration: const Duration(milliseconds: 180),
+                      alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                          width: 20, height: 20, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (banner != null)
+          Expanded(
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey('askodoxShoppingModeBanner-$banner'),
+              tween: Tween(begin: 0, end: 4),
+              duration: const Duration(milliseconds: 1600),
+              builder: (context, t, child) => Opacity(opacity: 0.45 + 0.55 * ((t % 1) < 0.5 ? 1 : 0), child: child),
+              // liveRegion: screen readers read the banner out when it appears.
+              child: Semantics(
+                liveRegion: true,
+                child: Text(banner,
+                  key: const Key('askodoxShoppingModeBanner'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
+              ),
+            ),
+          ),
+      ]),
+    );
   }
 
   /// The ONE companion state, shared with the nav avatar and the floating
@@ -6001,6 +6101,8 @@ class _AskodoxPrimaryHomeScreenState
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _device.setMethodCallHandler(null);
+    _modeBannerTimer?.cancel();
+    askodoxShoppingMode = false; // OFF again next time the app opens
     _lipSyncTimer?.cancel();
     // (No ref use while disposing.)
     _voiceTimer?.cancel();

@@ -92,6 +92,8 @@ class AssistantDecision(BaseModel):
     app_action: dict[str, str] | None = None
     # A shop on ASKODOX named by the person: its menu as a card inside the chat (capability ``shop_menu``).
     shop_menu: dict[str, Any] | None = None
+    # Shopping mode ON and no ASKODOX shop had it: the reply is from outside ASKODOX (the app labels the results).
+    outside_askodox: bool = False
     # Master command round 2: tax / GST, fraud & market reality and smart
     # tricks attach here (intelligence_gate.py) -- deterministic, sourced,
     # only when the user's own words ask; never a separate bot.
@@ -274,13 +276,22 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
         if not shops:
             shops = _shop_in_conversation(request, payload, decision, user_words)
         te = str(payload.locale or "").lower().startswith("te")
+        # Shopping mode switch ON in the chat (owner 2026-11-19): every turn looks in ASKODOX-registered shops first;
+        # nothing there -> the normal answer, clearly labelled as from outside ASKODOX.
+        shopping = "shopping_mode" in (payload.capabilities or [])
         if not shops:
             # Not named: but when the person is asking for something to buy / order, the ASKODOX shops whose own menu
             # has it come FIRST, with their menu prices (the search for other sources goes on beside it).
-            if not (decision.get("mode") == "commerce" or decision.get("transactional") or decision.get("search_ready")):
+            wants = bool(decision.get("mode") == "commerce" or decision.get("transactional") or decision.get("search_ready"))
+            if not (shopping or wants):
                 return decision
             found = _desk(request).find_items(user_words, 3)
             if not found:
+                if shopping and wants:
+                    note = ("ASKODOX షాపుల్లో దొరకలేదు — ఇవి బయటి ఫలితాలు:" if te
+                            else "Not found in ASKODOX shops — these are results from outside:")
+                    old = str(decision.get("reply") or "").strip()
+                    return {**decision, "reply": note + ("\n\n" + old if old else ""), "outside_askodox": True}
                 return decision
             best = found[0]
 
