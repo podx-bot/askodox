@@ -23,7 +23,7 @@ CAPABILITY = "app_actions"
 # key, app route, English label, Telugu-English label, what it is for (for the brain)
 CATALOG: tuple[tuple[str, str, str, str, str], ...] = (
     ("pos_bill", "/pos", "Billing / POS", "Bill వేయండి (POS)",
-     "make a bill / invoice for a shop customer, open the shop counter, stock, GST bills, KOT for a restaurant"),
+     "new bill / కొత్త బిల్లు / bill వేయి: make a bill / invoice for a shop customer, open the shop counter, stock, GST bills, KOT for a restaurant"),
     ("pos_payment_alerts", "/me/payments/phone", "Payment voice alerts", "Payment voice alerts",
      "UPI payment sound alerts for the shop (soundbox on the phone): turn payment-app / bank SMS alerts on, set up notification access"),
     ("crm", "/crm", "Customers & leads (CRM)", "Customers & Leads (CRM)",
@@ -70,7 +70,7 @@ CATALOG: tuple[tuple[str, str, str, str, str], ...] = (
     ("my_money", "/money", "My money", "నా Money",
      "money in and out: payments received / paid, bank debit and credit alerts seen on this phone"),
     ("my_bills", "/me/bills", "My bills", "నా Bills",
-     "bills sent to the user by shops, pay or settle a bill later"),
+     "my bill / నా బిల్లు: bills sent to the user by shops, pay or settle a bill later"),
     ("my_payments", "/me/payments", "Payments", "Payments",
      "payments hub: phone payments, own payment methods, bills"),
     ("order_with_code", "/order-desk/enter", "Order with shop code / QR", "Shop code / QR తో Order",

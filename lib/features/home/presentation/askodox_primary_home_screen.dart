@@ -1894,6 +1894,8 @@ class _AskodoxPrimaryHomeScreenState
     if (_sending || _analyzingAttachments || (typed.isEmpty && attachments.isEmpty)) {
       return;
     }
+    // Owner 2026-11-19: EVERY reply is text + voice (typed turns too); the Mute button is the only way off.
+    speakResponse = speakResponse || !_speechMuted;
     var text = typed;
     _companionError = false;
     if (!speakResponse) unawaited(_stopSpeaking());
