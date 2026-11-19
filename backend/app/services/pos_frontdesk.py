@@ -651,14 +651,23 @@ class PosFrontDesk:
             heard = pos_menu_voice.assist(text, menu, te=te, cart=[], last_items=data["last_items"])
             prepared = [{"product_id": a["product_id"], "qty": a.get("qty", 1)} for a in heard.get("add") or []]
         wanted = {p["product_id"] for p in prepared}
-        ordered = sorted(menu, key=lambda m: (m["id"] not in wanted, not m["available"], m.get("item_no") or 0))
+        # Owner 2026-11-19: asked for "biryani" -> the card shows the biryani items, not the whole menu (one link opens
+        # the rest). Matched on the item's own words; a match on most of the menu (e.g. the shop's name) is no focus.
+        said = set(re.findall(r"[^\W\d_]{3,}", (text or "").lower()))
+        focus = [m["id"] for m in menu
+                 if m["id"] in wanted or said & set(re.findall(r"[^\W\d_]{3,}", f"{m['name']} {m.get('name_te') or ''}".lower()))]
+        if len(focus) * 10 > len(menu) * 6 and not wanted:
+            focus = []
+        limit = max(limit, min(len(focus), 12))
+        ordered = sorted(menu, key=lambda m: (m["id"] not in wanted, m["id"] not in focus, not m["available"], m.get("item_no") or 0))
         return {"business_id": business_id, "name": data["business"]["name"], "code": f"{QR_PREFIX}{business_id}",
                 "open": data["open"], "message": data["message"], "modes": data["modes"],
                 "items": [{"id": m["id"], "name": m["name"], "name_te": m["name_te"], "price_paise": m["price_paise"],
                            "available": m["available"], "item_no": m.get("item_no"), "menu_group": m.get("menu_group", ""),
                            "food_type": m.get("food_type", ""), "rating": m.get("rating")} for m in ordered[:limit]],
                 "rating": data["business"].get("rating"), "welcome": data.get("welcome"),
-                "more": max(0, len(menu) - limit), "last_items": data["last_items"], "prepared": prepared}
+                "more": max(0, len(menu) - limit), "last_items": data["last_items"], "prepared": prepared,
+                "focus": focus[:12]}
 
     def find_items(self, text: str, limit: int = 3) -> List[Dict[str, Any]]:
         """Shops on ASKODOX (open) whose MENU has what the person asked for -- matched on the item's own words
