@@ -67,6 +67,9 @@ void main() {
       }
       return {'methods': saved};
     });
+    tester.view.physicalSize = const Size(900, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(api, const AskodoxMyPaymentMethodsScreen(),
         reader: _Reader('upi://pay?pa=lk@ybl&pn=Lakshmi%20Kirana')));
     await tester.pumpAndSettle();

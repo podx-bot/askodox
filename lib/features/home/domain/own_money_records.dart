@@ -21,7 +21,7 @@ final _moveWord = RegExp(
   caseSensitive: false,
 );
 // A "how to" / shop / price question is not a question about the person's own money moving.
-final _notOwnMoney = RegExp(r'how (do|can|to)|ఎలా|कैसे|price|ధర|कीमत|offer|ఆఫర్|loan|లోన్', caseSensitive: false);
+final _notOwnMoney = RegExp(r'how (do|can|to)|ఎలా|कैसे|price|ధర|कीमत|offer|ఆఫర్|loan|లోన్|order|ఆర్డర్|refund|రిఫండ్|not confirmed|failed', caseSensitive: false);
 
 /// True when the person asks whether money moved (cut, came, debited, credited ...).
 bool askodoxAsksOwnMoney(String text) {

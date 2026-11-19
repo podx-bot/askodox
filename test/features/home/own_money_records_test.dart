@@ -7,6 +7,7 @@ void main() {
     expect(askodoxAsksOwnMoney('was 1800 debited from my bank just now'), isTrue);
     expect(askodoxAsksOwnMoney('did the payment come to my account'), isTrue);
     expect(askodoxAsksOwnMoney('मेरे बैंक से पैसे कट गए क्या'), isTrue);
+    expect(askodoxAsksOwnMoney('Money deducted but order not confirmed'), isFalse, reason: 'an order complaint goes to support');
   });
 
   test('shop, price and how-to questions are not own-money questions', () {
