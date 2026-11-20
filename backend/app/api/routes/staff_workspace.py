@@ -61,7 +61,6 @@ REVIEW_ACTIONS = {
     "resume": (("PAUSED",), "LIVE", "approve"),
     "expire": (("LIVE", "PAUSED", "APPROVED"), "EXPIRED", "create"),
 }
-logger = logging.getLogger(__name__)
 _IMAGE_MAGIC = {b"\xff\xd8\xff": ".jpg", b"\x89PNG": ".png", b"RIFF": ".webp"}
 MAX_UPLOAD = 5 * 1024 * 1024
 
@@ -284,9 +283,8 @@ def _import_one(request: Request, url: str, *, details: bool, html: str | None =
                 fields["affiliate_url"] = clean
         if html or phone_error:
             # Railway log line to see how phone reads go (no page text, no customer data).
-            _LOG.info("workspace.phone_read host=%s read=%s status=%s title=%s error=%s",
-                      ac._host(clean), "ok" if html else "failed", status, bool(fields.get("title")),
-                      (phone_error or "")[:80])
+            print(f"ASKODOX WORKSPACE PHONE_READ host={ac._host(clean)} read={'ok' if html else 'failed'} "
+                  f"status={status} title={bool(fields.get('title'))} error={(phone_error or '')[:80]}", flush=True)
         if status == "nothing_found" and fields.get("title"):
             status = "ok"  # the store's embedded data had it
             note = "Filled from the store's page -- check and save. / Store page నుండి నింపాం -- చూసి save చేయండి."
@@ -1121,6 +1119,7 @@ class AiVideoBody(BaseModel):
     language: str = Field(default="te", pattern="^(te|hi|en)$")
     presenter: str = Field(default="auto", max_length=30)
     style: str = Field(default="auto", pattern="^(auto|presenter|product_talks)$")
+    store: str = Field(default="", max_length=40)
 
 
 def _ai_videos_today(request: Request) -> int:
@@ -1186,7 +1185,8 @@ def make_ai_video(item_id: int, body: AiVideoBody, request: Request) -> dict:
     stem = _hashlib.sha256(f"aivideo:{item_id}:{time.time_ns()}".encode()).hexdigest()[:32]
     base = str(request.base_url).rstrip("/").replace("http://", "https://")
     buy_url = item.get("affiliate_url") or item.get("original_product_url") or ""
-    store = product_video.store_name(item.get("original_product_url") or buy_url)
+    store = re.sub(r"[^\w .&-]", "", body.store).strip()[:30] or product_video.store_name(
+        item.get("original_product_url") or buy_url)
     price = reel_maker.price_text(item.get("price"), str(item.get("currency") or "INR"))
     photos = _item_photo_files(request, item, folder, stem)
     if not photos:
@@ -1213,10 +1213,13 @@ def make_ai_video(item_id: int, body: AiVideoBody, request: Request) -> dict:
 
         from app.services import video_watermark as wm
 
-        audio_path, outcome, script, voice_path = None, {"ok": False, "reason": "error"}, None, "none"
+        from app.services import affiliate_publish
+
+        audio_path, outcome, script, voice_path, faq = None, {"ok": False, "reason": "error"}, None, "none", []
         try:
             script = product_video.write_script(write, item, reviews, store, price, language=body.language,
                                                 presenter=body.presenter, style=body.style)
+            faq = affiliate_publish.write_faq(write, item, reviews, body.language)
             gender = product_video.PRESENTERS.get(script["presenter"], {}).get("gender", "female")
             audio, voice_path = product_video.synthesize(container, " ".join(l["spoken"] for l in script["lines"]),
                                                          gender)
@@ -1238,16 +1241,17 @@ def make_ai_video(item_id: int, body: AiVideoBody, request: Request) -> dict:
                         os.remove(path)
                     except OSError:
                         pass
-        logger.info("ASKODOX AI VIDEO item=%s ok=%s reason=%s voice=%s presenter=%s style=%s seconds=%s", item_id,
-                    outcome.get("ok"), outcome.get("reason"), voice_path, (script or {}).get("presenter"),
-                    (script or {}).get("style"), outcome.get("seconds"))
+        print(f"ASKODOX AI VIDEO item={item_id} ok={outcome.get('ok')} reason={outcome.get('reason')} "
+              f"voice={voice_path} presenter={(script or {}).get('presenter')} style={(script or {}).get('style')} "
+              f"seconds={outcome.get('seconds')} faq={len(faq)}", flush=True)
         current = repo.get(record["id"]) or record
         data = dict(current.get("data") or {})
         data["reel"] = {"item_id": item_id, "ai": True, "status": "READY" if outcome.get("ok") else "FAILED",
                         "reason": outcome.get("reason"), "voice": voice_path != "none", "voice_path": voice_path,
                         "price_shown": price, "seconds": outcome.get("seconds"),
                         "script": [l["caption"] for l in (script or {}).get("lines", [])],
-                        "presenter": (script or {}).get("presenter"), "style": (script or {}).get("style")}
+                        "presenter": (script or {}).get("presenter"), "style": (script or {}).get("style"),
+                        "store": store, "reviews": reviews, "faq": faq}
         repo.update(record["id"], actor="system:ai_video", action="reel",
                     status="PENDING_REVIEW" if outcome.get("ok") else None, data=data)
 
@@ -1255,6 +1259,67 @@ def make_ai_video(item_id: int, body: AiVideoBody, request: Request) -> dict:
     _audit(request, principal, "workspace_ai_video", item_id, {}, {"video_id": record.get("id")})
     return {"video_id": record["id"], "status": "MAKING", "photos": len(photos), "store": store,
             "reviews": bool(reviews)}
+
+
+class PhotoFillBody(BaseModel):
+    photos: list[str] = Field(min_length=1, max_length=6)
+
+
+@router.post("/admin/cc/workspace/fill-from-photos")
+def fill_from_photos(body: PhotoFillBody, request: Request) -> dict:
+    """Owner 2026-11-20: the link is never opened -- the name and description come from what the product photos
+    show (our own uploads only). Never a price; staff type it."""
+    from app.services import affiliate_publish, rate_limit
+
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    rate_limit.check(request, "workspace_photo_fill", limit=40)
+    images = []
+    for ref in body.photos[:4]:
+        name = str(ref).rsplit("/", 1)[-1]
+        if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", name):
+            continue
+        path = os.path.join(_upload_dir(request), name)
+        if os.path.exists(path):
+            mime = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[name.rsplit(".", 1)[1]]
+            with open(path, "rb") as handle:
+                images.append((handle.read(), mime))
+    if not images:
+        raise HTTPException(status_code=422, detail="Add the product photos first (camera / gallery). / ముందు ఫోటోలు పెట్టండి.")
+    out = affiliate_publish.read_product_photos(getattr(request.app.state.container, "universal_image_service", None),
+                                                images)
+    print(f"ASKODOX WORKSPACE PHOTO_FILL photos={len(images)} read={out['read']} "
+          f"keys={','.join(sorted(out['fields']))}", flush=True)
+    if not out["read"]:
+        raise HTTPException(status_code=503, detail="Could not read the photos. Add a clear front photo of the product "
+                                                    "and try again. / ఫోటోలు చదవలేకపోయాం -- product స్పష్టంగా కనిపించే ఫోటో పెట్టండి.")
+    return {"ok": True, "fields": out["fields"]}
+
+
+@router.get("/admin/cc/workspace/reels/{video_id}/share")
+def reel_share(video_id: str, request: Request) -> dict:
+    """Ready-to-paste captions per platform + DM answers + the ASKODOX product page link + clicks per platform."""
+    from app.services import affiliate_publish, product_pages
+
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    row = next((r for r in _reel_records(request) if r["video_id"] == video_id), None)
+    if not row:
+        raise HTTPException(status_code=404, detail="Video not found")
+    record = _pf(request).resources.repo.get(video_id) or {}
+    data = record.get("data") or {}
+    reel = data.get("reel") or {}
+    item = catalog(request.app.state.container).get(int(reel.get("item_id") or 0)) or {}
+    page = f"{product_pages.PUBLIC_BASE}/p/{item.get('id') or reel.get('item_id')}"
+    store = reel.get("store") or "ASKODOX"
+    texts = affiliate_publish.share_texts(item, reel.get("reviews") or {}, store, page)
+    for key, src in (("facebook", "fb"), ("instagram", "ig"), ("youtube", "yt")):
+        texts[key]["text"] = texts[key]["text"].replace(page, f"{page}?from={src}")
+    return {"video_id": video_id, "status": record.get("status"), "texts": texts, "faq": reel.get("faq") or [],
+            "public_video": data.get("url") if record.get("status") == "ACTIVE" else None,
+            "clicks": product_pages.clicks(request.app.state.container, int(item.get("id") or 0))}
 
 
 class ImageEditResult(BaseModel):

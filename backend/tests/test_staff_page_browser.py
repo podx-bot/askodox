@@ -41,7 +41,7 @@ def _run(check):
         tab.goto("http://staff.test/staff")
         tab.evaluate("sessionStorage.setItem('askodox_staff', JSON.stringify({token: 'stf_test'}))")
         tab.goto("http://staff.test/staff")
-        tab.wait_for_selector("#fetch")
+        tab.wait_for_selector("#m_link")
         check(tab)
         browser.close()
         assert errors == [], errors
@@ -49,6 +49,7 @@ def _run(check):
 
 def test_link_fetch_fills_the_form_with_commission_boxes():
     def check(tab):
+        tab.click("details.card summary")  # the old "read the store page" way is folded (owner 2026-11-20)
         tab.fill("#url", "Look at this https://www.meesho.com/s/p/abc?utm_source=s")
         tab.click("#fetch")
         tab.wait_for_selector("#f_title", timeout=5000)
@@ -63,5 +64,20 @@ def test_own_brand_form_opens_without_errors():
         tab.click("#m_own")
         tab.wait_for_selector("#o_rate", timeout=5000)
         assert tab.is_visible("#o_aff")
+
+    _run(check)
+
+
+def test_affiliate_four_step_form_names_the_missing_box():
+    """Owner 2026-11-20: link (not opened) -> photos -> fill + price -> publish; a missing box is named, not a 400."""
+    def check(tab):
+        tab.click("#m_link")
+        tab.wait_for_selector("#a_link", timeout=5000)
+        tab.fill("#a_link", "https://www.meesho.com/s/p/abc")
+        tab.dispatch_event("#a_link", "input")
+        assert tab.input_value("#a_store") == "Meesho"
+        tab.click("#a_submit")
+        assert "ఫోటో" in tab.inner_text("#a_err"), "no photo -> step 2 is named"
+        assert tab.is_visible("#a_fill") and tab.is_visible("#a_price") and tab.is_visible("#a_aivid")
 
     _run(check)

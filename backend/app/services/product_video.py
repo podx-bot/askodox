@@ -159,7 +159,7 @@ def script_prompt(item: Dict[str, Any], reviews: Dict[str, Any], store: str, lan
         "Lines: 6-7 short lines, about 70-85 words in total. 1) a warm hello from ASKODOX, 2) a hook question, 3-4) "
         "what it is: ONLY facts from PRODUCT below (colour, material, design, use), 5-6) ratings + what buyers said "
         "ONLY from REVIEWS below (attribute to buyers: 'buyers said ...'; mention the unhappy share honestly when "
-        "given; never a reviewer's name), last) where to buy: the link is below the video"
+        "given; never a reviewer's name), last) where to buy: the link is below the video or in our profile"
         + (" and the price" if item.get("price") else "") + ".\n"
         "caption = what is shown on screen (digits allowed, max 90 characters); spoken = the same line written for "
         f"the voice (numbers in {lang} words). Rules: a presenter NEVER says they used / bought / wore it; no claim "
@@ -234,7 +234,8 @@ def fallback_script(item: Dict[str, Any], reviews: Dict[str, Any], store: str, p
                       "scene": "rating"})
     if price:
         lines.append({"caption": f"ధర {price}", "spoken": f"ధర {price}", "scene": "photo"})
-    lines.append({"caption": "లింక్ కిందే ఉంది. ఇప్పుడే చూడండి!", "spoken": "లింక్ కిందే ఉంది. ఇప్పుడే చూడండి!",
+    lines.append({"caption": "లింక్ కింద / మా ప్రొఫైల్‌లో ఉంది. ఇప్పుడే చూడండి!",
+                  "spoken": "లింక్ కింద, లేదా మా ప్రొఫైల్‌లో ఉంది. ఇప్పుడే చూడండి!",
                   "scene": "end"})
     return {"style": "presenter", "presenter": DEFAULT_PRESENTER, "lines": lines}
 
@@ -537,7 +538,7 @@ class Painter:
             x0, y0 = (W - w) / 2 - 36, 900
             d.rounded_rectangle([x0, y0, x0 + w + 72, y0 + 84], radius=42, fill=PINK)
             d.text((x0 + 36, y0 + 14), text, font=f2, fill=(255, 255, 255))
-            sub = "లింక్ కింద ఉంది" + (f" · {self.price}" if self.price else "")
+            sub = "లింక్ కింద / ప్రొఫైల్‌లో · askodox.com/shop" + (f" · {self.price}" if self.price else "")
             self._badge(img, sub, int((W - d.textlength(sub, font=_font(sub, 26))) / 2) - 14, 1000, 26,
                         fill=NAVY, bg=(255, 255, 255, 240))
         return img

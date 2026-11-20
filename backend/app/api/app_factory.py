@@ -467,6 +467,7 @@ def create_app() -> FastAPI:
     from app.api.routes.staff_workspace import router as staff_workspace_router
     from app.api.routes.early_access import router as early_access_router
     from app.api.routes.staff_workspace_page import router as staff_workspace_page_router
+    from app.api.routes.product_pages import router as product_pages_router
 
     app.include_router(staff_workspace_router)
     app.include_router(early_access_router)
@@ -477,6 +478,7 @@ def create_app() -> FastAPI:
 
     app.include_router(availability_router)
     app.include_router(staff_workspace_page_router)
+    app.include_router(product_pages_router)
     from app.api.routes.admin_console import router as admin_console_router
 
     app.include_router(admin_console_router)
