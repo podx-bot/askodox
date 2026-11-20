@@ -132,11 +132,22 @@ String askodoxCategoryOf(AskodoxMoneyItem item, {Map<String, String> rowCategory
   if (byPayee != null && byPayee.isNotEmpty) return byPayee;
   if (item.raw['emi'] == true) return 'emi';
   if (item.category.isNotEmpty) return item.category;
-  final words = '${item.title} ${item.sub}'.toLowerCase();
+  // Owner 2026-11-20: a transfer to a person showed "Food & hotel" because the SMS app's name "Messages" contains
+  // "mess". Only the payee / bill name decides (never the app or SMS label), and a word must match as a WHOLE word.
+  final words = ' ${askodoxNormPayee(item.title)} ';
   for (final c in askodoxMoneyCategories) {
-    if (c.$4.any((w) => words.contains(w))) return c.$1;
+    if (c.$4.any((w) => askodoxNameHasWord(words, w))) return c.$1;
   }
   return '';
+}
+
+/// True when [word] appears in the padded, normalised [padded] name as whole word(s). Indian-script words match
+/// anywhere (they join to the word before them: "చికెన్‌సెంటర్").
+bool askodoxNameHasWord(String padded, String word) {
+  final w = askodoxNormPayee(word);
+  if (w.isEmpty) return false;
+  if (RegExp(r'[ఀ-౿]').hasMatch(w)) return padded.contains(w);
+  return padded.contains(' $w ');
 }
 
 // ------------------------------------------------------------------ building rows
@@ -170,7 +181,8 @@ List<AskodoxMoneyItem> askodoxItemsFromPhone(Iterable<Map<String, Object?>> even
       sub: also.isEmpty ? label : '$label + $also',
       how: how,
       account: account,
-      confirmed: e['bank_confirmed'] == true ? 'bank_sms' : '',
+      // A debit read from the bank's own SMS IS the bank's word: no ⏳ (owner 2026-11-20).
+      confirmed: e['bank_confirmed'] == true || (e['direction'] == 'out' && e['kind'] == 'sms') ? 'bank_sms' : '',
       linkedTo: links[id] ?? '',
       raw: e,
     ));

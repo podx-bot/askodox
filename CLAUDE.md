@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR (2026-11-20, owner "change the staff product way + videos, quick"): Staff Workspace AI PRODUCT VIDEO --
+  `product_video.py` (script from the item record + read reviews only via `write_text`; `clean_script` drops
+  first-person use claims / review scenes without reviews; children never speak; ElevenLabs -> Sarvam -> captions only;
+  presenter circle "AI ప్రజెంటర్" from `assets/presenters` (11 owner-made models) or the product talking; rating card +
+  "కొన్నవాళ్లు ఏమన్నారు" card; end card) + routes `POST /admin/cc/workspace/reviews/read`, `POST .../items/{id}/ai-video`
+  (store photos copied temporarily; DRAFT -> PENDING_REVIEW in 🎬 Videos tab; daily cap `video_ai.daily_max` 40;
+  log line `ASKODOX AI VIDEO`). Staff page: review screenshots + "🎬 30 సెకన్ల AI వీడియో" tick on store-link and own
+  forms, 🎬 AI వీడియో in My items, Videos tab shown. Also My phone payments: debit SMS rows lose the wrong ⏳ and
+  categories match whole payee words only ("Messages" -> "mess" -> Food & hotel bug). Nothing phone verified.
 - `main` PR #369 (2026-11-20, owner "Go -- finish all, one build"): PAYMENT VOICE STUCK FIX -- one clip that never finished kept
   every later payment on "Speaking..." (owner phone from 08:08): `Player` watchdog (length + 4 s) + audio focus + busy > 40 s
   restart, `Speaker` start-up 8 s / utterance 12 s limits, `CloudVoice.say` ONE answer in 45 s (else "stuck" + `beep()` on
@@ -602,6 +611,8 @@ this file, don't trust it blindly.
   Reels: workspace tab `reels` (`/admin/cc/workspace/reels`, file + review routes). The page must never use
   prompt() / confirm() / alert() -- Android WebView shows none of them (inline inputs instead). Its CSP needs
   `media-src 'self' blob:` or the fetched reel never plays.
+- AI product videos (owner 2026-11-20 REVERSED "no AI reels / store data only"): store items may use the store's photos
+  and get an AI video (`product_video.py`, see checkpoint); the manual upload below still works.
 - Product videos (owner 2026-11-06 REVERSED the 2026-11-04 no-video rule): OPTIONAL video made OUTSIDE ASKODOX, <= 60 s
   (checked on the staff phone), uploaded per store item, owner ASKODOX; Videos shows the item's buy link under it
   (`store_item_id` / `buy_url` on the `videos` row; `POST /admin/cc/workspace/items/{id}/video`). No AI-generated reels

@@ -61,6 +61,7 @@ REVIEW_ACTIONS = {
     "resume": (("PAUSED",), "LIVE", "approve"),
     "expire": (("LIVE", "PAUSED", "APPROVED"), "EXPIRED", "create"),
 }
+logger = logging.getLogger(__name__)
 _IMAGE_MAGIC = {b"\xff\xd8\xff": ".jpg", b"\x89PNG": ".png", b"RIFF": ".webp"}
 MAX_UPLOAD = 5 * 1024 * 1024
 
@@ -1024,6 +1025,8 @@ def _reel_records(request: Request) -> list[dict[str, Any]]:
                     "status": r.get("status"), "reel_status": reel.get("status") or "MAKING",
                     "reason": reel.get("reason"), "item_id": reel.get("item_id"),
                     "price_shown": reel.get("price_shown"), "voice": bool(reel.get("voice")),
+                    "ai": bool(reel.get("ai")), "script": reel.get("script") or [],
+                    "presenter": reel.get("presenter"), "voice_path": reel.get("voice_path"),
                     "file": str(data.get("url") or "").rsplit("/", 1)[-1],
                     "created_at": r.get("created_at"), "updated_at": r.get("updated_at")})
     out.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
@@ -1075,6 +1078,183 @@ def review_reel(video_id: str, body: ReelReviewBody, request: Request) -> dict:
     except Exception as error:
         raise HTTPException(status_code=409, detail=str(error)) from None
     return {"video_id": video_id, "status": item.get("status")}
+
+
+# ------------------------------------------------------- AI product video --
+# Owner 2026-11-20: staff give the store link, photos (the store's own photos are allowed), price and the rating /
+# review screenshots; the 30-second video makes itself (product_video.py). It waits in Reels for a publisher's
+# Approve -- nothing reaches users before that.
+
+class ReviewShotsBody(BaseModel):
+    images: list[ScreenshotIn] = Field(min_length=1, max_length=4)
+
+
+@router.post("/admin/cc/workspace/reviews/read")
+def read_review_shots(body: ReviewShotsBody, request: Request) -> dict:
+    """Rating / review screenshots -> rating, star counts and short buyer points (no names, nothing saved)."""
+    import base64
+
+    from app.services import product_video, rate_limit
+
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    rate_limit.check(request, "workspace_reviews", limit=30)
+    images = []
+    for img in body.images:
+        if img.mime not in ("image/jpeg", "image/png", "image/webp"):
+            raise HTTPException(status_code=400, detail="Only JPG / PNG / WEBP screenshots.")
+        raw = img.data.split(",", 1)[1] if img.data.startswith("data:") else img.data
+        try:
+            images.append((base64.b64decode(raw, validate=False), img.mime))
+        except Exception:
+            raise HTTPException(status_code=400, detail="The screenshot could not be read.")
+    out = product_video.read_reviews(getattr(request.app.state.container, "universal_image_service", None), images)
+    if not out["read"]:
+        raise HTTPException(status_code=503, detail="Could not read the reviews. Take the screenshot with the rating and "
+                                                    "reviews visible. / రేటింగ్, రివ్యూలు కనిపించేలా screenshot తీయండి.")
+    return {"ok": True, "reviews": out["reviews"]}
+
+
+class AiVideoBody(BaseModel):
+    reviews: dict[str, Any] = Field(default_factory=dict)
+    language: str = Field(default="te", pattern="^(te|hi|en)$")
+    presenter: str = Field(default="auto", max_length=30)
+    style: str = Field(default="auto", pattern="^(auto|presenter|product_talks)$")
+
+
+def _ai_videos_today(request: Request) -> int:
+    import datetime as _dt
+
+    today = _dt.datetime.now(_dt.timezone.utc).date().isoformat()
+    return sum(1 for r in _pf(request).resources.repo.list("videos")
+               if ((r.get("data") or {}).get("reel") or {}).get("ai") and str(r.get("created_at") or "")[:10] == today)
+
+
+def _item_photo_files(request: Request, item: dict[str, Any], folder: str, stem: str) -> list[str]:
+    """Our own uploads first, then copies of the item's store photos (temporary, deleted after the video)."""
+    paths = _own_photo_paths(request, item)
+    refs = [item.get("image_url") or ""] + list(item.get("images") or [])
+    fetch = getattr(request.app.state.container, "affiliate_image_fetch", None) or ac.fetch_image
+    for k, ref in enumerate(dict.fromkeys(r for r in refs if str(r).startswith("https://"))):
+        if len(paths) >= 6:
+            break
+        if "/media/staff/" in str(ref):
+            continue
+        try:
+            data = fetch(str(ref))
+        except Exception:
+            continue
+        ext = next((e for magic, e in _IMAGE_MAGIC.items() if data.startswith(magic)), None)
+        if ext is None:
+            continue
+        path = os.path.join(folder, f"{stem}.src{k}{ext}")
+        with open(path, "wb") as handle:
+            handle.write(data)
+        paths.append(path)
+    return paths[:6]
+
+
+@router.post("/admin/cc/workspace/items/{item_id}/ai-video")
+def make_ai_video(item_id: int, body: AiVideoBody, request: Request) -> dict:
+    """The item's 30-second AI video (script from the item + real reviews, voice, presenter, captions). Made in the
+    background; when ready it waits in Reels (PENDING_REVIEW) with the item's buy link attached."""
+    import hashlib as _hashlib
+    import threading
+    import time
+
+    from app.services import pii_mask, platform_settings, product_video, rate_limit, reel_maker
+
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    rate_limit.check(request, "workspace_ai_video", limit=30)
+    limit = int(platform_settings.get("video_ai.daily_max"))
+    if limit <= 0 or _ai_videos_today(request) >= limit:
+        raise HTTPException(status_code=429, detail=f"Today's AI video limit ({limit}) is used. Tomorrow again, or raise "
+                                                    "video_ai.daily_max in the Command Center.")
+    container = request.app.state.container
+    item = catalog(container).get(item_id)
+    if not item or item.get("deleted_at"):
+        raise HTTPException(status_code=404, detail="Item not found")
+    title = pii_mask.mask_sensitive(str(item.get("title") or "")).strip()[:140]
+    if not title:
+        raise HTTPException(status_code=422, detail="The item needs a title")
+    reviews = product_video.clean_reviews(body.reviews)
+    folder = os.path.join(os.path.dirname(os.path.abspath(container.settings.database_path)), "video_uploads")
+    os.makedirs(folder, exist_ok=True)
+    stem = _hashlib.sha256(f"aivideo:{item_id}:{time.time_ns()}".encode()).hexdigest()[:32]
+    base = str(request.base_url).rstrip("/").replace("http://", "https://")
+    buy_url = item.get("affiliate_url") or item.get("original_product_url") or ""
+    store = product_video.store_name(item.get("original_product_url") or buy_url)
+    price = reel_maker.price_text(item.get("price"), str(item.get("currency") or "INR"))
+    photos = _item_photo_files(request, item, folder, stem)
+    if not photos:
+        raise HTTPException(status_code=422, detail="No photos could be used. Add photos (camera / gallery) and try "
+                                                    "again. / ఫోటోలు పెట్టి మళ్లీ ప్రయత్నించండి.")
+    pf = _pf(request)
+    record = pf.resources.create("videos", {
+        "title": title, "platform": "askodox", "url": f"{base}/media/videos/{stem}.mp4",
+        "thumbnail_url": item.get("image_url") or None,
+        "description": str(item.get("description") or "")[:2000],
+        "categories": [str(item.get("category") or "").lower()] if item.get("category") else [],
+        "products": [title[:80]], "keywords": [w for w in re.findall(r"[^\W_]{3,}", title.lower())][:12],
+        "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
+        "store_item_id": str(item_id), "buy_url": buy_url, "buy_title": title, "buy_price": str(item.get("price") or ""),
+    }, actor=f"staff:{principal.get('id')}", owner_ref=f"staff:{principal.get('id')}", status="DRAFT")
+    repo = pf.resources.repo
+    repo.update(record["id"], actor="system:ai_video", action="reel",
+                data={**(record.get("data") or {}), "reel": {"item_id": item_id, "status": "MAKING", "ai": True}})
+    brain = getattr(container, "universal_ai_assistant_service", None)
+    write = (lambda text: brain.write_text(text, max_tokens=1400)) if brain is not None else None
+
+    def work() -> None:
+        from PIL import Image
+
+        from app.services import video_watermark as wm
+
+        audio_path, outcome, script, voice_path = None, {"ok": False, "reason": "error"}, None, "none"
+        try:
+            script = product_video.write_script(write, item, reviews, store, price, language=body.language,
+                                                presenter=body.presenter, style=body.style)
+            gender = product_video.PRESENTERS.get(script["presenter"], {}).get("gender", "female")
+            audio, voice_path = product_video.synthesize(container, " ".join(l["spoken"] for l in script["lines"]),
+                                                         gender)
+            if audio:
+                audio_path = os.path.join(folder, stem + ".voice.audio")
+                with open(audio_path, "wb") as handle:
+                    handle.write(audio)
+            images = [Image.open(p) for p in photos]
+            exe = wm.ffmpeg_exe()
+            outcome = product_video.render(images, script, reviews, store, price, audio_path,
+                                           os.path.join(folder, stem + ".mp4"), exe=exe) if exe else \
+                {"ok": False, "reason": "ffmpeg_missing"}
+        except Exception as error:
+            outcome = {"ok": False, "reason": f"error:{type(error).__name__}"}
+        finally:
+            for path in [audio_path] + [p for p in photos if os.path.basename(p).startswith(stem)]:
+                if path:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+        logger.info("ASKODOX AI VIDEO item=%s ok=%s reason=%s voice=%s presenter=%s style=%s seconds=%s", item_id,
+                    outcome.get("ok"), outcome.get("reason"), voice_path, (script or {}).get("presenter"),
+                    (script or {}).get("style"), outcome.get("seconds"))
+        current = repo.get(record["id"]) or record
+        data = dict(current.get("data") or {})
+        data["reel"] = {"item_id": item_id, "ai": True, "status": "READY" if outcome.get("ok") else "FAILED",
+                        "reason": outcome.get("reason"), "voice": voice_path != "none", "voice_path": voice_path,
+                        "price_shown": price, "seconds": outcome.get("seconds"),
+                        "script": [l["caption"] for l in (script or {}).get("lines", [])],
+                        "presenter": (script or {}).get("presenter"), "style": (script or {}).get("style")}
+        repo.update(record["id"], actor="system:ai_video", action="reel",
+                    status="PENDING_REVIEW" if outcome.get("ok") else None, data=data)
+
+    threading.Thread(target=work, name=f"aivideo-{record['id']}", daemon=True).start()
+    _audit(request, principal, "workspace_ai_video", item_id, {}, {"video_id": record.get("id")})
+    return {"video_id": record["id"], "status": "MAKING", "photos": len(photos), "store": store,
+            "reviews": bool(reviews)}
 
 
 class ImageEditResult(BaseModel):

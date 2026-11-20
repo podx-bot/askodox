@@ -27,6 +27,12 @@ void main() {
     expect(askodoxCategoryOf(p), 'meat');
     expect(askodoxCategoryOf(pay('phone:x', 100, t0, title: 'APSPDCL Vijayawada')), 'power');
     expect(askodoxCategoryOf(pay('phone:y', 100, t0, title: 'VAKADOTHU PRASAD')), '');
+    // Owner 2026-11-20: a person paid through a bank SMS read by "Messages" is NOT "Food & hotel" ("mess").
+    expect(askodoxCategoryOf(AskodoxMoneyItem(id: 'phone:m', kind: 'payment', direction: 'out', amountPaise: 700000, at: t0,
+        title: 'BHAGYA SRI KOVELAKAR', sub: 'Messages (Google)')), '');
+    expect(askodoxCategoryOf(pay('phone:w', 100, t0, title: 'Parent Teacher Fund')), '', reason: 'rent only as a whole word');
+    expect(askodoxCategoryOf(pay('phone:v', 100, t0, title: 'Sri Lakshmi Mess')), 'food');
+    expect(askodoxCategoryOf(pay('phone:u', 100, t0, title: 'రాజు చికెన్ సెంటర్')), 'meat');
     expect(askodoxCategoryOf(pay('phone:z', 100, t0, title: 'Bajaj', raw: {'emi': true})), 'emi');
     expect(askodoxCategoryOf(p, payeeCategory: {askodoxNormPayee('Raju Chicken Center'): 'food'}), 'food');
     expect(askodoxCategoryOf(p, rowCategory: {'phone:a': 'other'}, payeeCategory: {askodoxNormPayee('Raju Chicken Center'): 'food'}), 'other');
@@ -109,5 +115,14 @@ void main() {
     expect(rows.single.title.toLowerCase().contains('messag'), isFalse);
     expect(askodoxNoNameTitle('Messages (Google)', 'HDFC Bank', '', const []), 'HDFC Bank');
     expect(askodoxNoNameTitle('Messages (Google)', '', 'bank:6911', const []), 'A/c ••6911');
+  });
+
+  test('a debit read from the bank SMS carries no ⏳ (it is the bank\'s own word)', () {
+    final rows = askodoxItemsFromPhone([
+      {'local_id': 'a', 'direction': 'out', 'kind': 'sms', 'amount_paise': 1200, 'party': 'AYSHA', 'at_ms': 1},
+      {'local_id': 'b', 'direction': 'out', 'kind': 'notification', 'amount_paise': 1200, 'party': 'AYSHA', 'at_ms': 1},
+      {'local_id': 'c', 'direction': 'in', 'kind': 'sms', 'amount_paise': 1200, 'party': 'AYSHA', 'at_ms': 1},
+    ], const [], const {}, const {});
+    expect(rows.map((r) => r.confirmed), ['bank_sms', '', '']);
   });
 }
