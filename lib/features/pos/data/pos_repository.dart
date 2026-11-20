@@ -28,7 +28,11 @@ class AskodoxPosException implements Exception {
 
   String message(bool te) => switch (kind) {
         'sign_in' => te ? 'సైన్ ఇన్ చేయండి.' : 'Sign in first.',
-        'network' => te ? 'ఇంటర్నెట్ లేదు — బిల్లు ఫోన్‌లో దాచి తర్వాత పంపుతాం.' : 'No internet — the bill is kept on this phone and sent later.',
+        // Owner 2026-11-20: this text shows on EVERY page (items, settings, quick bill), so it never claims a bill was
+        // kept -- only the sale screen's own offline queue says that, after it really queued the bill.
+        'network' => te
+            ? 'ASKODOX సర్వర్ అందలేదు (ఇంటర్నెట్ లేదు లేదా నెమ్మదిగా ఉంది). మళ్ళీ నొక్కండి.'
+            : 'Could not reach ASKODOX (no or slow internet). Please tap again.',
         'permission' => te ? 'మీ పాత్రకు ఈ అనుమతి లేదు.' : 'Your role cannot do this.',
         'not_found' => te ? 'కనబడలేదు.' : 'Not found.',
         _ => detail.isNotEmpty ? detail : (te ? 'కాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'That did not work. Please try again.'),
@@ -81,13 +85,19 @@ class AskodoxPosRepository {
       {Object? body, Map<String, Object?> query = const {}, Duration timeout = const Duration(seconds: 20)}) async {
     if (authToken == null) throw const AskodoxPosException('sign_in');
     final opts = _opts(query, timeout);
-    final ApiResult<Object?> result = switch (method) {
-      'GET' => await _client.get<Object?>(path, options: opts),
-      'POST' => await _client.post<Object?>(path, body: body, options: opts),
-      'PATCH' => await _client.patch<Object?>(path, body: body, options: opts),
-      'PUT' => await _client.put<Object?>(path, body: body, options: opts),
-      _ => await _client.delete<Object?>(path, options: opts),
-    };
+    Future<ApiResult<Object?>> once() async => switch (method) {
+          'GET' => await _client.get<Object?>(path, options: opts),
+          'POST' => await _client.post<Object?>(path, body: body, options: opts),
+          'PATCH' => await _client.patch<Object?>(path, body: body, options: opts),
+          'PUT' => await _client.put<Object?>(path, body: body, options: opts),
+          _ => await _client.delete<Object?>(path, options: opts),
+        };
+    var result = await once();
+    // A network blip on a read or a repeat-safe save (GET / PUT) is tried once more by itself before the person is told.
+    if (result is ApiError<Object?> && result.failure.statusCode == null && (method == 'GET' || method == 'PUT')) {
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      result = await once();
+    }
     if (result is ApiError<Object?>) _fail(result);
     return askodoxPosMap((result as ApiSuccess<Object?>).data);
   }
@@ -200,6 +210,11 @@ class AskodoxPosRepository {
   Future<AskodoxJson> myBillPaid(String token, String app) =>
       _send('POST', '/api/pos/me/bills/$token/paid', body: {'app': app});
   /// "I will pay on (date)" for a pending bill: the shop is told, reminders wait until then.
+  // ---- Baaki reminders (pos_dues_followup.py): 3 days before the pay date .. the date, WhatsApp text ready.
+  Future<AskodoxJson> dueReminders(String id) => _send('GET', '${_b(id)}/dues/reminders');
+  Future<AskodoxJson> setDueDate(String id, String invoiceId, String date) =>
+      _send('PUT', '${_b(id)}/dues/$invoiceId/date', body: {'date': date});
+  Future<AskodoxJson> markDueReminded(String id, String invoiceId) => _send('POST', '${_b(id)}/dues/$invoiceId/sent');
   Future<AskodoxJson> myBillPromise(String token, String date) =>
       _send('POST', '/api/pos/me/bills/$token/promise', body: {'date': date});
   Future<AskodoxJson> renameBusiness(String id, String name) => _send('PATCH', _b(id), body: {'name': name});
@@ -328,21 +343,23 @@ class AskodoxPosRepository {
   Future<AskodoxJson> gstReport(String id, String from, String to) =>
       _send('GET', '${_b(id)}/reports/gst', query: {'date_from': from, 'date_to': to});
   Future<List<AskodoxJson>> members(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/members'))['members']);
-  Future<AskodoxJson> setMember(String id, String phone, String role, {String? label, bool? acceptsOrders}) => _send('POST', '${_b(id)}/members',
-      body: {
+  Future<AskodoxJson> setMember(String id, String phone, String role, {String? label, bool? acceptsOrders, List<String>? tools}) =>
+      _send('POST', '${_b(id)}/members', body: {
         'phone': phone,
         'role': role,
         if (label != null && label.trim().isNotEmpty) 'label': label.trim(),
         if (acceptsOrders != null) 'accepts_orders': acceptsOrders,
+        if (tools != null) 'tools': tools,
       });
   /// Edit a staff member's role / spoken name / "may accept orders" / pause, or bring a removed one back (send their
   /// role), by the last 4 digits in the list.
-  Future<AskodoxJson> editMember(String id, String ref, {String? role, String? label, bool? acceptsOrders, bool? paused}) =>
+  Future<AskodoxJson> editMember(String id, String ref, {String? role, String? label, bool? acceptsOrders, bool? paused, List<String>? tools}) =>
       _send('PATCH', '${_b(id)}/members/$ref', body: {
         if (role != null) 'role': role,
         if (label != null) 'label': label,
         if (acceptsOrders != null) 'accepts_orders': acceptsOrders,
         if (paused != null) 'paused': paused,
+        if (tools != null) 'tools': tools,
       });
   Future<AskodoxJson> removeMember(String id, String ref) => _send('DELETE', '${_b(id)}/members/$ref');
   // restaurant

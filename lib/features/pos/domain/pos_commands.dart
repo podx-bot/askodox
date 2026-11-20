@@ -8,12 +8,18 @@ import 'pos_money.dart';
 enum AskodoxPosCommandKind { add, remove, discount, clear, checkout, unknown }
 
 class AskodoxPosItemRef {
-  const AskodoxPosItemRef({required this.id, required this.name, this.nameTe = '', required this.unit});
+  const AskodoxPosItemRef({required this.id, required this.name, this.nameTe = '', required this.unit, this.itemNo = 0});
   final String id;
   final String name;
   final String nameTe;
   final String unit;
+
+  /// The item's menu number (0 = none): "number 20 two", "20 నంబర్ 2", "#20 x2" pick it.
+  final int itemNo;
 }
+
+final _itemNumberPattern = RegExp(
+    r'(?:#|\bno\.?\s*|\bnumber\s*|\bnum\s*|నంబర్\s*|నెంబర్\s*|నంబరు\s*)(\d+)|(\d+)\s*(?:\bnumber\b|నంబర్|నెంబర్|నంబరు|వ\s*నంబర్)');
 
 class AskodoxPosCommand {
   const AskodoxPosCommand(this.kind,
@@ -110,6 +116,22 @@ AskodoxPosCommand askodoxParsePosCommand(String text, List<AskodoxPosItemRef> it
       if (paise != null && paise > 0) return AskodoxPosCommand(AskodoxPosCommandKind.discount, discountPaise: paise);
     }
     return const AskodoxPosCommand(AskodoxPosCommandKind.unknown);
+  }
+
+  // Owner 2026-11-20: the item's menu number picks it ("number 20 two" / "20 నంబర్ 2" / "#20 x2"); the other number is
+  // the quantity.
+  final numbered = _itemNumberPattern.firstMatch(s);
+  if (numbered != null) {
+    final no = int.tryParse(numbered.group(1) ?? numbered.group(2) ?? '') ?? 0;
+    final hits = items.where((i) => i.itemNo > 0 && i.itemNo == no).toList();
+    if (hits.length == 1) {
+      final left = s.replaceRange(numbered.start, numbered.end, ' ');
+      final remove = left.split(RegExp(r'\s+')).any(_removeWords.contains);
+      final qtyMatch = RegExp(r'(\d+(?:\.\d{1,3})?)').firstMatch(left);
+      final qty = qtyMatch == null ? 1000 : askodoxParseMilli(qtyMatch.group(1)!) ?? 1000;
+      return AskodoxPosCommand(remove ? AskodoxPosCommandKind.remove : AskodoxPosCommandKind.add,
+          item: hits.single, query: hits.single.name, qtyMilli: remove ? null : qty);
+    }
   }
 
   // price: "at 240", "@240", "240 per kg", "కిలో 240"
@@ -224,7 +246,9 @@ const _priceWords = {'at', '@', 'rate', 'ధర', 'rs', 'per'};
 /// a new quantity after an item name ("10 kg kandi pappu 20 samosa").
 List<String> askodoxSplitPosOrder(String text) {
   final out = <String>[];
-  for (final chunk in text.split(RegExp(r'[,;\n]+|\s+and\s+|\s+మరియు\s+|\s+ఇంకా\s+|\s+plus\s+', caseSensitive: false))) {
+  for (final raw in text.split(RegExp(r'[,;\n]+|\s+and\s+|\s+మరియు\s+|\s+ఇంకా\s+|\s+plus\s+', caseSensitive: false))) {
+    // "number 20 two" / "20 నంబర్ 2" -> "#20 2": the menu number stays one name-like token with its quantity.
+    final chunk = raw.toLowerCase().replaceAllMapped(_itemNumberPattern, (m) => ' #${m.group(1) ?? m.group(2)} ');
     final tokens = chunk.trim().toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (tokens.isEmpty) continue;
     // Command words, fillers and a spoken price ("at 240", "240 per kg") belong to the item they are with.

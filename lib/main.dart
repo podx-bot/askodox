@@ -18,12 +18,18 @@ import 'features/analytics/domain/analytics_models.dart';
 import 'core/startup/startup_hint.dart';
 import 'shared/widgets/chat_pins.dart' show askodoxLiveOrderChip;
 import 'features/home/presentation/askodox_primary_home_screen.dart' show askodoxSpeakTypedReplies;
+import 'services/in_app_assistant_service.dart' show askodoxAutoOpenAppActions;
+import 'features/location/application/location_controller.dart' show LocationController;
+import 'features/pos/data/pos_payment_alerts.dart' show askodoxAutoJoinStaffVoices;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AskodoxStartupMetrics.markMain();
   askodoxLiveOrderChip = true; // running orders sit above the chat by themselves
   askodoxSpeakTypedReplies = true; // owner 2026-11-19: text + voice on every reply
+  askodoxAutoOpenAppActions = true; // owner 2026-11-20: a named screen opens at once, no extra tap
+  LocationController.askOnStart = true; // owner 2026-11-20: first open asks Allow, the town names itself
+  askodoxAutoJoinStaffVoices = true; // owner 2026-11-20: staff phones hear their shop's payments, no setup
   // A restart scope around the ONE provider container: sign-out rebuilds the
   // app with fresh state (no data of the previous account survives in memory).
   runApp(const AskodoxAppRestart(child: _AnalyticsBootstrap()));

@@ -18,6 +18,7 @@ const askodoxShopTools = <String, (String, String, String)>{
   'suppliers': ('/pos/<id>/suppliers', 'Suppliers & purchases', 'సప్లయర్లు & కొనుగోళ్లు'),
   'expiry': ('/pos/<id>/stock-report', 'Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ'),
   'customers': ('/pos/<id>/customers', 'Customers & credit', 'కస్టమర్లు & ఖాతా'),
+  'dues': ('/pos/<id>/dues', 'Baaki reminders', 'బాకీ గుర్తులు'),
   'agents': ('/pos/<id>/agents', 'AI agents', 'AI Agents'),
   'bills': ('/pos/<id>/invoices', 'Bills', 'బిల్లులు'),
   'day': ('/pos/<id>/day', 'Day close', 'రోజు ముగింపు'),
@@ -28,13 +29,16 @@ const askodoxShopTools = <String, (String, String, String)>{
   'selfshop': ('/pos/<id>/selfshop', 'Self-shopping', 'సెల్ఫ్ షాపింగ్'),
 };
 
-String askodoxShopToolRoute(String tool, String businessId) =>
-    (askodoxShopTools[tool]?.$1 ?? '/pos/<id>').replaceFirst('<id>', businessId);
+String askodoxShopToolRoute(String tool, String businessId, [String query = '']) =>
+    (askodoxShopTools[tool]?.$1 ?? '/pos/<id>').replaceFirst('<id>', businessId) + (query.isEmpty ? '' : '?$query');
 
 /// `/my-shop/<tool>`: one shop -> straight to the tool; several -> choose the shop; none -> add a shop first.
 class AskodoxShopToolScreen extends ConsumerStatefulWidget {
-  const AskodoxShopToolScreen({super.key, required this.tool});
+  const AskodoxShopToolScreen({super.key, required this.tool, this.query = ''});
   final String tool;
+
+  /// Passed on to the tool's page (e.g. `say=` spoken items for a new bill).
+  final String query;
 
   @override
   ConsumerState<AskodoxShopToolScreen> createState() => _AskodoxShopToolScreenState();
@@ -59,7 +63,7 @@ class _AskodoxShopToolScreenState extends ConsumerState<AskodoxShopToolScreen> {
           if (shops.length == 1 && !_jumped) {
             _jumped = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) context.replace(askodoxShopToolRoute(widget.tool, '${shops.first['id']}'));
+              if (mounted) context.replace(askodoxShopToolRoute(widget.tool, '${shops.first['id']}', widget.query));
             });
             return const Center(child: CircularProgressIndicator());
           }
@@ -87,7 +91,7 @@ class _AskodoxShopToolScreenState extends ConsumerState<AskodoxShopToolScreen> {
                 title: Text('${s['name']}'),
                 subtitle: Text('${s['my_role'] ?? ''}'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.replace(askodoxShopToolRoute(widget.tool, '${s['id']}')),
+                onTap: () => context.replace(askodoxShopToolRoute(widget.tool, '${s['id']}', widget.query)),
               ),
           ]);
         },

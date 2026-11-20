@@ -8496,6 +8496,129 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "baaki_reminders",
+      "name": "Baaki reminders: 3 days before the pay date, daily, WhatsApp one tap",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/dues/reminders"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/dues/{invoice_id}/date"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/dues/{invoice_id}/sent"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "AskodoxPosDuesScreen",
+          "askodoxDueDateChoices"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_dues_followup.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-20: automatic credit follow-up, from 3 days before the date up to the date, daily; a new date starts again.",
+      "expected_behavior": "Customers on ASKODOX get a push once a day; the owner gets one morning push and a list with WhatsApp text + pay link ready; paid bills stop; after the date: overdue + new date.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "staff_tools",
+      "name": "Per-staff tools the owner ticks",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "pos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/members"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/pos/businesses/{business_id}/members/{ref}"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxStaffTools",
+          "askodoxPosToolAllowed"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_staff_tools.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-20: staff see only what the owner gives them.",
+      "expected_behavior": "Each staff member's tools (dashboard tiles) are ticked by the owner; permissions = role AND ticks; staff from before keep only payment alerts (+ their one job screen); managers keep everything.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "askodox_self_name",
+      "name": "ASKODOX knows its own name and features",
+      "roles": [
+        "seller"
+      ],
+      "domains": [
+        "assistant"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "askodoxAppActionRoute"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_askodox_self.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-20: 'class codex' / 'ఆక్సోడెక్స్' answered as ASKODOX, never from the web.",
+      "expected_behavior": "Sound-alikes of ASKODOX are written ASKODOX (voice + brain); questions about ASKODOX are answered from the real app actions catalogue; a named screen opens at once (auto_open).",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

@@ -83,8 +83,11 @@ const _weighed = {'kg', 'g', 'l', 'ml'};
 /// from the server; without internet the sale is kept on this phone with this
 /// device's own bill number and sent later.
 class AskodoxPosSaleScreen extends ConsumerStatefulWidget {
-  const AskodoxPosSaleScreen({super.key, required this.businessId, this.leadId, this.customerId});
+  const AskodoxPosSaleScreen({super.key, required this.businessId, this.leadId, this.customerId, this.say});
   final String businessId;
+
+  /// Words said in the chat ("chicken biryani 2, cash bill"): put in the order box and shown for review once loaded.
+  final String? say;
 
   /// Opened from a Business CRM lead: a quotation made here is linked to that lead.
   final String? leadId;
@@ -132,6 +135,13 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
       // "Online only" items are offered in ASKODOX, not at the counter.
       final counter = [for (final p in list) if (askodoxPosChannel(p, shopDefault) != 'online') p];
       if (mounted) setState(() => _products = counter);
+      final said = widget.say?.trim() ?? '';
+      if (said.isNotEmpty && counter.isNotEmpty && _command.text.isEmpty) {
+        _command.text = said;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_runCommand());
+        });
+      }
       try {
         final combos = await ref.read(askodoxPosRepositoryProvider).combos(widget.businessId);
         if (mounted) setState(() => _combos = combos);
@@ -160,10 +170,16 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   List<AskodoxJson> get _visible {
     final q = _search.text.trim().toLowerCase();
     if (q.isEmpty) return _products;
-    return _products
-        .where((p) => '${p['name']}'.toLowerCase().contains(q) || '${p['name_te']}'.contains(q) || '${p['barcode']}' == q ||
-            '${p['sku']}'.toLowerCase() == q)
-        .toList();
+    // Owner 2026-11-20: the item's menu number ("20", "#20") finds it, and that item comes first.
+    final number = int.tryParse(q.replaceFirst('#', '').trim());
+    final byNumber = number == null ? const <AskodoxJson>[] : _products.where((p) => askodoxPosInt(p['item_no']) == number).toList();
+    return [
+      ...byNumber,
+      ..._products.where((p) =>
+          !byNumber.contains(p) &&
+          ('${p['name']}'.toLowerCase().contains(q) || '${p['name_te']}'.contains(q) || '${p['barcode']}' == q ||
+              '${p['sku']}'.toLowerCase() == q)),
+    ];
   }
 
   /// The item's own counter offer (1 + 1, 2 + 1, % off) becomes that line's discount and follows the quantity. A
@@ -511,7 +527,8 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
     final te = askodoxPosTe(context);
     final items = [
       for (final p in _products)
-        AskodoxPosItemRef(id: '${p['id']}', name: '${p['name']}', nameTe: '${p['name_te'] ?? ''}', unit: '${p['unit']}'),
+        AskodoxPosItemRef(
+            id: '${p['id']}', name: '${p['name']}', nameTe: '${p['name_te'] ?? ''}', unit: '${p['unit']}', itemNo: askodoxPosInt(p['item_no'])),
     ];
     final order = askodoxParsePosOrder(_command.text, items);
     if (order.length > 1) {
@@ -952,6 +969,15 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
               if (packHit || askodoxProductsByBarcode(text, _products).length == 1) {
                 _search.clear();
                 _handleBarcode(text);
+                return;
+              }
+              // A typed menu number + Enter adds that item at once (the keyboard's tick = one tap).
+              final number = int.tryParse(text.replaceFirst('#', '').trim());
+              final hits = number == null ? const <AskodoxJson>[] : _products.where((p) => askodoxPosInt(p['item_no']) == number).toList();
+              if (hits.length == 1) {
+                _search.clear();
+                setState(() {});
+                _choose(hits.first);
               }
             },
             decoration: InputDecoration(
@@ -964,7 +990,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
                   onPressed: _scanBarcode,
                   icon: const Icon(Icons.qr_code_scanner),
                 ),
-                hintText: te ? 'పేరు / బార్‌కోడ్' : 'Name / barcode'),
+                hintText: te ? 'నంబర్ / పేరు / బార్‌కోడ్' : 'Number / name / barcode'),
           ),
         ),
         Expanded(

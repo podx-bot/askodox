@@ -159,6 +159,27 @@ class LocationController extends StateNotifier<LocationState> {
   final GeoRepository? _repository;
   final DeviceLocationGateway _deviceLocation;
 
+  /// Owner 2026-11-20 ("why set the location again after installing?"): the first time Home opens with no place, the
+  /// phone's own Allow dialog appears at once -- Allow = the town is named by itself; no setup page. Asked once per
+  /// install (Android stops showing it after a second "Don't allow" anyway). Set in `main()`; tests keep it off.
+  static bool askOnStart = false;
+  static const _askedKey = 'askodox.location.asked_on_start.v1';
+
+  Future<void> askOnceIfNoPlace() async {
+    if (!askOnStart || !mounted || !state.followsDevice) return;
+    final status = await _deviceLocation.checkPermission();
+    if (status == LocationPermissionStatus.granted) return; // restoreAndRefresh already reads the place
+    if (status == LocationPermissionStatus.deniedPermanently) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_askedKey) == true) return;
+      await prefs.setBool(_askedKey, true);
+    } catch (_) {
+      return;
+    }
+    if (mounted) await requestPermission();
+  }
+
   Future<void> restoreAndRefresh() async {
     await _restore();
     // Location already allowed: read where the phone is NOW and name it

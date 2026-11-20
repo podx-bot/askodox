@@ -80,13 +80,45 @@ object AskodoxPaymentAlerts {
                         CloudVoice.prefetch(app, JSONObject(json)) // the fixed words, once per voice / language
                         result.success(status(app))
                     }
+                    // Owner 2026-11-20 (staff zero setup): a shop's staff phone hears that shop's payments without
+                    // opening any page -- only this shop's device id (and the sign-in / server it acks to) is added;
+                    // the phone's own shop settings, if any, stay as they are.
+                    "joinShop" -> {
+                        val biz = call.argument<String>("businessId") ?: ""
+                        val dev = call.argument<String>("deviceId") ?: ""
+                        if (biz.isEmpty() || dev.isEmpty()) { result.success(false); return@setMethodCallHandler }
+                        val cfg = config(app)
+                        val ids = cfg.optJSONObject("device_ids") ?: JSONObject()
+                        ids.put(biz, dev)
+                        cfg.put("device_ids", ids)
+                        if (cfg.optString("base_url").isEmpty()) cfg.put("base_url", call.argument<String>("baseUrl") ?: "")
+                        val token = call.argument<String>("token") ?: ""
+                        if (token.isNotEmpty()) cfg.put("token", token)
+                        if (!cfg.has("language")) cfg.put("language", call.argument<String>("language") ?: "te")
+                        if (!cfg.has("cloud_voice")) cfg.put("cloud_voice", true)
+                        prefs(app).edit().putString("config", cfg.toString()).apply()
+                        Speaker.warm(app)
+                        result.success(true)
+                    }
                     "clear" -> { prefs(app).edit().clear().apply(); result.success(true) }
                     "openListenerSettings" -> {
                         activity.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         result.success(true)
                     }
                     "openBatterySettings" -> {
-                        activity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        // Owner 2026-11-20: Android's own one-tap "Allow" dialog when this build may ask (Play builds);
+                        // otherwise the battery list as before.
+                        val direct = try {
+                            val declared = app.packageManager.getPackageInfo(app.packageName,
+                                android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions?.contains(
+                                "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS") == true
+                            if (declared) {
+                                activity.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    Uri.parse("package:" + app.packageName)))
+                                true
+                            } else false
+                        } catch (_: Exception) { false }
+                        if (!direct) activity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                         result.success(true)
                     }
                     // Xiaomi / Oppo / Vivo / Realme / OnePlus / Huawei / Honor / Asus / iQOO stop apps in the
@@ -411,8 +443,16 @@ object AskodoxPaymentAlerts {
     }
 
     @Synchronized
-    fun events(context: Context): JSONArray =
-        try { JSONArray(prefs(context).getString("events", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+    fun events(context: Context): JSONArray {
+        val list = try { JSONArray(prefs(context).getString("events", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        // Owner 2026-11-20: a payment never shows "Speaking..." for ever -- older than 2 minutes = the voice got stuck.
+        val now = System.currentTimeMillis()
+        for (i in 0 until list.length()) {
+            val e = list.optJSONObject(i) ?: continue
+            if (e.optString("spoken") == "pending" && now - e.optLong("at_ms", now) > 120_000L) e.put("spoken", "stuck")
+        }
+        return list
+    }
 
     @Synchronized
     private fun saveEvents(context: Context, list: JSONArray) {
@@ -501,12 +541,14 @@ object AskodoxPaymentAlerts {
         }
         if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
         if (!claimVoice(context, amountFromText(text), System.currentTimeMillis(), "remote")) {
-            // This phone already announced this money from its own notification: stay silent, but confirm delivery.
-            if (fromPush && businessId != null) ack(context, businessId, eventId, "announced")
+            // This phone already announced this money from its own notification: stay silent, and say so honestly.
+            if (fromPush && businessId != null) ack(context, businessId, eventId, "duplicate_local")
             return done("duplicate")
         }
+        CloudVoice.lastStuck = false
         CloudVoice.say(context, listOf(text), language, cfg) { ok ->
-            if (fromPush && businessId != null) ack(context, businessId, eventId, if (ok) "announced" else "tts_failed")
+            val state = if (ok) "announced" else if (CloudVoice.lastStuck) "stuck" else "tts_failed"
+            if (fromPush && businessId != null) ack(context, businessId, eventId, state)
             main.post { channel?.invokeMethod("paymentEvent", "{}") }
             onFinished?.invoke()
         }
@@ -537,6 +579,17 @@ object AskodoxPaymentAlerts {
         Regex("""\d[\d,]*(?:\.\d{1,2})?""").find(text)?.value?.replace(",", "")?.toDoubleOrNull()?.let { Math.round(it * 100) }
 
     /** Best-effort acknowledgement from the phone itself (push path, app closed). */
+    /** The last resort when no voice could play: two loud beeps on the ALARM sound (heard even when media is low). */
+    fun beep(context: Context) {
+        try {
+            val tone = android.media.ToneGenerator(AudioManager.STREAM_ALARM, 100)
+            tone.startTone(android.media.ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 700)
+            main.postDelayed({ try { tone.startTone(android.media.ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 700) } catch (_: Exception) {} }, 900)
+            main.postDelayed({ try { tone.release() } catch (_: Exception) {} }, 2_200)
+        } catch (_: Exception) {
+        }
+    }
+
     fun ack(context: Context, businessId: String, eventId: String, state: String) {
         io.execute {
             try {
@@ -555,7 +608,8 @@ object AskodoxPaymentAlerts {
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.setRequestProperty("Authorization", "Bearer $token")
                 conn.outputStream.use {
-                    it.write(JSONObject().put("device_id", device).put("state", state).toString().toByteArray(Charsets.UTF_8))
+                    it.write(JSONObject().put("device_id", device).put("state", state).put("detail", Player.lastDetail)
+                        .toString().toByteArray(Charsets.UTF_8))
                 }
                 conn.responseCode
                 conn.disconnect()
@@ -1060,13 +1114,31 @@ object AskodoxPaymentAlerts {
      * sentence ([Speaker]), so a payment is never silent.
      */
     object CloudVoice {
+        /** True when the last failure was the 45 s limit (reported as "stuck", not "tts_failed"). */
+        @Volatile var lastStuck = false
         private const val MAX_FILES = 400
         private const val SEGMENT_TIMEOUT_MS = 6000
         private const val TOTAL_BUDGET_MS = 3500L
         private val voiceIo = Executors.newSingleThreadExecutor() // never waits behind uploads
 
-        fun say(context: Context, parts: List<String>, language: String, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
+        fun say(context: Context, parts: List<String>, language: String, cfg: JSONObject, finished: ((Boolean) -> Unit)?) {
             val app = context.applicationContext
+            // Owner 2026-11-20: ONE answer per payment, always -- if no voice finished in 45 s the payment is marked
+            // "stuck" (never "Speaking..." for ever) and a loud beep plays so the money is still heard.
+            val answered = java.util.concurrent.atomic.AtomicBoolean(false)
+            val done: (Boolean) -> Unit = { ok ->
+                if (answered.compareAndSet(false, true)) {
+                    if (!ok) AskodoxPaymentAlerts.beep(app)
+                    finished?.invoke(ok)
+                }
+            }
+            AskodoxPaymentAlerts.main.postDelayed({
+                if (answered.compareAndSet(false, true)) {
+                    lastStuck = true
+                    AskodoxPaymentAlerts.beep(app)
+                    finished?.invoke(false)
+                }
+            }, 45_000L)
             val text = parts.joinToString(" ")
             val fallback = { Speaker.say(app, text, language, cfg, done) }
             if (!enabled(cfg) || parts.isEmpty()) { fallback(); return }
@@ -1086,7 +1158,7 @@ object AskodoxPaymentAlerts {
                     val dir = java.io.File(app.cacheDir, "payalert").apply { mkdirs() }
                     val out = java.io.File(dir, "pv-${System.nanoTime()}.mp3")
                     out.outputStream().use { o -> files.forEach { f -> f!!.inputStream().use { it.copyTo(o) } } }
-                    Player.enqueue(app, out, cfg) { ok -> if (ok) done?.invoke(true) else AskodoxPaymentAlerts.main.post { fallback() } }
+                    Player.enqueue(app, out, cfg) { ok -> if (ok) done(true) else AskodoxPaymentAlerts.main.post { fallback() } }
                 } catch (_: Exception) {
                     AskodoxPaymentAlerts.main.post { fallback() }
                 }
@@ -1175,6 +1247,17 @@ object AskodoxPaymentAlerts {
             val action = { speakNow(text, language, cfg, done) }
             if (ready) { action(); return }
             waiting.add(action)
+            // Owner 2026-11-20: a speech engine that never answers its start-up must not keep a payment silent for
+            // ever -- after 8 s the waiting payments fail (the caller beeps) and the engine is started fresh next time.
+            AskodoxPaymentAlerts.main.postDelayed({
+                synchronized(this) {
+                    if (!ready && waiting.contains(action)) {
+                        waiting.remove(action)
+                        if (!initDone) { try { tts?.shutdown() } catch (_: Exception) {}; tts = null }
+                        done?.invoke(false)
+                    }
+                }
+            }, 8_000L)
             if (tts == null) {
                 tts = TextToSpeech(context.applicationContext) { status ->
                     synchronized(this) {
@@ -1295,6 +1378,8 @@ object AskodoxPaymentAlerts {
                 callbacks[id] = { ok -> if (ok && file.length() > 0) Player.enqueue(ctx, file, cfg, done) else done?.invoke(false) }
             }
             if (engine.synthesizeToFile(spoken, Bundle(), file, id) == TextToSpeech.ERROR) finish(id, false)
+            // an engine that never reports the file (missing voice data on some phones) fails after 12 s, never hangs
+            AskodoxPaymentAlerts.main.postDelayed({ finish(id, false) }, 12_000L)
         }
     }
 
@@ -1307,13 +1392,51 @@ object AskodoxPaymentAlerts {
         private data class Item(val file: java.io.File, val cfg: JSONObject, val done: ((Boolean) -> Unit)?)
         private val queue = ArrayDeque<Item>()
         private var busy = false
+        private var busySince = 0L
         private var savedVolume: Int? = null
+        private var focus: android.media.AudioFocusRequest? = null
+
+        /** What the last finished clip did (for the server trail): volume %, route, ms played. */
+        @Volatile var lastDetail: String = ""
 
         fun enqueue(context: Context, file: java.io.File, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
             AskodoxPaymentAlerts.main.post {
                 queue.addLast(Item(file, cfg, done))
+                // Owner 2026-11-20 (every payment since 08:08 stuck on "Speaking..."): a clip that never finished kept
+                // the queue busy for ever. A queue busy for more than 40 s is started again.
+                if (busy && System.currentTimeMillis() - busySince > 40_000L) busy = false
                 if (!busy) next(context.applicationContext)
             }
+        }
+
+        private fun takeFocus(audio: AudioManager) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                        .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                        .build()
+                    audio.requestAudioFocus(req)
+                    focus = req
+                } else {
+                    @Suppress("DEPRECATION")
+                    audio.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        private fun dropFocus(audio: AudioManager) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    focus?.let { audio.abandonAudioFocusRequest(it) }
+                } else {
+                    @Suppress("DEPRECATION")
+                    audio.abandonAudioFocus(null)
+                }
+            } catch (_: Exception) {
+            }
+            focus = null
         }
 
         private fun next(context: Context) {
@@ -1323,9 +1446,12 @@ object AskodoxPaymentAlerts {
                 busy = false
                 savedVolume?.let { v -> try { audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0) } catch (_: Exception) {} }
                 savedVolume = null
+                dropFocus(audio)
                 return
             }
             busy = true
+            busySince = System.currentTimeMillis()
+            takeFocus(audio)
             if (item.cfg.optBoolean("loud", true) && savedVolume == null) {
                 try {
                     savedVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -1348,12 +1474,24 @@ object AskodoxPaymentAlerts {
 
         private fun play(context: Context, item: Item) {
             var enhancer: android.media.audiofx.LoudnessEnhancer? = null
+            var finished = false
+            var startedAt = 0L
+            val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val finishItem = { ok: Boolean, mp: android.media.MediaPlayer? ->
-                try { enhancer?.release() } catch (_: Exception) {}
-                try { mp?.release() } catch (_: Exception) {}
-                item.file.delete()
-                item.done?.invoke(ok)
-                next(context)
+                if (!finished) {
+                    finished = true
+                    lastDetail = try {
+                        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                        val vol = audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max
+                        val played = if (startedAt > 0) System.currentTimeMillis() - startedAt else 0
+                        "vol=$vol% out=${AskodoxPaymentAlerts.audioRoute(context)["output"]} played_ms=$played ok=$ok"
+                    } catch (_: Exception) { "ok=$ok" }
+                    try { enhancer?.release() } catch (_: Exception) {}
+                    try { mp?.release() } catch (_: Exception) {}
+                    item.file.delete()
+                    item.done?.invoke(ok)
+                    next(context)
+                }
             }
             try {
                 val mp = android.media.MediaPlayer()
@@ -1374,7 +1512,12 @@ object AskodoxPaymentAlerts {
                 }
                 mp.setOnCompletionListener { finishItem(true, it) }
                 mp.setOnErrorListener { p, _, _ -> finishItem(false, p); true }
+                startedAt = System.currentTimeMillis()
                 mp.start()
+                // A clip that never reports its end (audio stuck, focus lost) is closed after its length + 4 s, so the
+                // next payment is never held behind it.
+                val limit = (if (mp.duration > 0) mp.duration.toLong() else 12_000L).coerceAtMost(25_000L) + 4_000L
+                AskodoxPaymentAlerts.main.postDelayed({ if (!finished) finishItem(false, mp) }, limit)
             } catch (_: Exception) {
                 finishItem(false, null)
             }

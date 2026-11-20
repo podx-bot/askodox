@@ -724,6 +724,10 @@ async def transcribe_in_app_voice(
     transcript = str((result or {}).get("transcript") or (result or {}).get("text") or "").strip()
     if not transcript:
         raise HTTPException(status_code=422, detail="Voice transcription failed")
+    # Owner 2026-11-20: the app's own name is written right ("class codex" / "ఆక్సోడెక్స్" -> ASKODOX).
+    from app.services.askodox_self import fix_spoken_name
+
+    transcript = fix_spoken_name(transcript)
     # Safe diagnostics only: sizes and counts, never audio or transcript text.
     diagnostics = {
         "upload_bytes": len(audio_bytes),

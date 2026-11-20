@@ -9,6 +9,7 @@ import '../../../core/providers/backend_providers.dart' show authSessionProvider
 import '../../../services/image_studio_service.dart' show imageStudioServiceProvider;
 import '../../../services/media_picker.dart';
 import '../data/pos_repository.dart';
+import '../domain/pos_item_icons.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
 
@@ -72,11 +73,27 @@ class AskodoxPosProductTile extends ConsumerWidget {
               photo != null
                   ? Image.memory(photo, fit: BoxFit.cover, gaplessPlayback: true)
                   : Container(
+                      // Owner 2026-11-20: a picture that fits the name (free emoji), never a bare letter.
+                      key: const Key('askodoxPosTileIcon'),
                       color: color,
                       alignment: Alignment.center,
-                      child: Text(name.isEmpty ? '?' : name.characters.first.toUpperCase(),
-                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF1F2937))),
+                      child: Text(
+                          askodoxItemIcon('${product['name'] ?? ''}',
+                              nameTe: '${product['name_te'] ?? ''}', category: '${product['category'] ?? ''}'),
+                          style: const TextStyle(fontSize: 34)),
                     ),
+              if (askodoxPosInt(product['item_no']) > 0)
+                Positioned(
+                  top: 4,
+                  left: 4,
+                  child: Container(
+                    key: const Key('askodoxPosTileNumber'),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xE6141B4D), borderRadius: BorderRadius.circular(8)),
+                    child: Text('${askodoxPosInt(product['item_no'])}',
+                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                  ),
+                ),
               if (inCartMilli > 0)
                 Positioned(
                   top: 4,

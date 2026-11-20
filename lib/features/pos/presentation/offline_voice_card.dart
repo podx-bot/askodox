@@ -96,6 +96,8 @@ class _AskodoxOfflineVoiceCardState extends ConsumerState<AskodoxOfflineVoiceCar
             'Install "Speech Services by Google" from Play Store for more languages.',
         'ఈ ఫోన్ వాయిస్‌లో ఈ భాష లేదు: నెట్ లేనప్పుడు మొత్తం ఇంగ్లీష్‌లో చెప్తుంది. Play Store నుంచి "Speech Services by Google" వేస్తే ఎక్కువ భాషలు వస్తాయి.');
   }
-  return ('Without internet the voice may not speak this language. Tap Download, choose the language and download its voice (one time).',
-      'నెట్ లేనప్పుడు ఈ భాషలో వాయిస్ రాకపోవచ్చు. "డౌన్‌లోడ్" నొక్కి, మీ భాష ఎంచుకుని దాని వాయిస్ ఒక్కసారి డౌన్‌లోడ్ చేయండి.');
+  // Owner 2026-11-20: nothing to set up -- with internet ASKODOX's own voice speaks; without it the amount is said in
+  // English (and if no voice can play, two loud beeps). Downloading the language voice is only an extra.
+  return ('Nothing to set up. Without internet the amount is said in English. (Optional: Download to hear this language offline too.)',
+      'ఏమీ సెట్ చేయక్కర్లేదు. నెట్ లేనప్పుడు మొత్తం ఇంగ్లీష్‌లో చెప్తుంది. (కావాలంటే "డౌన్‌లోడ్" తో ఈ భాష కూడా నెట్ లేకుండా వస్తుంది.)');
 }

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/widgets/chat_pins.dart' show askodoxLiveOrdersProvider;
 import '../../pos/data/pos_repository.dart';
+import '../../pos/domain/pos_item_icons.dart';
 import '../../pos/domain/pos_pricing.dart';
 import '../../pos/presentation/pos_reservation_sheets.dart';
 import '../../pos/presentation/shop_rating_screens.dart' show askodoxRatingLine;
@@ -434,6 +435,8 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(children: [
+                  Text(askodoxItemIcon('${m['name'] ?? ''}', nameTe: '${m['name_te'] ?? ''}'), style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 6),
                   if ('${m['food_type'] ?? ''}'.isNotEmpty) ...[
                     _foodDot('${m['food_type']}'),
                     const SizedBox(width: 6),

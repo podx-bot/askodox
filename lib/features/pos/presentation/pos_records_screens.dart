@@ -13,9 +13,11 @@ import '../data/pos_invoice_pdf.dart';
 import '../data/pos_printer.dart';
 import '../data/pos_repository.dart';
 import '../domain/escpos.dart';
+import '../domain/pos_item_icons.dart';
 import '../domain/pos_money.dart';
 import '../domain/pos_pricing.dart';
 import '../domain/pos_scale.dart';
+import '../domain/pos_staff_tools.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import '../../../shared/widgets/askodox_field_guide.dart';
 import 'pos_advance_screens.dart';
@@ -81,6 +83,20 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
     try {
       final s = await ref.read(askodoxPosRepositoryProvider).setOnlineDefault(widget.businessId, channel);
       if (mounted) setState(() => _online = s);
+      if (s['syncing'] == true && channel != 'pos') {
+        // Saved at once; the listings go online in the background -- read the states again shortly.
+        if (mounted) askodoxPosSnack(context, te ? 'సేవ్ అయింది. ఐటమ్‌లు ఆన్‌లైన్‌లోకి వెళ్తున్నాయి…' : 'Saved. Items are going online…');
+        for (final wait in const [4, 12]) {
+          await Future<void>.delayed(Duration(seconds: wait));
+          if (!mounted) return;
+          try {
+            final again = await ref.read(askodoxPosRepositoryProvider).onlineStatus(widget.businessId);
+            if (mounted) setState(() => _online = again);
+          } on AskodoxPosException {
+            return;
+          }
+        }
+      }
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(te));
     }
@@ -388,7 +404,10 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
             for (final p in items)
               ListTile(
                 key: ValueKey('askodoxPosItem-${p['id']}'),
-                title: Text('${p['name']}${'${p['name_te'] ?? ''}'.isEmpty ? '' : ' · ${p['name_te']}'}'),
+                leading: Text(askodoxItemIcon('${p['name'] ?? ''}', nameTe: '${p['name_te'] ?? ''}', category: '${p['category'] ?? ''}'),
+                    style: const TextStyle(fontSize: 26)),
+                title: Text('${askodoxPosInt(p['item_no']) > 0 ? '${p['item_no']}. ' : ''}${p['name']}'
+                    '${'${p['name_te'] ?? ''}'.isEmpty ? '' : ' · ${p['name_te']}'}'),
                 subtitle: Text([
                   '${askodoxPaise(askodoxPosInt(p['price_paise']))}/${p['unit']}',
                   '${te ? 'GST' : 'GST'} ${askodoxRate(askodoxPosInt(p['rate_bp']))}${p['price_includes_tax'] == true ? (te ? ' కలిపి' : ' incl.') : ''}',
@@ -1370,6 +1389,13 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
     final phone = TextEditingController();
     var role = '${m?['role'] ?? 'waiter'}';
     var accepts = m == null ? true : m['accepts_orders'] == true;
+    // Owner 2026-11-20: what this person can open -- a new person starts with payment sound (+ their one job screen).
+    var tools = <String>{
+      ...(m == null
+          ? askodoxStaffStartTools(role)
+          : (m['tools'] as List?)?.map((e) => '$e') ?? askodoxStaffToolsFor(role)),
+    };
+    var toolsTouched = false;
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -1408,8 +1434,32 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
                   key: Key('askodoxStaffRole-$r'),
                   label: Text(askodoxStaffRoleLabel(r, te)),
                   selected: role == r,
-                  onSelected: (_) => setInner(() => role = r),
+                  onSelected: (_) => setInner(() {
+                    role = r;
+                    if (!toolsTouched) {
+                      tools = {...(m == null ? askodoxStaffStartTools(r) : askodoxStaffToolsFor(r).where(tools.contains))};
+                    } else {
+                      tools = tools.where(askodoxStaffToolsFor(r).contains).toSet();
+                    }
+                  }),
                 ),
+            ]),
+            const SizedBox(height: 10),
+            Text(te ? 'వీళ్లు ఏవి తెరవచ్చు? (మీరు టిక్ చేసినవి మాత్రమే)' : 'What can they open? (only what you tick)',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final t in askodoxStaffTools)
+                if (askodoxStaffToolsFor(role).contains(t.$1))
+                  FilterChip(
+                    key: Key('askodoxStaffTool-${t.$1}'),
+                    label: Text(te ? t.$3 : t.$2),
+                    selected: tools.contains(t.$1),
+                    onSelected: (on) => setInner(() {
+                      toolsTouched = true;
+                      on ? tools.add(t.$1) : tools.remove(t.$1);
+                    }),
+                  ),
             ]),
             CheckboxListTile(
               key: const Key('askodoxStaffAccepts'),
@@ -1440,10 +1490,14 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
         askodoxPosSnack(context, te ? '10 అంకెల నంబర్ రాయండి.' : 'Enter a 10 digit number.');
         return;
       }
-      await _do(() => repo.setMember(widget.businessId, digits.substring(digits.length - 10), role, label: label, acceptsOrders: accepts),
+      await _do(
+          () => repo.setMember(widget.businessId, digits.substring(digits.length - 10), role,
+              label: label, acceptsOrders: accepts, tools: tools.toList()),
           te ? 'చేర్చాం. వాళ్లు అదే నంబర్‌తో ASKODOX లో సైన్ ఇన్ చేయాలి.' : 'Added. They sign in to ASKODOX with that number.');
     } else {
-      await _do(() => repo.editMember(widget.businessId, '${m['phone_last4']}', role: role, label: label, acceptsOrders: accepts),
+      await _do(
+          () => repo.editMember(widget.businessId, '${m['phone_last4']}',
+              role: role, label: label, acceptsOrders: accepts, tools: tools.toList()),
           te ? 'సేవ్ అయింది' : 'Saved');
     }
   }

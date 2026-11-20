@@ -532,6 +532,33 @@ def my_bill_promise(token: str, body: PromiseIn, request: Request) -> dict:
                  body.date[:10])
 
 
+class DueDateIn(BaseModel):
+    date: str
+
+
+@router.get("/businesses/{business_id}/dues/reminders")
+def dues_reminders(business_id: str, request: Request) -> dict:
+    """Owner 2026-11-20: today's baaki reminders (3 days before the pay date .. the date) with the WhatsApp text ready."""
+    from app.api.routes.partners import _public_base
+
+    return _call(dues_followup(request.app.state.container, _store(request), _bills(request)).reminders, business_id,
+                 _user(request, "dues", 120), base_url=_public_base(request))
+
+
+@router.put("/businesses/{business_id}/dues/{invoice_id}/date")
+def dues_set_date(business_id: str, invoice_id: str, body: DueDateIn, request: Request) -> dict:
+    """The shop sets / changes a baaki bill's pay date (the reminder days start again from it)."""
+    return _call(dues_followup(request.app.state.container, _store(request), _bills(request)).set_date, business_id,
+                 _user(request, "dues-date", 120), invoice_id, body.date[:10])
+
+
+@router.post("/businesses/{business_id}/dues/{invoice_id}/sent")
+def dues_mark_sent(business_id: str, invoice_id: str, request: Request) -> dict:
+    """The owner sent today's WhatsApp reminder for this bill."""
+    return _call(dues_followup(request.app.state.container, _store(request), _bills(request)).mark_sent, business_id,
+                 _user(request, "dues-sent", 300), invoice_id)
+
+
 class ReserveIn(BaseModel):
     table_id: str
     at: str
