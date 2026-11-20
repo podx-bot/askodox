@@ -1,7 +1,7 @@
-name: fetch voice samples
+name: fetch nd voice
 on:
   push:
-    branches: [diag/fetch-voice-samples]
+    branches: [diag/fetch-nd-voice]
 permissions:
   contents: write
 jobs:
@@ -12,8 +12,7 @@ jobs:
       - run: |
           set -e
           mkdir -p samples
-          curl -sSfL -o samples/a1.mp3 "https://elevenlabsusercontent.com/database/workspace/c249b5cf8027417abd6a3ad0f8615bc9/content_generation/MzmskaYwrj4RW9TtX9qT/vy8ZoMb02L46TRO5EUvC/content.mp3?Expires=1795161600&KeyName=assets-cdn-key-1&Signature=K6iT3iOEanMhPpAR8g1i9SL7GSM="
-          curl -sSfL -o samples/a2.mp3 "https://elevenlabsusercontent.com/database/workspace/c249b5cf8027417abd6a3ad0f8615bc9/content_generation/Wc3EYr2amCFVKD5zmnHk/2EaPScRgyxc0auclflWK/content.mp3?Expires=1795161600&KeyName=assets-cdn-key-1&Signature=yUuR54EcmR_HqYjvo6FgYDOYu6I="
+          curl -sSfL -o samples/nd.mp3 "https://elevenlabsusercontent.com/database/workspace/c249b5cf8027417abd6a3ad0f8615bc9/content_generation/1XsYzDF8Pg1iYT9XUimF/UjSxfsG16W6L8j0MIMvu/content.mp3?Expires=1795176000&KeyName=assets-cdn-key-1&Signature=NKclNk3rPK-PZtpkvm9aF15LtjA="
           ls -la samples
           git config user.name bot; git config user.email bot@users.noreply.github.com
-          git add samples; git commit -m "voice samples"; git push
+          git add samples; git commit -m "nd voice"; git push
