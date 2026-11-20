@@ -1,7 +1,7 @@
 name: diag play bundle link (throwaway, never merge)
 on:
   push:
-    branches: [diag/play-bundle-link-1575]
+    branches: [diag/play-bundle-link-1577]
 permissions:
   contents: write
   actions: read
@@ -14,11 +14,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          gh run download 44607153119 -R "$GITHUB_REPOSITORY" -n askodox-android-575 -D out
+          gh run download 44652076812 -R "$GITHUB_REPOSITORY" -n askodox-android-577 -D out
           aab=$(find out -name '*.aab' | head -1)
           test -n "$aab"
-          cp "$aab" askodox-play-1575.aab
-          sha256sum askodox-play-1575.aab
-          gh release create play-bundle-1575 askodox-play-1575.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
-            --title "Play bundle 1575" --notes "Play Console upload only (not installable on a phone)."
-          echo "::notice::AAB https://github.com/$GITHUB_REPOSITORY/releases/download/play-bundle-1575/askodox-play-1575.aab"
+          cp "$aab" askodox-play-1577.aab
+          sha256sum askodox-play-1577.aab
+          gh release create play-bundle-1577 askodox-play-1577.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1577" --notes "Play Console upload only (not installable on a phone)."
+          echo "::notice::AAB https://github.com/$GITHUB_REPOSITORY/releases/download/play-bundle-1577/askodox-play-1577.aab"
