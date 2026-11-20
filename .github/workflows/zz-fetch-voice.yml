@@ -1,0 +1,19 @@
+name: fetch voice samples
+on:
+  push:
+    branches: [diag/fetch-voice-samples]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -e
+          mkdir -p samples
+          curl -sSfL -o samples/a1.mp3 "https://elevenlabsusercontent.com/database/workspace/c249b5cf8027417abd6a3ad0f8615bc9/content_generation/MzmskaYwrj4RW9TtX9qT/vy8ZoMb02L46TRO5EUvC/content.mp3?Expires=1795161600&KeyName=assets-cdn-key-1&Signature=K6iT3iOEanMhPpAR8g1i9SL7GSM="
+          curl -sSfL -o samples/a2.mp3 "https://elevenlabsusercontent.com/database/workspace/c249b5cf8027417abd6a3ad0f8615bc9/content_generation/Wc3EYr2amCFVKD5zmnHk/2EaPScRgyxc0auclflWK/content.mp3?Expires=1795161600&KeyName=assets-cdn-key-1&Signature=yUuR54EcmR_HqYjvo6FgYDOYu6I="
+          ls -la samples
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git add samples; git commit -m "voice samples"; git push
