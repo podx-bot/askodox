@@ -1155,7 +1155,38 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
     final total = _total;
     return Scaffold(
       appBar: AppBar(title: Text(te ? 'బిల్లు' : 'Bill')),
-      bottomNavigationBar: AskodoxFillBar(
+      bottomNavigationBar: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Owner 2026-11-19 (neat page): the total and the two actions are always in sight, no scrolling to find them.
+        if (_saved == null)
+          Material(
+            color: Colors.white,
+            child: Container(
+              key: const Key('askodoxQuickBillSticky'),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE3E6EE)))),
+              padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(te ? 'మొత్తం' : 'Total', style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                    Text('₹${_rupees(total)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  ]),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('askodoxQuickBillStickyQr'),
+                  onPressed: total > 0 ? () => _showQr(te) : null,
+                  icon: const Icon(Icons.qr_code_2, size: 18),
+                  label: const Text('QR'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  key: const Key('askodoxQuickBillStickySave'),
+                  onPressed: total > 0 && !_saving ? _makeReal : null,
+                  child: Text(te ? 'బిల్లు వేయి' : 'Make bill'),
+                ),
+              ]),
+            ),
+          ),
+        AskodoxFillBar(
         lang: _bizLang(context),
         onFilled: () => setState(() {
           _txn = askodoxNewTxnId();
@@ -1194,6 +1225,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               apply: (t) => setState(() => _method = t)),
         ],
       ),
+      ]),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -1312,20 +1344,40 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                   ),
                 ),
               ),
+            // Owner 2026-11-19 (neat page): "both" is the fourth button, not a long tick-box line.
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Material(
+                  color: _split ? const Color(0xFF1E3FA0) : const Color(0xFFF2F4F7),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    key: const Key('askodoxQuickBillSplit'),
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => setState(() {
+                      _split = !_split;
+                      if (_split && !_online) _method = 'online';
+                      _txn = askodoxNewTxnId();
+                    }),
+                    child: SizedBox(
+                      height: 58,
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        const Text('🔀', style: TextStyle(fontSize: 18)),
+                        Text(te ? 'రెండూ' : 'Both',
+                            style: TextStyle(fontWeight: FontWeight.w800, color: _split ? Colors.white : const Color(0xFF1F2937))),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ]),
-          CheckboxListTile(
-            key: const Key('askodoxQuickBillSplit'),
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: _split,
-            title: Text(te ? 'రెండూ — కొంత క్యాష్, కొంత ఆన్‌లైన్ (మిగిలింది బాకీ)' : 'Both — part cash, part online (the rest is baaki)'),
-            onChanged: (v) => setState(() {
-              _split = v ?? false;
-              if (_split && !_online) _method = 'online';
-              _txn = askodoxNewTxnId();
-            }),
-          ),
+          if (_split)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 4),
+              child: Text(te ? 'కొంత క్యాష్, కొంత ఆన్‌లైన్ — మిగిలింది బాకీ.' : 'Part cash, part online — the rest is baaki.',
+                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+            ),
           if (_split)
             Row(children: [
               Expanded(
