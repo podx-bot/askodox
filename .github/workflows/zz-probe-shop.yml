@@ -1,0 +1,12 @@
+name: probe shop
+on:
+  push:
+    branches: [diag/probe-shop]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in https://askodox.com/shop https://podx-ai-connect-production-3279.up.railway.app/shop https://askodox.com/p/1; do
+            code=$(curl -s -o body.html -w '%{http_code}' "$u"); echo "PROBE $u -> $code $(grep -o '<title>[^<]*' body.html | head -1) links=$(grep -o '/p/[0-9]*' body.html | sort -u | wc -l)"
+          done
