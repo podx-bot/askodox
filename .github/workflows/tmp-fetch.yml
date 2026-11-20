@@ -1,0 +1,18 @@
+name: tmp fetch (throwaway)
+on:
+  push:
+    branches: [tmp/tryon-refs]
+    paths: [tmp_refs/urls.txt]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p tmp_out
+          while read -r name url; do [ -n "$name" ] && curl -sSfL -o "tmp_out/$name" "$url"; done < tmp_refs/urls.txt
+          ls -la tmp_out
+          git config user.name tmp-bot; git config user.email tmp@users.noreply.github.com
+          git add tmp_out && git commit -m "tmp: fetched files" && git push
