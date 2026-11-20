@@ -8619,6 +8619,47 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "ai_product_video",
+      "name": "Staff Workspace: 30-second AI product video (presenter, voice, real review summary)",
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "affiliate",
+        "videos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/items/{item_id}/ai-video"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/reviews/read"
+        }
+      ],
+      "ui": {
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_product_video.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-20: staff add link + photos (store photos allowed) + price + review screenshots; the video makes itself.",
+      "expected_behavior": "Script only from the item + read reviews; ElevenLabs voice, else Sarvam, else captions only; AI presenter labelled; waits in 🎬 Videos for Approve; daily cap video_ai.daily_max.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }
