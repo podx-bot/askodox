@@ -7,6 +7,10 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #367 (2026-11-20, owner "pending andhuku chayaledu"; Play bundle `askodox-play-1577.aab`, Live Build run 44652076812): My phone
+  payments = four tiles (History / Apps / Accounts / Language-voice, `askodoxMineTile-*`, one part open at a time; `askodoxMineMore` still
+  shows when none is open); quick bill = sticky bottom bar (Total + QR + Make bill, `askodoxQuickBillSticky*`) and "Both" is the fourth pay
+  button (`askodoxQuickBillSplit`). Nothing phone verified.
 - `main` PR #364 + #366 (2026-11-20, owner "finish everything" / "Go"): packet photo -> new-item form (`pos_bill_photo.read_product`,
   `/products/photo`); counter offers per item (`pos_products.offer` bxgy / percent) and COMBOS (`pos_businesses.combos`, `/combos`,
   `pos_combo_sheet.dart`): `PosStore.offer_discount` / `combo_shares` == app `askodoxOfferDiscount` / `askodoxComboShares` (keep equal),
@@ -15,13 +19,6 @@ this file, don't trust it blindly.
   a "Running orders (n)" chip; attendance action `half`, a day under half the shift = half, shop holidays (`pos_att_holidays`, paid
   for monthly salary) + `pos_staff_bonus`; payalert FCM data ttl 1800 s. NOT built: automatic calls / WhatsApp for baaki, Bill page
   redesign, tiles on My phone payments. Nothing phone verified.
-- `main` PR #364 (2026-11-20, owner "finish everything, I test later"; Play bundle from Live Build run 44596581525): packet photo
-  -> new-item form (`pos_bill_photo.read_product`, `/products/photo`); counter offers per item (`pos_products.offer` JSON bxgy /
-  percent, `PosStore.offer_discount` == app `askodoxOfferDiscount`, applied by the sale screen as the LINE DISCOUNT in `_applyOffers`,
-  counter bills only -- keep both rules equal); pre-order on a reserved table (`reservation_id` in desk `place`); shop people get a
-  "Running orders (n)" chip; attendance action `half` + a day under half the shift = half; payalert FCM data ttl 1800 s (offline
-  staff phone hears it within 30 min, once). NOT built: combo offers, offers on customer / online orders, automatic calls or
-  WhatsApp for baaki, shop holidays / bonus in salary. Nothing phone verified.
 - `main` PR #361 + #362 (2026-11-20, owner "start"; Play bundle from Live Build run 44589361201): pins = 5, movable, any header-menu
   page (`chat_pins.dart`); every shop tool by talking / pin via `/my-shop/<tool>` (`pos_shop_tool_screen.dart`, chat rows `shop_*` in
   PHASE1_KEYS); chat shop menu = asked items (`focus`), three ways always, compact - n +; reply words appear WITH the voice in the real
