@@ -7,6 +7,21 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #369 (2026-11-20, owner "Go -- finish all, one build"): PAYMENT VOICE STUCK FIX -- one clip that never finished kept
+  every later payment on "Speaking..." (owner phone from 08:08): `Player` watchdog (length + 4 s) + audio focus + busy > 40 s
+  restart, `Speaker` start-up 8 s / utterance 12 s limits, `CloudVoice.say` ONE answer in 45 s (else "stuck" + `beep()` on
+  STREAM_ALARM), acks honest (`duplicate_local`, `stuck`, `detail` = vol / output / played_ms in the `ASKODOX PAYALERT ACK`
+  line), phone rows "pending" > 2 min show "stuck"; staff phones join their shops by themselves at app start (`joinShop`,
+  `askodoxJoinStaffShopVoices`); per-staff tools (`pos_members.tools`, `TOOL_PERMISSIONS`, permissions = role AND ticks;
+  migration: older non-manager staff -> payment sound + one job screen; app mirror `pos_staff_tools.dart`); baaki reminders
+  (`pos_dues_followup.reminders/set_date/mark_sent`, `/pos/:id/dues`, pay date default 7 days, 3 days before -> the date,
+  once a day, owner push + WhatsApp text with pay link, quick bill date chips); item tiles = emoji from the name
+  (`pos_item_icons.dart`) + menu number, number search / spoken "20 నంబర్ 2"; `PUT /online` saves at once (listings in a
+  thread); POS network text never claims a kept bill + one silent retry for GET / PUT; `askodox_self.py` (sound-alikes ->
+  ASKODOX in transcript + brain, facts from `chat_actions.CATALOG`, no live lookup); chat opens the named screen
+  (`askodoxAutoOpenAppActions`, capability `auto_open`, `/my-shop/sale?say=`); first open asks location once
+  (`LocationController.askOnStart`); Play builds declare REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (one-tap dialog). Nothing
+  phone verified.
 - `main` PR #367 (2026-11-20, owner "pending andhuku chayaledu"; Play bundle `askodox-play-1577.aab`, Live Build run 44652076812): My phone
   payments = four tiles (History / Apps / Accounts / Language-voice, `askodoxMineTile-*`, one part open at a time; `askodoxMineMore` still
   shows when none is open); quick bill = sticky bottom bar (Total + QR + Make bill, `askodoxQuickBillSticky*`) and "Both" is the fourth pay
