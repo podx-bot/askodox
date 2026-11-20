@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` PR (2026-11-20, owner "Go"): AFFILIATE IN 4 STEPS -- Staff Workspace "🔗 Affiliate product" form (`affForm`): link is
+- `main` PR #373 (2026-11-20, owner "Go"; Play bundle `askodox-play-1582.aab`, Live Build run 44748094784; server + website deploy SUCCESS, askodox.com/shop probe 200): AFFILIATE IN 4 STEPS -- Staff Workspace "🔗 Affiliate product" form (`affForm`): link is
   NEVER opened, store chosen from the link host, photos -> `POST /admin/cc/workspace/fill-from-photos`
   (`affiliate_publish.read_product_photos`, never a price) -> staff price -> Publish + AI video (`store` passed). The AI
   video also writes DM answers (`affiliate_publish.write_faq`, stored in `reel.faq` with `reel.reviews` / `reel.store`).
