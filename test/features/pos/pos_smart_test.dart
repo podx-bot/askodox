@@ -133,7 +133,7 @@ void main() {
     await pump(tester);
     expect(find.byKey(const Key('askodoxPosProducts')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxPosProduct-dal')), findsOneWidget);
-    expect(find.text('K'), findsOneWidget, reason: 'no photo: the first letter');
+    expect(find.text('🫘'), findsOneWidget, reason: 'no photo: a picture that fits the name (owner 2026-11-20), never a bare letter');
     expect(find.textContaining('₹180.00/kg'), findsOneWidget);
   });
 
