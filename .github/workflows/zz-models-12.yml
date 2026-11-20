@@ -1,0 +1,29 @@
+name: models 12
+on:
+  push:
+    branches: [diag/models-12]
+permissions:
+  contents: write
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p out
+          seed=11
+          while IFS='|' read -r name who; do
+            p="Photorealistic full-body fashion catalogue photo of ${who}, standing straight facing the camera, arms relaxed at the sides, wearing a plain white round-neck t-shirt, light blue jeans and white sneakers, plain light grey studio background, soft even studio lighting, whole body visible from head to shoes, sharp focus, natural skin, no text"
+            q=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$p")
+            for try in 1 2 3; do
+              code=$(curl -s -o "out/$name.jpg" -w '%{http_code}' --max-time 180 "https://image.pollinations.ai/prompt/$q?width=768&height=1152&model=flux&nologo=true&seed=$seed")
+              echo "$name try $try -> $code $(stat -c %s out/$name.jpg 2>/dev/null)"
+              [ "$code" = "200" ] && file "out/$name.jpg" | grep -qi image && break
+              rm -f "out/$name.jpg"; sleep 30
+            done
+            seed=$((seed+1)); sleep 18
+          done < m/people.txt
+          ls -la out
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git add out; git commit -m "models output" || true; git push

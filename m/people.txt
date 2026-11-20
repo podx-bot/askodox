@@ -1,0 +1,12 @@
+01_girl_7|a cheerful Indian girl about 7 years old, gentle smile
+02_boy_7|a cheerful Indian boy about 7 years old, gentle smile
+03_teen_girl_15|a friendly Indian teenage girl about 15 years old, hair tied back, natural smile
+04_teen_boy_15|a friendly Indian teenage boy about 15 years old, short hair, natural smile
+05_woman_22|a young Indian woman about 22 years old, long dark hair, slim build, warm smile
+06_man_22|a young Indian man about 22 years old, short dark hair, slim build, clean-shaven, warm smile
+07_woman_30|an Indian woman about 30 years old, shoulder-length dark hair, small bindi, confident smile
+08_man_30|an Indian man about 30 years old, short dark hair, neat short beard, confident smile
+09_woman_42|an Indian woman about 42 years old, dark hair in a neat low bun, slightly fuller build, small bindi, kind smile
+10_man_42|an Indian man about 42 years old, short dark hair with a little grey at the sides, trimmed moustache, slightly fuller build, kind smile
+11_woman_55|an Indian woman about 55 years old, grey-streaked hair in a neat bun, small bindi, gentle warm smile
+12_man_55|an Indian man about 55 years old, short grey hair, grey moustache, gentle warm smile
