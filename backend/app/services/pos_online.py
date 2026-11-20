@@ -57,7 +57,7 @@ class PosOnline:
                 conn.execute(statement)
 
     # ------------------------------------------------------------- settings
-    def set_default(self, business_id: str, user: str, channel: str) -> Dict[str, Any]:
+    def set_default(self, business_id: str, user: str, channel: str, sync_now: bool = True) -> Dict[str, Any]:
         if channel not in CHANNELS:
             raise PosError(400, "channel", "channel must be pos, online or both.")
         with self.store._tx() as conn:
@@ -66,8 +66,23 @@ class PosOnline:
             conn.execute("UPDATE pos_businesses SET online_default = ?, updated_at = ? WHERE id = ?",
                          (channel, now, business_id))
             self.store._audit(conn, business_id, user, "online.default", business_id, {"channel": channel}, now)
-        self.sync(business_id)
-        return self.status(business_id, user)
+        if sync_now:
+            self.sync(business_id)
+        else:
+            # Owner 2026-11-20 ("Both" -> "No internet"): a shop with many items waited for every listing before the
+            # answer came back and the phone gave up. The choice is saved at once; the listings follow in the background.
+            import threading
+
+            def _later() -> None:
+                try:
+                    self.sync(business_id)
+                except Exception:  # noqa: BLE001 -- best effort, the next sale / stock change syncs again
+                    pass
+
+            threading.Thread(target=_later, name=f"pos-online-{business_id}", daemon=True).start()
+        out = self.status(business_id, user)
+        out["syncing"] = not sync_now
+        return out
 
     def set_channel(self, business_id: str, user: str, product_id: str, channel: Optional[str]) -> Dict[str, Any]:
         if channel is not None and channel not in CHANNELS:

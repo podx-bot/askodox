@@ -17,6 +17,7 @@ import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxParsePaise;
 import '../../business/presentation/biz_hub.dart';
 import '../../pos/presentation/paper_bill.dart';
+import '../../pos/presentation/pos_dues_screen.dart' show askodoxDueDateChoices, askodoxIsoDay;
 import '../../pos/data/pos_invoice_pdf.dart' show askodoxShareInvoicePdf;
 import '../../pos/presentation/pos_sale_screen.dart' show askodoxPrintInvoice;
 import '../domain/name_change_rule.dart';
@@ -858,6 +859,9 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
   /// The shop's menu by item number (billing by number).
   Map<int, AskodoxJson> _menuByNo = const {};
 
+  /// The baaki pay date chosen on this bill (one of askodoxDueDateChoices; "1 week" unless changed).
+  String _dueChoice = '1 week';
+
   void _applyNumber(int i) {
     final line = _lines[i];
     final item = _menuByNo[int.tryParse(line.no.text.trim()) ?? 0];
@@ -1031,6 +1035,16 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${out['revise_note']}')));
         }
         unawaited(_loadPaper('${out['id']}'));
+        // The baaki's pay date (reminders from 3 days before it); a failure here never undoes the bill.
+        if (_advancePaise < ((_total) * 100).round() && (_method == 'due' || _split)) {
+          final pick = askodoxDueDateChoices(DateTime.now()).where((c) => c.$1 == _dueChoice).firstOrNull;
+          if (pick != null) {
+            unawaited(ref
+                .read(askodoxPosRepositoryProvider)
+                .setDueDate(widget.businessId, '${out['id']}', askodoxIsoDay(pick.$3))
+                .then((_) => null, onError: (_) => null));
+          }
+        }
       }
     } on AskodoxPosException catch (e) {
       if (mounted) {
@@ -1455,12 +1469,26 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                   labelText: te ? 'ఇప్పుడు కట్టింది ₹ (ఏమీ లేకపోతే ఖాళీ)' : 'Paid now ₹ (empty if nothing)', border: const OutlineInputBorder()),
             ),
           ],
-          if (_advancePaise < (total * 100).round() && (_method == 'due' || _split) && total > 0)
+          if (_advancePaise < (total * 100).round() && (_method == 'due' || _split) && total > 0) ...[
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(te ? 'బాకీ ₹${_rupees(total - _advancePaise / 100)} — కస్టమర్ పేరు / నంబర్ రాయండి' : 'Baaki ₹${_rupees(total - _advancePaise / 100)} — add the customer name / number',
                   key: const Key('askodoxQuickBillPending'), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
             ),
+            // Owner 2026-11-20: when will they pay? One tap ("1 week" already picked); reminders start 3 days before.
+            const SizedBox(height: 4),
+            Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              Text(te ? 'ఎప్పుడు కడతారు?' : 'Pay by:', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+              for (final c in askodoxDueDateChoices(DateTime.now()))
+                ChoiceChip(
+                  key: Key('askodoxQuickBillDue-${c.$1}'),
+                  visualDensity: VisualDensity.compact,
+                  label: Text(te ? c.$2 : c.$1),
+                  selected: _dueChoice == c.$1,
+                  onSelected: (_) => setState(() => _dueChoice = c.$1),
+                ),
+            ]),
+          ],
           const SizedBox(height: 6),
           Row(children: [
             Expanded(

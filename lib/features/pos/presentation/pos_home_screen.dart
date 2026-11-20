@@ -310,6 +310,7 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
               ('suppliers', Icons.local_shipping_outlined, 'Suppliers & purchases', 'సప్లయర్లు & కొనుగోళ్లు', '/pos/$id/suppliers'),
             if (askodoxPosCan(b, 'stock')) ('stock', Icons.event_busy_outlined, 'Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ', '/pos/$id/stock-report'),
             ('customers', Icons.people_alt_outlined, 'Customers & credit', 'కస్టమర్లు & ఖాతా', '/pos/$id/customers'),
+            if (askodoxPosCan(b, 'sell')) ('dues', Icons.notifications_active_outlined, 'Baaki reminders', 'బాకీ గుర్తులు', '/pos/$id/dues'),
             if (askodoxPosCan(b, 'crm')) ('crm', Icons.groups_2_outlined, 'Business CRM', 'Business CRM', '/pos/$id/crm'),
             ('agents', Icons.smart_toy_outlined, 'AI agents', 'AI Agents', '/pos/$id/agents'),
             ('bills', Icons.receipt_long_outlined, 'Bills', 'బిల్లులు', '/pos/$id/invoices'),
@@ -321,7 +322,7 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
               ('advance', Icons.savings_outlined, 'Shop advance', 'షాప్ అడ్వాన్స్', '/pos/$id/advance'),
             if (askodoxPosCan(b, 'sell'))
               ('selfshop', Icons.qr_code_2, 'Self-shopping', 'సెల్ఫ్ షాపింగ్', '/pos/$id/selfshop'),
-          ];
+          ].where((t) => askodoxPosToolAllowed(b, t.$1)).toList();
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(askodoxPosBusinessProvider(id));

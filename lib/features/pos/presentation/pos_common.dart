@@ -31,6 +31,14 @@ String askodoxPosChannelLabel(String channel, bool te) => switch (channel) {
 bool askodoxPosCan(AskodoxJson business, String permission) =>
     (business['permissions'] as List? ?? const []).map((e) => '$e').contains(permission);
 
+/// Owner 2026-11-20: a staff member sees only the shop tools the owner ticked for them (`tools`; null = all their role
+/// allows). The owner always sees everything.
+bool askodoxPosToolAllowed(AskodoxJson business, String tool) {
+  final tools = business['tools'];
+  if (tools is! List || '${business['my_role'] ?? ''}' == 'owner') return true;
+  return tools.map((e) => '$e').contains(tool);
+}
+
 String askodoxPosToday([DateTime? now]) {
   final d = (now ?? DateTime.now()).toLocal();
   return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

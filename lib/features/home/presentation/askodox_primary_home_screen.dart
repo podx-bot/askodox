@@ -23,7 +23,7 @@ import '../../../services/reply_speech_service.dart';
 import '../../../services/support_escalation_service.dart';
 import '../domain/app_care.dart';
 import '../domain/own_money_records.dart';
-import '../../pos/data/pos_payment_alerts.dart' show askodoxPaymentAlertsBridgeProvider;
+import '../../pos/data/pos_payment_alerts.dart' show askodoxJoinStaffShopVoices, askodoxPaymentAlertsBridgeProvider;
 import '../../../services/voice_endpointing.dart';
 import '../../../services/voice_transcription_service.dart';
 import '../../catalog/application/conversation_turn_store.dart';
@@ -99,6 +99,14 @@ import '../data/availability_watch_repository.dart';
 const _ink = Color(0xFF10204A);
 /// ON in the real app (main.dart): typed turns are answered with voice too. Widget tests keep it OFF.
 bool askodoxSpeakTypedReplies = false;
+
+/// The route to open for a chat request: a new bill carries the spoken items (with a number in them) so the bill
+/// screen starts with them in its review sheet ("chicken biryani 2, cash bill").
+String askodoxAppActionRoute(String route, String said) {
+  final isSale = route == '/my-shop/sale' || RegExp(r'^/pos/[^/]+/sale$').hasMatch(route);
+  if (!isSale || !RegExp(r'\d').hasMatch(said)) return route;
+  return Uri(path: route, queryParameters: {'say': said.trim()}).toString();
+}
 
 const _muted = Color(0xFF667085);
 const _blue = Color(0xFF1769FF);
@@ -874,6 +882,16 @@ class _AskodoxPrimaryHomeScreenState
     }, fireImmediately: true);
     _restoring = _restore();
     unawaited(_loadLeads());
+    // First open after install: the phone's own location Allow dialog, then the town is named by itself.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(ref.read(locationControllerProvider.notifier).askOnceIfNoPlace());
+      // A shop's staff phone hears that shop's payments with nothing to set up (owner 2026-11-20).
+      final session = ref.read(authSessionProvider);
+      if (mounted && session.user != null) {
+        unawaited(askodoxJoinStaffShopVoices(ref.read(askodoxPosRepositoryProvider), ref.read(askodoxPaymentAlertsBridgeProvider),
+            baseUrl: ref.read(appConfigProvider).apiBaseUrl?.toString() ?? '', token: session.tokenPlaceholder ?? ''));
+      }
+    });
     // Native speech events (device TTS word ranges) drive the friend's
     // lip-sync; everything else on this channel is Dart -> native.
     _device.setMethodCallHandler(_onDeviceEvent);
@@ -2447,6 +2465,12 @@ class _AskodoxPrimaryHomeScreenState
     // A screen hidden in this release phase gets no button (the server is told too: "phase1_only").
     if (aiUsable && decision!.appAction != null && askodoxRouteShownNow(decision.appAction!.route)) {
       _appActionByTurn[userTurnIndex] = decision.appAction!;
+      if (askodoxAutoOpenAppActions && decision.shopMenu == null) {
+        final target = askodoxAppActionRoute(decision.appAction!.route, text);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) context.push(target);
+        });
+      }
     }
     if (aiUsable && decision!.shopMenu != null && askodoxRouteShownNow('/order-desk')) {
       _shopMenuByTurn[userTurnIndex] = decision.shopMenu!;

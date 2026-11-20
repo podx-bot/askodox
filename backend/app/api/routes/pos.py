@@ -73,6 +73,8 @@ class MemberIn(BaseModel):
     role: str = Field(pattern="^(manager|cashier|accountant|waiter|kitchen|attendant|delivery|removed)$")
     label: Optional[str] = Field(default=None, max_length=40)
     accepts_orders: Optional[bool] = None
+    # owner 2026-11-20: the shop tools this person gets (dashboard tile ids); None = the role's full set
+    tools: Optional[List[str]] = None
 
 
 class ProductIn(BaseModel):
@@ -264,7 +266,7 @@ def members(business_id: str, request: Request) -> dict:
 @router.post("/businesses/{business_id}/members")
 def set_member(business_id: str, body: MemberIn, request: Request) -> dict:
     return _call(_store(request).set_member, business_id, _user(request), body.phone, body.role, body.label,
-                 body.accepts_orders)
+                 body.accepts_orders, None, body.tools)
 
 
 class MemberEditIn(BaseModel):
@@ -272,6 +274,7 @@ class MemberEditIn(BaseModel):
     label: Optional[str] = None
     accepts_orders: Optional[bool] = None
     paused: Optional[bool] = None
+    tools: Optional[List[str]] = None
 
 
 @router.patch("/businesses/{business_id}/members/{ref}")
@@ -284,7 +287,7 @@ def edit_member(business_id: str, ref: str, body: MemberEditIn, request: Request
         if role is None:
             raise HTTPException(404, "No such staff member.")
     return _call(store.member_by_ref, business_id, _user(request), ref, role, body.label, body.accepts_orders,
-                 body.paused)
+                 body.paused, body.tools)
 
 
 @router.delete("/businesses/{business_id}/members/{ref}")
@@ -1326,7 +1329,7 @@ def online_status(business_id: str, request: Request) -> dict:
 @router.put("/businesses/{business_id}/online")
 def online_default(business_id: str, body: OnlineChannelIn, request: Request) -> dict:
     """Shop default: pos (counter only) / online (ASKODOX only) / both."""
-    return _call(_online(request).set_default, business_id, _user(request), body.channel or "pos")
+    return _call(_online(request).set_default, business_id, _user(request), body.channel or "pos", False)
 
 
 @router.put("/businesses/{business_id}/products/{product_id}/online")
@@ -1639,6 +1642,8 @@ class PaymentEventIn(BaseModel):
 class PaymentAckIn(BaseModel):
     device_id: str = Field(max_length=40)
     state: str = Field(max_length=20)
+    # what the phone measured (volume %, audio route, ms played) -- diagnostics only, never shown to anyone
+    detail: str = Field(default="", max_length=200)
 
 
 @router.get("/businesses/{business_id}/payment-alerts/settings")

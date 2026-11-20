@@ -35,6 +35,8 @@ CATALOG: tuple[tuple[str, str, str, str, str], ...] = (
      "items expiring soon, stock value"),
     ("shop_customers", "/my-shop/customers", "Customers & credit", "కస్టమర్లు & ఖాతా",
      "my shop's customers, baaki / credit / dues, who owes me"),
+    ("shop_dues", "/my-shop/dues", "Baaki reminders", "బాకీ గుర్తులు",
+     "remind customers who owe me (baaki / credit due date), send baaki reminder on WhatsApp, overdue credit"),
     ("shop_bills", "/my-shop/bills", "Bills I made", "నేను వేసిన బిల్లులు",
      "bills / invoices my shop issued, today's bills, reprint or share a bill"),
     ("shop_day", "/my-shop/day", "Day close", "రోజు ముగింపు", "today's sales total, cash count, close the day"),
@@ -155,8 +157,23 @@ def _rows(phase1_only=False):
     return [row for row in CATALOG if not allowed or row[0] in allowed]
 
 
-def prompt_block(phase1_only=False) -> str:
+AUTO_OPEN_CAPABILITY = "auto_open"
+
+
+def prompt_block(phase1_only=False, auto_open: bool = False) -> str:
     lines = "\n".join(f"- {key}: {about}" for key, _route, _en, _te, about in _rows(phase1_only))
+    if auto_open:
+        # Owner 2026-11-20: the app opens the named screen by itself -- the reply never asks for a tap.
+        return (
+            "APP ACTIONS: if (and only if) the user asks to DO, OPEN, MANAGE or SET UP one of these ASKODOX features "
+            "(not just to find or buy something -- searches stay searches), also return app_action = "
+            '{"key": "<one key below>"}. The app OPENS that screen by itself at once: reply with ONE short line '
+            'naming it (e.g. "Opening a new bill." / "కొత్త బిల్లు తెరుస్తున్నాను."). Never tell the user to tap a '
+            'button. A bare feature name or "my <feature>" (e.g. "new bill", "cash bill", "my ai agents", "stock", '
+            '"staff") IS a request to open it; do not explain the general concept and do not ask which kind. '
+            "Pick by meaning in any language; if none fits clearly, omit app_action. Never claim anything was saved.\n"
+            + lines + "\n"
+        )
     return (
         "APP ACTIONS: if (and only if) the user asks to DO, OPEN, MANAGE or SET UP one of these ASKODOX features "
         "(not just to find or buy something -- searches stay searches), also return app_action = "

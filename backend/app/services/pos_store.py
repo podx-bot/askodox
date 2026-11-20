@@ -52,6 +52,51 @@ PERMISSIONS: Dict[str, frozenset] = {
     # Delivery person (owner 2026-11-16): sees ONLY the delivery orders assigned to them and moves them out / delivered.
     "delivery": frozenset({"view", "deliver"}),
 }
+# Owner 2026-11-20 ("why do my staff see my whole menu?"): the owner ticks, per staff member, which shop tools they
+# get (the dashboard tiles). A tool brings only the permissions it needs, and never more than the role allows.
+# NULL tools = the role's full set (old members and API callers); the app sends the owner's ticks.
+TOOL_PERMISSIONS: Dict[str, frozenset] = {
+    "sale": frozenset({"sell", "drafts", "customers"}),
+    "payalerts": frozenset(),
+    "collect": frozenset({"collect"}),
+    "desk": frozenset({"tables", "kitchen", "sell", "deliver"}),
+    "tables": frozenset({"tables"}),
+    "kitchen": frozenset({"kitchen"}),
+    "items": frozenset({"products"}),
+    "stock": frozenset({"stock"}),
+    "suppliers": frozenset({"purchases", "stock"}),
+    "customers": frozenset({"customers", "collect"}),
+    "dues": frozenset({"sell"}),
+    "crm": frozenset({"crm"}),
+    "agents": frozenset(),
+    "bills": frozenset({"return", "cancel"}),
+    "day": frozenset({"day_close"}),
+    "gst": frozenset({"reports"}),
+    "staff": frozenset({"members"}),
+    "printer": frozenset(),
+    "advance": frozenset({"settings"}),
+    "selfshop": frozenset({"sell"}),
+    "price_change": frozenset({"price_override"}),
+}
+TOOLS = tuple(TOOL_PERMISSIONS)
+# Pages anyone in the shop may LOOK at (view): the tick shows the page; changing still needs the role.
+VIEW_TOOLS = frozenset({"items", "bills", "day"})
+
+
+def role_tools(role: str) -> List[str]:
+    """The tools a role can be given (app mirror: askodoxStaffToolsFor in pos_staff_tools.dart)."""
+    perms = PERMISSIONS.get(role, frozenset())
+    return [t for t in TOOLS if not TOOL_PERMISSIONS[t] or TOOL_PERMISSIONS[t] & perms or t in VIEW_TOOLS]
+# What a new staff member starts with when the owner ticks nothing: hear payments, plus the one screen the job is.
+ROLE_START_TOOLS: Dict[str, tuple] = {
+    "waiter": ("payalerts", "tables"), "kitchen": ("kitchen",), "delivery": ("payalerts", "desk"),
+}
+
+
+def start_tools(role: str) -> List[str]:
+    return list(ROLE_START_TOOLS.get(role, ("payalerts",)))
+
+
 TEMPLATES = ("general", "kirana", "supermarket", "meat_fish", "restaurant", "pharmacy", "salon", "repair",
              "wholesale", "clothing", "electronics", "jewellery", "bakery", "vegetables", "hardware", "stationery")
 UNITS = ("pcs", "kg", "g", "l", "ml", "m", "dozen", "box", "plate", "hour", "service", "pack")
@@ -212,6 +257,8 @@ MIGRATIONS = [
     # Front desk (pos_frontdesk.py): an item shown only on one day (today's special) / finished for one day.
     ("pos_products", "only_on", "TEXT"),
     ("pos_products", "sold_out_on", "TEXT"),
+    # Per-staff tools the owner ticked (JSON list); NULL = everything the role allows.
+    ("pos_members", "tools", "TEXT"),
 ]
 
 BUSINESS_STATUSES = ("open", "paused", "closed")
@@ -261,6 +308,13 @@ class PosStore:
                 have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
                 if column not in have:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+                    if (table, column) == ("pos_members", "tools"):
+                        # Owner 2026-11-20: staff added before per-staff ticks see only payment alerts (+ their one
+                        # job screen) until the owner ticks more; managers keep everything.
+                        for row in conn.execute("SELECT business_id, phone_key, role FROM pos_members"
+                                                " WHERE role NOT IN ('owner', 'manager')").fetchall():
+                            conn.execute("UPDATE pos_members SET tools = ? WHERE business_id = ? AND phone_key = ?",
+                                         (json.dumps(start_tools(row["role"])), row["business_id"], row["phone_key"]))
 
     # ------------------------------------------------------------------ basics
     def _connect(self) -> sqlite3.Connection:
@@ -358,6 +412,32 @@ class PosStore:
                 return row["role"]
         return None
 
+    def _member_tools(self, conn: sqlite3.Connection, business_id: str, user: str, role: str) -> Optional[List[str]]:
+        """The tools the owner ticked for this person (None = everything the role allows)."""
+        if role == "owner":
+            return None
+        key = phone_key(user)
+        try:
+            row = conn.execute("SELECT tools FROM pos_members WHERE business_id = ? AND active = 1 AND"
+                               " (app_user_id = ? OR phone_key = ?)", (business_id, user, key)).fetchone()
+        except sqlite3.OperationalError:
+            return None
+        if row is None or row["tools"] is None:
+            return None
+        try:
+            return [t for t in json.loads(row["tools"]) if t in TOOL_PERMISSIONS]
+        except (TypeError, ValueError):
+            return None
+
+    def permissions_of(self, conn: sqlite3.Connection, business_id: str, user: str, role: str) -> frozenset:
+        tools = self._member_tools(conn, business_id, user, role)
+        if tools is None:
+            return PERMISSIONS[role]
+        wanted = {"view"}
+        for t in tools:
+            wanted |= TOOL_PERMISSIONS[t]
+        return PERMISSIONS[role] & frozenset(wanted)
+
     def _require(self, conn: sqlite3.Connection, business_id: str, user: str, permission: str) -> str:
         self._business_row(conn, business_id)
         role = self.role_of(conn, business_id, user)
@@ -366,6 +446,9 @@ class PosStore:
             raise PosError(404, "business", "Business not found.")
         if permission not in PERMISSIONS[role]:
             raise PosError(403, "permission", f"Your role ({role}) cannot do this.", role=role)
+        if permission != "view" and permission not in self.permissions_of(conn, business_id, user, role):
+            raise PosError(403, "permission", "The shop owner has not given you this. Ask the owner to tick it in Staff.",
+                           role=role)
         return role
 
     def business(self, business_id: str, user: str) -> Dict[str, Any]:
@@ -375,7 +458,9 @@ class PosStore:
         row.pop("owner_user_id", None)
         row["state"] = pos_tax.STATE_CODES.get(row["state_code"], "")
         row["my_role"] = role
-        row["permissions"] = sorted(PERMISSIONS[role])
+        with self._connect() as conn:
+            row["permissions"] = sorted(self.permissions_of(conn, business_id, user, role))
+            row["tools"] = self._member_tools(conn, business_id, user, role)
         row["name_change"] = self._name_change(row)
         row["rules"] = {"version": pos_tax.RULES_VERSION, "einvoice_note": (
             "E-invoicing (IRN) applies above Rs 5 crore aggregate turnover; ASKODOX does not generate IRNs yet."
@@ -456,7 +541,7 @@ class PosStore:
 
     def set_member(self, business_id: str, user: str, phone: str, role: str,
                    label: Optional[str] = None, accepts_orders: Optional[bool] = None,
-                   paused: Optional[bool] = None) -> Dict[str, Any]:
+                   paused: Optional[bool] = None, tools: Optional[List[str]] = None) -> Dict[str, Any]:
         key = phone_key(phone)
         name = " ".join(str(label or "").split())[:40]
         if len(key) < 10:
@@ -487,16 +572,25 @@ class PosStore:
                 if paused is not None:
                     conn.execute("UPDATE pos_members SET paused = ? WHERE business_id = ? AND phone_key = ?",
                                  (1 if paused else 0, business_id, key))
+                if tools is not None:
+                    if self.role_of(conn, business_id, user) != "owner":
+                        raise PosError(403, "permission", "Only the owner chooses what staff can open.")
+                    unknown = [t for t in tools if t not in TOOL_PERMISSIONS]
+                    if unknown:
+                        raise PosError(400, "tools", f"Unknown tool: {unknown[0]}")
+                    conn.execute("UPDATE pos_members SET tools = ? WHERE business_id = ? AND phone_key = ?",
+                                 (json.dumps(list(dict.fromkeys(tools))), business_id, key))
             self._audit(conn, business_id, user, "member.set", key[-4:],
-                        {"role": role, "accepts_orders": accepts_orders, "paused": paused}, now)
-            row = conn.execute("SELECT label, accepts_orders, paused FROM pos_members WHERE business_id = ? AND phone_key = ?",
-                               (business_id, key)).fetchone()
+                        {"role": role, "accepts_orders": accepts_orders, "paused": paused, "tools": tools}, now)
+            row = conn.execute("SELECT label, accepts_orders, paused, tools FROM pos_members WHERE business_id = ?"
+                               " AND phone_key = ?", (business_id, key)).fetchone()
         return {"phone_last4": key[-4:], "role": role, "label": (row["label"] if row else name) or "",
-                "accepts_orders": bool(row and row["accepts_orders"]), "paused": bool(row and row["paused"])}
+                "accepts_orders": bool(row and row["accepts_orders"]), "paused": bool(row and row["paused"]),
+                "tools": json.loads(row["tools"]) if row and row["tools"] else None}
 
     def member_by_ref(self, business_id: str, user: str, ref: str, role: str,
                       label: Optional[str] = None, accepts_orders: Optional[bool] = None,
-                      paused: Optional[bool] = None) -> Dict[str, Any]:
+                      paused: Optional[bool] = None, tools: Optional[List[str]] = None) -> Dict[str, Any]:
         """Edit (role / label) or remove ('removed') a member named by the last 4 digits shown in the list."""
         tail = "".join(ch for ch in str(ref) if ch.isdigit())[-4:]
         with self._connect() as conn:
@@ -507,17 +601,28 @@ class PosStore:
             raise PosError(404, "member", "No such staff member.")
         if len(rows) > 1:
             raise PosError(409, "member", "Two staff share these last 4 digits; use the full number.")
-        return self.set_member(business_id, user, rows[0]["phone_key"], role, label, accepts_orders, paused)
+        return self.set_member(business_id, user, rows[0]["phone_key"], role, label, accepts_orders, paused, tools)
 
     def members(self, business_id: str, user: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             self._require(conn, business_id, user, "members")
-            rows = conn.execute("SELECT phone_key, role, active, created_at, label, accepts_orders, paused FROM pos_members"
-                                " WHERE business_id = ? ORDER BY created_at", (business_id,)).fetchall()
+            rows = conn.execute("SELECT phone_key, role, active, created_at, label, accepts_orders, paused, tools"
+                                " FROM pos_members WHERE business_id = ? ORDER BY created_at", (business_id,)).fetchall()
+
+        def tools_of(r: sqlite3.Row) -> Optional[List[str]]:
+            if r["role"] == "owner" or r["tools"] is None:
+                return None
+            try:
+                return [t for t in json.loads(r["tools"]) if t in TOOL_PERMISSIONS]
+            except (TypeError, ValueError):
+                return None
+
         return [{"phone_last4": r["phone_key"][-4:], "role": r["role"], "active": bool(r["active"]),
                  "created_at": r["created_at"], "label": r["label"] or "",
                  "accepts_orders": r["role"] == "owner" or bool(r["accepts_orders"]),
-                 "paused": bool(r["paused"]) and r["role"] != "owner"} for r in rows]
+                 "paused": bool(r["paused"]) and r["role"] != "owner", "tools": tools_of(r),
+                 "role_tools": role_tools(r["role"])}
+                for r in rows]
 
     # -------------------------------------------------------------- products
     def _product_fields(self, data: Dict[str, Any], business: sqlite3.Row, partial: bool) -> Dict[str, Any]:
@@ -859,6 +964,16 @@ class PosStore:
         return {**self._product_out(row, stock), "packs": packs, "tiers": tiers}
 
     def products(self, business_id: str, user: str, query: str = "", include_inactive: bool = False) -> List[Dict[str, Any]]:
+        # Owner 2026-11-20 ("number typed, item did not come"): every item carries its ONE menu number on every screen,
+        # so a new item gets its number the first time any list is read (not only when the quick bill opens).
+        with self._tx() as conn:
+            self._require(conn, business_id, user, "view")
+            try:
+                from app.services.pos_bills import PosBills
+
+                PosBills.number_items(conn, business_id)
+            except Exception:  # noqa: BLE001 -- an older database without numbers still lists its items
+                pass
         with self._connect() as conn:
             self._require(conn, business_id, user, "view")
             sql = "SELECT * FROM pos_products WHERE business_id = ?"
@@ -867,15 +982,21 @@ class PosStore:
                 sql += " AND active = 1"
             q = _clean(query, 60)
             if q:
-                sql += (" AND (name LIKE ? OR name_te LIKE ? OR sku = ? OR barcode = ? OR id IN (SELECT product_id FROM"
-                        " pos_product_packs WHERE business_id = ? AND barcode = ?))")
-                args += [f"%{q}%", f"%{q}%", q, q, business_id, q]
+                number = q.lstrip("#").strip()
+                by_number = " OR item_no = ?" if number.isdigit() and self._has_item_no(conn) else ""
+                sql += (" AND (name LIKE ? OR name_te LIKE ? OR sku = ? OR barcode = ?" + by_number + " OR id IN (SELECT"
+                        " product_id FROM pos_product_packs WHERE business_id = ? AND barcode = ?))")
+                args += [f"%{q}%", f"%{q}%", q, q] + ([int(number)] if by_number else []) + [business_id, q]
             rows = conn.execute(sql + " ORDER BY name LIMIT 500", args).fetchall()
             stock = self._stock_map(conn, business_id)
             packs = self._packs(conn, business_id)
             tiers = self._tiers(conn, business_id)
         return [{**self._product_out(r, stock.get(r["id"], 0)), "packs": packs.get(r["id"], []),
                  "tiers": tiers.get(r["id"], [])} for r in rows]
+
+    @staticmethod
+    def _has_item_no(conn: sqlite3.Connection) -> bool:
+        return any(r[1] == "item_no" for r in conn.execute("PRAGMA table_info(pos_products)"))
 
     def product_history(self, business_id: str, user: str, product_id: str) -> List[Dict[str, Any]]:
         with self._connect() as conn:

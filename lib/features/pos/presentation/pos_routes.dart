@@ -8,6 +8,7 @@ import 'pos_collect_screens.dart';
 import 'pos_crm_screens.dart';
 import 'pos_frontdesk_screens.dart';
 import 'pos_desk_manage_screens.dart';
+import 'pos_dues_screen.dart';
 import 'pos_frontdesk_staff_screens.dart';
 import 'pos_home_screen.dart';
 import 'my_payment_alerts_screen.dart';
@@ -68,24 +69,25 @@ final askodoxFrontDeskRoutes = <GoRoute>[
 
 final askodoxPosRoutes = <GoRoute>[
   // /my-shop/<tool>: the shop is found for the person (owner 2026-11-19: any shop tool from the chat or a pin).
-  GoRoute(path: '/my-shop/sale', builder: (context, state) => const AskodoxShopToolScreen(tool: 'sale')),
-  GoRoute(path: '/my-shop/payment-alerts', builder: (context, state) => const AskodoxShopToolScreen(tool: 'payment-alerts')),
-  GoRoute(path: '/my-shop/collect', builder: (context, state) => const AskodoxShopToolScreen(tool: 'collect')),
-  GoRoute(path: '/my-shop/orders', builder: (context, state) => const AskodoxShopToolScreen(tool: 'orders')),
-  GoRoute(path: '/my-shop/tables', builder: (context, state) => const AskodoxShopToolScreen(tool: 'tables')),
-  GoRoute(path: '/my-shop/kitchen', builder: (context, state) => const AskodoxShopToolScreen(tool: 'kitchen')),
-  GoRoute(path: '/my-shop/items', builder: (context, state) => const AskodoxShopToolScreen(tool: 'items')),
-  GoRoute(path: '/my-shop/suppliers', builder: (context, state) => const AskodoxShopToolScreen(tool: 'suppliers')),
-  GoRoute(path: '/my-shop/expiry', builder: (context, state) => const AskodoxShopToolScreen(tool: 'expiry')),
-  GoRoute(path: '/my-shop/customers', builder: (context, state) => const AskodoxShopToolScreen(tool: 'customers')),
-  GoRoute(path: '/my-shop/agents', builder: (context, state) => const AskodoxShopToolScreen(tool: 'agents')),
-  GoRoute(path: '/my-shop/bills', builder: (context, state) => const AskodoxShopToolScreen(tool: 'bills')),
-  GoRoute(path: '/my-shop/day', builder: (context, state) => const AskodoxShopToolScreen(tool: 'day')),
-  GoRoute(path: '/my-shop/gst', builder: (context, state) => const AskodoxShopToolScreen(tool: 'gst')),
-  GoRoute(path: '/my-shop/staff', builder: (context, state) => const AskodoxShopToolScreen(tool: 'staff')),
-  GoRoute(path: '/my-shop/printer', builder: (context, state) => const AskodoxShopToolScreen(tool: 'printer')),
-  GoRoute(path: '/my-shop/advance', builder: (context, state) => const AskodoxShopToolScreen(tool: 'advance')),
-  GoRoute(path: '/my-shop/selfshop', builder: (context, state) => const AskodoxShopToolScreen(tool: 'selfshop')),
+  GoRoute(path: '/my-shop/dues', builder: (context, state) => AskodoxShopToolScreen(tool: 'dues', query: state.uri.query)),
+  GoRoute(path: '/my-shop/sale', builder: (context, state) => AskodoxShopToolScreen(tool: 'sale', query: state.uri.query)),
+  GoRoute(path: '/my-shop/payment-alerts', builder: (context, state) => AskodoxShopToolScreen(tool: 'payment-alerts', query: state.uri.query)),
+  GoRoute(path: '/my-shop/collect', builder: (context, state) => AskodoxShopToolScreen(tool: 'collect', query: state.uri.query)),
+  GoRoute(path: '/my-shop/orders', builder: (context, state) => AskodoxShopToolScreen(tool: 'orders', query: state.uri.query)),
+  GoRoute(path: '/my-shop/tables', builder: (context, state) => AskodoxShopToolScreen(tool: 'tables', query: state.uri.query)),
+  GoRoute(path: '/my-shop/kitchen', builder: (context, state) => AskodoxShopToolScreen(tool: 'kitchen', query: state.uri.query)),
+  GoRoute(path: '/my-shop/items', builder: (context, state) => AskodoxShopToolScreen(tool: 'items', query: state.uri.query)),
+  GoRoute(path: '/my-shop/suppliers', builder: (context, state) => AskodoxShopToolScreen(tool: 'suppliers', query: state.uri.query)),
+  GoRoute(path: '/my-shop/expiry', builder: (context, state) => AskodoxShopToolScreen(tool: 'expiry', query: state.uri.query)),
+  GoRoute(path: '/my-shop/customers', builder: (context, state) => AskodoxShopToolScreen(tool: 'customers', query: state.uri.query)),
+  GoRoute(path: '/my-shop/agents', builder: (context, state) => AskodoxShopToolScreen(tool: 'agents', query: state.uri.query)),
+  GoRoute(path: '/my-shop/bills', builder: (context, state) => AskodoxShopToolScreen(tool: 'bills', query: state.uri.query)),
+  GoRoute(path: '/my-shop/day', builder: (context, state) => AskodoxShopToolScreen(tool: 'day', query: state.uri.query)),
+  GoRoute(path: '/my-shop/gst', builder: (context, state) => AskodoxShopToolScreen(tool: 'gst', query: state.uri.query)),
+  GoRoute(path: '/my-shop/staff', builder: (context, state) => AskodoxShopToolScreen(tool: 'staff', query: state.uri.query)),
+  GoRoute(path: '/my-shop/printer', builder: (context, state) => AskodoxShopToolScreen(tool: 'printer', query: state.uri.query)),
+  GoRoute(path: '/my-shop/advance', builder: (context, state) => AskodoxShopToolScreen(tool: 'advance', query: state.uri.query)),
+  GoRoute(path: '/my-shop/selfshop', builder: (context, state) => AskodoxShopToolScreen(tool: 'selfshop', query: state.uri.query)),
   GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
   GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/collect', builder: (context, state) => AskodoxPosCollectScreen(businessId: state.pathParameters['id']!)),
@@ -127,7 +129,8 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) => AskodoxPosSaleScreen(
           businessId: state.pathParameters['id']!,
           leadId: state.uri.queryParameters['lead'],
-          customerId: state.uri.queryParameters['customer'])),
+          customerId: state.uri.queryParameters['customer'],
+          say: state.uri.queryParameters['say'])),
   GoRoute(path: '/pos/:id/items', builder: (context, state) => AskodoxPosItemsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/catalogue', builder: (context, state) => AskodoxPosCatalogueScreen(businessId: state.pathParameters['id']!)),
@@ -135,6 +138,7 @@ final askodoxPosRoutes = <GoRoute>[
       path: '/pos/:id/item/:pid',
       builder: (context, state) =>
           AskodoxPosItemDetailsScreen(businessId: state.pathParameters['id']!, productId: state.pathParameters['pid']!)),
+  GoRoute(path: '/pos/:id/dues', builder: (context, state) => AskodoxPosDuesScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/customers',
       builder: (context, state) => AskodoxPosCustomersScreen(businessId: state.pathParameters['id']!)),

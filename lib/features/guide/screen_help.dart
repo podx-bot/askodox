@@ -30,6 +30,7 @@ const askodoxScreenHelpExempt = <String, String>{
   '/my-shop/suppliers': 'finds the shop and opens that tool page (which has its own help)',
   '/my-shop/expiry': 'finds the shop and opens that tool page (which has its own help)',
   '/my-shop/customers': 'finds the shop and opens that tool page (which has its own help)',
+  '/my-shop/dues': 'finds the shop and opens that tool page (which has its own help)',
   '/my-shop/agents': 'finds the shop and opens that tool page (which has its own help)',
   '/my-shop/bills': 'finds the shop and opens that tool page (which has its own help)',
   '/my-shop/day': 'finds the shop and opens that tool page (which has its own help)',
@@ -822,6 +823,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'Add customers; tap one to see dues, statement and shop advance.',
   ], [
     'కస్టమర్లను చేర్చండి; ఒకరిని నొక్కితే బాకీ, స్టేట్‌మెంట్, షాప్ అడ్వాన్స్ కనిపిస్తాయి.',
+  ]),
+  '/pos/:id/dues': _H('Baaki reminders', 'బాకీ గుర్తులు', [
+    'From 3 days before each pay date up to the date: tap WhatsApp next to a name -- the message and pay link are ready.',
+    'A date passed? Tap a new date. Customers on ASKODOX are reminded in the app by themselves.',
+  ], [
+    'కట్టాల్సిన తేదీకి 3 రోజుల ముందు నుంచి ఆ రోజు వరకు: పేరు పక్కన WhatsApp నొక్కండి — మెసేజ్, పే లింక్ రెడీగా ఉంటాయి.',
+    'తేదీ దాటిందా? కొత్త తేదీ నొక్కండి. ASKODOX ఉన్న కస్టమర్లకు యాప్‌లో తానే గుర్తు చేస్తాం.',
   ]),
   '/pos/:id/customers/:cid': _H('Customer account', 'కస్టమర్ ఖాతా', [
     'Received money? Tap "Received".',

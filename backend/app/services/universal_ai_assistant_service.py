@@ -23,7 +23,7 @@ from app.services import answer_corrections, live_lookup
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
 from app.services import advice_memory, reply_suggestions
-from app.services import chat_actions
+from app.services import askodox_self, chat_actions
 
 logger = logging.getLogger(__name__)
 
@@ -884,6 +884,7 @@ class UniversalAIAssistantService:
             + advice_memory.prompt_block(advice_ledger or [])
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
+            + askodox_self.prompt_block()
             + "After the answer, end with ONE last line exactly like ADVICE_META: {\"key\": ..., \"summary\": ..., "
             "\"severity\": ..., \"repeat_reason\": ...} (or ADVICE_META: null). It is removed before display.\n"
             + _reply_language_rule(locale)
@@ -1230,7 +1231,7 @@ class UniversalAIAssistantService:
         knows one. When supplied, the model must treat location as already
         satisfied and must not ask the user for it again.
         """
-        clean = str(message or "").strip()
+        clean = askodox_self.fix_spoken_name(str(message or "").strip())
         if not clean or not self.any_model:
             return None
         clean_location = str(location or "").strip()[:300]
@@ -1301,9 +1302,11 @@ class UniversalAIAssistantService:
             + DECISION_GUIDANCE_RULES
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
-            + (chat_actions.prompt_block(chat_actions.keys_for(capabilities) or False)
+            + (chat_actions.prompt_block(chat_actions.keys_for(capabilities) or False,
+                                         chat_actions.AUTO_OPEN_CAPABILITY in (capabilities or ()))
                if chat_actions.CAPABILITY in (capabilities or ()) else "")
             + reply_suggestions.prompt_block(capabilities)
+            + askodox_self.prompt_block()
             + "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "
             "location again, and do not include a location question in reply. Only ask about "
@@ -1672,6 +1675,9 @@ class UniversalAIAssistantService:
         user_text, context, about_shown = self.split_app_context(message)
         if about_shown:
             # Questions about options already on screen are answered from them.
+            return None, ""
+        if askodox_self.is_about_askodox(askodox_self.fix_spoken_name(user_text)):
+            # Owner 2026-11-20: ASKODOX is answered from its own facts (prompt), never from a web search.
             return None, ""
         probe = user_text
         if "The customer shared attachment" in context:

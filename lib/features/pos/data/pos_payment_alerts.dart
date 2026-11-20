@@ -28,6 +28,19 @@ class AskodoxPaymentAlertsBridge {
   Future<AskodoxJson> status() => _map('status');
   Future<AskodoxJson> configure(AskodoxJson config) => _map('configure', {'config': jsonEncode(config)});
 
+  /// Staff phone: hear [businessId]'s payments with this phone's device id (nothing else changes on the phone).
+  Future<bool> joinShop(String businessId, String deviceId, {required String baseUrl, required String token, String language = 'te'}) async {
+    try {
+      return await _ch.invokeMethod<bool>('joinShop',
+              {'businessId': businessId, 'deviceId': deviceId, 'baseUrl': baseUrl, 'token': token, 'language': language}) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   /// "My phone" settings, kept apart from the shop's so both are heard at the same time (owner 2026-11-15, F).
   Future<AskodoxJson> configurePersonal(AskodoxJson config) =>
       _map('configure', {'config': jsonEncode(config), 'scope': 'personal'});
@@ -362,6 +375,8 @@ String askodoxRupees(Object? paise) {
       'suspect' => ('Not spoken (suspicious SMS)', 'చెప్పలేదు (అనుమానాస్పద SMS)'),
       'delivered' => ('Delivered', 'అందింది'),
       'pending' => ('Speaking…', 'చెబుతోంది…'),
+      'stuck' => ('Voice got stuck — not spoken', 'వాయిస్ ఆగిపోయింది — చెప్పలేదు'),
+      'duplicate_local' => ('Spoken by this phone itself', 'ఈ ఫోన్ తానే చెప్పింది'),
       _ => ('No answer from the phone', 'ఫోన్ నుంచి సమాచారం లేదు'),
     };
 
@@ -538,4 +553,35 @@ class AskodoxMyPhoneAlerts {
     final mine = accounts[tail];
     return mine != null && mine.isNotEmpty ? mine : 'A/c ••$tail';
   }
+}
+
+/// Owner 2026-11-20 ("each staff phone needs setup -- no"): every shop where this person is STAFF is joined by itself
+/// at app start, so the shop's payments are spoken on their phone with no page to open. Run once per app start
+/// (`main()` turns it on); errors are ignored (the next start tries again).
+bool askodoxAutoJoinStaffVoices = false;
+
+Future<int> askodoxJoinStaffShopVoices(AskodoxPosRepository repo, AskodoxPaymentAlertsBridge bridge,
+    {required String baseUrl, required String token}) async {
+  if (!askodoxAutoJoinStaffVoices || token.isEmpty || baseUrl.isEmpty) return 0;
+  var joined = 0;
+  try {
+    final key = await askodoxPaymentAlertInstallKey();
+    for (final shop in await repo.businesses()) {
+      final role = '${shop['my_role'] ?? ''}';
+      if (role.isEmpty || role == 'owner') continue;
+      try {
+        final out = await repo.registerAlertDevice('${shop['id']}', {
+          'device_key': key,
+          'label': 'Phone ${key.substring(key.length - 4)}',
+          'listener_on': false,
+          'speaks_remote': true,
+        });
+        final device = '${out['device_id'] ?? ''}';
+        if (device.isNotEmpty && await bridge.joinShop('${shop['id']}', device, baseUrl: baseUrl, token: token)) joined++;
+      } on AskodoxPosException {
+        // this shop does not use payment alerts (or the owner turned them off): skip it
+      }
+    }
+  } catch (_) {}
+  return joined;
 }

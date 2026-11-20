@@ -14,6 +14,10 @@ if "AskodoxPaymentAlertListener" not in s:
     s = s.replace("        <provider", block + "        <provider", 1)
 if "AskodoxPaymentAlertListener" not in s:
     raise SystemExit("could not add the payment alerts listener")
+# Owner 2026-11-20 (zero setup): "Allow" on Android's own battery dialog instead of a settings list to search.
+battery = '    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />\n'
+if "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" not in s:
+    s = s.replace("    <application", battery + "    <application", 1)
 p.write_text(s)
 PY
 echo "Payment alerts notification listener declared (Play-distribution build)."

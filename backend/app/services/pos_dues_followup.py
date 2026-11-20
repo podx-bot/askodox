@@ -1,4 +1,13 @@
-"""Baaki (credit) follow-up that runs by itself (owner 2026-11-19).
+"""Baaki (credit) follow-up that runs by itself (owner 2026-11-19, reminder days 2026-11-20).
+
+Owner 2026-11-20: every baaki bill has a PAY DATE -- the date chosen when the bill was made (quick bill: one tap,
+"1 week" already picked), changed by the shop or given by the customer ("I will pay on"); a bill without one gets
+``DEFAULT_DAYS`` after the bill by itself. From ``REMIND_DAYS_BEFORE`` days before that date up to the date, ONCE a
+day: the customer gets an ASKODOX push (when on ASKODOX), and the owner gets ONE morning push "today N people to
+remind" -> the "Baaki reminders" screen, where each row is ONE tap to WhatsApp (message + pay link already written,
+the owner's own WhatsApp -- free, no Meta setup). A changed date starts the days again; a paid bill stops. After the
+date the customer is not reminded any more; the owner sees the bill as overdue with "new date".
+
 
 "Who follows up the credit? Not me by hand." For every bill a shop sent to a customer that still has money due:
 - the customer gets a reminder in ASKODOX (push -> My bills) -- first after ``FIRST_AFTER_DAYS``, then every
@@ -12,6 +21,7 @@ placed and no message is sent outside ASKODOX from here. Nothing here moves mone
 """
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -23,11 +33,20 @@ FIRST_AFTER_DAYS = 2
 EVERY_DAYS = 3
 MAX_REMINDERS = 10
 MAX_PROMISE_DAYS = 60
+REMIND_DAYS_BEFORE = 3
+DEFAULT_DAYS = 7
+LIST_LIMIT = 150
 
 SCHEMA = [
     "CREATE TABLE IF NOT EXISTS pos_due_followups (invoice_id TEXT PRIMARY KEY, business_id TEXT NOT NULL,"
     " promised_date TEXT NOT NULL DEFAULT '', promised_at TEXT, last_reminded TEXT NOT NULL DEFAULT '',"
     " reminders INTEGER NOT NULL DEFAULT 0, promise_day_told TEXT NOT NULL DEFAULT '')",
+    "CREATE TABLE IF NOT EXISTS pos_due_owner_days (business_id TEXT NOT NULL, day TEXT NOT NULL,"
+    " PRIMARY KEY (business_id, day))",
+]
+MIGRATIONS = [
+    ("pos_due_followups", "set_by", "TEXT NOT NULL DEFAULT ''"),
+    ("pos_due_followups", "owner_sent_day", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 
@@ -45,6 +64,11 @@ class PosDuesFollowup:
         with store._connect() as conn:
             for statement in SCHEMA:
                 conn.execute(statement)
+            for table, column, decl in MIGRATIONS:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+                except sqlite3.OperationalError:
+                    pass
 
     def _today(self) -> str:
         return self.clock().astimezone(IST).date().isoformat()
@@ -70,7 +94,8 @@ class PosDuesFollowup:
             raise PosError(409, "paid", "This bill has nothing due.")
         with self.store._tx() as conn:
             self._row(conn, bill["invoice_id"], bill["business_id"])
-            conn.execute("UPDATE pos_due_followups SET promised_date = ?, promised_at = ?, promise_day_told = '' WHERE invoice_id = ?",
+            conn.execute("UPDATE pos_due_followups SET promised_date = ?, promised_at = ?, promise_day_told = '',"
+                         " set_by = 'customer', last_reminded = '', owner_sent_day = '' WHERE invoice_id = ?",
                          (date, self.clock().isoformat(), bill["invoice_id"]))
             owner = self.store._business_row(conn, bill["business_id"])["owner_user_id"]
         self.notify(owner, "Baaki: date given / బాకీ: తేదీ చెప్పారు",
@@ -88,49 +113,177 @@ class PosDuesFollowup:
                 f"SELECT invoice_id, promised_date FROM pos_due_followups WHERE promised_date != '' AND invoice_id IN ({marks})",
                 tuple(invoice_ids))}
 
-    # ------------------------------------------------------------------ the job
-    def run(self) -> Dict[str, int]:
+    # ------------------------------------------------------------------ shop side (owner 2026-11-20)
+    def _pay_date(self, inv: sqlite3.Row, row: Optional[sqlite3.Row]) -> str:
+        """The bill's pay date: the one set (shop or customer), else DEFAULT_DAYS after the bill."""
+        if row is not None and row["promised_date"]:
+            return row["promised_date"]
+        try:
+            day = datetime.fromisoformat(str(inv["local_date"])[:10]).date()
+        except ValueError:
+            day = self.clock().astimezone(IST).date()
+        return (day + timedelta(days=DEFAULT_DAYS)).isoformat()
+
+    def _days_left(self, date: str) -> int:
+        today = self.clock().astimezone(IST).date()
+        try:
+            return (datetime.fromisoformat(date).date() - today).days
+        except ValueError:
+            return 0
+
+    def set_date(self, business_id: str, user: str, invoice_id: str, date: str) -> Dict[str, Any]:
+        """The shop sets / changes the pay date of a baaki bill: the reminder days start again from the new date."""
         today = self._today()
-        now = self.clock()
-        reminded = told = 0
-        with self.store._connect() as conn:
-            shares = conn.execute(
-                "SELECT s.invoice_id, s.business_id, s.phone_key, s.customer_user, MIN(s.created_at) AS first_at"
-                " FROM pos_bill_shares s JOIN pos_invoices i ON i.id = s.invoice_id WHERE i.status = 'issued'"
-                " AND i.balance_paise > 0 GROUP BY s.invoice_id").fetchall()
-        for s in shares:
-            with self.store._tx() as conn:
-                inv = conn.execute("SELECT * FROM pos_invoices WHERE id = ?", (s["invoice_id"],)).fetchone()
-                due = self.bills._due(conn, inv) if inv else 0
+        date = str(date or "")[:10]
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            raise PosError(400, "date", "Choose the date.")
+        last = (self.clock().astimezone(IST).date() + timedelta(days=MAX_PROMISE_DAYS * 3)).isoformat()
+        if date < today or date > last:
+            raise PosError(400, "date", "Choose a date from today.")
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "sell")
+            inv = conn.execute("SELECT * FROM pos_invoices WHERE id = ? AND business_id = ?", (invoice_id, business_id)).fetchone()
+            if inv is None:
+                raise PosError(404, "invoice", "Bill not found.")
+            self._row(conn, invoice_id, business_id)
+            conn.execute("UPDATE pos_due_followups SET promised_date = ?, promised_at = ?, set_by = 'shop',"
+                         " promise_day_told = '', last_reminded = '', owner_sent_day = '' WHERE invoice_id = ?",
+                         (date, self.clock().isoformat(), invoice_id))
+        return {"ok": True, "invoice_id": invoice_id, "pay_date": date, "days_left": self._days_left(date)}
+
+    def _phone_of(self, conn: sqlite3.Connection, inv: sqlite3.Row) -> str:
+        if inv["customer_id"]:
+            c = conn.execute("SELECT phone FROM pos_customers WHERE id = ?", (inv["customer_id"],)).fetchone()
+            if c is not None and c["phone"]:
+                return str(c["phone"])
+        s = conn.execute("SELECT phone_key FROM pos_bill_shares WHERE invoice_id = ? AND phone_key != ''"
+                         " ORDER BY created_at DESC LIMIT 1", (inv["id"],)).fetchone()
+        return str(s["phone_key"]) if s is not None else ""
+
+    def _pay_link(self, conn: sqlite3.Connection, inv: sqlite3.Row, phone: str, actor: str, base_url: str) -> str:
+        """The bill's own public page (see / pay); one link per bill, made the first time it is needed."""
+        import secrets
+
+        from app.services.account_identity import phone_key
+
+        share = conn.execute("SELECT token FROM pos_bill_shares WHERE invoice_id = ? ORDER BY created_at LIMIT 1",
+                             (inv["id"],)).fetchone()
+        if share is not None:
+            token = share["token"]
+        else:
+            token = secrets.token_urlsafe(9).replace("-", "a").replace("_", "b")
+            conn.execute("INSERT INTO pos_bill_shares (token, business_id, invoice_id, phone_key, customer_user, channel,"
+                         " created_by, created_at) VALUES (?, ?, ?, ?, '', 'reminder', ?, ?)",
+                         (token, inv["business_id"], inv["id"], phone_key(phone) if phone else "", actor,
+                          self.clock().isoformat()))
+        return f"{base_url.rstrip('/')}/b/{token}" if base_url else f"/b/{token}"
+
+    def reminders(self, business_id: str, user: str, *, base_url: str = "") -> Dict[str, Any]:
+        """The owner's "Baaki reminders" list: to remind today (3 days before .. the date), overdue, and later."""
+        from app.services.pos_bills import whatsapp_number
+
+        today = self._today()
+        rows: list = []
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "sell")
+            biz = self.store._business_row(conn, business_id)
+            invoices = conn.execute(
+                "SELECT * FROM pos_invoices WHERE business_id = ? AND status = 'issued' AND balance_paise > 0"
+                " ORDER BY issued_at DESC LIMIT 600", (business_id,)).fetchall()
+            for inv in invoices:
+                due = self.bills._due(conn, inv)
                 if due <= 0:
                     continue
-                biz = self.store._business_row(conn, s["business_id"])
-                row = self._row(conn, s["invoice_id"], s["business_id"])
-                customer = s["customer_user"] or self.bills._account_user(conn, s["phone_key"])
-                promised = row["promised_date"]
-                if promised and promised > today:
-                    continue  # the customer gave a date: quiet until then
-                if promised == today and row["promise_day_told"] != today:
-                    conn.execute("UPDATE pos_due_followups SET promise_day_told = ? WHERE invoice_id = ?", (today, s["invoice_id"]))
-                    self.notify(biz["owner_user_id"], "Baaki: promised for today / ఈరోజు ఇస్తానన్నారు",
-                                f"Bill {inv['number']} · {_rupees(due)}", f"/pos/{s['business_id']}/invoices",
-                                f"due_today_owner:{s['invoice_id']}:{today}")
+                row = conn.execute("SELECT * FROM pos_due_followups WHERE invoice_id = ?", (inv["id"],)).fetchone()
+                date = self._pay_date(inv, row)
+                left = self._days_left(date)
+                state = "overdue" if left < 0 else "remind" if left <= REMIND_DAYS_BEFORE else "later"
+                try:
+                    name = json.loads(inv["customer_snapshot"] or "{}").get("name") or ""
+                except (TypeError, ValueError):
+                    name = ""
+                phone = self._phone_of(conn, inv)
+                item: Dict[str, Any] = {
+                    "invoice_id": inv["id"], "number": inv["number"], "customer": name, "phone": phone,
+                    "due_paise": due, "pay_date": date, "days_left": left, "state": state,
+                    "date_by": (row["set_by"] if row is not None and row["promised_date"] else "") or "auto",
+                    "sent_today": bool(row is not None and row["owner_sent_day"] == today),
+                    "whatsapp_to": whatsapp_number(phone) if phone else "",
+                }
+                if state == "remind" and phone:
+                    link = self._pay_link(conn, inv, phone, user, base_url)
+                    when = ("ఈరోజు" if left == 0 else "రేపు" if left == 1 else f"{left} రోజుల్లో")
+                    item["text"] = (f"నమస్తే {name},\n{biz['name']} లో మీ బాకీ {_rupees(due)} ({inv['number']}) "
+                                    f"{when} ({date}) కట్టాలి.\nచూడటానికి / కట్టడానికి: {link}\n"
+                                    f"Reminder from {biz['name']}: {_rupees(due)} due on {date}.")
+                rows.append(item)
+        order = {"remind": 0, "overdue": 1, "later": 2}
+        rows.sort(key=lambda r: (order[r["state"]], r["pay_date"]))
+        rows = rows[:LIST_LIMIT]
+        return {"today": today, "remind_days_before": REMIND_DAYS_BEFORE, "items": rows,
+                "to_send": sum(1 for r in rows if r["state"] == "remind" and not r["sent_today"])}
+
+    def mark_sent(self, business_id: str, user: str, invoice_id: str) -> Dict[str, Any]:
+        """The owner sent today's WhatsApp reminder for this bill (it leaves today's list until tomorrow)."""
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "sell")
+            if conn.execute("SELECT 1 FROM pos_invoices WHERE id = ? AND business_id = ?", (invoice_id, business_id)).fetchone() is None:
+                raise PosError(404, "invoice", "Bill not found.")
+            self._row(conn, invoice_id, business_id)
+            conn.execute("UPDATE pos_due_followups SET owner_sent_day = ? WHERE invoice_id = ?", (self._today(), invoice_id))
+        return {"ok": True}
+
+    # ------------------------------------------------------------------ the job
+    def run(self) -> Dict[str, int]:
+        """Once a day is enough (it may run more often: every send is once per bill per day)."""
+        today = self._today()
+        now = self.clock()
+        reminded = told = owners = 0
+        with self.store._connect() as conn:
+            invoices = conn.execute(
+                "SELECT * FROM pos_invoices WHERE status = 'issued' AND balance_paise > 0 ORDER BY issued_at DESC LIMIT 5000").fetchall()
+        to_send: Dict[str, int] = {}
+        for inv in invoices:
+            with self.store._tx() as conn:
+                due = self.bills._due(conn, inv)
+                if due <= 0:
+                    continue
+                biz = self.store._business_row(conn, inv["business_id"])
+                row = self._row(conn, inv["id"], inv["business_id"])
+                share = conn.execute("SELECT phone_key, customer_user FROM pos_bill_shares WHERE invoice_id = ?"
+                                     " ORDER BY (customer_user != '') DESC, created_at LIMIT 1", (inv["id"],)).fetchone()
+                from app.services.account_identity import phone_key
+
+                phone = self._phone_of(conn, inv)
+                customer = (share["customer_user"] if share is not None and share["customer_user"] else "") or \
+                    self.bills._account_user(conn, phone_key(phone) if phone else "")
+                date = self._pay_date(inv, row)
+                left = self._days_left(date)
+                if left < 0 or left > REMIND_DAYS_BEFORE:
+                    continue  # reminders run only from REMIND_DAYS_BEFORE days before up to the pay date
+                if row["owner_sent_day"] != today and phone:
+                    to_send[inv["business_id"]] = to_send.get(inv["business_id"], 0) + 1
+                if left == 0 and row["promised_date"] and row["promise_day_told"] != today:
+                    conn.execute("UPDATE pos_due_followups SET promise_day_told = ? WHERE invoice_id = ?", (today, inv["id"]))
                     told += 1
-                if not customer or row["reminders"] >= MAX_REMINDERS:
-                    continue
-                since = row["last_reminded"] or ""
-                if since:
-                    wait_until = (datetime.fromisoformat(since) + timedelta(days=EVERY_DAYS)).isoformat()
-                else:
-                    wait_until = (datetime.fromisoformat(s["first_at"]) + timedelta(days=FIRST_AFTER_DAYS)).isoformat()
-                if promised != today and now.isoformat() < wait_until:
-                    continue
-                if since[:10] == now.isoformat()[:10]:
+                if not customer or (row["last_reminded"] or "")[:10] == now.astimezone(IST).date().isoformat():
                     continue  # never twice on one day
                 conn.execute("UPDATE pos_due_followups SET last_reminded = ?, reminders = reminders + 1 WHERE invoice_id = ?",
-                             (now.isoformat(), s["invoice_id"]))
+                             (now.astimezone(IST).isoformat(), inv["id"]))
+                when = "today / ఈరోజు" if left == 0 else f"{date}"
                 self.notify(customer, f"{biz['name']}: {_rupees(due)} బాకీ / pending",
-                            "Pay now, or tell the shop the date you will pay. / ఇప్పుడు కట్టండి, లేదా ఎప్పుడు కడతారో చెప్పండి.",
-                            "/me/bills", f"due_reminder:{s['invoice_id']}:{row['reminders'] + 1}")
+                            f"Pay by {when}. Tap to pay, or tell the shop another date. / {when} కట్టాలి. ఇప్పుడు కట్టండి, లేదా వేరే తేదీ చెప్పండి.",
+                            "/me/bills", f"due_reminder:{inv['id']}:{today}")
                 reminded += 1
-        return {"bills": len(shares), "reminded": reminded, "owner_told": told}
+        for business_id, count in to_send.items():
+            with self.store._tx() as conn:
+                if conn.execute("SELECT 1 FROM pos_due_owner_days WHERE business_id = ? AND day = ?",
+                                (business_id, today)).fetchone():
+                    continue
+                conn.execute("INSERT INTO pos_due_owner_days (business_id, day) VALUES (?, ?)", (business_id, today))
+                owner = self.store._business_row(conn, business_id)["owner_user_id"]
+            self.notify(owner, f"బాకీ: ఈరోజు {count} మందికి గుర్తు చేయాలి / {count} baaki reminders today",
+                        "ఒక్కో పేరు పక్కన WhatsApp నొక్కండి — మెసేజ్ రెడీగా ఉంది. / One tap each on WhatsApp — the message is ready.",
+                        f"/pos/{business_id}/dues", f"due_owner:{business_id}:{today}")
+            owners += 1
+        return {"bills": len(invoices), "reminded": reminded, "owner_told": told, "owners": owners}

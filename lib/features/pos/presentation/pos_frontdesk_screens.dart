@@ -11,6 +11,7 @@ import '../../shops/presentation/my_business_screens.dart' show askodoxBoxMic;
 import '../data/pos_hardware.dart' show AskodoxScanException;
 import '../data/pos_repository.dart';
 import '../domain/order_steps.dart';
+import '../domain/pos_item_icons.dart';
 import '../domain/pos_money.dart';
 import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
@@ -695,6 +696,8 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
       contentPadding: EdgeInsets.zero,
       enabled: available,
       title: Row(children: [
+        Text(askodoxItemIcon('${m['name'] ?? ''}', nameTe: '${m['name_te'] ?? ''}'), style: const TextStyle(fontSize: 20)),
+        const SizedBox(width: 6),
         if ('${m['food_type'] ?? ''}'.isNotEmpty) ...[askodoxFoodDot('${m['food_type']}'), const SizedBox(width: 6)],
         Expanded(
             child: Text(

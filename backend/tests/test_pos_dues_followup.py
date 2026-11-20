@@ -33,29 +33,59 @@ def env(tmp_path):
     return store, bills, follow, biz, inv, pushes, clock
 
 
-def test_reminders_wait_for_the_promised_date_and_stop_when_paid(env):
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _day(clock, plus=0):
+    return (clock["now"] + timedelta(days=plus)).astimezone(IST).date().isoformat()
+
+
+def test_reminders_run_three_days_before_the_pay_date_daily_and_stop_when_paid(env):
+    """Owner 2026-11-20: from 3 days before the date up to the date, once a day; a new date starts again."""
     store, bills, follow, biz, inv, pushes, clock = env
     if bills.due_of(inv["id"]) <= 0:
         pytest.skip("this store issues a bill without payments as paid")
-    assert follow.run()["reminded"] == 0, "nothing on the first two days"
-    clock["now"] += timedelta(days=2, hours=1)
-    assert follow.run()["reminded"] == 1 and pushes[-1][0] == CUSTOMER and pushes[-1][3] == "/me/bills"
-    assert follow.run()["reminded"] == 0, "never twice on one day"
+    # no date set: DEFAULT_DAYS (7) after the bill -> nothing on the first 4 days (7, 6, 5, 4 days left)
+    for _ in range(4):
+        assert follow.run()["reminded"] == 0
+        clock["now"] += timedelta(days=1)
+    out = follow.run()  # 3 days before the pay date
+    assert out["reminded"] == 1 and pushes[-2][0] == CUSTOMER and pushes[-2][3] == "/me/bills"
+    assert pushes[-1][0] == OWNER and pushes[-1][3] == f"/pos/{biz}/dues", "ONE owner push: today's reminder list"
+    assert follow.run()["reminded"] == 0 and follow.run()["owners"] == 0, "never twice on one day"
 
-    promised = (clock["now"] + timedelta(days=5)).astimezone(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    # the shop moves the date 10 days out: quiet again until 3 days before it
     with pytest.raises(PosError):
-        follow.promise(CUSTOMER, "tok1", "2020-01-01")
+        follow.set_date(biz, OWNER, inv["id"], "2020-01-01")
+    moved = follow.set_date(biz, OWNER, inv["id"], _day(clock, 10))
+    assert moved["days_left"] == 10
+    clock["now"] += timedelta(days=1)
+    assert follow.run()["reminded"] == 0
+    listed = follow.reminders(biz, OWNER, base_url="https://x.test")
+    row = listed["items"][0]
+    assert row["state"] == "later" and row["date_by"] == "shop" and row["phone"].endswith("9300000022")
+    clock["now"] += timedelta(days=6)  # 3 days before the new date
+    assert follow.run()["reminded"] == 1
+    listed = follow.reminders(biz, OWNER, base_url="https://x.test")
+    row = listed["items"][0]
+    assert row["state"] == "remind" and listed["to_send"] == 1 and row["whatsapp_to"] == "919300000022"
+    assert "https://x.test/b/" in row["text"] and "Sai Kirana" in row["text"]
+    follow.mark_sent(biz, OWNER, inv["id"])
+    assert follow.reminders(biz, OWNER)["to_send"] == 0, "sent today -> off today's list"
+
+    # the customer gives a later date: the days start from that date
+    promised = _day(clock, 8)
     assert follow.promise(CUSTOMER, "tok1", promised)["promised_date"] == promised
     assert pushes[-1][0] == OWNER and promised in pushes[-1][2], "the shop is told the date at once"
     assert follow.promises([inv["id"]]) == {inv["id"]: promised}
-    clock["now"] += timedelta(days=4)
-    assert follow.run() == {"bills": 1, "reminded": 0, "owner_told": 0}, "quiet until the promised date"
     clock["now"] += timedelta(days=1)
-    out = follow.run()
-    assert out["owner_told"] == 1 and out["reminded"] == 1
+    assert follow.run()["reminded"] == 0
+    # after the date: no more customer reminders, the owner sees it overdue
+    clock["now"] += timedelta(days=9)
+    assert follow.run()["reminded"] == 0
+    assert follow.reminders(biz, OWNER)["items"][0]["state"] == "overdue"
     bills.settle(biz, OWNER, inv["id"], "cash", client_txn_id="settle-due-0001")
-    clock["now"] += timedelta(days=10)
-    assert follow.run()["reminded"] == 0, "a paid bill stops by itself"
+    assert follow.reminders(biz, OWNER)["items"] == [], "a paid bill stops by itself"
 
 
 def test_expiry_alert_lists_each_shop_once_with_its_items(tmp_path):

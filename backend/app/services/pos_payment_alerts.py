@@ -128,7 +128,10 @@ EXTRA_REJECT_PHRASES: tuple = ()
 # which calls record_verified(). A phone can never mark an event verified.
 VERIFIED_PROVIDERS: Dict[str, str] = {"razorpay": "Razorpay"}
 EVENT_STATUSES = ("notification_unverified", "provider_verified", "ambiguous", "failed")
-ACK_STATES = ("announced", "delivered", "quiet_hours", "muted", "tts_failed", "seen")
+# Owner 2026-11-20 (staff phones "announced" but nobody heard): every state says what really happened --
+# duplicate_local = this phone had already spoken the same money itself; stuck = the voice did not finish in time
+# (the phone played a beep instead).
+ACK_STATES = ("announced", "delivered", "quiet_hours", "muted", "tts_failed", "seen", "duplicate_local", "stuck")
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _REF = re.compile(r"^[A-Za-z0-9]{4,40}$")
 
@@ -179,7 +182,7 @@ HEALTH_STATES = ("ok", "off", "needs_access", "no_listener", "no_apps", "no_voic
 MISSED_AFTER = timedelta(minutes=3)
 # Only recent misses are warned about (an old one found late is not news any more).
 WARN_WINDOW = timedelta(minutes=60)
-HEARD_STATES = ("announced", "delivered", "seen", "quiet_hours", "muted")
+HEARD_STATES = ("announced", "delivered", "seen", "quiet_hours", "muted", "duplicate_local")
 
 
 def _hash(*parts: str) -> str:
@@ -1018,7 +1021,9 @@ class PosPaymentAlerts:
                          " VALUES (?,?,?,?,?)", (event_id, device_id, user, state, self._now().isoformat()))
             # What the phone did with it (announced / tts_failed / muted / quiet_hours ...): the one trail that tells
             # "notification came, no sound" apart from "never arrived".
-            print(f"ASKODOX PAYALERT ACK: event={event_id[-6:]} user=..{user[-4:]} state={state}", flush=True)
+            detail = " ".join(str(data.get("detail") or "").split())[:160]
+            print(f"ASKODOX PAYALERT ACK: event={event_id[-6:]} user=..{user[-4:]} state={state}"
+                  + (f" detail={detail}" if detail else ""), flush=True)
             return self._event_out(conn, row, user)
 
     def export_csv(self, business_id: str, user: str) -> str:

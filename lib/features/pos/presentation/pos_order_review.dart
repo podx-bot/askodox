@@ -57,7 +57,8 @@ class _AskodoxPosOrderReviewSheetState extends State<AskodoxPosOrderReviewSheet>
 
   List<AskodoxPosItemRef> get _refs => [
         for (final p in widget.products)
-          AskodoxPosItemRef(id: '${p['id']}', name: '${p['name']}', nameTe: '${p['name_te'] ?? ''}', unit: '${p['unit']}'),
+          AskodoxPosItemRef(
+            id: '${p['id']}', name: '${p['name']}', nameTe: '${p['name_te'] ?? ''}', unit: '${p['unit']}', itemNo: askodoxPosInt(p['item_no'])),
       ];
 
   AskodoxJson? _product(String id) => widget.products.where((p) => '${p['id']}' == id).firstOrNull;
