@@ -127,6 +127,11 @@ def test_workspace_ai_video_uses_store_photos_and_waits_for_approve(api, monkeyp
     assert data["store_item_id"] == str(item_id) and "meesho.com" in data["buy_url"]
     ok = client.post(f"/admin/cc/workspace/reels/{row['video_id']}/review", headers=OWNER, json={"action": "approve"})
     assert ok.json()["status"] == "ACTIVE"
+    share = client.get(f"/admin/cc/workspace/reels/{row['video_id']}/share", headers=OWNER).json()
+    assert share["public_video"] and f"/p/{item_id}?from=fb" in share["texts"]["facebook"]["text"]
+    assert "#Affiliate" in share["texts"]["instagram"]["text"] and isinstance(share["faq"], list)
+    page = client.get(f"/p/{item_id}")
+    assert page.status_code == 200 and "<video" in page.text and "3.9/5" in page.text
 
 
 def test_ai_video_daily_limit_zero_turns_it_off(api, monkeypatch):  # noqa: F811
@@ -156,3 +161,79 @@ def test_review_screenshots_are_read_without_saving(api):  # noqa: F811
                       json={"images": [{"data": shot, "mime": "image/jpeg"}]})
     assert got.status_code == 200, got.text
     assert got.json()["reviews"] == {"rating": 4.1, "ratings_count": 10, "good": ["fits well"]}
+
+
+# ---- 4-step affiliate flow, share texts, public pages (owner 2026-11-20) ----
+from app.services import affiliate_publish as ap  # noqa: E402
+from app.services import product_pages as ppg  # noqa: E402
+
+
+def test_photo_fill_never_carries_a_price_or_promise():
+    got = ap.clean_photo_fields({"title": "Women Cotton Nightdress", "colour": "maroon", "material": "cotton",
+                                 "sizes": ["M", "L", "M"], "features": ["V neck", "flutter sleeves"],
+                                 "description": "Best quality at ₹349 only!"})
+    assert got["title"] == "Women Cotton Nightdress" and got["sizes"] == ["M", "L"]
+    assert "₹" not in got["description"] and "Best" not in got["description"]
+    assert "V neck" in got["description"] and "Sizes: M, L" in got["description"]
+    assert ap.clean_photo_fields("x") == {}
+
+
+def test_faq_drops_promises_the_store_did_not_make():
+    got = ap.clean_faq({"faq": [{"q": "ధర ఎంత?", "a": "₹349"}, {"q": "COD ఉందా?", "a": "Cash on delivery ఉంది"},
+                                {"q": "", "a": "x"}]})
+    assert got == [{"q": "ధర ఎంత?", "a": "₹349"}]
+
+
+def test_share_texts_disclose_and_send_instagram_youtube_to_the_profile():
+    t = ap.share_texts({"title": "Cotton Nightdress", "price": 349,
+                        "description": "Maroon floral print. Lace at the neck. Full length."},
+                       REVIEWS, "Meesho", "https://askodox.com/p/7")
+    assert "https://askodox.com/p/7" in t["facebook"]["text"] and "#Affiliate" in t["facebook"]["text"]
+    assert ap.SHOP_URL in t["instagram"]["text"] and "#Affiliate" in t["instagram"]["text"]
+    assert len(t["youtube"]["title"]) <= 100 and "#shorts" in t["youtube"]["title"]
+    assert "₹349" in t["facebook"]["text"] and "3.9" in t["facebook"]["text"]
+
+
+def test_workspace_fill_from_photos_reads_only_our_uploads(api):  # noqa: F811
+    client, container, _ = api
+
+    class Fake:
+        def analyze_with_prompt(self, photos, prompt, **_):
+            assert "NEVER a price" in prompt and len(photos) == 1
+            return {"title": "Steel Bottle 1L", "features": ["screw cap"], "description": "A steel bottle."}, 1
+
+    container.universal_image_service = Fake()
+    up = client.post("/admin/cc/workspace/uploads", headers=OWNER,
+                     files={"file": ("a.jpg", _jpeg((10, 90, 160)), "image/jpeg")}).json()
+    got = client.post("/admin/cc/workspace/fill-from-photos", headers=OWNER,
+                      json={"photos": [up["url"], "https://evil.example/x.jpg"]})
+    assert got.status_code == 200, got.text
+    assert got.json()["fields"]["title"] == "Steel Bottle 1L"
+    none = client.post("/admin/cc/workspace/fill-from-photos", headers=OWNER, json={"photos": ["https://e.x/a.jpg"]})
+    assert none.status_code == 422
+
+
+def test_public_product_page_counts_and_sends_to_the_commission_link(api):  # noqa: F811
+    client, container, _ = api
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "fields": {
+        "title": "Cotton nightdress", "price": 349, "original_product_url": "https://www.meesho.com/nd/p/9201",
+        "affiliate_url": "https://www.meesho.com/nd/p/9201?af=manohar", "image_url": "https://images.meesho.com/a.jpg"}})
+    item = saved.json()["item"]
+    assert saved.json()["review_status"] == "LIVE"
+    page = client.get(f"/p/{item['id']}?from=fb")
+    assert page.status_code == 200 and "ASKODOX" in page.text and "Affiliate" in page.text
+    assert f"/p/{item['id']}/buy?from=fb" in page.text
+    buy = client.get(f"/p/{item['id']}/buy?from=fb", follow_redirects=False)
+    assert buy.status_code == 302 and buy.headers["location"].endswith("?af=manohar")
+    assert ppg.clicks(container, item["id"])["fb"] == {"view": 1, "buy": 1}
+    shop = client.get("/shop")
+    assert shop.status_code == 200 and f"/p/{item['id']}" in shop.text
+    assert client.get("/p/999999").status_code == 404
+
+
+def test_draft_items_have_no_public_page(api):  # noqa: F811
+    client, container, _ = api
+    saved = client.post("/admin/cc/workspace/items", headers=OWNER, json={"item_type": "product", "action": "draft",
+                                                                          "fields": {"title": "Draft kurta",
+                                                                                     "original_product_url": "https://www.meesho.com/k/p/9202"}})
+    assert client.get(f"/p/{saved.json()['item']['id']}").status_code == 404

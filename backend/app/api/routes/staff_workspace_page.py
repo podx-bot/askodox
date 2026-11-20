@@ -89,14 +89,14 @@ async function start(){try{ME=await api("/admin/cc/workspace/me")}catch(e){if(e.
  try{await ({add,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
 $("#out").onclick=()=>{setCred(null);signin()};
 const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Commission link (affiliate / deep link)"],["verified_commission_rate","Commission % (partner agreed)"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
-async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 Store link (Meesho / Flipkart / Amazon)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
- <p class="mut" style="margin:8px 0 0">Store link = the store's own data only. Own / Brand = our photos, AI description, reel, promotions. / Store link అంటే store ఇచ్చిన data మాత్రమే. Own / Brand అంటే మన photos, AI description, reel, promotions.</p></div>
- <div class="card" id="linkcard"><h3 style="margin-top:0">Paste one link</h3>
+async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 Affiliate product (Meesho / Amazon / Flipkart / EarnKaro…)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
+ <p class="mut" style="margin:8px 0 0">4 steps: లింక్ పెట్టండి → ఫోటోలు పెట్టండి → "ఫోటోల నుంచి నింపు" + ధర → Publish. వీడియో, DM జవాబులు, Facebook / Instagram / YouTube టెక్స్ట్ ఆటోమేటిక్‌గా తయారవుతాయి.</p></div>
+ <details class="card"><summary class="mut">పాత పద్ధతి: లింక్ నుంచి పేజీ చదువు (store పేజీ ఓపెన్ అయితేనే)</summary><div id="linkcard"><h3 style="margin-top:0">Paste one link</h3>
  <div class="row"><select id="itype">${types.map(t=>`<option ${PREFILL.type===t?"selected":""}>${t}</option>`).join("")}</select></div>
  <input id="url" type="url" placeholder="https://..." value="${esc(PREFILL.url||"")}">
- <div class="row"><button class="s" id="paste">Paste</button><button class="p" id="fetch">Fetch details</button></div><div id="res"></div></div>
+ <div class="row"><button class="s" id="paste">Paste</button><button class="p" id="fetch">Fetch details</button></div><div id="res"></div></div></details>
  <div class="card" id="bulkcard"><h3 style="margin-top:0">Many links</h3><textarea id="bulk" rows="4" placeholder="One link per line (up to 50)"></textarea><button class="s" id="bulkgo">Check links</button><div id="bulkres"></div></div>`;
- $("#m_own").onclick=()=>ownForm();$("#m_link").onclick=()=>$("#url").focus();
+ $("#m_own").onclick=()=>ownForm();$("#m_link").onclick=()=>affForm();
  $("#paste").onclick=async()=>{try{$("#url").value=await navigator.clipboard.readText()}catch(e){toast("Long-press the box and paste")}};
  $("#fetch").onclick=()=>fetchOne(firstLink($("#url").value),$("#itype").value);
  $("#bulkgo").onclick=async()=>{try{const d=await api("/admin/cc/workspace/import/bulk","POST",{urls:($("#bulk").value.match(/https:\/\/[^\s"'<>]+/g)||[]),item_type:$("#itype").value});
@@ -133,8 +133,49 @@ function bindReviews(p,holder){const el=$("#"+p+"revshot");if(!el)return;el.onch
    ${st?`<br>5★ ${st["5"]} · 4★ ${st["4"]} · 3★ ${st["3"]} · 2★ ${st["2"]} · 1★ ${st["1"]}`:""}
    ${(v.good||[]).length?`<br>👍 ${(v.good||[]).map(esc).join(", ")}`:""}${(v.bad||[]).length?`<br>⚠️ ${(v.bad||[]).map(esc).join(", ")}`:""}`}
  catch(err){note.textContent=err.message}}}
-async function startAiVideo(itemId,reviews){try{const r=await api(`/admin/cc/workspace/items/${itemId}/ai-video`,"POST",{reviews:reviews||{}});
+async function startAiVideo(itemId,reviews,store){try{const r=await api(`/admin/cc/workspace/items/${itemId}/ai-video`,"POST",{reviews:reviews||{},store:store||""});
  toast(`🎬 వీడియో తయారవుతోంది (${r.photos} photos, ఒక నిమిషం) -- 🎬 Videos లో చూడండి`);return r}catch(e){toast("Video: "+e.message);return null}}
+// Owner 2026-11-20: affiliate product in 4 steps -- the link is never opened; name / description come from the photos;
+// staff type the price; saving makes the video, the DM answers and the social texts.
+const STORES=[["Meesho",/meesho|msho\./],["Amazon",/amazon|amzn\./],["Flipkart",/flipkart|fkrt\./],["Myntra",/myntra/],["AJIO",/ajio/],["Nykaa",/nykaa/],["Other",/./]];
+async function affForm(){let photos=[];const RV={reviews:{}};
+ M.innerHTML=`<div class="card"><h3 style="margin-top:0">🔗 Affiliate product</h3>
+ <label>1. Commission / affiliate link *</label><div class="row"><input id="a_link" type="url" placeholder="https://..."><button class="s" id="a_paste" style="flex:0 0 90px">Paste</button></div>
+ <label>Store</label><select id="a_store">${STORES.map(([n])=>`<option>${n}</option>`).join("")}</select>
+ <label>2. Product photos * (store యాప్ నుంచి డౌన్‌లోడ్ చేసినవి / camera)</label><div class="thumbs" id="a_thumbs"></div>
+ <div class="row"><label class="s btn">🖼️ Gallery<input id="a_gal" type="file" accept="image/*" multiple hidden></label><label class="s btn">📷 Camera<input id="a_cam" type="file" accept="image/*" capture="environment" hidden></label></div>
+ ${reviewBlock("a_")}
+ <div class="row" style="margin-top:10px"><button class="p" id="a_fill">✨ 3. ఫోటోల నుంచి నింపు</button></div><span class="mut" id="a_fillnote"></span>
+ <label>Product name *</label><input id="a_title">
+ <div class="row"><div><label>Price ₹ * (మీరే పెట్టండి)</label><input id="a_price" inputmode="decimal"></div><div><label>MRP ₹</label><input id="a_mrp" inputmode="decimal"></div></div>
+ <label>Description</label><textarea id="a_desc" rows="6"></textarea>
+ ${ME.can_commission?`<label>Commission % (optional)</label><input id="a_rate" inputmode="decimal">`:""}
+ <div id="a_err" class="bad" style="margin:8px 0"></div>
+ <div class="row"><button class="s" id="a_back">← Back</button><button class="s" id="a_draft">Save draft</button><button class="p" id="a_submit">4. ${ME.can_publish?"Publish":"Submit"} + 🎬 వీడియో</button></div></div>`;
+ const thumbs=()=>{$("#a_thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">ఇంకా ఫోటోలు లేవు</span>`};thumbs();
+ const store=()=>{const v=$("#a_link").value.toLowerCase();const hit=STORES.find(([n,re])=>re.test(v));if(hit&&v)$("#a_store").value=hit[0]};
+ $("#a_link").oninput=store;$("#a_back").onclick=()=>add();bindReviews("a_",RV);
+ $("#a_paste").onclick=async()=>{try{$("#a_link").value=firstLink(await navigator.clipboard.readText());store()}catch(e){toast("Long-press the box and paste")}};
+ const addPhotos=async e=>{for(const file of e.target.files){const fd=new FormData();fd.append("file",file);
+  try{const u=await api("/admin/cc/workspace/uploads","POST",fd,true);photos.push(u.url);thumbs()}catch(err){toast(err.message)}}};
+ $("#a_gal").onchange=addPhotos;$("#a_cam").onchange=addPhotos;
+ $("#a_fill").onclick=async()=>{if(!photos.length){$("#a_fillnote").textContent="ముందు ఫోటోలు పెట్టండి (step 2)";return}
+  $("#a_fillnote").textContent="✨ ఫోటోలు చదువుతోంది…";try{const r=await api("/admin/cc/workspace/fill-from-photos","POST",{photos});const f=r.fields||{};
+   if(f.title&&!$("#a_title").value.trim())$("#a_title").value=f.title;if(f.description)$("#a_desc").value=f.description;
+   $("#a_fillnote").textContent="✓ ఫోటోల నుంచి నిండింది -- చదివి, ధర పెట్టండి";$("#a_price").focus()}catch(e){$("#a_fillnote").textContent=e.message}};
+ const num=v=>{const n=parseFloat(String(v).replace(/[^0-9.]/g,""));return isNaN(n)?null:n};
+ const save=async action=>{const link=firstLink($("#a_link").value),title=$("#a_title").value.trim(),price=num($("#a_price").value);const err=$("#a_err");
+  const miss=!link.startsWith("https://")?["a_link","1. https:// తో మొదలయ్యే లింక్ పెట్టండి"]:!photos.length?["a_gal","2. కనీసం ఒక్క ఫోటో పెట్టండి"]:!title?["a_title","Product name ఖాళీగా ఉంది -- \"ఫోటోల నుంచి నింపు\" నొక్కండి లేదా రాయండి"]:(action!=="draft"&&price==null)?["a_price","ధర (₹) పెట్టండి"]:null;
+  if(miss){err.textContent="⚠️ "+miss[1];const el=$("#"+miss[0]);if(el&&el.focus)el.focus();if(el&&el.scrollIntoView)el.scrollIntoView({block:"center"});return}
+  err.textContent="";const fields={title,original_product_url:link,images:photos,image_url:photos[0]};
+  if(ME.can_link)fields.affiliate_url=link;if(price!=null)fields.price=price;if(num($("#a_mrp").value)!=null)fields.mrp=num($("#a_mrp").value);
+  if($("#a_desc").value.trim())fields.description=$("#a_desc").value.trim();
+  if($("#a_rate")&&num($("#a_rate").value)!=null)fields.verified_commission_rate=num($("#a_rate").value);
+  toast("Saving… / save అవుతోంది…");
+  try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"product",fields,action});
+   if(r.item&&action!=="draft"&&$("#a_aivid")&&$("#a_aivid").checked){await startAiVideo(r.item.id,RV.reviews,$("#a_store").value);TAB="reels";start();return}
+   toast(r.review_status==="LIVE"?"Published":r.review_status==="DRAFT"?"Draft saved":"Sent for review");TAB="items";start()}catch(e){err.textContent="⚠️ "+e.message}};
+ $("#a_draft").onclick=()=>save("draft");$("#a_submit").onclick=()=>save("submit")}
 async function fetchOne(url,type){url=firstLink(url);const box=$("#res")||M;box.innerHTML=`<p class="mut">Reading the page… (up to a minute) / page చదువుతోంది… (ఒక నిమిషం వరకు)</p>`;
  let d,page=null;try{page=await readOnPhone(url);
   d=await api("/admin/cc/workspace/import","POST",page?{url,item_type:type,html:page.html,final_url:page.final_url}:{url,item_type:type,phone_error:PHONE_ERR})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`;return}
@@ -261,7 +302,7 @@ async function reels(){const d=await api("/admin/cc/workspace/reels");
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">🎬 Videos (${d.items.length})</h3>${d.items.map(r=>`<div class="item"><div class="grow"><b>${esc(r.title)}</b>
   <div class="mut">${label[r.reel_status]||esc(r.reel_status)} · <span class="badge">${esc(r.status)}</span>${r.price_shown?" · "+esc(r.price_shown):""}${r.ai?` · AI${r.voice_path&&r.voice_path!=="none"?" · voice "+esc(r.voice_path):" · no voice"}`:""}${r.reason?` · <span class="bad">${esc(r.reason)}</span>`:""}</div>
   ${(r.script||[]).length?`<details><summary class="mut">Script చూడండి</summary><ol class="mut">${r.script.map(l=>`<li>${esc(l)}</li>`).join("")}</ol></details>`:""}
-  <div id="v_${esc(r.video_id)}"></div><div class="row" style="margin-top:6px">${r.reel_status==="READY"?`<button class="s" data-play="${esc(r.video_id)}">▶ Play</button>`:""}
+  <div id="v_${esc(r.video_id)}"></div><div id="sh_${esc(r.video_id)}"></div><div class="row" style="margin-top:6px">${r.reel_status==="READY"?`<button class="s" data-play="${esc(r.video_id)}">▶ Play</button><button class="s" data-share="${esc(r.video_id)}">📤 షేర్ / DM జవాబులు</button>`:""}
   ${d.can_publish&&r.status==="PENDING_REVIEW"?`<button class="p" data-rv="approve" data-id="${esc(r.video_id)}">Approve -- users చూస్తారు</button><button class="s" data-rv="reject" data-id="${esc(r.video_id)}">Reject</button>`:""}</div></div></div>`).join("")
   ||'<p class="mut">ఇంకా వీడియోలు లేవు. Product add చేసేటప్పుడు "🎬 30 సెకన్ల AI వీడియో" tick ఉంచండి, లేదా My items లో 🎬 AI వీడియో నొక్కండి.</p>'}
   ${d.items.some(r=>r.reel_status==="MAKING")?'<button class="s" id="rrefresh">↻ Refresh</button>':""}</div>`;
@@ -271,6 +312,21 @@ async function reels(){const d=await api("/admin/cc/workspace/reels");
    const r=await fetch(`/admin/cc/workspace/reels/${b.dataset.play}/file`,{headers:h});if(!r.ok)throw new Error("Could not load the reel ("+r.status+")");
    const url=URL.createObjectURL(await r.blob());$("#v_"+b.dataset.play).innerHTML=`<video src="${url}" controls playsinline style="width:100%;max-width:320px;border-radius:12px;margin-top:8px"></video>`;b.remove()}
   catch(e){toast(e.message);b.disabled=false;b.textContent="▶ Play"}});
+ M.querySelectorAll("button[data-share]").forEach(b=>b.onclick=async()=>{const box=$("#sh_"+b.dataset.share);
+  if(box.innerHTML){box.innerHTML="";return}box.innerHTML='<p class="mut">లోడ్ అవుతోంది…</p>';
+  try{const d=await api(`/admin/cc/workspace/reels/${b.dataset.share}/share`);const t=d.texts;let n=0;const blocks=[];
+   const block=(label,text,rows)=>{const id="cp"+(n++);blocks.push(id);return `<label>${label}</label><textarea id="${id}" rows="${rows||5}" readonly>${esc(text)}</textarea><button class="s" data-copy="${id}">📋 కాపీ</button>`};
+   const ck=d.clicks||{},cnt=s=>`${(ck[s]||{}).view||0} చూశారు / ${(ck[s]||{}).buy||0} కొనడానికి వెళ్లారు`;
+   box.innerHTML=`<div class="card" style="margin-top:8px">
+    ${d.public_video?`<a class="s btn" href="${esc(d.public_video)}" download target="_blank" rel="noopener">⬇️ వీడియో డౌన్‌లోడ్</a>`:'<p class="mut">⬇️ Approve చేశాక వీడియో డౌన్‌లోడ్ వస్తుంది.</p>'}
+    ${block("ASKODOX లింక్ (పోస్ట్‌లో ఇదే పెట్టండి)",t.link,1)}
+    <h4>Facebook</h4>${block("పోస్ట్ టెక్స్ట్",t.facebook.text,8)}<a class="s btn" href="https://www.facebook.com/" target="_blank" rel="noopener">Facebook తెరువు</a><div class="mut">${cnt("fb")}</div>
+    <h4>Instagram</h4>${block("క్యాప్షన్ (Instagram లో లింక్ నొక్కలేరు -- బయోలో "+esc(t.shop)+" పెట్టండి)",t.instagram.text,8)}<a class="s btn" href="https://www.instagram.com/" target="_blank" rel="noopener">Instagram తెరువు</a><div class="mut">${cnt("ig")}</div>
+    <h4>YouTube Shorts</h4>${block("టైటిల్",t.youtube.title,2)}${block("వివరణ (Shorts లో లింక్ నొక్కలేరు -- ఛానెల్ ప్రొఫైల్‌లో "+esc(t.shop)+")",t.youtube.text,8)}<a class="s btn" href="https://studio.youtube.com/" target="_blank" rel="noopener">YouTube Studio తెరువు</a><div class="mut">${cnt("yt")}</div>
+    <h4>DM లో అడిగితే -- రెడీ జవాబులు</h4>${(d.faq||[]).map(f=>block(esc(f.q),f.a,3)).join("")||'<p class="mut">జవాబులు ఇంకా లేవు.</p>'}</div>`;
+   box.querySelectorAll("button[data-copy]").forEach(c=>c.onclick=async()=>{const el=$("#"+c.dataset.copy);
+    try{await navigator.clipboard.writeText(el.value)}catch(e){el.removeAttribute("readonly");el.select();document.execCommand("copy");el.setAttribute("readonly","")}
+    toast("కాపీ అయింది ✓")})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`}});
  M.querySelectorAll("button[data-rv]").forEach(b=>b.onclick=async()=>{try{const r=await api(`/admin/cc/workspace/reels/${b.dataset.id}/review`,"POST",{action:b.dataset.rv});
   toast(r.status==="ACTIVE"?"Approved -- users ఇప్పుడు చూస్తారు":"Rejected");reels()}catch(e){toast(e.message)}})}
 async function review(){const d=await api("/admin/cc/workspace/items?status=NEEDS_REVIEW");

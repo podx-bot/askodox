@@ -7,6 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR (2026-11-20, owner "Go"): AFFILIATE IN 4 STEPS -- Staff Workspace "🔗 Affiliate product" form (`affForm`): link is
+  NEVER opened, store chosen from the link host, photos -> `POST /admin/cc/workspace/fill-from-photos`
+  (`affiliate_publish.read_product_photos`, never a price) -> staff price -> Publish + AI video (`store` passed). The AI
+  video also writes DM answers (`affiliate_publish.write_faq`, stored in `reel.faq` with `reel.reviews` / `reel.store`).
+  Videos tab "📤 షేర్": `GET .../reels/{id}/share` = Facebook / Instagram / YouTube texts (+#Affiliate; Instagram + Shorts
+  point to askodox.com/shop because their caption links are not clickable), DM answers, download (ACTIVE only), clicks.
+  Public pages `routes/product_pages.py` (+ `services/product_pages.py`): `/p/{id}` (LIVE only, video / rating / points /
+  FAQ, "Affiliate" label), `/p/{id}/buy?from=fb|ig|yt|wa|app|web` (counted in `product_page_clicks`, 302 to the commission
+  link), `/shop`; proxied on askodox.com (`website/server/Caddyfile` `@askodox_picks`). Old "fetch the store page" form is
+  under "పాత పద్ధతి". Log lines now print: `ASKODOX WORKSPACE PHONE_READ`, `ASKODOX WORKSPACE PHOTO_FILL`, `ASKODOX AI VIDEO`
+  (app loggers at INFO never reached Railway). Nothing phone verified.
 - `main` PR #371 (2026-11-20, owner "change the staff product way + videos, quick"; Play bundle `askodox-play-1581.aab`, Live Build run 44730164475; server deploy SUCCESS): Staff Workspace AI PRODUCT VIDEO --
   `product_video.py` (script from the item record + read reviews only via `write_text`; `clean_script` drops
   first-person use claims / review scenes without reviews; children never speak; ElevenLabs -> Sarvam -> captions only;

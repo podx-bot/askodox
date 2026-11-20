@@ -8660,6 +8660,62 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "affiliate_four_steps",
+      "name": "Affiliate product in 4 steps + share captions + ASKODOX product pages",
+      "roles": [
+        "staff",
+        "customer"
+      ],
+      "domains": [
+        "affiliate",
+        "videos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/fill-from-photos"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/reels/{video_id}/share"
+        },
+        {
+          "method": "GET",
+          "path": "/p/{item_id}"
+        },
+        {
+          "method": "GET",
+          "path": "/p/{item_id}/buy"
+        },
+        {
+          "method": "GET",
+          "path": "/shop"
+        }
+      ],
+      "ui": {
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_product_video.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "ai_product_video"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-20: link (never opened) + photos + price; video, DM answers and Facebook / Instagram / YouTube texts make themselves; links open ASKODOX first.",
+      "expected_behavior": "Photo fill never gives a price; captions carry #Affiliate; Instagram / YouTube point to askodox.com/shop; /p counts views and buys per platform and redirects to the commission link; only LIVE items are public.",
+      "history": [
+        {
+          "date": "2026-11-20",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

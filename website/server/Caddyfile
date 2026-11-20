@@ -45,6 +45,17 @@
 		}
 	}
 
+	# ASKODOX product pages (owner 2026-11-20): Facebook / Instagram / YouTube links open ASKODOX first
+	# (/p/<id>, counted /p/<id>/buy -> the store) and /shop is the one profile link. Same backend.
+	@askodox_picks path /p/* /shop
+	handle @askodox_picks {
+		header Content-Security-Policy "default-src 'self'; img-src 'self' https: data:; media-src 'self' https:; style-src 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+		header -Cache-Control
+		reverse_proxy {$ASKODOX_BACKEND_URL:https://podx-ai-connect-production-3279.up.railway.app} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
 	@hashed path /static/css/* /static/js/*
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
 	@assets path /static/fonts/* /static/img/* /favicon.svg /favicon-32.png /apple-touch-icon.png /icon-*.png
