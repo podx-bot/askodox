@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` PR (2026-11-20, owner "change the staff product way + videos, quick"): Staff Workspace AI PRODUCT VIDEO --
+- `main` PR #371 (2026-11-20, owner "change the staff product way + videos, quick"; Play bundle `askodox-play-1581.aab`, Live Build run 44730164475; server deploy SUCCESS): Staff Workspace AI PRODUCT VIDEO --
   `product_video.py` (script from the item record + read reviews only via `write_text`; `clean_script` drops
   first-person use claims / review scenes without reviews; children never speak; ElevenLabs -> Sarvam -> captions only;
   presenter circle "AI ప్రజెంటర్" from `assets/presenters` (11 owner-made models) or the product talking; rating card +
