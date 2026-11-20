@@ -229,8 +229,14 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
           : ListView(key: const Key('askodoxMyPhonePayments'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 28), children: [
               _quickCard(mine, te),
               if (mine.enabled) _setupCard(mine, te),
-              _historyCard(mine, te),
+              // Owner 2026-11-19: four tiles, one thing each -- a tap shows just that part (tap again to close).
+              _tiles(te),
+              if (_section == 'apps') ...[_foundCard(mine, te), _appsCard(mine, te)],
+              if (_section == 'accounts') _accountsCard(mine, te),
+              if (_section == 'voice') _stateCard(mine, te),
+              if (_section == 'history' || _section.isEmpty) _historyCard(mine, te),
               // Everything else is tucked away: the page stays short once setup is done (owner 2026-11-16).
+              if (_section.isEmpty)
               Theme(
                 data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
@@ -453,6 +459,55 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
   }
 
   bool _showDone = false;
+
+  /// Which tile is open ('' = none: the history and the folded "More settings" show as before).
+  String _section = '';
+
+  Widget _tiles(bool te) {
+    Widget tile(String id, IconData icon, String en, String tel, String subEn, String subTe) {
+      final on = _section == id;
+      return Expanded(
+        child: Material(
+          color: on ? const Color(0xFFE9EEFF) : Colors.white,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: on ? const Color(0xFF2B4BC0) : const Color(0xFFE3E6EE))),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: Key('askodoxMineTile-$id'),
+            onTap: () => setState(() => _section = on ? '' : id),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(icon, size: 22, color: const Color(0xFF141B4D)),
+                const SizedBox(height: 4),
+                Text(te ? tel : en, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(te ? subTe : subEn,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(children: [
+        Row(children: [
+          tile('history', Icons.history, 'History', 'హిస్టరీ', 'Payments received', 'వచ్చిన పేమెంట్లు'),
+          const SizedBox(width: 10),
+          tile('apps', Icons.apps, 'Apps', 'యాప్‌లు', 'Which apps are read', 'ఏ యాప్‌లు చదవాలి'),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          tile('accounts', Icons.account_balance_outlined, 'Accounts', 'ఖాతాలు', 'Bank accounts, names', 'బ్యాంక్ ఖాతాలు, పేర్లు'),
+          const SizedBox(width: 10),
+          tile('voice', Icons.record_voice_over_outlined, 'Language, voice', 'భాష, వాయిస్', 'What is spoken', 'ఏం చెప్పాలి'),
+        ]),
+      ]),
+    );
+  }
 
   /// One checklist for every phone: each row opens the exact Android page and turns ✓ by itself when the phone can
   /// check it (the rest are ticked by the person after doing them).
