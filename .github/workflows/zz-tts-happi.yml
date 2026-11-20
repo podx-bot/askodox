@@ -1,0 +1,25 @@
+name: tts happi
+on:
+  push:
+    branches: [diag/tts-happi]
+permissions:
+  contents: write
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -e
+          pip install -q edge-tts
+          mkdir -p out
+          for v in te-IN-ShrutiNeural te-IN-MohanNeural; do
+            n=0
+            while IFS= read -r line; do
+              n=$((n+1))
+              edge-tts --voice "$v" --rate=+8% --text "$line" --write-media "out/${v}_$n.mp3"
+            done < tts/lines.txt
+          done
+          ls -la out
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git add out; git commit -m "tts output"; git push
