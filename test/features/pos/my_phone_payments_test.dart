@@ -142,7 +142,7 @@ void main() {
     final call = calls.lastWhere((c) => c.method == 'correctEvent');
     expect((call.arguments as Map)['localId'], 'b2');
     expect((call.arguments as Map)['choice'], 'in');
-    expect(events.last['direction'], 'in');
+    expect(events.firstWhere((e) => e['local_id'] == 'b2')['direction'], 'in');
   });
 
   testWidgets('apps can be removed and added; accounts can be named and deleted; debits switch is saved', (tester) async {
