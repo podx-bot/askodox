@@ -416,3 +416,11 @@ def test_old_store_block_page_items_are_hidden(api):
         conn.execute("UPDATE affiliate_products SET title='Access Denied' WHERE id=?", (item["id"],))
     assert container.affiliate_catalog.find_by_link(MEESHO_URL) == []
     assert _catalog_rows(_discover(client, raw=MEESHO_URL, subject=MEESHO_URL)) == []
+def test_words_written_in_the_description_find_the_item(api):
+    """Owner 2026-11-21: colour / material / features / sizes written by staff (or filled from photos) are searchable."""
+    client, container, owner, _ = api
+    item = _add(client, owner, title="Women Short Sleeve Blouse", category="saree blouse",
+                description="Purple cotton blouse with round neck. Sizes: S, M, L.").json()["item"]
+    found = container.affiliate_catalog.search("purple cotton blouse")
+    assert [i["id"] for i in found] == [item["id"]]
+    assert container.affiliate_catalog.search("steel water kettle") == []

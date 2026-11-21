@@ -16,7 +16,9 @@ this file, don't trust it blindly.
   Follow-up PR: routing = `affiliate` whenever an `affiliate_url` exists and commission is not INACTIVE (UNKNOWN used to
   open the plain store link); `is_block_page_title` rows are ineligible (old "Access Denied" items); compare with one card
   on screen returns null in `askodoxAnswerFollowUp` -> normal search; deploy log `ASKODOX LINK MATCH`. Normal name searches
-  stay as they are (owner: ours appears among the regular results). Nothing phone verified. NEXT (owner order): Studio rest (purchase / return dates / reminders / shoot / auto edit / checklist /
+  stay as they are (owner: ours appears among the regular results).
+  Staff "For your reference" form: AI video tick OFF by default (owner: video not needed now), Category / Brand / Sizes
+  (-> `variants`) boxes filled from photos; catalog search also matches `description`. Nothing phone verified. NEXT (owner order): Studio rest (purchase / return dates / reminders / shoot / auto edit / checklist /
   share / accounts / unlock), payment fix (PhonePe app row vs bank SMS: SMS wins, ❓ + 60 s wait, "wrong" button, raw
   message kept), product documents (PDF / images) + AI answers + consented callback to an executive.
 - `main` PR #373 (2026-11-20, owner "Go"; Play bundle `askodox-play-1582.aab`, Live Build run 44748094784; server + website deploy SUCCESS, askodox.com/shop probe 200): AFFILIATE IN 4 STEPS -- Staff Workspace "🔗 Affiliate product" form (`affForm`): link is

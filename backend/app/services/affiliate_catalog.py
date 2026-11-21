@@ -907,9 +907,10 @@ class AffiliateCatalog:
                " AND item_type IN (" + ",".join("'" + t + "'" for t in RESULT_ITEM_TYPES) + ")")
         if policy()["hide_out_of_stock"]:
             sql += " AND stock_status!='OUT_OF_STOCK'"
-        sql += " AND (" + " OR ".join(["LOWER(title) LIKE ? OR LOWER(subcategory) LIKE ? OR LOWER(category) LIKE ?"]
-                                       * len(tokens)) + ")"
-        args = [f"%{t}%" for t in tokens for _ in range(3)]
+        # Description too (owner 2026-11-21): colour / material / features / sizes written there must find the item.
+        sql += " AND (" + " OR ".join(["LOWER(title) LIKE ? OR LOWER(subcategory) LIKE ? OR LOWER(category) LIKE ?"
+                                        " OR LOWER(description) LIKE ?"] * len(tokens)) + ")"
+        args = [f"%{t}%" for t in tokens for _ in range(4)]
         with self._connect() as conn:
             rows = [dict(r) for r in conn.execute(sql + " ORDER BY id DESC LIMIT 200", args).fetchall()]
         out = []
