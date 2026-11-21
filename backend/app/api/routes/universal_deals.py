@@ -1598,6 +1598,14 @@ def _marketplace_and_catalog(container, demand: dict, discovery, matches: list[d
     subject = str(demand.get("subject") or "").strip()
     info: dict[str, Any] = {"catalog": 0, "searched": [], "found": {}, "status": None}
     domain = str(demand.get("domain") or "").lower()
+    # A pasted store / Wishlink link (owner 2026-11-21): the staff-added product with that link comes FIRST and alone.
+    pasted = " ".join(str(x or "") for x in (demand.get("said"), demand.get("raw_text"), subject))
+    if "http" in pasted.lower() or "www." in pasted.lower():
+        linked = catalog(container).find_by_link(pasted, sources=catalog_sources(container))
+        if linked:
+            rows = [ac.result_row(item) for item in linked]
+            info.update({"catalog": len(rows), "status": "link_match"})
+            return [r for r in rows if not r["sponsored"]], [r for r in rows if r["sponsored"]], info
     # Fresh food / meals / property are never marketplace-catalog needs
     # ("1 kg chicken curry cut"); "egg boiler" or "fish tank" still are.
     words = set(re.findall(r"[a-z]+", subject.lower()))

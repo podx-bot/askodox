@@ -923,6 +923,58 @@ class AffiliateCatalog:
                 break
         return out
 
+    def find_by_link(self, text: str, *, sources: dict | None = None, limit: int = 3) -> list[dict[str, Any]]:
+        """LIVE catalog items whose store link or commission link is one of the links pasted in ``text``.
+
+        Owner 2026-11-21 (Studio step 1): staff / customers paste a Meesho / Wishlink link into the ASKODOX search and
+        the product's result card comes first. Match = the store's own product id / canonical key, or the stored
+        commission link's host + path (query and tracking ignored). Same eligibility as ``search`` (stock rules)."""
+        out: list[dict[str, Any]] = []
+        seen: set[int] = set()
+        for url in links_in(text):
+            key = canonical_key(url)
+            parsed = urlparse(url)
+            host = (parsed.hostname or "").lower()
+            host = host[4:] if host.startswith("www.") else host
+            path = re.sub(r"/+$", "", parsed.path or "")
+            args: list[Any] = [key]
+            sql = ("SELECT * FROM affiliate_products WHERE deleted_at IS NULL AND active=1 AND review_status='LIVE'"
+                   " AND item_type IN (" + ",".join("'" + t + "'" for t in RESULT_ITEM_TYPES) + ")"
+                   " AND (canonical_key=?")
+            if host and len(path) > 1:
+                sql += " OR LOWER(affiliate_url) LIKE ?"
+                args.append(f"%{host}{path.lower()}%")
+            sql += ") ORDER BY id DESC LIMIT 5"
+            with self._connect() as conn:
+                rows = [dict(r) for r in conn.execute(sql, args).fetchall()]
+            for row in rows:
+                if row["id"] in seen:
+                    continue
+                if policy()["hide_out_of_stock"] and row.get("stock_status") == "OUT_OF_STOCK":
+                    continue
+                item = _public(row, sources)
+                if item["eligibility"]["eligible"]:
+                    seen.add(row["id"])
+                    out.append(item)
+                if len(out) >= limit:
+                    return out
+        return out
+
+
+_LINK_RE = re.compile(r"(?:https?://|www\.)[^\s<>\"']+", re.IGNORECASE)
+
+
+def links_in(text: Any) -> list[str]:
+    """Web links inside a message (trailing punctuation dropped), in order, no repeats."""
+    found: list[str] = []
+    for raw in _LINK_RE.findall(str(text or "")):
+        url = raw.rstrip(".,;:!?)]}")
+        url = url if url.lower().startswith("http") else "https://" + url
+        if url not in found:
+            found.append(url)
+    return found[:3]
+
+
 
 CONTENT_ITEM_TYPES = ("news", "content", "video")
 

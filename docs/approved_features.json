@@ -8716,6 +8716,51 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "studio_step1_pasted_link_card",
+      "name": "Pasted store / Wishlink link in the search shows the staff-added product card first; Shopping switch renamed ASKODOX Club",
+      "roles": [
+        "customer",
+        "staff"
+      ],
+      "domains": [
+        "affiliate",
+        "search"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/deals/discover"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxNavShoppingState",
+          "askodoxShoppingModeBanner"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_affiliate_catalog.py"
+        ],
+        "flutter": [
+          "test/features/home/shopping_mode_test.dart"
+        ]
+      },
+      "dependencies": [
+        "affiliate_four_steps"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-21 (Studio step 1): paste a Meesho / Wishlink link into the ASKODOX search and the LIVE product with that link appears as the first result card; tapping it opens the product. The bottom-bar Shopping switch is now called ASKODOX Club; the staff form label 'Affiliate product' is now 'For your reference'.",
+      "expected_behavior": "find_by_link matches the store product id / canonical key or the stored commission link (host + path, tracking ignored); out-of-stock items stay hidden; keys and routes unchanged, only visible names changed.",
+      "history": [
+        {
+          "date": "2026-11-21",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

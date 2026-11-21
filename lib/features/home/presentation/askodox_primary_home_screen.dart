@@ -4315,7 +4315,7 @@ class _AskodoxPrimaryHomeScreenState
   /// ("షాపింగ్ మోడ్ ఆన్ / ఆఫ్") that blinks for ~2 s and is never saved in the chat history.
   void _onShoppingMode(bool on, bool te) {
     askodoxShoppingMode = on;
-    final text = on ? (te ? 'షాపింగ్ మోడ్ ఆన్' : 'Shopping mode on') : (te ? 'షాపింగ్ మోడ్ ఆఫ్' : 'Shopping mode off');
+    final text = on ? (te ? 'క్లబ్ ఆన్' : 'Club on') : (te ? 'క్లబ్ ఆఫ్' : 'Club off');
     _modeBannerTimer?.cancel();
     setState(() => _modeBanner = text);
     _modeBannerTimer = Timer(const Duration(seconds: 2), () {
