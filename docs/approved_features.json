@@ -8765,6 +8765,50 @@
           "change": "commission link used unless commission INACTIVE; old store error-page items hidden; one card + 'compare' -> search similar; log line ASKODOX LINK MATCH"
         }
       ]
+    },
+    {
+      "id": "collection_video",
+      "name": "Collection video: 2-5 LIVE items in one reel (ASKODOX brand on top, theme, photos + name + price, voice) + WhatsApp status text",
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "affiliate",
+        "videos"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/collections/ai-video"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/reels/{video_id}/share"
+        }
+      ],
+      "ui": {
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_collection_video.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "ai_product_video",
+        "affiliate_four_steps"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-21 (Meesho Magic Club style): staff tick 2-5 LIVE products of any store, a theme title and a voice; the reel makes itself and waits for Approve; Facebook / Instagram / YouTube / WhatsApp status texts are ready to copy.",
+      "expected_behavior": "Picture text is Latin only (theme / names / ₹), Telugu only in the voice; script = name + price only; Meesho items: @meeshoapp in captions and no buy link in the WhatsApp text (staff paste the Share & Earn link); shares the AI video daily cap.",
+      "history": [
+        {
+          "date": "2026-11-21",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

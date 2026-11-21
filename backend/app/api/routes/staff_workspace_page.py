@@ -329,6 +329,7 @@ async function reels(){const d=await api("/admin/cc/workspace/reels");
     <h4>Facebook</h4>${block("పోస్ట్ టెక్స్ట్",t.facebook.text,8)}<a class="s btn" href="https://www.facebook.com/" target="_blank" rel="noopener">Facebook తెరువు</a><div class="mut">${cnt("fb")}</div>
     <h4>Instagram</h4>${block("క్యాప్షన్ (Instagram లో లింక్ నొక్కలేరు -- బయోలో "+esc(t.shop)+" పెట్టండి)",t.instagram.text,8)}<a class="s btn" href="https://www.instagram.com/" target="_blank" rel="noopener">Instagram తెరువు</a><div class="mut">${cnt("ig")}</div>
     <h4>YouTube Shorts</h4>${block("టైటిల్",t.youtube.title,2)}${block("వివరణ (Shorts లో లింక్ నొక్కలేరు -- ఛానెల్ ప్రొఫైల్‌లో "+esc(t.shop)+")",t.youtube.text,8)}<a class="s btn" href="https://studio.youtube.com/" target="_blank" rel="noopener">YouTube Studio తెరువు</a><div class="mut">${cnt("yt")}</div>
+    ${t.whatsapp?`<h4>WhatsApp status</h4>${block("Status టెక్స్ట్ (Meesho కి Share & Earn లింక్ మాత్రమే -- మీరే పెట్టాలి)",t.whatsapp.text,7)}<a class="s btn" href="https://wa.me/" target="_blank" rel="noopener">WhatsApp తెరువు</a>`:""}
     <h4>DM లో అడిగితే -- రెడీ జవాబులు</h4>${(d.faq||[]).map(f=>block(esc(f.q),f.a,3)).join("")||'<p class="mut">జవాబులు ఇంకా లేవు.</p>'}</div>`;
    box.querySelectorAll("button[data-copy]").forEach(c=>c.onclick=async()=>{const el=$("#"+c.dataset.copy);
     try{await navigator.clipboard.writeText(el.value)}catch(e){el.removeAttribute("readonly");el.select();document.execCommand("copy");el.setAttribute("readonly","")}
@@ -340,7 +341,22 @@ async function review(){const d=await api("/admin/cc/workspace/items?status=NEED
 async function items(){const d=await api("/admin/cc/workspace/items?mine=true");ITEMS={};d.items.forEach(i=>ITEMS[i.id]=i);
  const acts=i=>({DRAFT:[["submit",ME.can_publish?"Publish":"Submit"]],LIVE:[["pause","Pause"],["expire","Expire"]],PAUSED:ME.can_publish?[["resume","Resume"]]:[]}[i.review_status]||[]);
  const edit=i=>`<button class="s" data-edit="${i.id}">✏️ Edit</button><button class="s" data-edit="${i.id}" data-vid="1">🎥 Video</button><button class="s" data-aivid="${i.id}">🎬 AI వీడియో</button>`;
- M.innerHTML=`<div class="card"><h3 style="margin-top:0">My items</h3>${d.items.map(i=>itemRow(i,acts(i),edit(i))).join("")||'<p class="mut">Nothing yet -- add a link.</p>'}</div>`;bindReview();bindEdit();
+ const live=d.items.filter(i=>i.review_status==="LIVE");
+ M.innerHTML=`${live.length>=2?`<div class="card"><h3 style="margin-top:0">🎞️ Collection వీడియో (2-5 ప్రోడక్ట్‌లు ఒకే వీడియోలో)</h3>
+  <div class="mut">పైన ASKODOX, మీ టైటిల్, ప్రతి ప్రోడక్ట్ ఫోటోలు + పేరు + ధర, వాయిస్. ఏ store అయినా (Meesho, Wishlink, Amazon…) కలపవచ్చు.</div>
+  ${live.map(i=>`<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" class="cv_pick" value="${i.id}" style="width:auto;margin:0"> ${esc((i.title||"").slice(0,60))}${i.price?` · ₹${esc(String(i.price))}`:' · <span class="bad">ధర లేదు</span>'}</label>`).join("")}
+  <label>Title (English, వీడియో పైన వస్తుంది)</label><input id="cv_theme" placeholder="TOP WINTER FINDS">
+  <div class="row">${["TOP FINDS","TOP WINTER FINDS","UNDER ₹299","FESTIVE FINDS","NEW ARRIVALS"].map(t=>`<button class="s" data-theme="${esc(t)}">${esc(t)}</button>`).join("")}</div>
+  <div class="row"><div><label>వాయిస్ భాష</label><select id="cv_lang"><option value="te">తెలుగు</option><option value="hi">हिंदी</option><option value="en">English</option></select></div>
+  <div><label>వాయిస్</label><select id="cv_gender"><option value="female">ఆడ</option><option value="male">మగ</option><option value="none">వాయిస్ వద్దు</option></select></div></div>
+  <div id="cv_err" class="bad"></div><button class="p" id="cv_make">🎞️ వీడియో తయారు చేయి</button></div>`:""}
+ <div class="card"><h3 style="margin-top:0">My items</h3>${d.items.map(i=>itemRow(i,acts(i),edit(i))).join("")||'<p class="mut">Nothing yet -- add a link.</p>'}</div>`;bindReview();bindEdit();
+ M.querySelectorAll("button[data-theme]").forEach(b=>b.onclick=()=>{$("#cv_theme").value=b.dataset.theme});
+ if($("#cv_make"))$("#cv_make").onclick=async()=>{const ids=[...M.querySelectorAll(".cv_pick:checked")].map(x=>+x.value);const err=$("#cv_err");
+  if(ids.length<2||ids.length>5){err.textContent="⚠️ 2 నుంచి 5 ప్రోడక్ట్‌లు టిక్ చేయండి";return}err.textContent="";const g=$("#cv_gender").value;
+  $("#cv_make").disabled=true;try{await api("/admin/cc/workspace/collections/ai-video","POST",{item_ids:ids,theme:$("#cv_theme").value.trim(),
+   language:$("#cv_lang").value,voice:g!=="none",gender:g==="none"?"female":g});toast("🎞️ తయారవుతోంది -- Videos లో చూడండి");TAB="reels";start()}
+  catch(e){err.textContent="⚠️ "+e.message;$("#cv_make").disabled=false}};
  M.querySelectorAll("button[data-aivid]").forEach(b=>b.onclick=async()=>{b.disabled=true;if(await startAiVideo(b.dataset.aivid,{})){TAB="reels";start()}else b.disabled=false})}
 // Owner 2026-11-06: edit a saved item (inline -- Android WebView has no prompt()) and add a video later.
 let ITEMS={};
