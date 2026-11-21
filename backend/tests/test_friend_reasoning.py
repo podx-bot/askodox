@@ -109,3 +109,46 @@ def test_the_buy_sell_switch_tells_the_brain_which_side_the_person_is_on():
     for rule in (buyer, seller):
         assert "never claim the mode was switched" in rule
     assert "never as something to buy" in seller
+
+
+def test_a_one_tap_switch_is_offered_only_to_the_other_side():
+    offer = svc.switch_mode_offer
+    assert offer("seller", ["buyer_mode"]) == "seller"
+    assert offer(" Seller ", ["buyer_mode"]) == "seller"
+    assert offer("buyer", ["seller_mode", "shopping_tools"]) == "buyer"
+    assert offer("seller", ["seller_mode"]) is None, "already on that side"
+    assert offer("buyer", ["buyer_mode"]) is None
+    assert offer("seller", []) is None, "older builds have no switch"
+    assert offer("anything", ["buyer_mode"]) is None and offer(None, ["buyer_mode"]) is None
+    assert 'switch_mode = "seller"' in svc._MODE_RULES[svc.BUYER_MODE_CAPABILITY]
+    assert 'switch_mode = "buyer"' in svc._MODE_RULES[svc.SELLER_MODE_CAPABILITY]
+
+
+def test_switch_offer_reaches_the_app_and_is_declared_on_the_response_model():
+    from app.api.routes.in_app_assistant import AssistantDecision
+
+    assert "switch_mode" in AssistantDecision.model_fields, "an undeclared field is dropped from every response"
+
+    class _Switching(_Models):
+        def generate_content(self, *, model, contents, config):
+            self.prompts.append(contents)
+            return SimpleNamespace(text=json.dumps({
+                "reply": "Shop tools open in Seller mode.", "domain": "GENERAL", "transactional": False,
+                "action": "answer", "confidence": 0.9, "entities": {}, "switch_mode": "seller",
+                "state": {"goal": "", "facts": {}, "flexible": [], "unknown_critical": []},
+                "search_ready": False, "search_subject": "", "next_question": None}))
+
+    def decide(capabilities):
+        brain = svc.UniversalAIAssistantService(None, api_key="g", model="m", client=SimpleNamespace(models=_Switching()))
+        return brain.decide("నా షాప్ లో బిల్ వేయి", history=[], capabilities=capabilities) or {}
+
+    assert decide(["buyer_mode"]).get("switch_mode") == "seller"
+    assert "switch_mode" not in decide(["seller_mode"]), "never an offer to the side the app is already on"
+    assert "switch_mode" not in decide([])
+
+
+def test_results_stay_in_the_result_cards():
+    brain, models = _brain()
+    brain.decide("కాటన్ చీర 800 లోపు కావాలి", history=[])
+    assert svc.RESULT_CARD_RULES in models.prompts[0]
+    assert "never a list of shop names, items or prices in the reply text" in svc.RESULT_CARD_RULES

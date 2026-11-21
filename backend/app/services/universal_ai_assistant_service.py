@@ -234,16 +234,37 @@ _MODE_RULES = {
         "App mode = BUYER (the person's own switch): read an unclear message that names an item with a quantity or "
         "a price as something they want to buy or find. When they plainly ask for their own shop's work (a bill, "
         "items, staff, orders to handle), answer briefly and add one short line that the shop tools open in Seller "
-        "mode; never claim the mode was switched. "
+        'mode, and also return switch_mode = "seller" (the app then shows a one-tap switch button); never claim the '
+        "mode was switched. "
     ),
     SELLER_MODE_CAPABILITY: (
         "App mode = SELLER (the person's own switch: they are running their own shop / selling right now): read an "
         "unclear message that names an item with a quantity or a price as work for THEIR shop (a bill, an item, "
         "stock, an order to handle), never as something to buy, and offer the matching shop tool. When they plainly "
-        "want to buy something for themselves, help, and add one short line that buying is easier in Buyer mode; "
-        "never claim the mode was switched. "
+        "want to buy something for themselves, help, and add one short line that buying is easier in Buyer mode, "
+        'and also return switch_mode = "buyer" (the app then shows a one-tap switch button); never claim the mode '
+        "was switched. "
     ),
 }
+
+
+def switch_mode_offer(value: Any, capabilities: Any) -> str | None:
+    """The side the brain may offer a one-tap switch TO: only the other side of the one the app is on."""
+    wanted = str(value or "").strip().lower()
+    caps = capabilities or ()
+    if wanted == "seller" and BUYER_MODE_CAPABILITY in caps and SELLER_MODE_CAPABILITY not in caps:
+        return "seller"
+    if wanted == "buyer" and SELLER_MODE_CAPABILITY in caps:
+        return "buyer"
+    return None
+
+
+# Owner 2026-11-21: the chat is for the talk (questions, reasons); shops, items and prices live in the result cards.
+RESULT_CARD_RULES = (
+    "Results live in the result cards: when this turn leads to results (search_ready true), the reply carries the "
+    "reasoning or the one question only -- never a list of shop names, items or prices in the reply text; say at "
+    "most that the matching options are in the cards. "
+)
 
 
 def app_mode_rules(capabilities: Any) -> str:
@@ -1366,6 +1387,7 @@ class UniversalAIAssistantService:
             + CONVERSATION_STATE_RULES
             + DECISION_GUIDANCE_RULES
             + FRIEND_REASONING_RULES
+            + RESULT_CARD_RULES
             + app_mode_rules(capabilities)
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
@@ -1648,6 +1670,7 @@ class UniversalAIAssistantService:
                 "advice": advice_review,
                 "advice_ledger": advice_ledger,
                 **({"app_action": app_action} if app_action else {}),
+                **({"switch_mode": switch_mode} if (switch_mode := switch_mode_offer(data.get("switch_mode"), capabilities)) else {}),
                 **({"grounding": grounding} if grounding is not None else {}),
                 **({"honesty": honesty} if honesty else {}),
                 **({"suggestions": suggestions} if suggestions else {}),

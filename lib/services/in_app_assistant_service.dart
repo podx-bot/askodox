@@ -109,6 +109,7 @@ class InAppAssistantDecision {
     this.groundingMode,
     this.honesty = const <String>[],
     this.appAction,
+    this.switchMode,
     this.shopMenu,
     this.suggestions = const <String>[],
   });
@@ -126,6 +127,9 @@ class InAppAssistantDecision {
   /// asked to open or use, shown as a button under the reply (never opened
   /// automatically). Null when the turn has none or the backend is older.
   final AskodoxAppAction? appAction;
+
+  /// Buy / sell switch: 'seller' or 'buyer' when the reply offers a one-tap switch to that side; null otherwise.
+  final String? switchMode;
 
   /// Live web check for this reply (backend live_lookup.py): true = answered
   /// from live sources, false = a live check was needed but failed, null =
@@ -268,6 +272,7 @@ class InAppAssistantDecision {
       groundingMode: json['grounding'] is Map ? (json['grounding'] as Map)['mode']?.toString() : null,
       honesty: names(json['honesty']),
       appAction: AskodoxAppAction.fromJson(json['app_action']),
+      switchMode: switch (json['switch_mode']) { 'seller' => 'seller', 'buyer' => 'buyer', _ => null },
       shopMenu: json['shop_menu'] is Map ? Map<String, Object?>.unmodifiable(Map<String, Object?>.from(json['shop_menu'] as Map)) : null,
       suggestions: names(json['suggestions']).take(5).toList(growable: false),
     );

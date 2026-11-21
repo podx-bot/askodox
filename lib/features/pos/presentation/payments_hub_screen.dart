@@ -14,7 +14,10 @@ import 'pos_common.dart';
 /// (`pos_payment_alerts.py`); phone notifications are never bank-verified, so the totals say
 /// so. ASKODOX never holds the money.
 class AskodoxPaymentsHubScreen extends ConsumerStatefulWidget {
-  const AskodoxPaymentsHubScreen({super.key, this.now});
+  const AskodoxPaymentsHubScreen({super.key, this.now, this.mineOnly = false});
+
+  /// Buyer side of the app (owner 2026-11-21): only the person's OWN money -- no shop histories, no shop doors.
+  final bool mineOnly;
 
   /// Fixed clock for tests.
   final DateTime? now;
@@ -106,6 +109,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
       if (source != 'me' && !shops.any((s) => '${s['id']}' == source)) {
         source = shops.where((s) => '${s['role']}' == 'owner').map((s) => '${s['id']}').firstOrNull ?? 'me';
       }
+      if (widget.mineOnly) source = 'me';
       final events = await _eventsFor(repo, source);
       if (!mounted) return;
       setState(() {
@@ -195,10 +199,14 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
                     Text(te ? 'మనీ' : 'Money',
                         style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: _ink)),
                     const SizedBox(height: 2),
-                    Text(te ? 'డబ్బు నేరుగా మీ ఖాతాకే వస్తుంది' : 'Money comes straight to your account',
+                    Text(
+                        widget.mineOnly
+                            ? (te ? 'మీ సొంత చెల్లింపులు మాత్రమే. షాప్ లెక్కలు సెల్లర్ మోడ్‌లో.' : 'Your own money only. Shop accounts are in Seller mode.')
+                            : (te ? 'డబ్బు నేరుగా మీ ఖాతాకే వస్తుంది' : 'Money comes straight to your account'),
+                        key: const Key('askodoxPaymentsHubSubtitle'),
                         style: const TextStyle(fontSize: 13, color: _muted)),
                     const SizedBox(height: 14),
-                    if (shops.isNotEmpty) ...[_sources(te, shops), const SizedBox(height: 12)],
+                    if (shops.isNotEmpty && !widget.mineOnly) ...[_sources(te, shops), const SizedBox(height: 12)],
                     _qrCard(te),
                     const SizedBox(height: 12),
                     if (_mine && _events.isEmpty) ...[_start(te), const SizedBox(height: 12)],
@@ -251,12 +259,14 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
             onPressed: () => context.push('/me/payments/phone'),
             child: Text(te ? 'నా ఫోన్ అలర్ట్స్ ఆన్ చేయండి' : 'Switch my phone alerts on'),
           ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            key: const Key('askodoxPaymentsHubShopButton'),
-            onPressed: () => context.push('/me/payment-alerts'),
-            child: Text(te ? 'షాప్ కోసం అలర్ట్స్' : 'Alerts for my shop'),
-          ),
+          if (!widget.mineOnly) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              key: const Key('askodoxPaymentsHubShopButton'),
+              onPressed: () => context.push('/me/payment-alerts'),
+              child: Text(te ? 'షాప్ కోసం అలర్ట్స్' : 'Alerts for my shop'),
+            ),
+          ],
         ]),
       );
 
