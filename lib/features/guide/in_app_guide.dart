@@ -56,7 +56,10 @@ class AskodoxGuideFlow {
   String title(bool te) => te ? titleTe : titleEn;
 }
 
-const _profile = AskodoxGuideStep('askodoxNavProfile', 'Tap Profile at the bottom.', 'కింద ప్రొఫైల్ నొక్కండి.',
+// Owner 2026-11-21: the bottom bar has no Tools / Profile tab any more (the buy / sell switch sits there); the page
+// opens from the header Menu -> Settings.
+const _profile = AskodoxGuideStep('askodoxHeaderMenu', 'Tap Menu (☰) at the top, then Settings.',
+    'పైన మెనూ (☰) నొక్కి, సెట్టింగ్స్ నొక్కండి.',
     route: '/profile');
 
 const askodoxGuideFlows = <AskodoxGuideFlow>[

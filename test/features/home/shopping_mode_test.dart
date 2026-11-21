@@ -21,4 +21,13 @@ void main() {
     addTearDown(second.dispose);
     expect(second.read(askodoxShoppingModeProvider), isFalse);
   });
+
+  test('the buy / sell switch starts on the Buyer side (owner 2026-11-21)', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    expect(container.read(askodoxSellerModeProvider), isFalse);
+    container.read(askodoxSellerModeProvider.notifier).state = true;
+    expect(container.read(askodoxSellerModeProvider), isTrue);
+    expect(askodoxSellerModePrefsKey, isNotEmpty);
+  });
 }

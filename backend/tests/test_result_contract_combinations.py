@@ -498,3 +498,17 @@ def test_typed_pickup_and_drop_resolve_to_points_with_a_junction(app_env):
     resolved = client.get("/api/discover/resolve", params={"q": "Benz Circle", "junction": True}).json()
     assert resolved["status"] == "ok" and resolved["junction"]["name"] == "Benz Circle Bus Stop"
     assert client.get("/api/discover/resolve", params={"q": "Nowhere Land"}).json()["status"] == "not_found"
+
+
+def test_what_was_asked_for_comes_third_after_local_and_reference_links():
+    """Owner 2026-11-21: ASKODOX / nearby first, "For your reference" second, then what the customer asked for."""
+    plain = ro.build([], demand=dict(DEMAND))["orchestration"]["order"]
+    assert plain[:2] == ["local", "affiliate"]
+    videos = ro.build([], demand={**DEMAND, "constraints": {"requested_groups": ["videos"]}})["orchestration"]["order"]
+    assert videos[:2] == ["local", "affiliate"] and set(videos[2:4]) == {"videos", "shorts"}
+    deals = ro.build([], demand={**DEMAND, "constraints": {"requested_groups": ["deals"]}})["orchestration"]["order"]
+    assert deals[:3] == ["local", "affiliate", "deals"]
+    fixed = ro.build([], demand={**DEMAND, "constraints": {"requested_groups": ["deals"]}},
+                     settings={"section_order": ["online", "local"]})["orchestration"]["order"]
+    assert fixed[:2] == ["online", "local"], "an order staff fixed in the Command Center is never rearranged"
+    assert sorted(videos) == sorted(plain) == sorted(deals)

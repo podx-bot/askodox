@@ -192,6 +192,13 @@ def build(matches: Iterable[Dict[str, Any]], *, demand: Dict[str, Any], source_s
             order.remove(preferred)
             order.insert(order.index(other), preferred)
 
+    # Owner 2026-11-21: nearby / ASKODOX shops first, "For your reference" links second, and what the customer
+    # ASKED for (videos, deals ...) third -- ahead of the other sections (unless staff fixed an order).
+    if requested and not settings.get("section_order"):
+        head = [k for k in order if k in ("local", "affiliate")]
+        asked = [k for k in order if k in requested and k not in head]
+        order = head + asked + [k for k in order if k not in head and k not in asked]
+
     sections, suppressed = [], {}
     for kind in order:
         items = by_section[kind]

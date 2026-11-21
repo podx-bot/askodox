@@ -22,6 +22,14 @@ CASES = [
     ("who_pays", "is it wise to spend 3 lakh on a function only because relatives expect it?"),
     ("turn_around", "should I buy a second-hand bike now or wait 6 months?"),
     ("turn_around", "is it worth leaving my job to run the shop full time?"),
+    # Odd / playful questions (owner's own list) and "the sum behind it".
+    ("odd", "మొదటి భాష తయారు చేసినవాడు వేరేవాళ్ళకి ఏ భాషలో చెప్పాడు?"),
+    ("odd", "పుట్టుకతో వినపడని వాళ్ళు ఏ భాషలో ఆలోచిస్తారు?"),
+    ("odd", "దయ్యాలకు తెల్ల బట్టలు కొనిచ్చింది ఎవరు?"),
+    ("odd", "ఏడిస్తే కన్నీళ్ళు రాలతాయి, నవ్వితే పళ్ళు ఎందుకు రాలవు?"),
+    ("odd", "why is the phone camera round but the photo a rectangle?"),
+    ("sum_behind", "బంగారం రేటు తగ్గినా పెరిగినా జ్యువెలరీ షాప్ వాళ్ళు ఎందుకు టెన్షన్ పడరు?"),
+    ("sum_behind", "how does a free app make money?"),
 ]
 
 
@@ -49,13 +57,17 @@ def test_rule_has_the_five_ways_and_the_answer_shape():
                  "Who really pays", "Turn it around", "the verdict first", "use a fact THEY gave",
                  "never stop at 'not available'", "asks about their situation, not about specifications",
                  "The choice stays theirs", "never tilted toward a costlier option, a listing or a partner link",
-                 "never name these methods to the user"):
+                 "never name these methods to the user",
+                 "Odd or playful questions", "never mock it", "three sentences at most",
+                 "Never invent a fact to be funny", "stay respectful and say that traditions differ",
+                 "The sum behind it", "what most people assume", "one small worked example",
+                 "the one thing the person can do with it"):
         assert must in rule, must
 
 
 def test_rule_is_not_a_script_for_one_product():
     lowered = svc.FRIEND_REASONING_RULES.lower()
-    for banned in ("stove", "burner", "saree", "fridge", "phone", "meesho", "amazon"):
+    for banned in ("stove", "burner", "saree", "fridge", "phone", "meesho", "amazon", "gold", "jewel", "ghost"):
         assert banned not in lowered, banned
 
 
@@ -80,3 +92,20 @@ def test_advisory_answer_puts_the_verdict_before_the_working():
 
 def test_how_to_guides_keep_their_own_shape():
     assert "Friend reasoning" not in svc.GUIDE_ANSWER_RULES
+
+
+def _mode_prompt(capabilities):
+    brain, models = _brain()
+    brain.decide("బియ్యం 5 kg 60 రూపాయలు", history=[], capabilities=capabilities)
+    return models.prompts[0]
+
+
+def test_the_buy_sell_switch_tells_the_brain_which_side_the_person_is_on():
+    buyer, seller = svc._MODE_RULES[svc.BUYER_MODE_CAPABILITY], svc._MODE_RULES[svc.SELLER_MODE_CAPABILITY]
+    assert seller in _mode_prompt(["seller_mode"]) and buyer not in _mode_prompt(["seller_mode"])
+    assert buyer in _mode_prompt(["buyer_mode"]) and seller not in _mode_prompt(["buyer_mode"])
+    plain = _mode_prompt([])  # older builds have no switch: no mode line at all
+    assert buyer not in plain and seller not in plain
+    for rule in (buyer, seller):
+        assert "never claim the mode was switched" in rule
+    assert "never as something to buy" in seller
