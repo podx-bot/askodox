@@ -476,7 +476,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
         child: Semantics(
       button: true,
       toggled: on,
-      label: isTe ? (on ? 'ASKODOX షాపింగ్ ఆన్' : 'ASKODOX షాపింగ్ ఆఫ్') : (on ? 'ASKODOX Shopping on' : 'ASKODOX Shopping off'),
+      label: isTe ? (on ? 'ASKODOX క్లబ్ ఆన్' : 'ASKODOX క్లబ్ ఆఫ్') : (on ? 'ASKODOX Club on' : 'ASKODOX Club off'),
       child: InkWell(
         key: const Key('askodoxNavHistory'),
         onTap: onHistory,
@@ -485,7 +485,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
           const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(isTe ? 'ASKODOX షాపింగ్' : 'ASKODOX Shopping',
+            child: Text(isTe ? 'ASKODOX క్లబ్' : 'ASKODOX Club',
                 maxLines: 1,
                 style: TextStyle(fontSize: 11, fontWeight: on ? FontWeight.w800 : FontWeight.w700, color: on ? color : const Color(0xFF6B7280))),
           ),

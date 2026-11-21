@@ -155,7 +155,7 @@ def test_stock_and_commission_transitions_drive_results_and_routing(api):
     client.post(f"/admin/cc/affiliate-products/{pid}/commission", headers=owner, json={"status": "ACTIVE", "rate": 8})
     row = _catalog_rows(_discover(client))[0]
     assert row["routing"] == "affiliate" and row["affiliate"] is True
-    assert row["destination_url"] == WISHLINK and row["disclosure"] == "Affiliate link"
+    assert row["destination_url"] == WISHLINK and row["disclosure"] == ""
 
     # Out of stock: not recommended at all; the record and history stay.
     client.post(f"/admin/cc/affiliate-products/{pid}/stock", headers=owner, json={"status": "OUT_OF_STOCK"})
@@ -377,3 +377,31 @@ def test_extract_reports_ids_canonical_and_manual_fields():
     assert "affid" not in r["fields"]["canonical_url"]
     assert r["field_status"]["title"] == "manual_entry_required"
     assert ac.product_id_from_url("https://www.meesho.com/cotton-saree/p/4abc12") == "4abc12"
+
+
+# ------------------------------------------------ pasted link -> result card --
+
+def test_pasted_store_or_wishlink_link_finds_the_live_product_first(api):
+    """Owner 2026-11-21 (Studio step 1): paste a Meesho / Wishlink link in the search -> that product's card."""
+    client, container, owner, _ = api
+    item = _add(client, owner, affiliate_url=WISHLINK).json()["item"]
+    store = container.affiliate_catalog
+
+    by_store = store.find_by_link(f"check {MEESHO_URL}?utm_source=x please")
+    assert [i["id"] for i in by_store] == [item["id"]]
+    by_wishlink = store.find_by_link(WISHLINK + "?ref=abc.")
+    assert [i["id"] for i in by_wishlink] == [item["id"]]
+    assert store.find_by_link("https://wishlink.com/share/other999") == []
+    assert store.find_by_link("no link here") == []
+
+    # Out of stock: not recommended, same rule as the normal search.
+    client.post(f"/admin/cc/affiliate-products/{item['id']}/stock", headers=owner, json={"status": "OUT_OF_STOCK"})
+    assert store.find_by_link(MEESHO_URL) == []
+
+
+def test_discovery_with_a_pasted_link_returns_that_catalog_card(api):
+    client, _, owner, _ = api
+    item = _add(client, owner, affiliate_url=WISHLINK).json()["item"]
+    data = _discover(client, raw=WISHLINK, subject=WISHLINK)
+    rows = _catalog_rows(data)
+    assert rows and rows[0]["id"] == f"catalog-{item['id']}"

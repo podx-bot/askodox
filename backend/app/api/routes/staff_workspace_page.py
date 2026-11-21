@@ -89,7 +89,7 @@ async function start(){try{ME=await api("/admin/cc/workspace/me")}catch(e){if(e.
  try{await ({add,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
 $("#out").onclick=()=>{setCred(null);signin()};
 const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Commission link (affiliate / deep link)"],["verified_commission_rate","Commission % (partner agreed)"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
-async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 Affiliate product (Meesho / Amazon / Flipkart / EarnKaro…)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
+async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 For your reference (Meesho / Amazon / Flipkart / Wishlink…)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
  <p class="mut" style="margin:8px 0 0">4 steps: లింక్ పెట్టండి → ఫోటోలు పెట్టండి → "ఫోటోల నుంచి నింపు" + ధర → Publish. వీడియో, DM జవాబులు, Facebook / Instagram / YouTube టెక్స్ట్ ఆటోమేటిక్‌గా తయారవుతాయి.</p></div>
  <details class="card"><summary class="mut">పాత పద్ధతి: లింక్ నుంచి పేజీ చదువు (store పేజీ ఓపెన్ అయితేనే)</summary><div id="linkcard"><h3 style="margin-top:0">Paste one link</h3>
  <div class="row"><select id="itype">${types.map(t=>`<option ${PREFILL.type===t?"selected":""}>${t}</option>`).join("")}</select></div>
@@ -139,7 +139,7 @@ async function startAiVideo(itemId,reviews,store){try{const r=await api(`/admin/
 // staff type the price; saving makes the video, the DM answers and the social texts.
 const STORES=[["Meesho",/meesho|msho\./],["Amazon",/amazon|amzn\./],["Flipkart",/flipkart|fkrt\./],["Myntra",/myntra/],["AJIO",/ajio/],["Nykaa",/nykaa/],["Other",/./]];
 async function affForm(){let photos=[];const RV={reviews:{}};
- M.innerHTML=`<div class="card"><h3 style="margin-top:0">🔗 Affiliate product</h3>
+ M.innerHTML=`<div class="card"><h3 style="margin-top:0">🔗 For your reference</h3>
  <label>1. Commission / affiliate link *</label><div class="row"><input id="a_link" type="url" placeholder="https://..."><button class="s" id="a_paste" style="flex:0 0 90px">Paste</button></div>
  <label>Store</label><select id="a_store">${STORES.map(([n])=>`<option>${n}</option>`).join("")}</select>
  <label>2. Product photos * (store యాప్ నుంచి డౌన్‌లోడ్ చేసినవి / camera)</label><div class="thumbs" id="a_thumbs"></div>

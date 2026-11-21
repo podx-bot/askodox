@@ -127,12 +127,16 @@ def test_clearing_personalization_stops_earlier_chats_and_a_resync_does_not_brin
 
 
 def test_paid_and_affiliate_results_always_carry_a_label():
+    """Owner 2026-11-21: a staff product card carries the machine flag ``affiliate`` but no on-card words -- the
+    disclosure lives in the Terms (askodox.com/affiliate-disclosure). Partner campaigns and Sponsored keep their label."""
     from app.services.affiliate_catalog import result_row
 
     base = {"id": 7, "title": "Kettle", "platform": "amazon", "platform_name": "Amazon.in",
             "eligibility": {"routing": "affiliate", "destination_url": "https://x.example/k", "last_checked": None}}
     affiliate = result_row(base)
-    assert affiliate["affiliate"] is True and affiliate["disclosure"]
+    assert affiliate["affiliate"] is True and affiliate["disclosure"] == ""
+    finance = result_row({**base, "item_type": "financial_offer"})
+    assert "commission" in finance["disclosure"] and "financial advice" in finance["disclosure"]
     organic = result_row({**base, "eligibility": {**base["eligibility"], "routing": "organic"}})
     assert organic["affiliate"] is False and organic["disclosure"] == ""
     sponsored = result_row({**base, "sponsored": True, "eligibility": {**base["eligibility"], "routing": "organic"}})
