@@ -155,7 +155,7 @@ def test_stock_and_commission_transitions_drive_results_and_routing(api):
     client.post(f"/admin/cc/affiliate-products/{pid}/commission", headers=owner, json={"status": "ACTIVE", "rate": 8})
     row = _catalog_rows(_discover(client))[0]
     assert row["routing"] == "affiliate" and row["affiliate"] is True
-    assert row["destination_url"] == WISHLINK and row["disclosure"] == "Affiliate link"
+    assert row["destination_url"] == WISHLINK and row["disclosure"] == ""
 
     # Out of stock: not recommended at all; the record and history stay.
     client.post(f"/admin/cc/affiliate-products/{pid}/stock", headers=owner, json={"status": "OUT_OF_STOCK"})

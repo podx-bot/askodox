@@ -96,11 +96,16 @@ display:block;background:#eee}.grid div{padding:8px;font-size:14px}.ad{display:i
 border:1px solid #c9ccd8;border-radius:99px;padding:1px 8px;color:#5f6577}details{margin:6px 0}summary{font-weight:600}"""
 
 
+TERMS_URL = "https://askodox.com/affiliate-disclosure/"
+
 def _page(title: str, body: str) -> str:
     return (f"<!doctype html><html lang=\"te\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" "
             f"content=\"width=device-width,initial-scale=1\"><title>{html.escape(title)} | ASKODOX</title>"
             f"<meta property=\"og:title\" content=\"{html.escape(title)}\"><style>{_STYLE}</style></head><body>"
-            f"<header><b>ASKODOX</b><span>Picks</span></header><main>{body}</main></body></html>")
+            f"<header><b>ASKODOX</b><span>Picks</span></header><main>{body}</main>"
+            # Owner 2026-11-21: the disclosure lives in the Terms, linked once at the foot of every page.
+            f"<p class=\"mut\" style=\"text-align:center;font-size:12px\"><a href=\"{TERMS_URL}\" rel=\"nofollow\">"
+            f"నిబంధనలు</a></p></body></html>")
 
 
 def product_html(item: Dict[str, Any], video: Optional[Dict[str, Any]], source: str) -> str:
@@ -132,8 +137,7 @@ def product_html(item: Dict[str, Any], video: Optional[Dict[str, Any]], source: 
     body = (f"<div class=\"card\">{media}<h1>{esc(title)}</h1>{price}{rating}"
             f"<a class=\"btn buy\" href=\"/p/{int(item['id'])}/buy?from={esc(source)}\" rel=\"nofollow sponsored\">"
             f"🛒 {esc(store_label)}</a><a class=\"btn app\" href=\"{PLAY_URL}\">ASKODOX యాప్‌లో మరిన్ని చూడండి</a>"
-            f"<span class=\"ad\">Affiliate</span> <span class=\"mut\">ఈ లింక్ ద్వారా కొంటే మాకు కమీషన్ వస్తుంది; "
-            f"మీకు ధర మారదు. కొనుగోలు, డెలివరీ, రిటర్న్ అన్నీ స్టోర్‌లోనే.</span></div>")
+            f"<span class=\"mut\">కొనుగోలు, డెలివరీ, రిటర్న్ అన్నీ స్టోర్‌లోనే.</span></div>")
     if item.get("description"):
         body += f"<div class=\"card\"><b>వివరాలు</b><p>{esc(str(item['description']))}</p></div>"
     if points:
@@ -151,7 +155,7 @@ def shop_html(items: List[Dict[str, Any]]) -> str:
         f"<div>{esc(str(i.get('title') or '')[:60])}"
         + (f"<br><b>₹{float(i['price']):,.0f}</b>" if _num(i.get("price")) else "") + "</div></a>"
         for i in items)
-    body = ("<p><b>ASKODOX Picks</b> <span class=\"ad\">Affiliate</span><br><span class=\"mut\">మేము చూసి ఎంచుకున్న "
+    body = ("<p><b>ASKODOX Picks</b><br><span class=\"mut\">మేము చూసి ఎంచుకున్న "
             "ప్రోడక్ట్స్. కొనుగోలు స్టోర్‌లోనే జరుగుతుంది.</span></p>"
             + (f"<div class=\"grid\">{cards}</div>" if cards else "<p class=\"mut\">త్వరలో వస్తాయి.</p>"))
     return _page("ASKODOX Picks", body)

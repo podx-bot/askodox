@@ -221,7 +221,7 @@ def test_public_product_page_counts_and_sends_to_the_commission_link(api):  # no
     item = saved.json()["item"]
     assert saved.json()["review_status"] == "LIVE"
     page = client.get(f"/p/{item['id']}?from=fb")
-    assert page.status_code == 200 and "ASKODOX" in page.text and "Affiliate" in page.text
+    assert page.status_code == 200 and "ASKODOX" in page.text and "affiliate-disclosure" in page.text and "Affiliate</span>" not in page.text
     assert f"/p/{item['id']}/buy?from=fb" in page.text
     buy = client.get(f"/p/{item['id']}/buy?from=fb", follow_redirects=False)
     assert buy.status_code == 302 and buy.headers["location"].endswith("?af=manohar")

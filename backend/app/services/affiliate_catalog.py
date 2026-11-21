@@ -1036,7 +1036,9 @@ def result_row(item: dict[str, Any]) -> dict[str, Any]:
         "open_strategy": "web",
         "affiliate": affiliate,
         "routing": ev["routing"],
-        "disclosure": CAMPAIGN_DISCLOSURE.get(str(item.get("item_type") or ""), "Affiliate link" if affiliate else ""),
+        # Owner 2026-11-21: no "Affiliate link" words on a product card -- the disclosure lives in the Terms /
+        # affiliate-disclosure page. Partner campaigns (app install / referral / financial offers) keep their notice.
+        "disclosure": CAMPAIGN_DISCLOSURE.get(str(item.get("item_type") or ""), ""),
         "sponsored": bool(item.get("sponsored")),
         "partner_offer": str(item.get("item_type") or "") in CAMPAIGN_ITEM_TYPES,
         "stock_status": item.get("stock_status"),
