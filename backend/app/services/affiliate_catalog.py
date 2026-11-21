@@ -124,6 +124,7 @@ _NEW_COLUMNS = {
 }
 
 
+
 def canonical_key(url: Any) -> str:
     """Duplicate key for a URL: host without www, path without trailing
     slash, tracking parameters dropped (two staff pasting the same product
@@ -311,8 +312,13 @@ def evaluate(row: dict[str, Any], sources: dict[str, dict[str, Any]] | None = No
         reasons.append("commission_inactive_hidden")
     if not source.get("organic_enabled", True):
         reasons.append("source_off")
+    # Items saved before the save guard (2026-11-17) with a store error-page name stay out of results.
+    if is_block_page_title(row.get("title")):
+        reasons.append("blocked_page_title")
     affiliate_reasons: list[str] = []
-    if row.get("commission_status") != "ACTIVE":
+    # Owner 2026-11-21: a stored commission link is used unless the commission is known to be INACTIVE (UNKNOWN used
+    # to send buyers to the plain store link, so a Meesho item with a Wishlink link earned nothing).
+    if row.get("commission_status") == "INACTIVE":
         affiliate_reasons.append("commission_" + str(row.get("commission_status") or "UNKNOWN").lower())
     if not str(row.get("affiliate_url") or "").strip():
         affiliate_reasons.append("no_affiliate_link")
@@ -901,9 +907,10 @@ class AffiliateCatalog:
                " AND item_type IN (" + ",".join("'" + t + "'" for t in RESULT_ITEM_TYPES) + ")")
         if policy()["hide_out_of_stock"]:
             sql += " AND stock_status!='OUT_OF_STOCK'"
-        sql += " AND (" + " OR ".join(["LOWER(title) LIKE ? OR LOWER(subcategory) LIKE ? OR LOWER(category) LIKE ?"]
-                                       * len(tokens)) + ")"
-        args = [f"%{t}%" for t in tokens for _ in range(3)]
+        # Description too (owner 2026-11-21): colour / material / features / sizes written there must find the item.
+        sql += " AND (" + " OR ".join(["LOWER(title) LIKE ? OR LOWER(subcategory) LIKE ? OR LOWER(category) LIKE ?"
+                                        " OR LOWER(description) LIKE ?"] * len(tokens)) + ")"
+        args = [f"%{t}%" for t in tokens for _ in range(4)]
         with self._connect() as conn:
             rows = [dict(r) for r in conn.execute(sql + " ORDER BY id DESC LIMIT 200", args).fetchall()]
         out = []

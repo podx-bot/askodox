@@ -55,6 +55,8 @@ void main() {
     expect(askodoxAnswerFollowUp(AskodoxFollowUp.reviews, [_rows[0], _rows[1]], te: false), isNull,
         reason: 'no rating on screen -> search real reviews instead');
     expect(askodoxAnswerFollowUp(AskodoxFollowUp.compare, [_rows[3]], te: false), isNull);
+    expect(askodoxAnswerFollowUp(AskodoxFollowUp.compare, [_rows[0]], te: false), isNull,
+        reason: 'one card alone (a pasted link) -> search similar products to compare with');
   });
 
   test('price truth: conditional offer and starting-from are never the normal price', () {

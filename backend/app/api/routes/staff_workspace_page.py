@@ -124,7 +124,7 @@ function firstLink(t){const m=String(t||"").match(/https:\/\/[^\s"'<>]+/);return
 // the AI video uses; the 30-second video makes itself after saving and waits in 🎬 Videos for Approve.
 function reviewBlock(p){return `<label>⭐ Rating / review screenshots (optional, 4 వరకు) / రేటింగ్, రివ్యూ screenshots</label>
  <div class="row"><label class="s btn">⭐ Add screenshots<input id="${p}revshot" type="file" accept="image/*" multiple hidden></label></div><div class="mut" id="${p}revnote"></div>
- <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="${p}aivid" checked style="width:auto;margin:0"> 🎬 30 సెకన్ల AI వీడియో ఆటోమేటిక్‌గా తయారు చేయి (save అయ్యాక)</label>
+ <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="${p}aivid" style="width:auto;margin:0"> 🎬 30 సెకన్ల AI వీడియో కూడా చేయి (కావాలంటే మాత్రమే టిక్ చేయండి)</label>
  <span class="mut">AI ప్రజెంటర్ + తెలుగు వాయిస్ + రివ్యూల సారాంశం. తయారయ్యాక 🎬 Videos లో Approve చేస్తేనే users కి కనిపిస్తుంది.</span>`}
 function bindReviews(p,holder){const el=$("#"+p+"revshot");if(!el)return;el.onchange=async e=>{const files=[...e.target.files].slice(0,4);if(!files.length)return;
  const note=$("#"+p+"revnote");note.textContent="⭐ రివ్యూలు చదువుతోంది…";
@@ -148,10 +148,12 @@ async function affForm(){let photos=[];const RV={reviews:{}};
  <div class="row" style="margin-top:10px"><button class="p" id="a_fill">✨ 3. ఫోటోల నుంచి నింపు</button></div><span class="mut" id="a_fillnote"></span>
  <label>Product name *</label><input id="a_title">
  <div class="row"><div><label>Price ₹ * (మీరే పెట్టండి)</label><input id="a_price" inputmode="decimal"></div><div><label>MRP ₹</label><input id="a_mrp" inputmode="decimal"></div></div>
- <label>Description</label><textarea id="a_desc" rows="6"></textarea>
+ <div class="row"><div><label>Category (search కోసం)</label><input id="a_cat" placeholder="saree blouse"></div><div><label>Brand</label><input id="a_brand"></div></div>
+ <label>Sizes (కామాలతో)</label><input id="a_sizes" placeholder="S, M, L, XL">
+ <label>Description (రంగు, మెటీరియల్, features -- search లో ఇవే వస్తాయి)</label><textarea id="a_desc" rows="6"></textarea>
  ${ME.can_commission?`<label>Commission % (optional)</label><input id="a_rate" inputmode="decimal">`:""}
  <div id="a_err" class="bad" style="margin:8px 0"></div>
- <div class="row"><button class="s" id="a_back">← Back</button><button class="s" id="a_draft">Save draft</button><button class="p" id="a_submit">4. ${ME.can_publish?"Publish":"Submit"} + 🎬 వీడియో</button></div></div>`;
+ <div class="row"><button class="s" id="a_back">← Back</button><button class="s" id="a_draft">Save draft</button><button class="p" id="a_submit">4. ${ME.can_publish?"Publish":"Submit"}</button></div></div>`;
  const thumbs=()=>{$("#a_thumbs").innerHTML=photos.length?photos.map(p=>`<img src="${esc(p)}">`).join(""):`<span class="mut">ఇంకా ఫోటోలు లేవు</span>`};thumbs();
  const store=()=>{const v=$("#a_link").value.toLowerCase();const hit=STORES.find(([n,re])=>re.test(v));if(hit&&v)$("#a_store").value=hit[0]};
  $("#a_link").oninput=store;$("#a_back").onclick=()=>add();bindReviews("a_",RV);
@@ -162,6 +164,8 @@ async function affForm(){let photos=[];const RV={reviews:{}};
  $("#a_fill").onclick=async()=>{if(!photos.length){$("#a_fillnote").textContent="ముందు ఫోటోలు పెట్టండి (step 2)";return}
   $("#a_fillnote").textContent="✨ ఫోటోలు చదువుతోంది…";try{const r=await api("/admin/cc/workspace/fill-from-photos","POST",{photos});const f=r.fields||{};
    if(f.title&&!$("#a_title").value.trim())$("#a_title").value=f.title;if(f.description)$("#a_desc").value=f.description;
+   if(f.category&&!$("#a_cat").value.trim())$("#a_cat").value=f.category;if(f.brand&&!$("#a_brand").value.trim())$("#a_brand").value=f.brand;
+   if(f.sizes&&f.sizes.length&&!$("#a_sizes").value.trim())$("#a_sizes").value=f.sizes.join(", ");
    $("#a_fillnote").textContent="✓ ఫోటోల నుంచి నిండింది -- చదివి, ధర పెట్టండి";$("#a_price").focus()}catch(e){$("#a_fillnote").textContent=e.message}};
  const num=v=>{const n=parseFloat(String(v).replace(/[^0-9.]/g,""));return isNaN(n)?null:n};
  const save=async action=>{const link=firstLink($("#a_link").value),title=$("#a_title").value.trim(),price=num($("#a_price").value);const err=$("#a_err");
@@ -170,6 +174,8 @@ async function affForm(){let photos=[];const RV={reviews:{}};
   err.textContent="";const fields={title,original_product_url:link,images:photos,image_url:photos[0]};
   if(ME.can_link)fields.affiliate_url=link;if(price!=null)fields.price=price;if(num($("#a_mrp").value)!=null)fields.mrp=num($("#a_mrp").value);
   if($("#a_desc").value.trim())fields.description=$("#a_desc").value.trim();
+  if($("#a_cat").value.trim())fields.category=$("#a_cat").value.trim();if($("#a_brand").value.trim())fields.brand=$("#a_brand").value.trim();
+  const sizes=$("#a_sizes").value.split(",").map(x=>x.trim()).filter(Boolean);if(sizes.length)fields.variants=sizes;
   if($("#a_rate")&&num($("#a_rate").value)!=null)fields.verified_commission_rate=num($("#a_rate").value);
   toast("Saving… / save అవుతోంది…");
   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"product",fields,action});

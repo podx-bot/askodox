@@ -144,10 +144,10 @@ def test_stock_and_commission_transitions_drive_results_and_routing(api):
     item = _add(client, owner, affiliate_url=WISHLINK).json()["item"]
     pid = item["id"]
 
-    # Stock UNKNOWN + commission UNKNOWN: shown, organic link (never a guess).
+    # Stock UNKNOWN + commission UNKNOWN (owner 2026-11-21): the stored commission link is used.
     rows = _catalog_rows(_discover(client))
-    assert len(rows) == 1 and rows[0]["routing"] == "organic" and rows[0]["affiliate"] is False
-    assert rows[0]["destination_url"] == MEESHO_URL and rows[0]["disclosure"] == ""
+    assert len(rows) == 1 and rows[0]["routing"] == "affiliate" and rows[0]["affiliate"] is True
+    assert rows[0]["destination_url"] == WISHLINK and rows[0]["disclosure"] == ""
     assert rows[0]["original_price"] == 999 and rows[0]["discount_percent"] == 60
     assert rows[0]["source_name"] == "Meesho" and rows[0]["price_verified"] is False
 
@@ -405,3 +405,22 @@ def test_discovery_with_a_pasted_link_returns_that_catalog_card(api):
     data = _discover(client, raw=WISHLINK, subject=WISHLINK)
     rows = _catalog_rows(data)
     assert rows and rows[0]["id"] == f"catalog-{item['id']}"
+
+
+def test_old_store_block_page_items_are_hidden(api):
+    """Owner 2026-11-21: "Access Denied" items (store blocked the page) never reach results or get saved again."""
+    client, container, owner, _ = api
+    # An item saved before the rule (written straight to the store) stays out of results.
+    item = _add(client, owner).json()["item"]
+    with container.affiliate_catalog._connect() as conn:
+        conn.execute("UPDATE affiliate_products SET title='Access Denied' WHERE id=?", (item["id"],))
+    assert container.affiliate_catalog.find_by_link(MEESHO_URL) == []
+    assert _catalog_rows(_discover(client, raw=MEESHO_URL, subject=MEESHO_URL)) == []
+def test_words_written_in_the_description_find_the_item(api):
+    """Owner 2026-11-21: colour / material / features / sizes written by staff (or filled from photos) are searchable."""
+    client, container, owner, _ = api
+    item = _add(client, owner, title="Women Short Sleeve Blouse", category="saree blouse",
+                description="Purple cotton blouse with round neck. Sizes: S, M, L.").json()["item"]
+    found = container.affiliate_catalog.search("purple cotton blouse")
+    assert [i["id"] for i in found] == [item["id"]]
+    assert container.affiliate_catalog.search("steel water kettle") == []
