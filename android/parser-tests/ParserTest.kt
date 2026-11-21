@@ -128,6 +128,31 @@ fun main() {
     yes("one account missing = not different", !PaymentAlertParser.accountsDiffer(null, "6911"))
     val app = PaymentAlertParser.parse("PhonePe", "Received ₹240 from MOHAMMAD HAFIZ. UPI Ref No. 925142780111. Transaction ID T2511171845123456")
     yes("app notification carries the RRN, not its own id", app is PaymentAlertParser.Result.Accepted && app.reference == "925142780111")
+    // Owner 2026-11-21 (Rs 3,000 RECEIVED, shown as minus): money sent / paid / credited TO YOUR account is incoming.
+    check("phonepe to your bank", "Received ₹3,000", "VOODUGULA DURGA sent ₹3,000 to your ICICI Bank account", "IN 300000 payer=VOODUGULA DURGA")
+    check("received sent to your a/c", null, "Received ₹3,000 from VOODUGULA DURGA. Sent to your bank account XX4321", "IN 300000")
+    check("paid to your account", null, "₹3,000 received! DURGA paid to your account", "IN 300000")
+    check("real debit still out", null, "Paid ₹3,000 to VOODUGULA DURGA", "OUT 300000 to=VOODUGULA DURGA")
+    check("icici debit with credited still out", null, "ICICI Bank Acct XX123 debited for Rs 3000.00 on 20-Nov-26; DURGA credited. UPI:532012345678", "OUT 300000")
+    // Incoming + outgoing words, no strong debit word = a doubtful debit (❓ on the phone, never sure).
+    val mixed = PaymentAlertParser.parse(null, "Received ₹3,000 from DURGA, sent to Ramesh")
+    yes("mixed wording is doubtful", mixed is Result.Outgoing && mixed.doubtful)
+    val sure = PaymentAlertParser.parse(null, "ICICI Bank Acct XX123 debited for Rs 3000.00; DURGA credited.")
+    yes("strong debit not doubtful", sure is Result.Outgoing && !sure.doubtful)
+    // Owner 2026-11-21 (Airtel bill paid, voice said "3081 received"): a company thanking you for YOUR payment = money out.
+    check("airtel thanks for payment", "AD-AIRTEL-S", "Thank you for the payment of Rs.3081.00 for your Airtel Postpaid number 98XXXXXX21. Txn ID 1234567890", "OUT 308100 to=AIRTEL")
+    check("biller received your payment", "VM-ACTFBR", "Dear Customer, we have received your payment of Rs 3,081 towards your account 1234.", "OUT 308100 to=ACTFBR")
+    check("payment received towards your bill", null, "Payment of ₹3,081 received towards your Jio bill. Thank you", "OUT 308100")
+    check("your payment successful", null, "Your payment of ₹499 is successful for Airtel Xstream", "OUT 49900")
+    check("payment received from a person still in", null, "Payment of ₹500 received from Ramesh", "IN 50000")
+    check("hdfc credit still in", "AD-HDFCBK-S", "Credit Alert! Rs.3081.00 credited to HDFC Bank A/c XX6911 from VPA ramesh@ybl (UPI 335406702784)", "IN 308100")
+    // A person's correction on a row teaches every message of the same kind (any name, any amount).
+    val sk = PaymentAlertParser.skeleton("Sent ₹3,000 to RAMESH via PhonePe")
+    yes("skeleton drops names", sk == PaymentAlertParser.skeleton("Sent ₹45 to SURESH KUMAR via PhonePe") && !sk.contains("ramesh"))
+    val taught = PaymentAlertParser.parse(null, "Sent ₹45 to SURESH via PhonePe", learnedKinds = mapOf(sk to "in"))
+    yes("correction in = incoming", taught is Result.Accepted && taught.amountPaise == 4500L)
+    val none = PaymentAlertParser.parse(null, "Sent ₹45 to SURESH via PhonePe", learnedKinds = mapOf(sk to "none"))
+    yes("correction none = ignored", none is Result.Ignored)
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }

@@ -591,6 +591,15 @@ class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2500)
     locale: str = ""
     voice: str = Field(default="automatic", pattern="^(automatic|male|female|male2|female2)$")
+    # Owner 2026-11-21 ("2 voices"): a long reply is spoken in parts; once the first part came from one engine the app
+    # asks for that SAME engine for the rest. "elevenlabs" = ElevenLabs only (waits longer, never Sarvam); "sarvam" =
+    # skip ElevenLabs. Empty = ElevenLabs first, Sarvam when it fails (older apps, the first part).
+    engine: str = Field(default="", pattern="^(|elevenlabs|sarvam)$")
+
+
+# ElevenLabs eleven_v3 sometimes needs > 8 s for a long Telugu part; a part asked for with engine=elevenlabs is
+# fetched while the previous part plays, so it may wait this long instead of switching voices.
+LOCKED_ELEVENLABS_TIMEOUT_S = 20.0
 
 
 @router.post("/voice/speak")
@@ -605,17 +614,24 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
         raise HTTPException(status_code=503, detail="TTS_DISABLED")
     # Human-sounding ElevenLabs voice first (owner 2026-10-28); Sarvam below is
     # the fallback, then device TTS in the app.
-    if _feature_enabled(container, "voice.elevenlabs_tts"):
+    locked = payload.engine == "elevenlabs"
+    if payload.engine != "sarvam" and _feature_enabled(container, "voice.elevenlabs_tts"):
         eleven = _elevenlabs(container)
         if eleven.configured:
             import time as _time
 
             started = _time.monotonic()
-            spoken = eleven.synthesize(payload.text, voice=payload.voice, locale=payload.locale)
+            try:
+                spoken = eleven.synthesize(payload.text, voice=payload.voice, locale=payload.locale,
+                                           timeout_seconds=LOCKED_ELEVENLABS_TIMEOUT_S if locked else None)
+            except TypeError:  # a test double without the timeout argument
+                spoken = eleven.synthesize(payload.text, voice=payload.voice, locale=payload.locale)
             _observe_elevenlabs(spoken)
-            # Where a spoken turn's time goes (owner 2026-11-16: talk felt slow): chars + ms, no text.
-            logger.info("in_app_voice_speak path=elevenlabs chars=%d ms=%d ok=%s", len(payload.text),
-                        int((_time.monotonic() - started) * 1000), bool(spoken.get("success")))
+            # Where a spoken turn's time goes (owner 2026-11-16: talk felt slow). print(): app loggers at INFO never
+            # reached Railway, so the fallback reason was invisible (owner 2026-11-21). chars + ms + status, no text.
+            print(f"ASKODOX VOICE SPEAK path=elevenlabs chars={len(payload.text)} "
+                  f"ms={int((_time.monotonic() - started) * 1000)} ok={bool(spoken.get('success'))} "
+                  f"status={spoken.get('status')} locked={locked} cache={bool(spoken.get('cache_hit'))}", flush=True)
             if spoken.get("success") and spoken.get("content"):
                 return Response(
                     content=bytes(spoken["content"]),
@@ -627,6 +643,10 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
                         "X-ASKODOX-TTS-Voice": payload.voice,
                     },
                 )
+            if locked:  # the reply's earlier parts were ElevenLabs: never switch to another voice mid-reply
+                raise HTTPException(status_code=503, detail=str(spoken.get("status") or "ELEVENLABS_FAILED"))
+    if locked:
+        raise HTTPException(status_code=503, detail="ELEVENLABS_UNAVAILABLE")
     synthesize = getattr(container.voice_assistant_service, "synthesize", None)
     if not callable(synthesize):
         raise HTTPException(status_code=503, detail="TTS_UNAVAILABLE")
@@ -660,7 +680,12 @@ def _elevenlabs(container: Any) -> Any:
     if service is None:
         from app.services.elevenlabs_tts import ElevenLabsTTS
 
-        service = ElevenLabsTTS()
+        cache_dir = None
+        try:
+            cache_dir = os.path.join(os.path.dirname(os.path.abspath(container.settings.database_path)), "tts_cache")
+        except Exception:
+            pass
+        service = ElevenLabsTTS(cache_dir=cache_dir)
         try:
             container.elevenlabs_tts = service
         except Exception:

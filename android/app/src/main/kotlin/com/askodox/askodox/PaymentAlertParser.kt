@@ -26,9 +26,46 @@ object PaymentAlertParser {
         data class Unknown(val amountPaise: Long, val template: String) : Result()
         object Ignored : Result()
 
-        /** Money that LEFT the person's account (debited / paid to / sent to). Never uploaded; spoken only if asked. */
-        data class Outgoing(val amountPaise: Long, val party: String?, val account: String?) : Result()
+        /**
+         * Money that LEFT the person's account (debited / paid to / sent to). Never uploaded; spoken only if asked.
+         * [doubtful]: the message ALSO says money came in and has no strong debit word ("debited", "you paid", ...),
+         * e.g. a PhonePe line with "received" and "sent to" (owner 2026-11-21, Rs 3,000 read as minus): the row shows ❓
+         * and the person can correct it.
+         */
+        data class Outgoing(val amountPaise: Long, val party: String?, val account: String?,
+                            val doubtful: Boolean = false, val biller: Boolean = false) : Result()
     }
+
+    /**
+     * Owner 2026-11-21 (Rs 3,000 received, shown as minus): "sent to your bank account" / "paid to your a/c" /
+     * "credited to your account" is money coming TO the person -- the outgoing words "sent to" / "paid to" must not
+     * count there. Used only for the reject / debit checks; the incoming check still sees " to you".
+     */
+    fun rejectView(lower: String): String =
+        Regex("""\b(sent|paid|transferred|transfer|trf|credited|added|deposited|moved)\s+to\s+(?=your?\b)""").replace(lower, "$1 into ")
+
+    /** Words that make a debit certain even when the message also has incoming words (ICICI: "debited ...; X credited"). */
+    private val strongDebit = listOf("debited", "withdrawn", "spent", "you paid", "you sent", "you have paid", "you have sent")
+
+    /**
+     * The words of a message that say WHAT kind of message it is, without names, numbers or ids: the key a person's
+     * correction ("this came in" / "this went out" / "not a payment") is learned under, so the next message of the
+     * same kind from ANY person / amount is read the same way.
+     */
+    fun skeleton(text: String?): String {
+        val t = template(withoutBoilerplate((text ?: "").replace('\n', ' ')))
+        val words = Regex("""₹#|[a-z/]+|[\u0900-\u0DFF]+""").findAll(t).map { it.value }.filter { it == "₹#" || it in SKELETON_WORDS }
+        return words.joinToString(" ")
+    }
+
+    private val SKELETON_WORDS = setOf(
+        "received", "receive", "credited", "credit", "debited", "debit", "sent", "send", "paid", "pay", "payment", "to",
+        "you", "your", "from", "by", "in", "into", "of", "has", "have", "money", "successfully", "successful", "bank",
+        "account", "a/c", "ac", "acct", "upi", "transferred", "transfer", "trf", "added", "wallet", "balance", "avl", "bal",
+        "is", "was", "on", "via", "for", "at", "done", "completed", "linked", "sbi", "hdfc", "icici", "axis", "kotak", "phonepe",
+        "gpay", "paytm", "bhim", "vpa", "towards", "withdrawn", "spent", "deposited", "refund", "cashback", "request",
+        "జమ", "అందింది", "అందాయి", "పంపారు", "చెల్లించారు",
+    )
 
     /** The message body with amounts as ₹#, lower case, single spaces -- the shape a person can confirm. */
     fun template(text: String?): String {
@@ -98,15 +135,33 @@ object PaymentAlertParser {
         moreReject: Collection<String> = emptyList(),
         learnedIn: Collection<String> = emptyList(),
         learnedOut: Collection<String> = emptyList(),
+        learnedKinds: Map<String, String> = emptyMap(),
     ): Result {
         val joined = withoutBoilerplate(listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim())
         if (joined.isEmpty()) return Result.Ignored
         val body = text?.let { withoutBoilerplate(it.replace('\n', ' ')) }
         val lower = " ${joined.lowercase()} "
         val shape = template(body)
+        // A correction the person made on a row of this kind of message (any name / amount) decides first.
+        val corrected = skeleton(body ?: joined).takeIf { it.split(' ').size >= 3 }?.let { learnedKinds[it] }
+        if (corrected == "none") return Result.Ignored
+        if (corrected == "out") {
+            val amounts = paymentAmounts(joined)
+            return if (amounts.isEmpty()) Result.Ignored
+            else Result.Outgoing(amounts.first(), payeeName(body) ?: payeeName(title), accountTail(joined))
+        }
         if (shape.isNotEmpty() && learnedOut.any { it.isNotEmpty() && shape.contains(it) }) return Result.Ignored
-        val learned = shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) }
-        val rejected = (reject + moreReject).any { it.isNotEmpty() && lower.contains(it.lowercase()) }
+        // Owner 2026-11-21 (Airtel bill paid -> the voice said "3081 received"): a company THANKING you for your payment
+        // ("Thank you for the payment of Rs 3081 for your Airtel number", "we have received your payment") is money YOU
+        // paid -- never money that came in, even though it says "payment of" / "received".
+        if (corrected != "in" && billerAck.containsMatchIn(joined)) {
+            val amounts = paymentAmounts(joined)
+            return if (amounts.isEmpty()) Result.Ignored
+            else Result.Outgoing(amounts.first(), billerName(title), accountTail(joined), biller = true)
+        }
+        val learned = corrected == "in" || (shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) })
+        val view = rejectView(lower)
+        val rejected = (reject + moreReject).any { it.isNotEmpty() && view.contains(it.lowercase()) }
         // Owner 2026-11-18 (PhonePe UPI Circle): "Manohar has paid BHUKYA SUJATHA" / "Payment of ₹2 successful by 2283"
         // = someone (a circle member, a family / on-behalf payment) paid a THIRD person -- never money this phone received.
         // With one amount it is money that left the account; without one it is ignored (never "amount not clear").
@@ -116,7 +171,7 @@ object PaymentAlertParser {
             return Result.Outgoing(amounts.first(), thirdPartyPayee(body) ?: thirdPartyPayee(title), accountTail(joined))
         }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
-            if (rejected) return outgoingOrIgnored(joined, lower, body, title)
+            if (rejected) return outgoingOrIgnored(joined, view, body, title)
             val only = paymentAmounts(joined).toSet()
             // "Paid ₹10 to Bhagya": clear outgoing wording with a payee is a debit, not a question for the person.
             val payee = payeeName(body) ?: payeeName(title)
@@ -129,7 +184,11 @@ object PaymentAlertParser {
             return if (only.size == 1 && shape.contains("₹#") && shape.length >= 8) Result.Unknown(only.first(), shape)
             else Result.Ignored
         }
-        if (!learned && rejected) return outgoingOrIgnored(joined, lower, body, title)
+        if (!learned && rejected) {
+            // Incoming words AND outgoing words: a debit only with a STRONG debit word; otherwise ❓ (doubtful).
+            val out = outgoingOrIgnored(joined, view, body, title)
+            return if (out is Result.Outgoing && strongDebit.none { view.contains(it) }) out.copy(doubtful = true) else out
+        }
         // Owner 2026-11-15 ("clear cut"): bank apps add the account BALANCE ("Avl Bal Rs.5,230"); that is never the
         // payment. The payment is the FIRST amount that is not a balance (banks write the credited amount first).
         val amounts = paymentAmounts(joined)
@@ -139,6 +198,21 @@ object PaymentAlertParser {
         val reference = rrn(joined)
             ?: refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.count(Char::isDigit) >= 6 }
         return Result.Accepted(amounts.first(), reference, payerName(body) ?: payerName(title), accountTail(joined))
+    }
+
+    private val billerAck = Regex(
+        """\b(?:thanks?(?:\s+you)?\s+for\s+(?:the\s+|your\s+|making\s+(?:the\s+|your\s+)?)?(?:bill\s+)?(?:payment|paying)|""" +
+            """(?:we\s+have\s+|we've\s+|have\s+)?received\s+your\s+(?:bill\s+)?payment|""" +
+            """payment\s+(?:of\s+$AMT\s+)?(?:has\s+been\s+|is\s+|was\s+)?received\s+(?:towards|for|against)\s+(?:your|the)\b|""" +
+            """your\s+(?:bill\s+)?payment\s+of\s+$AMT\s+(?:has\s+been\s+|is\s+|was\s+)?(?:received|successful|successfully))""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** The company name from an SMS sender id ("AD-AIRTEL-S" -> "AIRTEL"); a plain app title is kept as it is. */
+    fun billerName(title: String?): String? {
+        val t = title?.trim()?.takeIf { it.isNotEmpty() && it.length <= 40 } ?: return null
+        val m = Regex("""^[A-Za-z]{2}-([A-Za-z0-9]{3,9})(?:-[STGstg])?$""").find(t)
+        return m?.groupValues?.get(1) ?: t.takeIf { !it.any(Char::isDigit) }
     }
 
     private val circleWords = listOf("upi circle", "on your behalf", "on behalf of", "secondary user", "delegate")

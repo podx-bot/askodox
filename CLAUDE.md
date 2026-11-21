@@ -7,6 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/voice-fix` (2026-11-21, owner "2 voices + ElevenLabs not coming + Rs 3,000 minus"; NOT merged yet):
+  ONE VOICE PER REPLY -- `/api/in-app/voice/speak` takes `engine` (''|elevenlabs|sarvam; elevenlabs waits 20 s and never
+  answers with Sarvam), app `_speakChunks` locks the first part's engine (`askodoxAudioEngine` Expando on the bytes);
+  log `ASKODOX VOICE SPEAK` (status / ms / locked / cache). Cause found in logs: eleven_v3 > 8 s on some parts -> that part
+  Sarvam. ElevenLabs lines <= 160 chars kept on the volume `tts_cache/` (every phone, restarts). PAYMENT VOICE: parts
+  fetched in parallel with engine=elevenlabs, 6.5 s budget (was 3.5 s serial -> phone voice), common amounts warmed.
+  BANK SMS WINS (personal phone): `rejectView` ("sent/paid/credited to your" = incoming), doubtful debits (❓),
+  `setAsideOpposite` / `bankSaysOpposite` (10 min, rows `excluded` + `doubt`), app debits wait 60 s (`spoken` waiting /
+  skipped_bank), rows keep `raw_title` / `raw_text` (phone only, never uploaded), row sheet "తప్పు" -> `correctEvent`
+  -> `learned_kinds` by `PaymentAlertParser.skeleton`. Totals / ledger skip `excluded`. BILLER ACKS ("Thank you for the
+  payment of Rs 3081 for your Airtel number", AD-AIRTEL-S passes `isBankSender`) = Outgoing `biller` (kind "biller", joins
+  the bank's debit SMS from the same SMS app) -- they were spoken as money RECEIVED. Nothing phone verified.
 - `main` PR #375 (2026-11-21, owner "mothma finish, aab"): STUDIO STEP 1 -- a pasted store / Wishlink link in the search
   -> `AffiliateCatalog.find_by_link` (canonical key / product id, or the stored `affiliate_url` host + path) -> that LIVE item is
   the ONLY catalog card (`_marketplace_and_catalog` status `link_match`). Bottom-bar Shopping switch labelled "ASKODOX Club"
@@ -612,6 +624,8 @@ this file, don't trust it blindly.
   Location; the header chip is the one location control).
 - Self-healing: APPLIED != recovered; `verify_applied` sets VERIFIED /
   NOT_RECOVERED from real evidence, else UNVERIFIED (console "Recovery").
+- Reply voice engine lock: the parts of ONE reply keep the first part's engine (`engine` on `/voice/speak`); never
+  remove the lock or shorten the locked ElevenLabs wait without checking `ASKODOX VOICE SPEAK` ms in the deploy log.
 - Voice = ONE audio lifecycle: every `_speakReply` takes `_speechTurn`; Stop / a newer
   reply bump it so a cut-off reply never falls back to device TTS (two voices). Pause:
   Sarvam pauses in place (`pauseReplyAudio`); device TTS stops and resumes from the last

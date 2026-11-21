@@ -23,8 +23,14 @@ class ReplySpeechService {
   /// [timeout]: how long to wait for the server's voice before the caller falls
   /// back to the phone's own voice (guides pass a short one so text and voice
   /// stay together).
+  /// [engine]: '' = ElevenLabs first, Sarvam when it fails; 'elevenlabs' / 'sarvam' = only that engine (owner
+  /// 2026-11-21: the parts of ONE reply keep the voice of its first part -- never two voices in one answer). The
+  /// engine that made the audio is readable with [askodoxAudioEngine].
   Future<Uint8List?> sarvamAudio(String text,
-      {required String locale, String voice = 'automatic', Duration timeout = const Duration(seconds: 15)}) async {
+      {required String locale,
+      String voice = 'automatic',
+      Duration timeout = const Duration(seconds: 15),
+      String engine = ''}) async {
     final clean = text.trim();
     if (clean.isEmpty) return null;
     final client = _client ?? http.Client();
@@ -33,7 +39,7 @@ class ReplySpeechService {
           .post(
             Uri.parse('$_baseUrl/api/in-app/voice/speak'),
             headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({'text': clean, 'locale': locale, 'voice': voice}),
+            body: jsonEncode({'text': clean, 'locale': locale, 'voice': voice, if (engine.isNotEmpty) 'engine': engine}),
           )
           .timeout(timeout);
       final model = response.headers['x-askodox-tts-model'] ?? '';
@@ -43,7 +49,9 @@ class ReplySpeechService {
           (voice != 'automatic' && response.headers['x-askodox-tts-voice'] != voice)) {
         return null;
       }
-      return response.bodyBytes;
+      final audio = response.bodyBytes;
+      askodoxAudioEngine[audio] = askodoxEngineOfModel(model);
+      return audio;
     } catch (_) {
       return null;
     } finally {
@@ -56,4 +64,15 @@ class ReplySpeechService {
 bool askodoxServerVoiceModel(String model) {
   final m = model.toLowerCase();
   return m.startsWith('bulbul') || m.startsWith('eleven');
+}
+
+/// Which engine made a reply audio ('elevenlabs' / 'sarvam'); empty for audio from elsewhere.
+final Expando<String> askodoxAudioEngine = Expando<String>('askodoxAudioEngine');
+
+/// 'elevenlabs' for `eleven_*` models, 'sarvam' for `bulbul*`, else ''.
+String askodoxEngineOfModel(String model) {
+  final m = model.toLowerCase();
+  if (m.startsWith('eleven')) return 'elevenlabs';
+  if (m.startsWith('bulbul')) return 'sarvam';
+  return '';
 }

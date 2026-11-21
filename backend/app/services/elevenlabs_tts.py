@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import threading
+import hashlib
 import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
@@ -36,6 +37,7 @@ OUTPUT_FORMAT = "mp3_44100_64"
 MAX_CHARS = 2500
 MAX_AUDIO_BYTES = 3 * 1024 * 1024
 CACHE_SIZE = 256
+DISK_MAX_CHARS = 160
 
 # (female, male) voice ids per ISO 639-1 language.
 VOICES: Dict[str, tuple[str, str]] = {
@@ -131,19 +133,53 @@ class ElevenLabsTTS:
     """Text -> MP3 through ElevenLabs, cached per (voice, model, text)."""
 
     def __init__(self, key: Optional[str] = None, *, client: Optional[httpx.Client] = None,
-                 model: Optional[str] = None, timeout_seconds: float = 8.0) -> None:
+                 model: Optional[str] = None, timeout_seconds: float = 8.0, cache_dir: Optional[str] = None) -> None:
         self._key = key
         self._client = client
         self.model = (model or os.environ.get("ELEVENLABS_TTS_MODEL", "") or DEFAULT_MODEL).strip()
         self.timeout_seconds = timeout_seconds
         self._cache: "OrderedDict[str, bytes]" = OrderedDict()
+        # Owner 2026-11-21 (payment voice fell back to the phone voice): every MP3 ElevenLabs made is also kept on the
+        # volume, so a name / amount spoken once is instant for every phone and after a restart (no second charge).
+        self.cache_dir = cache_dir
         self._lock = threading.Lock()
 
     @property
     def configured(self) -> bool:
         return bool(self._key if self._key is not None else api_key())
 
-    def synthesize(self, text: str, voice: str = "automatic", locale: str = "") -> Dict[str, Any]:
+    def _disk_path(self, cache_key: str) -> Optional[str]:
+        if not self.cache_dir:
+            return None
+        digest = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:40]
+        return os.path.join(self.cache_dir, digest[:2], digest + ".mp3")
+
+    def _disk_get(self, cache_key: str) -> Optional[bytes]:
+        path = self._disk_path(cache_key)
+        if not path:
+            return None
+        try:
+            with open(path, "rb") as handle:
+                data = handle.read()
+            return data or None
+        except OSError:
+            return None
+
+    def _disk_put(self, cache_key: str, audio: bytes) -> None:
+        path = self._disk_path(cache_key)
+        if not path:
+            return
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = f"{path}.{os.getpid()}.part"
+            with open(tmp, "wb") as handle:
+                handle.write(audio)
+            os.replace(tmp, path)
+        except OSError:
+            pass
+
+    def synthesize(self, text: str, voice: str = "automatic", locale: str = "",
+                   timeout_seconds: Optional[float] = None) -> Dict[str, Any]:
         key = self._key if self._key is not None else api_key()
         if not key:
             return {"success": False, "status": "ELEVENLABS_NOT_CONFIGURED"}
@@ -159,6 +195,13 @@ class ElevenLabsTTS:
             cached = self._cache.get(cache_key)
             if cached is not None:
                 self._cache.move_to_end(cache_key)
+        if cached is None:
+            cached = self._disk_get(cache_key)
+            if cached is not None:
+                with self._lock:
+                    self._cache[cache_key] = cached
+                    while len(self._cache) > CACHE_SIZE:
+                        self._cache.popitem(last=False)
         if cached is not None:
             return self._ok(cached, language, voice_id, cache_hit=True, elapsed_ms=0)
         started = time.perf_counter()
@@ -169,7 +212,7 @@ class ElevenLabsTTS:
                 params={"output_format": OUTPUT_FORMAT},
                 headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
                 json={"text": spoken, "model_id": self.model},
-                timeout=httpx.Timeout(self.timeout_seconds, connect=3.0),
+                timeout=httpx.Timeout(timeout_seconds or self.timeout_seconds, connect=3.0),
             )
         except httpx.TimeoutException:
             return {"success": False, "status": "ELEVENLABS_TIMEOUT"}
@@ -191,6 +234,8 @@ class ElevenLabsTTS:
             self._cache[cache_key] = audio
             while len(self._cache) > CACHE_SIZE:
                 self._cache.popitem(last=False)
+        if len(spoken) <= DISK_MAX_CHARS:  # short lines repeat (payment names / amounts, guides); replies rarely do
+            self._disk_put(cache_key, audio)
         return self._ok(audio, language, voice_id, cache_hit=False,
                         elapsed_ms=round((time.perf_counter() - started) * 1000))
 

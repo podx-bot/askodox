@@ -882,6 +882,102 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     await _change((x) => x.assigned = {...x.assigned, '${e['local_id']}': picked});
   }
 
+  /// Owner 2026-11-21: one row -- the message it was read from (kept on this phone only), "wrong" corrections that
+  /// also teach the phone, and the account. A correction never sends anything anywhere.
+  Future<void> _rowSheet(AskodoxMyPhoneAlerts m, AskodoxJson e, String current, bool te) async {
+    final id = '${e['local_id']}';
+    final raw = [
+      '${e['raw_title'] ?? ''}'.trim(),
+      '${e['raw_text'] ?? ''}'.trim(),
+    ].where((x) => x.isNotEmpty).join('\n');
+    final also = e['raw_also'] is List ? (e['raw_also'] as List).map((x) => '$x').where((x) => x.trim().isNotEmpty).toList() : const <String>[];
+    final out = e['direction'] == 'out';
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(
+                '${out ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
+                '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            if (askodoxRowDoubt(e) case final d?)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(te ? d.$2 : d.$1, style: const TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w600)),
+              ),
+            const SizedBox(height: 12),
+            Text(te ? 'ఈ message నుంచి చదివాం' : 'Read from this message', style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Container(
+              key: const Key('askodoxMineRowRaw'),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(10)),
+              child: SelectableText(
+                raw.isEmpty
+                    ? (te
+                        ? 'ఈ వరుస పాత build లో వచ్చింది — అప్పుడు message దాచలేదు.'
+                        : 'This row came on an older build — the message was not kept then.')
+                    : [raw, ...also].join('\n\n'),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(te ? 'ఇది ఈ ఫోన్‌లోనే ఉంటుంది, ఎక్కడికీ పంపము.' : 'This stays on this phone; it is never sent anywhere.',
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+            const SizedBox(height: 14),
+            Text(te ? 'తప్పుగా చదివిందా?' : 'Read wrongly?', style: const TextStyle(fontWeight: FontWeight.w700)),
+            if (out || e['excluded'] == true)
+              ListTile(
+                key: const Key('askodoxMineRowCorrect-in'),
+                leading: const Icon(Icons.call_received_rounded, color: Color(0xFF17784C)),
+                title: Text(te ? 'తప్పు: ఇది వచ్చిన డబ్బు' : 'Wrong: this money came in'),
+                onTap: () => Navigator.pop(ctx, 'in'),
+              ),
+            if (!out || e['excluded'] == true)
+              ListTile(
+                key: const Key('askodoxMineRowCorrect-out'),
+                leading: const Icon(Icons.call_made_rounded, color: Color(0xFFB91C1C)),
+                title: Text(te ? 'తప్పు: ఇది వెళ్ళిన డబ్బు' : 'Wrong: this money went out'),
+                onTap: () => Navigator.pop(ctx, 'out'),
+              ),
+            if (e['excluded'] != true)
+              ListTile(
+                key: const Key('askodoxMineRowCorrect-none'),
+                leading: const Icon(Icons.block_rounded),
+                title: Text(te ? 'ఇది payment కాదు' : 'This is not a payment'),
+                onTap: () => Navigator.pop(ctx, 'none'),
+              ),
+            const Divider(),
+            ListTile(
+              key: const Key('askodoxMineRowAccount'),
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: Text(te ? 'ఖాతా మార్చు' : 'Change account'),
+              subtitle: Text(_placeName(m, current, te)),
+              onTap: () => Navigator.pop(ctx, 'account'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'account') {
+      await _moveRow(m, e, current, te);
+      return;
+    }
+    final result = await _bridge.correctEvent(id, choice);
+    await _reload();
+    if (!mounted) return;
+    final learned = result['learned'] == true;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(te
+            ? (learned ? 'సరిచేశాం. ఇలాంటి message ఇకపై ఇలాగే చదువుతుంది.' : 'సరిచేశాం.')
+            : (learned ? 'Fixed. Messages like this are read this way from now on.' : 'Fixed.'))));
+  }
+
   Widget _historyCard(AskodoxMyPhoneAlerts m, bool te) {
     final toPkg = _labelToPackage(m);
     String accountOf(AskodoxJson e) => askodoxAccountOf(e, m.places, m.assigned, labelToPackage: toPkg);
@@ -996,16 +1092,20 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               key: ValueKey('askodoxMineEvent-${e['local_id']}'),
               dense: true,
               contentPadding: EdgeInsets.zero,
-              onTap: () => _moveRow(m, e, accountOf(e), te),
+              onTap: () => _rowSheet(m, e, accountOf(e), te),
               leading: AskodoxPaymentSourceIcon(
                   event: e,
                   fallback: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
                       color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C))),
               title: Text(
-                  '${e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
+                  '${e['doubt'] != null ? '❓ ' : ''}${e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
                   '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: e['excluded'] == true ? const Color(0xFF9CA3AF) : null,
+                      decoration: e['excluded'] == true ? TextDecoration.lineThrough : null)),
               subtitle: Text([
+                if (askodoxRowDoubt(e) case final d?) te ? d.$2 : d.$1,
                 '${e['source_label'] ?? ''}${'${e['also_from'] ?? ''}'.isEmpty ? '' : ' + ${e['also_from']}'}',
                 _placeName(m, accountOf(e), te),
                 if (askodoxBankConfirmedLabel(e) case final b?) te ? b.$2 : b.$1,
@@ -1023,7 +1123,10 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               ),
             ),
           if (shown.isNotEmpty)
-            Text(te ? 'ఏ వరుసనైనా నొక్కి దాని ఖాతా మార్చవచ్చు.' : 'Tap any row to change its account.',
+            Text(
+                te
+                    ? 'ఏ వరుసనైనా నొక్కితే: చదివిన అసలు message, "తప్పు" సరిచేయడం, ఖాతా మార్చడం.'
+                    : 'Tap any row: the message it was read from, "wrong" corrections, change its account.',
                 style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
         ]),
       ),

@@ -58,6 +58,18 @@ void main() {
           return 1;
         case 'installedApps':
           return installed;
+        case 'correctEvent':
+          final a = call.arguments as Map;
+          final row = events.firstWhere((e) => e['local_id'] == a['localId']);
+          if (a['choice'] == 'none') {
+            row['excluded'] = true;
+            row['doubt'] = 'not_payment';
+          } else {
+            row['direction'] = a['choice'];
+            row.remove('excluded');
+            row.remove('doubt');
+          }
+          return {'ok': true, 'learned': true};
       }
       return null;
     });
@@ -93,6 +105,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('askodoxMineEvent-a2')), findsNothing);
     expect(events.length, 1);
+  });
+
+  testWidgets('a row shows the message it was read from; "wrong" fixes it; set-aside rows never count', (tester) async {
+    tester.view.physicalSize = const Size(1080, 4000);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final today = DateTime.now().toUtc().toIso8601String();
+    events
+      ..clear()
+      ..addAll([
+        // Owner 2026-11-21: the bank SMS said +3,000; the PhonePe row read it as minus -> set aside with ❓.
+        {'local_id': 'b1', 'direction': 'in', 'amount_paise': 300000, 'party': 'VOODUGULA DURGA', 'source_label': 'Messages',
+         'bank_confirmed': true, 'detected_at': today, 'spoken': 'announced', 'raw_title': 'AX-ICICIT-S',
+         'raw_text': 'ICICI Bank Acct XX321 credited with Rs 3,000.00 from VOODUGULA DURGA'},
+        {'local_id': 'b2', 'direction': 'out', 'amount_paise': 300000, 'source_label': 'PhonePe', 'detected_at': today,
+         'spoken': 'skipped_bank', 'excluded': true, 'doubt': 'bank_opposite', 'raw_text': 'Sent ₹3,000 to your ICICI account'},
+      ]);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.textContaining('❓'), findsWidgets, reason: 'the set-aside row is marked');
+    expect(find.textContaining('పోయింది ₹0').evaluate().isNotEmpty || find.textContaining('out ₹0').evaluate().isNotEmpty, isTrue,
+        reason: 'a set-aside debit never counts in the totals');
+    await tester.tap(find.byKey(const ValueKey('askodoxMineEvent-b2')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Sent ₹3,000 to your ICICI account'), findsOneWidget, reason: 'the message the row was read from');
+    await tester.tap(find.byKey(const Key('askodoxMineRowCorrect-in')));
+    await tester.pumpAndSettle();
+    final call = calls.lastWhere((c) => c.method == 'correctEvent');
+    expect((call.arguments as Map)['localId'], 'b2');
+    expect((call.arguments as Map)['choice'], 'in');
+    expect(events.last['direction'], 'in');
   });
 
   testWidgets('apps can be removed and added; accounts can be named and deleted; debits switch is saved', (tester) async {

@@ -124,6 +124,11 @@ class AskodoxPaymentAlertsBridge {
     }
   }
 
+  /// Owner 2026-11-21: "wrong" on a history row -- [choice] 'in' (this came in), 'out' (this went out) or 'none'
+  /// (not a payment). The phone fixes the row and reads that kind of message the same way from now on.
+  Future<AskodoxJson> correctEvent(String localId, String choice) =>
+      _map('correctEvent', {'localId': localId, 'choice': choice});
+
   /// Apps on this phone the person can choose to read (label + package id only).
   Future<List<AskodoxJson>> installedApps() async {
     try {
@@ -377,6 +382,8 @@ String askodoxRupees(Object? paise) {
       'pending' => ('Speaking…', 'చెబుతోంది…'),
       'stuck' => ('Voice got stuck — not spoken', 'వాయిస్ ఆగిపోయింది — చెప్పలేదు'),
       'duplicate_local' => ('Spoken by this phone itself', 'ఈ ఫోన్ తానే చెప్పింది'),
+      'waiting' => ('Waiting for the bank SMS (1 min)', 'బ్యాంక్ SMS కోసం ఆగుతోంది (1 నిమిషం)'),
+      'skipped_bank' => ('Not spoken — the bank SMS said otherwise', 'చెప్పలేదు — బ్యాంక్ SMS వేరేగా చెప్పింది'),
       _ => ('No answer from the phone', 'ఫోన్ నుంచి సమాచారం లేదు'),
     };
 
@@ -585,3 +592,19 @@ Future<int> askodoxJoinStaffShopVoices(AskodoxPosRepository repo, AskodoxPayment
   } catch (_) {}
   return joined;
 }
+
+/// Owner 2026-11-21: a row set aside (the bank's SMS said the opposite, or the person marked "not a payment") stays
+/// visible with ❓ but never counts as money.
+bool askodoxRowCountsAsMoney(Map<String, Object?> e) =>
+    e['test'] != true && e['excluded'] != true && e['status'] != 'suspect_sender';
+
+/// The ❓ note of a doubtful row (en, te), or null.
+(String, String)? askodoxRowDoubt(Map<String, Object?> e) => switch ('${e['doubt'] ?? ''}') {
+      'bank_opposite' => (
+          '❓ The bank SMS says the opposite — this app message was read wrongly; not counted',
+          '❓ బ్యాంక్ SMS వేరేగా చెప్పింది — ఈ యాప్ message తప్పుగా చదివాం; లెక్కలో వేయలేదు'
+        ),
+      'not_payment' => ('❓ Marked "not a payment" — not counted', '❓ "payment కాదు" అన్నారు — లెక్కలో వేయలేదు'),
+      'wording' => ('❓ Not sure it went out — check and correct if wrong', '❓ వెళ్ళిందో లేదో ఖచ్చితంగా లేదు — తప్పైతే సరిచేయండి'),
+      _ => null,
+    };

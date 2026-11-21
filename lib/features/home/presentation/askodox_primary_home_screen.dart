@@ -4030,16 +4030,31 @@ class _AskodoxPrimaryHomeScreenState
     }
     final lips = ref.read(askodoxCompanionVoiceProvider);
     final useSarvam = !deviceOnly && ref.read(askodoxFlagProvider('voice.sarvam_tts'));
-    Future<Uint8List?> fetch(String text) async => useSarvam
-        ? await (_earlyAudio.remove('$language|$text') ?? ref
-            .read(askodoxReplySpeechServiceProvider)
-            .sarvamAudio(text, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue))
-        : null;
+    // Owner 2026-11-21 ("2 voices"): the engine of the FIRST part (ElevenLabs or Sarvam) speaks every later part of
+    // this reply. A locked part waits longer on the server instead of switching voices; only if it still gets
+    // nothing is any server voice taken (never two voices while the server voice works).
+    var lockedEngine = '';
+    Future<Uint8List?> fetch(String text) async {
+      if (!useSarvam) return null;
+      final speech = ref.read(askodoxReplySpeechServiceProvider);
+      final voice = ref.read(appSettingsProvider).voicePreference.storageValue;
+      // The streamed-early request guessed the language without the user's words: same text = same audio.
+      final earlyKey = _earlyAudio.containsKey('$language|$text')
+          ? '$language|$text'
+          : _earlyAudio.keys.where((k) => k.endsWith('|$text')).firstOrNull;
+      final early = earlyKey == null ? null : _earlyAudio.remove(earlyKey);
+      if (early != null) return early;
+      if (lockedEngine.isEmpty) return speech.sarvamAudio(text, locale: language, voice: voice);
+      return await speech.sarvamAudio(text,
+              locale: language, voice: voice, engine: lockedEngine, timeout: const Duration(seconds: 25)) ??
+          await speech.sarvamAudio(text, locale: language, voice: voice);
+    }
     try {
       var next = fetch(plain.first);
       for (var i = 0; i < chunks.length; i++) {
         final audio = await next;
         if (!current()) return;
+        if (lockedEngine.isEmpty && audio != null) lockedEngine = askodoxAudioEngine[audio] ?? '';
         if (i + 1 < chunks.length) next = fetch(plain[i + 1]);
         final text = plain[i];
         if (text.isEmpty) continue;

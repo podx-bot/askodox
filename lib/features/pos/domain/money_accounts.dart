@@ -133,7 +133,8 @@ List<String> askodoxUnnamedTails(Iterable<Map<String, Object?>> events, List<Ask
 ({int inPaise, int outPaise, int count}) askodoxMoneyTotals(Iterable<Map<String, Object?>> events, DateTime from) {
   var inP = 0, outP = 0, n = 0;
   for (final e in events) {
-    if (e['test'] == true) continue;
+    // Test rows, likely-fake SMS and rows set aside (❓ bank said otherwise / "not a payment") never count.
+    if (e['test'] == true || e['excluded'] == true || e['status'] == 'suspect_sender') continue;
     final amount = e['amount_paise'];
     if (amount is! num) continue;
     final at = askodoxEventTime(e);
