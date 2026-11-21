@@ -40,9 +40,23 @@ SCHEMA = (
         id INTEGER PRIMARY KEY AUTOINCREMENT, store TEXT NOT NULL, label TEXT NOT NULL,
         whitelisted INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
         UNIQUE(store, label))""",
+    """CREATE TABLE IF NOT EXISTS studio_voice_cache (
+        key TEXT PRIMARY KEY, path TEXT NOT NULL, provider TEXT NOT NULL, text TEXT NOT NULL, created_at TEXT NOT NULL)""",
     """CREATE TABLE IF NOT EXISTS studio_reminders (
         purchase_id INTEGER NOT NULL, kind TEXT NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (purchase_id, kind))""",
 )
+
+
+# Round 2 (shoot -> ASKODOX edit -> checklist -> posts). Added with ALTER TABLE, never by recreating the table.
+MIGRATIONS = (
+    ("video_file", "TEXT NOT NULL DEFAULT ''"), ("video_seconds", "REAL NOT NULL DEFAULT 0"),
+    ("edited_file", "TEXT NOT NULL DEFAULT ''"), ("edit_status", "TEXT NOT NULL DEFAULT ''"),
+    ("edit_reason", "TEXT NOT NULL DEFAULT ''"), ("edit_options", "TEXT NOT NULL DEFAULT '{}'"),
+    ("show_price_paise", "INTEGER NOT NULL DEFAULT 0"), ("checks", "TEXT NOT NULL DEFAULT '{}'"),
+    ("posts", "TEXT NOT NULL DEFAULT '{}'"), ("published_at", "TEXT NOT NULL DEFAULT ''"),
+)
+JSON_FIELDS = ("edit_options", "checks", "posts")
+PLATFORMS = ("instagram", "facebook", "youtube", "whatsapp")
 
 
 class StudioError(ValueError):
@@ -123,6 +137,10 @@ class StudioStore:
         with self._connect() as conn:
             for sql in SCHEMA:
                 conn.execute(sql)
+            have = {r[1] for r in conn.execute("PRAGMA table_info(studio_purchases)").fetchall()}
+            for column, kind in MIGRATIONS:
+                if column not in have:
+                    conn.execute(f"ALTER TABLE studio_purchases ADD COLUMN {column} {kind}")
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=30)
@@ -207,6 +225,12 @@ class StudioStore:
         return self._view(dict(row)) if row else None
 
     def _view(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        for key in JSON_FIELDS:
+            try:
+                row[key] = json.loads(row.get(key) or "{}")
+            except ValueError:
+                row[key] = {}
+        row["show_price"] = (row.get("show_price_paise") or 0) / 100
         left = days_left(row, self.today())
         return {**row, "days_left": left, "bucket": bucket(left), "warnings": warnings(row),
                 "next_action": next_action(row, left), "paid": row["paid_paise"] / 100,
@@ -242,7 +266,8 @@ class StudioStore:
                 + sum(r["return_fee_paise"] for r in rows) / 100}
 
     def _update(self, purchase_id: int, changes: Dict[str, Any]) -> Dict[str, Any]:
-        changes = {**changes, "updated_at": self.now()}
+        changes = {**{k: (json.dumps(v, ensure_ascii=False) if k in JSON_FIELDS else v) for k, v in changes.items()},
+                   "updated_at": self.now()}
         sets = ",".join(f"{k}=?" for k in changes)
         with self._connect() as conn:
             conn.execute(f"UPDATE studio_purchases SET {sets} WHERE id=?", [*changes.values(), int(purchase_id)])
@@ -280,6 +305,83 @@ class StudioStore:
     def keep(self, purchase_id: int, reason: str) -> Dict[str, Any]:
         self._must(purchase_id)
         return self._update(purchase_id, {"stage": "kept", "kept_reason": str(reason or "studio").strip()[:120]})
+
+    # ------------------------------------------------------ round 2: video --
+    def set_video(self, purchase_id: int, name: str, seconds: float) -> Dict[str, Any]:
+        row = self._must(purchase_id)
+        changes: Dict[str, Any] = {"video_file": name, "video_seconds": round(float(seconds), 1),
+                                   "edited_file": "", "edit_status": "", "edit_reason": "", "published_at": ""}
+        if STAGES.index(row["stage"]) < STAGES.index("shot"):
+            changes["stage"] = "shot"
+            if not row["delivery_date"]:
+                changes["delivery_date"] = self.today().isoformat()
+                changes["return_deadline"] = deadline(changes["delivery_date"], row["return_option"], row["return_days"])
+        return self._update(purchase_id, changes)
+
+    def set_edit(self, purchase_id: int, *, status: str, options: Optional[Dict[str, Any]] = None, edited: str = "",
+                 reason: str = "") -> Dict[str, Any]:
+        row = self.get(purchase_id)
+        if not row:
+            raise LookupError("Purchase not found")
+        changes: Dict[str, Any] = {"edit_status": status, "edit_reason": reason[:120], "published_at": ""}
+        if options is not None:
+            changes["edit_options"] = options
+        if edited:
+            changes["edited_file"] = edited
+        if status == "READY" and row["stage"] in ("bought", "delivered", "shot"):
+            changes["stage"] = "edited"
+        return self._update(purchase_id, changes)
+
+    def set_checks(self, purchase_id: int, ticks: Dict[str, Any], show_price: Any = None) -> Dict[str, Any]:
+        row = self._must(purchase_id)
+        checks = dict(row["checks"])
+        for key, value in ticks.items():
+            checks[str(key)[:40]] = bool(value)
+        changes: Dict[str, Any] = {"checks": checks}
+        if show_price not in (None, ""):
+            paise = _paise(show_price, "ఈరోజు ధర")
+            if paise <= 0:
+                raise StudioError("ఈరోజు యాప్‌లో ఉన్న ధర పెట్టండి")
+            changes["show_price_paise"] = paise
+            checks["price_checked_on"] = self.today().isoformat()  # the tick is valid for TODAY only
+            if row["show_price_paise"] and paise != row["show_price_paise"] and row["edited_file"]:
+                changes["edit_status"] = "PRICE_CHANGED"  # the video says the old price -> make it again
+        return self._update(purchase_id, changes)
+
+    def mark_published(self, purchase_id: int) -> Dict[str, Any]:
+        self._must(purchase_id)
+        return self._update(purchase_id, {"published_at": self.now()})
+
+    def add_post(self, purchase_id: int, platform: str, url: str) -> Dict[str, Any]:
+        row = self._must(purchase_id)
+        if platform not in PLATFORMS:
+            raise StudioError("Platform: " + " / ".join(PLATFORMS))
+        if not row["published_at"]:
+            raise StudioError("ముందు Publish checklist పూర్తి చేయండి")
+        link = str(url or "").strip()[:500]
+        if platform != "whatsapp" and not link.startswith("https://"):
+            raise StudioError("Post లింక్ https:// తో పెట్టండి")
+        posts = dict(row["posts"])
+        posts[platform] = {"url": link, "at": self.now()}
+        changes: Dict[str, Any] = {"posts": posts}
+        if STAGES.index(row["stage"]) < STAGES.index("posted"):
+            changes["stage"] = "posted"
+        return self._update(purchase_id, changes)
+
+    def published_by_file(self, name: str) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT id FROM studio_purchases WHERE edited_file=? AND published_at!=''", (name,)).fetchone()
+        return self.get(row["id"]) if row else None
+
+    def voice_cached(self, key: str) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM studio_voice_cache WHERE key=?", (key,)).fetchone()
+        return dict(row) if row else None
+
+    def voice_store(self, key: str, path: str, provider: str, text: str) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO studio_voice_cache(key,path,provider,text,created_at) VALUES(?,?,?,?,?)",
+                         (key, path, provider, text[:300], self.now()))
 
     def _must(self, purchase_id: int) -> Dict[str, Any]:
         row = self.get(purchase_id)

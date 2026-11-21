@@ -124,3 +124,108 @@ def test_staff_page_script_parses(api, tmp_path):  # noqa: F811
     path.write_text("\n;\n".join(scripts))
     proc = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr[-800:]
+
+
+# ------------------------------------------------------------------ round 2 --
+from app.services import studio_video as sv  # noqa: E402
+from app.services import video_watermark as wm  # noqa: E402
+
+needs_ffmpeg = pytest.mark.skipif(not wm.ffmpeg_exe(), reason="ffmpeg not available")
+
+
+def test_tips_tags_lines_and_captions():
+    assert sv.product_kind("Silver anklets pair") == "jewellery" and sv.product_kind("cotton kurti") == "clothes"
+    assert sv.product_kind("something new") == "other" and sv.shoot_tips({"title": "LED bulb"})["kind"] == "gadgets"
+    pair = {"pack": "pair", "pack_count": 2, "show_price_paise": 24900, "title": "Anklets", "store": "Meesho",
+            "affiliate_link": "https://wishlink.com/share/x", "share_earn_link": ""}
+    assert sv.price_tag(pair) == "PAIR ₹249" and sv.product_line(pair, "te") == "జత కలిపి ₹249 మాత్రమే."
+    assert sv.price_tag({**pair, "pack": "single", "pack_count": 3}) == "₹249 EACH"
+    lines = sv.script(pair, {"language": "te", "line": "  చిన్న మువ్వలు ఉన్నాయి "})
+    assert [l["kind"] for l in lines] == ["fixed", "own", "price", "fixed"]
+    cap = sv.captions(pair)
+    assert "@meeshoapp" in cap["facebook"]["text"] and "#Affiliate" in cap["instagram"]["text"]
+    assert "wishlink" not in cap["whatsapp"]["text"] and "Share & Earn" in cap["whatsapp"]["text"]
+    assert "LINK" in cap["instagram"]["text"]
+
+
+def test_checklist_names_what_is_missing():
+    row = {"store": "Meesho", "video_file": "", "show_price_paise": 0, "checks": {}, "affiliate_link": "",
+           "edit_status": "", "pack": "single", "pack_count": 1}
+    c = sv.checklist(row, "2026-11-21")
+    assert not c["ready"] and any("సొంత వీడియో" in m for m in c["missing"])
+    row.update(video_file="a.mp4", show_price_paise=100, affiliate_link="https://x", edit_status="READY",
+               checks={"same_product": True, "price_checked_on": "2026-11-20"})
+    assert sv.checklist(row, "2026-11-21")["missing"] == [r["label"] for r in sv.STORE_RULES["Meesho"]
+                                                         if r["id"] == "price_today"]  # yesterday's tick expired
+    row["checks"]["price_checked_on"] = "2026-11-21"
+    assert sv.checklist(row, "2026-11-21")["ready"]
+
+
+def test_voice_lines_are_never_paid_twice(tmp_path, monkeypatch):
+    store = ss.StudioStore(str(tmp_path / "s.db"), clock=_clock())
+    calls = []
+    monkeypatch.setattr("app.services.product_video.synthesize",
+                        lambda c, text, g: (calls.append(text) or b"ID3audio", "elevenlabs"))
+    row = {"pack": "pair", "pack_count": 2, "show_price_paise": 24900}
+    lines = sv.script(row, {"language": "te"})
+    _, first = sv.voice_files(None, store, lines, "female", str(tmp_path))
+    _, again = sv.voice_files(None, store, lines, "female", str(tmp_path))
+    assert first == {"cached": 0, "new": 3, "failed": 0} and again == {"cached": 3, "new": 0, "failed": 0}
+    _, price = sv.voice_files(None, store, sv.script({**row, "show_price_paise": 19900}, {"language": "te"}), "female",
+                              str(tmp_path))
+    assert price == {"cached": 2, "new": 1, "failed": 0}  # a price change re-records only the price line
+    assert len(calls) == 4
+
+
+def _clip(path, size):
+    subprocess.run([wm.ffmpeg_exe(), "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={size}:rate=30",
+                    "-f", "lavfi", "-i", "sine=frequency=300", "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-shortest", str(path)], check=True)
+    return path.read_bytes()
+
+
+@needs_ffmpeg
+def test_shoot_edit_publish_post_flow(api, tmp_path):  # noqa: F811
+    import time
+
+    client, container, _ = api
+    container.studio_store = ss.StudioStore(container.settings.database_path)
+    p = client.post("/admin/cc/workspace/studio/purchases", headers=OWNER, json={
+        "title": "Silver anklets", "store": "Meesho", "paid": 249, "pack": "pair", "return_option": "return",
+        "return_days": 7, "affiliate_link": "https://wishlink.com/share/abc"}).json()["purchase"]
+    url = f"/admin/cc/workspace/studio/purchases/{p['id']}"
+    wide = client.post(url + "/video", headers=OWNER, files={"file": ("w.mp4", _clip(tmp_path / "w.mp4", "640x360"),
+                                                                       "video/mp4")})
+    assert wide.status_code == 422  # landscape refused
+    up = client.post(url + "/video", headers=OWNER, files={"file": ("v.mp4", _clip(tmp_path / "v.mp4", "360x640"),
+                                                                    "video/mp4")})
+    assert up.status_code == 200, up.text
+    d = up.json()["purchase"]
+    assert d["stage"] == "shot" and d["tips"]["kind"] == "jewellery" and d["video_url"].endswith("/media/raw")
+    assert client.get(d["video_url"], headers=OWNER).status_code == 200
+    assert client.get(d["video_url"]).status_code in (401, 403)  # staff only
+    assert client.post(url + "/edit", headers=OWNER, json={"voice": "none"}).status_code == 422  # no price yet
+    client.post(url + "/checks", headers=OWNER, json={"show_price": 249, "ticks": {}})
+    assert client.post(url + "/edit", headers=OWNER, json={"voice": "none", "presenter": True}).status_code == 200
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        d = client.get(url, headers=OWNER).json()["purchase"]
+        if d["edit_status"] != "MAKING":
+            break
+        time.sleep(0.5)
+    assert d["edit_status"] == "READY" and d["stage"] == "edited", d.get("edit_reason")
+    blocked = client.post(url + "/publish", headers=OWNER)
+    assert blocked.status_code == 422 and "ప్రోడక్ట్ = లింక్" in blocked.json()["detail"]
+    assert client.post(url + "/posted", headers=OWNER, json={"platform": "instagram",
+                                                             "url": "https://instagram.com/p/x"}).status_code == 422
+    client.post(url + "/checks", headers=OWNER, json={"ticks": {"same_product": True}})
+    pub = client.post(url + "/publish", headers=OWNER)
+    assert pub.status_code == 200, pub.text
+    d = pub.json()["purchase"]
+    name = d["download_url"].rsplit("/", 1)[1]
+    assert client.get(f"/media/studio/{name}").status_code == 200
+    post = client.post(url + "/posted", headers=OWNER, json={"platform": "instagram", "url": "https://instagram.com/p/x"})
+    assert post.json()["purchase"]["stage"] == "posted" and "instagram" in post.json()["purchase"]["posts"]
+    client.post(url + "/checks", headers=OWNER, json={"show_price": 199})  # price changed -> make the video again
+    assert client.get(url, headers=OWNER).json()["purchase"]["edit_status"] == "PRICE_CHANGED"
+    assert client.get("/media/studio/" + "0" * 32 + ".mp4").status_code == 404

@@ -27,8 +27,13 @@ this file, don't trust it blindly.
   STUDIO round 1: `studio_store.py` (tables `studio_purchases` / `studio_accounts` / `studio_reminders`, paise, IST) +
   `routes/studio.py` (`/admin/cc/workspace/studio*`, staff own / publishers all) + staff tab "🎥 Studio" (home tiles,
   filters, buy form, stage / return / keep) + periodic job `studio_reminders` (30 min; log `ASKODOX STUDIO REMINDERS`).
-  Nothing phone verified. NEXT (owner order): Studio rest (shoot tips + video upload / auto edit / publish checklist /
-  share + post links / accounts & commission / unlock), payment fix (PhonePe app row vs bank SMS: SMS wins, ❓ + 60 s wait, "wrong" button, raw
+  STUDIO round 2: `studio_video.py` (tips table by kind, `STORE_RULES` rows (Meesho; others `DEFAULT_RULES`), `checklist`,
+  `script` = fixed intro / staff line / price line / fixed outro, `voice_files` cache table `studio_voice_cache` by exact text,
+  `captions`, ffmpeg `render`: staff video 720x1280 + overlay PNG + voice + 2.5 s end card) + routes .../video (vertical
+  <= 61 s, 80 MB), /edit (background, log `ASKODOX STUDIO EDIT`), /checks, /publish (422 names what is missing), /posted,
+  staff-only /media/{raw|edited} (page fetches as blob), public `/media/studio/{32hex}.mp4` only after Publish. Columns
+  added by `studio_store.MIGRATIONS`. Staff UI: "🎬 వీడియో" panel per Studio product. Nothing phone verified.
+  NEXT (owner order): Studio accounts & commission (manual, weekly reminder, month summary, top kinds) + unlock progress, payment fix (PhonePe app row vs bank SMS: SMS wins, ❓ + 60 s wait, "wrong" button, raw
   message kept), product documents (PDF / images) + AI answers + consented callback to an executive.
 - `main` PR #373 (2026-11-20, owner "Go"; Play bundle `askodox-play-1582.aab`, Live Build run 44748094784; server + website deploy SUCCESS, askodox.com/shop probe 200): AFFILIATE IN 4 STEPS -- Staff Workspace "🔗 Affiliate product" form (`affForm`): link is
   NEVER opened, store chosen from the link host, photos -> `POST /admin/cc/workspace/fill-from-photos`
