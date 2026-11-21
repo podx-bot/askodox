@@ -163,9 +163,16 @@ def _expiry_alerts(container: Any) -> Any:
     return {"shops": len(shops), "pushed": sent}
 
 
+def _studio_reminders(container: Any) -> Any:
+    """ASKODOX Studio return-deadline / shoot reminders (owner 2026-11-21), once per purchase and kind."""
+    from app.api.routes.studio import send_reminders
+
+    return send_reminders(container)
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
             ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports),
             ("payalert_missed", 60.0, _payalert_missed), ("dues_followup", 3600.0, _dues_followup),
-            ("expiry_alerts", 3600.0, _expiry_alerts)]
+            ("expiry_alerts", 3600.0, _expiry_alerts), ("studio_reminders", 1800.0, _studio_reminders)]
