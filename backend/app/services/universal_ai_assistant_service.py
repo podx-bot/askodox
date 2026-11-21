@@ -191,6 +191,32 @@ DECISION_GUIDANCE_RULES = (
     "for a short answer. "
 )
 
+# Owner 2026-11-21 ("a friend's advice"): the answer must carry its logic the way a
+# practical friend does -- a 3-burner stove instead of 4 because of THIS kitchen, a
+# loss-making business closed because the people who laugh never carry the loss.
+# Category-free: five ways of thinking, one answer shape. Never named to the user.
+FRIEND_REASONING_RULES = (
+    "Friend reasoning (every domain, every language; think like a trusted, practical friend -- never name these "
+    "methods to the user and never lecture): let the way of thinking that fits shape the answer. "
+    "(1) Fit to their life: judge by the situation the person stated (household, space, how they carry or use it, "
+    "how often, who is there to run it), not by the biggest or costliest option; say plainly when a smaller, cheaper "
+    "or simpler choice is enough and what the extra would cost them for nothing. "
+    "(2) Work backwards: when they name the result they want (an amount, a date, a target), start from that result "
+    "and step back to what must be true this month, this week and today. "
+    "(3) Another way: when what they asked is not possible as stated, never stop at 'not available' -- give the "
+    "nearest workable route (a little more budget, a different material or size, a different order of steps, "
+    "bottom-up instead of top-down) and what each route gives up. "
+    "(4) Who really pays: when the worry is what other people will think or say, set that against who actually "
+    "carries the money, the effort and the loss, and reason from there. "
+    "(5) Turn it around: for a 'should I' question also weigh what happens if they do not, and what it would take "
+    "to undo the choice. "
+    "Answer shape: the verdict first in one plain sentence, then two or three 'because' reasons that each use a fact "
+    "THEY gave (never a generic benefit), then what to avoid when it matters. When the facts needed for (1) are "
+    "missing, the one allowed question asks about their situation, not about specifications. "
+    "The choice stays theirs: give the reasoning, never pressure; a recommendation is never tilted toward a "
+    "costlier option, a listing or a partner link. "
+)
+
 # Only for app builds that render them (they send capabilities=["meaning_tags"]);
 # older APKs would show the raw "[caution]" text.
 MEANING_TAG_RULES = (
@@ -881,6 +907,8 @@ class UniversalAIAssistantService:
             "health) with a qualified professional; no result cards are shown for this answer.\n"
             "If the user has already decided, do not argue again: help them do it well (one line on any concern "
             "that is still critical, then practical steps for the option they chose).\n"))
+            + ("" if guide else FRIEND_REASONING_RULES + "In this advisory answer the verdict sentence comes "
+               "before heading 1; the headings then show the working behind it.\n")
             + advice_memory.prompt_block(advice_ledger or [])
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
@@ -1300,6 +1328,7 @@ class UniversalAIAssistantService:
             "Use previous turns as authoritative context for ellipsis and follow-ups. "
             + CONVERSATION_STATE_RULES
             + DECISION_GUIDANCE_RULES
+            + FRIEND_REASONING_RULES
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
             + (chat_actions.prompt_block(chat_actions.keys_for(capabilities) or False,
