@@ -673,6 +673,8 @@ object AskodoxPaymentAlerts {
         if (!test && cfg.optString("business_id").isEmpty()) {
             PaymentAlertParser.dueReminder(title, text)?.let { d -> return saveDue(context, cfg, pkg, d) }
         }
+        // TRAI: a sender id ending in -P is an advertisement -- never a payment or a notice.
+        if (PaymentAlertParser.isPromoSender(title)) return mapOf("result" to "ignored")
         val phrases = cfg.optJSONObject("phrases")
         val parsed = PaymentAlertParser.parse(title, text, strings(phrases?.optJSONArray("incoming")),
             strings(phrases?.optJSONArray("reject")), learned(context, "learned_in"), learned(context, "learned_out"),
@@ -681,7 +683,14 @@ object AskodoxPaymentAlerts {
             if (!test) rememberUnknown(context, pkg, parsed)
             return mapOf("result" to "unknown", "template" to parsed.template)
         }
-        if (parsed is PaymentAlertParser.Result.Ignored) return mapOf("result" to "ignored")
+        if (parsed is PaymentAlertParser.Result.Ignored) {
+            // Owner 2026-11-21: refund started / payment initiated / failed / bill generated / suspicious link -- explained
+            // in the person's own history (why it came, what to check), never spoken, never counted.
+            if (!test && cfg.optString("business_id").isEmpty()) {
+                PaymentAlertParser.notice(title, text)?.let { n -> return saveNotice(context, cfg, pkg, n, title, text, notificationKey, whenMillis) }
+            }
+            return mapOf("result" to "ignored")
+        }
         // Owner 2026-11-15: a normal person's own phone (no shop) keeps credits AND debits of any app / bank SMS they chose.
         val personal = cfg.optString("business_id").isEmpty()
         if (parsed is PaymentAlertParser.Result.Outgoing) {
@@ -760,6 +769,7 @@ object AskodoxPaymentAlerts {
         if (handle != null) event.put("upi_handle", handle) // this phone only; never uploaded
         if (amount != null) event.put("amount_paise", amount)
         if (reference != null) event.put("reference", reference)
+        if ((parsed as? PaymentAlertParser.Result.Accepted)?.refund == true) event.put("note", "refund")
         if (personal) {
             event.put("direction", "in")
             if (account != null) event.put("account", account)
@@ -1075,6 +1085,39 @@ object AskodoxPaymentAlerts {
         val c = cal.clone() as Calendar
         val offset = c.get(Calendar.ZONE_OFFSET) + c.get(Calendar.DST_OFFSET)
         return (c.timeInMillis + offset) / 86_400_000L
+    }
+
+    /** A money message that is not a payment: one "info" row (not counted, not spoken). Suspicious ones also notify. */
+    private fun saveNotice(context: Context, cfg: JSONObject, pkg: String, n: PaymentAlertParser.Notice, title: String?,
+                           text: String?, notificationKey: String, whenMillis: Long): Map<String, Any?> {
+        val now = System.currentTimeMillis()
+        val key = "$pkg|notice|${n.kind}|${n.amountPaise ?: 0}|$notificationKey|${paymentTime(whenMillis, now) / 60_000L}"
+        if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
+        val localId = "info-$now-${(Math.random() * 1e6).toInt()}"
+        val event = JSONObject()
+            .put("local_id", localId)
+            .put("direction", "info")
+            .put("info", n.kind)
+            .put("excluded", true)
+            .put("source_app", pkg)
+            .put("notification_key", notificationKey.take(120))
+            .put("source_label", cfg.optJSONObject("apps")?.optString(pkg, pkg) ?: pkg)
+            .put("detected_at", isoUtc(now))
+            .put("at_ms", paymentTime(whenMillis, now))
+            .put("kind", kindOf(cfg, pkg))
+            .put("spoken", "none")
+            .put("test", false)
+        if (n.amountPaise != null) event.put("amount_paise", n.amountPaise)
+        PaymentAlertParser.billerName(title)?.takeIf { !PaymentAlertParser.looksLikePersonNumber(title) }?.let { event.put("party", it) }
+        putRaw(event, title, text)
+        synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
+        if (n.kind == "suspect") {
+            val te = cfg.optString("language", "te") == "te"
+            showPaymentNotification(context, key, if (te) "⚠️ అనుమానాస్పద డబ్బు message" else "⚠️ Suspicious money message",
+                if (te) "లింక్ నొక్కకండి. డబ్బు వచ్చిందో లేదో మీ బ్యాంక్ యాప్‌లోనే చూడండి." else "Do not tap any link. Check your bank app to see if money really came.")
+        }
+        main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
+        return mapOf("result" to "notice", "kind" to n.kind, "localId" to localId)
     }
 
     /** A bill / EMI reminder kept as a "due" row (the app offers it in Upcoming payments). Same due twice = once. */

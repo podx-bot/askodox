@@ -901,7 +901,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(
-                '${out ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
+                '${e['direction'] == 'info' ? '' : out ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
                 '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             if (askodoxRowDoubt(e) case final d?)
@@ -983,7 +983,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     String accountOf(AskodoxJson e) => askodoxAccountOf(e, m.places, m.assigned, labelToPackage: toPkg);
     final inAccount = _events.where((e) => _account == null || accountOf(e) == _account).toList();
     final shown =
-        inAccount.where((e) => _filter == 'all' || (_filter == 'in' ? e['direction'] != 'out' : e['direction'] == 'out')).toList();
+        inAccount.where((e) => _filter == 'all' || (_filter == 'in' ? e['direction'] != 'out' && e['direction'] != 'info' : e['direction'] == 'out')).toList();
     final present = <String>{for (final e in _events) accountOf(e)};
     final chips = <String>[for (final p in m.places) if (present.contains(p.key)) p.key];
     for (final k in present) {
@@ -1098,7 +1098,8 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                   fallback: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
                       color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C))),
               title: Text(
-                  '${e['doubt'] != null ? '❓ ' : ''}${e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
+                  '${e['direction'] == 'info' ? (e['info'] == 'suspect' ? '⚠️ ' : 'ℹ️ ') : e['doubt'] != null ? '❓ ' : ''}'
+                  '${e['direction'] == 'info' ? '' : e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
                   '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
@@ -1106,6 +1107,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                       decoration: e['excluded'] == true ? TextDecoration.lineThrough : null)),
               subtitle: Text([
                 if (askodoxRowDoubt(e) case final d?) te ? d.$2 : d.$1,
+                if (e['note'] == 'refund') te ? 'రిఫండ్ జమ' : 'Refund received',
                 '${e['source_label'] ?? ''}${'${e['also_from'] ?? ''}'.isEmpty ? '' : ' + ${e['also_from']}'}',
                 _placeName(m, accountOf(e), te),
                 if (askodoxBankConfirmedLabel(e) case final b?) te ? b.$2 : b.$1,

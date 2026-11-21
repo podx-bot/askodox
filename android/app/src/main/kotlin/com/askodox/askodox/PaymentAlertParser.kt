@@ -15,7 +15,7 @@ import java.util.Locale
 object PaymentAlertParser {
     sealed class Result {
         data class Accepted(val amountPaise: Long, val reference: String?, val payer: String? = null,
-                            val account: String? = null) : Result()
+                            val account: String? = null, val refund: Boolean = false) : Result()
         data class Ambiguous(val reason: String) : Result()
 
         /**
@@ -87,6 +87,9 @@ object PaymentAlertParser {
         "cashback", "reward", "offer", "coupon", "scratch", "failed", "declined", "unsuccessful", "pending",
         "refund", "reversed", "due", "reminder", "recharge", "bill pay", " won", "win ", "loan", "emi",
         "verification code", "password", "pin ",
+        // Owner 2026-11-21: "initiated" / "processing" = NOT done yet (no money moved); shown as a notice, never spoken.
+        "initiated", "processing", "in process", "under process", "in progress", "scheduled", "will be credited",
+        "will be debited", "will be deducted", "will reflect",
     )
     private val amountRegex = Regex("""(?:₹|\brs[.:]?|\binr[.:]?)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
 
@@ -160,7 +163,15 @@ object PaymentAlertParser {
             else Result.Outgoing(amounts.first(), billerName(title), accountTail(joined), biller = true)
         }
         val learned = corrected == "in" || (shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) })
+        // Owner 2026-11-21 (fraud messages): "credited ... click / KYC / lottery / verify account" is never spoken as
+        // money; it becomes a ⚠️ notice instead.
+        if (!learned && fraudHint.containsMatchIn(joined)) return Result.Ignored
         val view = rejectView(lower)
+        // A refund that has LANDED ("Refund of Rs 499 credited to your a/c") is money in; "refund initiated" is not.
+        if (!learned && refundLanded.containsMatchIn(joined) && notYet.none { lower.contains(it) }) {
+            val amounts = paymentAmounts(joined)
+            if (amounts.isNotEmpty()) return Result.Accepted(amounts.first(), rrn(joined), null, accountTail(joined), refund = true)
+        }
         val rejected = (reject + moreReject).any { it.isNotEmpty() && view.contains(it.lowercase()) }
         // Owner 2026-11-18 (PhonePe UPI Circle): "Manohar has paid BHUKYA SUJATHA" / "Payment of ₹2 successful by 2283"
         // = someone (a circle member, a family / on-behalf payment) paid a THIRD person -- never money this phone received.
@@ -199,6 +210,57 @@ object PaymentAlertParser {
             ?: refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.count(Char::isDigit) >= 6 }
         return Result.Accepted(amounts.first(), reference, payerName(body) ?: payerName(title), accountTail(joined))
     }
+
+    private val refundLanded = Regex(
+        """\brefund\b.{0,80}?\b(?:credited|added|deposited|reversed)\s+(?:to|in|into|back\s+to)\s+(?:your|a/?c|acc|account|bank|wallet)|""" +
+            """\b(?:credited|added)\b.{0,60}?\brefund\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val notYet = listOf("initiated", "will be", "will reflect", "processing", "in process", "within", "working days",
+        "business days", "requested", "raised")
+
+    /**
+     * Owner 2026-11-21 ("refund, bill generated, something initiated ... why did it come, check the bank / bill"):
+     * a money message that is NOT a payment is still explained in the history (never spoken, never counted).
+     * kind: refund_started | pending | failed | bill | suspect.
+     */
+    data class Notice(val kind: String, val amountPaise: Long?)
+
+    private val suspectWords = Regex(
+        """(?i)https?://|\bbit\.ly|\bclick\b|\bkyc\b|\bblocked\b|\bsuspend|\bupdate\s+(?:your\s+)?(?:pan|aadhaar|kyc)|""" +
+            """\bclaim\b|\bwon\b|\blottery|\bprize\b|\bverify\s+(?:your\s+)?account""")
+
+    private val fraudHint = Regex(
+        """(?i)\bclick\b|\bbit\.ly|\bkyc\b|\blottery|\bprize\b|\bverify\s+(?:your\s+)?account|\bupdate\s+(?:your\s+)?(?:pan|aadhaar|kyc)""")
+
+    fun notice(title: String?, text: String?): Notice? {
+        val joined = listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim()
+        if (joined.isEmpty()) return null
+        val lower = " ${joined.lowercase(Locale.ROOT)} "
+        val clean = withoutBoilerplate(joined)
+        val cleanLower = " ${clean.lowercase(Locale.ROOT)} "
+        val amount = paymentAmounts(clean).firstOrNull()
+        val moneyWords = listOf("credited", "received", "refund", "cashback", "debited", "payment", "transfer", "bill", "₹", " rs", "inr")
+        if (moneyWords.none { lower.contains(it) }) return null
+        // A link / "click" / KYC / "blocked" in a money message (the bank's own safety lines are cut off first).
+        if (suspectWords.containsMatchIn(clean) && listOf("credited", "received", "refund", "cashback", "won", "prize", "debited",
+                "blocked", "kyc").any { cleanLower.contains(it) }) return Notice("suspect", amount)
+        if (amount == null) return null
+        return when {
+            cleanLower.contains("refund") -> Notice("refund_started", amount)
+            listOf("failed", "declined", "unsuccessful", "could not be processed", "not processed", "reversed").any { cleanLower.contains(it) } ->
+                Notice("failed", amount)
+            listOf("initiated", "pending", "processing", "in process", "under process", "in progress", "scheduled", "will be debited",
+                "will be deducted").any { cleanLower.contains(it) } -> Notice("pending", amount)
+            Regex("""\bbill\b.{0,40}?\b(?:generated|amount|of|for|is|due)\b|\bstatement\b|\btotal\s+(?:amount\s+)?due\b|\bamount\s+due\b""")
+                .containsMatchIn(cleanLower) -> Notice("bill", amount)
+            else -> null
+        }
+    }
+
+    /** TRAI rule: a sender id ending in -P is PROMOTIONAL (ads) -- never a payment, never a notice. */
+    fun isPromoSender(title: String?): Boolean =
+        Regex("""^[A-Z]{2}-[A-Z0-9]{3,9}-P$""").matches(title?.trim()?.uppercase(Locale.ROOT) ?: "")
 
     private val billerAck = Regex(
         """\b(?:thanks?(?:\s+you)?\s+for\s+(?:the\s+|your\s+|making\s+(?:the\s+|your\s+)?)?(?:bill\s+)?(?:payment|paying)|""" +

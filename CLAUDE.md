@@ -18,7 +18,10 @@ this file, don't trust it blindly.
   skipped_bank), rows keep `raw_title` / `raw_text` (phone only, never uploaded), row sheet "తప్పు" -> `correctEvent`
   -> `learned_kinds` by `PaymentAlertParser.skeleton`. Totals / ledger skip `excluded`. BILLER ACKS ("Thank you for the
   payment of Rs 3081 for your Airtel number", AD-AIRTEL-S passes `isBankSender`) = Outgoing `biller` (kind "biller", joins
-  the bank's debit SMS from the same SMS app) -- they were spoken as money RECEIVED. Nothing phone verified.
+  the bank's debit SMS from the same SMS app) -- they were spoken as money RECEIVED. NOTICES: `PaymentAlertParser.notice`
+  (refund_started / pending / failed / bill / suspect) -> `saveNotice` "info" rows (excluded, never spoken; suspect also
+  notifies), app `askodoxNoticeNote`; "initiated / processing / will be credited" are in `reject`; a LANDED refund =
+  Accepted(refund); TRAI `-P` sender ids ignored (`isPromoSender`). Nothing phone verified.
 - `main` PR #375 (2026-11-21, owner "mothma finish, aab"): STUDIO STEP 1 -- a pasted store / Wishlink link in the search
   -> `AffiliateCatalog.find_by_link` (canonical key / product id, or the stored `affiliate_url` host + path) -> that LIVE item is
   the ONLY catalog card (`_marketplace_and_catalog` status `link_match`). Bottom-bar Shopping switch labelled "ASKODOX Club"

@@ -121,12 +121,19 @@ void main() {
          'raw_text': 'ICICI Bank Acct XX321 credited with Rs 3,000.00 from VOODUGULA DURGA'},
         {'local_id': 'b2', 'direction': 'out', 'amount_paise': 300000, 'source_label': 'PhonePe', 'detected_at': today,
          'spoken': 'skipped_bank', 'excluded': true, 'doubt': 'bank_opposite', 'raw_text': 'Sent ₹3,000 to your ICICI account'},
+        // A bill message is explained (never money): ℹ️ + why it came.
+        {'local_id': 'b3', 'direction': 'info', 'info': 'bill', 'excluded': true, 'amount_paise': 308100, 'party': 'AIRTEL',
+         'source_label': 'Messages', 'detected_at': today, 'spoken': 'none', 'raw_text': 'Your Airtel bill of Rs 3081 has been generated'},
       ]);
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     expect(find.textContaining('❓'), findsWidgets, reason: 'the set-aside row is marked');
     expect(find.textContaining('పోయింది ₹0').evaluate().isNotEmpty || find.textContaining('out ₹0').evaluate().isNotEmpty, isTrue,
         reason: 'a set-aside debit never counts in the totals');
+    expect(find.textContaining('ℹ️'), findsWidgets, reason: 'the bill message is shown as a notice');
+    expect(find.textContaining('బిల్ వచ్చింది').evaluate().isNotEmpty || find.textContaining('Bill generated').evaluate().isNotEmpty, isTrue);
+    expect(find.textContaining('వచ్చింది ₹3,000').evaluate().isNotEmpty || find.textContaining('in ₹3,000').evaluate().isNotEmpty, isTrue,
+        reason: 'only the bank-confirmed +3,000 counts; the bill and the set-aside row do not');
     await tester.tap(find.byKey(const ValueKey('askodoxMineEvent-b2')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Sent ₹3,000 to your ICICI account'), findsOneWidget, reason: 'the message the row was read from');
