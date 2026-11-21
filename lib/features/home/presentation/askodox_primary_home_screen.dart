@@ -1179,6 +1179,8 @@ class _AskodoxPrimaryHomeScreenState
   /// Chat actions (backend chat_actions.py): the ASKODOX screen the user asked
   /// to open, keyed by the USER turn; a button under the next assistant turn.
   final Map<int, AskodoxAppAction> _appActionByTurn = {};
+  // Buy / sell switch offered by a reply ('seller' / 'buyer'), by the user turn it answers.
+  final Map<int, String> _switchModeByTurn = {};
   // Shopping mode (owner 2026-11-19) = askodoxShoppingModeProvider, switched by the bottom-bar Shopping button.
   // The short "Shopping mode on / off" banner in the chat box: ~2 s, blinks, never saved in the history.
   String? _modeBanner;
@@ -1199,6 +1201,7 @@ class _AskodoxPrimaryHomeScreenState
     _guideByTurn.clear();
     _intelByTurn.clear();
     _appActionByTurn.clear();
+    _switchModeByTurn.clear();
     _chatBillByTurn.clear();
     _shopMenuByTurn.clear();
     _suggestionsByTurn.clear();
@@ -2462,6 +2465,7 @@ class _AskodoxPrimaryHomeScreenState
     // none -- keep what we have).
     if (aiUsable && decision!.adviceLedger != null) _adviceLedger = decision.adviceLedger!;
     if (decision?.intelligence case final intel?) _intelByTurn[userTurnIndex] = intel;
+    if (aiUsable && decision!.switchMode != null) _switchModeByTurn[userTurnIndex] = decision.switchMode!;
     // A screen hidden in this release phase gets no button (the server is told too: "phase1_only").
     if (aiUsable && decision!.appAction != null && askodoxRouteShownNow(decision.appAction!.route)) {
       _appActionByTurn[userTurnIndex] = decision.appAction!;
@@ -4756,6 +4760,14 @@ class _AskodoxPrimaryHomeScreenState
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
                       _companionGuidance() ??
+                          // Seller side (owner 2026-11-21): the greeting is about the person's own shop.
+                          (ref.watch(askodoxSellerModeProvider)
+                              ? switch (_lang) {
+                                  'te' => 'నమస్తే! షాప్‌లో ఏం చేయాలి?',
+                                  'hi' => 'नमस्ते! दुकान में क्या करना है?',
+                                  _ => 'Hi! What should we do in your shop?',
+                                }
+                              : null) ??
                           ref.watch(askodoxGreetingProvider(_lang)).valueOrNull ??
                           switch (_lang) {
                             'te' => 'నమస్తే! ఏం కావాలి? సహాయం చేద్దాం.',
@@ -5489,6 +5501,22 @@ class _AskodoxPrimaryHomeScreenState
                     avatar: const Icon(Icons.open_in_new_rounded, size: 18),
                     label: Text(te ? '${appAction.label} తెరవండి' : 'Open ${appAction.label}'),
                     onPressed: () => context.push(appAction.route),
+                  ),
+                ]),
+              ),
+            // One tap to the other side of the app, offered by the reply; gone once the app is on that side.
+            if (_switchModeByTurn[index - 1] case final side?
+                when !turn.isUser && (side == 'seller') != ref.read(askodoxSellerModeProvider))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Wrap(spacing: 8, children: [
+                  ActionChip(
+                    key: ValueKey('askodoxSwitchMode-$side'),
+                    avatar: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    label: Text(side == 'seller'
+                        ? (te ? 'సెల్లర్ మోడ్‌కి మారండి' : 'Switch to Seller mode')
+                        : (te ? 'బయ్యర్ మోడ్‌కి మారండి' : 'Switch to Buyer mode')),
+                    onPressed: () => askodoxSetSellerMode(ref, side == 'seller'),
                   ),
                 ]),
               ),

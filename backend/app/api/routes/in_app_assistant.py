@@ -90,6 +90,9 @@ class AssistantDecision(BaseModel):
     # open / do ({key, route, label}); the app shows a button, the user taps.
     # Only for apps that send the ``app_actions`` capability.
     app_action: dict[str, str] | None = None
+    # Buy / sell switch (owner 2026-11-21): "seller" / "buyer" when the brain offers a one-tap switch to the other
+    # side of the app (the person asked for that side's work); the app shows a button, the person taps.
+    switch_mode: str | None = None
     # A shop on ASKODOX named by the person: its menu as a card inside the chat (capability ``shop_menu``).
     shop_menu: dict[str, Any] | None = None
     # Shopping mode ON and no ASKODOX shop had it: the reply is from outside ASKODOX (the app labels the results).

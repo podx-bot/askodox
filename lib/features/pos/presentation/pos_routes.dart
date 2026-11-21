@@ -27,7 +27,9 @@ import 'pos_shop_tool_screen.dart';
 /// Shown in Phase 1 too: a person's own UPI QR / bank, so people pay them directly.
 final askodoxPaymentMethodRoutes = <GoRoute>[
   // The Payments tab (redesign 2026-11-13): today, the week, latest payments, QR / alerts / accounts.
-  GoRoute(path: '/me/payments', builder: (context, state) => const AskodoxPaymentsHubScreen()),
+  GoRoute(
+      path: '/me/payments',
+      builder: (context, state) => AskodoxPaymentsHubScreen(mineOnly: state.uri.queryParameters['mine'] == '1')),
   // Bills (owner 2026-11-16): the customer's own bills from shops, and a shop's bill history.
   GoRoute(path: '/me/bills', builder: (context, state) => const AskodoxMyBillsScreen()),
   GoRoute(path: '/money', builder: (context, state) => const AskodoxMoneyScreen()),

@@ -37,4 +37,13 @@ void main() {
       expect(askodoxIsInternalRoute(bad), isFalse, reason: bad);
     }
   });
+
+  test('the buy / sell switch offer is read only as seller / buyer (owner 2026-11-21)', () {
+    InAppAssistantDecision d(Object? side) => InAppAssistantDecision.fromJson({...base(null), 'switch_mode': side});
+    expect(d('seller').switchMode, 'seller');
+    expect(d('buyer').switchMode, 'buyer');
+    expect(d(null).switchMode, isNull);
+    expect(d('admin').switchMode, isNull);
+    expect(d(true).switchMode, isNull);
+  });
 }

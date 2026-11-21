@@ -163,4 +163,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.calls.where((c) => c.contains('b9/payment-alerts/events')), isNotEmpty);
   });
+
+  testWidgets('Buyer side (owner 2026-11-21): Money shows only the person\'s own phone, even for a shop owner', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final api = _Api((method, path, body) {
+      if (method == 'GET' && path == '/api/pos/businesses') {
+        return {
+          'businesses': [
+            {'id': 'b1', 'name': 'My Kirana', 'role': 'owner'}
+          ]
+        };
+      }
+      return const ApiFailure(ApiFailureType.notFound, statusCode: 404);
+    });
+    await tester.pumpWidget(ProviderScope(
+      overrides: [askodoxPosRepositoryProvider.overrideWithValue(AskodoxPosRepository(api, authToken: 't'))],
+      child: MaterialApp(home: AskodoxPaymentsHubScreen(now: DateTime(2026, 11, 22, 10), mineOnly: true)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPaymentsSource-me')), findsNothing, reason: 'no source chips on the Buyer side');
+    expect(find.byKey(const Key('askodoxPaymentsSource-b1')), findsNothing);
+    expect(find.byKey(const Key('askodoxPaymentsHubShopButton')), findsNothing);
+    expect(find.byKey(const Key('askodoxPaymentsHubStart')), findsOneWidget, reason: 'his own phone, not his shop');
+    expect(find.text('Your own money only. Shop accounts are in Seller mode.'), findsOneWidget);
+    expect(api.calls.where((c) => c.contains('payment-alerts/events')), isEmpty, reason: 'the shop history is not loaded');
+  });
 }

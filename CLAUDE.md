@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- PR #383 `claude/friend-reasoning` (2026-11-21, owner "6, 7 + design, then merge + aab"): BUY / SELL SWITCH --
+- `main` PR #383 (2026-11-21, owner "6, 7 + design, then merge + aab"; Play bundle `askodox-play-1590.aab`, Live Build run 44932718383; server deploy SUCCESS) + round 2 (2026-11-22, owner "finish all": Buyer Money = `/me/payments?mine=1` (`mineOnly`: own phone only), Seller greeting, reply `switch_mode` -> chip `askodoxSwitchMode-*` (`switch_mode_offer`, `askodoxSetSellerMode`), `RESULT_CARD_RULES`): BUY / SELL SWITCH --
   `askodoxSellerModeProvider` (false = Buyer; kept on the phone under `askodoxSellerModePrefsKey`), bottom bar = Home ·
   Live Work (`askodoxNavLiveWork`, `/work`) · Ask · Money (Buyer) / Shop (Seller, `/me/business`) · switch
   (`askodoxNavHistory`, where Tools was; Tools / settings open from the ☰ menu). "ASKODOX Club" and the header game pill

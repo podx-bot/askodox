@@ -9067,14 +9067,17 @@
         "symbols": [
           "askodoxSellerModeProvider",
           "askodoxSellerMode",
-          "askodoxLiveWorkStatus"
+          "askodoxLiveWorkStatus",
+          "askodoxSetSellerMode",
+          "switchMode"
         ],
         "widget_keys": [
           "askodoxNavLiveWork",
           "askodoxNavShop",
           "askodoxNavHistory",
           "askodoxNavShoppingState",
-          "askodoxNavLiveWorkDot-attention"
+          "askodoxNavLiveWorkDot-attention",
+          "askodoxPaymentsHubSubtitle"
         ]
       },
       "flags": {},
@@ -9085,17 +9088,23 @@
         ],
         "flutter": [
           "test/features/work_mode/live_work_status_test.dart",
-          "test/features/home/shopping_mode_test.dart"
+          "test/features/home/shopping_mode_test.dart",
+          "test/features/pos/payments_hub_test.dart",
+          "test/services/in_app_assistant_app_action_test.dart"
         ]
       },
       "dependencies": [],
       "status": "approved",
       "purpose": "Owner 2026-11-21: one app with two sides instead of a separate 'ASKODOX Club' switch -- a buyer sees buyer things, a seller sees their shop; the walking game sits in the bottom bar as 'Live Work' with a dot that says whether work is running; chat answers must carry their logic like a practical friend's advice; in the result card the customer's asked-for kind comes third.",
-      "expected_behavior": "Bottom bar = Home, Live Work, Ask, Money (Buyer) or Shop (Seller), and the buy / sell switch where Tools was (Tools / settings open from the header menu). One tap flips the side: purple = Buyer, green = Seller (header line, Ask button, a 2 s banner in the chat); the last side is kept on the phone. The chat sends buyer_mode or seller_mode (seller also gets the shop tools); in Seller mode other shops' menus are not offered for an unnamed item. Live Work dot: green and blinking while steps were counted in the last 5 minutes, grey otherwise, red '!' after a failed step reading (cleared by opening the game); steps are read once a minute only for a person who already plays. Brain: FRIEND_REASONING_RULES (seven category-free ways of thinking; verdict first, reasons from the person's own facts; never tilted toward a costlier option or a partner link). Result sections: local, then reference (affiliate) links, then the kinds the customer asked for, unless staff fixed an order.",
+      "expected_behavior": "Bottom bar = Home, Live Work, Ask, Money (Buyer) or Shop (Seller), and the buy / sell switch where Tools was (Tools / settings open from the header menu). One tap flips the side: purple = Buyer, green = Seller (header line, Ask button, a 2 s banner in the chat); the last side is kept on the phone. The chat sends buyer_mode or seller_mode (seller also gets the shop tools); in Seller mode other shops' menus are not offered for an unnamed item. Live Work dot: green and blinking while steps were counted in the last 5 minutes, grey otherwise, red '!' after a failed step reading (cleared by opening the game); steps are read once a minute only for a person who already plays. Brain: FRIEND_REASONING_RULES (seven category-free ways of thinking; verdict first, reasons from the person's own facts; never tilted toward a costlier option or a partner link). Result sections: local, then reference (affiliate) links, then the kinds the customer asked for, unless staff fixed an order. Round 2 (2026-11-22): the Buyer side's Money opens /me/payments?mine=1 (only the person's own phone -- no shop chips, no shop door); the Seller greeting is about the person's shop; a reply may carry switch_mode (seller / buyer, only the other side) and the chat shows a one-tap switch chip; RESULT_CARD_RULES keep shop names, items and prices out of the reply text when cards follow.",
       "history": [
         {
           "date": "2026-11-21",
           "change": "new; not phone verified"
+        },
+        {
+          "date": "2026-11-22",
+          "change": "round 2: own-money Money page, seller greeting, one-tap switch chip, results stay in cards; not phone verified"
         }
       ]
     }

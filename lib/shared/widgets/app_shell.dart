@@ -80,15 +80,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   }
 
   Future<void> _flipMode() async {
-    final seller = !ref.read(askodoxSellerModeProvider);
-    ref.read(askodoxSellerModeProvider.notifier).state = seller;
     if (widget.shell.currentIndex != 0) widget.shell.goBranch(0, initialLocation: true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(askodoxSellerModePrefsKey, seller);
-    } catch (_) {
-      // Not saved: the switch still works for this session.
-    }
+    await askodoxSetSellerMode(ref, !ref.read(askodoxSellerModeProvider));
   }
 
   bool _readingSteps = false;
@@ -448,7 +441,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           ref.read(askodoxLiveWorkAttentionProvider.notifier).state = false;
           context.push('/work');
         },
-        onPayments: () => context.push('/me/payments'),
+        // Buyer side: the person's OWN money only (the shop histories live on the Seller side).
+        onPayments: () => context.push(seller ? '/me/payments' : '/me/payments?mine=1'),
         onShop: () => context.push('/me/business'),
         onCompanion: () {
           // "Ask" = ONE tap starts listening (a second tap stops and sends).
