@@ -8867,6 +8867,75 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "studio_video",
+      "name": "ASKODOX Studio round 2: shoot tips + staff video, ASKODOX auto edit, publish checklist, captions + post links",
+      "roles": [
+        "staff",
+        "owner"
+      ],
+      "domains": [
+        "affiliate",
+        "studio",
+        "videos"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}/video"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}/edit"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}/checks"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}/publish"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}/posted"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}/media/{kind}"
+        },
+        {
+          "method": "GET",
+          "path": "/media/studio/{name}"
+        }
+      ],
+      "ui": {
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_studio.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "studio_buy_return"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-21 Studio spec parts 4-7: tips by product kind, own vertical <=60 s phone video, ASKODOX edit keeping the staff video as the main picture, store-rule checklist that blocks Publish, captions per platform and post links.",
+      "expected_behavior": "Picture text Latin only (ASKODOX, PAIR ₹249); voice lines cached by exact text (fixed lines once, price change re-records only the price line); Meesho: @meeshoapp + #Affiliate, WhatsApp Share & Earn link only; today's price tick valid only today; raw / edited previews staff-only, public download only after Publish.",
+      "history": [
+        {
+          "date": "2026-11-21",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

@@ -354,6 +354,7 @@ async function studio(){const d=await api("/admin/cc/workspace/studio");const s=
    ${warn.map(w=>`<div class="mut" style="color:#a05a00">${w}</div>`).join("")}
    ${p.return_deadline?`<div class="mut">Return ఆఖరు: ${esc(p.return_deadline)}</div>`:""}${p.refund_status?`<div class="mut">Refund: ${esc({sent:"పంపాం",picked:"Pickup అయింది",refunded:"డబ్బు వచ్చింది"}[p.refund_status])}${p.return_id?" · "+esc(p.return_id):""}</div>`:""}
    <div id="sx_${p.id}"></div>
+   ${!["returned","kept"].includes(p.stage)?`<div class="row" style="margin-top:6px"><button class="s" data-vid="${p.id}">🎬 వీడియో${p.edit_status==="READY"?" ✓":p.video_file?" ·":""}</button></div><div id="sv_${p.id}"></div>`:""}
    ${a?`<div class="row" style="margin-top:6px"><button class="${p.bucket==="today"?"p":"s"}" data-sa="${a[1]}" data-st="${a[2]}" data-id="${p.id}">${a[0]}</button>${a[1]!=="keep"&&!["sent","picked"].includes(p.refund_status)?`<button class="s" data-sa="keep" data-id="${p.id}">📌 ఉంచుకుంటాం</button>`:""}</div>`:""}</div>`};
  M.innerHTML=`<div class="card"><h3 style="margin:0 0 6px">🎥 Studio</h3><div class="mut">కొన్నాం → వచ్చింది → షూట్ → ఎడిట్ → పోస్ట్ → Return</div>
   <div class="row" style="margin-top:10px;gap:8px">${tile(s.today,"#fdecea","#b42318","ఈరోజే return")}${tile(s.tomorrow,"#fdf1e3","#a05a00","రేపు ఆఖరు")}${tile(s.time,"#e7f5ee","#0f7b43","సమయం ఉంది")}</div>
@@ -364,6 +365,7 @@ async function studio(){const d=await api("/admin/cc/workspace/studio");const s=
   ${d.all_staff?`<div class="card"><h4 style="margin-top:0">కొనే అకౌంట్లు (whitelisted?)</h4>${d.accounts.map(a=>`<div class="mut">${esc(a.store)} · ${esc(a.label)} · ${a.whitelisted?"✅ whitelisted":"⚠️ కాదు"}</div>`).join("")||'<p class="mut">ఇంకా లేవు</p>'}
    <div class="row"><select id="ac_store">${d.stores.map(x=>`<option>${esc(x)}</option>`).join("")}</select><input id="ac_label" placeholder="పేరు / నంబర్ చివరి 4"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="ac_wl" style="width:auto;margin:0"> whitelisted</label><button class="s" id="ac_save">Save</button></div></div>`:""}`;
  M.querySelectorAll("button[data-sf]").forEach(b=>b.onclick=()=>{SF=b.dataset.sf;studio()});
+ M.querySelectorAll("button[data-vid]").forEach(b=>b.onclick=()=>{const box=$("#sv_"+b.dataset.vid);if(box.innerHTML){box.innerHTML="";return}studioVideo(b.dataset.vid)});
  if($("#ac_save"))$("#ac_save").onclick=async()=>{try{await api("/admin/cc/workspace/studio/accounts","POST",{store:$("#ac_store").value,label:$("#ac_label").value,whitelisted:$("#ac_wl").checked});toast("Saved");studio()}catch(e){toast(e.message)}};
  $("#st_new").onclick=()=>buyForm(d);
  M.querySelectorAll("button[data-sa]").forEach(b=>b.onclick=async()=>{const id=b.dataset.id,box=$("#sx_"+id);
@@ -378,6 +380,50 @@ async function studio(){const d=await api("/admin/cc/workspace/studio");const s=
    <label>Refund స్థితి</label><select id="rt_st_${id}"><option value="sent">పంపాం</option><option value="picked" ${p.refund_status==="picked"?"selected":""}>Pickup అయింది</option><option value="refunded">డబ్బు వచ్చింది</option></select>
    <button class="p" id="rtok_${id}">Save</button>`;
   $("#rtok_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/return`,"POST",{return_id:$("#rt_id_"+id).value,pickup_date:$("#rt_pk_"+id).value,fee:$("#rt_fee_"+id).value,refund_status:$("#rt_st_"+id).value});toast("✓");studio()}catch(e){toast(e.message)}}})}
+// Studio round 2: shoot -> ASKODOX edit -> checklist -> publish -> posts (owner 2026-11-21)
+async function studioVideo(id){const box=$("#sv_"+id);let p;try{p=(await api(`/admin/cc/workspace/studio/purchases/${id}`)).purchase}catch(e){box.innerHTML=`<div class="bad">${esc(e.message)}</div>`;return}
+ const op=p.edit_options||{},ck=p.checklist,cap=p.captions;let n=0;
+ const block=(label,text,rows)=>{const bid="sc"+id+"_"+(n++);return `<label>${label}</label><textarea id="${bid}" rows="${rows||5}" readonly>${esc(text)}</textarea><button class="s" data-scopy="${bid}">📋 కాపీ</button>`};
+ const posts=p.posts||{},pf=[["instagram","Instagram","https://www.instagram.com/"],["facebook","Facebook","https://www.facebook.com/"],["youtube","YouTube Shorts","https://studio.youtube.com/"],["whatsapp","WhatsApp status","https://wa.me/"]];
+ const ticks=ck.items.filter(i=>i.check==="tick");
+ box.innerHTML=`<div class="card" style="margin-top:8px;background:#f6f7fb">
+  <h4 style="margin-top:0">1. షూట్ (${esc(p.tips.kind)})</h4><ul style="margin:0 0 6px 18px;padding:0">${[...p.tips.tips,...p.tips.common].map(t=>`<li class="mut">${esc(t)}</li>`).join("")}</ul>
+  ${p.video_url?`<video data-auth="${esc(p.video_url)}" controls playsinline style="width:100%;max-height:360px;background:#000;border-radius:10px"></video><div class="mut">${p.video_seconds} సెకన్లు · మళ్లీ షూట్ చేస్తే కొత్తది upload చేయండి</div>`:""}
+  <label>📱 ఫోన్ వీడియో (నిలువు, 60 సెకన్ల లోపు)</label><input type="file" id="svf_${id}" accept="video/*"><div id="svu_${id}" class="mut"></div>
+  <h4>2. ఈరోజు ధర + checklist</h4>
+  <label>ఈరోజు ${esc(p.store)} యాప్‌లో ఉన్న ధర ₹ (వీడియోలో ఇదే వస్తుంది)</label><input id="svp_${id}" inputmode="decimal" value="${p.show_price||""}">
+  ${ticks.map(t=>`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="svt_${id}" data-k="${esc(t.id)}" ${t.ok?"checked":""} style="width:auto;margin:0"> ${esc(t.label)}</label>`).join("")}
+  <button class="s" id="svc_${id}">Save</button>
+  <div style="margin-top:6px">${ck.items.map(i=>`<div class="mut">${i.ok?"✅":"❌"} ${esc(i.label)}</div>`).join("")}</div>
+  <h4>3. ASKODOX ఎడిట్</h4>
+  <div class="row"><div><label>వాయిస్</label><select id="svv_${id}">${[["female","ఆడ"],["male","మగ"],["none","వాయిస్ వద్దు"]].map(([k,l])=>`<option value="${k}" ${op.voice===k?"selected":""}>${l}</option>`).join("")}</select></div>
+   <div><label>భాష</label><select id="svl_${id}">${[["te","తెలుగు"],["hi","हिंदी"],["en","English"]].map(([k,l])=>`<option value="${k}" ${op.language===k?"selected":""}>${l}</option>`).join("")}</select></div></div>
+  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="svpr_${id}" ${op.presenter===""?"":"checked"} style="width:auto;margin:0"> బొమ్మ గైడ్ (presenter) చూపించు</label>
+  <label>మీ మాట (ఐచ్ఛికం -- నిజమైనదే, హామీలు వద్దు)</label><input id="svo_${id}" maxlength="200" value="${esc(op.line||"")}" placeholder="ఉదా. పట్టీల మీద చిన్న మువ్వలు ఉన్నాయి">
+  <div class="mut">వాయిస్: ${p.script.map(l=>esc(l.text)).join(" ")}</div>
+  <button class="p" id="sve_${id}" ${p.edit_status==="MAKING"?"disabled":""}>${p.edit_status==="MAKING"?"⏳ తయారవుతోంది…":p.edit_status==="READY"?"✂️ మళ్లీ ఎడిట్":"✂️ ASKODOX ఎడిట్"}</button>
+  ${p.edit_status==="FAILED"?`<div class="bad">ఎడిట్ కాలేదు (${esc(p.edit_reason)}). మళ్లీ ప్రయత్నించండి.</div>`:""}${p.edit_status==="PRICE_CHANGED"?`<div class="bad">ధర మారింది -- మళ్లీ ఎడిట్ చేయండి (ధర లైన్ మాత్రమే కొత్తగా రికార్డ్ అవుతుంది)</div>`:""}
+  ${p.edited_url&&p.edit_status==="READY"?`<video data-auth="${esc(p.edited_url)}" controls playsinline style="width:100%;max-height:420px;background:#000;border-radius:10px;margin-top:6px"></video>`:""}
+  ${p.download_url?`<a class="s btn" href="${esc(p.download_url)}" download target="_blank" rel="noopener">⬇️ వీడియో డౌన్‌లోడ్</a>`:p.edit_status==="READY"?'<div class="mut">⬇️ Publish అయ్యాక డౌన్‌లోడ్ లింక్ వస్తుంది</div>':""}
+  <h4>4. Publish</h4><div class="bad" id="svpe_${id}"></div><button class="p" id="svpub_${id}">${p.published_at?"✅ Publish అయింది":"🚀 Publish"}</button>
+  ${p.published_at?`<h4>5. షేర్ + పోస్ట్ లింక్</h4>${pf.map(([k,l,u])=>`<div style="margin-top:8px"><b>${l}</b>${k==="youtube"?block("టైటిల్",cap.youtube.title,2):""}${block("టెక్స్ట్",cap[k].text,6)}<a class="s btn" href="${u}" target="_blank" rel="noopener">${l} తెరువు</a>
+    <div class="row"><input id="svpl_${id}_${k}" placeholder="${k==="whatsapp"?"(ఐచ్ఛికం)":"పోస్ట్ లింక్ https://…"}" value="${esc((posts[k]||{}).url||"")}"><button class="s" data-post="${k}">${posts[k]?"✅":"పోస్ట్ చేశాను"}</button></div></div>`).join("")}`:""}
+ </div>`;
+ box.querySelectorAll("video[data-auth]").forEach(async v=>{try{const c=cred()||{},h={};if(c.session)h["X-ASKODOX-Staff-Session"]=c.session;if(c.token)h["X-ASKODOX-Staff-Token"]=c.token;if(c.bearer)h["Authorization"]="Bearer "+c.bearer;
+  const r=await fetch(v.dataset.auth,{headers:h});if(r.ok)v.src=URL.createObjectURL(await r.blob())}catch(e){}});
+ box.querySelectorAll("button[data-scopy]").forEach(b=>b.onclick=()=>{const t=$("#"+b.dataset.scopy);t.select();try{navigator.clipboard.writeText(t.value)}catch(e){document.execCommand("copy")}toast("కాపీ అయింది")});
+ $("#svf_"+id).onchange=async e=>{const f=e.target.files[0];if(!f)return;const v=document.createElement("video");v.preload="metadata";
+  const ok=await new Promise(r=>{v.onloadedmetadata=()=>r(v.duration<=61&&v.videoHeight>=v.videoWidth);v.onerror=()=>r(true);v.src=URL.createObjectURL(f)});
+  if(!ok){$("#svu_"+id).textContent="⚠️ నిలువుగా, 60 సెకన్ల లోపు వీడియో కావాలి";return}
+  $("#svu_"+id).textContent="⏳ upload అవుతోంది…";const fd=new FormData();fd.append("file",f);
+  try{await api(`/admin/cc/workspace/studio/purchases/${id}/video`,"POST",fd,true);toast("వీడియో వచ్చింది ✓");studioVideo(id)}catch(e2){$("#svu_"+id).textContent="⚠️ "+e2.message}};
+ $("#svc_"+id).onclick=async()=>{const t={};box.querySelectorAll(".svt_"+id).forEach(x=>t[x.dataset.k]=x.checked);
+  try{await api(`/admin/cc/workspace/studio/purchases/${id}/checks`,"POST",{ticks:t,show_price:$("#svp_"+id).value});toast("Saved ✓");studioVideo(id)}catch(e){toast(e.message)}};
+ $("#sve_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/edit`,"POST",{voice:$("#svv_"+id).value,language:$("#svl_"+id).value,presenter:$("#svpr_"+id).checked,line:$("#svo_"+id).value});
+  toast("✂️ తయారవుతోంది…");const poll=async k=>{const q=(await api(`/admin/cc/workspace/studio/purchases/${id}`)).purchase;if(q.edit_status==="MAKING"&&k<60){setTimeout(()=>poll(k+1),5000);return}studioVideo(id)};poll(0)}catch(e){toast(e.message)}};
+ $("#svpub_"+id).onclick=async()=>{if(p.published_at)return;try{await api(`/admin/cc/workspace/studio/purchases/${id}/publish`,"POST");toast("🚀 Publish ✓");studioVideo(id)}catch(e){$("#svpe_"+id).textContent="⚠️ "+e.message}};
+ box.querySelectorAll("button[data-post]").forEach(b=>b.onclick=async()=>{const k=b.dataset.post;
+  try{await api(`/admin/cc/workspace/studio/purchases/${id}/posted`,"POST",{platform:k,url:$(`#svpl_${id}_${k}`).value.trim()});toast("✓");studioVideo(id)}catch(e){toast(e.message)}})}
 function buyForm(d){let store="Meesho",opt="return";const box=$("#st_form");
  const accts=()=>d.accounts.filter(a=>a.store===store);
  const draw=()=>{box.innerHTML=`<div class="card"><h4 style="margin-top:0">కొత్త కొనుగోలు</h4>
