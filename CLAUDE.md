@@ -23,8 +23,12 @@ this file, don't trust it blindly.
   ai-video` (2-5 LIVE items, any store; ASKODOX on top, `clean_theme` Latin-only title, per-item photos zoom + name + ₹ tag;
   fixed name+price voice via `product_video.synthesize`; reel `collection` ids; log `ASKODOX COLLECTION VIDEO`; shares the
   AI video daily cap). Share texts (single + collection) add `whatsapp` status; Meesho items -> `@meeshoapp` and NO buy link on
-  WhatsApp (`MEESHO_WA_NOTE`: staff paste the Share & Earn link). Staff UI: My items "🎞️ Collection వీడియో". Nothing phone verified. NEXT (owner order): Studio rest (purchase / return dates / reminders / shoot / auto edit / checklist /
-  share / accounts / unlock), payment fix (PhonePe app row vs bank SMS: SMS wins, ❓ + 60 s wait, "wrong" button, raw
+  WhatsApp (`MEESHO_WA_NOTE`: staff paste the Share & Earn link). Staff UI: My items "🎞️ Collection వీడియో".
+  STUDIO round 1: `studio_store.py` (tables `studio_purchases` / `studio_accounts` / `studio_reminders`, paise, IST) +
+  `routes/studio.py` (`/admin/cc/workspace/studio*`, staff own / publishers all) + staff tab "🎥 Studio" (home tiles,
+  filters, buy form, stage / return / keep) + periodic job `studio_reminders` (30 min; log `ASKODOX STUDIO REMINDERS`).
+  Nothing phone verified. NEXT (owner order): Studio rest (shoot tips + video upload / auto edit / publish checklist /
+  share + post links / accounts & commission / unlock), payment fix (PhonePe app row vs bank SMS: SMS wins, ❓ + 60 s wait, "wrong" button, raw
   message kept), product documents (PDF / images) + AI answers + consented callback to an executive.
 - `main` PR #373 (2026-11-20, owner "Go"; Play bundle `askodox-play-1582.aab`, Live Build run 44748094784; server + website deploy SUCCESS, askodox.com/shop probe 200): AFFILIATE IN 4 STEPS -- Staff Workspace "🔗 Affiliate product" form (`affForm`): link is
   NEVER opened, store chosen from the link host, photos -> `POST /admin/cc/workspace/fill-from-photos`

@@ -80,13 +80,13 @@ function signin(note){$("#nav").style.display="none";$("#out").style.display="no
  $("#verify").onclick=async()=>{try{const v=await api("/onboarding/otp/verify","POST",{mobile:$("#mob").value,otp:$("#otp").value});
   setCred({bearer:v.token});const s=await api("/api/staff/session","POST");setCred({session:s.session});start()}catch(e){setCred(null);toast(e.message)}};
  $("#usetok").onclick=()=>{setCred({token:$("#tok").value.trim()});start()}}
-const TABS=[["add","Add"],["review","Review"],["items","My items"],["reels","🎬 Videos"],["tasks","Tasks"],["support","Support"],["feedback","Feedback"],["demand","Demand"],["sources","Sources"],["analytics","Stats"]];
+const TABS=[["add","Add"],["studio","🎥 Studio"],["review","Review"],["items","My items"],["reels","🎬 Videos"],["tasks","Tasks"],["support","Support"],["feedback","Feedback"],["demand","Demand"],["sources","Sources"],["analytics","Stats"]];
 async function start(){try{ME=await api("/admin/cc/workspace/me")}catch(e){if(e.message!=="signed out")signin(e.message);return}
  $("#who").textContent=ME.name+" · "+ME.role;$("#out").style.display="inline-block";
- const tabs=TABS.filter(([k])=>ME.sections[k==="reels"?"items":k]);if(!tabs.find(t=>t[0]===TAB))TAB=(tabs[0]||["add"])[0];
+ const tabs=TABS.filter(([k])=>ME.sections[(k==="reels"||k==="studio")?"items":k]);if(!tabs.find(t=>t[0]===TAB))TAB=(tabs[0]||["add"])[0];
  $("#nav").innerHTML=tabs.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?"on":""}">${l}${ME.counts[k]?` (${ME.counts[k]})`:""}</button>`).join("");
  $("#nav").style.display="flex";$("#nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;start()});
- try{await ({add,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
+ try{await ({add,studio,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
 $("#out").onclick=()=>{setCred(null);signin()};
 const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Commission link (affiliate / deep link)"],["verified_commission_rate","Commission % (partner agreed)"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
 async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 For your reference (Meesho / Amazon / Flipkart / Wishlink…)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
@@ -336,6 +336,74 @@ async function reels(){const d=await api("/admin/cc/workspace/reels");
     toast("కాపీ అయింది ✓")})}catch(e){box.innerHTML=`<p class="bad">${esc(e.message)}</p>`}});
  M.querySelectorAll("button[data-rv]").forEach(b=>b.onclick=async()=>{try{const r=await api(`/admin/cc/workspace/reels/${b.dataset.id}/review`,"POST",{action:b.dataset.rv});
   toast(r.status==="ACTIVE"?"Approved -- users ఇప్పుడు చూస్తారు":"Rejected");reels()}catch(e){toast(e.message)}})}
+// ASKODOX Studio (owner 2026-11-21): bought to shoot -> shot -> posted -> return. Return deadline = delivery + days.
+const STG=[["bought","కొన్నాం"],["delivered","వచ్చింది"],["shot","షూట్"],["edited","ఎడిట్"],["posted","పోస్ట్"]];
+const BK={today:["#fdecea","#b42318","ఈరోజే return"],tomorrow:["#fdf1e3","#a05a00","రేపు ఆఖరు"],time:["#e7f5ee","#0f7b43",""]};
+let SF="all";
+async function studio(){const d=await api("/admin/cc/workspace/studio");const s=d.summary;
+ const chip=(k,l,n)=>`<button class="${SF===k?"p":"s"}" data-sf="${k}">${l}${n!=null?" "+n:""}</button>`;
+ const show=d.purchases.filter(p=>SF==="all"?true:SF==="shoot"?["bought","delivered"].includes(p.stage):SF==="post"?["shot","edited"].includes(p.stage):SF==="return"?(p.bucket==="today"||p.bucket==="tomorrow"||["sent","picked"].includes(p.refund_status)):SF==="closed"?["returned","kept"].includes(p.stage):true);
+ const tile=(n,bg,fg,l)=>`<div style="background:${bg};border-radius:12px;padding:10px;flex:1"><div style="font-size:22px;font-weight:700;color:${fg}">${n}</div><div style="font-size:12px;color:${fg}">${l}</div></div>`;
+ const act={delivered:["📦 వచ్చింది","stage","delivered"],shot:["🎥 షూట్ చేశాను","stage","shot"],edited:["✂️ ఎడిట్ అయింది","stage","edited"],posted:["📤 పోస్ట్ చేశాను","stage","posted"],return:["↩️ Return పంపండి","ret",""],refund:["💰 Refund స్థితి","ret",""],keep:["📌 ఉంచుకుంటాం","keep",""]};
+ const card=p=>{const b=BK[p.bucket];const left=p.days_left==null?"":p.days_left<0?"గడువు దాటింది":p.days_left===0?"ఈరోజే return":p.days_left===1?"రేపు ఆఖరు":p.days_left+" రోజులు";
+  const si=["returned","kept"].includes(p.stage)?5:STG.findIndex(x=>x[0]===p.stage);const a=act[p.next_action];
+  const warn=[p.warnings.includes("keep")?"⚠️ Return లేదు -- ఇది ఉంచుకోవాల్సిందే":"",p.warnings.includes("not_whitelisted")?"⚠️ Whitelisted కాని అకౌంట్":"",p.warnings.includes("no_delivery_date")?"Delivery తేదీ పెట్టండి (వచ్చాక)":""].filter(Boolean);
+  return `<div class="card"><div class="row" style="align-items:flex-start"><div class="grow"><b>${esc(p.title)}</b><div class="mut">${esc(p.store)} · ₹${esc(String(p.paid))}${p.pack!=="single"?" · "+esc(p.pack)+" ("+p.pack_count+")":""} · ${p.stage==="returned"?"Return అయింది":p.stage==="kept"?"ఉంచుకున్నాం":esc((STG.find(x=>x[0]===p.stage)||["",""])[1])}${p.account_label?" · "+esc(p.account_label):""}${d.all_staff?" · "+esc(p.created_by):""}</div></div>
+   ${left?`<span class="badge" style="background:${b?b[0]:"#fff"};color:${b?b[1]:"inherit"};border:0;font-weight:600">${left}</span>`:""}</div>
+   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:8px 0">${STG.map((x,i)=>`<div title="${x[1]}" style="height:5px;border-radius:3px;background:${i<=si?"#3b4bd8":"#e3e6ee"}"></div>`).join("")}</div>
+   ${warn.map(w=>`<div class="mut" style="color:#a05a00">${w}</div>`).join("")}
+   ${p.return_deadline?`<div class="mut">Return ఆఖరు: ${esc(p.return_deadline)}</div>`:""}${p.refund_status?`<div class="mut">Refund: ${esc({sent:"పంపాం",picked:"Pickup అయింది",refunded:"డబ్బు వచ్చింది"}[p.refund_status])}${p.return_id?" · "+esc(p.return_id):""}</div>`:""}
+   <div id="sx_${p.id}"></div>
+   ${a?`<div class="row" style="margin-top:6px"><button class="${p.bucket==="today"?"p":"s"}" data-sa="${a[1]}" data-st="${a[2]}" data-id="${p.id}">${a[0]}</button>${a[1]!=="keep"&&!["sent","picked"].includes(p.refund_status)?`<button class="s" data-sa="keep" data-id="${p.id}">📌 ఉంచుకుంటాం</button>`:""}</div>`:""}</div>`};
+ M.innerHTML=`<div class="card"><h3 style="margin:0 0 6px">🎥 Studio</h3><div class="mut">కొన్నాం → వచ్చింది → షూట్ → ఎడిట్ → పోస్ట్ → Return</div>
+  <div class="row" style="margin-top:10px;gap:8px">${tile(s.today,"#fdecea","#b42318","ఈరోజే return")}${tile(s.tomorrow,"#fdf1e3","#a05a00","రేపు ఆఖరు")}${tile(s.time,"#e7f5ee","#0f7b43","సమయం ఉంది")}</div>
+  <button class="p" id="st_new" style="width:100%;margin-top:10px">＋ కొత్త ప్రోడక్ట్ కొన్నాను</button>
+  <div class="row" style="margin-top:10px;flex-wrap:wrap">${chip("all","అన్నీ",s.open)}${chip("shoot","షూట్ కావాలి",s.need_shoot)}${chip("post","పోస్ట్",s.need_post)}${chip("return","Return",null)}${chip("closed","ముగిసినవి",null)}</div>
+  ${d.all_staff?`<div class="mut" style="margin-top:6px">ఖర్చు (ఉంచుకున్నవి + return ఫీజు): ₹${esc(String(s.spent))}</div>`:""}</div>
+  <div id="st_form"></div>${show.map(card).join("")||'<p class="mut">ఇక్కడ ఏమీ లేదు.</p>'}
+  ${d.all_staff?`<div class="card"><h4 style="margin-top:0">కొనే అకౌంట్లు (whitelisted?)</h4>${d.accounts.map(a=>`<div class="mut">${esc(a.store)} · ${esc(a.label)} · ${a.whitelisted?"✅ whitelisted":"⚠️ కాదు"}</div>`).join("")||'<p class="mut">ఇంకా లేవు</p>'}
+   <div class="row"><select id="ac_store">${d.stores.map(x=>`<option>${esc(x)}</option>`).join("")}</select><input id="ac_label" placeholder="పేరు / నంబర్ చివరి 4"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="ac_wl" style="width:auto;margin:0"> whitelisted</label><button class="s" id="ac_save">Save</button></div></div>`:""}`;
+ M.querySelectorAll("button[data-sf]").forEach(b=>b.onclick=()=>{SF=b.dataset.sf;studio()});
+ if($("#ac_save"))$("#ac_save").onclick=async()=>{try{await api("/admin/cc/workspace/studio/accounts","POST",{store:$("#ac_store").value,label:$("#ac_label").value,whitelisted:$("#ac_wl").checked});toast("Saved");studio()}catch(e){toast(e.message)}};
+ $("#st_new").onclick=()=>buyForm(d);
+ M.querySelectorAll("button[data-sa]").forEach(b=>b.onclick=async()=>{const id=b.dataset.id,box=$("#sx_"+id);
+  if(b.dataset.sa==="stage"){if(b.dataset.st==="delivered"){box.innerHTML=`<label>Delivery తేదీ</label><input type="date" id="dv_${id}" value="${d.today}"><button class="p" id="dvok_${id}">Save</button>`;
+    $("#dvok_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/stage`,"POST",{stage:"delivered",delivery_date:$("#dv_"+id).value});studio()}catch(e){toast(e.message)}};return}
+   try{await api(`/admin/cc/workspace/studio/purchases/${id}/stage`,"POST",{stage:b.dataset.st});toast("✓");studio()}catch(e){toast(e.message)}return}
+  if(b.dataset.sa==="keep"){box.innerHTML=`<label>ఎందుకు ఉంచుకుంటాం?</label><select id="kp_${id}"><option value="studio">స్టూడియో కోసం</option><option value="giveaway">Giveaway</option><option value="no_return">Return లేదు / exchange మాత్రమే</option><option value="late">గడువు దాటింది</option></select><button class="p" id="kpok_${id}">ఉంచుకుంటాం -- ఖర్చులో లెక్క</button>`;
+   $("#kpok_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/keep`,"POST",{reason:$("#kp_"+id).value});studio()}catch(e){toast(e.message)}};return}
+  const p=d.purchases.find(x=>String(x.id)===id)||{};
+  box.innerHTML=`<div class="mut">${esc(p.store)} యాప్ → My Orders → ఈ ఆర్డర్ → Return. తర్వాత ఇక్కడ రాయండి.</div>
+   <label>Return ID</label><input id="rt_id_${id}" value="${esc(p.return_id||"")}" placeholder="RT-…"><div class="row"><div><label>Pickup తేదీ</label><input type="date" id="rt_pk_${id}" value="${esc(p.pickup_date||"")}"></div><div><label>Return ఫీజు ₹ ${p.store==="Flipkart"?"(₹30 వరకు)":""}</label><input id="rt_fee_${id}" inputmode="decimal" value="${p.return_fee||""}"></div></div>
+   <label>Refund స్థితి</label><select id="rt_st_${id}"><option value="sent">పంపాం</option><option value="picked" ${p.refund_status==="picked"?"selected":""}>Pickup అయింది</option><option value="refunded">డబ్బు వచ్చింది</option></select>
+   <button class="p" id="rtok_${id}">Save</button>`;
+  $("#rtok_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/return`,"POST",{return_id:$("#rt_id_"+id).value,pickup_date:$("#rt_pk_"+id).value,fee:$("#rt_fee_"+id).value,refund_status:$("#rt_st_"+id).value});toast("✓");studio()}catch(e){toast(e.message)}}})}
+function buyForm(d){let store="Meesho",opt="return";const box=$("#st_form");
+ const accts=()=>d.accounts.filter(a=>a.store===store);
+ const draw=()=>{box.innerHTML=`<div class="card"><h4 style="margin-top:0">కొత్త కొనుగోలు</h4>
+  <label>ఏ store లో కొన్నాం?</label><div class="row" style="flex-wrap:wrap">${d.stores.map(x=>`<button class="${x===store?"p":"s"}" data-bs="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+  <label>కొన్న అకౌంట్</label><select id="bf_acct"><option value="">-- ఎంచుకోండి --</option>${accts().map(a=>`<option value="${a.id}" data-wl="${a.whitelisted}">${esc(a.label)}${a.whitelisted?" ✅":" ⚠️"}</option>`).join("")}</select><div id="bf_wl" class="mut"></div>
+  <label>ప్రోడక్ట్ పేరు *</label><input id="bf_title">
+  <div class="row"><div><label>చెల్లించిన ధర ₹</label><input id="bf_paid" inputmode="decimal"></div><div><label>ప్యాక్</label><select id="bf_pack"><option value="single">1</option><option value="pair">జత</option><option value="combo">Combo</option></select></div></div>
+  <div class="row"><div><label>ఆర్డర్ తేదీ</label><input type="date" id="bf_od" value="${d.today}"></div><div><label>Delivery తేదీ</label><input type="date" id="bf_dd"></div></div>
+  <label>ప్రోడక్ట్ పేజీలో Return ఆప్షన్</label><div class="row">${[["return","Return ఉంది"],["exchange","Exchange మాత్రమే"],["none","Return లేదు"]].map(([k,l])=>`<button class="${k===opt?"p":"s"}" data-bo="${k}">${l}</button>`).join("")}</div>
+  ${opt==="return"?`<label>Return రోజులు (పేజీలో ఉన్నది)</label><input id="bf_days" inputmode="numeric" value="7"><div class="mut" id="bf_dl"></div>`:`<div class="bad">⚠️ ఇది ఉంచుకోవాల్సిందే -- return కాదు</div>`}
+  <label>Affiliate లింక్ (Wishlink / Creator Club) -- Instagram / Facebook / YouTube కి</label><input id="bf_aff" type="url" placeholder="https://...">
+  ${store==="Meesho"?`<label>Meesho Share &amp; Earn లింక్ -- WhatsApp కి మాత్రమే</label><input id="bf_se" type="url" placeholder="https://...">`:""}
+  <div class="bad" id="bf_err"></div><div class="row"><button class="s" id="bf_cancel">Cancel</button><button class="p" id="bf_save">Save · షూట్ లిస్ట్‌లో పెట్టు</button></div>
+  <div class="mut">Return గడువుకి 1 రోజు ముందు, గడువు రోజు ఉదయం push reminder వస్తుంది.</div></div>`;
+  box.querySelectorAll("button[data-bs]").forEach(b=>b.onclick=()=>{store=b.dataset.bs;draw()});
+  box.querySelectorAll("button[data-bo]").forEach(b=>b.onclick=()=>{opt=b.dataset.bo;draw()});
+  const wl=()=>{const o=$("#bf_acct").selectedOptions[0];$("#bf_wl").textContent=!o||!o.value?"":o.dataset.wl==="1"?"✅ Whitelisted అకౌంట్":"⚠️ Whitelisted కాని అకౌంట్ -- return / payout రక్షణ ఉండకపోవచ్చు"};$("#bf_acct").onchange=wl;
+  const dl=()=>{if(!$("#bf_dl"))return;const dd=$("#bf_dd").value,n=parseInt($("#bf_days").value||"0");if(!dd||!n){$("#bf_dl").textContent="Delivery తేదీ పెడితే return ఆఖరు తేదీ ఆటోమేటిక్‌గా వస్తుంది";return}
+   const t=new Date(dd+"T00:00:00");t.setDate(t.getDate()+n);$("#bf_dl").textContent="Return ఆఖరు తేదీ: "+t.toISOString().slice(0,10)};
+  $("#bf_dd").onchange=dl;if($("#bf_days"))$("#bf_days").oninput=dl;dl();
+  $("#bf_cancel").onclick=()=>{box.innerHTML=""};
+  $("#bf_save").onclick=async()=>{const body={title:$("#bf_title").value.trim(),store,account_id:$("#bf_acct").value?+$("#bf_acct").value:null,paid:$("#bf_paid").value,pack:$("#bf_pack").value,
+   order_date:$("#bf_od").value,delivery_date:$("#bf_dd").value,return_option:opt,return_days:opt==="return"?parseInt($("#bf_days").value||"0"):0,affiliate_link:$("#bf_aff").value.trim(),share_earn_link:$("#bf_se")?$("#bf_se").value.trim():""};
+   if(!body.title){$("#bf_err").textContent="⚠️ ప్రోడక్ట్ పేరు పెట్టండి";return}
+   try{await api("/admin/cc/workspace/studio/purchases","POST",body);toast("Saved ✓");SF="all";studio()}catch(e){$("#bf_err").textContent="⚠️ "+e.message}}};
+ draw();box.scrollIntoView&&box.scrollIntoView({block:"start"})}
 async function review(){const d=await api("/admin/cc/workspace/items?status=NEEDS_REVIEW");
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">Waiting for review (${d.items.length})</h3>${d.items.map(i=>itemRow(i,[["approve","Approve & publish"],["reject","Send back"]])).join("")||'<p class="mut">Nothing waiting.</p>'}</div>`;bindReview()}
 async function items(){const d=await api("/admin/cc/workspace/items?mine=true");ITEMS={};d.items.forEach(i=>ITEMS[i.id]=i);

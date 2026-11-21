@@ -470,6 +470,9 @@ def create_app() -> FastAPI:
     from app.api.routes.product_pages import router as product_pages_router
 
     app.include_router(staff_workspace_router)
+    from app.api.routes.studio import router as studio_router
+
+    app.include_router(studio_router)
     app.include_router(early_access_router)
     from app.api.routes.test_mode import router as test_mode_router
 
