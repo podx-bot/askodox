@@ -8759,6 +8759,10 @@
         {
           "date": "2026-11-21",
           "change": "new; not phone verified"
+        },
+        {
+          "date": "2026-11-21",
+          "change": "commission link used unless commission INACTIVE; old store error-page items hidden; one card + 'compare' -> search similar; log line ASKODOX LINK MATCH"
         }
       ]
     }

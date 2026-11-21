@@ -1605,6 +1605,8 @@ def _marketplace_and_catalog(container, demand: dict, discovery, matches: list[d
         if linked:
             rows = [ac.result_row(item) for item in linked]
             info.update({"catalog": len(rows), "status": "link_match"})
+            print("ASKODOX LINK MATCH: items=" + ",".join(str(i.get("id")) for i in linked)
+                  + " routing=" + ",".join(str(r.get("routing")) for r in rows), flush=True)
             return [r for r in rows if not r["sponsored"]], [r for r in rows if r["sponsored"]], info
     # Fresh food / meals / property are never marketplace-catalog needs
     # ("1 kg chicken curry cut"); "egg boiler" or "fish tank" still are.

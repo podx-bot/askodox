@@ -97,6 +97,9 @@ String? askodoxAnswerFollowUp(AskodoxFollowUp intent, List<UniversalMatch> shown
       : 'Anything the source did not state is marked "Not verified" -- nothing is guessed.';
   switch (intent) {
     case AskodoxFollowUp.compare:
+      // One card on screen (e.g. a pasted product link): nothing to compare it WITH -> the normal flow searches
+      // similar products and the shown one is compared against them (owner 2026-11-21).
+      if (rows.length < 2) return null;
       final pick = rows.take(top).toList();
       final priced = [for (final m in pick) if (m.price != null) m]..sort((a, b) => a.price!.compareTo(b.price!));
       final near = [for (final m in pick) if (m.distanceKm != null) m]
