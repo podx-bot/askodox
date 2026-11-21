@@ -7,7 +7,8 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- Branch `claude/voice-fix` (2026-11-21, owner "2 voices + ElevenLabs not coming + Rs 3,000 minus"; NOT merged yet):
+- `main` PR #381 (2026-11-21, owner "2 voices + ElevenLabs not coming + Rs 3,000 minus"; server deploy f83c576 SUCCESS;
+  Play bundle `askodox-play-1588.aab`, Live Build run 44913389941):
   ONE VOICE PER REPLY -- `/api/in-app/voice/speak` takes `engine` (''|elevenlabs|sarvam; elevenlabs waits 20 s and never
   answers with Sarvam), app `_speakChunks` locks the first part's engine (`askodoxAudioEngine` Expando on the bytes);
   log `ASKODOX VOICE SPEAK` (status / ms / locked / cache). Cause found in logs: eleven_v3 > 8 s on some parts -> that part
