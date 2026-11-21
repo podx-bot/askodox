@@ -359,6 +359,7 @@ async function studio(){const d=await api("/admin/cc/workspace/studio");const s=
  M.innerHTML=`<div class="card"><h3 style="margin:0 0 6px">🎥 Studio</h3><div class="mut">కొన్నాం → వచ్చింది → షూట్ → ఎడిట్ → పోస్ట్ → Return</div>
   <div class="row" style="margin-top:10px;gap:8px">${tile(s.today,"#fdecea","#b42318","ఈరోజే return")}${tile(s.tomorrow,"#fdf1e3","#a05a00","రేపు ఆఖరు")}${tile(s.time,"#e7f5ee","#0f7b43","సమయం ఉంది")}</div>
   <button class="p" id="st_new" style="width:100%;margin-top:10px">＋ కొత్త ప్రోడక్ట్ కొన్నాను</button>
+  <div class="row" style="margin-top:8px"><button class="s" id="st_money">💰 లెక్కలు</button><button class="s" id="st_unlock">🔓 Unlock</button></div>
   <div class="row" style="margin-top:10px;flex-wrap:wrap">${chip("all","అన్నీ",s.open)}${chip("shoot","షూట్ కావాలి",s.need_shoot)}${chip("post","పోస్ట్",s.need_post)}${chip("return","Return",null)}${chip("closed","ముగిసినవి",null)}</div>
   ${d.all_staff?`<div class="mut" style="margin-top:6px">ఖర్చు (ఉంచుకున్నవి + return ఫీజు): ₹${esc(String(s.spent))}</div>`:""}</div>
   <div id="st_form"></div>${show.map(card).join("")||'<p class="mut">ఇక్కడ ఏమీ లేదు.</p>'}
@@ -367,7 +368,7 @@ async function studio(){const d=await api("/admin/cc/workspace/studio");const s=
  M.querySelectorAll("button[data-sf]").forEach(b=>b.onclick=()=>{SF=b.dataset.sf;studio()});
  M.querySelectorAll("button[data-vid]").forEach(b=>b.onclick=()=>{const box=$("#sv_"+b.dataset.vid);if(box.innerHTML){box.innerHTML="";return}studioVideo(b.dataset.vid)});
  if($("#ac_save"))$("#ac_save").onclick=async()=>{try{await api("/admin/cc/workspace/studio/accounts","POST",{store:$("#ac_store").value,label:$("#ac_label").value,whitelisted:$("#ac_wl").checked});toast("Saved");studio()}catch(e){toast(e.message)}};
- $("#st_new").onclick=()=>buyForm(d);
+ $("#st_new").onclick=()=>buyForm(d);$("#st_money").onclick=()=>studioMoney();$("#st_unlock").onclick=()=>studioUnlocks();
  M.querySelectorAll("button[data-sa]").forEach(b=>b.onclick=async()=>{const id=b.dataset.id,box=$("#sx_"+id);
   if(b.dataset.sa==="stage"){if(b.dataset.st==="delivered"){box.innerHTML=`<label>Delivery తేదీ</label><input type="date" id="dv_${id}" value="${d.today}"><button class="p" id="dvok_${id}">Save</button>`;
     $("#dvok_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/stage`,"POST",{stage:"delivered",delivery_date:$("#dv_"+id).value});studio()}catch(e){toast(e.message)}};return}
@@ -424,6 +425,34 @@ async function studioVideo(id){const box=$("#sv_"+id);let p;try{p=(await api(`/a
  $("#svpub_"+id).onclick=async()=>{if(p.published_at)return;try{await api(`/admin/cc/workspace/studio/purchases/${id}/publish`,"POST");toast("🚀 Publish ✓");studioVideo(id)}catch(e){$("#svpe_"+id).textContent="⚠️ "+e.message}};
  box.querySelectorAll("button[data-post]").forEach(b=>b.onclick=async()=>{const k=b.dataset.post;
   try{await api(`/admin/cc/workspace/studio/purchases/${id}/posted`,"POST",{platform:k,url:$(`#svpl_${id}_${k}`).value.trim()});toast("✓");studioVideo(id)}catch(e){toast(e.message)}})}
+// Studio round 3: commission typed from the dashboards (no API), month totals, best kinds, unlock progress.
+const RS=v=>"₹"+Number(v||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+async function studioMoney(month){const box=$("#st_form");let d;try{d=await api("/admin/cc/workspace/studio/money"+(month?"?month="+encodeURIComponent(month):""))}catch(e){box.innerHTML=`<div class="card bad">${esc(e.message)}</div>`;return}
+ const t=d.totals;
+ box.innerHTML=`<div class="card"><div class="row"><h4 class="grow" style="margin:0">💰 లెక్కలు</h4><input type="month" id="mn_m" value="${esc(d.month)}" style="width:auto"><button class="s" id="mn_x">✕</button></div>
+  <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">${[["Confirm కమిషన్",t.confirmed,"#0f7b43"],["Pending",t.pending,"#a05a00"],["ఖర్చు",t.cost,"#b42318"],["లాభం",t.profit,t.profit<0?"#b42318":"#0f7b43"]].map(([l,v,c])=>`<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px"><div style="font-size:20px;font-weight:700;color:${c}">${RS(v)}</div><div class="mut">${l}</div></div>`).join("")}</div>
+  <div class="mut" style="margin-top:6px">ఆర్డర్లు ${t.orders} · returns ${t.returns}${t.stuck?` · refund రావాల్సింది ${RS(t.stuck)}`:""}${d.last_entry?` · చివరి entry ${esc(d.last_entry.slice(0,10))}`:""}</div>
+  <div class="mut">ఖర్చు = ఉంచుకున్నవి + return ఫీజు + కొత్త వాయిస్ లైన్లు. ASKODOX పెట్టుబడి కలపలేదు. కమిషన్ owner ఖాతాకే.</div>
+  ${d.best_kinds.length?`<h4>బాగా అమ్ముడయ్యే రకాలు</h4>${d.best_kinds.slice(0,6).map(k=>`<div class="mut">${esc(k.kind)} -- ${k.orders} ఆర్డర్లు · ${RS(k.confirmed)} · ${k.products} ప్రోడక్ట్‌లు</div>`).join("")}`:""}
+  <h4>ప్రోడక్ట్ వారీగా</h4>${d.products.map(p=>`<div style="border-top:1px solid var(--line);padding:6px 0"><b>${esc(p.title)}</b> <span class="mut">${esc(p.store)}${d.all_staff?" · "+esc(p.created_by):""}</span>
+   <div class="mut">ఖర్చు ${RS(p.cost)} · ఆర్డర్లు ${p.orders} · returns ${p.returns} · confirm ${RS(p.confirmed)} · pending ${RS(p.pending)} · లాభం ${RS(p.profit)}</div></div>`).join("")||'<p class="mut">ఈ నెల ఏమీ లేదు</p>'}
+  ${d.can_enter?`<h4>Dashboard నుంచి రాయండి (Wishlink / Meesho కి API లేదు)</h4>
+   <label>ప్రోడక్ట్</label><select id="mn_p"><option value="0">అన్నీ కలిపి (ప్రోడక్ట్ వారీగా కాదు)</option>${d.products.map(p=>`<option value="${p.id}">${esc(p.title.slice(0,50))}</option>`).join("")}</select>
+   <div class="row"><div><label>Source</label><select id="mn_s">${d.sources.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div><div><label>ఆర్డర్లు</label><input id="mn_o" inputmode="numeric" value="0"></div><div><label>Returns</label><input id="mn_r" inputmode="numeric" value="0"></div></div>
+   <div class="row"><div><label>Confirm కమిషన్ ₹</label><input id="mn_c" inputmode="decimal"></div><div><label>Pending ₹</label><input id="mn_pe" inputmode="decimal"></div></div>
+   <label>Note</label><input id="mn_n" maxlength="200"><div class="mut">అదే నెల, అదే source మళ్లీ రాస్తే పాతది మారుతుంది.</div><div class="bad" id="mn_e"></div><button class="p" id="mn_save">Save</button>`:'<p class="mut">కమిషన్ owner మాత్రమే రాస్తారు.</p>'}</div>`;
+ $("#mn_x").onclick=()=>{box.innerHTML=""};$("#mn_m").onchange=()=>studioMoney($("#mn_m").value);
+ if($("#mn_save"))$("#mn_save").onclick=async()=>{try{await api("/admin/cc/workspace/studio/earnings","POST",{purchase_id:+$("#mn_p").value,source:$("#mn_s").value,month:d.month,orders:+($("#mn_o").value||0),returns:+($("#mn_r").value||0),confirmed:$("#mn_c").value,pending:$("#mn_pe").value,note:$("#mn_n").value});toast("Saved ✓");studioMoney(d.month)}catch(e){$("#mn_e").textContent="⚠️ "+e.message}};
+ box.scrollIntoView&&box.scrollIntoView({block:"start"})}
+async function studioUnlocks(){const box=$("#st_form");let d;try{d=await api("/admin/cc/workspace/studio/unlocks")}catch(e){box.innerHTML=`<div class="card bad">${esc(e.message)}</div>`;return}
+ box.innerHTML=`<div class="card"><div class="row"><h4 class="grow" style="margin:0">🔓 Unlock progress</h4><button class="s" id="ul_x">✕</button></div>
+  ${d.unlocks.map(u=>`<div style="border-top:1px solid var(--line);padding:8px 0"><b>${u.done?"✅ ":""}${esc(u.label)}</b>
+   <div style="height:8px;background:#e3e6ee;border-radius:4px;margin:6px 0"><div style="height:8px;width:${u.percent}%;background:${u.done?"#0f7b43":"#3b4bd8"};border-radius:4px"></div></div>
+   <div class="mut">${u.kind==="yes"?(u.value>=1?"అవును":"ఇంకా కాదు"):u.kind==="rupees"?RS(u.value)+" / "+RS(u.target):u.value+" / "+u.target}${u.hint?" · "+esc(u.hint):""}${u.updated_at?" · "+esc(u.updated_at.slice(0,10)):""}</div>
+   ${d.can_edit?`<div class="row">${u.kind==="yes"?`<select id="ul_${u.key}"><option value="0">ఇంకా కాదు</option><option value="1" ${u.value>=1?"selected":""}>అవును</option></select>`:`<input id="ul_${u.key}" inputmode="decimal" value="${u.value}">`}<button class="s" data-ul="${u.key}">Save</button></div>`:""}</div>`).join("")}</div>`;
+ $("#ul_x").onclick=()=>{box.innerHTML=""};
+ box.querySelectorAll("button[data-ul]").forEach(b=>b.onclick=async()=>{try{await api("/admin/cc/workspace/studio/unlocks","POST",{key:b.dataset.ul,value:$("#ul_"+b.dataset.ul).value});toast("Saved ✓");studioUnlocks()}catch(e){toast(e.message)}});
+ box.scrollIntoView&&box.scrollIntoView({block:"start"})}
 function buyForm(d){let store="Meesho",opt="return";const box=$("#st_form");
  const accts=()=>d.accounts.filter(a=>a.store===store);
  const draw=()=>{box.innerHTML=`<div class="card"><h4 style="margin-top:0">కొత్త కొనుగోలు</h4>
