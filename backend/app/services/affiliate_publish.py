@@ -155,5 +155,54 @@ def share_texts(item: Dict[str, Any], reviews: Dict[str, Any], store: str, page_
     ig = "\n".join(body + ["", f"👉 లింక్ మా ప్రొఫైల్ బయోలో ఉంది ({SHOP_URL})", "", disclosure, tags])
     yt_title = f"{title} | ASKODOX Picks #shorts"[:100]
     yt_desc = "\n".join(body + ["", f"👉 లింక్: ఛానెల్ ప్రొఫైల్‌లో ({SHOP_URL})", page_url, "", disclosure, tags])
+    meesho = _is_meesho(store)
+    if meesho:  # Studio spec: Meesho posts tag @meeshoapp
+        fb, ig, yt_desc = (t.replace(tags, "@meeshoapp " + tags) for t in (fb, ig, yt_desc))
+    wa = whatsapp_status([(title, price, page_url, meesho)])
     return {"facebook": {"text": fb}, "instagram": {"text": ig}, "youtube": {"title": yt_title, "text": yt_desc},
-            "link": page_url, "shop": SHOP_URL}
+            "whatsapp": {"text": wa}, "link": page_url, "shop": SHOP_URL}
+
+
+def _is_meesho(store: str) -> bool:
+    return "meesho" in str(store or "").lower()
+
+
+MEESHO_WA_NOTE = "(Meesho Share & Earn లింక్ ఇక్కడ పెట్టండి)"
+
+
+def whatsapp_status(rows: List[Tuple[str, str, str, bool]]) -> str:
+    """WhatsApp status text. Studio spec: a Meesho item never carries the affiliate / ASKODOX buy link on WhatsApp --
+    staff paste Meesho's own Share & Earn link in its place."""
+    lines = ["✨ ASKODOX Picks"]
+    for k, (title, price, link, meesho) in enumerate(rows):
+        head = f"{k + 1}. {title}" if len(rows) > 1 else title
+        lines.append(head + (f" -- {price}" if price else ""))
+        lines.append(f"👉 {MEESHO_WA_NOTE if meesho else link + '?from=wa'}")
+    lines += ["", f"ఇంకా: {SHOP_URL}"]
+    return "\n".join(lines)
+
+
+def collection_share_texts(rows: List[Dict[str, Any]], theme: str) -> Dict[str, Any]:
+    """Captions for a collection video. rows = [{"item": {...}, "store": str, "page": url}] in video order."""
+    theme = _text(theme, 40) or "TOP FINDS"
+    listed, tags, any_meesho, wa_rows = [], ["#Affiliate", "#ASKODOX", "#ASKODOXPicks"], False, []
+    for k, row in enumerate(rows):
+        item, store, page = row["item"], row.get("store") or "ASKODOX", row["page"]
+        title, price = _text(item.get("title"), 70) or "ASKODOX Pick", _price(item)
+        listed.append((k + 1, title, price, page))
+        any_meesho = any_meesho or _is_meesho(store)
+        wa_rows.append((title, price, page, _is_meesho(store)))
+        if store and store != "ASKODOX":
+            tags.append(f"#{store}")
+    tag_line = ("@meeshoapp " if any_meesho else "") + " ".join(dict.fromkeys(tags))
+    disclosure = "Affiliate links: మీరు కొంటే మాకు కమీషన్ వస్తుంది, మీకు ధర మారదు."
+    head = f"✨ {theme} -- ASKODOX Picks"
+    fb = "\n".join([head, ""] + [f"{n}. {t}" + (f" -- {p}" if p else "") + f"\n👉 {u}?from=fb" for n, t, p, u in listed]
+                   + ["", disclosure, tag_line])
+    ig = "\n".join([head, ""] + [f"{n}. {t}" + (f" -- {p}" if p else "") for n, t, p, _u in listed]
+                   + ["", f"👉 లింక్‌లు మా ప్రొఫైల్ బయోలో ({SHOP_URL})", "", disclosure, tag_line])
+    yt_title = f"{theme} | ASKODOX Picks #shorts"[:100]
+    yt = "\n".join([head, ""] + [f"{n}. {t}" + (f" -- {p}" if p else "") + f"\n{u}?from=yt" for n, t, p, u in listed]
+                   + ["", f"👉 అన్నీ: {SHOP_URL}", "", disclosure, tag_line])
+    return {"facebook": {"text": fb}, "instagram": {"text": ig}, "youtube": {"title": yt_title, "text": yt},
+            "whatsapp": {"text": whatsapp_status(wa_rows)}, "link": SHOP_URL, "shop": SHOP_URL}

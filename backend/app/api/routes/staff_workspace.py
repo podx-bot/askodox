@@ -1261,6 +1261,123 @@ def make_ai_video(item_id: int, body: AiVideoBody, request: Request) -> dict:
             "reviews": bool(reviews)}
 
 
+class CollectionVideoBody(BaseModel):
+    item_ids: list[int] = Field(min_length=2, max_length=5)
+    theme: str = Field(default="", max_length=60)
+    language: str = Field(default="te", pattern="^(te|hi|en)$")
+    voice: bool = True
+    gender: str = Field(default="female", pattern="^(female|male)$")
+
+
+@router.post("/admin/cc/workspace/collections/ai-video")
+def make_collection_video(body: CollectionVideoBody, request: Request) -> dict:
+    """Owner 2026-11-21: 2-5 LIVE items in one 9:16 reel (ASKODOX brand on top, theme title, each item's photos +
+    name + price, honest fixed voice). Made in the background; waits in Videos (PENDING_REVIEW) like the AI video."""
+    import hashlib as _hashlib
+    import threading
+    import time
+
+    from app.services import collection_video, platform_settings, product_video, rate_limit, reel_maker
+
+    principal = _workspace(request)
+    if not _types(principal):
+        raise HTTPException(status_code=403, detail=gov.FORBIDDEN)
+    rate_limit.check(request, "workspace_ai_video", limit=30)
+    limit = int(platform_settings.get("video_ai.daily_max"))
+    if limit <= 0 or _ai_videos_today(request) >= limit:
+        raise HTTPException(status_code=429, detail=f"Today's AI video limit ({limit}) is used. Tomorrow again, or raise "
+                                                    "video_ai.daily_max in the Command Center.")
+    container = request.app.state.container
+    ids = list(dict.fromkeys(body.item_ids))
+    if len(ids) < collection_video.MIN_ITEMS:
+        raise HTTPException(status_code=422, detail="Pick at least 2 different products. / కనీసం 2 ప్రోడక్ట్‌లు ఎంచుకోండి.")
+    items = []
+    for item_id in ids:
+        item = catalog(container).get(item_id)
+        if not item or item.get("deleted_at") or item.get("review_status") != "LIVE":
+            raise HTTPException(status_code=422, detail=f"Item {item_id} is not LIVE. Only published products go in a "
+                                                        "collection video. / LIVE ప్రోడక్ట్‌లు మాత్రమే.")
+        items.append(item)
+    folder = os.path.join(os.path.dirname(os.path.abspath(container.settings.database_path)), "video_uploads")
+    os.makedirs(folder, exist_ok=True)
+    stem = _hashlib.sha256(f"collection:{ids}:{time.time_ns()}".encode()).hexdigest()[:32]
+    photo_sets = [_item_photo_files(request, item, folder, f"{stem}.{k}")[:3] for k, item in enumerate(items)]
+    if sum(1 for p in photo_sets if p) < collection_video.MIN_ITEMS:
+        raise HTTPException(status_code=422, detail="Photos could not be used for these products. Add photos and try "
+                                                    "again. / ఫోటోలు పెట్టి మళ్లీ ప్రయత్నించండి.")
+    keep = [k for k, p in enumerate(photo_sets) if p]
+    items, photo_sets = [items[k] for k in keep], [photo_sets[k] for k in keep]
+    theme = collection_video.clean_theme(body.theme)
+    prices = [reel_maker.price_text(i.get("price"), str(i.get("currency") or "INR")) for i in items]
+    stores = [product_video.store_name(i.get("original_product_url") or i.get("affiliate_url") or "") for i in items]
+    lines = collection_video.script(items, prices, body.language)
+    base = str(request.base_url).rstrip("/").replace("http://", "https://")
+    title = f"{theme}: " + ", ".join(collection_video.picture_name(i.get("title"))[:30] for i in items)
+    pf = _pf(request)
+    first = items[0]
+    record = pf.resources.create("videos", {
+        "title": title[:140], "platform": "askodox", "url": f"{base}/media/videos/{stem}.mp4",
+        "thumbnail_url": first.get("image_url") or None,
+        "description": "\n".join(f"{k + 1}. {i.get('title')}" + (f" -- {p}" if p else "")
+                                 for k, (i, p) in enumerate(zip(items, prices)))[:2000],
+        "categories": list(dict.fromkeys(str(i.get("category") or "").lower() for i in items if i.get("category"))),
+        "products": [str(i.get("title") or "")[:80] for i in items], "keywords": [theme.lower()],
+        "video_type": "demo", "relationship": "merchant", "merchant_ref": "askodox",
+        "store_item_id": str(first["id"]), "buy_url": first.get("affiliate_url") or first.get("original_product_url") or "",
+        "buy_title": str(first.get("title") or "")[:140], "buy_price": str(first.get("price") or ""),
+    }, actor=f"staff:{principal.get('id')}", owner_ref=f"staff:{principal.get('id')}", status="DRAFT")
+    repo = pf.resources.repo
+    item_ids = [int(i["id"]) for i in items]
+    repo.update(record["id"], actor="system:collection_video", action="reel",
+                data={**(record.get("data") or {}), "reel": {"item_id": item_ids[0], "collection": item_ids,
+                                                             "theme": theme, "status": "MAKING", "ai": True}})
+
+    def work() -> None:
+        from PIL import Image
+
+        from app.services import video_watermark as wm
+
+        audio_path, outcome, voice_path = None, {"ok": False, "reason": "error"}, "none"
+        try:
+            if body.voice:
+                audio, voice_path = product_video.synthesize(container, " ".join(l["spoken"] for l in lines),
+                                                             body.gender)
+                if audio:
+                    audio_path = os.path.join(folder, stem + ".voice.audio")
+                    with open(audio_path, "wb") as handle:
+                        handle.write(audio)
+            groups = [[Image.open(p) for p in paths] for paths in photo_sets]
+            exe = wm.ffmpeg_exe()
+            outcome = collection_video.render(groups, items, prices, theme, lines, audio_path,
+                                              os.path.join(folder, stem + ".mp4"), exe=exe) if exe else \
+                {"ok": False, "reason": "ffmpeg_missing"}
+        except Exception as error:
+            outcome = {"ok": False, "reason": f"error:{type(error).__name__}"}
+        finally:
+            for path in [audio_path] + [p for paths in photo_sets for p in paths if os.path.basename(p).startswith(stem)]:
+                if path:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+        print(f"ASKODOX COLLECTION VIDEO items={','.join(map(str, item_ids))} ok={outcome.get('ok')} "
+              f"reason={outcome.get('reason')} voice={voice_path} seconds={outcome.get('seconds')}", flush=True)
+        current = repo.get(record["id"]) or record
+        data = dict(current.get("data") or {})
+        data["reel"] = {"item_id": item_ids[0], "collection": item_ids, "theme": theme, "ai": True,
+                        "status": "READY" if outcome.get("ok") else "FAILED", "reason": outcome.get("reason"),
+                        "voice": voice_path != "none", "voice_path": voice_path, "price_shown": " · ".join(p for p in prices if p),
+                        "seconds": outcome.get("seconds"), "script": [l["spoken"] for l in lines], "stores": stores,
+                        "store": stores[0], "reviews": {}, "faq": []}
+        repo.update(record["id"], actor="system:collection_video", action="reel",
+                    status="PENDING_REVIEW" if outcome.get("ok") else None, data=data)
+
+    threading.Thread(target=work, name=f"collection-{record['id']}", daemon=True).start()
+    _audit(request, principal, "workspace_collection_video", item_ids[0], {}, {"video_id": record.get("id"),
+                                                                                "items": item_ids})
+    return {"video_id": record["id"], "status": "MAKING", "items": item_ids, "theme": theme}
+
+
 class PhotoFillBody(BaseModel):
     photos: list[str] = Field(min_length=1, max_length=6)
 
@@ -1311,6 +1428,17 @@ def reel_share(video_id: str, request: Request) -> dict:
     record = _pf(request).resources.repo.get(video_id) or {}
     data = record.get("data") or {}
     reel = data.get("reel") or {}
+    if reel.get("collection"):
+        store_of = reel.get("stores") or []
+        rows = []
+        for k, item_id in enumerate(reel["collection"]):
+            item = catalog(request.app.state.container).get(int(item_id)) or {"id": item_id}
+            rows.append({"item": item, "store": store_of[k] if k < len(store_of) else "ASKODOX",
+                         "page": f"{product_pages.PUBLIC_BASE}/p/{item_id}"})
+        return {"video_id": video_id, "status": record.get("status"),
+                "texts": affiliate_publish.collection_share_texts(rows, reel.get("theme") or ""), "faq": [],
+                "public_video": data.get("url") if record.get("status") == "ACTIVE" else None, "clicks": {},
+                "collection": reel["collection"]}
     item = catalog(request.app.state.container).get(int(reel.get("item_id") or 0)) or {}
     page = f"{product_pages.PUBLIC_BASE}/p/{item.get('id') or reel.get('item_id')}"
     store = reel.get("store") or "ASKODOX"
