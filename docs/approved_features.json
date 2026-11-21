@@ -8989,6 +8989,59 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "one_voice_per_reply_and_bank_wins",
+      "name": "One voice per chat reply; payment voice ElevenLabs in time; bank SMS wins over a wrong app row",
+      "roles": [
+        "customer",
+        "owner",
+        "staff"
+      ],
+      "domains": [
+        "voice",
+        "payments"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/speak"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxAudioEngine",
+          "askodoxRowCountsAsMoney",
+          "askodoxRowDoubt",
+          "askodoxNoticeNote"
+        ],
+        "widget_keys": [
+          "askodoxMineRowRaw",
+          "askodoxMineRowCorrect-in",
+          "askodoxMineRowCorrect-out",
+          "askodoxMineRowCorrect-none",
+          "askodoxMineRowAccount"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_elevenlabs_tts.py"
+        ],
+        "flutter": [
+          "test/features/pos/my_phone_payments_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-21: two voices in one chat answer (some parts ElevenLabs, a slow part Sarvam); payment voice fell back to the phone voice for new names / amounts; a received Rs 3,000 PhonePe notification was shown as minus.",
+      "expected_behavior": "/voice/speak takes engine ''|elevenlabs|sarvam: elevenlabs waits up to 20 s and never answers with Sarvam (503), sarvam skips ElevenLabs; the app locks the engine of a reply's first part for the rest. ElevenLabs lines <= 160 chars are kept on the volume (tts_cache) for every phone. Payment parts are fetched in parallel with engine=elevenlabs, 6.5 s budget, common amounts fetched ahead. 'sent / paid / credited to your ...' is incoming; incoming + outgoing words without a strong debit word = doubtful (❓). Personal phone: the bank's SMS sets aside an opposite app row of the same amount within 10 min (excluded, ❓, never counted or spoken); app debits wait 60 s before speaking. Each row keeps its message on the phone; 'wrong' (in / out / not a payment) fixes the row and teaches that kind of message (skeleton without names / numbers). Money messages that are not payments (refund started, payment initiated / pending, failed, bill generated, suspicious link / KYC / lottery) become 'info' rows on the personal phone with why it came + what to check (never counted, never spoken; suspicious also notifies). A landed refund is money in (note refund). TRAI -P promotional sender ids are ignored. Biller 'thank you for your payment' = money out.",
+      "history": [
+        {
+          "date": "2026-11-21",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

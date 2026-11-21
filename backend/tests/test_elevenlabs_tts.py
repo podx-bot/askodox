@@ -123,3 +123,42 @@ def test_speak_route_falls_back_to_sarvam(monkeypatch):
     response = client.post("/api/in-app/voice/speak", json={"text": "నమస్కారం", "locale": "te"})
     assert response.status_code == 200
     assert response.headers["x-askodox-tts-model"].startswith("bulbul")
+
+
+def test_locked_elevenlabs_part_never_switches_to_sarvam(monkeypatch):
+    """Owner 2026-11-21 ("2 voices"): later parts of one reply keep the engine of the first part."""
+    client = _speak_client(monkeypatch, {"success": False, "status": "ELEVENLABS_TIMEOUT"})
+    locked = client.post("/api/in-app/voice/speak", json={"text": "నమస్కారం", "locale": "te", "engine": "elevenlabs"})
+    assert locked.status_code == 503 and "ELEVENLABS_TIMEOUT" in locked.text
+    free = client.post("/api/in-app/voice/speak", json={"text": "నమస్కారం", "locale": "te"})
+    assert free.status_code == 200 and free.headers["x-askodox-tts-model"].startswith("bulbul")
+
+
+def test_sarvam_lock_skips_elevenlabs(monkeypatch):
+    client = _speak_client(monkeypatch, {"success": True, "content": b"ID3mp3", "model": "eleven_v3",
+                                         "language_code": "te", "status": "SYNTHESIZED_ELEVENLABS"})
+    response = client.post("/api/in-app/voice/speak", json={"text": "నమస్కారం", "locale": "te", "engine": "sarvam"})
+    assert response.status_code == 200 and response.headers["x-askodox-tts-model"].startswith("bulbul")
+    assert client.post("/api/in-app/voice/speak", json={"text": "x", "engine": "other"}).status_code == 422
+
+
+def test_locked_part_waits_longer_on_elevenlabs():
+    client = _Client()
+    tts = ElevenLabsTTS("k", client=client)
+    tts.synthesize("హలో", timeout_seconds=20.0)
+    assert client.calls[0][1]["timeout"].read == 20.0
+    tts.synthesize("మరొకటి")
+    assert client.calls[1][1]["timeout"].read == 8.0
+
+
+def test_short_parts_are_kept_on_disk_for_every_phone(tmp_path):
+    """Payment names / amounts made once are instant after a restart and for every phone (no second charge)."""
+    client = _Client()
+    ElevenLabsTTS("k", client=client, cache_dir=str(tmp_path)).synthesize("3000 రూపాయలు జమ అయ్యాయి.")
+    fresh = ElevenLabsTTS("k", client=client, cache_dir=str(tmp_path))  # a new process
+    again = fresh.synthesize("3000 రూపాయలు జమ అయ్యాయి.")
+    assert again["success"] and again["cache_hit"] and len(client.calls) == 1
+    long_text = "అ" * 400
+    ElevenLabsTTS("k", client=client, cache_dir=str(tmp_path)).synthesize(long_text)
+    ElevenLabsTTS("k", client=client, cache_dir=str(tmp_path)).synthesize(long_text)
+    assert len(client.calls) == 3, "long replies are not kept on disk"

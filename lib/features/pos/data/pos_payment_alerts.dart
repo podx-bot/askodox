@@ -124,6 +124,11 @@ class AskodoxPaymentAlertsBridge {
     }
   }
 
+  /// Owner 2026-11-21: "wrong" on a history row -- [choice] 'in' (this came in), 'out' (this went out) or 'none'
+  /// (not a payment). The phone fixes the row and reads that kind of message the same way from now on.
+  Future<AskodoxJson> correctEvent(String localId, String choice) =>
+      _map('correctEvent', {'localId': localId, 'choice': choice});
+
   /// Apps on this phone the person can choose to read (label + package id only).
   Future<List<AskodoxJson>> installedApps() async {
     try {
@@ -377,6 +382,8 @@ String askodoxRupees(Object? paise) {
       'pending' => ('Speaking…', 'చెబుతోంది…'),
       'stuck' => ('Voice got stuck — not spoken', 'వాయిస్ ఆగిపోయింది — చెప్పలేదు'),
       'duplicate_local' => ('Spoken by this phone itself', 'ఈ ఫోన్ తానే చెప్పింది'),
+      'waiting' => ('Waiting for the bank SMS (1 min)', 'బ్యాంక్ SMS కోసం ఆగుతోంది (1 నిమిషం)'),
+      'skipped_bank' => ('Not spoken — the bank SMS said otherwise', 'చెప్పలేదు — బ్యాంక్ SMS వేరేగా చెప్పింది'),
       _ => ('No answer from the phone', 'ఫోన్ నుంచి సమాచారం లేదు'),
     };
 
@@ -585,3 +592,45 @@ Future<int> askodoxJoinStaffShopVoices(AskodoxPosRepository repo, AskodoxPayment
   } catch (_) {}
   return joined;
 }
+
+/// Owner 2026-11-21: a row set aside (the bank's SMS said the opposite, or the person marked "not a payment") stays
+/// visible with ❓ but never counts as money.
+bool askodoxRowCountsAsMoney(Map<String, Object?> e) =>
+    e['test'] != true && e['excluded'] != true && e['status'] != 'suspect_sender';
+
+/// Owner 2026-11-21: a money message that is NOT a payment (refund started, payment initiated / failed, bill
+/// generated, suspicious) -- why it came and what to check (en, te). Never counted, never spoken.
+(String, String)? askodoxNoticeNote(Map<String, Object?> e) => switch ('${e['info'] ?? ''}') {
+      'refund_started' => (
+          'ℹ️ Refund started — the money has NOT come yet. Watch for the bank SMS in a few days.',
+          'ℹ️ రిఫండ్ మొదలైంది — డబ్బు ఇంకా రాలేదు. కొన్ని రోజుల్లో బ్యాంక్ SMS వస్తుందేమో చూడండి.'
+        ),
+      'pending' => (
+          'ℹ️ Payment started / pending — not finished. Check your bank app before paying again.',
+          'ℹ️ పేమెంట్ మొదలైంది / pending — ఇంకా పూర్తి కాలేదు. మళ్ళీ కట్టే ముందు బ్యాంక్ యాప్‌లో చూడండి.'
+        ),
+      'failed' => (
+          'ℹ️ Payment failed. If money was cut, it usually comes back; if not in a few days, ask your bank.',
+          'ℹ️ పేమెంట్ ఫెయిల్ అయింది. డబ్బు కట్ అయితే సాధారణంగా తిరిగి వస్తుంది; కొన్ని రోజుల్లో రాకపోతే బ్యాంక్‌ను అడగండి.'
+        ),
+      'bill' => (
+          'ℹ️ Bill generated — this is what you have to pay, not money paid. Check the bill amount.',
+          'ℹ️ బిల్ వచ్చింది — ఇది కట్టాల్సింది, కట్టింది కాదు. బిల్లు మొత్తం సరిచూసుకోండి.'
+        ),
+      'suspect' => (
+          '⚠️ Suspicious message — do not tap any link. Check your bank app to see if money really came.',
+          '⚠️ అనుమానాస్పద message — లింక్ నొక్కకండి. డబ్బు నిజంగా వచ్చిందో మీ బ్యాంక్ యాప్‌లో చూడండి.'
+        ),
+      _ => null,
+    };
+
+/// The ❓ note of a doubtful row (en, te), or null.
+(String, String)? askodoxRowDoubt(Map<String, Object?> e) => askodoxNoticeNote(e) ?? switch ('${e['doubt'] ?? ''}') {
+      'bank_opposite' => (
+          '❓ The bank SMS says the opposite — this app message was read wrongly; not counted',
+          '❓ బ్యాంక్ SMS వేరేగా చెప్పింది — ఈ యాప్ message తప్పుగా చదివాం; లెక్కలో వేయలేదు'
+        ),
+      'not_payment' => ('❓ Marked "not a payment" — not counted', '❓ "payment కాదు" అన్నారు — లెక్కలో వేయలేదు'),
+      'wording' => ('❓ Not sure it went out — check and correct if wrong', '❓ వెళ్ళిందో లేదో ఖచ్చితంగా లేదు — తప్పైతే సరిచేయండి'),
+      _ => null,
+    };
