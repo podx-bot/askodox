@@ -33,7 +33,11 @@ this file, don't trust it blindly.
   <= 61 s, 80 MB), /edit (background, log `ASKODOX STUDIO EDIT`), /checks, /publish (422 names what is missing), /posted,
   staff-only /media/{raw|edited} (page fetches as blob), public `/media/studio/{32hex}.mp4` only after Publish. Columns
   added by `studio_store.MIGRATIONS`. Staff UI: "🎬 వీడియో" panel per Studio product. Nothing phone verified.
-  NEXT (owner order): Studio accounts & commission (manual, weekly reminder, month summary, top kinds) + unlock progress, payment fix (PhonePe app row vs bank SMS: SMS wins, ❓ + 60 s wait, "wrong" button, raw
+  STUDIO round 3: `studio_earnings` (one row per product + source + month, owner / publishers type it), `money()` (cost =
+  kept + return fee + `voice_paise`; profit = confirmed - cost; best kinds; staff own only), `studio_unlocks` + `UNLOCKS`
+  targets, Monday 10:00 IST commission push in `send_reminders`, setting `studio.voice_line_cost` (₹3); routes
+  /studio/money, /studio/earnings, /studio/unlocks; UI "💰 లెక్కలు" / "🔓 Unlock". Studio spec 1-10 all built.
+  NEXT (owner order): payment fix (PhonePe app row vs bank SMS: SMS wins, ❓ + 60 s wait, "wrong" button, raw
   message kept), product documents (PDF / images) + AI answers + consented callback to an executive.
 - `main` PR #373 (2026-11-20, owner "Go"; Play bundle `askodox-play-1582.aab`, Live Build run 44748094784; server + website deploy SUCCESS, askodox.com/shop probe 200): AFFILIATE IN 4 STEPS -- Staff Workspace "🔗 Affiliate product" form (`affForm`): link is
   NEVER opened, store chosen from the link host, photos -> `POST /admin/cc/workspace/fill-from-photos`

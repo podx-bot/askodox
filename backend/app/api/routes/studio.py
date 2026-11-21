@@ -143,7 +143,7 @@ def send_reminders(container: Any) -> dict:
 
     store = studio(container)
     due = store.due_reminders()
-    if not due:
+    if not due and not store.weekly_commission_due():
         return {"due": 0, "pushed": 0}
     staff = [s for s in command_center(container).list_staff()
              if s.get("active") and str(s.get("app_user_id") or "").startswith("app-")]
@@ -163,7 +163,16 @@ def send_reminders(container: Any) -> dict:
                                      event_key=f"studio:{row['id']}:{kind}") or 0)
             except Exception:
                 pass
-    print(f"ASKODOX STUDIO REMINDERS due={len(due)} sent={sent} pushed={pushed}", flush=True)
+    week = store.weekly_commission_due()
+    if week and owners and store.mark_sent(0, f"commission:{week}"):
+        for user_id in sorted(owners):  # Wishlink / Meesho have no API: the owner types the numbers once a week
+            try:
+                pushed += int(notify(user_id, title="ఈ వారం కమిషన్ రాయండి",
+                                     body="Wishlink / Meesho dashboard చూసి Studio → 💰 లెక్కలు లో రాయండి.",
+                                     route="/profile", event_key=f"studio:commission:{week}") or 0)
+            except Exception:
+                pass
+    print(f"ASKODOX STUDIO REMINDERS due={len(due)} sent={sent} pushed={pushed} week={week or '-'}", flush=True)
     return {"due": len(due), "sent": sent, "pushed": pushed}
 
 
@@ -315,6 +324,7 @@ def auto_edit(purchase_id: int, body: EditBody, request: Request) -> dict:
                                     os.path.join(folder, name), tmp)
                 if outcome.get("ok"):
                     store.set_edit(purchase_id, status="READY", edited=name)
+                store.add_voice_cost(purchase_id, int(stats.get("new", 0)) * voice_line_paise())
         except Exception as error:
             outcome = {"ok": False, "reason": f"error:{type(error).__name__}"}
         finally:
@@ -369,3 +379,72 @@ def posted(purchase_id: int, body: PostBody, request: Request) -> dict:
     _mine(request, principal, purchase_id)
     row = _run(studio(request.app.state.container).add_post, purchase_id, body.platform, body.url)
     return {"purchase": _detail(request, row)}
+
+
+# ------------------------------------------------------------ round 3: money --
+def voice_line_paise() -> int:
+    """What one NEW voice line costs (Studio spec: ~₹3); bounded setting ``studio.voice_line_cost`` in rupees."""
+    try:
+        from app.services import platform_settings
+
+        value = float(platform_settings.get("studio.voice_line_cost"))
+    except Exception:
+        value = 3.0
+    return max(0, int(round(value * 100)))
+
+
+@router.get("/admin/cc/workspace/studio/money")
+def studio_money(request: Request, month: str = "") -> dict:
+    """Owner / publishers: everyone's numbers. Staff: their own products only (Studio rule)."""
+    principal = _principal(request)
+    store = studio(request.app.state.container)
+    month = (month or store.today().strftime("%Y-%m"))[:7]
+    everyone = _can_publish(principal)
+    try:
+        data = store.money(month, actor=None if everyone else principal["id"])
+    except ValueError:
+        raise HTTPException(status_code=422, detail="నెల: YYYY-MM")
+    return {**data, "all_staff": everyone, "sources": list(ss.SOURCES), "can_enter": everyone}
+
+
+class EarningBody(BaseModel):
+    purchase_id: int = 0
+    source: str = Field(min_length=1, max_length=40)
+    month: str = Field(default="", max_length=7)
+    orders: int = Field(default=0, ge=0)
+    returns: int = Field(default=0, ge=0)
+    confirmed: float | str | None = None
+    pending: float | str | None = None
+    note: str = Field(default="", max_length=200)
+
+
+@router.post("/admin/cc/workspace/studio/earnings")
+def save_earning(body: EarningBody, request: Request) -> dict:
+    """Commission goes to the owner personally: only the owner / publishers type it."""
+    principal = _principal(request)
+    if not _can_publish(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (owner / publisher only)")
+    row = _run(studio(request.app.state.container).save_earning, body.model_dump(), actor=principal["id"])
+    print(f"ASKODOX STUDIO EARNING purchase={row['purchase_id']} source={row['source']} month={row['month']}", flush=True)
+    return {"earning": row}
+
+
+@router.get("/admin/cc/workspace/studio/unlocks")
+def get_unlocks(request: Request) -> dict:
+    principal = _principal(request)
+    return {"unlocks": studio(request.app.state.container).unlocks(), "can_edit": _can_publish(principal)}
+
+
+class UnlockBody(BaseModel):
+    key: str = Field(min_length=1, max_length=60)
+    value: float | str = 0
+    note: str = Field(default="", max_length=200)
+
+
+@router.post("/admin/cc/workspace/studio/unlocks")
+def save_unlock(body: UnlockBody, request: Request) -> dict:
+    principal = _principal(request)
+    if not _can_publish(principal):
+        raise HTTPException(status_code=403, detail=f"{gov.FORBIDDEN} (owner / publisher only)")
+    return {"unlock": _run(studio(request.app.state.container).save_unlock, body.key, body.value, body.note,
+                           actor=principal["id"])}

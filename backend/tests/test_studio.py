@@ -229,3 +229,64 @@ def test_shoot_edit_publish_post_flow(api, tmp_path):  # noqa: F811
     client.post(url + "/checks", headers=OWNER, json={"show_price": 199})  # price changed -> make the video again
     assert client.get(url, headers=OWNER).json()["purchase"]["edit_status"] == "PRICE_CHANGED"
     assert client.get("/media/studio/" + "0" * 32 + ".mp4").status_code == 404
+
+
+# ------------------------------------------------------------------ round 3 --
+def test_money_month_costs_commission_profit_and_kinds(tmp_path):
+    store = ss.StudioStore(str(tmp_path / "s.db"), clock=_clock())
+    a = store.create({"title": "Silver anklets", "store": "Meesho", "paid": 249, "order_date": "2026-11-10",
+                      "delivery_date": "2026-11-12", "return_option": "return", "return_days": 7}, actor="staff-1")
+    b = store.create({"title": "Cotton kurti", "store": "Flipkart", "paid": 399, "order_date": "2026-11-05",
+                      "return_option": "none"}, actor="staff-2")
+    store.keep(b["id"], "no_return")
+    store.record_return(a["id"], {"refund_status": "refunded", "fee": "30"})
+    store.add_voice_cost(a["id"], 600)
+    store.save_earning({"purchase_id": a["id"], "source": "wishlink", "month": "2026-11", "orders": 5, "returns": 1,
+                        "confirmed": 120, "pending": 40}, actor="owner")
+    store.save_earning({"purchase_id": a["id"], "source": "Wishlink", "month": "2026-11", "orders": 6, "returns": 1,
+                        "confirmed": 150, "pending": 20}, actor="owner")  # same month + source = replaced
+    store.save_earning({"source": "Meesho Creator Club", "month": "2026-11", "confirmed": 50}, actor="owner")
+    m = store.money("2026-11")
+    t = m["totals"]
+    assert t["confirmed"] == 200 and t["pending"] == 20 and t["orders"] == 6
+    assert t["cost"] == 399 + 30 + 6 and t["profit"] == 200 - 435
+    first = next(p for p in m["products"] if p["id"] == a["id"])
+    assert first["cost"] == 36 and first["confirmed"] == 150 and first["profit"] == 114
+    assert m["best_kinds"][0]["kind"] == "jewellery" and len(m["general"]) == 1
+    staff = store.money("2026-11", actor="staff-2")
+    assert [p["id"] for p in staff["products"]] == [b["id"]] and staff["totals"]["confirmed"] == 0
+    with pytest.raises(ss.StudioError):
+        store.save_earning({"source": "Nowhere", "month": "2026-11"}, actor="owner")
+    with pytest.raises(ss.StudioError):
+        store.save_earning({"source": "Wishlink", "month": "11-2026"}, actor="owner")
+
+
+def test_unlocks_and_weekly_commission_reminder(tmp_path):
+    store = ss.StudioStore(str(tmp_path / "s.db"), clock=_clock())
+    got = store.save_unlock("myntra_sales_6m", "2,500", "", actor="owner")
+    assert got["value"] == 2500 and got["percent"] == 25 and not got["done"]
+    assert store.save_unlock("meesho_whitelisted", 1, "", actor="owner")["done"]
+    with pytest.raises(ss.StudioError):
+        store.save_unlock("nope", 1, "", actor="owner")
+    assert store.weekly_commission_due() is None  # Saturday
+    monday = ss.StudioStore(str(tmp_path / "s.db"),
+                            clock=_clock(dt.datetime(2026, 11, 23, 5, 0, tzinfo=dt.timezone.utc)))  # Mon 10:30 IST
+    assert monday.weekly_commission_due() == "2026-W48"
+
+
+def test_money_routes_owner_only_entry(api):  # noqa: F811
+    client, container, _ = api
+    container.studio_store = ss.StudioStore(container.settings.database_path, clock=_clock())
+    p = client.post("/admin/cc/workspace/studio/purchases", headers=OWNER, json={
+        "title": "Brass glass", "store": "Meesho", "paid": 224, "order_date": "2026-11-20"}).json()["purchase"]
+    saved = client.post("/admin/cc/workspace/studio/earnings", headers=OWNER, json={
+        "purchase_id": p["id"], "source": "Wishlink", "month": "2026-11", "orders": 2, "confirmed": 30})
+    assert saved.status_code == 200, saved.text
+    m = client.get("/admin/cc/workspace/studio/money?month=2026-11", headers=OWNER).json()
+    assert m["totals"]["confirmed"] == 30 and m["can_enter"] and m["products"][0]["orders"] == 2
+    assert client.get("/admin/cc/workspace/studio/money?month=bad", headers=OWNER).status_code == 422
+    u = client.post("/admin/cc/workspace/studio/unlocks", headers=OWNER, json={"key": "flipkart_exclusive_posts",
+                                                                                "value": 1})
+    assert u.json()["unlock"]["done"]
+    assert any(x["key"] == "wishlink_non_meesho_content" for x in
+               client.get("/admin/cc/workspace/studio/unlocks", headers=OWNER).json()["unlocks"])

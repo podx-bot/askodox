@@ -42,6 +42,14 @@ SCHEMA = (
         UNIQUE(store, label))""",
     """CREATE TABLE IF NOT EXISTS studio_voice_cache (
         key TEXT PRIMARY KEY, path TEXT NOT NULL, provider TEXT NOT NULL, text TEXT NOT NULL, created_at TEXT NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS studio_earnings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, purchase_id INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL,
+        month TEXT NOT NULL, orders INTEGER NOT NULL DEFAULT 0, returns INTEGER NOT NULL DEFAULT 0,
+        confirmed_paise INTEGER NOT NULL DEFAULT 0, pending_paise INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '',
+        updated_by TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(purchase_id, source, month))""",
+    """CREATE TABLE IF NOT EXISTS studio_unlocks (
+        key TEXT PRIMARY KEY, value REAL NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL)""",
     """CREATE TABLE IF NOT EXISTS studio_reminders (
         purchase_id INTEGER NOT NULL, kind TEXT NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (purchase_id, kind))""",
 )
@@ -54,7 +62,21 @@ MIGRATIONS = (
     ("edit_reason", "TEXT NOT NULL DEFAULT ''"), ("edit_options", "TEXT NOT NULL DEFAULT '{}'"),
     ("show_price_paise", "INTEGER NOT NULL DEFAULT 0"), ("checks", "TEXT NOT NULL DEFAULT '{}'"),
     ("posts", "TEXT NOT NULL DEFAULT '{}'"), ("published_at", "TEXT NOT NULL DEFAULT ''"),
+    ("voice_paise", "INTEGER NOT NULL DEFAULT 0"),  # round 3: what the new voice lines cost
 )
+# Round 3 (owner 2026-11-21): Studio spec 10 -- unlock targets, numbers typed by the owner.
+UNLOCKS = (
+    {"key": "meesho_whitelisted", "store": "Meesho", "label": "Meesho: whitelisted (lifetime)", "target": 1, "kind": "yes"},
+    {"key": "flipkart_exclusive_posts", "store": "Flipkart", "label": "Flipkart: 1 exclusive post", "target": 1,
+     "kind": "count"},
+    {"key": "myntra_sales_6m", "store": "Myntra", "label": "Myntra: 6 నెలల్లో 10,000 sales", "target": 10000,
+     "kind": "count"},
+    {"key": "wishlink_non_meesho_sales", "store": "Wishlink", "label": "Wishlink sourcing: ₹2.5 లక్షల non-Meesho sales",
+     "target": 250000, "kind": "rupees"},
+    {"key": "wishlink_non_meesho_content", "store": "Wishlink", "label": "Wishlink sourcing: 5 non-Meesho content",
+     "target": 5, "kind": "count"},
+)
+SOURCES = ("Wishlink", "Meesho Creator Club", "Flipkart", "Myntra", "Amazon", "EarnKaro", "GrabCash", "Other")
 JSON_FIELDS = ("edit_options", "checks", "posts")
 PLATFORMS = ("instagram", "facebook", "youtube", "whatsapp")
 
@@ -231,6 +253,7 @@ class StudioStore:
             except ValueError:
                 row[key] = {}
         row["show_price"] = (row.get("show_price_paise") or 0) / 100
+        row["voice_cost"] = (row.get("voice_paise") or 0) / 100
         left = days_left(row, self.today())
         return {**row, "days_left": left, "bucket": bucket(left), "warnings": warnings(row),
                 "next_action": next_action(row, left), "paid": row["paid_paise"] / 100,
@@ -367,6 +390,142 @@ class StudioStore:
         if STAGES.index(row["stage"]) < STAGES.index("posted"):
             changes["stage"] = "posted"
         return self._update(purchase_id, changes)
+
+    # ------------------------------------------------------ round 3: money --
+    def add_voice_cost(self, purchase_id: int, paise: int) -> None:
+        if paise > 0:
+            with self._connect() as conn:
+                conn.execute("UPDATE studio_purchases SET voice_paise=voice_paise+? WHERE id=?", (int(paise), int(purchase_id)))
+
+    def save_earning(self, data: Dict[str, Any], *, actor: str) -> Dict[str, Any]:
+        """One row per (product, source, month) -- typing again for the same month replaces it (dashboards update)."""
+        source = str(data.get("source") or "").strip()
+        match = next((s for s in SOURCES if s.lower() == source.lower()), None)
+        if not match:
+            raise StudioError("Source: " + " / ".join(SOURCES))
+        month = str(data.get("month") or self.today().strftime("%Y-%m"))[:7]
+        try:
+            dt.date.fromisoformat(month + "-01")
+        except ValueError:
+            raise StudioError("నెల: YYYY-MM") from None
+        purchase_id = int(data.get("purchase_id") or 0)
+        if purchase_id and not self.get(purchase_id):
+            raise LookupError("Purchase not found")
+        counts = []
+        for field in ("orders", "returns"):
+            try:
+                value = int(data.get(field) or 0)
+            except (TypeError, ValueError):
+                raise StudioError(f"{field}: సంఖ్య") from None
+            if not 0 <= value <= 1_000_000:
+                raise StudioError(f"{field}: 0 లేదా ఎక్కువ")
+            counts.append(value)
+        row = (purchase_id, match, month, counts[0], counts[1], _paise(data.get("confirmed"), "Confirm కమిషన్"),
+               _paise(data.get("pending"), "Pending కమిషన్"), str(data.get("note") or "").strip()[:200], actor, self.now())
+        with self._connect() as conn:
+            conn.execute("INSERT INTO studio_earnings(purchase_id,source,month,orders,returns,confirmed_paise,pending_paise,"
+                         "note,updated_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(purchase_id,source,month) DO "
+                         "UPDATE SET orders=excluded.orders, returns=excluded.returns, confirmed_paise=excluded.confirmed_paise,"
+                         " pending_paise=excluded.pending_paise, note=excluded.note, updated_by=excluded.updated_by,"
+                         " updated_at=excluded.updated_at", row)
+            got = conn.execute("SELECT * FROM studio_earnings WHERE purchase_id=? AND source=? AND month=?",
+                               (purchase_id, match, month)).fetchone()
+        return dict(got)
+
+    def earnings(self, month: Optional[str] = None) -> List[Dict[str, Any]]:
+        sql, args = "SELECT * FROM studio_earnings", []
+        if month:
+            sql += " WHERE month=?"
+            args.append(month)
+        with self._connect() as conn:
+            return [dict(r) for r in conn.execute(sql + " ORDER BY month DESC, id DESC", args).fetchall()]
+
+    def money(self, month: str, *, actor: Optional[str] = None) -> Dict[str, Any]:
+        """Studio spec 9: per product cost (kept + return fee + voice), orders, returns, commission; the month's
+        confirmed / pending / cost / profit (nothing of ASKODOX's own investment); best kinds. Staff: own only."""
+        from app.services.studio_video import product_kind  # local: studio_video imports nothing from here
+
+        dt.date.fromisoformat(str(month)[:7] + "-01")  # ValueError on a bad month
+        rows = self.list(actor=actor)
+        mine = {r["id"] for r in rows}
+        earn = [e for e in self.earnings(month) if actor is None or e["purchase_id"] in mine]
+        by_purchase: Dict[int, Dict[str, int]] = {}
+        for e in earn:
+            agg = by_purchase.setdefault(e["purchase_id"], {"orders": 0, "returns": 0, "confirmed": 0, "pending": 0})
+            agg["orders"] += e["orders"]
+            agg["returns"] += e["returns"]
+            agg["confirmed"] += e["confirmed_paise"]
+            agg["pending"] += e["pending_paise"]
+        products, kinds = [], {}
+        cost_total = stuck = 0
+        for r in rows:
+            in_month = (r["order_date"] or r["created_at"][:10])[:7] == month
+            e = by_purchase.get(r["id"], {"orders": 0, "returns": 0, "confirmed": 0, "pending": 0})
+            cost = (r["paid_paise"] if r["stage"] == "kept" else 0) + r["return_fee_paise"] + r["voice_paise"]
+            if in_month:
+                cost_total += cost
+                if r["stage"] not in CLOSED or r["refund_status"] in ("sent", "picked"):
+                    stuck += r["paid_paise"]  # paid, refund not back yet
+            if not in_month and not any(e.values()):
+                continue
+            kind = product_kind(r["title"])
+            k = kinds.setdefault(kind, {"kind": kind, "orders": 0, "confirmed": 0, "products": 0})
+            k["orders"] += e["orders"]
+            k["confirmed"] += e["confirmed"]
+            k["products"] += 1
+            products.append({"id": r["id"], "title": r["title"], "store": r["store"], "kind": kind,
+                             "created_by": r["created_by"], "stage": r["stage"], "cost": cost / 100,
+                             "orders": e["orders"], "returns": e["returns"], "confirmed": e["confirmed"] / 100,
+                             "pending": e["pending"] / 100, "profit": (e["confirmed"] - (cost if in_month else 0)) / 100})
+        general = [e for e in earn if not e["purchase_id"]]
+        confirmed = sum(e["confirmed_paise"] for e in earn)
+        pending = sum(e["pending_paise"] for e in earn)
+        best = sorted(kinds.values(), key=lambda k: (-k["orders"], -k["confirmed"], k["kind"]))
+        last = max((e["updated_at"] for e in self.earnings()), default="")
+        return {"month": month, "products": products,
+                "general": [{**g, "confirmed": g["confirmed_paise"] / 100, "pending": g["pending_paise"] / 100}
+                            for g in general],
+                "totals": {"confirmed": confirmed / 100, "pending": pending / 100, "cost": cost_total / 100,
+                           "profit": (confirmed - cost_total) / 100, "stuck": stuck / 100,
+                           "orders": sum(e["orders"] for e in earn), "returns": sum(e["returns"] for e in earn)},
+                "best_kinds": [{**k, "confirmed": k["confirmed"] / 100} for k in best], "last_entry": last}
+
+    def unlocks(self) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            saved = {r["key"]: dict(r) for r in conn.execute("SELECT * FROM studio_unlocks").fetchall()}
+        posted_non_meesho = sum(1 for r in self.list() if r["store"] != "Meesho" and r["posts"])
+        out = []
+        for u in UNLOCKS:
+            got = saved.get(u["key"], {})
+            value = float(got.get("value") or 0)
+            out.append({**u, "value": value, "note": got.get("note") or "", "updated_at": got.get("updated_at") or "",
+                        "percent": min(100, round(100 * value / u["target"])) if u["target"] else 0,
+                        "done": value >= u["target"],
+                        "hint": (f"Studio లో non-Meesho పోస్ట్‌లు: {posted_non_meesho}"
+                                 if u["key"] == "wishlink_non_meesho_content" else "")})
+        return out
+
+    def save_unlock(self, key: str, value: Any, note: str, *, actor: str) -> Dict[str, Any]:
+        if key not in {u["key"] for u in UNLOCKS}:
+            raise StudioError("Unknown unlock")
+        try:
+            number = float(str(value).replace(",", "").replace("₹", "").strip() or 0)
+        except ValueError:
+            raise StudioError("సంఖ్య పెట్టండి") from None
+        if number < 0:
+            raise StudioError("0 లేదా ఎక్కువ")
+        with self._connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO studio_unlocks(key,value,note,updated_by,updated_at) VALUES(?,?,?,?,?)",
+                         (key, number, str(note or "").strip()[:200], actor, self.now()))
+        return next(u for u in self.unlocks() if u["key"] == key)
+
+    def weekly_commission_due(self) -> Optional[str]:
+        """Monday from 10:00 IST: the week key when this week's commission reminder has not gone yet."""
+        now = self.clock().astimezone(IST)
+        if now.weekday() != 0 or now.hour < 10:
+            return None
+        year, week, _ = now.isocalendar()
+        return f"{year}-W{week:02d}"
 
     def published_by_file(self, name: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:

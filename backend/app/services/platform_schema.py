@@ -1224,6 +1224,7 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     "video_study.max_seconds": (10, 600, 180),
     "image_edit.daily_per_user": (0, 50, 5),
     "video_ai.daily_max": (0, 500, 40),  # AI product videos per day (all staff); 0 = off
+    "studio.voice_line_cost": (0.0, 100.0, 3.0),  # ₹ per NEW Studio voice line (cached lines cost 0)
     "video_upload.max_mb": (1, 200, 60),
     "advisor.max_questions_per_turn": (0, 3, 1),
     "advisor.ask_budget": (0, 1, 1),

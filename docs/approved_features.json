@@ -8936,6 +8936,59 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "studio_money",
+      "name": "ASKODOX Studio round 3: commission typed from dashboards, month totals, best kinds, unlock progress",
+      "roles": [
+        "staff",
+        "owner"
+      ],
+      "domains": [
+        "affiliate",
+        "studio"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/studio/money"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/earnings"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/studio/unlocks"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/unlocks"
+        }
+      ],
+      "ui": {
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_studio.py"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "studio_buy_return",
+        "studio_video"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-21 Studio spec 9-10: per product cost (kept + return fee + new voice lines), orders, returns, commission from the Wishlink / Meesho dashboards (no API, typed weekly), month confirmed / pending / cost / profit, best-selling kinds, unlock targets.",
+      "expected_behavior": "One earning row per product + source + month (retyping replaces); only owner / publishers type commission or unlocks; staff see their own products only; profit excludes ASKODOX's own investment; Monday 10:00 IST push 'ఈ వారం కమిషన్ రాయండి' once a week; voice line cost = setting studio.voice_line_cost (₹3).",
+      "history": [
+        {
+          "date": "2026-11-21",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }
