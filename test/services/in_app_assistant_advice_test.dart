@@ -35,7 +35,7 @@ void main() {
     final decision = await InAppAssistantService(client: client).decide(
         message: "I've decided, I'll buy it", locale: 'en', history: const [], adviceGiven: ledger);
     expect(sent!['advice_given'], ledger);
-    expect(sent!['capabilities'], ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only'],
+    expect(sent!['capabilities'], ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', 'buyer_mode'],
         reason: 'this build renders the meaning tags, chat-action buttons and suggestion chips '
             '(Phase 1 screens only in Phase 1)');
     expect(decision!.advice!['repeated'], isTrue);

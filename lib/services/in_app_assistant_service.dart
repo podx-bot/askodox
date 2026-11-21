@@ -15,6 +15,9 @@ bool askodoxAutoOpenAppActions = false;
 /// Shopping mode switch in the chat (owner 2026-11-19): ON -> ASKODOX-registered shops answer first. OFF at app start.
 bool askodoxShoppingMode = false;
 
+/// The buy / sell switch (owner 2026-11-21): true while the person is on the Seller side of the app.
+bool askodoxSellerMode = false;
+
 class InAppAssistantTurn {
   const InAppAssistantTurn({required this.role, required this.text});
 
@@ -362,7 +365,7 @@ class InAppAssistantService {
         // shows a chat-action button (app_action) under a reply. A Phase 1
         // build opens only Phase 1 screens, so the brain offers only those.
         // 'suggestions' = this build draws tap chips under the reply.
-        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief', if (askodoxAutoOpenAppActions) 'auto_open', if (askodoxShoppingMode) 'shopping_mode', if (!askodoxPhase2 && askodoxShoppingMode) 'shopping_tools'],
+        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief', if (askodoxAutoOpenAppActions) 'auto_open', if (askodoxShoppingMode) 'shopping_mode', if (!askodoxPhase2 && (askodoxShoppingMode || askodoxSellerMode)) 'shopping_tools', askodoxSellerMode ? 'seller_mode' : 'buyer_mode'],
       };
 
   /// The same decision as [decide], but a long answer (how-to guide / advice) is shown

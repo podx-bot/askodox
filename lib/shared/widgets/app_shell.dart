@@ -1,13 +1,14 @@
 import 'askodox_hub_icons.dart';
 import 'askodox_logo.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 
 import '../../core/flags/askodox_release_phase.dart';
-import '../../features/profile/presentation/profile_screen.dart' show askodoxProfileViewProvider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/home/application/conversation_archive.dart';
 import '../../features/home/domain/conversation_language.dart';
@@ -26,9 +27,15 @@ import '../../core/providers/app_settings_provider.dart';
 import '../../features/companion/companion_floating.dart';
 import '../../features/companion/companion_hub.dart';
 import '../../features/home/domain/shopping_mode.dart';
+import '../../features/work_mode/data/work_mode_store.dart';
+import '../../features/work_mode/domain/live_work_status.dart';
+import '../../features/work_mode/domain/work_mode_plan.dart';
 
 const _navInk = Color(0xFF10204A);
 const _navAccent = Color(0xFF4F46FF);
+// Buy / sell switch (owner 2026-11-21): purple = Buyer side, green = Seller side.
+const _buyerColor = Color(0xFF6C4DFF);
+const _sellerColor = Color(0xFF0B7A4B);
 
 /// The customer shell. Every bottom item has ONE distinct purpose:
 /// Home (ask ASKODOX) · Explore (past conversations and saved options) ·
@@ -53,7 +60,59 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     WidgetsBinding.instance.addPostFrameCallback((_) => _onForeground());
     // While the app is open, new request updates arrive as silent
     // notifications (no push service yet: see CLAUDE.md known issues).
-    _updatesTimer = Timer.periodic(const Duration(seconds: 60), (_) => _checkUpdates());
+    _updatesTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      unawaited(_checkUpdates());
+      unawaited(_readSteps());
+    });
+    unawaited(_restoreMode());
+  }
+
+  /// The side (Buyer / Seller) the person used last time, kept on the phone.
+  Future<void> _restoreMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted && (prefs.getBool(askodoxSellerModePrefsKey) ?? false)) {
+        ref.read(askodoxSellerModeProvider.notifier).state = true;
+      }
+    } catch (_) {
+      // No stored side: the app stays on the Buyer side.
+    }
+  }
+
+  Future<void> _flipMode() async {
+    final seller = !ref.read(askodoxSellerModeProvider);
+    ref.read(askodoxSellerModeProvider.notifier).state = seller;
+    if (widget.shell.currentIndex != 0) widget.shell.goBranch(0, initialLocation: true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(askodoxSellerModePrefsKey, seller);
+    } catch (_) {
+      // Not saved: the switch still works for this session.
+    }
+  }
+
+  bool _readingSteps = false;
+
+  /// Live Work dot: while the app is open, the phone's step counter is read once a minute -- only for a person
+  /// who already plays (a job chosen and an earlier reading, so the step permission was given before). A failed
+  /// reading turns the dot red and stops the reading until the game itself is opened.
+  Future<void> _readSteps() async {
+    if (_readingSteps || !mounted) return;
+    final work = ref.read(askodoxWorkControllerProvider);
+    if (work.job == null || work.lastCounter == null || ref.read(askodoxLiveWorkAttentionProvider)) {
+      if (mounted) setState(() {});
+      return;
+    }
+    _readingSteps = true;
+    try {
+      final reading = await ref.read(askodoxStepSourceProvider).counter();
+      if (mounted) await ref.read(askodoxWorkControllerProvider.notifier).applyCounter(reading);
+    } catch (_) {
+      if (mounted) ref.read(askodoxLiveWorkAttentionProvider.notifier).state = true;
+    } finally {
+      _readingSteps = false;
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -90,6 +149,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     await _handleSharedText();
     await _checkUpdates();
     await _syncPush();
+    await _readSteps();
   }
 
   StreamSubscription<String>? _pushRoutes;
@@ -143,6 +203,13 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final locationState = ref.watch(locationControllerProvider);
     final locationLabel = locationState.headerLocation ?? (isTe ? 'లొకేషన్ ఎంచుకోండి' : 'Choose location');
     final updates = ref.watch(askodoxUpdatesProvider).valueOrNull?.length ?? 0;
+    final seller = ref.watch(askodoxSellerModeProvider);
+    final work = ref.watch(askodoxWorkControllerProvider);
+    final clock = ref.watch(askodoxWorkClockProvider)();
+    final liveWork = askodoxLiveWorkStatus(
+        lastCountedAt: (work.walkTimes[askodoxWorkDayKey(clock)] ?? const <int>[]).lastOrNull,
+        now: clock.millisecondsSinceEpoch ~/ 1000,
+        needsAttention: ref.watch(askodoxLiveWorkAttentionProvider));
     // A companion action from outside Main Chat continues the SAME chat.
     void companionAction(AskodoxHubAction action) {
       shell.goBranch(0, initialLocation: true);
@@ -156,6 +223,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         backgroundColor: Colors.white,
         foregroundColor: _navInk,
         elevation: 0,
+        // The coloured line under the header says which side the app is on (purple = Buyer, green = Seller).
+        shape: Border(bottom: BorderSide(color: seller ? _sellerColor : _buyerColor, width: 3)),
         automaticallyImplyLeading: false,
         centerTitle: false,
         // Header (Navigator UX): Menu · ASKODOX · Screen Guide · location ·
@@ -184,14 +253,17 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                         style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
                   ),
                 ),
-              const Flexible(
-                child: FittedBox(
-                  key: Key('askodoxHeaderHub'),
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: AskodoxHubIcons(color: _navAccent),
+              // Owner 2026-11-21: the game moved to the bottom bar ("Live Work"); the header keeps Talk / Radio
+              // (with the game beside them) only in a Phase 2 build.
+              if (askodoxPhase2)
+                const Flexible(
+                  child: FittedBox(
+                    key: Key('askodoxHeaderHub'),
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: AskodoxHubIcons(color: _navAccent),
+                  ),
                 ),
-              ),
               // New chat, right on Home (owner 2026-11-09: it used to need an app restart).
               if (shell.currentIndex == 0)
                 IconButton(
@@ -364,14 +436,20 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       bottomNavigationBar: _PrimaryBottomBar(
         currentBranch: shell.currentIndex,
         isTe: isTe,
+        seller: seller,
+        liveWork: liveWork,
         onHome: () => shell.goBranch(0, initialLocation: true),
-        // The Shopping button is the shopping-mode switch (owner 2026-11-19): one tap flips it and shows the chat
-        // (there is no separate Shopping page). Green = ON, grey = OFF.
-        onHistory: () {
-          ref.read(askodoxShoppingModeProvider.notifier).state = !ref.read(askodoxShoppingModeProvider);
-          if (shell.currentIndex != 0) shell.goBranch(0, initialLocation: true);
+        // The buy / sell switch (owner 2026-11-21, where Tools used to be): one tap flips the side and shows the
+        // chat. Purple = Buyer, green = Seller; the last side is remembered.
+        onHistory: _flipMode,
+        // Live Work (where ASKODOX Club used to be): opens the walking game; its dot shows whether work is running.
+        onLiveWork: () {
+          // Opening the game runs its own permission flow, so the red dot clears here.
+          ref.read(askodoxLiveWorkAttentionProvider.notifier).state = false;
+          context.push('/work');
         },
         onPayments: () => context.push('/me/payments'),
+        onShop: () => context.push('/me/business'),
         onCompanion: () {
           // "Ask" = ONE tap starts listening (a second tap stops and sends).
           // No ring of buttons in between: attachments live on the chat's "+",
@@ -387,10 +465,6 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           companionAction(AskodoxHubAction.voice);
         },
         onUpdates: () => shell.goBranch(3, initialLocation: true),
-        onProfile: () {
-          ref.read(askodoxProfileViewProvider.notifier).state = 'me';
-          shell.goBranch(4, initialLocation: true);
-        },
       ),
     ));
   }
@@ -400,16 +474,20 @@ class _PrimaryBottomBar extends ConsumerWidget {
   const _PrimaryBottomBar({
     required this.currentBranch,
     required this.isTe,
+    required this.seller,
+    required this.liveWork,
     required this.onHome,
     required this.onHistory,
+    required this.onLiveWork,
     required this.onPayments,
+    required this.onShop,
     required this.onCompanion,
     required this.onUpdates,
-    required this.onProfile,
   });
   final int currentBranch;
-  final bool isTe;
-  final VoidCallback onHome, onHistory, onPayments, onCompanion, onUpdates, onProfile;
+  final bool isTe, seller;
+  final AskodoxLiveWorkStatus liveWork;
+  final VoidCallback onHome, onHistory, onLiveWork, onPayments, onShop, onCompanion, onUpdates;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -419,8 +497,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
       decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE6ECF5)))),
       child: Row(children: [
         _item('askodoxNavHome', currentBranch == 0, Icons.home_outlined, Icons.home_rounded, isTe ? 'హోమ్' : 'Home', onHome),
-        // Past conversations, saved options and requests to revisit.
-        _shoppingItem(ref.watch(askodoxShoppingModeProvider)),
+        _liveWorkItem(),
         // The ONE "Ask" button: one tap = speak to ASKODOX (tap again to stop
         // and send). Owner, 2026-11-04: the word "Ask" instead of a mic / a
         // ring of actions.
@@ -438,7 +515,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: live.listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
+                  color: live.listening ? const Color(0xFFE5484D) : (seller ? _sellerColor : _buyerColor),
                   border: Border.all(color: Colors.white, width: 3),
                   boxShadow: const [BoxShadow(color: Color(0x336C4DFF), blurRadius: 12)],
                 ),
@@ -457,41 +534,101 @@ class _PrimaryBottomBar extends ConsumerWidget {
           ),
         )),
         // Phase 1 (owner 2026-11-10): My payment methods sits right beside Ask.
-        if (!askodoxPhase2)
+        // Owner 2026-11-21: the Buyer side shows the person's own money; the Seller side shows their shop here.
+        if (!askodoxPhase2 && !seller)
           _item('askodoxNavPayments', false, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, isTe ? 'మనీ' : 'Money', onPayments),
+        if (!askodoxPhase2 && seller)
+          _item('askodoxNavShop', false, Icons.storefront_outlined, Icons.storefront_rounded, isTe ? 'షాప్' : 'Shop', onShop),
         // Phase 1 (owner 2026-11-09): ASKODOX neither sells nor buys, so no "Orders" tab; request
         // updates stay one tap away on the header bell.
         if (askodoxPhase2)
           _item('askodoxNavUpdates', currentBranch == 3, Icons.receipt_long_outlined, Icons.receipt_long_rounded, isTe ? 'ఆర్డర్లు' : 'Orders', onUpdates),
-        // Owner 2026-11-18: this tab is the everyday TOOLS; personal / business details moved to the ☰ menu.
-        _item('askodoxNavProfile', currentBranch == 4, Icons.apps_outlined, Icons.apps_rounded, isTe ? 'టూల్స్' : 'Tools', onProfile),
+        // Owner 2026-11-21: the buy / sell switch sits where Tools was (Tools and settings open from the ☰ menu).
+        _modeSwitch(),
       ]),
     ));
   }
 
-  Widget _shoppingItem(bool on) {
-    const green = Color(0xFF1F9D55);
-    final color = on ? green : _navInk;
+  /// Live Work: the walking game. Dot = green + blinking while steps are counted, grey while the phone is still,
+  /// red "!" when the person has to do something.
+  Widget _liveWorkItem() {
+    final label = switch (liveWork) {
+      AskodoxLiveWorkStatus.live => isTe ? 'లైవ్ వర్క్, పని నడుస్తోంది' : 'Live Work, running',
+      AskodoxLiveWorkStatus.idle => isTe ? 'లైవ్ వర్క్, పని ఆగింది' : 'Live Work, paused',
+      AskodoxLiveWorkStatus.attention => isTe ? 'లైవ్ వర్క్, మీరు చూడాలి' : 'Live Work, needs you',
+    };
     return Expanded(
         child: Semantics(
       button: true,
-      toggled: on,
-      label: isTe ? (on ? 'ASKODOX క్లబ్ ఆన్' : 'ASKODOX క్లబ్ ఆఫ్') : (on ? 'ASKODOX Club on' : 'ASKODOX Club off'),
+      label: label,
+      child: InkWell(
+        key: const Key('askodoxNavLiveWork'),
+        onTap: onLiveWork,
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          SizedBox(
+            width: 34,
+            height: 26,
+            child: Stack(clipBehavior: Clip.none, children: [
+              const Align(alignment: Alignment.bottomCenter, child: Icon(Icons.directions_walk_rounded, color: _navInk, size: 24)),
+              Positioned(top: -2, right: -2, child: _LiveWorkDot(status: liveWork)),
+            ]),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(isTe ? 'లైవ్ వర్క్' : 'Live Work',
+                maxLines: 1, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _navInk)),
+          ),
+        ]),
+      ),
+    ));
+  }
+
+  /// The buy / sell switch: one pill with both words, the side in use filled in its colour.
+  Widget _modeSwitch() {
+    final color = seller ? _sellerColor : _buyerColor;
+    Widget side(String text, bool active) => Expanded(
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: active ? color : Colors.transparent, borderRadius: BorderRadius.circular(13)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Text(text,
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: active ? Colors.white : _navInk)),
+              ),
+            ),
+          ),
+        );
+    return Expanded(
+        child: Semantics(
+      button: true,
+      toggled: seller,
+      label: isTe
+          ? (seller ? 'సెల్లర్ మోడ్ ఆన్. నొక్కితే బయ్యర్ మోడ్' : 'బయ్యర్ మోడ్ ఆన్. నొక్కితే సెల్లర్ మోడ్')
+          : (seller ? 'Seller mode on. Tap for Buyer mode' : 'Buyer mode on. Tap for Seller mode'),
       child: InkWell(
         key: const Key('askodoxNavHistory'),
         onTap: onHistory,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(on ? Icons.shopping_bag_rounded : Icons.shopping_bag_outlined, color: on ? green : const Color(0xFF9CA3AF), size: 24),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(isTe ? 'ASKODOX క్లబ్' : 'ASKODOX Club',
-                maxLines: 1,
-                style: TextStyle(fontSize: 11, fontWeight: on ? FontWeight.w800 : FontWeight.w700, color: on ? color : const Color(0xFF6B7280))),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Container(
+              height: 26,
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
+              child: Row(children: [
+                side(isTe ? 'కొను' : 'Buy', !seller),
+                side(isTe ? 'అమ్ము' : 'Sell', seller),
+              ]),
+            ),
           ),
-          Text(on ? (isTe ? 'ఆన్' : 'ON') : (isTe ? 'ఆఫ్' : 'OFF'),
+          const SizedBox(height: 4),
+          Text(seller ? (isTe ? 'సెల్లర్' : 'Seller') : (isTe ? 'బయ్యర్' : 'Buyer'),
               key: const Key('askodoxNavShoppingState'),
-              style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: on ? green : const Color(0xFF9CA3AF))),
+              maxLines: 1,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
         ]),
       ),
     ));
@@ -507,4 +644,72 @@ class _PrimaryBottomBar extends ConsumerWidget {
           Text(label, style: TextStyle(fontSize: 11, fontWeight: selected ? FontWeight.w800 : FontWeight.w700, color: selected ? _navAccent : _navInk)),
         ]),
       ));
+}
+
+
+/// The Live Work dot. Green blinks slowly (once every 2 s); grey and red stay still, and red carries a "!" so the
+/// states differ by more than colour.
+class _LiveWorkDot extends StatefulWidget {
+  const _LiveWorkDot({required this.status});
+  final AskodoxLiveWorkStatus status;
+
+  @override
+  State<_LiveWorkDot> createState() => _LiveWorkDotState();
+}
+
+class _LiveWorkDotState extends State<_LiveWorkDot> with SingleTickerProviderStateMixin {
+  // Tests settle frames; a forever animation would never settle there.
+  static final bool _animate = !Platform.environment.containsKey('FLUTTER_TEST');
+  late final AnimationController _blink = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+
+  void _sync() {
+    if (_animate && widget.status == AskodoxLiveWorkStatus.live) {
+      if (!_blink.isAnimating) _blink.repeat(reverse: true);
+    } else {
+      _blink.stop();
+      _blink.value = 0;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LiveWorkDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.status != widget.status) _sync();
+  }
+
+  @override
+  void dispose() {
+    _blink.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = widget.status;
+    if (status == AskodoxLiveWorkStatus.attention) {
+      return Container(
+        key: const Key('askodoxNavLiveWorkDot-attention'),
+        width: 14,
+        height: 14,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: Color(0xFFC4251A), shape: BoxShape.circle),
+        child: const Text('!', style: TextStyle(color: Colors.white, fontSize: 10, height: 1, fontWeight: FontWeight.w900)),
+      );
+    }
+    final live = status == AskodoxLiveWorkStatus.live;
+    final dot = Container(
+      key: Key(live ? 'askodoxNavLiveWorkDot-live' : 'askodoxNavLiveWorkDot-idle'),
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(color: live ? const Color(0xFF12A150) : const Color(0xFF9AA0B4), shape: BoxShape.circle),
+    );
+    if (!live) return dot;
+    return FadeTransition(opacity: Tween<double>(begin: 1, end: 0.25).animate(_blink), child: dot);
+  }
 }

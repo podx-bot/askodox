@@ -18,6 +18,7 @@ import 'package:podx/features/notifications/presentation/updates_screen.dart';
 import 'package:podx/features/orders/data/order_repository.dart';
 import 'package:podx/features/privacy/presentation/privacy_center_screen.dart';
 import 'package:podx/shared/widgets/app_shell.dart';
+import 'package:podx/features/home/domain/shopping_mode.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Simple, real UX: one place per function, no mock/placeholder screens,
@@ -261,9 +262,25 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.byType(Drawer), findsNothing);
-    for (final key in ['askodoxNavHome', 'askodoxNavHistory', 'askodoxNavSpeak', 'askodoxNavProfile']) {
+    // Owner 2026-11-21: Home · Live Work · Ask · Money / Shop · the buy / sell switch (Tools moved to the ☰ menu).
+    for (final key in ['askodoxNavHome', 'askodoxNavLiveWork', 'askodoxNavSpeak', 'askodoxNavHistory']) {
       expect(find.byKey(Key(key)), findsOneWidget);
     }
+    expect(find.byKey(const Key('askodoxNavProfile')), findsNothing);
+    // No steps counted yet: the Live Work dot is grey and still.
+    expect(find.byKey(const Key('askodoxNavLiveWorkDot-idle')), findsOneWidget);
+    // The app opens on the Buyer side; one tap on the switch = Seller side (Money becomes Shop), another = back.
+    expect(container.read(askodoxSellerModeProvider), isFalse);
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Buyer');
+    await tester.tap(find.byKey(const Key('askodoxNavHistory')));
+    await tester.pumpAndSettle();
+    expect(container.read(askodoxSellerModeProvider), isTrue);
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Seller');
+    expect(find.byKey(const Key('askodoxNavShop')), askodoxPhase2 ? findsNothing : findsOneWidget);
+    expect(find.byKey(const Key('askodoxNavPayments')), findsNothing);
+    await tester.tap(find.byKey(const Key('askodoxNavHistory')));
+    await tester.pumpAndSettle();
+    expect(container.read(askodoxSellerModeProvider), isFalse);
     // Phase 1: no Orders tab (ASKODOX neither sells nor buys); the header bell opens request updates.
     expect(find.byKey(const Key('askodoxNavUpdates')), askodoxPhase2 ? findsOneWidget : findsNothing);
     // Phase 1 (owner 2026-11-10): Payments sits beside Ask.
@@ -311,19 +328,20 @@ void main() {
       child: MaterialApp.router(routerConfig: router),
     ));
     await tester.pumpAndSettle();
-    final box = tester.getRect(find.byKey(const Key('askodoxHeaderHub')));
-    // Phase 1: the word ASKODOX + the game button; Talk / Radio wait for Phase 2.
-    expect(find.byKey(const Key('askodoxHeaderWordmark')), findsOneWidget);
-    expect(find.byKey(const Key('askodoxHeaderTalkButton')), findsNothing);
-    expect(find.byKey(const Key('askodoxHeaderRadioButton')), findsNothing);
-    for (final key in ['askodoxHeaderGameButton']) {
-      final button = find.byKey(Key(key));
-      expect(button, findsOneWidget, reason: key);
-      final r = tester.getRect(button);
-      // Every button is fully inside its slot (scaled down if needed), never hidden behind the header chips.
-      expect(r.right, lessThanOrEqualTo(box.right + 0.5), reason: key);
-      expect(r.left, greaterThanOrEqualTo(box.left - 0.5), reason: key);
+    // Phase 1 (owner 2026-11-21): the word ASKODOX only -- the game moved to the bottom bar as "Live Work";
+    // Talk / Radio (with the game beside them) come back in the header with Phase 2.
+    expect(find.byKey(const Key('askodoxHeaderWordmark')), askodoxPhase2 ? findsNothing : findsOneWidget);
+    expect(find.byKey(const Key('askodoxHeaderHub')), askodoxPhase2 ? findsOneWidget : findsNothing);
+    if (!askodoxPhase2) {
+      expect(find.byKey(const Key('askodoxHeaderGameButton')), findsNothing);
+      expect(find.byKey(const Key('askodoxHeaderTalkButton')), findsNothing);
+      expect(find.byKey(const Key('askodoxHeaderRadioButton')), findsNothing);
     }
+    final live = find.byKey(const Key('askodoxNavLiveWork'));
+    expect(live, findsOneWidget);
+    // The whole bottom bar fits a narrow phone: nothing overflows.
+    expect(tester.getRect(live).right, lessThanOrEqualTo(360.5));
+    expect(tester.getRect(find.byKey(const Key('askodoxNavHistory'))).right, lessThanOrEqualTo(360.5));
     expect(tester.takeException(), isNull);
   });
 

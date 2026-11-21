@@ -9042,6 +9042,62 @@
           "change": "new; not phone verified"
         }
       ]
+    },
+    {
+      "id": "buy_sell_switch_live_work_friend_reasoning",
+      "name": "Buy / sell switch, Live Work tab, friend-style reasoning, asked-for section third",
+      "roles": [
+        "customer",
+        "owner",
+        "staff"
+      ],
+      "domains": [
+        "home",
+        "assistant",
+        "results",
+        "work_mode"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant"
+        }
+      ],
+      "ui": {
+        "symbols": [
+          "askodoxSellerModeProvider",
+          "askodoxSellerMode",
+          "askodoxLiveWorkStatus"
+        ],
+        "widget_keys": [
+          "askodoxNavLiveWork",
+          "askodoxNavShop",
+          "askodoxNavHistory",
+          "askodoxNavShoppingState",
+          "askodoxNavLiveWorkDot-attention"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_friend_reasoning.py",
+          "tests/test_result_contract_combinations.py::test_what_was_asked_for_comes_third_after_local_and_reference_links"
+        ],
+        "flutter": [
+          "test/features/work_mode/live_work_status_test.dart",
+          "test/features/home/shopping_mode_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "purpose": "Owner 2026-11-21: one app with two sides instead of a separate 'ASKODOX Club' switch -- a buyer sees buyer things, a seller sees their shop; the walking game sits in the bottom bar as 'Live Work' with a dot that says whether work is running; chat answers must carry their logic like a practical friend's advice; in the result card the customer's asked-for kind comes third.",
+      "expected_behavior": "Bottom bar = Home, Live Work, Ask, Money (Buyer) or Shop (Seller), and the buy / sell switch where Tools was (Tools / settings open from the header menu). One tap flips the side: purple = Buyer, green = Seller (header line, Ask button, a 2 s banner in the chat); the last side is kept on the phone. The chat sends buyer_mode or seller_mode (seller also gets the shop tools); in Seller mode other shops' menus are not offered for an unnamed item. Live Work dot: green and blinking while steps were counted in the last 5 minutes, grey otherwise, red '!' after a failed step reading (cleared by opening the game); steps are read once a minute only for a person who already plays. Brain: FRIEND_REASONING_RULES (seven category-free ways of thinking; verdict first, reasons from the person's own facts; never tilted toward a costlier option or a partner link). Result sections: local, then reference (affiliate) links, then the kinds the customer asked for, unless staff fixed an order.",
+      "history": [
+        {
+          "date": "2026-11-21",
+          "change": "new; not phone verified"
+        }
+      ]
     }
   ]
 }

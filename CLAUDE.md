@@ -7,6 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- PR #383 `claude/friend-reasoning` (2026-11-21, owner "6, 7 + design, then merge + aab"): BUY / SELL SWITCH --
+  `askodoxSellerModeProvider` (false = Buyer; kept on the phone under `askodoxSellerModePrefsKey`), bottom bar = Home ·
+  Live Work (`askodoxNavLiveWork`, `/work`) · Ask · Money (Buyer) / Shop (Seller, `/me/business`) · switch
+  (`askodoxNavHistory`, where Tools was; Tools / settings open from the ☰ menu). "ASKODOX Club" and the header game pill
+  are gone in Phase 1. Chat sends `buyer_mode` / `seller_mode` (`app_mode_rules`; seller also `shopping_tools`; no other
+  shops' menus for an unnamed item in Seller mode). LIVE WORK DOT = `live_work_status.dart` (green blink = steps in the
+  last 5 min, grey, red "!" after a failed reading); the shell reads the step counter once a minute only when a job is
+  chosen and an earlier reading exists. BRAIN: `FRIEND_REASONING_RULES` (seven category-free ways: fit to their life,
+  work backwards, another way, who really pays, turn it around, odd questions, the sum behind it; verdict first) after
+  `DECISION_GUIDANCE_RULES` and in `_advise`; how-to guides keep `GUIDE_ANSWER_RULES`. RESULTS: asked-for sections
+  (`requested_groups`) come third, after `local` + `affiliate`, unless staff fixed `section_order`. Guide step
+  `_profile` now points at the header Menu. Nothing phone verified; no live before / after answer comparison.
 - Branch `claude/voice-fix` (2026-11-21, owner "2 voices + ElevenLabs not coming + Rs 3,000 minus"; NOT merged yet):
   ONE VOICE PER REPLY -- `/api/in-app/voice/speak` takes `engine` (''|elevenlabs|sarvam; elevenlabs waits 20 s and never
   answers with Sarvam), app `_speakChunks` locks the first part's engine (`askodoxAudioEngine` Expando on the bytes);
@@ -355,8 +367,8 @@ this file, don't trust it blindly.
   divide 60 s (the clock loops every minute). Jobs live in `askodoxWorkJobs` (stage days must sum to realDays / 2).
   Team = `AskodoxWorkCrewMember` list (each member moved by their own steps); solo shows only the person. No
   points / rewards / money anywhere in Work Mode (owner rule).
-- Customer shell (`app_shell.dart`): Home · Explore · centre "Ask" (one tap = voice via the hub action
-  `voice`; NO companion ring -- attachments live on the composer "+") · Orders · Profile. No drawer.
+- Customer shell (`app_shell.dart`): Home · Live Work · centre "Ask" (one tap = voice via the hub action
+  `voice`; NO companion ring -- attachments live on the composer "+") · Money / Shop · buy / sell switch. No drawer.
   One place per function: request status lives in Updates
   (`features/notifications`); old mock alerts/communication/preferences
   routes only redirect. Don't re-add duplicate entry points.

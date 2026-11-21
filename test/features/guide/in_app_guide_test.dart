@@ -14,7 +14,7 @@ GoRouter _router() => GoRouter(routes: [
                   TextButton(key: const Key('askodoxLocationChip'), onPressed: () {}, child: const Text('Uyyuru')),
                   const Spacer(),
                   TextButton(
-                      key: const Key('askodoxNavProfile'), onPressed: () => context.go('/profile'), child: const Text('Profile')),
+                      key: const Key('askodoxHeaderMenu'), onPressed: () => context.go('/profile'), child: const Text('Profile')),
                 ]),
               )),
       GoRoute(
@@ -78,11 +78,11 @@ void main() {
     final (_, container, spoken) = await _pump(tester);
     container.read(askodoxGuideProvider.notifier).start(askodoxGuideById('report_problem')!);
     await _tick(tester);
-    expect(_text(tester), 'Tap Profile at the bottom.');
+    expect(_text(tester), 'Tap Menu (☰) at the top, then Settings.');
     expect(find.byKey(const Key('askodoxGuideSpotlight')), findsOneWidget);
     expect(find.byKey(const Key('askodoxGuideArrow')), findsOneWidget);
-    expect(spoken.last, 'Tap Profile at the bottom.');
-    await tester.tap(find.byKey(const Key('askodoxNavProfile')));
+    expect(spoken.last, 'Tap Menu (☰) at the top, then Settings.');
+    await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
     await _tick(tester);
     await _tick(tester);
     expect(_text(tester), 'Tap "Report a problem / Send feedback".');

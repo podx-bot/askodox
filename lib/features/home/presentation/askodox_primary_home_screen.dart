@@ -4265,8 +4265,8 @@ class _AskodoxPrimaryHomeScreenState
   @override
   Widget build(BuildContext context) {
     ref.watch(askodoxReplyLanguageProvider);
-    ref.listen<bool>(askodoxShoppingModeProvider, (previous, on) {
-      if (previous != on) _onShoppingMode(on, _te);
+    ref.listen<bool>(askodoxSellerModeProvider, (previous, seller) {
+      if (previous != seller) _onShoppingMode(seller, _te);
     });
     final te = _te;
     _publishCompanion();
@@ -4328,9 +4328,10 @@ class _AskodoxPrimaryHomeScreenState
 
   /// The bottom-bar Shopping button flipped the mode: keep the assistant flag in step and show the short banner
   /// ("షాపింగ్ మోడ్ ఆన్ / ఆఫ్") that blinks for ~2 s and is never saved in the chat history.
-  void _onShoppingMode(bool on, bool te) {
-    askodoxShoppingMode = on;
-    final text = on ? (te ? 'క్లబ్ ఆన్' : 'Club on') : (te ? 'క్లబ్ ఆఫ్' : 'Club off');
+  void _onShoppingMode(bool seller, bool te) {
+    // Buy / sell switch (owner 2026-11-21): the brain is told which side the person is on.
+    askodoxSellerMode = seller;
+    final text = seller ? (te ? 'సెల్లర్ మోడ్ ఆన్' : 'Seller mode on') : (te ? 'బయ్యర్ మోడ్ ఆన్' : 'Buyer mode on');
     _modeBannerTimer?.cancel();
     setState(() => _modeBanner = text);
     _modeBannerTimer = Timer(const Duration(seconds: 2), () {
@@ -4342,7 +4343,7 @@ class _AskodoxPrimaryHomeScreenState
   Widget _shoppingModeBanner(bool te) {
     final banner = _modeBanner;
     if (banner == null) return const SizedBox.shrink();
-    final on = ref.read(askodoxShoppingModeProvider);
+    final on = ref.read(askodoxSellerModeProvider);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: TweenAnimationBuilder<double>(
@@ -4357,7 +4358,7 @@ class _AskodoxPrimaryHomeScreenState
               key: const Key('askodoxShoppingModeBanner'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B5563))),
+              style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B3BC4))),
         ),
       ),
     );
@@ -6140,7 +6141,7 @@ class _AskodoxPrimaryHomeScreenState
     WidgetsBinding.instance.removeObserver(this);
     _device.setMethodCallHandler(null);
     _modeBannerTimer?.cancel();
-    askodoxShoppingMode = false; // OFF again next time the app opens
+    askodoxShoppingMode = false;
     _lipSyncTimer?.cancel();
     // (No ref use while disposing.)
     _voiceTimer?.cancel();

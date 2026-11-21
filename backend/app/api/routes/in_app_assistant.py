@@ -279,6 +279,10 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
         # Shopping mode switch ON in the chat (owner 2026-11-19): every turn looks in ASKODOX-registered shops first;
         # nothing there -> the normal answer, clearly labelled as from outside ASKODOX.
         shopping = "shopping_mode" in (payload.capabilities or [])
+        if not shops and "seller_mode" in (payload.capabilities or []):
+            # Seller side of the app (owner 2026-11-21): an item + quantity is the person's OWN shop work, so other
+            # shops' menus are not offered unless a shop was named.
+            return decision
         if not shops:
             # Not named: but when the person is asking for something to buy / order, the ASKODOX shops whose own menu
             # has it come FIRST, with their menu prices (the search for other sources goes on beside it).
