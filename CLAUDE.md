@@ -15,6 +15,20 @@ this file, don't trust it blindly.
   "*akar@ibl" now count; the shop's own id / e-mails are never the payer). `Sim()` scenarios of every reported case
   in `android/parser-tests`; the gate also runs on `AskodoxPaymentAlerts.kt`. New `.claude/rules/payment-alerts.md`
   + skill `.claude/skills/askodox-payment-alerts`. Nothing phone verified.
+- Branch `claude/shop-link` (2026-11-23, owner "Ok" on design artifact GyGuSkNsVrf6cxXQBZk7h4, PlayboxTV / Linktree idea):
+  SHOP LINK -- one free public page per shop `askodox.com/s/<slug>` (`shop_links.py`: tables `shop_links` /
+  `shop_link_aliases` (old names 301 -> new, printed posters keep working) / `shop_link_counts` (per day + kind, no
+  customer identity); HTML `shop_link_pages.py`, NO script (CSP script-src 'none'; menu = plain GET form; call / UPI
+  taps counted with `ping` -> `POST /s/{slug}/c/{kind}`); routes `routes/shop_links.py`: owner `GET|PUT
+  /api/pos/businesses/{id}/link` (PUT owner ONLY; GET / check / stats need `reports`), public `/s/{slug}`,
+  `/s/{slug}/order` (via=wa -> WhatsApp message page + app ask; via=app -> install steps, Play with
+  `referrer=utm_source=shop_link&utm_campaign=<slug>`), `/s/{slug}/go/app|follow|join|map|chat` (counted 302).
+  Menu = the front desk's `_menu`; pay = the owner's own default UPI (`payment_methods.pay_to`, no amount); offer /
+  about refuse web links; paused / closed shops show but take no orders. Caddyfile `@askodox_shop_links path /s/*`.
+  App: `/pos/:id/link` = `AskodoxShopLinkStepsScreen` (what to show -> colour + name checked live -> ✓ WhatsApp / copy /
+  QR poster / open + 7-day counts), Seller Money page `s.link` (owner), biz page `customers.link`. Phase 2 (not built):
+  app reads the install referrer + opens the shop, order tracking from the link, install counts, product photos.
+  Nothing phone verified.
 - `main` PR #391 (2026-11-22, owner "1", owner test: 30-40 s before a spoken reply): SPEAK WHILE WRITING -- spoken turns
   (`askodoxSpeakTypedReplies` + `_streamSpeaks`) no longer hide the stream until the whole answer: `_liveFeed` queues each
   finished `askodoxSpeechChunks` part (last part only after `text_done` / the final), `_liveFetch` shares audio through
@@ -29,13 +43,13 @@ this file, don't trust it blindly.
   to `_plan`; its reply waits in `_HeldText` until the planner says no search + not hard (then `take` releases it), else
   it is dropped (never shown) and routing runs again with grounding / the hard model. Never when `_needs_lookup` (the
   user's own words need live evidence) or the guide path. Timing log path `routed_early`.
-- Branch `claude/scam-sms-guard` (2026-11-22, owner: a JK-xxxxx-S "DEPOSIT SUCCESS ... A/c: <whole 10-digit number>
+- `main` PR #390 (2026-11-22, Play bundle `askodox-play-1603.aab`, owner: a JK-xxxxx-S "DEPOSIT SUCCESS ... A/c: <whole 10-digit number>
   Amount: Rs.8,551,00 Status: RECEIVED Open: bit.ly/.." SMS was said + counted as ₹8,55,100 received, "Bank SMS"):
   `PaymentAlertParser.fakeSigns` = public short link / broken comma groups (`wellGrouped`) / a whole account number
   after "A/c"; `looksFakeCredit` -> parse Ignored even over a confirmed wording (only "wrong -> came in" on it wins),
   `notice` = suspect (no amount when the amount is broken); phone `recheckFakes` turns rows an older build saved into
   ⚠️ info rows once per `FAKE_RULES`. Parser gate 278 checks, made-up numbers only. Nothing phone verified.
-- Branch `claude/three-step-pages` (2026-11-22, owner "సరే ఒకసారి ఇది చేయండి" on design artifact RGYB6de8vhoNeDwY3DBG9z
+- `main` PR #389 (2026-11-22, Play bundle `askodox-play-1602.aab`, owner "సరే ఒకసారి ఇది చేయండి" on design artifact RGYB6de8vhoNeDwY3DBG9z
   page "3 స్టెప్స్"): SECOND PAGES IN 3 PIECES, JOBS IN 3 STEPS -- kit `lib/features/steps/presentation/step_kit.dart`
   (`AskodoxStepScaffold`: back = one step back, 1·2·3 bar, one big question, middle, `AskodoxStepBottom` = mic + ONE
   big button; ⋮ holds the rest; keypad / choice cards / ✓ / round actions) + pure rules `steps/domain/step_logic.dart`.

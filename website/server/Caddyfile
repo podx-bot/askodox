@@ -56,6 +56,17 @@
 		}
 	}
 
+	# Shop links (owner 2026-11-22): askodox.com/s/<slug> = one free page per shop (menu, WhatsApp order, call, map,
+	# the shop's own UPI). No script; the menu is a plain form; call / UPI taps are counted with `ping`. Same backend.
+	@askodox_shop_links path /s/*
+	handle @askodox_shop_links {
+		header Content-Security-Policy "default-src 'self'; img-src 'self' https: data:; style-src 'unsafe-inline'; script-src 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+		header -Cache-Control
+		reverse_proxy {$ASKODOX_BACKEND_URL:https://podx-ai-connect-production-3279.up.railway.app} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
 	@hashed path /static/css/* /static/js/*
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
 	@assets path /static/fonts/* /static/img/* /favicon.svg /favicon-32.png /apple-touch-icon.png /icon-*.png

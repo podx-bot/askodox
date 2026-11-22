@@ -174,6 +174,8 @@ const _sellerSpecs = <_SellerSpec>[
       who: 'owner'),
   _SellerSpec('s.page', 'customers.page', 'Shop page & reviews', 'షాప్ పేజీ & రివ్యూలు', Icons.star_rounded, Color(0xFFDB2777),
       who: 'owner'),
+  // Owner 2026-11-22: askodox.com/s/<name> -- menu, WhatsApp order, call, map, own UPI (made in 3 steps).
+  _SellerSpec('s.link', 'customers.link', 'My shop link', 'నా షాప్ లింక్', Icons.link_rounded, Color(0xFF0B7A4B), who: 'owner'),
   _SellerSpec('s.customers', 'customers.list', 'Customer list', 'కస్టమర్ల లిస్ట్', Icons.contacts_rounded, Color(0xFF2563EB),
       tool: 'customers', perm: 'customers'),
   _SellerSpec('s.crm', 'customers.crm', 'Enquiries', 'ఎంక్వైరీలు', Icons.forum_rounded, Color(0xFF0284C7),
@@ -262,6 +264,7 @@ AskodoxLaunchLayout askodoxSellerShippedLayout() => const AskodoxLaunchLayout([
       AskodoxLaunchEntry.page('s.mymonth'),
       AskodoxLaunchEntry.page('s.dues'),
       AskodoxLaunchEntry.page('s.qr'),
+      AskodoxLaunchEntry.page('s.link'),
       AskodoxLaunchEntry.page('s.voice'),
       AskodoxLaunchEntry.page('s.history'),
       AskodoxLaunchEntry.page('s.sales'),
