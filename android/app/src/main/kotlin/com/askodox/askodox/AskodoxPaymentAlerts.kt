@@ -482,7 +482,6 @@ object AskodoxPaymentAlerts {
         return list
     }
 
-    @Synchronized
     /** Bump when the fake rules change: rows saved before are checked once again with the new rules. */
     private const val FAKE_RULES = 1
 
@@ -511,6 +510,7 @@ object AskodoxPaymentAlerts {
         p.edit().putInt("fake_rules", FAKE_RULES).apply()
     }
 
+    @Synchronized
     private fun saveEvents(context: Context, list: JSONArray) {
         val trimmed = JSONArray()
         val start = maxOf(0, list.length() - MAX_EVENTS)
