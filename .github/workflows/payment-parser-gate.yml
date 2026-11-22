@@ -1,18 +1,23 @@
 # Payment alert parser gate (owner 2026-11-15: "every bank, every app"): the pure Kotlin parser that reads UPI app
 # notifications and bank SMS of every bank is compiled on its own and run against real message shapes
 # (SBI, HDFC, ICICI, Axis, Kotak, Canara, Union, BoB, PNB, Indian Bank, PhonePe, GPay, Paytm, OTP / bill / offer).
+# Owner 2026-11-22: it also runs the "one payment = one voice" scenarios (bank SMS + app notification in any order,
+# however late), because the phone's merge decision (PaymentAlertParser.pickSamePayment) lives in the parser file.
 name: Payment parser gate
 
 on:
   pull_request:
     paths:
       - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt'
+      - 'android/app/src/main/kotlin/com/askodox/askodox/AskodoxPaymentAlerts.kt'
       - 'android/parser-tests/**'
       - '.github/workflows/payment-parser-gate.yml'
+      - '.claude/skills/askodox-payment-alerts/**'
   push:
     branches: [main]
     paths:
       - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt'
+      - 'android/app/src/main/kotlin/com/askodox/askodox/AskodoxPaymentAlerts.kt'
       - 'android/parser-tests/**'
   workflow_dispatch:
 

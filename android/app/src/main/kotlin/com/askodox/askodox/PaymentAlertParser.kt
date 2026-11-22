@@ -243,7 +243,20 @@ object PaymentAlertParser {
         // (owner 2026-11-17: one common key). An app's own transaction id ("T2511...") is used only when no RRN is shown.
         val reference = rrn(joined)
             ?: refRegex.findAll(joined).map { it.groupValues[1] }.firstOrNull { it.count(Char::isDigit) >= 6 }
-        return Result.Accepted(amounts.first(), reference, payerName(body) ?: payerName(title), accountTail(joined))
+        return Result.Accepted(amounts.first(), reference, payerOf(title, body), accountTail(joined))
+    }
+
+    /**
+     * The payer's name from a notification's title AND text (owner 2026-11-22: the name was on the notification but
+     * never spoken). Apps split one sentence over the two: title "₹300 received" + text "from RAMESH KUMAR", or
+     * title "RAMESH KUMAR" + text "sent you ₹300". The text alone first, then the title alone, then both together.
+     */
+    fun payerOf(title: String?, body: String?): String? {
+        payerName(body)?.let { return it }
+        payerName(title)?.let { return it }
+        val t = title?.trim().orEmpty()
+        val b = body?.trim().orEmpty()
+        return if (t.isNotEmpty() && b.isNotEmpty()) payerName("$t $b") else null
     }
 
     private val refundLanded = Regex(
@@ -618,6 +631,11 @@ object PaymentAlertParser {
         for (re in patterns) {
             for (m in re.findAll(t)) {
                 var name = m.groupValues[1].trim().trim('.', ',', '!', ':', '-', '\'', '"', '(', ')').replace(Regex("\\s+"), " ")
+                // Owner 2026-11-22 (names on the notification, never spoken): PhonePe writes the payer's UPI id in
+                // brackets after the name -- "MOHAMMAD HAFIZ (9502072317@ibl) sent you ₹300". The name is the part
+                // outside the brackets.
+                val outside = name.replace(Regex("""\s*\([^)]*\)?\s*"""), " ").trim().trim('.', ',', '-', ':')
+                if (outside.length >= 2 && outside != name && !outside.contains('@')) name = outside.replace(Regex("\\s+"), " ")
                 if (name.contains('@')) {
                     val local = name.substringBefore('@').substringAfterLast(' ')
                     name = local.replace(Regex("[._-]+"), " ").trim()
@@ -661,7 +679,7 @@ object PaymentAlertParser {
     private val payerPatterns = listOf(
         Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?sent\s+$AMT\s+to\s+you""", RegexOption.IGNORE_CASE),   // PhonePe
         Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?paid\s+you\s+$AMT""", RegexOption.IGNORE_CASE),          // Google Pay
-        Regex("""^\s*(.{2,60}?)\s+has\s+sent\s+you\s+$AMT""", RegexOption.IGNORE_CASE),
+        Regex("""^\s*(.{2,60}?)\s+(?:has\s+)?sent\s+you\s+$AMT""", RegexOption.IGNORE_CASE),          // "NAME sent you ₹300"
         Regex("""received\s+$AMT\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE), // Paytm
         Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
         Regex("""$AMT\s+received\s+from\s+(.{2,60}?)(?:\s+(?:on|via|in|to|at)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
@@ -1004,16 +1022,123 @@ object PaymentAlertParser {
         return t.count { it.isDigit() } >= 7
     }
 
-    /** "*2317@ibl" / "9502072317@ibl" -> "2317@ibl": the payer's UPI handle tail, to tell two payments apart. */
-    fun upiHandleTail(text: String): String? =
-        Regex("""[A-Za-z0-9.*_\-]*?(\d{4})@([A-Za-z]{2,20})""").find(text)?.let { "${it.groupValues[1]}@${it.groupValues[2].lowercase(Locale.ROOT)}" }
+    private val handleRegex = Regex("""([A-Za-z0-9.*_\-]+)@([A-Za-z]{2,20})\b(?!\.[A-Za-z])""")
+    private val receiverBefore = Regex("""(?i)(?<!linked\s)\b(?:to|in)\s+(?:your\s+)?(?:vpa|upi\s*id|upi)?\s*[:\-]?\s*$""")
 
-    /** The UPI app / bank app notification may come up to an hour AFTER the bank SMS of the same payment ... */
+    /**
+     * The PAYER's UPI id, cut to its last 4 letters / digits + its bank handle, to tell two payments apart:
+     * "*2317@ibl" / "9502072317@ibl" -> "2317@ibl", a masked "*akar@ibl" -> "akar@ibl" (owner 2026-11-22: masked ids
+     * said nothing before). An e-mail address ("care@hdfcbank.com") and the shop's OWN id ("credited to VPA
+     * shop@icici") are never the payer.
+     */
+    fun upiHandleTail(text: String): String? {
+        for (m in handleRegex.findAll(text)) {
+            if (receiverBefore.containsMatchIn(text.substring(0, m.range.first))) continue
+            val local = m.groupValues[1].filter(Char::isLetterOrDigit).lowercase(Locale.ROOT)
+            if (local.length < 4) continue
+            return "${local.takeLast(4)}@${m.groupValues[2].lowercase(Locale.ROOT)}"
+        }
+        return null
+    }
+
+    /** Two payer UPI ids: SAME tail = the same person's money, DIFFERENT = two people, UNKNOWN = one is missing. */
+    fun compareHandles(a: String?, b: String?): RefMatch {
+        val x = a?.trim()?.lowercase(Locale.ROOT).orEmpty()
+        val y = b?.trim()?.lowercase(Locale.ROOT).orEmpty()
+        if (x.isEmpty() || y.isEmpty()) return RefMatch.UNKNOWN
+        return if (x == y) RefMatch.SAME else RefMatch.DIFFERENT
+    }
+
+    private val honorifics = setOf("MR", "MRS", "MS", "SRI", "SHRI", "SMT", "DR", "M/S")
+
+    /**
+     * Is the payer the same person on two messages (an app's name vs the bank's)? Only ever used as a reason TO join
+     * (never to split): equal names, the same words in another order ("MANOHAR KOVELAKARU" / "KOVELAKARU MANOHAR"),
+     * or a bank that cut a two-word name short ("MOHAMMAD HAF" / "MOHAMMAD HAFIZ").
+     */
+    fun samePayer(a: String?, b: String?): Boolean {
+        fun words(s: String?) = s?.uppercase(Locale.ROOT)?.replace(Regex("[^A-Z ]"), " ")?.split(' ')
+            ?.filter { it.length >= 2 && it !in honorifics }.orEmpty()
+        val x = words(a)
+        val y = words(b)
+        if (x.isEmpty() || y.isEmpty()) return false
+        if (x == y || x.toSet() == y.toSet()) return true
+        val (short, long) = if (x.joinToString(" ").length <= y.joinToString(" ").length) x to y else y to x
+        val s = short.joinToString(" ")
+        return short.size >= 2 && s.length >= 6 && long.joinToString(" ").startsWith(s)
+    }
+
+    /** The bank's "Bill Paid" SMS vs the company's receipt: a receipt may come up to an hour after it ... */
     const val NOTE_AFTER_SMS_MS = 60 * 60_000L
-    /** ... but a bank SMS is quick: it is the same payment only when it comes within 10 minutes of the notification. */
+    /** ... and the bank's two SMS of one bill (debit + "Bill Paid") come within 10 minutes of each other. */
     const val SMS_AFTER_NOTE_MS = 10 * 60_000L
-    /** Two notifications of different kinds (a UPI app + the bank's own app) of one payment. */
-    const val NOTE_AND_NOTE_MS = 30 * 60_000L
+    /**
+     * Owner 2026-11-17 / 2026-11-22 ("however late the second message comes -- 15 min, 30 min, an hour -- one payment
+     * is spoken ONCE"): the bank SMS and the UPI / bank app notification of one payment, in ANY order, up to 2 hours
+     * apart, when nothing on them says they are two payments.
+     */
+    const val LATE_PAIR_MS = 2 * 60 * 60_000L
+    /** The same payer's UPI id or name on both messages: the late one still joins up to 6 hours later. */
+    const val SAME_PAYER_MS = 6 * 60 * 60_000L
+    /** The same UPI reference (RRN) on both: the same money any time within a day. */
+    const val SAME_REF_MS = 24 * 60 * 60_000L
+
+    /** Kinds of message that come through the SMS app NEXT TO the bank's debit SMS for the same money. */
+    val SIDE_KINDS = setOf("biller", "billpay")
+
+    /** One row of the phone's payment history, as [pickSamePayment] needs it. */
+    data class Row(
+        val index: Int, val atMs: Long, val sourceApp: String, val kind: String, val kinds: List<String>,
+        val direction: String, val amountPaise: Long, val account: String? = null, val reference: String? = null,
+        val handle: String? = null, val payer: String? = null, val excluded: Boolean = false, val test: Boolean = false,
+    )
+
+    /** The message that just arrived. [atMs] = its own payment time. */
+    data class Msg(
+        val sourceApp: String, val kind: String, val direction: String, val amountPaise: Long, val atMs: Long,
+        val account: String? = null, val reference: String? = null, val handle: String? = null,
+        val payer: String? = null, val bankSms: Boolean = false,
+    )
+
+    /**
+     * Owner 2026-11-15 / 17 / 22 -- ONE payment = ONE voice, ONE row. Which earlier row (if any) is the SAME money as
+     * [msg]? Returns that row's [Row.index], or null = a new payment (spoken).
+     *  - the same UPI reference (RRN) = the same money (any order, within a day); two different RRNs = two payments;
+     *  - otherwise the same amount + direction from a DIFFERENT kind of source (sms / upi / bank) that the row does not
+     *    have yet, with no clue saying "two payments" (different account, different payer UPI id), within
+     *    [LATE_PAIR_MS] -- or [SAME_PAYER_MS] when the payer's UPI id or name is the same on both;
+     *  - two messages from the same app never join (Rs 1 + Rs 1 = two payments), two SMS never join;
+     *  - a row with a clue beats one without; then the row closest in time wins.
+     */
+    fun pickSamePayment(rows: List<Row>, msg: Msg): Int? {
+        var best: Row? = null
+        var bestClue = false
+        var bestGap = Long.MAX_VALUE
+        for (r in rows) {
+            if (r.atMs <= 0L || r.test) continue
+            if (r.sourceApp == msg.sourceApp && msg.kind !in SIDE_KINDS && r.kind !in SIDE_KINDS) continue
+            if (r.direction != msg.direction) continue
+            // A row set aside (❓) joins only the bank's own SMS that agrees with it (then it counts again).
+            if (r.excluded && !msg.bankSms) continue
+            val gap = msg.atMs - r.atMs
+            when (compareRefs(r.reference, msg.reference)) {
+                RefMatch.SAME -> if (kotlin.math.abs(gap) <= SAME_REF_MS) return r.index
+                RefMatch.DIFFERENT -> continue
+                RefMatch.UNKNOWN -> {}
+            }
+            if (r.amountPaise != msg.amountPaise) continue
+            if (accountsDiffer(r.account, msg.account)) continue
+            val handles = compareHandles(r.handle, msg.handle)
+            if (handles == RefMatch.DIFFERENT) continue
+            val clue = handles == RefMatch.SAME || samePayer(r.payer, msg.payer)
+            if (!samePaymentWindow(msg.kind, r.kinds, gap, clue)) continue
+            val g = kotlin.math.abs(gap)
+            if (best == null || (clue && !bestClue) || (clue == bestClue && g < bestGap)) {
+                best = r; bestClue = clue; bestGap = g
+            }
+        }
+        return best?.index
+    }
 
     /**
      * Can a message of [kind] (sms / upi / bank) be the same payment as an earlier row made of [rowKinds], when its
@@ -1057,16 +1182,19 @@ object PaymentAlertParser {
         return x.takeLast(n) != y.takeLast(n)
     }
 
-    fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long): Boolean = when {
+    fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long, sameClue: Boolean = false): Boolean = when {
         kind in rowKinds -> false
         // "billpay" (owner 2026-11-22) = the bank's own "Bill Paid ... from your account" SMS: as quick and as sure as
         // its debit SMS, and it may be the same money as that debit SMS or the company's thank-you.
         // The bank's two SMS for ONE bill (debit alert + "Bill Paid") come within minutes of each other.
         (kind == "billpay" && "sms" in rowKinds) || (kind == "sms" && "billpay" in rowKinds) ->
             kotlin.math.abs(deltaMs) <= SMS_AFTER_NOTE_MS
-        kind == "sms" || kind == "billpay" -> deltaMs in -NOTE_AFTER_SMS_MS..SMS_AFTER_NOTE_MS   // this SMS vs the row's notification
-        "sms" in rowKinds || "billpay" in rowKinds -> deltaMs in -SMS_AFTER_NOTE_MS..NOTE_AFTER_SMS_MS // this notification vs the row's SMS
-        else -> kotlin.math.abs(deltaMs) <= NOTE_AND_NOTE_MS
+        kind == "billpay" -> deltaMs in -NOTE_AFTER_SMS_MS..SMS_AFTER_NOTE_MS   // the "Bill Paid" SMS vs the row's app / receipt
+        "billpay" in rowKinds -> deltaMs in -SMS_AFTER_NOTE_MS..NOTE_AFTER_SMS_MS // an app / receipt vs the row's "Bill Paid" SMS
+        // Owner 2026-11-22: a bank SMS an HOUR after the app's notification (or the app's an hour after the SMS) was
+        // spoken again. Any order, up to 2 h; up to 6 h when the payer's UPI id / name is the same on both.
+        sameClue -> kotlin.math.abs(deltaMs) <= SAME_PAYER_MS
+        else -> kotlin.math.abs(deltaMs) <= LATE_PAIR_MS
     }
 
     // ------------------------------------------------------------------ dues, EMI, balance (owner 2026-11-17)

@@ -16,6 +16,36 @@ fun check(name: String, title: String?, text: String, expect: String) {
     println((if (ok) "ok   " else "FAIL ") + name + " -> " + got + (if (ok) "" else "   (want $expect)"))
 }
 
+/**
+ * The phone's history in miniature: every message goes through the SAME decision the app uses
+ * (PaymentAlertParser.pickSamePayment); a new row = one voice, a join = silent.
+ */
+class Sim {
+    val rows = ArrayList<PaymentAlertParser.Row>()
+    var spoken = 0
+    private val base = 1_795_000_000_000L
+    fun get(pkg: String, kind: String, title: String?, text: String, atMin: Long): String {
+        val r = PaymentAlertParser.parse(title, text) as Result.Accepted
+        val msg = PaymentAlertParser.Msg(pkg, kind, "in", r.amountPaise, base + atMin * 60_000L, r.account, r.reference,
+            PaymentAlertParser.upiHandleTail("${title ?: ""} $text"), r.payer, bankSms = kind == "sms")
+        val hit = PaymentAlertParser.pickSamePayment(rows, msg)
+        if (hit != null) {
+            val o = rows[hit]
+            rows[hit] = o.copy(kinds = o.kinds + kind, reference = o.reference ?: msg.reference,
+                handle = o.handle ?: msg.handle, payer = o.payer ?: msg.payer, account = o.account ?: msg.account)
+            return "joined"
+        }
+        rows.add(PaymentAlertParser.Row(rows.size, msg.atMs, pkg, kind, listOf(kind), "in", msg.amountPaise,
+            msg.account, msg.reference, msg.handle, msg.payer))
+        spoken++
+        return "spoken"
+    }
+}
+
+const val SMS = "com.google.android.apps.messaging"
+const val PHONEPE = "com.phonepe.app"
+const val HDFC_APP = "com.snapwork.hdfc"
+
 fun main() {
     // UPI apps
     check("phonepe in", "Received ₹1", "Bhagya sent ₹1 to you.", "IN 100 payer=Bhagya")
@@ -94,12 +124,40 @@ fun main() {
     yes("handle from sms", PaymentAlertParser.upiHandleTail("from VPA *2317@ibl (UPI 925142780111)") == "2317@ibl")
     yes("handle from app", PaymentAlertParser.upiHandleTail("MOHAMMAD HAFIZ (9502072317@ibl) sent you") == "2317@ibl")
     yes("no handle", PaymentAlertParser.upiHandleTail("GH sent ₹2,000 to you.") == null)
+    // Owner 2026-11-22: a masked id still tells two people apart; an e-mail or the shop's own id is never the payer.
+    yes("masked handle", PaymentAlertParser.upiHandleTail("Rs.300.00 credited to HDFC Bank A/c XX6911 from VPA *akar@ibl (UPI 532612349999)") == "akar@ibl")
+    yes("named handle", PaymentAlertParser.upiHandleTail("by A/c linked to VPA ramesh.k@okaxis (UPI Ref No. 532012345678)") == "eshk@okaxis")
+    yes("e-mail is not a handle", PaymentAlertParser.upiHandleTail("Rs 300 credited. Write to care@hdfcbank.com") == null)
+    yes("shop's own id is not the payer", PaymentAlertParser.upiHandleTail("Rs 300 credited to VPA myshop@icici from RAMESH") == null)
+    yes("payer after the shop's own id", PaymentAlertParser.upiHandleTail("credited to VPA myshop@icici from 9502072317@ybl") == "2317@ybl")
+    yes("handles same", PaymentAlertParser.compareHandles("2317@ibl", "2317@IBL") == PaymentAlertParser.RefMatch.SAME)
+    yes("handles differ", PaymentAlertParser.compareHandles("2317@ibl", "akar@ibl") == PaymentAlertParser.RefMatch.DIFFERENT)
+    yes("handle missing", PaymentAlertParser.compareHandles(null, "akar@ibl") == PaymentAlertParser.RefMatch.UNKNOWN)
+    yes("same payer exact", PaymentAlertParser.samePayer("MOHAMMAD HAFIZ", "Mohammad Hafiz"))
+    yes("same payer other order", PaymentAlertParser.samePayer("KOVELAKARU MANOHAR", "Manohar Kovelakaru"))
+    yes("same payer cut short by the bank", PaymentAlertParser.samePayer("MOHAMMAD HAF", "MOHAMMAD HAFIZ"))
+    yes("one shared word is not the same payer", !PaymentAlertParser.samePayer("RAMESH KUMAR", "SURESH KUMAR"))
+    yes("first name only is not enough", !PaymentAlertParser.samePayer("RAMESH", "RAMESH BABU"))
+    yes("no name = no clue", !PaymentAlertParser.samePayer(null, "RAMESH"))
+    // Owner 2026-11-22: the name WAS on the notification but never spoken.
+    check("phonepe name with upi id in brackets", null, "MOHAMMAD HAFIZ (9502072317@ibl) sent you ₹300", "IN 30000 payer=MOHAMMAD HAFIZ")
+    check("name sent you", "Money received", "Ramesh Kumar sent you ₹300", "IN 30000 payer=Ramesh Kumar")
+    check("name + id has sent to you", "Received ₹300", "RAMESH KUMAR (9502072317@ybl) has sent ₹300 to you", "IN 30000 payer=RAMESH KUMAR")
+    check("title amount, text from name", "₹300 received", "from RAMESH KUMAR", "IN 30000 payer=RAMESH KUMAR")
+    check("title name, text sent you", "RAMESH KUMAR", "sent you ₹300", "IN 30000 payer=RAMESH KUMAR")
+    check("app label in title is never the name", "PhonePe", "sent you ₹300", "IN 30000 payer=null")
     val min = 60_000L
     yes("late bank app 13 min after sms = same", PaymentAlertParser.samePaymentWindow("bank", listOf("sms"), 13 * min))
     yes("app 59 min after sms = same", PaymentAlertParser.samePaymentWindow("upi", listOf("sms"), 59 * min))
-    yes("app 61 min after sms = new", !PaymentAlertParser.samePaymentWindow("upi", listOf("sms"), 61 * min))
+    // Owner 2026-11-22 ("however late the second message comes, one payment is spoken once"): any order, up to 2 h.
+    yes("app 61 min after sms = same (owner 2026-11-22)", PaymentAlertParser.samePaymentWindow("upi", listOf("sms"), 61 * min))
+    yes("app 2 h + 1 min after sms, no clue = new", !PaymentAlertParser.samePaymentWindow("upi", listOf("sms"), 121 * min))
     yes("sms 2 min after app = same", PaymentAlertParser.samePaymentWindow("sms", listOf("upi"), 2 * min))
-    yes("sms 20 min after app = new (QR payment)", !PaymentAlertParser.samePaymentWindow("sms", listOf("upi"), 20 * min))
+    yes("bank sms 60 min after app = same (owner 2026-11-22, was spoken again)", PaymentAlertParser.samePaymentWindow("sms", listOf("upi"), 60 * min))
+    yes("sms 2 h + 1 min after app, no clue = new", !PaymentAlertParser.samePaymentWindow("sms", listOf("upi"), 121 * min))
+    yes("same payer: sms 5 h after app = same", PaymentAlertParser.samePaymentWindow("sms", listOf("upi"), 300 * min, sameClue = true))
+    yes("same payer: 6 h + 1 min = new", !PaymentAlertParser.samePaymentWindow("sms", listOf("upi"), 361 * min, sameClue = true))
+    yes("same payer never joins a kind the row has", !PaymentAlertParser.samePaymentWindow("sms", listOf("sms"), min, sameClue = true))
     yes("two sms never join", !PaymentAlertParser.samePaymentWindow("sms", listOf("sms"), 0))
     yes("sms + app already paired: third sms = new", !PaymentAlertParser.samePaymentWindow("sms", listOf("sms", "upi"), min))
     yes("bank app + upi app 5 min = same", PaymentAlertParser.samePaymentWindow("bank", listOf("upi"), 5 * min))
@@ -318,6 +376,66 @@ fun main() {
     check("real NEFT from a broker stays money", "AX-SBIINB-S", "Rs 1,00,000.00 credited to A/c XXXXXX1234 by NEFT from EXAMPLE SECURITIES LTD", "IN 10000000")
     check("bank's own link line is cut, credit stays", "AX-HDFCBK-S", "Rs.500.00 credited to A/c XX1234 on 22-11-26. Not you? Visit https://hdfcbk.io/a/x", "IN 50000")
     check("EMI debit with a whole loan number stays a debit", "AX-HDFCBK-S", "Rs 4,133.00 debited from A/c XX1234 towards loan account 123456789012 EMI on 22-11-26", "OUT 413300")
+    // ---------------------------------------------------------------- ONE payment = ONE voice (owner's real reports)
+    // Owner 2026-11-22: notification first (name on it), the bank SMS an HOUR later -> the SMS was spoken again.
+    Sim().run {
+        get(PHONEPE, "upi", null, "MOHAMMAD HAFIZ (9502072317@ibl) sent you ₹300", 0)
+        val late = get(SMS, "sms", "JD-HDFCBK-S", "Rs.300.00 credited to HDFC Bank A/c XX6911 on 22-11-26 from VPA 9502072317@ibl (UPI 532612345678)", 60)
+        yes("notification, then bank SMS 1 h later = spoken once", late == "joined" && spoken == 1 && rows.size == 1)
+        yes("the first voice has the payer's name", rows[0].payer == "MOHAMMAD HAFIZ")
+    }
+    // Owner 2026-11-22: bank SMS first, the app's notification later -> the notification was spoken again.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.300.00 credited to HDFC Bank A/c XX6911 on 22-11-26 from VPA *2317@ibl (UPI 532612345678)", 0)
+        val late = get(PHONEPE, "upi", null, "MOHAMMAD HAFIZ (9502072317@ibl) sent you ₹300", 75)
+        yes("bank SMS, then notification 75 min later = spoken once", late == "joined" && spoken == 1)
+    }
+    // Same, with nothing in common but the amount (SBI SMS has no payer): still one voice within 2 h.
+    Sim().run {
+        get(PHONEPE, "upi", "Received ₹300", "Bhagya sent ₹300 to you.", 0)
+        val late = get(SMS, "sms", "JD-SBIUPI-S", "Dear SBI UPI User, ur A/cX1234 credited by Rs300 on 22Nov26 by (Ref no 532612345678)", 70)
+        yes("no clue, SMS 70 min later = spoken once", late == "joined" && spoken == 1)
+    }
+    // The bank's own app notification very late after an SMS + PhonePe pair: joined by the payer's name.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.300.00 credited to HDFC Bank A/c XX6911 on 22-11-26 (UPI 532612345678)", 0)
+        get(PHONEPE, "upi", null, "MOHAMMAD HAFIZ (9502072317@ibl) sent you ₹300", 1)
+        val late = get(HDFC_APP, "bank", null, "You have received Rs.300.00 from MOHAMMAD HAFIZ", 150)
+        yes("late bank app 2.5 h later, same payer = silent", late == "joined" && spoken == 1)
+    }
+    // QR safety: ANOTHER customer's ₹300 (QR = SMS only) 30 min after a PhonePe ₹300 must still be spoken.
+    Sim().run {
+        get(PHONEPE, "upi", null, "MOHAMMAD HAFIZ (9502072317@ibl) sent you ₹300", 0)
+        val qr = get(SMS, "sms", "JD-HDFCBK-S", "Rs.300.00 credited to HDFC Bank A/c XX6911 on 22-11-26 from VPA *akar@ibl (UPI 532612349999)", 30)
+        val own = get(SMS, "sms", "JD-HDFCBK-S", "Rs.300.00 credited to HDFC Bank A/c XX6911 on 22-11-26 from VPA 9502072317@ibl (UPI 532612345678)", 50)
+        yes("another payer's QR ₹300 = spoken", qr == "spoken")
+        yes("the first payer's late SMS joins HIS row", own == "joined" && spoken == 2 && rows[0].kinds.contains("sms"))
+    }
+    // Two different RRNs are two payments, whatever the time.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.300.00 credited to HDFC Bank A/c XX6911 (UPI 532612345678)", 0)
+        val second = get(HDFC_APP, "bank", null, "Rs.300.00 credited to A/c XX6911 UPI Ref 532612340000", 5)
+        yes("different RRN = second payment spoken", second == "spoken" && spoken == 2)
+    }
+    // Rs 1 + Rs 1 from the same app a minute apart = two payments (owner 2026-11-15).
+    Sim().run {
+        get(PHONEPE, "upi", null, "Bhagya sent ₹1 to you.", 0)
+        val second = get(PHONEPE, "upi", null, "Bhagya sent ₹1 to you.", 1)
+        yes("same app, same amount twice = two voices", second == "spoken" && spoken == 2)
+    }
+    // Two SMS-only ₹500 payments, then a notification: it joins the CLOSEST one, the count stays right.
+    Sim().run {
+        get(SMS, "sms", "JD-SBIUPI-S", "Dear SBI UPI User, ur A/cX1234 credited by Rs500 on 22Nov26 by (Ref no 532612340001)", 0)
+        get(SMS, "sms", "JD-SBIUPI-S", "Dear SBI UPI User, ur A/cX1234 credited by Rs500 on 22Nov26 by (Ref no 532612340002)", 85)
+        val note = get(PHONEPE, "upi", "Received ₹500", "Bhagya sent ₹500 to you.", 86)
+        yes("notification joins the closest SMS", note == "joined" && spoken == 2 && rows[1].kinds.contains("upi") && !rows[0].kinds.contains("upi"))
+    }
+    // A different account tail is a different payment.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.300.00 credited to HDFC Bank A/c XX6911 on 22-11-26", 0)
+        val other = get(HDFC_APP, "bank", null, "Rs.300.00 credited to A/c XX7571", 3)
+        yes("another account = spoken", other == "spoken")
+    }
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }

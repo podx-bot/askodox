@@ -7,6 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/one-payment-one-voice` (2026-11-22, owner: PhonePe notification with the name came first but the
+  voice had no name; the bank SMS came ~1 h later and was spoken AGAIN; SMS first + late notification also spoken
+  twice): payer name now read from "NAME (id@ibl) sent you ₹X", "NAME sent you ₹X", title/text split (`payerOf`).
+  The join decision moved to pure `PaymentAlertParser.pickSamePayment` (RRN 24 h; same payer handle / name 6 h;
+  amount-only any order 2 h, was SMS 10 min after an app / app 60 min after an SMS; closest row wins; masked handles
+  "*akar@ibl" now count; the shop's own id / e-mails are never the payer). `Sim()` scenarios of every reported case
+  in `android/parser-tests`; the gate also runs on `AskodoxPaymentAlerts.kt`. New `.claude/rules/payment-alerts.md`
+  + skill `.claude/skills/askodox-payment-alerts`. Nothing phone verified.
 - `main` PR #391 (2026-11-22, owner "1", owner test: 30-40 s before a spoken reply): SPEAK WHILE WRITING -- spoken turns
   (`askodoxSpeakTypedReplies` + `_streamSpeaks`) no longer hide the stream until the whole answer: `_liveFeed` queues each
   finished `askodoxSpeechChunks` part (last part only after `text_done` / the final), `_liveFetch` shares audio through
