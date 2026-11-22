@@ -197,8 +197,11 @@ class AskodoxPosRepository {
   /// -> {channel: askodox | whatsapp, text, url, whatsapp_to}. ASKODOX users get it in "My bills"; others on WhatsApp.
   Future<AskodoxJson> billSend(String biz, String invoiceId, String phone) =>
       _send('POST', '${_b(biz)}/bills/$invoiceId/send', body: {'phone': phone});
-  Future<AskodoxJson> billSettle(String biz, String invoiceId, String pay, String txn) =>
-      _send('POST', '${_b(biz)}/bills/$invoiceId/settle', body: {'pay': pay, 'client_txn_id': txn});
+  /// [amountPaise] 0 = the whole balance of this bill; more than 0 = part of it (the dues steps split one payment
+  /// over a person's bills, oldest first).
+  Future<AskodoxJson> billSettle(String biz, String invoiceId, String pay, String txn, {int amountPaise = 0}) =>
+      _send('POST', '${_b(biz)}/bills/$invoiceId/settle',
+          body: {'pay': pay, 'client_txn_id': txn, if (amountPaise > 0) 'amount_paise': amountPaise});
   /// Main chat bill by item numbers (owner 2026-11-19): {card, reply}; card null = not a number bill / not a seller.
   Future<AskodoxJson> chatBill(String text, {required bool te}) =>
       _send('POST', '/api/pos/chat-bill', body: {'text': text, 'te': te});

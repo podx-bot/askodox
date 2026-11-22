@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../pos/presentation/shop_rating_screens.dart';
+import '../../steps/presentation/bill_steps_screen.dart';
 import 'my_business_screens.dart';
 import 'shop_follow_screens.dart';
 import 'shop_post_screens.dart';
@@ -23,5 +24,8 @@ final askodoxShopFollowRoutes = <GoRoute>[
       builder: (context, state) => AskodoxBusinessProfileScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/me/business/:id/bill',
-      builder: (context, state) => AskodoxQuickBillScreen(businessId: state.pathParameters['id']!)),
+      // Owner 2026-11-22: the 3-step bill (items -> how paid -> done); the full page (GST, advance, edit) at ?full=1.
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxQuickBillScreen(businessId: state.pathParameters['id']!)
+          : AskodoxBillStepsScreen(businessId: state.pathParameters['id']!)),
 ];

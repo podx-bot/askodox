@@ -9279,6 +9279,94 @@
           "change": "round 2: no app folders, drag in / out of folders, page menu + Home chat shortcuts, owner AND employee pages; not phone verified"
         }
       ]
+    },
+    {
+      "id": "three_step_pages",
+      "name": "Second pages in 3 pieces, jobs in 3 steps: Make a bill, Dues, Check in / out, Close the day",
+      "roles": [
+        "shop owner",
+        "shop staff"
+      ],
+      "domains": [
+        "shop",
+        "payments",
+        "staff",
+        "navigation"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxStepBack",
+          "askodoxStepBar",
+          "askodoxStepQuestion",
+          "askodoxStepMic",
+          "askodoxStepKeypad",
+          "askodoxStepDone",
+          "askodoxBillSteps1",
+          "askodoxBillSteps2",
+          "askodoxBillSteps3",
+          "askodoxBillStepsNext",
+          "askodoxBillOther",
+          "askodoxBillPayCash",
+          "askodoxBillPayOnline",
+          "askodoxBillPayDue",
+          "askodoxBillPaySplit",
+          "askodoxBillStepsSend",
+          "askodoxBillStepsPrint",
+          "askodoxBillStepsNew",
+          "askodoxBillStepsFull",
+          "askodoxDuesSteps1",
+          "askodoxDuesSteps2",
+          "askodoxDuesSteps3",
+          "askodoxDuesStepsGot",
+          "askodoxDuesStepsReceipt",
+          "askodoxCheckInSteps1",
+          "askodoxCheckInSteps2",
+          "askodoxCheckInSteps3",
+          "askodoxDaySteps1",
+          "askodoxDaySteps2",
+          "askodoxDaySteps3",
+          "askodoxDayStepsClose",
+          "askodoxDayStepsSend"
+        ],
+        "symbols": [
+          "AskodoxStepScaffold",
+          "AskodoxStepBottom",
+          "AskodoxStepKeypad",
+          "AskodoxStepAmountPad",
+          "AskodoxStepChoice",
+          "AskodoxBillStepsScreen",
+          "AskodoxDuesStepsScreen",
+          "AskodoxCheckInStepsScreen",
+          "AskodoxDayStepsScreen",
+          "askodoxKeypadPress",
+          "askodoxBillTapQty",
+          "askodoxSplitDuePayment",
+          "askodoxSpokenPayMethod"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_pos_attendance.py"
+        ],
+        "flutter": [
+          "test/features/steps/step_logic_test.dart",
+          "test/features/steps/step_pages_test.dart"
+        ]
+      },
+      "dependencies": [
+        "money_both_sides_launcher"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-22 (design artifact RGYB6de8vhoNeDwY3DBG9z, approved \"సరే ఒకసారి ఇది చేయండి\"): every second page must be understood at a glance and every job done in 3 steps -- like the phone's own apps (dialer keypad, camera, contacts, incoming call, call log, settings). Phase 1 = the four daily shop jobs.",
+      "expected_behavior": "Each page: (1) one big question / number on top, (2) big tiles or one list, (3) one big button + mic; a 1·2·3 bar; a big ✓ at the end; back = one step back; everything else in ⋮. Bill (/me/business/:id/bill): item tiles (tap = 1, tap again = more, hold = type the weight; no items = amount pad) -> cash / online / due (name + pay date) / part cash -> ✓ with WhatsApp + print; the mic fills the tiles and pre-selects the way of paying (the cashier still taps it). Dues (/biz/:id/money/dues): who -> how much (keypad, all suggested, cash | online; spread oldest bill first via bill settle amount_paise) -> ✓ + WhatsApp receipt. Check-in (/biz/:id/staff/checkin): big round button (in / leaving from the caller's own day, attendance today `me`) -> phone lock or selfie -> ✓ time + distance. Day close (/pos/:id/day): online right? -> drawer cash keypad (should-be + difference live, asks once: final) -> ✓ sales + WhatsApp. The old full pages stay at ?full=1.",
+      "history": [
+        {
+          "date": "2026-11-22",
+          "change": "new (phase 1: bill, dues, check-in, day close); not phone verified"
+        }
+      ]
     }
   ]
 }
