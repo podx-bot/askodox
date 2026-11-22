@@ -1,5 +1,5 @@
 /// Shop link rules on the phone (owner 2026-11-22): the same slug rules as the server (`shop_links.py`), so the
-/// owner sees "askodox.com/s/<name>" exactly as it will be before saving. The server still decides (taken names).
+/// owner sees `askodox.com/s/<name>` exactly as it will be before saving. The server still decides (taken names).
 library;
 
 const askodoxShopLinkBase = 'https://askodox.com/s/';

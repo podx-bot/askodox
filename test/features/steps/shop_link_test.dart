@@ -7,7 +7,7 @@ import 'package:podx/features/pos/data/pos_repository.dart';
 import 'package:podx/features/steps/domain/shop_link_logic.dart';
 import 'package:podx/features/steps/presentation/shop_link_steps_screen.dart';
 
-/// Owner 2026-11-22: the shop's one free public page askodox.com/s/<name>, made in 3 steps. Made-up shop data only.
+/// Owner 2026-11-22: the shop's one free public page `askodox.com/s/<name>`, made in 3 steps. Made-up shop data only.
 class _Api implements ApiClient {
   _Api(this.reply);
   final Object? Function(String method, String path, Object? body) reply;

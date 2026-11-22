@@ -13,7 +13,7 @@ import '../domain/shop_link_logic.dart';
 import 'step_kit.dart';
 
 /// `/pos/:id/link` (owner 2026-11-22, design artifact GyGuSkNsVrf6cxXQBZk7h4): the shop's ONE free public page,
-/// askodox.com/s/<name>, in 3 steps -- ① what to show (menu + prices, call, map, own UPI, an offer line, the WhatsApp
+/// `askodox.com/s/<name>`, in 3 steps -- ① what to show (menu + prices, call, map, own UPI, an offer line, the WhatsApp
 /// number orders go to) ② colour + link name (checked live) ③ ✓ the link: WhatsApp / copy / QR poster / open, and how
 /// many people saw it. Only the OWNER makes or changes it; a manager sees step 3. A made link opens on step 3.
 class AskodoxShopLinkStepsScreen extends ConsumerStatefulWidget {
