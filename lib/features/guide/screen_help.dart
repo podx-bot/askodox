@@ -501,6 +501,20 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ప్రతి పేజీ ఒక ఐకాన్, కింద పేరు. పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్.',
     '"−" పేజీని దాచుతుంది (తొలగించదు); "దాచినవి" లో తిరిగి పెట్టండి; "మొదటిలా" మొదట ఉన్నట్టు పెడుతుంది. పేమెంట్ వాయిస్: వరుస నొక్కి ఆన్ / ఆఫ్, ▶ తో వినండి.',
   ]),
+  '/payment-voice': _H('Payment voice', 'పేమెంట్ వాయిస్', [
+    'Tap a line to switch what the phone says out loud: money received, sent, bill / EMI paid, refund, cashback, pending, failed, bill due, autopay, money asked.',
+    '▶ plays the exact words. The "looks fake" warning is always on — a fake message is never counted as money.',
+  ], [
+    'ఫోన్ ఏం చెప్పాలో వరుస నొక్కి ఆన్ / ఆఫ్ చేయండి: డబ్బు వచ్చింది, పంపారు, బిల్లు / EMI కట్టారు, రీఫండ్, క్యాష్‌బ్యాక్, పెండింగ్, ఫెయిల్, బిల్లు కట్టాలి, ఆటోపే, డబ్బు అడిగారు.',
+    '▶ నొక్కితే అవే మాటలు వినిపిస్తాయి. "ఫేక్‌లా ఉంది" హెచ్చరిక ఎప్పుడూ ఆన్ — ఫేక్ మెసేజ్ డబ్బుగా లెక్కలోకి రాదు.',
+  ]),
+  '/me/dues': _H('Coming up', 'కట్టాల్సినవి', [
+    'Add EMI, current bill, rent, recharge with the date; the phone says them 2 days before and on the day.',
+    'Bills that came by SMS are offered here — tap one to add it; a bill already paid is not offered.',
+  ], [
+    'EMI, కరెంట్ బిల్, అద్దె, రీఛార్జ్ తేదీతో జోడించండి; గడువుకు 2 రోజుల ముందు, ఆ రోజు ఫోన్ చెప్తుంది.',
+    'SMS లో వచ్చిన బిల్లులు ఇక్కడ సూచనగా వస్తాయి — నొక్కితే జోడిస్తుంది; కట్టేసినవి రావు.',
+  ]),
   '/money': _H('My money', 'నా డబ్బు', [
     'Every payment, bill and account in one list: switch between your own money and each shop at the top.',
     'When a payment matches a bill, tap "Yes, join" -- nothing is joined without your tap. Tap a row to set what it was for.',

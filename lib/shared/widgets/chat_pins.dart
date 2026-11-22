@@ -7,8 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/pos/data/pos_repository.dart';
 
-/// Chat shortcut strip (owner 2026-11-19): at most THREE buttons the person pinned themselves, shown just above the
-/// chat box. Long-press a tile / row anywhere -> "Pin above the chat". A pin is a LINK to the same page (never a copy
+/// Chat shortcut strip (owner 2026-11-19): at most FIVE buttons the person pinned themselves, shown just above the
+/// chat box. Long-press a tile / row anywhere (the ☰ menu, every Buyer and Seller page on the Money screen) -> "Pin
+/// above the chat"; the same five for everyone (buyer, seller, staff). A pin is a LINK to the same page (never a copy
 /// of the button); a 4th pin asks which one to replace. The strip folds to a thin handle and opens again on a tap.
 const askodoxChatPinsKey = 'askodox.chat.pins.v1';
 const askodoxChatPinsFoldedKey = 'askodox.chat.pins.folded.v1';
@@ -105,6 +106,17 @@ final askodoxChatPinsProvider =
     StateNotifierProvider<AskodoxChatPinsController, AskodoxChatPinsState>((ref) => AskodoxChatPinsController());
 
 bool _te(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
+
+/// Bottom-bar tabs (Home, Money, Updates, Profile) are switched to; every other page opens on top.
+const askodoxShellTabRoutes = {'/', '/money-home', '/updates', '/profile'};
+
+void askodoxOpenPinRoute(BuildContext context, String route) {
+  if (askodoxShellTabRoutes.contains(route.split('?').first)) {
+    context.go(route);
+  } else {
+    context.push(route);
+  }
+}
 
 /// Long-press on a tile / row: pin it above the chat (or take it off). Three already -> choose one to replace.
 Future<void> askodoxOfferChatPin(BuildContext context, AskodoxChatPin pin) async {
@@ -328,7 +340,7 @@ class AskodoxChatPinStrip extends ConsumerWidget {
                       key: ValueKey('askodoxChatPin-${p.id}'),
                       avatar: const Icon(Icons.push_pin, size: 16),
                       label: Text(p.label(te), style: const TextStyle(fontWeight: FontWeight.w700)),
-                      onPressed: () => context.push(p.route),
+                      onPressed: () => askodoxOpenPinRoute(context, p.route),
                     ),
                   ),
                 ),

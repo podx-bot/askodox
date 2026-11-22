@@ -43,6 +43,16 @@ void main() {
       expect(grouped.rename('g', '   ').entry('f:g')!.name, 'Two', reason: 'an empty name keeps the old one');
     });
 
+    test('ungroup, a new place inside a folder, a page from the screen into a folder, retired app folders', () {
+      expect(ids(base.ungroup('f1')), ['a', 'b', 'c', 'd', 'e']);
+      expect(base.moveInFolder('f1', 'd', 0).entry('f:f1')!.children, ['d', 'c']);
+      final into = base.moveInFolder('f1', 'a', 1);
+      expect(into.entry('f:f1')!.children, ['c', 'a', 'd']);
+      expect(ids(into), ['b', 'f:f1', 'e']);
+      expect(ids(base.withoutFolders({'f1', 'nope'})), ['a', 'b', 'c', 'd', 'e']);
+      expect(base.withoutFolders({'other'}).entry('f:f1'), isNotNull, reason: "the person's own folders stay");
+    });
+
     test('hide never deletes: hidden pages come back; reset = the shipped screen', () {
       final hid = base.hide('d');
       expect(hid.hidden, {'d'});
@@ -114,6 +124,47 @@ void main() {
       final shipped = askodoxSellerShippedLayout().placed;
       final all = askodoxSellerPages('h1', {'role': 'owner', 'template': 'restaurant'}).map((p) => p.id).toSet();
       expect(all.difference(shipped), isEmpty, reason: 'every Seller page has a place on the shipped screen');
+    });
+  });
+
+  group('owner AND employee (owner 2026-11-22)', () {
+    test('the shipped screens group nothing', () {
+      expect(askodoxBuyerShippedLayout().entries.where((e) => e.isFolder), isEmpty);
+      expect(askodoxSellerShippedLayout().entries.where((e) => e.isFolder), isEmpty);
+    });
+
+    test('the owner runs everything; a staff member sees what the owner gave + their OWN check in / month', () {
+      final owner = {for (final p in askodoxSellerPages('k1', {'role': 'owner', 'template': 'kirana'})) p.id: p};
+      expect(owner.keys, containsAll(['s.people', 's.salary', 's.kiosk', 's.checkin', 's.voice', 's.qr', 's.details']));
+      expect(owner.containsKey('s.mymonth'), isFalse, reason: 'an owner is not paid a salary');
+      expect(owner['s.attendance']!.en, "Today's attendance");
+
+      final cashier = {
+        for (final p in askodoxSellerPages(
+            'k1', {'my_role': 'cashier', 'template': 'kirana', 'tools': ['payalerts', 'sale'], 'permissions': ['view', 'sell']}))
+          p.id: p
+      };
+      expect(cashier.keys, containsAll(['s.bill', 's.counter', 's.voice', 's.checkin', 's.attendance', 's.tasks', 's.mymonth']));
+      for (final hidden in ['s.reports', 's.people', 's.salary', 's.details', 's.qr', 's.menu', 's.customers', 's.post']) {
+        expect(cashier.containsKey(hidden), isFalse, reason: hidden);
+      }
+      expect(cashier['s.attendance']!.en, 'My attendance today');
+      expect(cashier['s.mymonth']!.route, '/biz/k1/staff/person/me');
+
+      final noSound = askodoxSellerPages('k1', {'my_role': 'waiter', 'template': 'restaurant', 'tools': ['tables']}).map((p) => p.id);
+      expect(noSound, containsAll(['s.tables', 's.checkin']));
+      expect(noSound, isNot(contains('s.voice')), reason: 'the owner did not give "Payment sound"');
+    });
+
+    test('every page can be a Home chat shortcut (a route to open)', () {
+      final voice = askodoxBuyerPages.firstWhere((p) => p.id == 'b.voice');
+      expect(voice.pinRoute(null), '/payment-voice');
+      expect(askodoxBuyerPages.firstWhere((p) => p.id == 'b.dues').pinRoute(null), '/me/dues');
+      final shopVoice = askodoxSellerPages('k1', {'role': 'owner', 'template': 'kirana'}).firstWhere((p) => p.id == 's.voice');
+      expect(shopVoice.pinRoute('k1'), '/payment-voice?shop=k1');
+      for (final p in [...askodoxBuyerPages, ...askodoxSellerPages('k1', {'role': 'owner', 'template': 'restaurant'})]) {
+        expect(p.pinRoute('k1').startsWith('/'), isTrue, reason: p.id);
+      }
     });
   });
 

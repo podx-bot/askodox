@@ -13,7 +13,7 @@ import '../pos/data/pos_payment_alerts.dart';
 import '../pos/data/pos_repository.dart';
 import '../pos/domain/money_ledger.dart';
 import '../pos/domain/pos_money.dart' show askodoxPaise;
-import '../pos/presentation/money_screens.dart' show AskodoxDuesScreen;
+import '../../shared/widgets/chat_pins.dart' show AskodoxChatPin, askodoxChatPinsProvider, askodoxOfferChatPin;
 import 'launcher_layout.dart';
 import 'money_home_pages.dart';
 import 'money_home_store.dart';
@@ -28,9 +28,12 @@ const _ink = Color(0xFF16203F);
 /// - Buyer side = the person's own money: one card (this month in / out + the latest two) and their pages;
 /// - Seller side = the shop's money: the shop in view (a chooser when they run / help in more than one), today's
 ///   numbers and that shop's own tools, only those the person's role allows. Never mixed with the personal account.
-/// Pages sit like apps on a phone: icon + name, folders of 4-5, more screens when one is full. Press and hold to
-/// arrange: drop a page on another = a folder, beside it = move there, to the screen's edge = the next screen; folders
-/// can be renamed, pages hidden (never deleted) and brought back; "Reset" brings the shipped screen back.
+/// Pages sit like apps on a phone: icon + name, more screens when one is full. Nothing comes grouped -- every page
+/// starts on its own and the person makes their own folders (owner 2026-11-22). Press and hold: let go = the page's
+/// menu (put it above the Home chat -- the same five shortcuts for everyone --, move, take out of a folder, hide); move
+/// it = arrange: drop on another = a folder, beside it = move there, to the screen's edge = the next screen, out of an
+/// open folder = back on the screen, inside a folder = its new place. Pages are hidden (never deleted) and brought
+/// back; "Reset" brings the shipped screen back.
 class AskodoxMoneyHomeScreen extends ConsumerStatefulWidget {
   const AskodoxMoneyHomeScreen({super.key});
 
@@ -51,6 +54,15 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
 
   List<AskodoxJson> _events = const [];
   AskodoxMyPhoneAlerts? _mine;
+
+  /// The folder open over the screen (its id), and whether a page is being dragged out of it (the folder then fades so
+  /// the screen under it takes the page).
+  String? _folderOpen;
+  bool _folderLeaving = false;
+  final _panelKey = GlobalKey();
+
+  /// What is on screen now (the menus act on it after the person chooses).
+  AskodoxLaunchLayout _current = const AskodoxLaunchLayout([]);
 
   @override
   void initState() {
@@ -95,7 +107,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   AskodoxLaunchLayout _layoutFor(String? shop, List<String> available) {
     final saved = shop == null ? _buyer : _shops[shop];
     final shipped = shop == null ? askodoxBuyerShippedLayout() : askodoxSellerShippedLayout();
-    return (saved ?? shipped).fitTo(available);
+    return (saved ?? shipped).withoutFolders(askodoxRetiredFolderIds).fitTo(available);
   }
 
   void _change(String? shop, AskodoxLaunchLayout? next) {
@@ -107,12 +119,6 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
       }
     });
     unawaited(askodoxSaveMoneyLayout(shop != null, next, shop: shop));
-  }
-
-  void _startEditing() {
-    if (_editing) return;
-    unawaited(HapticFeedback.mediumImpact().catchError((Object _) {}));
-    setState(() => _editing = true);
   }
 
   // ------------------------------------------------------------------------------------------------ build
@@ -226,11 +232,22 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   Widget _sellerCard(bool te, List<AskodoxJson> shops, AskodoxJson shop, AskodoxJson? hub) {
     final id = '${shop['id']}';
     final staff = '${shop['role']}' != 'owner';
+    final owned = [for (final s in shops) if ('${s['role']}' == 'owner') s];
+    final working = [for (final s in shops) if ('${s['role']}' != 'owner') s];
+    PopupMenuItem<String> shopItem(AskodoxJson s) => PopupMenuItem(
+        value: '${s['id']}',
+        key: ValueKey('askodoxMoneyShop-${s['id']}'),
+        child: Text('${s['name'] ?? ''}', style: TextStyle(fontWeight: '${s['id']}' == id ? FontWeight.w900 : FontWeight.w500)));
+    PopupMenuItem<String> heading(String text) => PopupMenuItem(
+        enabled: false,
+        height: 30,
+        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B6475))));
     return _card(
       key: const Key('askodoxMoneyHomeCard'),
       color: _sellerColor,
       onTap: () => context.push('/money?owner=$id&lock=1'),
-      title: '${shop['name'] ?? ''}${staff ? (te ? ' · సిబ్బంది' : ' · staff') : ''}',
+      // Owner 2026-11-22: one person can own a shop AND work in another -- each shows that person's side of it.
+      title: '${shop['name'] ?? ''}${staff ? (te ? ' · నేను ఇక్కడ సిబ్బంది' : ' · I work here') : ''}',
       trailing: PopupMenuButton<String>(
         key: const Key('askodoxMoneyShopChooser'),
         tooltip: te ? 'షాప్ మార్చు' : 'Change shop',
@@ -245,11 +262,10 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           }
         },
         itemBuilder: (_) => [
-          for (final s in shops)
-            PopupMenuItem(
-                value: '${s['id']}',
-                key: ValueKey('askodoxMoneyShop-${s['id']}'),
-                child: Text('${s['name'] ?? ''}', style: TextStyle(fontWeight: '${s['id']}' == id ? FontWeight.w900 : FontWeight.w500))),
+          if (owned.isNotEmpty) heading(te ? 'నా బిజినెస్‌లు' : 'My businesses'),
+          for (final s in owned) shopItem(s),
+          if (working.isNotEmpty) heading(te ? 'నేను పనిచేసే చోట్లు' : 'Where I work'),
+          for (final s in working) shopItem(s),
           PopupMenuItem(value: '__add__', child: Text(te ? '+ కొత్త షాప్' : '+ Add a shop')),
         ],
       ),
@@ -356,6 +372,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   }) {
     final byId = {for (final p in pages) p.id: p};
     final layout = _layoutFor(shop, [for (final p in pages) p.id]);
+    _current = layout;
     // While arranging, the account card's place shows the arranging panel: nothing on the screen moves under the
     // finger (a moved grid would drop a page on the wrong neighbour).
     final editPanel = _editing ? _editBar(te, shop, layout, byId, color) : null;
@@ -414,6 +431,9 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                   child: Text(te ? 'పూర్తి' : 'Done'),
                 ),
               ),
+            // An open folder sits over the screen (like a phone): its pages can be opened, moved inside it, or dragged
+            // out onto the screen.
+            if (_folderOpen != null) _folderPanel(te, shop, layout, byId, canEdit),
             // Drag a page to the screen's edge: the next / earlier screen comes (like a phone).
             if (_editing) ...[
               Positioned(left: 0, top: 0, bottom: _dotsHeight, width: 22, child: _edgeTarget(-1, count)),
@@ -452,13 +472,16 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     );
     // Dropping on the empty part of a screen puts the page at the end of that screen.
     final body = DragTarget<String>(
-      // Not over the page's own (now empty) place: a press-and-release only starts arranging, it never moves the page.
-      onWillAcceptWithDetails: (d) => _editing && !(_tileBoxes[d.data]?.contains(d.offset) ?? false),
+      // Not over the page's own (now empty) place on the screen: a press-and-release never moves it. A page from a
+      // folder may land anywhere.
+      onWillAcceptWithDetails: (d) =>
+          _editing && (layout.folderOf(d.data) != null || !(_tileBoxes[d.data]?.contains(d.offset) ?? false)),
       onAcceptWithDetails: (d) {
-        final from = layout.indexOf(d.data);
+        final base = _loosen(layout, d.data);
+        final from = base.indexOf(d.data);
         var to = start + entries.length;
         if (from >= 0 && from < to) to -= 1;
-        _change(shop, layout.move(d.data, to));
+        _change(shop, base.move(d.data, to));
       },
       builder: (context, _, __) => grid,
     );
@@ -470,6 +493,9 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
 
   // ------------------------------------------------------------------------------------------------ tiles
 
+  /// A page dragged out of a folder becomes a page on the screen first (where its folder was).
+  AskodoxLaunchLayout _loosen(AskodoxLaunchLayout l, String id) => l.folderOf(id) != null ? l.takeOut(id) : l;
+
   Widget _tile(bool te, String? shop, AskodoxLaunchLayout layout, Map<String, AskodoxLaunchPage> byId, AskodoxLaunchEntry e,
       bool canEdit) {
     final face = _face(te, byId, e);
@@ -479,7 +505,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
       borderRadius: BorderRadius.circular(16),
       onTap: () {
         if (e.isFolder) {
-          unawaited(_openFolder(te, shop, e.folder!, byId));
+          setState(() => _folderOpen = e.folder);
         } else {
           _open(byId[e.page]!, shop);
         }
@@ -488,27 +514,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     );
     final target = DragTarget<String>(
       onWillAcceptWithDetails: (d) => _editing && d.data != e.id,
-      onAcceptWithDetails: (d) {
-        // Where on the tile it was dropped: the left / right quarter = move beside it, the middle = a folder.
-        var zone = 'middle';
-        final r = _tileBoxes[e.id];
-        if (r != null) {
-          final x = d.offset.dx - r.left;
-          if (x < r.width * .25) zone = 'before';
-          if (x > r.width * .75) zone = 'after';
-        }
-        final dragged = layout.entry(d.data);
-        if (dragged == null) return;
-        if (zone == 'middle' && !dragged.isFolder) {
-          final name = e.isFolder ? e.name : (te ? 'కొత్త ఫోల్డర్' : 'New folder');
-          _change(shop, layout.combine(d.data, e.id, newFolderId: 'u${DateTime.now().microsecondsSinceEpoch}', name: name));
-          return;
-        }
-        final from = layout.indexOf(d.data);
-        var to = layout.indexOf(e.id) + (zone == 'after' ? 1 : 0);
-        if (from < to) to -= 1;
-        _change(shop, layout.move(d.data, to));
-      },
+      onAcceptWithDetails: (d) => _dropOnTile(te, shop, layout, e, d),
       builder: (context, candidates, _) => _Measured(
         id: e.id,
         boxes: _tileBoxes,
@@ -517,80 +523,173 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           duration: const Duration(milliseconds: 120),
           child: Stack(clipBehavior: Clip.none, children: [
             Positioned.fill(child: tile),
-            if (_editing && !e.isFolder)
-              Positioned(
-                top: 0,
-                right: 6,
-                child: GestureDetector(
-                  key: ValueKey('askodoxMoneyTileHide-${e.id}'),
-                  onTap: () => _change(shop, layout.hide(e.page!)),
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: const BoxDecoration(color: Color(0xFF5B6475), shape: BoxShape.circle),
-                    child: const Icon(Icons.remove_rounded, size: 16, color: Colors.white),
-                  ),
-                ),
-              ),
+            if (_editing && !e.isFolder) _hideBadge(shop, layout, e.page!),
           ]),
         ),
       ),
     );
     if (!canEdit) return target;
-    return LongPressDraggable<String>(
-      data: e.id,
-      delay: _editing ? const Duration(milliseconds: 150) : const Duration(milliseconds: 450),
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      onDragStarted: _startEditing,
-      onDragEnd: (_) => _edge?.cancel(),
-      feedback: Transform.translate(
-        offset: const Offset(-36, -40),
-        child: Material(color: Colors.transparent, child: SizedBox(width: 78, height: _tileHeight, child: _face(te, byId, e))),
-      ),
-      childWhenDragging: const SizedBox.shrink(),
+    return _lift(
+      id: e.id,
+      face: face,
       child: target,
+      onMenu: () {
+        if (e.isFolder) {
+          unawaited(_folderMenu(te, shop, e));
+        } else {
+          unawaited(_pageMenu(te, shop, byId[e.page]!));
+        }
+      },
     );
+  }
+
+  Widget _hideBadge(String? shop, AskodoxLaunchLayout layout, String page) => Positioned(
+        top: 0,
+        right: 6,
+        child: GestureDetector(
+          key: ValueKey('askodoxMoneyTileHide-$page'),
+          onTap: () => _change(shop, layout.hide(page)),
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: const BoxDecoration(color: Color(0xFF5B6475), shape: BoxShape.circle),
+            child: const Icon(Icons.remove_rounded, size: 16, color: Colors.white),
+          ),
+        ),
+      );
+
+  void _dropOnTile(bool te, String? shop, AskodoxLaunchLayout layout, AskodoxLaunchEntry e, DragTargetDetails<String> d) {
+    // Back onto its own folder: it stays inside.
+    if (e.isFolder && e.children.contains(d.data)) return;
+    // Where on the tile it was dropped: the left / right quarter = move beside it, the middle = a folder.
+    var zone = 'middle';
+    final r = _tileBoxes[e.id];
+    if (r != null) {
+      final x = d.offset.dx - r.left;
+      if (x < r.width * .25) zone = 'before';
+      if (x > r.width * .75) zone = 'after';
+    }
+    final base = _loosen(layout, d.data);
+    final dragged = base.entry(d.data);
+    if (dragged == null || base.entry(e.id) == null) {
+      _change(shop, base);
+      return;
+    }
+    if (zone == 'middle' && !dragged.isFolder) {
+      final name = e.isFolder ? e.name : (te ? 'కొత్త ఫోల్డర్' : 'New folder');
+      _change(shop, base.combine(d.data, e.id, newFolderId: 'u${DateTime.now().microsecondsSinceEpoch}', name: name));
+      return;
+    }
+    final from = base.indexOf(d.data);
+    var to = base.indexOf(e.id) + (zone == 'after' ? 1 : 0);
+    if (from < to) to -= 1;
+    _change(shop, base.move(d.data, to));
+  }
+
+  /// Press and hold lifts a page / folder. Moving it = arranging; letting go where it was = its menu.
+  Widget _lift({
+    required String id,
+    required Widget face,
+    required Widget child,
+    required VoidCallback onMenu,
+    bool inFolder = false,
+  }) =>
+      LongPressDraggable<String>(
+        data: id,
+        delay: _editing ? const Duration(milliseconds: 150) : const Duration(milliseconds: 450),
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        onDragStarted: () => unawaited(HapticFeedback.mediumImpact().catchError((Object _) {})),
+        onDragUpdate: (d) {
+          final home = _tileBoxes[id];
+          final away = home == null || !home.inflate(10).contains(d.globalPosition);
+          if (away && !_editing) setState(() => _editing = true);
+          if (inFolder && away && !_folderLeaving) {
+            final panel = _panelRect();
+            if (panel == null || !panel.contains(d.globalPosition)) setState(() => _folderLeaving = true);
+          }
+        },
+        onDraggableCanceled: (_, offset) {
+          final home = _tileBoxes[id];
+          final stayed = home != null && home.inflate(10).contains(offset);
+          final wasEditing = _editing;
+          _endDrag();
+          if (stayed && !wasEditing) onMenu();
+        },
+        onDragCompleted: _endDrag,
+        feedback: Transform.translate(
+          offset: const Offset(-36, -40),
+          child: Material(color: Colors.transparent, child: SizedBox(width: 78, height: _tileHeight, child: face)),
+        ),
+        childWhenDragging: Opacity(opacity: .3, child: face),
+        child: child,
+      );
+
+  void _endDrag() {
+    _edge?.cancel();
+    if (!mounted || !_folderLeaving) return;
+    setState(() {
+      _folderOpen = null;
+      _folderLeaving = false;
+    });
+  }
+
+  Rect? _panelRect() {
+    final box = _panelKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || !box.attached) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
   }
 
   /// Each tile's place on the screen (for "beside it" vs "on it" drops).
   final Map<String, Rect> _tileBoxes = {};
 
+  Widget _pageFace(bool te, AskodoxLaunchPage p, {double size = 56}) => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Column(children: [
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(color: p.color, borderRadius: BorderRadius.circular(size * .29)),
+            child: Icon(p.icon, color: Colors.white, size: size / 2),
+          ),
+          const SizedBox(height: 5),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(p.label(te),
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11.5, height: 1.15, fontWeight: FontWeight.w700, color: _ink)),
+          ),
+        ]),
+      );
+
   Widget _face(bool te, Map<String, AskodoxLaunchPage> byId, AskodoxLaunchEntry e) {
-    final label = e.isFolder
-        ? (e.name.isEmpty ? askodoxLaunchFolderName(e.folder!, te) : e.name)
-        : byId[e.page]!.label(te);
-    final icon = e.isFolder
-        ? Container(
-            width: 56,
-            height: 56,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: const Color(0xFFE7EAF2), borderRadius: BorderRadius.circular(16)),
-            child: GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 3,
-              crossAxisSpacing: 3,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              children: [
-                for (final c in e.children.take(4))
-                  if (byId[c] != null)
-                    Container(
-                      decoration: BoxDecoration(color: byId[c]!.color, borderRadius: BorderRadius.circular(5)),
-                      child: Icon(byId[c]!.icon, size: 12, color: Colors.white),
-                    ),
-              ],
-            ),
-          )
-        : Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(color: byId[e.page]!.color, borderRadius: BorderRadius.circular(16)),
-            child: Icon(byId[e.page]!.icon, color: Colors.white, size: 28),
-          );
+    if (!e.isFolder) return _pageFace(te, byId[e.page]!);
+    final label = e.name.isEmpty ? askodoxLaunchFolderName(e.folder!, te) : e.name;
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Column(children: [
-        icon,
+        Container(
+          width: 56,
+          height: 56,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(color: const Color(0xFFE7EAF2), borderRadius: BorderRadius.circular(16)),
+          child: GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 3,
+            crossAxisSpacing: 3,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            children: [
+              for (final c in e.children.take(4))
+                if (byId[c] != null)
+                  Container(
+                    decoration: BoxDecoration(color: byId[c]!.color, borderRadius: BorderRadius.circular(5)),
+                    child: Icon(byId[c]!.icon, size: 12, color: Colors.white),
+                  ),
+            ],
+          ),
+        ),
         const SizedBox(height: 5),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -604,20 +703,220 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     );
   }
 
+  // ------------------------------------------------------------------------------------------------ an open folder
+
+  Widget _folderPanel(bool te, String? shop, AskodoxLaunchLayout layout, Map<String, AskodoxLaunchPage> byId, bool canEdit) {
+    final f = layout.entry('f:$_folderOpen');
+    if (f == null) {
+      // Its last pages went out: the folder is gone.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _folderOpen != null && !_folderLeaving) setState(() => _folderOpen = null);
+      });
+      return const SizedBox.shrink();
+    }
+    final name = f.name.isEmpty ? askodoxLaunchFolderName(f.folder!, te) : f.name;
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: _folderLeaving,
+        child: AnimatedOpacity(
+          opacity: _folderLeaving ? 0 : 1,
+          duration: const Duration(milliseconds: 150),
+          child: Stack(children: [
+            Positioned.fill(
+              child: GestureDetector(
+                key: const Key('askodoxMoneyFolderClose'),
+                onTap: () => setState(() => _folderOpen = null),
+                child: const ColoredBox(color: Color(0x66000000)),
+              ),
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Material(
+                  key: _panelKey,
+                  color: Colors.white,
+                  elevation: 6,
+                  borderRadius: BorderRadius.circular(24),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 12),
+                    child: Column(key: ValueKey('askodoxMoneyFolder-${f.folder}'), mainAxisSize: MainAxisSize.min, children: [
+                      Row(children: [
+                        const SizedBox(width: 40),
+                        Expanded(
+                          child: Text(name,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: _ink)),
+                        ),
+                        IconButton(
+                          key: const Key('askodoxMoneyFolderRename'),
+                          tooltip: te ? 'పేరు మార్చు' : 'Rename',
+                          icon: const Icon(Icons.edit_rounded, size: 20),
+                          onPressed: () => _rename(te, shop, f),
+                        ),
+                      ]),
+                      Text(
+                          te
+                              ? 'పట్టుకుని బయటకు లాగితే పేజీ స్క్రీన్ మీదకు వస్తుంది; లోపలే లాగితే వరుస మారుతుంది.'
+                              : 'Hold and drag a page out to put it on the screen; inside the folder to change its place.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+                      const SizedBox(height: 6),
+                      GridView(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: _cols, mainAxisExtent: _tileHeight),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          for (final (i, c) in f.children.indexed)
+                            if (byId[c] != null) _folderTile(te, shop, layout, byId[c]!, f, i, canEdit),
+                        ],
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _folderTile(bool te, String? shop, AskodoxLaunchLayout layout, AskodoxLaunchPage p, AskodoxLaunchEntry f, int index,
+      bool canEdit) {
+    final face = _pageFace(te, p);
+    final tile = InkWell(
+      key: ValueKey('askodoxMoneyFolderPage-${p.id}'),
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        if (_editing) return;
+        setState(() => _folderOpen = null);
+        _open(p, shop);
+      },
+      child: p.keyName == null ? face : KeyedSubtree(key: ValueKey(p.keyName), child: face),
+    );
+    final target = DragTarget<String>(
+      // Another page of this folder = a new place inside it; a page from the screen = into this folder here.
+      onWillAcceptWithDetails: (d) => d.data != p.id && !d.data.startsWith('f:'),
+      onAcceptWithDetails: (d) => _change(shop, layout.moveInFolder(f.folder!, d.data, index)),
+      builder: (context, candidates, _) => _Measured(
+        id: p.id,
+        boxes: _tileBoxes,
+        child: AnimatedScale(
+          scale: candidates.isNotEmpty ? 1.1 : 1,
+          duration: const Duration(milliseconds: 120),
+          child: Stack(clipBehavior: Clip.none, children: [
+            Positioned.fill(child: tile),
+            if (_editing) _hideBadge(shop, layout, p.id),
+          ]),
+        ),
+      ),
+    );
+    if (!canEdit) return target;
+    return _lift(id: p.id, face: face, child: target, inFolder: true, onMenu: () => unawaited(_pageMenu(te, shop, p)));
+  }
+
+  // ------------------------------------------------------------------------------------------------ menus
+
+  Future<String?> _menu(Rect? at, List<(String, IconData, String)> items) {
+    final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final rect = at ?? Rect.fromCenter(center: overlay.size.center(Offset.zero), width: 1, height: 1);
+    return showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
+      items: [
+        for (final (id, icon, text) in items)
+          PopupMenuItem(
+            value: id,
+            key: ValueKey('askodoxMoneyMenu-$id'),
+            child: Row(children: [Icon(icon, size: 20), const SizedBox(width: 10), Flexible(child: Text(text))]),
+          ),
+      ],
+    );
+  }
+
+  /// A page's own menu: put it above the Home chat (one of the same five shortcuts for everyone), move, take it out of
+  /// its folder, hide.
+  Future<void> _pageMenu(bool te, String? shop, AskodoxLaunchPage page) async {
+    final pinId = 'money:${shop ?? 'me'}:${page.id}';
+    final pinned = ref.read(askodoxChatPinsProvider).pins.any((p) => p.id == pinId);
+    final inFolder = _current.folderOf(page.id) != null;
+    final choice = await _menu(_tileBoxes[page.id], [
+      ('pin', Icons.push_pin_rounded,
+          pinned ? (te ? 'హోమ్ చాట్ షార్ట్‌కట్ (మార్చు / తీసేయి)' : 'Home chat shortcut (move / remove)') : (te ? 'హోమ్ చాట్ పైన పెట్టు' : 'Put above the Home chat')),
+      ('arrange', Icons.open_with_rounded, te ? 'జరుపు / ఫోల్డర్ చేయి' : 'Move / make a folder'),
+      if (inFolder) ('out', Icons.north_east_rounded, te ? 'ఫోల్డర్ నుంచి బయటకు' : 'Take out of the folder'),
+      ('hide', Icons.visibility_off_outlined, te ? 'దాచు' : 'Hide'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'pin':
+        await askodoxOfferChatPin(context, AskodoxChatPin(id: pinId, route: page.pinRoute(shop), en: page.en, te: page.te));
+      case 'arrange':
+        setState(() => _editing = true);
+      case 'out':
+        _change(shop, _current.takeOut(page.id));
+      case 'hide':
+        _change(shop, _current.hide(page.id));
+    }
+  }
+
+  Future<void> _folderMenu(bool te, String? shop, AskodoxLaunchEntry f) async {
+    final choice = await _menu(_tileBoxes[f.id], [
+      ('open', Icons.folder_open_rounded, te ? 'తెరువు' : 'Open'),
+      ('rename', Icons.edit_rounded, te ? 'పేరు మార్చు' : 'Rename'),
+      ('ungroup', Icons.unfold_more_rounded, te ? 'ఫోల్డర్ విడదీయి (పేజీలు బయటకు)' : 'Ungroup (pages back out)'),
+      ('arrange', Icons.open_with_rounded, te ? 'జరుపు' : 'Move'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'open':
+        setState(() => _folderOpen = f.folder);
+      case 'rename':
+        await _rename(te, shop, f);
+      case 'ungroup':
+        _change(shop, _current.ungroup(f.folder!));
+      case 'arrange':
+        setState(() => _editing = true);
+    }
+  }
+
+  Future<void> _rename(bool te, String? shop, AskodoxLaunchEntry f) async {
+    final box = TextEditingController(text: f.name.isEmpty ? askodoxLaunchFolderName(f.folder!, te) : f.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: Text(te ? 'ఫోల్డర్ పేరు' : 'Folder name'),
+        content: TextField(
+          key: const Key('askodoxMoneyFolderName'),
+          controller: box,
+          autofocus: true,
+          maxLength: 30,
+          onSubmitted: (v) => Navigator.pop(d, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: Text(te ? 'వద్దు' : 'Cancel')),
+          FilledButton(
+            key: const Key('askodoxMoneyFolderNameSave'),
+            onPressed: () => Navigator.pop(d, box.text),
+            child: Text(te ? 'సేవ్' : 'Save'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || !mounted) return;
+    _change(shop, _current.rename(f.folder!, name));
+  }
+
   // ------------------------------------------------------------------------------------------------ opening
 
   void _open(AskodoxLaunchPage page, String? shop) {
     if (_editing) return;
-    switch (page.action) {
-      case 'voice':
-        unawaited(askodoxOpenPaymentVoice(context, businessId: shop));
-        return;
-      case 'dues':
-        final m = _mine;
-        final items = askodoxItemsFromPhone(_events, m?.places ?? const [], m?.assigned ?? const {}, m?.links ?? const {});
-        unawaited(Navigator.of(context)
-            .push(MaterialPageRoute<void>(builder: (_) => AskodoxDuesScreen(phoneEvents: _events, items: items))));
-        return;
+    if (page.action == 'voice') {
+      unawaited(askodoxOpenPaymentVoice(context, businessId: shop));
+      return;
     }
     final route = page.route;
     if (route == null) return;
@@ -627,26 +926,6 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     } else {
       context.push(route);
     }
-  }
-
-  Future<void> _openFolder(bool te, String? shop, String folderId, Map<String, AskodoxLaunchPage> byId) async {
-    final opened = await showModalBottomSheet<AskodoxLaunchPage>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _FolderSheet(
-        te: te,
-        folderId: folderId,
-        byId: byId,
-        editing: _editing,
-        layout: () {
-          final pages = byId.keys.toList();
-          return _layoutFor(shop, pages);
-        },
-        apply: (next) => _change(shop, next),
-      ),
-    );
-    if (opened != null && mounted) _open(opened, shop);
   }
 
   // ------------------------------------------------------------------------------------------------ arranging
@@ -704,8 +983,8 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           ]),
           Text(
               te
-                  ? 'పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్. "−" = దాచు.'
-                  : 'Hold and drag: drop on another = a folder, beside it = move there, to the edge = next screen. "−" = hide.',
+                  ? 'పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్, ఫోల్డర్ నుంచి బయటకు లాగితే బయటకు. "−" = దాచు.'
+                  : 'Hold and drag: drop on another = a folder, beside it = move there, to the edge = next screen, out of a folder = out. "−" = hide.',
               style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
         ])),
           ),
@@ -770,153 +1049,5 @@ class _MeasuredState extends State<_Measured> {
       }
     });
     return widget.child;
-  }
-}
-
-/// A folder opened: its pages (tap opens one). While arranging: rename it, take a page out, hide one, add one.
-class _FolderSheet extends StatefulWidget {
-  const _FolderSheet({
-    required this.te,
-    required this.folderId,
-    required this.byId,
-    required this.editing,
-    required this.layout,
-    required this.apply,
-  });
-  final bool te;
-  final String folderId;
-  final Map<String, AskodoxLaunchPage> byId;
-  final bool editing;
-  final AskodoxLaunchLayout Function() layout;
-  final void Function(AskodoxLaunchLayout) apply;
-
-  @override
-  State<_FolderSheet> createState() => _FolderSheetState();
-}
-
-class _FolderSheetState extends State<_FolderSheet> {
-  late final TextEditingController _name;
-
-  AskodoxLaunchEntry? get _folder => widget.layout().entry('f:${widget.folderId}');
-
-  @override
-  void initState() {
-    super.initState();
-    final f = _folder;
-    _name = TextEditingController(
-        text: f == null ? '' : (f.name.isEmpty ? askodoxLaunchFolderName(widget.folderId, widget.te) : f.name));
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  void _do(AskodoxLaunchLayout Function(AskodoxLaunchLayout) edit) {
-    widget.apply(edit(widget.layout()));
-    if (_folder == null) {
-      Navigator.of(context).pop();
-    } else {
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final te = widget.te;
-    final f = _folder;
-    if (f == null) return const SizedBox(height: 40);
-    final loose = [
-      for (final e in widget.layout().entries)
-        if (!e.isFolder && widget.byId[e.page] != null) widget.byId[e.page]!,
-    ];
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-        child: Column(key: ValueKey('askodoxMoneyFolder-${widget.folderId}'), mainAxisSize: MainAxisSize.min, children: [
-          if (widget.editing)
-            TextField(
-              key: const Key('askodoxMoneyFolderName'),
-              controller: _name,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-              decoration: InputDecoration(
-                  hintText: te ? 'ఫోల్డర్ పేరు' : 'Folder name', suffixIcon: const Icon(Icons.edit_rounded, size: 18)),
-              onSubmitted: (v) => _do((l) => l.rename(widget.folderId, v)),
-              onChanged: (v) {
-                if (v.trim().isNotEmpty) widget.apply(widget.layout().rename(widget.folderId, v));
-              },
-            )
-          else
-            Text(_name.text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-          const SizedBox(height: 12),
-          GridView(
-            gridDelegate:
-                SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisExtent: widget.editing ? 128 : 96),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              for (final id in f.children)
-                if (widget.byId[id] != null)
-                  Column(children: [
-                    InkWell(
-                      key: ValueKey('askodoxMoneyFolderPage-$id'),
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: widget.editing ? null : () => Navigator.of(context).pop(widget.byId[id]),
-                      child: Column(children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(color: widget.byId[id]!.color, borderRadius: BorderRadius.circular(15)),
-                          child: Icon(widget.byId[id]!.icon, color: Colors.white, size: 26),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(widget.byId[id]!.label(te),
-                            maxLines: 2,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
-                      ]),
-                    ),
-                    if (widget.editing)
-                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        IconButton(
-                          key: ValueKey('askodoxMoneyTakeOut-$id'),
-                          tooltip: te ? 'బయటకు తీయి' : 'Take out',
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.north_east_rounded, size: 18),
-                          onPressed: () => _do((l) => l.takeOut(id)),
-                        ),
-                        IconButton(
-                          key: ValueKey('askodoxMoneyFolderHide-$id'),
-                          tooltip: te ? 'దాచు' : 'Hide',
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.visibility_off_outlined, size: 18),
-                          onPressed: () => _do((l) => l.hide(id)),
-                        ),
-                      ]),
-                  ]),
-            ],
-          ),
-          if (widget.editing && loose.isNotEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: PopupMenuButton<String>(
-                key: const Key('askodoxMoneyFolderAdd'),
-                onSelected: (id) => _do((l) => l.addToFolder(widget.folderId, id)),
-                itemBuilder: (_) => [
-                  for (final p in loose) PopupMenuItem(value: p.id, child: Text(p.label(te))),
-                ],
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(te ? '+ పేజీ చేర్చు' : '+ Add a page',
-                      style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF2B4BC0))),
-                ),
-              ),
-            ),
-        ]),
-      ),
-    );
   }
 }

@@ -25,7 +25,15 @@ this file, don't trust it blindly.
   `voice_kinds_personal|shop`), "fake" always on, "out" follows announce_debits unless chosen; paid bill / EMI speaks
   `billPaidParts`. Parser: cashback / interest landed = Accepted(bonus) (offers never), "cancelled" in reject, notices
   `cancelled` / `autopay` / `autopay_off` / `request` (`noticeParts`, `voiceKindOf`, never received words). Parser gate 256
-  checks. Nothing phone verified.
+  checks. Nothing phone verified. ROUND 2 (PR #388, owner "pages in a group don't move / any page as a Home chat
+  shortcut / I am a businessman AND an employee / don't group anything"): shipped screens are FLAT (old app folders
+  `askodoxRetiredFolderIds` dissolve on load, user folders `u*` stay); press-hold-release = page menu (pin above the Home
+  chat via `askodoxOfferChatPin` -- the same 5 pins for everyone, id `money:<shop|me>:<page>`, route `pinRoute`; move; take
+  out; hide), press-hold-move = arrange; an open folder = in-screen panel (`_folderPanel`, drag inside = `moveInFolder`,
+  drag out = the panel fades + `_loosen`/`takeOut`). New routes `/payment-voice[?shop=]`, `/me/dues`; pins open tabs with
+  `askodoxOpenPinRoute`; `/profile?view=settings`. Seller pages per shop = the person's side: `_SellerSpec.who`
+  owner / self / staff / all + owner ticks (`tools`, else role perms); staff own month = `/biz/:id/staff/person/me`
+  (read only).
 - `main` PR #386 (2026-11-22, owner HDFC "Bill Paid!" SMS + "bill payment is a payment too, bill generated etc."):
   PAID BILLS ARE PAYMENTS -- `PaymentAlertParser.paidBill` (bill / premium / EMI / instalment / challan + "paid" /
   "payment successful", or "... paid / successful ... from your A/c XX1234" -> `Outgoing(bill, ownAccount)`, party via

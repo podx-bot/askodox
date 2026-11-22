@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/home/domain/shopping_mode.dart';
 import 'package:podx/features/money_home/money_home_screen.dart';
 import 'package:podx/features/money_home/money_home_store.dart';
+import 'package:podx/shared/widgets/chat_pins.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false}) async {
@@ -45,33 +46,95 @@ void main() {
   });
   tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, null));
 
-  testWidgets('Buyer Money: own money card + pages and folders like a phone', (tester) async {
+  testWidgets('Buyer Money: own money card + every page on its own (nothing grouped by the app)', (tester) async {
     await _pump(tester);
     expect(find.byKey(const Key('askodoxMoneyHome')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMoneyHomeCard')), findsOneWidget);
     expect(find.text('My money · this month'), findsOneWidget);
-    for (final id in ['b.qr', 'b.voice', 'b.bills', 'b.dues', 'b.ordercode', 'b.updates', 'f:shops', 'f:mine']) {
+    for (final id in ['b.qr', 'b.voice', 'b.bills', 'b.dues', 'b.ordercode', 'b.updates', 'b.following', 'b.shopfeed', 'b.apps',
+      'b.accounts', 'b.language']) {
       expect(find.byKey(ValueKey('askodoxMoneyTile-$id')), findsOneWidget, reason: id);
     }
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-f:shops')), findsNothing, reason: 'owner 2026-11-22: no app folders');
     // Registry keys stay findable on their pages.
     expect(find.byKey(const ValueKey('askodoxShoppingOrderCode')), findsOneWidget);
-    // A folder opens its pages.
-    await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-f:shops')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('askodoxMoneyFolder-shops')), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxMoneyFolderPage-b.following')), findsOneWidget);
-    expect(find.byKey(const ValueKey('askodoxShoppingFollowing')), findsNothing,
-        reason: 'the key is on the tile, the folder holds it');
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxShoppingFollowing')), findsOneWidget);
   });
 
-  testWidgets('press and hold = arrange; "−" hides (never deletes), Hidden brings back, saved per side', (tester) async {
+  testWidgets('folders an earlier version made by itself come apart; the person\'s own folders stay', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      askodoxMoneyLayoutKey(false): jsonEncode({
+        'v': 1,
+        'entries': [
+          {'folder': 'shops', 'name': '', 'children': ['b.following', 'b.shopfeed']},
+          {'folder': 'u1', 'name': 'Mine', 'children': ['b.apps', 'b.accounts']},
+        ],
+        'hidden': [],
+      }),
+    });
+    await _pump(tester);
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-f:shops')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.following')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-f:u1')), findsOneWidget);
+    expect(find.text('Mine'), findsOneWidget);
+  });
+
+  testWidgets('a page in a folder is dragged OUT onto the screen (phone style)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      askodoxMoneyLayoutKey(false): jsonEncode({
+        'v': 1,
+        'entries': [
+          {'folder': 'u1', 'name': 'Two', 'children': ['b.apps', 'b.accounts']},
+        ],
+        'hidden': [],
+      }),
+    });
+    await _pump(tester);
+    await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-f:u1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxMoneyFolder-u1')), findsOneWidget);
+    final g = await tester.startGesture(tester.getCenter(find.byKey(const ValueKey('askodoxMoneyFolderPage-b.apps'))));
+    await tester.pump(const Duration(milliseconds: 600));
+    await g.moveBy(const Offset(0, 80));
+    await tester.pump();
+    await g.moveTo(const Offset(180, 700));
+    await tester.pump();
+    await g.moveTo(const Offset(184, 706));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxMoneyFolder-u1')), findsNothing, reason: 'the folder closed');
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.apps')), findsOneWidget, reason: 'now on the screen');
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-f:u1')), findsNothing, reason: 'one page left = no folder');
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.accounts')), findsOneWidget);
+    final saved = (await SharedPreferences.getInstance()).getString(askodoxMoneyLayoutKey(false))!;
+    expect(saved, isNot(contains('"folder"')));
+  });
+
+  testWidgets('press, hold and let go = the page\'s menu: put it above the Home chat (the five shortcuts)', (tester) async {
+    final container = await _pump(tester);
+    await tester.longPress(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxMoneyMenu-pin')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxMoneyMenu-arrange')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxMoneyHomeEditBar')), findsNothing, reason: 'letting go does not start arranging');
+    await tester.tap(find.byKey(const ValueKey('askodoxMoneyMenu-pin')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxChatPinAdd')));
+    await tester.pumpAndSettle();
+    final pin = container.read(askodoxChatPinsProvider).pins.single;
+    expect(pin.id, 'money:me:b.bills');
+    expect(pin.route, '/me/bills');
+  });
+
+  testWidgets('menu "Move" = arrange; "−" hides (never deletes), Hidden brings back, saved per side', (tester) async {
     await _pump(tester);
     await tester.longPress(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('askodoxMoneyMenu-arrange')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxMoneyHomeEditBar')), findsOneWidget);
-    // A press-and-release only starts arranging: the page stays where it was.
+    // A press-and-release never moves the page.
     expect(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('askodoxMoneyTileHide-b.bills')));
     await tester.pumpAndSettle();

@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 
+import '../../money_home/money_route_screens.dart';
+
 import 'pos_advance_screens.dart';
 import 'pos_agent_screens.dart';
 import 'pos_bills_screens.dart';
@@ -38,6 +40,11 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
       builder: (context, state) => AskodoxMoneyScreen(
           owner: state.uri.queryParameters['owner'], lockOwner: state.uri.queryParameters['lock'] == '1')),
   GoRoute(path: '/bills/:id', builder: (context, state) => AskodoxBillHistoryScreen(businessId: state.pathParameters['id']!)),
+  // Owner 2026-11-22: pages a Home chat shortcut can open (they live on the Money screen).
+  GoRoute(
+      path: '/payment-voice',
+      builder: (context, state) => AskodoxPaymentVoiceScreen(shop: state.uri.queryParameters['shop'])),
+  GoRoute(path: '/me/dues', builder: (context, state) => const AskodoxMyDuesRouteScreen()),
   GoRoute(
       path: '/me/payments/phone',
       builder: (context, state) => AskodoxMyPhonePaymentsScreen(open: state.uri.queryParameters['open'] ?? '')),

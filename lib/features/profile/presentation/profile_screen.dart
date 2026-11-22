@@ -34,7 +34,10 @@ import '../../home/presentation/question_mic.dart';
 final askodoxProfileViewProvider = StateProvider<String>((ref) => 'me');
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.view});
+
+  /// `/profile?view=settings|me|business` (a Home chat shortcut to Settings opens that tab).
+  final String? view;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -163,6 +166,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     _loadRecent();
+    _applyView();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.view != widget.view) _applyView();
+  }
+
+  void _applyView() {
+    final view = widget.view;
+    if (view == null || !const {'me', 'business', 'settings'}.contains(view)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(askodoxProfileViewProvider.notifier).state = view;
+    });
   }
 
   @override
