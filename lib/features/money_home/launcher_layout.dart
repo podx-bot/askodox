@@ -24,7 +24,7 @@ class AskodoxLaunchEntry {
 
   bool get isFolder => folder != null;
 
-  /// One id for both kinds: the page id, or "f:<folder id>".
+  /// One id for both kinds: the page id, or `f:` + the folder id.
   String get id => isFolder ? 'f:$folder' : page!;
 
   /// Every page id inside this entry.

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/home/domain/shopping_mode.dart';
@@ -21,8 +24,26 @@ Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false}) asyn
   return container;
 }
 
+const _channel = MethodChannel('com.askodox.app/payment_alerts');
+
+/// What the phone was asked (method + its arguments).
+final _calls = <MethodCall>[];
+
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    _calls.clear();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, (call) async {
+      _calls.add(call);
+      return switch (call.method) {
+        'events' => '[]',
+        'voiceKinds' => '{}',
+        'setVoiceKinds' => '{}',
+        _ => null,
+      };
+    });
+  });
+  tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, null));
 
   testWidgets('Buyer Money: own money card + pages and folders like a phone', (tester) async {
     await _pump(tester);
@@ -82,6 +103,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-bill')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-bill-off')), findsOneWidget);
+    final saved = _calls.lastWhere((c) => c.method == 'setVoiceKinds').arguments as Map;
+    expect(saved['scope'], 'personal');
+    expect(jsonDecode('${saved['kinds']}')['bill'], isFalse);
+    expect((jsonDecode('${saved['kinds']}') as Map).containsKey('fake'), isFalse, reason: 'the warning is never switched off');
+    // ▶ plays the real words of that kind on the phone.
+    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKindPlay-refund')));
+    await tester.pumpAndSettle();
+    expect(_calls.where((c) => c.method == 'speakKind').single.arguments, containsPair('kind', 'refund'));
     await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxVoiceKind-fake')), 100,
         scrollable: find.byType(Scrollable).last);
     await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-fake')));

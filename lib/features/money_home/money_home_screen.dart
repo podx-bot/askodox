@@ -356,8 +356,10 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   }) {
     final byId = {for (final p in pages) p.id: p};
     final layout = _layoutFor(shop, [for (final p in pages) p.id]);
+    // While arranging, the account card's place shows the arranging panel: nothing on the screen moves under the
+    // finger (a moved grid would drop a page on the wrong neighbour).
+    final editPanel = _editing ? _editBar(te, shop, layout, byId, color) : null;
     return Column(key: const Key('askodoxMoneyHome'), children: [
-      if (_editing) _editBar(te, shop, layout, byId, color),
       Expanded(
         child: LayoutBuilder(builder: (context, box) {
           final h = box.maxHeight.isFinite ? box.maxHeight : 600.0;
@@ -380,7 +382,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                   itemBuilder: (context, i) {
                     final entries = i < screens.length ? screens[i] : const <AskodoxLaunchEntry>[];
                     final start = askodoxLaunchScreenStart(i, firstSlots, slots);
-                    return _screen(te, shop, layout, byId, entries, start, i == 0 ? card : null, canEdit);
+                    return _screen(te, shop, layout, byId, entries, start, i == 0 ? (editPanel ?? card) : null, canEdit);
                   },
                 ),
               ),
@@ -400,6 +402,18 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                 ]),
               ),
             ]),
+            // On the other screens "Done" floats (the panel lives on the first screen).
+            if (_editing && page > 0)
+              Positioned(
+                right: 12,
+                bottom: _dotsHeight + 6,
+                child: FilledButton(
+                  key: const Key('askodoxMoneyHomeDoneFloat'),
+                  style: FilledButton.styleFrom(backgroundColor: color),
+                  onPressed: () => setState(() => _editing = false),
+                  child: Text(te ? 'పూర్తి' : 'Done'),
+                ),
+              ),
             // Drag a page to the screen's edge: the next / earlier screen comes (like a phone).
             if (_editing) ...[
               Positioned(left: 0, top: 0, bottom: _dotsHeight, width: 22, child: _edgeTarget(-1, count)),
@@ -638,23 +652,40 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   // ------------------------------------------------------------------------------------------------ arranging
 
   Widget _editBar(bool te, String? shop, AskodoxLaunchLayout layout, Map<String, AskodoxLaunchPage> byId, Color color) =>
-      Container(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+        child: SizedBox(
+          height: _cardHeight - 16,
+          child: Container(
         key: const Key('askodoxMoneyHomeEditBar'),
-        color: color.withValues(alpha: 0.08),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(18)),
         padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(
               child: Text(te ? 'సర్దుతున్నారు' : 'Arranging',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 15)),
             ),
+            FilledButton(
+              key: const Key('askodoxMoneyHomeDone'),
+              style: FilledButton.styleFrom(backgroundColor: color, visualDensity: VisualDensity.compact),
+              onPressed: () => setState(() => _editing = false),
+              child: Text(te ? 'పూర్తి' : 'Done'),
+            ),
+          ]),
+          // A narrow phone wraps these instead of squeezing the title.
+          Wrap(spacing: 4, children: [
             TextButton(
               key: const Key('askodoxMoneyHomeHidden'),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
               onPressed: layout.hidden.isEmpty ? null : () => _hiddenSheet(te, shop, byId),
               child: Text(te ? 'దాచినవి (${layout.hidden.length})' : 'Hidden (${layout.hidden.length})'),
             ),
             TextButton(
               key: const Key('askodoxMoneyHomeReset'),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
               onPressed: () async {
                 final ok = await showDialog<bool>(
                   context: context,
@@ -670,19 +701,15 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
               },
               child: Text(te ? 'మొదటిలా' : 'Reset'),
             ),
-            FilledButton(
-              key: const Key('askodoxMoneyHomeDone'),
-              style: FilledButton.styleFrom(backgroundColor: color, visualDensity: VisualDensity.compact),
-              onPressed: () => setState(() => _editing = false),
-              child: Text(te ? 'పూర్తి' : 'Done'),
-            ),
           ]),
           Text(
               te
                   ? 'పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్. "−" = దాచు.'
                   : 'Hold and drag: drop on another = a folder, beside it = move there, to the edge = next screen. "−" = hide.',
               style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
-        ]),
+        ])),
+          ),
+        ),
       );
 
   Future<void> _hiddenSheet(bool te, String? shop, Map<String, AskodoxLaunchPage> byId) => showModalBottomSheet<void>(

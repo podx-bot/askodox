@@ -236,22 +236,28 @@ class AskodoxMenuBox extends ConsumerWidget {
           bottom: false,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .86),
-            child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(14, 8, 14, 14), children: [
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
-                  child: Text(seller ? (te ? 'అమ్ము' : 'Sell') : (te ? 'కొను' : 'Buy'),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
-                ),
-                const Spacer(),
-                IconButton(
-                  key: const Key('askodoxMenuClose'),
-                  tooltip: te ? 'మూసేయండి' : 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ]),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // The side + ✕ stay at the top while the rest scrolls.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 6, 6, 0),
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+                    child: Text(seller ? (te ? 'అమ్ము' : 'Sell') : (te ? 'కొను' : 'Buy'),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    key: const Key('askodoxMenuClose'),
+                    tooltip: te ? 'మూసేయండి' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ]),
+              ),
+              Flexible(
+                child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(14, 0, 14, 14), children: [
               if (seller) _ShopHeader(te: te, color: color, pick: pick) else _PersonHeader(te: te, color: color, pick: pick),
               const SizedBox(height: 12),
               _grid(mine, color, pick),
@@ -280,6 +286,8 @@ class AskodoxMenuBox extends ConsumerWidget {
                   icon: const Icon(Icons.login_rounded),
                   label: Text(te ? 'సైన్ ఇన్' : 'Sign in'),
                 ),
+                ]),
+              ),
             ]),
           ),
         ),
