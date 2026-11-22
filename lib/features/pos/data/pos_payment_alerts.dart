@@ -68,6 +68,25 @@ class AskodoxPaymentAlertsBridge {
 
   Future<void> speakText(String text, String language) => _call('speakText', {'text': text, 'language': language});
 
+  /// Owner 2026-11-22 (Payment voice folder): which kinds are said aloud, per scope (My phone / the shop on this phone).
+  /// Unset kinds keep their default (everything on; "out" follows the older debit switch). Empty map off a phone.
+  Future<Map<String, bool>> voiceKinds({required bool personal}) async {
+    try {
+      final out = await _ch.invokeMethod<String>('voiceKinds', {'scope': personal ? 'personal' : 'shop'});
+      final j = jsonDecode(out ?? '{}');
+      return j is Map ? {for (final e in j.entries) '${e.key}': e.value == true} : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> setVoiceKinds(Map<String, bool> kinds, {required bool personal}) =>
+      _call('setVoiceKinds', {'scope': personal ? 'personal' : 'shop', 'kinds': jsonEncode(kinds)});
+
+  /// Says the example of one kind with the same words and voice a real message gets.
+  Future<void> speakKind(String kind, {required bool personal, String? language}) =>
+      _call('speakKind', {'kind': kind, 'scope': personal ? 'personal' : 'shop', if (language != null) 'language': language});
+
   /// Speak an alert another device / the bank reported; each event once per phone (push or screen, whichever first).
   Future<String> speakRemote(String eventId, String text, String language) async {
     try {
@@ -377,7 +396,7 @@ String askodoxRupees(Object? paise) {
       'tts_failed' => ('Voice failed', 'వాయిస్ రాలేదు'),
       'muted' => ('Muted', 'మ్యూట్'),
       'seen' => ('Seen', 'చూశారు'),
-      'suspect' => ('Not spoken (suspicious SMS)', 'చెప్పలేదు (అనుమానాస్పద SMS)'),
+      'suspect' => ('Not counted — the phone said "this looks fake"', 'లెక్కలో లేదు — "నకిలీలా ఉంది" అని చెప్పింది'),
       'delivered' => ('Delivered', 'అందింది'),
       'pending' => ('Speaking…', 'చెబుతోంది…'),
       'stuck' => ('Voice got stuck — not spoken', 'వాయిస్ ఆగిపోయింది — చెప్పలేదు'),
@@ -614,6 +633,20 @@ bool askodoxRowCountsAsMoney(Map<String, Object?> e) =>
           'ℹ️ పేమెంట్ ఫెయిల్ అయింది. డబ్బు కట్ అయితే సాధారణంగా తిరిగి వస్తుంది; కొన్ని రోజుల్లో రాకపోతే బ్యాంక్‌ను అడగండి.'
         ),
       'bill' => askodoxBillNote(e),
+      // Owner 2026-11-22 ("cancel, autopay, someone asking for money ... read those too")
+      'cancelled' => (
+          'ℹ️ Payment cancelled — no money moved. If money was cut, check your bank app.',
+          'ℹ️ పేమెంట్ రద్దయింది — డబ్బు కదలలేదు. డబ్బు కట్ అయితే బ్యాంక్ యాప్‌లో చూడండి.'
+        ),
+      'autopay' => (
+          'ℹ️ AutoPay set up — money will be taken on its date. Stop it in the app that set it if you did not want it.',
+          'ℹ️ ఆటోపే సెట్ అయింది — దాని తేదీకి డబ్బు కట్ అవుతుంది. మీరు పెట్టకపోతే ఆ యాప్‌లోనే ఆపండి.'
+        ),
+      'autopay_off' => ('ℹ️ AutoPay stopped — no more money will be taken for it.', 'ℹ️ ఆటోపే రద్దయింది — ఇక దానికి డబ్బు కట్ అవ్వదు.'),
+      'request' => (
+          '⚠️ Someone is asking you to PAY. Money goes only if you approve — never approve to "receive" money.',
+          '⚠️ ఎవరో మిమ్మల్ని డబ్బు అడుగుతున్నారు. మీరు ఒప్పుకుంటేనే డబ్బు పోతుంది — "డబ్బు రావడానికి" ఎప్పుడూ ఒప్పుకోవద్దు.'
+        ),
       'suspect' => (
           '⚠️ Suspicious message — do not tap any link. Check your bank app to see if money really came.',
           '⚠️ అనుమానాస్పద message — లింక్ నొక్కకండి. డబ్బు నిజంగా వచ్చిందో మీ బ్యాంక్ యాప్‌లో చూడండి.'

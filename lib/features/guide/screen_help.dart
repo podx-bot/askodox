@@ -492,6 +492,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ లెక్క ఫోన్ నోటిఫికేషన్ల నుంచి, బ్యాంక్ నుంచి కాదు — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
     '"నా QR చూపించు", "నా ఖాతాలు" మీ UPI / బ్యాంక్ తెరుస్తాయి; "అలర్ట్స్" వాయిస్ ఆన్ చేస్తుంది.',
   ]),
+  '/money-home': _H('Money', 'మనీ', [
+    'Buyer side = your own money (this month in / out); Seller side = the shop\'s money (today, dues, new orders). They never mix.',
+    'Every page is an icon with its name. Press and hold to arrange: drop on another = a folder, beside it = move, to the edge = the next screen.',
+    '"−" hides a page (never deleted); "Hidden" brings it back; "Reset" puts the screen back as it came. Payment voice: tap a line to switch what the phone says, ▶ to hear it.',
+  ], [
+    'కొను వైపు = మీ సొంత డబ్బు (ఈ నెల వచ్చింది / పోయింది); అమ్ము వైపు = షాప్ డబ్బు (ఈ రోజు, బాకీ, కొత్త ఆర్డర్లు). రెండూ కలవవు.',
+    'ప్రతి పేజీ ఒక ఐకాన్, కింద పేరు. పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్.',
+    '"−" పేజీని దాచుతుంది (తొలగించదు); "దాచినవి" లో తిరిగి పెట్టండి; "మొదటిలా" మొదట ఉన్నట్టు పెడుతుంది. పేమెంట్ వాయిస్: వరుస నొక్కి ఆన్ / ఆఫ్, ▶ తో వినండి.',
+  ]),
   '/money': _H('My money', 'నా డబ్బు', [
     'Every payment, bill and account in one list: switch between your own money and each shop at the top.',
     'When a payment matches a bill, tap "Yes, join" -- nothing is joined without your tap. Tap a row to set what it was for.',

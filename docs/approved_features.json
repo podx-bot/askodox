@@ -9198,6 +9198,76 @@
           "change": "new; parser gate (android/parser-tests) covers it; not phone verified"
         }
       ]
+    },
+    {
+      "id": "money_both_sides_launcher",
+      "name": "Money on both sides (Buyer = own money, Seller = the shop's money) as a phone-style screen of pages and folders; ☰ drops from the top per side; Payment voice per kind",
+      "roles": [
+        "any signed-in user",
+        "shop owner",
+        "shop staff"
+      ],
+      "domains": [
+        "payments",
+        "shop",
+        "navigation"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxNavPayments",
+          "askodoxNavShop",
+          "askodoxMoneyHome",
+          "askodoxMoneyHomeCard",
+          "askodoxMoneyShopChooser",
+          "askodoxMoneyHomeEditBar",
+          "askodoxMoneyHomeHidden",
+          "askodoxMoneyHomeReset",
+          "askodoxMoneyHomeDone",
+          "askodoxShopSetup",
+          "askodoxPaymentVoiceSheet",
+          "askodoxMenuBox",
+          "askodoxMenuClose"
+        ],
+        "symbols": [
+          "AskodoxMoneyHomeScreen",
+          "AskodoxLaunchLayout",
+          "askodoxLaunchScreens",
+          "askodoxBuyerPages",
+          "askodoxSellerPages",
+          "askodoxVoiceKindsWithDefaults",
+          "askodoxOpenPaymentVoice",
+          "AskodoxShopSetupCard",
+          "AskodoxMenuBox",
+          "askodoxRunMenuChoice",
+          "askodoxApplyLanguage",
+          "askodoxCompanyLinks"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/money_home/launcher_layout_test.dart",
+          "test/features/money_home/money_home_screen_test.dart",
+          "test/features/simple_ux_test.dart",
+          "test/features/home/navigator_ux_test.dart"
+        ]
+      },
+      "dependencies": [
+        "my_phone_payment_alerts",
+        "paid_bills_are_payments",
+        "shopping_mode_button"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-22: the bottom bar says Money on the Seller side too (it said Shop) and Money switches to the seller account -- shop name, its transactions, its own settings -- while the personal account stays on the Buyer side. Every page is an icon with its name under it, phone style, with the person's own folders (4-5 pages in one box) and more screens when one is full. The long payment-voice page is minimised into one folder. The ☰ menu opens as a box from the top, per side: profile name / phone / address (Buyer) or shop name / address (Seller), plus history, language, location, customer care, terms, contact, about, sign in / out.",
+      "expected_behavior": "Bottom bar Home · Live Work · Ask · Money · Buy|Sell on both sides (keys askodoxNavPayments = Buyer, askodoxNavShop = Seller; Money = shell branch 1 '/money-home'); the switch stays on the tab in view. Buyer Money: card = this month in / out on this phone + the latest two (tap -> /money?owner=me&lock=1, own money only) + pages QR / Payment voice / My bills / Coming up / Order by code / My orders + folders Shops I follow and My settings. Seller Money: shop chooser (owner and staff shops), today's sales / dues / new orders (tap -> /money?owner=<shop>&lock=1, shops only), the shop's own tools filtered by the person's role and the shop kind (tables + kitchen only for food), first time = name + state + kind setup card. Press and hold arranges: drop on another page = a folder, beside it = move, to the edge = next screen; rename folders, hide (never delete) and bring back, Reset; saved per side and per shop on the phone (account-scoped keys). Payment voice folder: 11 kinds on my phone (in, out, bill / EMI paid, refund, cashback / interest, pending, failed / cancelled, bill generated / due, autopay, collect request, looks fake), 4 on a shop counter; tap = on / off, ▶ = the real words; the fake warning is always on; 'out' keeps the older announce-debits switch in step. Parser: cashback / interest landed in the account = money in (offers never), cancelled never money, collect requests and autopay set / revoked are notices, never received money.",
+      "history": [
+        {
+          "date": "2026-11-22",
+          "change": "new; parser gate covers the new message kinds; not phone verified"
+        }
+      ]
     }
   ]
 }

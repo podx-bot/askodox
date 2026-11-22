@@ -15,7 +15,9 @@ import java.util.Locale
 object PaymentAlertParser {
     sealed class Result {
         data class Accepted(val amountPaise: Long, val reference: String?, val payer: String? = null,
-                            val account: String? = null, val refund: Boolean = false) : Result()
+                            val account: String? = null, val refund: Boolean = false,
+                            /** Owner 2026-11-22: "cashback" / "interest" that LANDED in the account (spoken as such). */
+                            val bonus: String? = null) : Result()
         data class Ambiguous(val reason: String) : Result()
 
         /**
@@ -94,6 +96,9 @@ object PaymentAlertParser {
         // Owner 2026-11-21: "initiated" / "processing" = NOT done yet (no money moved); shown as a notice, never spoken.
         "initiated", "processing", "in process", "under process", "in progress", "scheduled", "will be credited",
         "will be debited", "will be deducted", "will reflect",
+        // Owner 2026-11-22 ("refunds, credits, cancel, generated ... read those words too"): a cancelled payment is a
+        // notice that is explained (and spoken when the person keeps that kind on), never money received.
+        " cancelled", " canceled",
     )
     private val amountRegex = Regex("""(?:₹|\brs[.:]?|\binr[.:]?)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
 
@@ -180,6 +185,16 @@ object PaymentAlertParser {
             val amounts = paymentAmounts(joined)
             if (amounts.isNotEmpty()) return Result.Accepted(amounts.first(), rrn(joined), null, accountTail(joined), refund = true)
         }
+        // Owner 2026-11-22 ("credits"): cashback / reward / interest that LANDED in the person's account is money in --
+        // spoken as cashback / interest. Offers ("win up to ₹100 cashback"), scratch cards and "will be credited" are not.
+        if (!learned && bonusLanded.containsMatchIn(joined) && notYet.none { lower.contains(it) } &&
+            bonusAd.none { lower.contains(it) }) {
+            val amounts = paymentAmounts(joined)
+            if (amounts.isNotEmpty()) {
+                val bonus = if (interestWord.containsMatchIn(joined)) "interest" else "cashback"
+                return Result.Accepted(amounts.first(), rrn(joined), null, accountTail(joined), bonus = bonus)
+            }
+        }
         // Owner 2026-11-22 (HDFC "Bill Paid! ... paid on ... from HDFC Bank Account XX1234" was kept only as a "bill
         // generated" note): a bill / service payment that is DONE is money that went out -- before the words "bill",
         // "bill pay", "recharge", "emi" below can throw it away.
@@ -233,13 +248,25 @@ object PaymentAlertParser {
             """\b(?:credited|added)\b.{0,60}?\brefund\b""",
         RegexOption.IGNORE_CASE,
     )
+    /** Cashback / reward / interest that LANDED ("₹50 cashback credited to your account", "credited as cashback"). */
+    private val bonusLanded = Regex(
+        """\b(?:cash\s*back|reward|interest)\b.{0,80}?\b(?:credited|added|deposited|transferred)\s+(?:to|in|into|back\s+to)\s+(?:your|a/?c|acc|account|bank|wallet)|""" +
+            """\b(?:credited|added|deposited)\b.{0,60}?\b(?:as|towards|for)\s+(?:a\s+|your\s+)?(?:cash\s*back|interest)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val interestWord = Regex("""\binterest\b""", RegexOption.IGNORE_CASE)
+
+    /** Offers / loans that only MENTION cashback or interest -- never money that landed. */
+    private val bonusAd = listOf(" win ", " won ", "scratch", "up to", "upto", "get ₹", " earn ", "eligible", "chance", "offer",
+        "coupon", "claim", "click", "valid till", "t&c", "loan", "disburs", " rate")
     private val notYet = listOf("initiated", "will be", "will reflect", "processing", "in process", "within", "working days",
         "business days", "requested", "raised")
 
     /**
      * Owner 2026-11-21 ("refund, bill generated, something initiated ... why did it come, check the bank / bill"):
      * a money message that is NOT a payment is still explained in the history (never spoken, never counted).
-     * kind: refund_started | pending | failed | bill | suspect.
+     * kind: refund_started | pending | failed | cancelled | bill | autopay | autopay_off | request | suspect.
+     * Owner 2026-11-22: each kind can also be SPOKEN (the person's own on / off per kind); never counted as money.
      */
     data class Notice(val kind: String, val amountPaise: Long?)
 
@@ -262,9 +289,17 @@ object PaymentAlertParser {
         // A link / "click" / KYC / "blocked" in a money message (the bank's own safety lines are cut off first).
         if (suspectWords.containsMatchIn(clean) && listOf("credited", "received", "refund", "cashback", "won", "prize", "debited",
                 "blocked", "kyc").any { cleanLower.contains(it) }) return Notice("suspect", amount)
+        // Someone asking the person to PAY (UPI collect / money request): money goes only if they approve.
+        if (requestWords.containsMatchIn(clean)) return Notice("request", amount)
+        // AutoPay / mandate / standing instruction set up or stopped (an AutoPay that RAN is a debit, read elsewhere).
+        if (autopayWords.containsMatchIn(clean)) {
+            if (autopayOff.containsMatchIn(clean)) return Notice("autopay_off", amount)
+            if (autopayOn.containsMatchIn(clean)) return Notice("autopay", amount)
+        }
         if (amount == null) return null
         return when {
             cleanLower.contains("refund") -> Notice("refund_started", amount)
+            listOf(" cancelled", " canceled", "cancellation").any { cleanLower.contains(it) } -> Notice("cancelled", amount)
             listOf("failed", "declined", "unsuccessful", "could not be processed", "not processed", "reversed").any { cleanLower.contains(it) } ->
                 Notice("failed", amount)
             listOf("initiated", "pending", "processing", "in process", "under process", "in progress", "scheduled", "will be debited",
@@ -275,6 +310,15 @@ object PaymentAlertParser {
             else -> null
         }
     }
+
+    private val requestWords = Regex(
+        """(?i)\b(?:collect\s+request|money\s+request|payment\s+request|request\s+to\s+pay|has\s+requested|is\s+requesting|""" +
+            """requested\s+(?:money|payment|₹|rs\.?|inr)|requesting\s+(?:money|payment|₹|rs\.?|inr)|""" +
+            """request(?:ed)?\s+(?:of|for)\s+(?:₹|rs\.?|inr))""")
+    private val autopayWords = Regex("""(?i)\b(?:auto\s*-?\s*pay|e-?\s*mandate|mandate|standing\s+instruction|e-?nach|recurring\s+payment)\b""")
+    private val autopayOff = Regex("""(?i)\b(?:revoked|cancell?ed|paused|deactivated|deleted|expired|stopped|withdrawn)\b""")
+    private val autopayOn = Regex(
+        """(?i)\b(?:created|registered|set\s*up|setup|activated|approved|is\s+now\s+active)\b""")
 
     /** TRAI rule: a sender id ending in -P is PROMOTIONAL (ads) -- never a payment, never a notice. */
     fun isPromoSender(title: String?): Boolean =
@@ -654,6 +698,124 @@ object PaymentAlertParser {
                 }
             }
         }.filter { it.isNotEmpty() }
+    }
+
+    /** "962 రూపాయలు" / "962 रुपये" / "962 rupees" (+ paise) in the person's language. */
+    fun moneyWords(amountPaise: Long, language: String): String {
+        val rupees = amountPaise / 100
+        val paise = amountPaise % 100
+        return when (language) {
+            "te" -> "$rupees రూపాయలు" + (if (paise > 0) " $paise పైసలు" else "")
+            "hi" -> "$rupees रुपये" + (if (paise > 0) " $paise पैसे" else "")
+            "en" -> "$rupees rupees" + (if (paise > 0) " $paise paise" else "")
+            else -> {
+                val w = WORDS[language] ?: WORDS["en_fallback"]!!
+                w.rupees.replace("{n}", rupees.toString()) + (if (paise > 0) " " + w.paise.replace("{n}", paise.toString()) else "")
+            }
+        }
+    }
+
+    /**
+     * Owner 2026-11-22 ("the 3rd one: when such messages come a sound should come"): a bill / EMI / loan instalment
+     * that was PAID -- "బజాజ్ ఫైనాన్స్ లోన్ వాయిదా 4133 రూపాయలు కట్టారు."
+     */
+    fun billPaidParts(amountPaise: Long, language: String, party: String?, emi: Boolean): List<String> {
+        val money = moneyWords(amountPaise, language)
+        val who = party?.trim()?.takeIf { it.isNotEmpty() }
+        return when (language) {
+            "te" -> listOf(listOfNotNull(who, if (emi) "లోన్ వాయిదా" else "బిల్లు").joinToString(" "), "$money కట్టారు.")
+            "hi" -> listOf(listOfNotNull(who, if (emi) "लोन की किस्त" else "बिल").joinToString(" "), "$money भरे गए।")
+            else -> listOf((if (emi) "Loan instalment" else "Bill") + (if (who != null) " to $who" else ""), "of $money paid.")
+        }
+    }
+
+    /** Cashback / interest that landed: "50 రూపాయలు క్యాష్‌బ్యాక్ ఖాతాలో పడింది." */
+    fun bonusParts(amountPaise: Long, language: String, bonus: String): List<String> {
+        val money = moneyWords(amountPaise, language)
+        val interest = bonus == "interest"
+        return when (language) {
+            "te" -> listOf(money, if (interest) "వడ్డీ ఖాతాలో పడింది." else "క్యాష్‌బ్యాక్ ఖాతాలో పడింది.")
+            "hi" -> listOf(money, if (interest) "ब्याज खाते में आया।" else "कैशबैक खाते में आया।")
+            else -> listOf(if (interest) "Interest of" else "Cashback of", "$money reached your account.")
+        }
+    }
+
+    /**
+     * Owner 2026-11-22: what the phone SAYS for a money message that is not a payment. Never the word for "received"
+     * (that is only for money that came in). [kind] = a [Notice] kind; [amountPaise] may be null (a fake, a request).
+     */
+    fun noticeParts(kind: String, amountPaise: Long?, language: String, party: String? = null): List<String> {
+        val money = amountPaise?.let { moneyWords(it, language) }
+        val who = party?.trim()?.takeIf { it.isNotEmpty() }
+        val te = language == "te"
+        val hi = language == "hi"
+        val m = money ?: ""
+        val ofMoney = if (money != null) " of $money" else ""
+        val text = when (kind) {
+            "refund_started" -> when {
+                te -> "$m రీఫండ్ మొదలైంది. ఇంకా ఖాతాలో పడలేదు."
+                hi -> "$m का रिफंड शुरू हुआ। अभी खाते में नहीं आया।"
+                else -> "Refund$ofMoney started. Not in your account yet."
+            }
+            "pending" -> when {
+                te -> "$m పేమెంట్ ఇంకా పూర్తి కాలేదు, పెండింగ్‌లో ఉంది."
+                hi -> "$m का पेमेंट अभी पूरा नहीं हुआ, पेंडिंग है।"
+                else -> "Payment$ofMoney is pending, not done yet."
+            }
+            "failed" -> when {
+                te -> "$m పేమెంట్ ఫెయిల్ అయింది. డబ్బు కట్ అయితే బ్యాంక్ యాప్‌లో చూడండి."
+                hi -> "$m का पेमेंट फेल हुआ। पैसे कटे हों तो बैंक ऐप देखें।"
+                else -> "Payment$ofMoney failed. If money was taken, check your bank app."
+            }
+            "cancelled" -> when {
+                te -> "$m పేమెంట్ రద్దయింది."
+                hi -> "$m का पेमेंट रद्द हुआ।"
+                else -> "Payment$ofMoney was cancelled."
+            }
+            "bill" -> when {
+                te -> "${who ?: ""} బిల్లు $m వచ్చింది. ఇంకా కట్టాల్సి ఉంది."
+                hi -> "${who ?: ""} बिल $m आया है। अभी भरना बाकी है।"
+                else -> "A bill" + (if (who != null) " from $who" else "") + "$ofMoney has come. It is still to be paid."
+            }
+            "autopay" -> when {
+                te -> "${who ?: ""} ఆటోపే $m సెట్ అయింది."
+                hi -> "${who ?: ""} ऑटोपे $m सेट हुआ।"
+                else -> "AutoPay" + (if (who != null) " for $who" else "") + "$ofMoney was set up."
+            }
+            "autopay_off" -> when {
+                te -> "${who ?: ""} ఆటోపే రద్దయింది."
+                hi -> "${who ?: ""} ऑटोपे रद्द हुआ।"
+                else -> "AutoPay" + (if (who != null) " for $who" else "") + " was stopped."
+            }
+            "request" -> when {
+                te -> "జాగ్రత్త: ఎవరో ${money ?: "డబ్బు"} అడుగుతున్నారు. మీరు ఒప్పుకుంటేనే డబ్బు పోతుంది."
+                hi -> "सावधान: कोई ${money ?: "पैसे"} माँग रहा है। आप मंज़ूर करेंगे तभी पैसे जाएँगे।"
+                else -> "Careful: someone is asking you for ${money ?: "money"}. Money goes only if you approve."
+            }
+            "suspect" -> when {
+                te -> "జాగ్రత్త! ఇది నకిలీ మెసేజ్‌లా ఉంది. లింక్ నొక్కకండి. డబ్బు వచ్చిందో బ్యాంక్ యాప్‌లో చూడండి."
+                hi -> "सावधान! यह मैसेज नकली लगता है। कोई लिंक न दबाएँ। पैसे आए या नहीं, बैंक ऐप में देखें।"
+                else -> "Careful! This message looks fake. Do not tap any link. Check your bank app to see if money came."
+            }
+            else -> ""
+        }
+        return listOf(text.replace(spaces, " ").trim()).filter { it.isNotEmpty() }
+    }
+
+    private val spaces = Regex("""\s+""")
+
+    /**
+     * The voice switch a message kind belongs to (owner 2026-11-22, the "Payment voice" folder): in | out | bill |
+     * refund | cashback | pending | failed | due | autopay | request | fake.
+     */
+    fun voiceKindOf(noticeKind: String): String = when (noticeKind) {
+        "refund_started", "pending" -> "pending"
+        "failed", "cancelled" -> "failed"
+        "bill" -> "due"
+        "autopay", "autopay_off" -> "autopay"
+        "request" -> "request"
+        "suspect" -> "fake"
+        else -> noticeKind
     }
 
     /** language -> [credit with name, credit, debit with name, debit] (spoken for "My phone"). */

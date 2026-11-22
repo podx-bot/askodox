@@ -17,7 +17,13 @@ import 'pay_alert_disclaimer.dart';
 /// the person got, a shop's bills and Razorpay alerts, upcoming dues -- one list, with "which bill did this pay", "what
 /// was it for" and "what is coming". The person's own money and each shop's money are separate views (never mixed).
 class AskodoxMoneyScreen extends ConsumerStatefulWidget {
-  const AskodoxMoneyScreen({super.key});
+  const AskodoxMoneyScreen({super.key, this.owner, this.lockOwner = false});
+
+  /// The view to open: 'me' (own money) or a shop id. Null = own money.
+  final String? owner;
+
+  /// Owner 2026-11-22 (Buy / Sell): Buyer side = own money only, Seller side = its shops only (never mixed).
+  final bool lockOwner;
 
   @override
   ConsumerState<AskodoxMoneyScreen> createState() => _AskodoxMoneyScreenState();
@@ -55,7 +61,7 @@ class _MoneyData {
 
 class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with WidgetsBindingObserver {
   final _data = _MoneyData();
-  String _owner = 'me'; // 'me' or a business id
+  late String _owner = (widget.owner ?? '').isEmpty ? 'me' : widget.owner!; // 'me' or a business id
   String _kind = 'all'; // all | in | out | bills | pending
   String _period = 'month'; // today | week | month | all
   String _how = ''; // '' = every way
@@ -84,6 +90,13 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) unawaited(_load(quiet: true));
+  }
+
+  /// Whether the own / shop choice shows: never on the Buyer side's locked view; on the Seller side only between shops.
+  bool get _ownerChoices {
+    if (_data.businesses.isEmpty) return false;
+    if (!widget.lockOwner) return true;
+    return _owner != 'me' && _data.businesses.length > 1;
   }
 
   bool get _signedIn {
@@ -551,7 +564,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                   ),
                 ),
               ]),
-              if (_data.businesses.isNotEmpty) ...[
+              if (_ownerChoices) ...[
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.all(4),
@@ -559,7 +572,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(children: [
-                      _segment('me', te ? 'నా సొంతం' : 'My own'),
+                      if (!widget.lockOwner) _segment('me', te ? 'నా సొంతం' : 'My own'),
                       for (final b in _data.businesses) _segment('${b['id']}', '${b['name'] ?? ''}'),
                     ]),
                   ),
@@ -836,13 +849,13 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
             }),
           ),
         ]),
-        if (_data.businesses.isNotEmpty)
+        if (_ownerChoices)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: [
-                _ownerChip('me', te ? 'నా సొంతం' : 'My own', te),
+                if (!widget.lockOwner) _ownerChip('me', te ? 'నా సొంతం' : 'My own', te),
                 for (final b in _data.businesses) _ownerChip('${b['id']}', '${b['name'] ?? ''}', te),
               ]),
             ),

@@ -267,6 +267,36 @@ fun main() {
     yes("payable by", gen4?.dueDate == "2026-11-15")
     yes("a paid bill is not a due", PaymentAlertParser.dueReminder("AD-HDFCBK-S", "Bill Paid! APCPDC Ele Bill 1234567890123 of Rs. 962.00 paid on 22-Nov-2026 from HDFC Bank Account XXXXXXXXXX1234.", 2026) == null)
     yes("bill generated without a date = a bill note", PaymentAlertParser.notice("AD-APCPDC-S", "Your electricity bill of Rs 962 has been generated for Nov-2026")?.kind == "bill")
+    // Owner 2026-11-22 ("refunds, credits, cancel, generated, autopay ... read those words too; a fake one = warn")
+    check("cashback landed = in", "AX-HDFCBK-S", "Rs.50.00 cashback credited to your HDFC Bank A/c XX1234 on 22-11-26", "IN 5000")
+    check("cashback offer = ignored", null, "Win up to ₹100 cashback on your next recharge!", "IGNORED")
+    check("interest credited = in", "AX-SBIINB-S", "Interest of Rs 120.00 credited to your A/c XX1234 on 22-11-26", "IN 12000")
+    yes("cashback is spoken as cashback", (PaymentAlertParser.parse("AX-HDFCBK-S", "Rs.50.00 cashback credited to your HDFC Bank A/c XX1234") as? Result.Accepted)?.bonus == "cashback")
+    yes("interest is spoken as interest", (PaymentAlertParser.parse("AX-SBIINB-S", "Interest of Rs 120.00 credited to your A/c XX1234") as? Result.Accepted)?.bonus == "interest")
+    yes("a plain credit has no bonus", (PaymentAlertParser.parse(null, "Ramesh paid you ₹250") as? Result.Accepted)?.bonus == null)
+    check("cancelled payment = not money", null, "Your payment of ₹300 to Ramesh was cancelled", "IGNORED")
+    yes("notice cancelled", PaymentAlertParser.notice(null, "Your payment of ₹300 to Ramesh was cancelled")?.kind == "cancelled")
+    yes("notice request", PaymentAlertParser.notice(null, "Ramesh has requested ₹2,000 from you. Approve on PhonePe")?.let { it.kind == "request" && it.amountPaise == 200000L } == true)
+    yes("notice collect request", PaymentAlertParser.notice("AX-HDFCBK-S", "Collect request of Rs 500 from ramesh@ybl is pending for approval")?.kind == "request")
+    yes("notice autopay set up", PaymentAlertParser.notice(null, "Your AutoPay mandate of Rs 499 for Netflix has been successfully created")?.kind == "autopay")
+    yes("notice autopay stopped", PaymentAlertParser.notice(null, "Your AutoPay of Rs 499 for Netflix has been revoked")?.kind == "autopay_off")
+    yes("autopay to run later stays a pending note", PaymentAlertParser.notice(null, "Autopay of Rs 199 for Netflix will be processed from A/c XX1234 on 5 Dec")?.kind == "pending")
+    yes("refund started stays refund_started", PaymentAlertParser.notice(null, "Refund of ₹499 initiated. It will be credited in 5-7 days")?.kind == "refund_started")
+    // What the phone SAYS: never the "received" words for a notice.
+    yes("bill paid voice te", PaymentAlertParser.billPaidParts(413300, "te", "Bajaj Finance", true).joinToString(" ") == "Bajaj Finance లోన్ వాయిదా 4133 రూపాయలు కట్టారు.")
+    yes("bill paid voice en", PaymentAlertParser.billPaidParts(96200, "en", null, false).joinToString(" ") == "Bill of 962 rupees paid.")
+    yes("cashback voice te", PaymentAlertParser.bonusParts(5000, "te", "cashback").joinToString(" ") == "50 రూపాయలు క్యాష్‌బ్యాక్ ఖాతాలో పడింది.")
+    for (k in listOf("refund_started", "pending", "failed", "cancelled", "bill", "autopay", "autopay_off", "request", "suspect")) {
+        for (lang in listOf("te", "hi", "en", "ta")) {
+            val said = PaymentAlertParser.noticeParts(k, 29900, lang).joinToString(" ")
+            yes("notice voice $k $lang", said.isNotBlank() && !said.contains("జమ") && !said.contains("అందింది") &&
+                !said.contains("received", ignoreCase = true))
+        }
+    }
+    yes("fake warning without an amount", PaymentAlertParser.noticeParts("suspect", null, "te").first().startsWith("జాగ్రత్త"))
+    yes("voice kind of a notice", PaymentAlertParser.voiceKindOf("refund_started") == "pending" &&
+        PaymentAlertParser.voiceKindOf("cancelled") == "failed" && PaymentAlertParser.voiceKindOf("bill") == "due" &&
+        PaymentAlertParser.voiceKindOf("suspect") == "fake" && PaymentAlertParser.voiceKindOf("autopay_off") == "autopay")
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }

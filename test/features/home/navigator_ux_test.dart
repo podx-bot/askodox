@@ -118,28 +118,40 @@ void main() {
     ));
     await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
     await tester.pumpAndSettle();
-    // Only the frequently used places; the rest lives in the Profile grid.
-    // A Phase 1 build offers only Phase 1 places (business, listings, rides... wait for Phase 2).
+    // Owner 2026-11-22: a box that drops from the TOP (never a drawer / bottom sheet), per side.
+    expect(find.byKey(const Key('askodoxMenuBox')), findsOneWidget);
+    expect(tester.getTopLeft(find.byKey(const Key('askodoxMenuBox'))).dy, 0, reason: 'opens from the top');
+    expect(find.byType(Drawer), findsNothing, reason: 'the menu is a box, never a drawer');
+    // Buyer side: the person's own card, their own places, the company's pages, Sign in (signed out here).
     final phase2Only = ['business', 'listings', 'enquiries', 'orders', 'mobility'];
-    for (final key in [if (askodoxPhase2) ...phase2Only, 'saved', 'more']) {
+    for (final key in [
+      'more', 'saved', 'newchat', 'language', 'location', 'notifications', 'credits', 'settings', 'feedback', 'ideas',
+      'support', 'contact', 'about', 'terms', 'privacy', 'signin',
+      if (askodoxPhase2) ...['orders', 'mobility'],
+    ]) {
       await tester.scrollUntilVisible(find.byKey(ValueKey('askodoxMenu-$key')), 120,
           scrollable: find.byType(Scrollable).last);
-      expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget);
+      expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget, reason: key);
     }
     if (!askodoxPhase2) {
       for (final key in phase2Only) {
         expect(find.byKey(ValueKey('askodoxMenu-$key')), findsNothing, reason: '$key is Phase 2');
       }
     }
-    for (final key in ['roles', 'verification', 'plans', 'radio', 'studio_videos', 'memory', 'privacy']) {
+    // Shop places are on the Seller side only.
+    for (final key in ['business', 'listings', 'enquiries', 'mybusiness', 'shop', 'signout']) {
+      expect(find.byKey(ValueKey('askodoxMenu-$key')), findsNothing, reason: '$key is not on the signed-out Buyer side');
+    }
+    for (final key in ['roles', 'verification', 'plans', 'radio', 'studio_videos', 'memory', 'privacy_center']) {
       expect(find.byKey(ValueKey('askodoxMenu-$key')), findsNothing, reason: '$key lives in Profile');
     }
     expect(askodoxHeaderMenuEntries.length, lessThanOrEqualTo(7));
-    expect(find.byType(Drawer), findsNothing, reason: 'the menu is a sheet, never a drawer');
     expect(askodoxHeaderMenuEntries.map((e) => e.route).toSet().length, askodoxHeaderMenuEntries.length,
         reason: 'no duplicate entry points');
-    await tester.tapAt(const Offset(10, 10));
+    expect(askodoxCompanyLinks.every((l) => l.$5.startsWith('https://askodox.com/')), isTrue);
+    await tester.tap(find.byKey(const Key('askodoxMenuClose')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxMenuBox')), findsNothing);
     // 2026-11-04: the Screen Guide moved from its own header icon into the Menu.
     await tester.tap(find.byKey(const Key('askodoxHeaderMenu')));
     await tester.pumpAndSettle();

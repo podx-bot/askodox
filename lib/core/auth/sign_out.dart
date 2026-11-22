@@ -56,6 +56,10 @@ const askodoxAccountScopedKeys = <String>[
   'askodox.active_conversation_turns.v1',
   'askodox.greeting.seen_before',
   'askodox.work_mode.v1',
+  // Owner 2026-11-22: the person's own Money screens (folders, order, hidden pages) and the shop in view.
+  'askodox.money.layout.v1.buyer',
+  'askodox.money.layout.v1.seller',
+  'askodox.money.shop.v1',
   'askodox.talk.rules.v1',
   'askodox.greeting.last_text',
   'askodox.greeting.last_at',

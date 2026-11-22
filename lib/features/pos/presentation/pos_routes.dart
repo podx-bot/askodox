@@ -32,9 +32,15 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
       builder: (context, state) => AskodoxPaymentsHubScreen(mineOnly: state.uri.queryParameters['mine'] == '1')),
   // Bills (owner 2026-11-16): the customer's own bills from shops, and a shop's bill history.
   GoRoute(path: '/me/bills', builder: (context, state) => const AskodoxMyBillsScreen()),
-  GoRoute(path: '/money', builder: (context, state) => const AskodoxMoneyScreen()),
+  // Owner 2026-11-22: the Money screen of each side opens only its own money (?owner=me | <shop id>&lock=1).
+  GoRoute(
+      path: '/money',
+      builder: (context, state) => AskodoxMoneyScreen(
+          owner: state.uri.queryParameters['owner'], lockOwner: state.uri.queryParameters['lock'] == '1')),
   GoRoute(path: '/bills/:id', builder: (context, state) => AskodoxBillHistoryScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/me/payments/phone', builder: (context, state) => const AskodoxMyPhonePaymentsScreen()),
+  GoRoute(
+      path: '/me/payments/phone',
+      builder: (context, state) => AskodoxMyPhonePaymentsScreen(open: state.uri.queryParameters['open'] ?? '')),
   GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),
   // Payment sound alerts without the POS (owner 2026-11-10): the shop, its staff and who hears the sound.
   GoRoute(path: '/me/payment-alerts', builder: (context, state) => const AskodoxMyPaymentAlertsScreen()),
