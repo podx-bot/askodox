@@ -9077,7 +9077,8 @@
           "askodoxNavHistory",
           "askodoxNavShoppingState",
           "askodoxNavLiveWorkDot-attention",
-          "askodoxPaymentsHubSubtitle"
+          "askodoxPaymentsHubSubtitle",
+          "askodoxHeaderModeChip"
         ]
       },
       "flags": {},
@@ -9096,7 +9097,7 @@
       "dependencies": [],
       "status": "approved",
       "purpose": "Owner 2026-11-21: one app with two sides instead of a separate 'ASKODOX Club' switch -- a buyer sees buyer things, a seller sees their shop; the walking game sits in the bottom bar as 'Live Work' with a dot that says whether work is running; chat answers must carry their logic like a practical friend's advice; in the result card the customer's asked-for kind comes third.",
-      "expected_behavior": "Bottom bar = Home, Live Work, Ask, Money (Buyer) or Shop (Seller), and the buy / sell switch where Tools was (Tools / settings open from the header menu). One tap flips the side: purple = Buyer, green = Seller (header line, Ask button, a 2 s banner in the chat); the last side is kept on the phone. The chat sends buyer_mode or seller_mode (seller also gets the shop tools); in Seller mode other shops' menus are not offered for an unnamed item. Live Work dot: green and blinking while steps were counted in the last 5 minutes, grey otherwise, red '!' after a failed step reading (cleared by opening the game); steps are read once a minute only for a person who already plays. Brain: FRIEND_REASONING_RULES (seven category-free ways of thinking; verdict first, reasons from the person's own facts; never tilted toward a costlier option or a partner link). Result sections: local, then reference (affiliate) links, then the kinds the customer asked for, unless staff fixed an order. Round 2 (2026-11-22): the Buyer side's Money opens /me/payments?mine=1 (only the person's own phone -- no shop chips, no shop door); the Seller greeting is about the person's shop; a reply may carry switch_mode (seller / buyer, only the other side) and the chat shows a one-tap switch chip; RESULT_CARD_RULES keep shop names, items and prices out of the reply text when cards follow.",
+      "expected_behavior": "Bottom bar = Home, Live Work, Ask, Money (Buyer) or Shop (Seller), and the buy / sell switch where Tools was (Tools / settings open from the header menu). One tap flips the side: purple = Buyer, green = Seller (header line, Ask button, a 2 s banner in the chat); the last side is kept on the phone. The chat sends buyer_mode or seller_mode (seller also gets the shop tools); in Seller mode other shops' menus are not offered for an unnamed item. Live Work dot: green and blinking while steps were counted in the last 5 minutes, grey otherwise, red '!' after a failed step reading (cleared by opening the game); steps are read once a minute only for a person who already plays. Brain: FRIEND_REASONING_RULES (seven category-free ways of thinking; verdict first, reasons from the person's own facts; never tilted toward a costlier option or a partner link). Result sections: local, then reference (affiliate) links, then the kinds the customer asked for, unless staff fixed an order. Round 2 (2026-11-22): the Buyer side's Money opens /me/payments?mine=1 (only the person's own phone -- no shop chips, no shop door); the Seller greeting is about the person's shop; a reply may carry switch_mode (seller / buyer, only the other side) and the chat shows a one-tap switch chip; RESULT_CARD_RULES keep shop names, items and prices out of the reply text when cards follow. Round 3 (2026-11-22): a small chip beside the header name shows the side (Buy / Sell, in the side's colour) and shrinks with the name; how-to answers add GUIDE_FRIEND_RULES (the route that fits the person, the nearest workable way, steps backwards from the wanted result) inside the guide's own length limits.",
       "history": [
         {
           "date": "2026-11-21",
@@ -9105,6 +9106,54 @@
         {
           "date": "2026-11-22",
           "change": "round 2: own-money Money page, seller greeting, one-tap switch chip, results stay in cards; not phone verified"
+        },
+        {
+          "date": "2026-11-22",
+          "change": "round 3: header side chip, friend's logic in how-to answers; not phone verified"
+        }
+      ]
+    },
+    {
+      "id": "meta_page_oauth_callback",
+      "name": "Facebook Login callback for Page connection (Meta App Review flow)",
+      "purpose": "Owner approved 2026-10-31: a working Meta login flow is required for App Review of pages_manage_posts / instagram_content_publish. This slice only starts the login and lists the Pages the owner manages; it stores no tokens.",
+      "expected_behavior": "GET /meta/oauth/start redirects to Facebook Login with the five approved scopes (no ads permissions) and sets a short-lived state cookie. GET /meta/oauth/callback verifies the state, exchanges the code server-side using META_APP_ID / META_APP_SECRET, lists managed Pages (names escaped) and never shows or stores the user token. Token storage is a separate owner-approved step.",
+      "roles": [
+        "seller",
+        "service_provider"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/meta/oauth/start",
+          "response_keys": []
+        },
+        {
+          "method": "GET",
+          "path": "/meta/oauth/callback",
+          "response_keys": []
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "status": "approved",
+      "flags": {},
+      "dependencies": [],
+      "tests": {
+        "backend": [
+          "tests/test_meta_oauth.py"
+        ],
+        "flutter": []
+      },
+      "history": [
+        {
+          "pr": null,
+          "change": "Owner approved \"1\" 2026-10-31 (branch claude/meta-oauth-callback). Needs META_APP_ID and META_APP_SECRET on Railway; NOT PRODUCTION VERIFIED; no token storage yet."
         }
       ]
     }

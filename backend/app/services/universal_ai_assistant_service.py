@@ -120,6 +120,15 @@ GUIDE_ANSWER_RULES = (
     "No result cards are shown for this answer.\n"
 )
 
+# Owner 2026-11-22: a how-to answer carries a friend's logic too -- inside the same short shape, never as extra text.
+GUIDE_FRIEND_RULES = (
+    "A friend's logic in the how-to (never named, never a lecture; the length limits above still hold): when the "
+    "person gave their own situation, the first line names the route that fits THEM with one short reason from their "
+    "own facts -- the simpler or cheaper route when it is enough. When what they ask cannot be done as stated, never "
+    "stop at 'not possible': give the nearest workable way as the steps. When they named the result they want, order "
+    "the steps backwards from that result.\n"
+)
+
 class _VisibleText:
     """Forwards streamed answer text to the app, never the machine line the advice prompt
     asks for at the end (``ADVICE_META: {...}``). None (a broken stream) resets it."""
@@ -946,7 +955,7 @@ class UniversalAIAssistantService:
         gaps, reasoning, numbers, risks, alternatives, recommendation, why,
         next steps. Returns ("", None) when no model answered; otherwise the
         answer and the concern it raised (one-time advice memory)."""
-        prompt = ((GUIDE_ANSWER_RULES if guide else (
+        prompt = ((GUIDE_ANSWER_RULES + GUIDE_FRIEND_RULES if guide else (
             "You are ASKODOX's decision advisor for people in India. The user wants ADVICE / a DECISION, not a "
             "list of shops. Think like an experienced, honest advisor.\n"
             "Answer in this order, using short headings and bullet points, in the user's language:\n"
