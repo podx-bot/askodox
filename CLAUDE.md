@@ -16,8 +16,11 @@ this file, don't trust it blindly.
   (`_ReplyStream` -> `on_text.text_done`). ElevenLabs `DEFAULT_MODEL` eleven_v4_turbo, refused (400/404/422) -> eleven_v3
   once + 30 min rest (log `ASKODOX VOICE MODEL refused`). Routing JSON "reply" first; planner max_tokens 400; first Gemini
   photo read `thinking_budget=0` (next model keeps thinking). Registry `speak_while_writing`. Railway has a STAGED (not
-  applied) ELEVENLABS_TTS_MODEL=eleven_v4_turbo -- same as the code default. Nothing phone verified. Next: planner in
-  parallel with the answer (still ~1-1.5 s before routing).
+  applied) ELEVENLABS_TTS_MODEL=eleven_v4_turbo -- same as the code default. Nothing phone verified.
+  ROUND 2 (PR "planner in parallel", owner "Ok go"): `_EarlyRoute` starts the routing call (fast model, no evidence) next
+  to `_plan`; its reply waits in `_HeldText` until the planner says no search + not hard (then `take` releases it), else
+  it is dropped (never shown) and routing runs again with grounding / the hard model. Never when `_needs_lookup` (the
+  user's own words need live evidence) or the guide path. Timing log path `routed_early`.
 - Branch `claude/scam-sms-guard` (2026-11-22, owner: a JK-xxxxx-S "DEPOSIT SUCCESS ... A/c: <whole 10-digit number>
   Amount: Rs.8,551,00 Status: RECEIVED Open: bit.ly/.." SMS was said + counted as ₹8,55,100 received, "Bank SMS"):
   `PaymentAlertParser.fakeSigns` = public short link / broken comma groups (`wellGrouped`) / a whole account number

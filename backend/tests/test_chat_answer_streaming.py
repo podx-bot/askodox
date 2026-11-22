@@ -250,3 +250,66 @@ def test_stream_route_sends_text_done_before_the_final_json(monkeypatch):
     client = _client(monkeypatch, _RoutedSpeaker())
     events = _lines(client.post("/api/in-app/assistant/stream", json={"message": "haircut for my face", "locale": "en"}))
     assert [e["type"] for e in events] == ["delta", "text_done", "final"]
+
+
+# --- routing next to the planner (owner 2026-11-22: answers in 1-2 s) ------------------------------------------------
+
+def test_held_text_waits_for_the_planner_then_passes_everything_in_order():
+    got, done = [], []
+
+    def out(piece):
+        got.append(piece)
+
+    out.text_done = lambda: done.append(True)
+    held = svc._HeldText()
+    held("Long layer ")
+    held.text_done()
+    assert got == [] and done == []  # nothing before the planner agrees
+    held.release(out)
+    held("cut suits you.")
+    assert got == ["Long layer ", "cut suits you."] and done == [True]
+    dropped = svc._HeldText()
+    dropped("never shown")
+    dropped.drop()
+    dropped.release(out)
+    dropped("still never")
+    assert got == ["Long layer ", "cut suits you."]
+
+
+def _planned(http, plan):
+    """The planner answers `plan`; the routing still streams its JSON."""
+    plain_post = http.post
+
+    def post(url, *, headers=None, json=None, timeout=None):
+        prompt = svc.UniversalAIAssistantService.content_text((json or {}).get("messages", [{}])[0].get("content", ""))
+        if "You plan ONE turn of ASKODOX" in prompt:
+            from tests.test_guide_mode_claude_brain import _Resp
+
+            return _Resp({"content": [{"type": "text", "text": json_module.dumps(plan)}]})
+        return plain_post(url, headers=headers, json=json, timeout=timeout)
+
+    http.post = post
+
+
+def test_a_plain_turn_routes_once_while_the_planner_runs():
+    brain, _, http = _brain(claude=True, decision=_decision(transactional=False, action="chat", domain="GENERAL"))
+    _streaming(brain, http, _sse("unused"))
+    _planned(http, {"search": False, "query": "", "level": "medium"})
+    pieces = []
+    out = brain.decide("long layer haircut suits my face?", locale="en", on_text=pieces.append)
+    routing = [c for c in http.calls if "Return ONLY the JSON object" in c["prompt"]]
+    assert len(routing) == 1 and routing[0]["model"] == "claude-haiku-5-5"  # one routing call, no repeat
+    assert _on_screen(pieces) and out["reply"].startswith(_on_screen(pieces)[:10])
+
+
+def test_a_hard_turn_never_shows_the_early_reply_and_routes_with_the_strong_model():
+    brain, _, http = _brain(claude=True, decision=_decision(transactional=False, action="chat", domain="GENERAL"))
+    _streaming(brain, http, _sse("unused"))
+    _planned(http, {"search": False, "query": "", "level": "hard"})
+    pieces = []
+    out = brain.decide("should my shop register as a company or stay a proprietorship for GST?", locale="en",
+                       on_text=pieces.append)
+    routing = [c["model"] for c in http.calls if "Return ONLY the JSON object" in c["prompt"]]
+    assert "claude-opus-5-5" in routing, routing
+    assert out["reply"]
+    assert None not in pieces[:1]  # the dropped early reply was never shown, so nothing had to be withdrawn first

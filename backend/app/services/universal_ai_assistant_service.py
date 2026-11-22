@@ -434,6 +434,87 @@ class _ResetFirst:
         self.out(piece)
 
 
+class _HeldText:
+    """The early routing reply's pieces, held until the planner agrees the answer needs no live search and no stronger
+    model; then passed on in order (``release``) -- or never shown (``drop``). Also passes ``text_done`` on."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.out: Any = None
+        self.pending: list[Any] = []
+        self.released = False
+        self.dropped = False
+
+    def _emit(self, item: Any) -> None:
+        if item is _HeldText:  # marker: the reply is complete
+            finished = getattr(self.out, "text_done", None)
+            if callable(finished):
+                finished()
+        elif self.out is not None:
+            self.out(item)
+
+    def __call__(self, piece: Any) -> None:
+        with self.lock:
+            if self.dropped:
+                return
+            if not self.released:
+                self.pending.append(piece)
+                return
+            self._emit(piece)
+
+    def text_done(self) -> None:
+        self(_HeldText)
+
+    def release(self, out: Any) -> None:
+        with self.lock:
+            if self.dropped:
+                return
+            self.out, self.released = out, True
+            pending, self.pending = self.pending, []
+            for item in pending:
+                self._emit(item)
+
+    def drop(self) -> None:
+        with self.lock:
+            self.dropped = True
+            self.pending = []
+
+
+class _EarlyRoute:
+    """Owner 2026-11-22 (answers in 1-2 s): the routing call starts at once, next to the planner, instead of after it.
+    Used only when the planner then says no live search and no hard level (most turns); otherwise dropped (never shown)
+    and the routing runs again with the evidence / stronger model, exactly as before."""
+
+    def __init__(self, brain: Any, prompt: str, clean: str, location: str, cache_upto: int, streaming: bool) -> None:
+        self.held = _HeldText() if streaming else None
+        self.stream = _ReplyStream(self.held) if self.held is not None else None
+        self.result: dict[str, Any] | None = None
+        self.started = time.monotonic()
+        self.finished = threading.Event()
+
+        def work() -> None:
+            try:
+                self.result = brain._decision_json(prompt, clean, location, cache_upto=cache_upto, on_text=self.stream)
+            except Exception:
+                logger.exception("universal_ai_assistant: early routing failed")
+                self.result = None
+            finally:
+                self.finished.set()
+
+        threading.Thread(target=work, name="askodox-early-route", daemon=True).start()
+
+    def drop(self) -> None:
+        if self.held is not None:
+            self.held.drop()
+
+    def take(self, out: Any, timeout: float = 70.0) -> dict[str, Any] | None:
+        """Shows what was written so far (and the rest as it comes), waits for the decision."""
+        if self.held is not None and out is not None:
+            self.held.release(out)
+        self.finished.wait(timeout)
+        return self.result
+
+
 PLANNER_PROMPT = (
     "You plan ONE turn of ASKODOX, an AI assistant used in India in many languages. Read the conversation and the "
     "latest message (it may include text read from a photo / screenshot the user attached) and return ONLY a JSON "
@@ -1349,11 +1430,9 @@ class UniversalAIAssistantService:
 
         runtime_block = runtime_context_block(clean, self.clock)
         started = time.monotonic()
-        plan = self._plan(clean, compact_history)
-        _REQUEST.level = plan.get("level", "")
-        grounding, grounding_block = self._live_grounding(clean, compact_history, plan=plan)
-        grounding_ms = int((time.monotonic() - started) * 1000)
-        prompt = (
+
+        def routing_prompt(grounding_block: str) -> tuple[str, int]:
+            text = (
             "You are the semantic routing brain for ASKODOX, a natural AI assistant with optional local business actions. "
             "Understand meaning from the full conversation, not keyword matching. Return ONLY one JSON object with keys: "
             "reply, domain, transactional, action, confidence, entities, state, search_ready, next_question, search_subject, "
@@ -1437,9 +1516,10 @@ class UniversalAIAssistantService:
             + runtime_block + "\n"
             + grounding_block
             + f"Current user message: {clean}"
-        )
-        cache_upto = prompt.index(_CACHE_MARK)
-        prompt = prompt.replace(_CACHE_MARK, "", 1)
+            )
+            mark = text.index(_CACHE_MARK)
+            return text.replace(_CACHE_MARK, "", 1), mark
+
         # Fast guide path (owner 2026-11-10: quality AND speed): when the user's OWN words
         # (or a screenshot / document) already make this a how-to and nothing asks to buy
         # or find, the routing call's reply would be thrown away anyway -- write the guide
@@ -1447,11 +1527,31 @@ class UniversalAIAssistantService:
         # call); anything unclear still goes through routing.
         said_early = self.own_words(clean)
         facts_early = self.attachment_facts_of(clean)
+        guide_early = not self.split_app_context(clean)[2] and self.wants_guide(said_early, facts_early, "")
+        # Owner 2026-11-22 (answers in 1-2 s): the routing call no longer waits for the planner (~1-1.5 s). It starts
+        # now, its reply held back; the planner's "no live search, not hard" lets it through, anything else drops it
+        # and routing runs again with the evidence / stronger model as before. Never when the user's own words
+        # already need a live lookup (that evidence must be in the routing prompt) or for the guide path.
+        early: _EarlyRoute | None = None
+        if self.anthropic_api_key and not guide_early and not self._needs_lookup(clean):
+            early_prompt, early_cache = routing_prompt("")
+            early = _EarlyRoute(self, early_prompt, clean, clean_location, early_cache, streaming=on_text is not None)
+        plan = self._plan(clean, compact_history)
+        _REQUEST.level = plan.get("level", "")
+        if early is not None and (plan.get("search") or plan.get("level") == "hard"):
+            early.drop()
+            early = None
+        if early is not None:
+            grounding, grounding_block = None, ""
+        else:
+            grounding, grounding_block = self._live_grounding(clean, compact_history, plan=plan)
+        grounding_ms = int((time.monotonic() - started) * 1000)
+        prompt, cache_upto = routing_prompt(grounding_block)
         prepared_guide = ""
         route_ms = answer_ms = 0
         first_ms = -1
-        path = "routed"
-        if not self.split_app_context(clean)[2] and self.wants_guide(said_early, facts_early, ""):
+        path = "routed_early" if early is not None else "routed"
+        if guide_early:
             t0 = time.monotonic()
             prepared_guide, _meta = self._advise(
                 said_early, compact_history, locale, clean_location, ledger, capabilities,
@@ -1466,11 +1566,19 @@ class UniversalAIAssistantService:
                     "search_ready": False, "next_question": None, "search_subject": None}
         else:
             t0 = time.monotonic()
-            streamed_reply = _ReplyStream(on_text) if on_text is not None else None
-            data = self._decision_json(prompt, clean, clean_location, cache_upto=cache_upto, on_text=streamed_reply)
-            route_ms = int((time.monotonic() - t0) * 1000)
-            if streamed_reply is not None and streamed_reply.first_at is not None:
-                first_ms = int((streamed_reply.first_at - started) * 1000)
+            if early is not None:
+                released_at = time.monotonic()
+                streamed_reply = early.stream
+                data = early.take(on_text)
+                route_ms = int((time.monotonic() - early.started) * 1000)
+                if streamed_reply is not None and streamed_reply.first_at is not None:
+                    first_ms = int((max(streamed_reply.first_at, released_at) - started) * 1000)
+            else:
+                streamed_reply = _ReplyStream(on_text) if on_text is not None else None
+                data = self._decision_json(prompt, clean, clean_location, cache_upto=cache_upto, on_text=streamed_reply)
+                route_ms = int((time.monotonic() - t0) * 1000)
+                if streamed_reply is not None and streamed_reply.first_at is not None:
+                    first_ms = int((streamed_reply.first_at - started) * 1000)
             if streamed_reply is not None and streamed_reply.shown:
                 # Owner 2026-11-18 (answers in 1-2 s): the routing reply was shown word by word. When a written answer
                 # (guide / advice) replaces it below, that one streams after a reset.
@@ -1771,6 +1879,17 @@ class UniversalAIAssistantService:
     def _unverified_note(self, message: str, locale: str) -> str:
         telugu = str(locale or "").lower().startswith("te") or bool(re.search(r"[\u0C00-\u0C7F]", message))
         return self._UNVERIFIED_NOTE["te" if telugu else "en"]
+
+    def _needs_lookup(self, message: str) -> bool:
+        """The user's own words already call for live evidence (same rule as the start of ``_live_grounding``,
+        without the planner): the routing prompt must then carry that evidence, so it cannot start early."""
+        if message.startswith("OASAT "):
+            return False
+        user_text, context, about_shown = self.split_app_context(message)
+        if about_shown or askodox_self.is_about_askodox(askodox_self.fix_spoken_name(user_text)):
+            return False
+        probe = f"{user_text} {context}" if "The customer shared attachment" in context else user_text
+        return live_lookup.lookup_kind(probe) is not None
 
     def _live_grounding(self, message: str,
                         history: list[dict[str, str]] | None = None,
