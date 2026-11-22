@@ -218,3 +218,35 @@ def test_an_explanation_the_routing_call_already_wrote_is_not_written_twice():
     _streaming(brain, http, _sse("SECOND CALL"))
     out = brain.decide("my account balance changed today", locale="en")
     assert out["reply"].startswith(long_reply.strip()) and "SECOND CALL" not in out["reply"]
+
+
+def test_the_routing_reply_says_when_it_is_complete():
+    """Owner 2026-11-22 (voice 30-40 s late): the app may speak the last sentence as soon as the reply's closing quote
+    arrives -- the rest of the JSON (entities, state ...) is still being written."""
+    got, finished = [], []
+
+    def out(piece):
+        got.append(piece)
+
+    out.text_done = lambda: finished.append(True)
+    feed = svc._ReplyStream(out)
+    for piece in ['{"reply": "బిర్యానీ ', 'ఎక్కడ కావాలి?", "dom', 'ain": "FOOD", "entities": {"subject": "x"}}']:
+        feed(piece)
+    assert "".join(got) == "బిర్యానీ ఎక్కడ కావాలి?" and finished == [True]
+    plain = svc._ReplyStream([].append)  # a receiver without text_done is fine
+    plain('{"reply": "ok", "a": 1}')
+    assert plain.done
+
+
+class _RoutedSpeaker:
+    def decide(self, message, *, history=None, locale="", location="", on_text=None, **_):
+        feed = svc._ReplyStream(on_text)
+        feed('{"reply": "Long layer cut suits you.", "domain": "GENERAL"')
+        return {"reply": "Long layer cut suits you.", "domain": "GENERAL", "transactional": False,
+                "action": "advise", "confidence": 0.9, "mode": "chat"}
+
+
+def test_stream_route_sends_text_done_before_the_final_json(monkeypatch):
+    client = _client(monkeypatch, _RoutedSpeaker())
+    events = _lines(client.post("/api/in-app/assistant/stream", json={"message": "haircut for my face", "locale": "en"}))
+    assert [e["type"] for e in events] == ["delta", "text_done", "final"]

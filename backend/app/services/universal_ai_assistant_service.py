@@ -411,6 +411,12 @@ class _ReplyStream:
                 self.first_at = time.monotonic()
             self.shown = True
             self.out("".join(text))
+        if self.done and self.shown:
+            # Owner 2026-11-22 (voice 30-40 s late): the reply is complete while the rest of the JSON is still being
+            # written -- tell the stream, so the app can speak its last sentence now instead of after the whole JSON.
+            finished = getattr(self.out, "text_done", None)
+            if callable(finished):
+                finished()
 
 
 class _ResetFirst:
@@ -572,7 +578,9 @@ class UniversalAIAssistantService:
         prompt = (PLANNER_PROMPT + "\nConversation (oldest first):\n" + ("\n".join(lines) or "(none)")
                   + ("\n\nAttachment text:\n" + attachment if attachment else "")
                   + "\n\nLatest message:\n" + user_text[:1200])
-        raw = self._call_claude(prompt, max_tokens=200, temperature=0.0, timeout=8.0, cache_upto=len(PLANNER_PROMPT))
+        # 400, not 200: a long search query used to cut the JSON ("claude answer cut at max_tokens" in the deploy log,
+        # owner test 2026-11-22) -> no plan, no search decision, no level for the answer.
+        raw = self._call_claude(prompt, max_tokens=400, temperature=0.0, timeout=8.0, cache_upto=len(PLANNER_PROMPT))
         if not raw:
             return {}
         try:
@@ -1706,7 +1714,10 @@ class UniversalAIAssistantService:
         data: dict[str, Any] | None = None
         level = getattr(_REQUEST, "level", "")
         brain = self.anthropic_hard_model if level == "hard" else self.anthropic_model
-        claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown.", model=brain,
+        # "reply" FIRST (owner 2026-11-22: first words came ~5 s into this call): the app speaks it while the rest of
+        # the JSON is still being written.
+        claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown. Write the \"reply\" key "
+                                        "FIRST, before every other key.", model=brain,
                                         max_tokens=4096, temperature=0.15,
                                         timeout=25.0 if brain == self.anthropic_model else 60.0,
                                         on_text=on_text, cache_upto=cache_upto)
