@@ -268,12 +268,11 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
         ),
       const SizedBox(height: 40),
       if (!finished)
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Wrap(alignment: WrapAlignment.center, spacing: 12, runSpacing: 4, children: [
           TextButton(
               key: const Key('askodoxCheckInStepsHalf'),
               onPressed: () => _go('half'),
               child: Text(te ? 'ఈ రోజు హాఫ్ డే' : 'Half day today')),
-          const SizedBox(width: 12),
           if (inAt == null)
             TextButton(
                 key: const Key('askodoxCheckInStepsLeave'),
