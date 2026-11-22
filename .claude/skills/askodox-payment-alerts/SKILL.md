@@ -1,0 +1,62 @@
+---
+name: askodox-payment-alerts
+description: Use when fixing or changing ASKODOX payment voice alerts (bank SMS / UPI app notifications, double voice, missing payer name, history rows) or when the owner reports a payment-sound problem.
+---
+
+# ASKODOX payment voice alerts
+
+The phone reads bank SMS and UPI / bank app notifications, says "₹X received" (with the payer's name when known) and
+keeps one history row per payment. The owner tests on real phones with real money, so every bug he reports is a real
+message shape or a real timing. This skill keeps a fixed bug from coming back.
+
+## Where things live
+
+| What | File |
+|---|---|
+| Reading a message (amount, payer, RRN, account, handle, fake signs) | `android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt` |
+| Is this message the same payment as an earlier row? | `PaymentAlertParser.pickSamePayment` + `samePaymentWindow` (same file, pure Kotlin) |
+| Listener, voice, history JSON, upload | `android/app/src/main/kotlin/com/askodox/askodox/AskodoxPaymentAlerts.kt` (`handle`, `mergeSameMoney`) |
+| Tests (message shapes + `Sim()` scenarios) | `android/parser-tests/ParserTest.kt` |
+| CI gate | `.github/workflows/payment-parser-gate.yml` |
+| Owner's rules (history) | `docs/ASKODOX_EXECUTION_TRACKER.md`, comments starting `Owner YYYY-MM-DD` |
+
+## The owner's rules (do not break)
+
+1. One payment = one voice, one row. The second message of the same money (SMS after the app, the app after the
+   SMS, a late bank-app notification) joins silently, however late it comes (owner 2026-11-17, 2026-11-22).
+2. Whichever message arrives first speaks at once. It does not wait for a name.
+3. Two real payments are never merged: two messages from the same app, two SMS, or two different RRNs = two payments,
+   even for the same amount a minute apart (owner 2026-11-15).
+4. The payer's name on the notification must be spoken (owner 2026-11-22: "the name was there but not read").
+5. A fake "money received" SMS is never money (owner 2026-11-19 / 22).
+
+## How a message joins a row (`pickSamePayment`)
+
+- Same RRN on both → same payment, any order, within `SAME_REF_MS` (24 h). Two different full RRNs → never.
+- Otherwise: same amount + direction, a source kind the row does not have yet, no clue that says "two payments"
+  (different account tail, different payer UPI handle), within `LATE_PAIR_MS` (2 h).
+- Same payer handle or payer name on both → `SAME_PAYER_MS` (6 h).
+- If several rows fit, a row with a clue wins, then the row closest in time.
+- Known trade-off: with no clue at all, another customer's QR payment (SMS only) of exactly the same amount that
+  arrives within 2 h of an unpaired notification joins it. Payer handles usually prevent this, so keep handle parsing
+  strong rather than shortening the window.
+
+## Procedure for an owner bug report
+
+1. **Write the case down as a test first.** Add a `Sim().run { ... }` scenario to `ParserTest.kt` using the real
+   message shape (made-up names and numbers) and the real gap in minutes. Use `check(...)` for a parse problem
+   (name or amount). Confirm the test FAILS on current code.
+2. **Fix in `PaymentAlertParser.kt`** (pure). Change `AskodoxPaymentAlerts.kt` only to feed data in or out.
+3. **Run the gate locally:**
+   ```bash
+   curl -sSL -o /tmp/kc.zip https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+   unzip -q -o /tmp/kc.zip -d /tmp
+   /tmp/kotlinc/bin/kotlinc android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt \
+     android/parser-tests/ParserTest.kt -include-runtime -d /tmp/parser.jar && java -jar /tmp/parser.jar | tail -3
+   ```
+   It must end with `ALL PASS`. Never delete or flip an older test to make a new one pass. If an older test encoded
+   the bug (as "sms 20 min after app = new" did), rewrite it with the owner's dated rule in its name.
+4. **Android compile:** `AskodoxPaymentAlerts.kt` needs the Android SDK, so the Android APK CI is the real compile
+   check. Wait for it to pass before calling the work done.
+5. **Report to the owner** in Telugu: what was wrong (one line each), what changed, which tests now guard it, and
+   that nothing is phone-verified until he tests. Merge only on his "1".

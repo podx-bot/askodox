@@ -262,7 +262,7 @@ object AskodoxPaymentAlerts {
     }
 
     /** Kinds of message that come through the SMS app NEXT TO the bank's debit SMS for the same money. */
-    private val SIDE_KINDS = setOf("biller", "billpay")
+    private val SIDE_KINDS = PaymentAlertParser.SIDE_KINDS
 
     /** upi | bank | sms | other: the person's list says it; otherwise guessed from the package name. */
     fun kindOf(cfg: JSONObject, pkg: String): String {
@@ -1005,37 +1005,44 @@ object AskodoxPaymentAlerts {
         // [now] = THIS message's payment time; rows keep theirs in at_ms.
         val kind = asKind ?: kindOf(cfg, pkg)
         val list = events(context)
-        var hit: JSONObject? = null
+        // The decision itself is PaymentAlertParser.pickSamePayment (pure, covered by android/parser-tests): one
+        // payment = one voice, whatever the order of the SMS / notification and however late the second one comes.
+        val rows = ArrayList<PaymentAlertParser.Row>()
         for (i in 0 until list.length()) {
             val e = list.getJSONObject(i)
             val at = e.optLong("at_ms", 0L)
-            if (at <= 0L || e.optBoolean("test")) continue
-            // Two messages from the same app never join -- except a company's "thank you for your payment" SMS, the bank's
-            // own "Bill Paid" SMS and the bank's debit SMS, which all come through the SMS app (kinds "biller" /
-            // "billpay" vs "sms"; two of the same kind still never join).
-            if (e.optString("source_app") == pkg && kind !in SIDE_KINDS && e.optString("kind") !in SIDE_KINDS) continue
-            if ((e.optString("direction").ifEmpty { "in" }) != direction) continue
-            // A row set aside (❓) joins only the bank's own SMS that agrees with it (then it counts again).
-            if (e.optBoolean("excluded") && !bankSms) continue
-            // ONE common key (owner 2026-11-17): the UPI RRN both messages carry. Same RRN = same money, any order,
-            // any gap within a day. Two different full RRNs = two payments. An app's own id vs the bank's RRN says
-            // nothing: amount + account + time + source decide below.
-            when (PaymentAlertParser.compareRefs(e.optString("reference"), reference)) {
-                PaymentAlertParser.RefMatch.SAME -> if (kotlin.math.abs(now - at) <= 24 * 3600_000L) { hit = e; break }
-                PaymentAlertParser.RefMatch.DIFFERENT -> continue
-                PaymentAlertParser.RefMatch.UNKNOWN -> {}
-            }
-            if (e.optLong("amount_paise", -1L) != amount) continue
-            if (PaymentAlertParser.accountsDiffer(e.optString("account"), account)) continue
-            val other = e.optString("upi_handle")
-            if (handle != null && other.isNotEmpty() && other != handle) continue
+            if (at <= 0L || e.optBoolean("test") || kotlin.math.abs(now - at) > PaymentAlertParser.SAME_REF_MS) continue
+            val dir = e.optString("direction").ifEmpty { "in" }
             val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
                 (0 until a.length()).map { a.optString(it) }
             }
-            if (kind in kinds) continue
-            if (PaymentAlertParser.samePaymentWindow(kind, kinds, now - at)) { hit = e; break }
+            // What this phone read (kept on this phone only): the payer's UPI id / name when the row did not store it.
+            val raws = ArrayList<String>()
+            e.optJSONArray("raw_also")?.let { a -> for (k in 0 until a.length()) raws.add(a.optString(k)) }
+            val incoming = dir == "in"
+            val rowHandle = e.optString("upi_handle").ifEmpty {
+                if (!incoming) "" else
+                    (listOf("${e.optString("raw_title")} ${e.optString("raw_text")}") + raws)
+                        .firstNotNullOfOrNull { PaymentAlertParser.upiHandleTail(it) } ?: ""
+            }
+            val rowPayer = e.optString("party").ifEmpty {
+                if (!incoming) "" else
+                    PaymentAlertParser.payerOf(e.optString("raw_title").ifEmpty { null }, e.optString("raw_text").ifEmpty { null })
+                        ?: raws.firstNotNullOfOrNull { PaymentAlertParser.payerName(it) } ?: ""
+            }
+            rows.add(PaymentAlertParser.Row(
+                index = i, atMs = at, sourceApp = e.optString("source_app"), kind = e.optString("kind"), kinds = kinds,
+                direction = dir, amountPaise = e.optLong("amount_paise", -1L),
+                account = e.optString("account").ifEmpty { null }, reference = e.optString("reference").ifEmpty { null },
+                handle = rowHandle.ifEmpty { null }, payer = rowPayer.ifEmpty { null },
+                excluded = e.optBoolean("excluded"), test = false,
+            ))
         }
-        val e = hit ?: return null
+        val picked = PaymentAlertParser.pickSamePayment(rows, PaymentAlertParser.Msg(
+            sourceApp = pkg, kind = kind, direction = direction, amountPaise = amount, atMs = now, account = account,
+            reference = reference, handle = handle, payer = party, bankSms = bankSms,
+        )) ?: return null
+        val e = list.getJSONObject(picked)
         val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
             (0 until a.length()).map { a.optString(it) }
         }

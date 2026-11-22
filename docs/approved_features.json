@@ -9420,6 +9420,43 @@
         }
       ],
       "status": "approved"
+    },
+    {
+      "id": "one_payment_one_voice",
+      "name": "One payment = one voice and one history row, however late the second message (bank SMS / app notification) comes; the payer's name is spoken",
+      "purpose": "Owner 2026-11-22: a PhonePe notification with the payer's name came first but the voice said no name; the bank SMS of the same payment came about an hour later and was spoken again (and SMS first + a late notification too). One example = every bank, UPI app and phone.",
+      "expected_behavior": "The first message of a payment (bank SMS or UPI / bank app notification) speaks at once, with the payer's name when that message carries it (\"NAME (id@ibl) sent you ₹X\", \"NAME sent you ₹X\", title / text split). Every later message of the same money joins that row silently: the same UPI reference (RRN) within 24 h; the same payer UPI id or name within 6 h; otherwise the same amount and direction from a source kind the row lacks, in any order, within 2 h, when no clue says two payments (different RRN, account tail or payer UPI id). Two messages from one app, or two SMS, are always two payments. A masked id (\"*akar@ibl\") tells two payers apart; an e-mail address or the shop's own UPI id is never the payer. The decision is PaymentAlertParser.pickSamePayment (pure), used by the phone's history merge.",
+      "roles": [
+        "any signed-in user",
+        "shop owner",
+        "staff"
+      ],
+      "domains": [
+        "payments"
+      ],
+      "api": [],
+      "ui": {},
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "android/parser-tests/ParserTest.kt::notification, then bank SMS 1 h later = spoken once",
+          "android/parser-tests/ParserTest.kt::another payer's QR",
+          "android/parser-tests/ParserTest.kt::phonepe name with upi id in brackets"
+        ]
+      },
+      "dependencies": [
+        "my_phone_payment_alerts",
+        "one_voice_per_reply_and_bank_wins",
+        "paid_bills_are_payments"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-22",
+          "change": "new; parser gate (android/parser-tests) Sim() scenarios cover it; not phone verified"
+        }
+      ]
     }
   ]
 }
