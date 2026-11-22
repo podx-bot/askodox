@@ -235,15 +235,30 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           Expanded(
             child: Row(children: [
               if (!askodoxPhase2)
-                const Flexible(
+                Flexible(
                   child: FittedBox(
-                    key: Key('askodoxHeaderWordmark'),
+                    key: const Key('askodoxHeaderWordmark'),
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Text('ASKODOX',
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('ASKODOX',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(color: _navInk, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                      const SizedBox(width: 6),
+                      // Owner 2026-11-22: the side the app is on, beside the name (it shrinks with the name on a
+                      // narrow phone, so the header never overflows).
+                      Container(
+                        key: const Key('askodoxHeaderModeChip'),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: seller ? _sellerColor : _buyerColor, borderRadius: BorderRadius.circular(10)),
+                        child: Text(seller ? (isTe ? 'అమ్ము' : 'Sell') : (isTe ? 'కొను' : 'Buy'),
+                            maxLines: 1,
+                            softWrap: false,
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+                      ),
+                    ]),
                   ),
                 ),
               // Owner 2026-11-21: the game moved to the bottom bar ("Live Work"); the header keeps Talk / Radio

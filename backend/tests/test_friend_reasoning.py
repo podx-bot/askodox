@@ -152,3 +152,16 @@ def test_results_stay_in_the_result_cards():
     brain.decide("కాటన్ చీర 800 లోపు కావాలి", history=[])
     assert svc.RESULT_CARD_RULES in models.prompts[0]
     assert "never a list of shop names, items or prices in the reply text" in svc.RESULT_CARD_RULES
+
+
+def test_a_how_to_answer_carries_the_friends_logic_inside_its_own_shape():
+    rule = svc.GUIDE_FRIEND_RULES
+    for must in ("the length limits above still hold", "the route that fits THEM", "never stop at 'not possible'",
+                 "order the steps backwards from that result", "never named, never a lecture"):
+        assert must in rule, must
+    brain, models = _brain()
+    brain.decide("how do I apply for Udyam registration? I run a small tiffin stall alone", history=[])
+    guides = [p for p in models.prompts if svc.GUIDE_ANSWER_RULES in p]
+    assert guides, "a how-to question gets the guide answer"
+    assert all(svc.GUIDE_FRIEND_RULES in p for p in guides)
+    assert all(svc.FRIEND_REASONING_RULES not in p for p in guides), "the long advisory rules stay out of a short guide"

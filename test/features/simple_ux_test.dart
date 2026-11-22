@@ -333,6 +333,13 @@ void main() {
     expect(find.byKey(const Key('askodoxHeaderWordmark')), askodoxPhase2 ? findsNothing : findsOneWidget);
     expect(find.byKey(const Key('askodoxHeaderHub')), askodoxPhase2 ? findsOneWidget : findsNothing);
     if (!askodoxPhase2) {
+      // The side the app is on sits beside the name and stays inside the header on a narrow phone.
+      final chip = find.byKey(const Key('askodoxHeaderModeChip'));
+      expect(chip, findsOneWidget);
+      expect(find.descendant(of: chip, matching: find.text('Buy')), findsOneWidget);
+      expect(tester.getRect(chip).right, lessThanOrEqualTo(360.5));
+    }
+    if (!askodoxPhase2) {
       expect(find.byKey(const Key('askodoxHeaderGameButton')), findsNothing);
       expect(find.byKey(const Key('askodoxHeaderTalkButton')), findsNothing);
       expect(find.byKey(const Key('askodoxHeaderRadioButton')), findsNothing);

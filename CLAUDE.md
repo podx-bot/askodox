@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` PR #383 (2026-11-21, owner "6, 7 + design, then merge + aab"; Play bundle `askodox-play-1590.aab`, Live Build run 44932718383; server deploy SUCCESS) + round 2 (2026-11-22, owner "finish all": Buyer Money = `/me/payments?mine=1` (`mineOnly`: own phone only), Seller greeting, reply `switch_mode` -> chip `askodoxSwitchMode-*` (`switch_mode_offer`, `askodoxSetSellerMode`), `RESULT_CARD_RULES`): BUY / SELL SWITCH --
+- `main` PR #383 (2026-11-21, owner "6, 7 + design, then merge + aab"; Play bundle `askodox-play-1590.aab`, Live Build run 44932718383; server deploy SUCCESS) + round 2 (2026-11-22, owner "finish all": Buyer Money = `/me/payments?mine=1` (`mineOnly`: own phone only), Seller greeting, reply `switch_mode` -> chip `askodoxSwitchMode-*` (`switch_mode_offer`, `askodoxSetSellerMode`), `RESULT_CARD_RULES`; PR #384, Play bundle `askodox-play-1592.aab`) + round 3 (2026-11-22, owner "start": header chip `askodoxHeaderModeChip` inside the wordmark FittedBox, `GUIDE_FRIEND_RULES` in how-to answers, Meta Page login `routes/meta_oauth.py` `/meta/oauth/start|callback` from old PR #259 -- needs `META_APP_ID` / `META_APP_SECRET`, stores no token): BUY / SELL SWITCH --
   `askodoxSellerModeProvider` (false = Buyer; kept on the phone under `askodoxSellerModePrefsKey`), bottom bar = Home ·
   Live Work (`askodoxNavLiveWork`, `/work`) · Ask · Money (Buyer) / Shop (Seller, `/me/business`) · switch
   (`askodoxNavHistory`, where Tools was; Tools / settings open from the ☰ menu). "ASKODOX Club" and the header game pill
@@ -19,7 +19,8 @@ this file, don't trust it blindly.
   `DECISION_GUIDANCE_RULES` and in `_advise`; how-to guides keep `GUIDE_ANSWER_RULES`. RESULTS: asked-for sections
   (`requested_groups`) come third, after `local` + `affiliate`, unless staff fixed `section_order`. Guide step
   `_profile` now points at the header Menu. Nothing phone verified; no live before / after answer comparison.
-- Branch `claude/voice-fix` (2026-11-21, owner "2 voices + ElevenLabs not coming + Rs 3,000 minus"; NOT merged yet):
+- `main` PR #381 (2026-11-21, owner "2 voices + ElevenLabs not coming + Rs 3,000 minus"; server deploy f83c576 SUCCESS;
+  Play bundle `askodox-play-1588.aab`, Live Build run 44913389941):
   ONE VOICE PER REPLY -- `/api/in-app/voice/speak` takes `engine` (''|elevenlabs|sarvam; elevenlabs waits 20 s and never
   answers with Sarvam), app `_speakChunks` locks the first part's engine (`askodoxAudioEngine` Expando on the bytes);
   log `ASKODOX VOICE SPEAK` (status / ms / locked / cache). Cause found in logs: eleven_v3 > 8 s on some parts -> that part
