@@ -9460,6 +9460,97 @@
           "change": "new; the join decision and name reading are covered by the Payment parser gate (android/parser-tests/ParserTest.kt Sim() scenarios, Kotlin -- not a flutter test); not phone verified"
         }
       ]
+    },
+    {
+      "id": "shop_link_page",
+      "name": "Shop link: one free public page per shop (askodox.com/s/<name>) made in 3 steps",
+      "roles": [
+        "shop owner",
+        "customer"
+      ],
+      "domains": [
+        "shop",
+        "growth",
+        "payments"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/link"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/link"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/link/check"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/link/stats"
+        },
+        {
+          "method": "GET",
+          "path": "/s/{slug}"
+        },
+        {
+          "method": "GET",
+          "path": "/s/{slug}/order"
+        },
+        {
+          "method": "GET",
+          "path": "/s/{slug}/go/{kind}"
+        },
+        {
+          "method": "POST",
+          "path": "/s/{slug}/c/{kind}"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxShopLink1",
+          "askodoxShopLink2",
+          "askodoxShopLink3",
+          "askodoxShopLinkNext",
+          "askodoxShopLinkSave",
+          "askodoxShopLinkSlug",
+          "askodoxShopLinkSend",
+          "askodoxShopLinkCopy",
+          "askodoxShopLinkPoster",
+          "askodoxShopLinkOpen",
+          "askodoxShopLinkUrl",
+          "askodoxShopLinkNotOwner"
+        ],
+        "symbols": [
+          "AskodoxShopLinkStepsScreen",
+          "askodoxCleanSlug",
+          "askodoxSlugProblem",
+          "askodoxShopLinkShareText"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_shop_links.py"
+        ],
+        "flutter": [
+          "test/features/steps/shop_link_test.dart"
+        ]
+      },
+      "dependencies": [
+        "three_step_pages",
+        "money_both_sides_launcher"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-22 (PlayboxTV / Linktree idea, design artifact GyGuSkNsVrf6cxXQBZk7h4 approved \"Ok\"): every shop gets ONE free page to share on WhatsApp / status / Instagram and as a counter QR poster; customers see the menu and order, and are asked to get the ASKODOX app -- so shops bring users.",
+      "expected_behavior": "Owner only (own OTP) makes it in 3 steps at /pos/:id/link (Seller Money page 's.link'): what to show (menu + prices, call, map, own UPI, offer line, WhatsApp number) -> colour + English link name (checked live; old names keep working) -> link + WhatsApp / copy / QR poster / open + 7-day counts. Public page /s/<slug> (no script, CSP script-src 'none'): app banner, call / directions / WhatsApp / own UPI, offer, menu form -> WhatsApp message page with the app ask, or the app page (Play with the shop in the install referrer). Paused / closed shops show but take no orders. Counts only (no customer identity). Web links refused in the offer / about lines. Proxied on askodox.com (Caddyfile @askodox_shop_links).",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new (phase 1: page + WhatsApp order + 3-step setup + QR poster); not phone verified"
+        }
+      ]
     }
   ]
 }

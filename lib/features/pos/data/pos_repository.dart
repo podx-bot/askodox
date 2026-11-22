@@ -343,6 +343,10 @@ class AskodoxPosRepository {
       _send('POST', '${_b(id)}/invoices/$invoiceId/cancel', body: {'reason': reason});
   Future<AskodoxJson> day(String id, String date) => _send('GET', '${_b(id)}/day/$date');
   Future<AskodoxJson> closeDay(String id, AskodoxJson body) => _send('POST', '${_b(id)}/day-close', body: body);
+  // ---- Shop link (shop_links.py): askodox.com/s/<slug>; only the owner saves, managers read it + its counts.
+  Future<AskodoxJson> shopLink(String id) => _send('GET', '${_b(id)}/link');
+  Future<AskodoxJson> checkShopLink(String id, String slug) => _send('GET', '${_b(id)}/link/check', query: {'slug': slug});
+  Future<AskodoxJson> saveShopLink(String id, AskodoxJson body) => _send('PUT', '${_b(id)}/link', body: body);
   Future<AskodoxJson> gstReport(String id, String from, String to) =>
       _send('GET', '${_b(id)}/reports/gst', query: {'date_from': from, 'date_to': to});
   Future<List<AskodoxJson>> members(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/members'))['members']);

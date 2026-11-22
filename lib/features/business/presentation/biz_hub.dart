@@ -86,6 +86,7 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'staff.tasks' => '/biz/$id/staff/tasks',
       'customers.page' || 'customers.reviews' => '/shops/$id',
       'customers.post' => '/shops/$id/post',
+      'customers.link' => '/pos/$id/link',
       'customers.welcome' => '/desk/$id/settings',
       'customers.list' => '/pos/$id/customers',
       'customers.crm' => '/pos/$id/crm',

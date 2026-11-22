@@ -949,6 +949,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '2: డ్రాయర్‌లో క్యాష్ టైప్ చేయండి — "ఉండాల్సింది", తేడా వెంటనే కనిపిస్తాయి. 3: అయింది — ఈ రోజు అమ్మకం; WhatsApp కి పంపండి.',
     'ముగించిన తర్వాత మార్చలేం; ముగించే ముందు ఒకసారి అడుగుతుంది.',
   ]),
+  '/pos/:id/link': _H('My shop link', 'నా షాప్ లింక్', [
+    'Three steps. 1: choose what your free page shows — menu + prices, call, directions, your own UPI, an offer line.',
+    '2: pick a colour and a short English name: askodox.com/s/<name>. 3: done — send it on WhatsApp, copy it or print the QR poster.',
+    'Customers order on WhatsApp from the page; money goes to your own UPI. Only the owner makes or changes the link (⋮).',
+  ], [
+    'మూడు స్టెప్స్. 1: మీ ఉచిత పేజీలో ఏమి చూపించాలో ఎంచుకోండి — మెనూ + ధరలు, కాల్, దారి, మీ సొంత UPI, ఆఫర్ లైన్.',
+    '2: రంగు, English లో చిన్న పేరు ఎంచుకోండి: askodox.com/s/<పేరు>. 3: అయింది — WhatsApp లో పంపండి, కాపీ చేయండి లేదా QR పోస్టర్ ప్రింట్ చేయండి.',
+    'కస్టమర్లు పేజీ నుండి WhatsApp లో ఆర్డర్ చేస్తారు; డబ్బు మీ సొంత UPI కే. లింక్ తయారు / మార్చడం ఓనర్ మాత్రమే (⋮).',
+  ]),
   '/pos/:id/gst': _H('GST summary', 'GST సారాంశం', [
     'Pick the dates; share the summary or CSV with your accountant.',
     'It is not a filed return.',
