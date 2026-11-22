@@ -7,6 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/three-step-pages` (2026-11-22, owner "సరే ఒకసారి ఇది చేయండి" on design artifact RGYB6de8vhoNeDwY3DBG9z
+  page "3 స్టెప్స్"): SECOND PAGES IN 3 PIECES, JOBS IN 3 STEPS -- kit `lib/features/steps/presentation/step_kit.dart`
+  (`AskodoxStepScaffold`: back = one step back, 1·2·3 bar, one big question, middle, `AskodoxStepBottom` = mic + ONE
+  big button; ⋮ holds the rest; keypad / choice cards / ✓ / round actions) + pure rules `steps/domain/step_logic.dart`.
+  Phase 1 replaces four routes, the old pages stay at `?full=1`: `/me/business/:id/bill` (`AskodoxBillStepsScreen`:
+  item tiles tap = 1 / again = more / hold = weight, no items = amount pad -> cash / online / due (name + pay date) /
+  part cash -> ✓ WhatsApp + print; mic = `askodoxParsePosOrder` fills tiles + `askodoxSpokenPayMethod` pre-selects,
+  never bills by itself), `/biz/:id/money/dues` (`AskodoxDuesStepsScreen`: who -> keypad -> ✓ receipt; one payment
+  over the bills oldest first = `billSettle(amountPaise:)`), `/biz/:id/staff/checkin` (`AskodoxCheckInStepsScreen`:
+  round button from the caller's own day = attendance today `me` (new, owner included) -> phone lock / selfie -> ✓),
+  `/pos/:id/day` (`AskodoxDayStepsScreen`: online right? -> drawer keypad, asks once (final) -> ✓ + WhatsApp).
+  Next phases (not built): the other 13 work pages, 31 glance pages, 21 setting pages. Nothing phone verified.
 - `main` PR #387 (2026-11-22, owner "Ok start work" on the Money / ☰ design artifact VJpPz7Ckp6yh7CiCZ4v3Zf): MONEY ON BOTH
   SIDES -- bottom bar Home · Live Work · Ask · Money · Buy|Sell (Seller said "Shop"; keys stay `askodoxNavPayments` Buyer /
   `askodoxNavShop` Seller), Money = shell branch 1 `/money-home` (`AskodoxMoneyHomeScreen`, `lib/features/money_home/`; old

@@ -315,11 +315,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'లేదా చెప్పండి: "గ్యాస్ సిలిండర్ 1100 ఖర్చు". తప్పు వరుస చెత్తబుట్టతో తీసేయండి — "వెనక్కి" తో మళ్ళీ వస్తుంది.',
   ]),
   '/biz/:id/money/dues': _H('Dues', 'బాకీలు', [
-    'Everyone who still owes money, biggest first. Tap a person to see their bills.',
-    'When they pay, tap "Paid" and choose cash or online.',
+    'Three steps. 1: tap who paid (the total owed is on top; say or type a name). 2: type how much — "all" is ready; cash or online.',
+    '3: done — the money goes on their oldest bills first; send the receipt on WhatsApp. Reminders: the button at the bottom.',
   ], [
-    'బాకీ ఉన్న అందరూ, ఎక్కువ ఉన్నవారు ముందు. పేరు నొక్కితే వారి బిల్లులు.',
-    'కట్టినప్పుడు "కట్టారు" నొక్కి క్యాష్ / ఆన్‌లైన్ ఎంచుకోండి.',
+    'మూడు స్టెప్స్. 1: ఎవరు కట్టారో నొక్కండి (పైన మొత్తం బాకీ; పేరు చెప్పండి / టైప్). 2: ఎంత ఇచ్చారు — "మొత్తం" ముందే ఉంటుంది; క్యాష్ / ఆన్‌లైన్.',
+    '3: అయింది — డబ్బు పాత బిల్లులకు ముందు జమ; రసీదు WhatsApp కి. గుర్తులు పంపడం: కింద బటన్.',
   ]),
   '/biz/:id/money/history': _H('Bill history', 'బిల్లుల చరిత్ర', [
     'Search by bill or phone number. Choose the days, then cash / online / baaki / cancelled.',
@@ -366,11 +366,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'P, A, OT, సెలవు — ఒక్క నొక్కుతో ఆ వ్యక్తి ఈ రోజు మారుతుంది.',
   ]),
   '/biz/:id/staff/checkin': _H('Check in / out', 'హాజరు వేయి', [
-    'Tap "I am in": your phone asks for its own fingerprint / face / PIN, then saves the time and how far you are from the shop.',
-    'No phone lock? It takes a selfie instead. Tap "Leaving" when you go.',
+    'Three steps. 1: tap the big round button ("I am in", later "I am leaving"). 2: your phone asks for its own fingerprint / face / PIN.',
+    '3: done — the time and how far you are from the shop. No phone lock? It takes a selfie. Half day / leave: the words under the button.',
   ], [
-    '"వచ్చాను" నొక్కండి: మీ ఫోన్ వేలిముద్ర / ముఖం / PIN అడిగి, టైం, షాప్ నుంచి దూరం రాస్తుంది.',
-    'ఫోన్ లాక్ లేకపోతే సెల్ఫీ అడుగుతుంది. వెళ్ళేటప్పుడు "వెళ్తున్నా" నొక్కండి.',
+    'మూడు స్టెప్స్. 1: పెద్ద గుండ్రటి బటన్ నొక్కండి ("వచ్చాను", తర్వాత "వెళ్తున్నా"). 2: మీ ఫోన్ వేలిముద్ర / ముఖం / PIN అడుగుతుంది.',
+    '3: అయింది — టైం, షాప్ నుంచి దూరం. ఫోన్ లాక్ లేకపోతే సెల్ఫీ. హాఫ్ డే / సెలవు: బటన్ కింద మాటలు.',
   ]),
   '/biz/:id/staff/kiosk': _H('Shop phone attendance', 'షాప్ ఫోన్ హాజరు', [
     'For people without a phone: tap the name, then in or out, then a front-camera photo.',
@@ -445,13 +445,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ASKODOX వివరాలు చూసిన తర్వాతే షాప్ వెరిఫైడ్ గా కనిపిస్తుంది.',
   ]),
   '/me/business/:id/bill': _H('Bill', 'బిల్లు', [
-    'Type each amount (item name is optional). The total adds up by itself.',
-    'Show QR: the customer scans and pays the total to your own UPI.',
-    'Send the bill: shares the bill picture on WhatsApp or any app. Sending is optional.',
+    'Three steps. 1: tap what they took (tap again = more, hold = type the weight; no items yet = type the amount).',
+    '2: tap how they paid — cash, online (your QR shows) or due (name + pay date). 3: done — WhatsApp or print.',
+    'Or press the mic: "12 number 2, UPI". GST, advance and editing a bill are in ⋮ → full bill page.',
   ], [
-    'ప్రతి మొత్తం టైప్ చేయండి (వస్తువు పేరు ఇష్టమైతే). మొత్తం దానంతట అదే కూడుతుంది.',
-    'QR చూపండి: కస్టమర్ స్కాన్ చేసి మొత్తాన్ని మీ సొంత UPI కి కడతారు.',
-    'బిల్లు పంపండి: బిల్లు చిత్రాన్ని వాట్సాప్ లేదా ఏ యాప్‌లోనైనా పంపుతుంది. పంపడం మీ ఇష్టం.',
+    'మూడు స్టెప్స్. 1: ఏం ఇచ్చారో నొక్కండి (మళ్ళీ నొక్కితే ఇంకా, పట్టుకుంటే బరువు టైప్; ఐటమ్స్ లేకపోతే మొత్తం టైప్).',
+    '2: ఎలా కట్టారో నొక్కండి — క్యాష్, ఆన్‌లైన్ (మీ QR వస్తుంది), బాకీ (పేరు + కట్టే రోజు). 3: అయింది — WhatsApp లేదా ప్రింట్.',
+    'లేదా మైక్ నొక్కి చెప్పండి: "12 నంబర్ 2, UPI". GST, అడ్వాన్స్, బిల్లు మార్పు ⋮ → పూర్తి బిల్లు పేజీలో.',
   ]),
   '/me/following': _H('Shops I follow', 'నేను ఫాలో చేస్తున్న షాప్‌లు', [
     'Shops you follow appear here. Tap one to see it and its updates.',
@@ -941,11 +941,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఇష్యూ చేసిన బిల్లు ఎప్పుడూ మార్చబడదు.',
   ]),
   '/pos/:id/day': _H('Day close', 'రోజు ముగింపు', [
-    'Count the cash, enter it, and close the day.',
-    'Match UPI / card totals with your bank statement.',
+    'Three steps. 1: is today\'s online money right? Compare with your bank app (a difference -> today\'s bills).',
+    '2: type the cash in the drawer — "should be" and the difference show live. 3: done — today\'s sales; send on WhatsApp.',
+    'Closing is final; it asks once before closing.',
   ], [
-    'క్యాష్ లెక్కించి నమోదు చేసి రోజు ముగించండి.',
-    'UPI / కార్డ్ మొత్తాలను బ్యాంక్ స్టేట్‌మెంట్‌తో పోల్చండి.',
+    'మూడు స్టెప్స్. 1: ఈ రోజు ఆన్‌లైన్ డబ్బు సరేనా? బ్యాంక్ యాప్‌తో పోల్చండి (తేడా ఉంటే ఈ రోజు బిల్లులు).',
+    '2: డ్రాయర్‌లో క్యాష్ టైప్ చేయండి — "ఉండాల్సింది", తేడా వెంటనే కనిపిస్తాయి. 3: అయింది — ఈ రోజు అమ్మకం; WhatsApp కి పంపండి.',
+    'ముగించిన తర్వాత మార్చలేం; ముగించే ముందు ఒకసారి అడుగుతుంది.',
   ]),
   '/pos/:id/gst': _H('GST summary', 'GST సారాంశం', [
     'Pick the dates; share the summary or CSV with your accountant.',

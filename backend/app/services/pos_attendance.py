@@ -302,8 +302,16 @@ class PosAttendance:
                                "today": self._view(att) if att else None,
                                "has_photo": bool(att and att["id"] in photos)})
             st = self.settings(conn, business_id)
+            # The caller's OWN day (owner 2026-11-22: "I am a businessman and an employee -- I mark mine"): the owner /
+            # a manager sees everyone above, and still needs their own in / out to show "I'm leaving" after "I'm in".
+            me = None
+            try:
+                own = rows.get(self._me(conn, business_id, user)["key"])
+                me = self._view(own) if own else None
+            except PosError:
+                me = None
         present = sum(1 for p in people if p["today"] and p["today"]["status"] in ("P", "OT", "half"))
-        return {"date": day, "people": people, "settings": st, "boss": boss,
+        return {"date": day, "people": people, "settings": st, "boss": boss, "me": me,
                 "counts": {"present": present, "absent": len(people) - present -
                            sum(1 for p in people if p["today"] and p["today"]["status"] == "leave"),
                            "late": sum(1 for p in people if p["today"] and p["today"]["late_min"] > 0),

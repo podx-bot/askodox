@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 
+import '../../steps/presentation/checkin_steps_screen.dart';
+import '../../steps/presentation/dues_steps_screen.dart';
 import 'biz_hub.dart';
 import 'biz_menu.dart';
 import 'biz_money.dart';
@@ -19,7 +21,12 @@ final askodoxBizRoutes = <GoRoute>[
       path: '/biz/:id/menu/item/:pid',
       builder: (c, s) => AskodoxBizItemScreen(businessId: s.pathParameters['id']!, productId: s.pathParameters['pid']!)),
   GoRoute(path: '/biz/:id/money/cashbook', builder: (c, s) => AskodoxBizCashbookScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/money/dues', builder: (c, s) => AskodoxBizDuesScreen(businessId: s.pathParameters['id']!)),
+  // Owner 2026-11-22: dues and check-in are 3-step pages; the old pages stay at ?full=1 (their "⋮").
+  GoRoute(
+      path: '/biz/:id/money/dues',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizDuesScreen(businessId: s.pathParameters['id']!)
+          : AskodoxDuesStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/money/history', builder: (c, s) => AskodoxBizBillHistoryScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/reports', builder: (c, s) => AskodoxBizReportsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
@@ -30,7 +37,11 @@ final askodoxBizRoutes = <GoRoute>[
       path: '/biz/:id/reports/settings', builder: (c, s) => AskodoxBizReportSettingsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff', builder: (c, s) => AskodoxBizStaffScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/today', builder: (c, s) => AskodoxBizAttTodayScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/staff/checkin', builder: (c, s) => AskodoxBizCheckInScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/staff/checkin',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizCheckInScreen(businessId: s.pathParameters['id']!)
+          : AskodoxCheckInStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/kiosk', builder: (c, s) => AskodoxBizKioskScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/staff/person/:ref',

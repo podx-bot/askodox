@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../money_home/money_route_screens.dart';
+import '../../steps/presentation/day_steps_screen.dart';
 
 import 'pos_advance_screens.dart';
 import 'pos_agent_screens.dart';
@@ -170,7 +171,12 @@ final askodoxPosRoutes = <GoRoute>[
               businessId: state.pathParameters['id']!,
               invoiceId: state.pathParameters['iid']!,
               fresh: state.uri.queryParameters['fresh'] == '1')),
-  GoRoute(path: '/pos/:id/day', builder: (context, state) => AskodoxPosDayScreen(businessId: state.pathParameters['id']!)),
+  // Owner 2026-11-22: the 3-step day close; the old page stays at ?full=1 (its "⋮").
+  GoRoute(
+      path: '/pos/:id/day',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosDayScreen(businessId: state.pathParameters['id']!)
+          : AskodoxDayStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/gst', builder: (context, state) => AskodoxPosGstScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/staff', builder: (context, state) => AskodoxPosStaffScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/tables', builder: (context, state) => AskodoxPosTablesScreen(businessId: state.pathParameters['id']!)),

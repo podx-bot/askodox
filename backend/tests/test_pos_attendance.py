@@ -113,3 +113,20 @@ def test_holiday_is_a_paid_day_and_bonus_adds_to_the_month(env):  # noqa: F811
     assert after["holiday_days"] == 1 and after["bonus_paise"] == 100000
     assert after["net_paise"] == before["net_paise"] + 50000 + 100000
     assert att.set_holiday(biz, OWNER, "2026-11-17", remove=True) == []
+
+
+def test_today_carries_the_callers_own_day_so_the_owner_can_check_out(env):  # noqa: F811
+    """Owner 2026-11-22 ("3 steps" check-in): the owner marks their own attendance too; today() lists the staff for
+    the owner, so the caller's own record comes back as ``me`` (the big button turns into "I'm leaving")."""
+    desk, store, rest, biz, table, biryani, fry, now, _ = env
+    att, clock, _ = _att(store, datetime(2026, 11, 18, 9, 5, tzinfo=IST))
+    assert att.today(biz, OWNER)["me"] is None
+    att.check(biz, OWNER, "in")
+    me = att.today(biz, OWNER)["me"]
+    assert me is not None and me["in_at"] and me["out_at"] is None
+    assert all(p["ref"] != OWNER[-4:] for p in att.today(biz, OWNER)["people"])  # the staff list stays staff only
+    att.check(biz, CASHIER, "in")
+    assert att.today(biz, CASHIER)["me"]["in_at"]
+    clock[0] = datetime(2026, 11, 18, 21, 30, tzinfo=IST)
+    att.check(biz, OWNER, "out")
+    assert att.today(biz, OWNER)["me"]["out_at"]
