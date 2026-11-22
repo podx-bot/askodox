@@ -64,6 +64,32 @@ void main() {
     expect(decision!.reply, 'GEMINI GUIDE');
   });
 
+  test('text_done says the streamed reply is complete before the final decision', () async {
+    // Owner 2026-11-22 (voice 30-40 s late): the app may speak the last sentence while the rest is written.
+    final client = MockClient((request) async => http.Response(
+          ndjson([
+            {'type': 'delta', 'text': 'Long layer cut suits you.'},
+            {'type': 'text_done'},
+            {'type': 'final', 'decision': {...finalDecision, 'reply': 'Long layer cut suits you.'}},
+          ]),
+          200,
+        ));
+    final order = <String>[];
+    final decision = await InAppAssistantService(client: client).decideStreaming(
+      message: 'haircut for my face',
+      locale: 'en',
+      history: const [],
+      onText: (text) => order.add('text:$text'),
+      onTextDone: () => order.add('done'),
+    );
+    expect(order, ['text:Long layer cut suits you.', 'done']);
+    expect(decision!.reply, 'Long layer cut suits you.');
+    // A caller without onTextDone is fine.
+    final again = await InAppAssistantService(client: client)
+        .decideStreaming(message: 'x', locale: 'en', history: const [], onText: (_) {});
+    expect(again, isNotNull);
+  });
+
   test('an older backend without the stream route is asked the plain way', () async {
     final paths = <String>[];
     final client = MockClient((request) async {

@@ -65,6 +65,41 @@ def test_synthesize_sends_the_text_voice_and_model_then_caches():
     assert again["cache_hit"] and len(client.calls) == 1
 
 
+def test_default_model_is_the_real_time_one(monkeypatch):
+    # Owner 2026-11-22: eleven_v3 took 5-13 s per reply part; the real-time model speaks Telugu too.
+    monkeypatch.delenv("ELEVENLABS_TTS_MODEL", raising=False)
+    client = _Client()
+    tts = ElevenLabsTTS("k", client=client)
+    result = tts.synthesize("నమస్కారం")
+    assert elevenlabs_tts.DEFAULT_MODEL == "eleven_v4_turbo"
+    assert client.calls[0][1]["json"]["model_id"] == "eleven_v4_turbo"
+    assert result["model"] == "eleven_v4_turbo"
+
+
+def test_a_refused_fast_model_falls_back_once_and_rests(monkeypatch):
+    class Refuses:
+        def __init__(self):
+            self.calls = []
+
+        def post(self, url, **kwargs):
+            self.calls.append(kwargs["json"]["model_id"])
+            if kwargs["json"]["model_id"] == "eleven_v4_turbo":
+                return httpx.Response(400, content=b'{"detail": "model not available"}')
+            return httpx.Response(200, content=b"ID3v3")
+
+    monkeypatch.delenv("ELEVENLABS_TTS_MODEL", raising=False)
+    client = Refuses()
+    tts = ElevenLabsTTS("k", client=client)
+    first = tts.synthesize("నమస్కారం")
+    assert first["success"] and first["model"] == "eleven_v3"
+    assert client.calls == ["eleven_v4_turbo", "eleven_v3"]
+    second = tts.synthesize("ధన్యవాదాలు")  # the fast model rests: straight to the one that works
+    assert second["success"] and client.calls[-1] == "eleven_v3" and len(client.calls) == 3
+    # Quota / auth problems are not a model problem: no second model call.
+    quota = ElevenLabsTTS("k", client=_Client(402))
+    assert quota.synthesize("hi")["status"] == "ELEVENLABS_QUOTA_EXHAUSTED" and len(quota._client.calls) == 1
+
+
 def test_failures_are_results_not_exceptions():
     assert ElevenLabsTTS("", client=_Client()).synthesize("hi")["status"] == "ELEVENLABS_NOT_CONFIGURED"
     assert ElevenLabsTTS("k", client=_Client(402)).synthesize("hi")["status"] == "ELEVENLABS_QUOTA_EXHAUSTED"

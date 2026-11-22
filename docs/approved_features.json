@@ -9367,6 +9367,59 @@
           "change": "new (phase 1: bill, dues, check-in, day close); not phone verified"
         }
       ]
+    },
+    {
+      "id": "speak_while_writing",
+      "name": "A spoken reply starts while the answer is still being written (each finished part is said and shown), the final answer goes on from the first part not heard; real-time ElevenLabs model with a safe fallback; routing reply first; faster photo read",
+      "roles": [
+        "any user"
+      ],
+      "domains": [
+        "chat",
+        "voice"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant/stream"
+        },
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/speak"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxStreamingReply"
+        ],
+        "symbols": [
+          "askodoxSpeechChunks",
+          "askodoxSpeakTypedReplies",
+          "decideStreaming",
+          "onTextDone"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_chat_answer_streaming.py",
+          "tests/test_elevenlabs_tts.py"
+        ],
+        "flutter": [
+          "test/services/in_app_assistant_streaming_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "purpose": "Owner 2026-11-22: a reply took 30-40 s before the first spoken word (the app waited for the whole answer, eleven_v3 took 5-13 s per part, the photo read and routing waited too).",
+      "expected_behavior": "On a spoken turn the first finished part of the streamed answer is spoken and shown within a few seconds; later parts follow without gaps; the final answer continues from the first part not heard and never repeats a heard part; Stop / mute end it; replay and resume speak the whole text.",
+      "history": [
+        {
+          "date": "2026-11-22",
+          "change": "speak while writing + eleven_v4_turbo default (eleven_v3 fallback) + reply key first + text_done + planner limit + first photo read without thinking",
+          "approved_by": "owner"
+        }
+      ],
+      "status": "approved"
     }
   ]
 }

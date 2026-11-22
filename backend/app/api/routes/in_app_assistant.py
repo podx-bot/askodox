@@ -132,6 +132,10 @@ def assistant_decision_stream(payload: AssistantRequest, request: Request) -> An
     def on_text(piece: str | None) -> None:
         pieces.put(("reset", None) if piece is None else ("delta", piece))
 
+    # The streamed reply is complete (the rest of the decision is still being written): {"type":"text_done"}.
+    # Older apps ignore an unknown type.
+    on_text.text_done = lambda: pieces.put(("text_done", None))  # type: ignore[attr-defined]
+
     def work() -> None:
         try:
             decision = _assistant_answer(payload, request, on_text=on_text)
@@ -153,6 +157,8 @@ def assistant_decision_stream(payload: AssistantRequest, request: Request) -> An
                 yield json.dumps({"type": "delta", "text": value}, ensure_ascii=False) + "\n"
             elif kind == "reset":
                 yield '{"type": "reset"}\n'
+            elif kind == "text_done":
+                yield '{"type": "text_done"}\n'
             else:
                 yield json.dumps({"type": "final", "decision": value.model_dump()}, ensure_ascii=False) + "\n"
 

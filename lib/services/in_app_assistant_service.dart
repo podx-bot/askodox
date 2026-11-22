@@ -377,12 +377,15 @@ class InAppAssistantService {
   /// while it is written: [onText] gets the whole text so far after every piece ('' when a
   /// started answer is withdrawn for a fallback). The returned decision is the real answer
   /// -- callers handle it exactly like [decide]'s. An older backend without the stream
-  /// route (404 / 405) is asked through [decide].
+  /// route (404 / 405) is asked through [decide]. [onTextDone] (optional): the streamed text is complete
+  /// (`text_done`) while the rest of the decision is still being written -- a spoken turn may say its last
+  /// sentence now (owner 2026-11-22). Older backends never send it.
   Future<InAppAssistantDecision?> decideStreaming({
     required String message,
     required String locale,
     required List<InAppAssistantTurn> history,
     required void Function(String textSoFar) onText,
+    void Function()? onTextDone,
     String? location,
     Map<String, Object?>? searchedFor,
     List<Map<String, Object?>>? adviceGiven,
@@ -454,6 +457,8 @@ class InAppAssistantService {
             case 'reset':
               shown = '';
               onText('');
+            case 'text_done':
+              onTextDone?.call();
             case 'final':
               final decision = event['decision'];
               result = decision is Map<String, dynamic> ? InAppAssistantDecision.fromJson(decision) : null;

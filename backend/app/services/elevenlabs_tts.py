@@ -30,9 +30,13 @@ from typing import Any, Dict, Optional
 import httpx
 
 API_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-# eleven_v3 is the ElevenLabs model that speaks Telugu and the other Indian
-# languages (Flash v2.5 does not speak Telugu). Override with ELEVENLABS_TTS_MODEL.
-DEFAULT_MODEL = "eleven_v3"
+# Owner 2026-11-22 (30-40 s before the voice): eleven_v3 took 5-13 s per reply part in production (VOICE SPEAK ms).
+# Eleven v4 Turbo is ElevenLabs' real-time model (~100 ms median, 90+ languages incl. Telugu); Flash v2.5 does not
+# speak Telugu. Override with ELEVENLABS_TTS_MODEL. When the account refuses the fast model (400 / 404 / 422) the
+# same text is made once with FALLBACK_MODEL and the fast model rests for MODEL_REST_SECONDS -- never no voice.
+DEFAULT_MODEL = "eleven_v4_turbo"
+FALLBACK_MODEL = "eleven_v3"
+MODEL_REST_SECONDS = 1800.0
 OUTPUT_FORMAT = "mp3_44100_64"
 MAX_CHARS = 2500
 MAX_AUDIO_BYTES = 3 * 1024 * 1024
@@ -143,6 +147,7 @@ class ElevenLabsTTS:
         # volume, so a name / amount spoken once is instant for every phone and after a restart (no second charge).
         self.cache_dir = cache_dir
         self._lock = threading.Lock()
+        self._model_rest_until = 0.0  # monotonic time until which the configured model is skipped (it was refused)
 
     @property
     def configured(self) -> bool:
@@ -190,7 +195,23 @@ class ElevenLabsTTS:
         voice_id = voice_for(language or "", voice)
         if not language or not voice_id:
             return {"success": False, "status": "ELEVENLABS_UNSUPPORTED_LANGUAGE", "language_code": language or ""}
-        cache_key = f"{voice_id}:{self.model}:{spoken}"
+        model = self.model
+        if model != FALLBACK_MODEL and time.monotonic() < self._model_rest_until:
+            model = FALLBACK_MODEL
+        result = self._synthesize_with(model, key, spoken, language, voice_id, timeout_seconds)
+        if (model != FALLBACK_MODEL and not result.get("success")
+                and result.get("status_code") in (400, 404, 422)):
+            # The account / voice does not take the fast model: say it with the model that always worked.
+            with self._lock:
+                self._model_rest_until = time.monotonic() + MODEL_REST_SECONDS
+            print(f"ASKODOX VOICE MODEL refused model={model} status={result.get('status_code')} "
+                  f"fallback={FALLBACK_MODEL}", flush=True)
+            result = self._synthesize_with(FALLBACK_MODEL, key, spoken, language, voice_id, timeout_seconds)
+        return result
+
+    def _synthesize_with(self, model: str, key: str, spoken: str, language: str, voice_id: str,
+                         timeout_seconds: Optional[float]) -> Dict[str, Any]:
+        cache_key = f"{voice_id}:{model}:{spoken}"
         with self._lock:
             cached = self._cache.get(cache_key)
             if cached is not None:
@@ -203,7 +224,7 @@ class ElevenLabsTTS:
                     while len(self._cache) > CACHE_SIZE:
                         self._cache.popitem(last=False)
         if cached is not None:
-            return self._ok(cached, language, voice_id, cache_hit=True, elapsed_ms=0)
+            return self._ok(cached, language, voice_id, cache_hit=True, elapsed_ms=0, model=model)
         started = time.perf_counter()
         client = self._client or httpx.Client()
         try:
@@ -211,7 +232,7 @@ class ElevenLabsTTS:
                 API_URL.format(voice_id=voice_id),
                 params={"output_format": OUTPUT_FORMAT},
                 headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
-                json={"text": spoken, "model_id": self.model},
+                json={"text": spoken, "model_id": model},
                 timeout=httpx.Timeout(timeout_seconds or self.timeout_seconds, connect=3.0),
             )
         except httpx.TimeoutException:
@@ -237,10 +258,11 @@ class ElevenLabsTTS:
         if len(spoken) <= DISK_MAX_CHARS:  # short lines repeat (payment names / amounts, guides); replies rarely do
             self._disk_put(cache_key, audio)
         return self._ok(audio, language, voice_id, cache_hit=False,
-                        elapsed_ms=round((time.perf_counter() - started) * 1000))
+                        elapsed_ms=round((time.perf_counter() - started) * 1000), model=model)
 
-    def _ok(self, audio: bytes, language: str, voice_id: str, *, cache_hit: bool, elapsed_ms: int) -> Dict[str, Any]:
+    def _ok(self, audio: bytes, language: str, voice_id: str, *, cache_hit: bool, elapsed_ms: int,
+            model: str = "") -> Dict[str, Any]:
         return {"success": True, "status": "SYNTHESIZED_ELEVENLABS_CACHE" if cache_hit else "SYNTHESIZED_ELEVENLABS",
-                "content": audio, "mime_type": "audio/mpeg", "model": self.model, "voice_id": voice_id,
+                "content": audio, "mime_type": "audio/mpeg", "model": model or self.model, "voice_id": voice_id,
                 "language_code": language, "tts_path": "elevenlabs", "cache_hit": cache_hit,
                 "elapsed_ms": elapsed_ms}

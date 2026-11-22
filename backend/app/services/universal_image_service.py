@@ -274,9 +274,12 @@ class UniversalImageService:
         best_confidence = -1.0
 
         if self.client is not None:
-            for model in self.GEMINI_IMAGE_MODELS:
+            for index, model in enumerate(self.GEMINI_IMAGE_MODELS):
                 try:
-                    payload = self._analyze_gemini(model, prompt, image_bytes, mime_type)
+                    # Owner 2026-11-22 (photo turn: 5.6-6.8 s before the answer even started): the first read runs
+                    # without thinking -- it only reads what the photo shows; the answer's reasoning is Claude's. A
+                    # weak read still goes to the next model WITH thinking (below), so quality never drops.
+                    payload = self._analyze_gemini(model, prompt, image_bytes, mime_type, fast=index == 0)
                     confidence = self._confidence(payload)
                     print(f"ASKODOX IMAGE BRAIN: provider=gemini model={model} confidence={confidence:.2f} status=success", flush=True)
                     if confidence > best_confidence:
@@ -369,11 +372,14 @@ class UniversalImageService:
                 print(f"ASKODOX INSPECT BRAIN: provider=openai status=failed error={type(error).__name__}", flush=True)
         return {}, calls
 
-    def _analyze_gemini(self, model: str, prompt: str, image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
+    def _analyze_gemini(self, model: str, prompt: str, image_bytes: bytes, mime_type: str,
+                        fast: bool = False) -> Dict[str, Any]:
         response = self.client.models.generate_content(
             model=model,
             contents=[types.Part.from_bytes(data=image_bytes, mime_type=mime_type), prompt],
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
+            config=(types.GenerateContentConfig(response_mime_type="application/json",
+                                                thinking_config=types.ThinkingConfig(thinking_budget=0))
+                    if fast else types.GenerateContentConfig(response_mime_type="application/json")),
         )
         return self._parse_json(str(getattr(response, "text", "") or ""))
 

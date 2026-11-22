@@ -416,6 +416,25 @@ class _AskodoxPrimaryHomeScreenState
   bool _streamSpeaks = false;
   bool _earlyAudioAsked = false;
 
+  /// Speak while writing (owner 2026-11-22: "30-40 seconds before a reply"): a spoken turn's streamed answer is
+  /// said part by part as soon as each part is complete -- the voice no longer waits for the whole answer. The
+  /// final answer then goes on from the first part not yet heard ([_speakChunks] with `continueLive`).
+  /// `gen` changes when the server replaces the streamed answer (reset): only the current answer's parts count.
+  final List<({String plain, String shown, int gen})> _liveQueue = [];
+  int _liveGen = 0;
+  int _liveChunksSeen = 0; // parts of the current streamed text already queued (or skipped as empty)
+  int _liveStarted = 0; // queued parts whose playback started
+  int? _liveTurn; // the speech turn the live voice holds (null = not running)
+  bool _liveHalt = false; // the final answer took over: stop after the part playing now
+  bool _liveFailed = false; // a part had no server voice: the final answer speaks the rest
+  bool _liveTextDone = false; // the server said the streamed text is complete
+  String _liveText = '';
+  String _liveLanguage = 'en';
+  String _liveUserText = '';
+  Future<Uint8List?>? _liveFirstAudio;
+  Completer<void>? _liveDone;
+  List<String> _liveHeard = const []; // the current answer's parts the live voice played (kept after it ends)
+
   /// The reply being spoken, which engine speaks it ('sarvam' / 'device'),
   /// where the device voice reached (native speechRange), pause and mute.
   String? _speakingText;
@@ -2436,6 +2455,7 @@ class _AskodoxPrimaryHomeScreenState
     _streamSpeaks = speakResponse && !_speechMuted;
     _earlyAudioAsked = false;
     _earlyAudio.clear();
+    _liveReset(userText: text);
     askodoxTalkBrief = _talkMode;
     final decision = await ref.read(askodoxAssistantServiceProvider).decideStreaming(
       message: aiMessage,
@@ -2446,6 +2466,7 @@ class _AskodoxPrimaryHomeScreenState
       adviceGiven: _adviceLedger,
       authToken: ref.read(authSessionProvider).user == null ? null : ref.read(authSessionProvider).tokenPlaceholder,
       onText: _showStreamingReply,
+      onTextDone: _liveOnTextDone,
     );
     if (mounted && _streamingReply != null) setState(() => _streamingReply = null);
     final aiUsable = decision?.usable == true;
@@ -3912,7 +3933,9 @@ class _AskodoxPrimaryHomeScreenState
     // Owner 2026-11-19: the words appear WITH the voice, not before it -- a short (one-chunk) reply takes the same
     // reveal path as a long one in the real app.
     if (chunks.length > 1 || (askodoxSpeakTypedReplies && chunks.length == 1 && !force && !deviceOnly)) {
-      await _speakChunks(markup, chunks, userText: userText, deviceOnly: deviceOnly);
+      // Replay (force) and resume (deviceOnly) speak the whole text; the turn's own answer goes on from what the
+      // live voice already said.
+      await _speakChunks(markup, chunks, userText: userText, deviceOnly: deviceOnly, continueLive: !force && !deviceOnly);
       return;
     }
     reply = askodoxPlainReply(reply); // markup is for the eye, never spoken
@@ -4012,9 +4035,41 @@ class _AskodoxPrimaryHomeScreenState
   /// a newer reply end it; Sarvam pauses in place; device voice resumes with
   /// the rest (see [_pauseSpeaking]).
   Future<void> _speakChunks(String markup, List<({int start, int end})> chunks,
-      {required String userText, bool deviceOnly = false}) async {
-    final turn = ++_speechTurn;
+      {required String userText, bool deviceOnly = false, bool continueLive = false}) async {
     final plain = [for (final c in chunks) askodoxPlainReply(markup.substring(c.start, c.end)).trim()];
+    var skip = 0;
+    var restOfFirst = '';
+    if (continueLive && (_liveTurn != null || _liveHeard.isNotEmpty)) {
+      // Speak while writing: the live voice may already have said the first parts of this answer. It finishes the
+      // part playing now; the rest goes on from the first part not heard -- never said twice.
+      final liveTurn = _liveTurn;
+      _liveHalt = true;
+      if (liveTurn != null) await _liveDone?.future;
+      final heard = _liveHeard;
+      _liveHeard = const [];
+      if (liveTurn != null && liveTurn != _speechTurn && !_liveFailed) {
+        _liveVoiceIdle(); // Stop / mute ended the live voice: the rest is not spoken, the whole text shows
+        return;
+      }
+      var same = 0;
+      while (same < heard.length && same < plain.length && heard[same] == plain[same]) {
+        same++;
+      }
+      if (same == heard.length - 1 && same < plain.length && plain[same].length > heard[same].length &&
+          plain[same].startsWith(heard[same])) {
+        // The final answer added words to the last part heard (e.g. its one next question): only those are said.
+        skip = same;
+        restOfFirst = plain[same].substring(heard[same].length).trim();
+      } else {
+        // A slightly changed sentence that was already heard is not repeated; a different answer starts over.
+        skip = same == 0 ? 0 : heard.length.clamp(0, plain.length);
+      }
+      if (skip >= plain.length) {
+        _liveVoiceIdle();
+        return;
+      }
+    }
+    final turn = ++_speechTurn;
     final whole = askodoxPlainReply(markup);
     final language = askodoxSpeechLanguage(reply: whole, userText: userText, uiTelugu: _te);
     final revealIndex = _turns.lastIndexWhere((t) => !t.isUser && t.text == markup);
@@ -4028,7 +4083,7 @@ class _AskodoxPrimaryHomeScreenState
         _voicePhase = _VoicePhase.speaking;
         if (revealIndex >= 0) {
           _revealTurn = revealIndex;
-          _revealEnd = 0;
+          _revealEnd = skip > 0 ? chunks[skip - 1].end : (restOfFirst.isEmpty ? 0 : chunks[skip].start);
         }
       });
     }
@@ -4053,9 +4108,10 @@ class _AskodoxPrimaryHomeScreenState
               locale: language, voice: voice, engine: lockedEngine, timeout: const Duration(seconds: 25)) ??
           await speech.sarvamAudio(text, locale: language, voice: voice);
     }
+    if (restOfFirst.isNotEmpty) plain[skip] = restOfFirst; // what the live voice said is not said again
     try {
-      var next = fetch(plain.first);
-      for (var i = 0; i < chunks.length; i++) {
+      var next = fetch(plain[skip]);
+      for (var i = skip; i < chunks.length; i++) {
         final audio = await next;
         if (!current()) return;
         if (lockedEngine.isEmpty && audio != null) lockedEngine = askodoxAudioEngine[audio] ?? '';
@@ -4082,7 +4138,7 @@ class _AskodoxPrimaryHomeScreenState
         }
         _lipSyncTimer?.cancel();
         if (!current()) return;
-        if (i == 0) {
+        if (i == skip) {
           askodoxTestLog('voice', detail: {
             'engine': played ? 'server_audio' : 'device_fallback',
             'reason': played ? null : (audio == null ? 'no_server_audio' : 'server_audio_not_played'),
@@ -4227,6 +4283,11 @@ class _AskodoxPrimaryHomeScreenState
 
   void _showStreamingReply(String textSoFar) {
     if (!mounted || !_sending) return;
+    if (askodoxSpeakTypedReplies && _streamSpeaks) {
+      // A spoken turn in the real app: each finished part is spoken (and shown) while the rest is written.
+      _liveFeed(textSoFar);
+      return;
+    }
     _prefetchFirstSpokenChunk(textSoFar);
     // A spoken turn in the real app: the growing text stays hidden (the "thinking" state shows) and is revealed
     // sentence by sentence as the voice says it.
@@ -4256,6 +4317,191 @@ class _AskodoxPrimaryHomeScreenState
         .sarvamAudio(first, locale: language, voice: ref.read(appSettingsProvider).voicePreference.storageValue);
     _earlyAudio['$language|$first'] = audio.catchError((Object _) => null);
     askodoxTestLog('voice_early', detail: {'chars': first.length, 'language': language});
+  }
+
+  /// A new spoken turn starts: nothing queued, nothing heard. A live voice still running from an older turn sees
+  /// the bumped speech turn (Stop / the new message) and ends by itself.
+  void _liveReset({String userText = ''}) {
+    // A live voice still talking from the previous turn is interrupted by the new message (like any reply).
+    if (_liveTurn != null) unawaited(_stopSpeaking());
+    _liveQueue.clear();
+    _liveGen++;
+    _liveChunksSeen = 0;
+    _liveStarted = 0;
+    _liveHalt = false;
+    _liveFailed = false;
+    _liveTextDone = false;
+    _liveText = '';
+    _liveFirstAudio = null;
+    _liveHeard = const [];
+    _liveUserText = userText;
+  }
+
+  /// The live voice said everything (or was stopped): nothing more to speak for this answer.
+  void _liveVoiceIdle() {
+    _clearReveal();
+    if (mounted && _voicePhase == _VoicePhase.speaking && !_speechPaused) {
+      setState(() => _voicePhase = _VoicePhase.idle);
+    }
+  }
+
+  /// The streamed answer grew ('' = the server replaced it: the part playing now ends, the new answer is spoken
+  /// from its start).
+  void _liveFeed(String textSoFar) {
+    if (textSoFar.isEmpty) {
+      if (_liveStarted < _liveQueue.length) _liveQueue.removeRange(_liveStarted, _liveQueue.length);
+      _liveGen++;
+      _liveChunksSeen = 0;
+      _liveTextDone = false;
+      _liveText = '';
+      return;
+    }
+    _liveText = textSoFar;
+    _liveQueueParts();
+  }
+
+  /// The server says the streamed text is complete: its last part may be spoken now too.
+  void _liveOnTextDone() {
+    if (!mounted || !_sending || !askodoxSpeakTypedReplies || !_streamSpeaks) return;
+    _liveTextDone = true;
+    _liveQueueParts();
+  }
+
+  /// Queues every finished part (the last one may still grow, unless the text is complete) and starts its audio
+  /// at once; the first queued part starts the live voice.
+  void _liveQueueParts() {
+    if (_liveFailed || _liveHalt || _speechMuted || _liveText.isEmpty) return;
+    if (!ref.read(askodoxFlagProvider('voice.sarvam_tts'))) return;
+    final markup = askodoxWithoutSources(_liveText);
+    final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160);
+    final ready = _liveTextDone ? chunks.length : chunks.length - 1;
+    var added = false;
+    for (var i = _liveChunksSeen; i < ready; i++) {
+      _liveChunksSeen = i + 1;
+      final plain = askodoxPlainReply(markup.substring(chunks[i].start, chunks[i].end)).trim();
+      if (plain.isEmpty) continue;
+      if (!_liveQueue.any((p) => p.gen == _liveGen)) {
+        _liveLanguage =
+            askodoxSpeechLanguage(reply: askodoxPlainReply(markup), userText: _liveUserText, uiTelugu: _te);
+      }
+      _liveQueue.add((plain: plain, shown: markup.substring(0, chunks[i].end), gen: _liveGen));
+      unawaited(_liveFetch(plain));
+      added = true;
+    }
+    if (added && _liveTurn == null) unawaited(_liveRun());
+  }
+
+  /// One part's server audio, asked for once and shared with [_speakChunks] (`_earlyAudio`). The first part's
+  /// engine speaks every later part of this reply (owner 2026-11-21: never two voices in one reply).
+  Future<Uint8List?> _liveFetch(String plain) {
+    final key = '$_liveLanguage|$plain';
+    final known = _earlyAudio[key];
+    if (known != null) return known;
+    final speech = ref.read(askodoxReplySpeechServiceProvider);
+    final voice = ref.read(appSettingsProvider).voicePreference.storageValue;
+    final language = _liveLanguage;
+    final first = _liveFirstAudio;
+    final Future<Uint8List?> audio;
+    if (first == null) {
+      audio = speech.sarvamAudio(plain, locale: language, voice: voice);
+      _liveFirstAudio = audio;
+    } else {
+      audio = () async {
+        Uint8List? firstBytes;
+        try {
+          firstBytes = await first;
+        } catch (_) {}
+        final engine = firstBytes == null ? '' : (askodoxAudioEngine[firstBytes] ?? '');
+        if (engine.isEmpty) return speech.sarvamAudio(plain, locale: language, voice: voice);
+        return await speech.sarvamAudio(plain,
+                locale: language, voice: voice, engine: engine, timeout: const Duration(seconds: 25)) ??
+            await speech.sarvamAudio(plain, locale: language, voice: voice);
+      }();
+    }
+    final safe = audio.catchError((Object _) => null);
+    _earlyAudio[key] = safe;
+    return safe;
+  }
+
+  /// The live voice: plays the queued parts in order while the answer is written, showing each part's text as it
+  /// is said. It ends when the final answer takes over ([_liveHalt]), on Stop / mute / a newer reply (the speech
+  /// turn moved), when a part has no server voice, or -- the turn being over -- when nobody took over in 2 s.
+  Future<void> _liveRun() async {
+    final turn = ++_speechTurn;
+    _liveTurn = turn;
+    final done = _liveDone = Completer<void>();
+    final lips = ref.read(askodoxCompanionVoiceProvider);
+    bool current() => mounted && turn == _speechTurn;
+    _speakingUserText = _liveUserText;
+    _speechPaused = false;
+    _pausedRemainder = null;
+    _markReplyReady();
+    if (mounted) setState(() => _voicePhase = _VoicePhase.speaking);
+    DateTime? idleSince;
+    try {
+      while (current() && !_liveHalt && !_liveFailed) {
+        if (_liveStarted >= _liveQueue.length) {
+          if (!_sending) {
+            idleSince ??= DateTime.now();
+            if (DateTime.now().difference(idleSince) > const Duration(seconds: 2)) break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 60));
+          continue;
+        }
+        idleSince = null;
+        final item = _liveQueue[_liveStarted];
+        final audio = await _liveFetch(item.plain);
+        if (!current() || _liveHalt) break;
+        if (_liveStarted >= _liveQueue.length ||
+            _liveQueue[_liveStarted].gen != item.gen ||
+            _liveQueue[_liveStarted].plain != item.plain) {
+          continue; // the server replaced the answer while this part's audio was coming
+        }
+        if (audio == null) {
+          _liveFailed = true;
+          break;
+        }
+        _liveStarted++;
+        _speakingText = item.plain;
+        _speechRangeStart = 0;
+        _speechQueue = const [];
+        if (mounted && _sending) setState(() => _streamingReply = item.shown);
+        lips.speechBegin(item.plain);
+        _startLipSyncPolling(lips);
+        _speakingEngine = 'sarvam';
+        final played = await _device.invokeMethod<bool>(
+                'playReplyAudio', <String, Object?>{'bytes': audio, 'languageCode': _liveLanguage}) ==
+            true;
+        _lipSyncTimer?.cancel();
+        if (!played) {
+          _liveStarted--; // not heard: the final answer says it
+          _liveFailed = true;
+          break;
+        }
+        lastReplyVoiceEngine = 'sarvam_bulbul_v3';
+      }
+    } catch (_) {
+      _liveFailed = true;
+    } finally {
+      _lipSyncTimer?.cancel();
+      lips.speechEnd();
+      _speakingEngine = '';
+      if (_liveTurn == turn) {
+        _liveTurn = null;
+        _liveHeard = [
+          for (final p in _liveQueue.take(_liveStarted.clamp(0, _liveQueue.length)))
+            if (p.gen == _liveGen) p.plain
+        ];
+      }
+      final takenOver = _liveHalt;
+      if (!done.isCompleted) done.complete();
+      if (!takenOver && turn == _speechTurn && mounted && _voicePhase == _VoicePhase.speaking) {
+        setState(() {
+          _speechPaused = false;
+          _voicePhase = _VoicePhase.idle;
+        });
+      }
+    }
   }
 
   void _scrollBottom() {
