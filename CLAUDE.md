@@ -7,6 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/scam-sms-guard` (2026-11-22, owner: a JK-xxxxx-S "DEPOSIT SUCCESS ... A/c: <whole 10-digit number>
+  Amount: Rs.8,551,00 Status: RECEIVED Open: bit.ly/.." SMS was said + counted as ₹8,55,100 received, "Bank SMS"):
+  `PaymentAlertParser.fakeSigns` = public short link / broken comma groups (`wellGrouped`) / a whole account number
+  after "A/c"; `looksFakeCredit` -> parse Ignored even over a confirmed wording (only "wrong -> came in" on it wins),
+  `notice` = suspect (no amount when the amount is broken); phone `recheckFakes` turns rows an older build saved into
+  ⚠️ info rows once per `FAKE_RULES`. Parser gate 278 checks, made-up numbers only. Nothing phone verified.
 - Branch `claude/three-step-pages` (2026-11-22, owner "సరే ఒకసారి ఇది చేయండి" on design artifact RGYB6de8vhoNeDwY3DBG9z
   page "3 స్టెప్స్"): SECOND PAGES IN 3 PIECES, JOBS IN 3 STEPS -- kit `lib/features/steps/presentation/step_kit.dart`
   (`AskodoxStepScaffold`: back = one step back, 1·2·3 bar, one big question, middle, `AskodoxStepBottom` = mic + ONE

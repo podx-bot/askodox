@@ -176,6 +176,9 @@ object PaymentAlertParser {
             else Result.Outgoing(amounts.first(), billerName(title), accountTail(joined), biller = true)
         }
         val learned = corrected == "in" || (shape.isNotEmpty() && learnedIn.any { it.isNotEmpty() && shape.contains(it) })
+        // Owner 2026-11-22 (fake "DEPOSIT SUCCESS ... Rs.8,551,00" said as ₹8,55,100 received): a fake-looking "money came"
+        // message is never money -- not even when an earlier confirmed wording matches; only "wrong -> came in" on it does.
+        if (corrected != "in" && looksFakeCredit(joined) && strongDebit.none { lower.contains(it) }) return Result.Ignored
         // Owner 2026-11-21 (fraud messages): "credited ... click / KYC / lottery / verify account" is never spoken as
         // money; it becomes a ⚠️ notice instead.
         if (!learned && fraudHint.containsMatchIn(joined)) return Result.Ignored
@@ -277,6 +280,45 @@ object PaymentAlertParser {
     private val fraudHint = Regex(
         """(?i)\bclick\b|\bbit\.ly|\bkyc\b|\blottery|\bprize\b|\bverify\s+(?:your\s+)?account|\bupdate\s+(?:your\s+)?(?:pan|aadhaar|kyc)""")
 
+    /**
+     * Owner 2026-11-22 (a JK-xxxxx-S SMS "TRADES...BILLAMT DEPOSIT SUCCESS A/c: <a whole 10-digit number> Amount:
+     * Rs.8,551,00 Status: RECEIVED Open: bit.ly/..." was SAID and COUNTED as ₹8,55,100 received, marked "Bank SMS"):
+     * shapes no bank ever sends. Any one of them makes a "money came" message a ⚠️ fake warning -- never money, never
+     * spoken as received, whatever wording was confirmed before (only the person's own "wrong -> came in" on such a
+     * message overrides it). Works without the link too (an SMS app may hide or cut it from the notification).
+     *  link         -- a public short link (bit.ly, tinyurl, rb.gy ...); banks use their own (hdfcbk.io ...)
+     *  bad_amount   -- an amount with broken comma groups ("8,551,00" is neither 8,551.00 nor 85,51,000)
+     *  open_account -- a WHOLE account / mobile number after "A/c" (banks always hide it: XX1234, *1234)
+     * (A real broker's "funds added to your trading account" has none of these, so it is not called fake.)
+     */
+    fun fakeSigns(text: String?): List<String> {
+        val t = text?.replace('\n', ' ') ?: return emptyList()
+        val out = mutableListOf<String>()
+        if (shortLink.containsMatchIn(t)) out += "link"
+        if (amountRegex.findAll(t).any { !wellGrouped(it.groupValues[1]) }) out += "bad_amount"
+        if (openAccount.containsMatchIn(t)) out += "open_account"
+        return out
+    }
+
+    /** "8,55,100" / "855,100" / "8551" / "1,00,000.50" are amounts; "8,551,00" / "85,5100" are not. */
+    fun wellGrouped(raw: String): Boolean {
+        val whole = raw.trimEnd(',', '.').substringBefore('.')
+        if (!whole.contains(',')) return true
+        return Regex("""^\d{1,2}(?:,\d{2})*,\d{3}$""").matches(whole) || Regex("""^\d{1,3}(?:,\d{3})+$""").matches(whole)
+    }
+
+    private val shortLink = Regex(
+        """(?i)\b(?:bit\.ly|tinyurl\.com|rb\.gy|cutt\.ly|t\.ly|is\.gd|shorturl\.at|tiny\.cc|ow\.ly|bitly\.|goo\.gl|s\.id|v\.gd|t\.co)/""")
+    private val openAccount = Regex(
+        """(?i)\b(?:a/?c|acct|account)(?:\s*(?:no\.?|number|num))?\s*[:.#-]?\s*\d{9,18}\b""")
+    private val creditWords = listOf("credited", "received", "deposit", "refund", "cashback", "added", "success")
+
+    /** A message that claims money CAME and carries a fake sign. */
+    fun looksFakeCredit(text: String?): Boolean {
+        val lower = text?.lowercase(Locale.ROOT) ?: return false
+        return creditWords.any { lower.contains(it) } && fakeSigns(text).isNotEmpty()
+    }
+
     fun notice(title: String?, text: String?): Notice? {
         val joined = listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim()
         if (joined.isEmpty()) return null
@@ -289,6 +331,7 @@ object PaymentAlertParser {
         // A link / "click" / KYC / "blocked" in a money message (the bank's own safety lines are cut off first).
         if (suspectWords.containsMatchIn(clean) && listOf("credited", "received", "refund", "cashback", "won", "prize", "debited",
                 "blocked", "kyc").any { cleanLower.contains(it) }) return Notice("suspect", amount)
+        if (looksFakeCredit(clean)) return Notice("suspect", if ("bad_amount" in fakeSigns(clean)) null else amount)
         // Someone asking the person to PAY (UPI collect / money request): money goes only if they approve.
         if (requestWords.containsMatchIn(clean)) return Notice("request", amount)
         // AutoPay / mandate / standing instruction set up or stopped (an AutoPay that RAN is a debit, read elsewhere).

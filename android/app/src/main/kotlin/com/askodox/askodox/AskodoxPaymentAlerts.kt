@@ -190,7 +190,10 @@ object AskodoxPaymentAlerts {
                     }
                     "speakRemote" -> result.success(speakRemote(app, call.argument<String>("eventId") ?: "",
                         call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, false, null))
-                    "events" -> result.success(events(app).toString())
+                    "events" -> {
+                        recheckFakes(app)
+                        result.success(events(app).toString())
+                    }
                     "deleteEvents" -> result.success(deleteEvents(app, call.argument<List<String>>("localIds")))
                     "correctEvent" -> result.success(correctEvent(app, call.argument<String>("localId") ?: "",
                         call.argument<String>("choice") ?: ""))
@@ -480,6 +483,34 @@ object AskodoxPaymentAlerts {
     }
 
     @Synchronized
+    /** Bump when the fake rules change: rows saved before are checked once again with the new rules. */
+    private const val FAKE_RULES = 1
+
+    /**
+     * Owner 2026-11-22: a fake "money came" SMS that an OLDER build saved as money (said + counted) turns into the ⚠️
+     * warning it should have been -- once per rules version, only rows that still carry the message they were read
+     * from (this phone only), never a row the person corrected by hand.
+     */
+    @Synchronized
+    fun recheckFakes(context: Context) {
+        val p = prefs(context)
+        if (p.getInt("fake_rules", 0) >= FAKE_RULES) return
+        val list = events(context)
+        var changed = false
+        for (i in 0 until list.length()) {
+            val e = list.optJSONObject(i) ?: continue
+            if (e.optString("direction") != "in" || e.has("corrected") || e.optBoolean("test")) continue
+            val raw = listOf(e.optString("raw_title"), e.optString("raw_text")).filter { it.isNotBlank() }.joinToString(" ")
+            if (raw.isBlank() || !PaymentAlertParser.looksFakeCredit(raw)) continue
+            e.put("direction", "info").put("info", "suspect").put("excluded", true).put("rechecked", "fake")
+            e.remove("bank_confirmed")
+            if ("bad_amount" in PaymentAlertParser.fakeSigns(raw)) e.remove("amount_paise")
+            changed = true
+        }
+        if (changed) saveEvents(context, list)
+        p.edit().putInt("fake_rules", FAKE_RULES).apply()
+    }
+
     private fun saveEvents(context: Context, list: JSONArray) {
         val trimmed = JSONArray()
         val start = maxOf(0, list.length() - MAX_EVENTS)
