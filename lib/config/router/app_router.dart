@@ -11,6 +11,7 @@ import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/kyc/presentation/kyc_screen.dart';
+import '../../features/money_home/money_home_screen.dart';
 import '../../features/plans/presentation/ai_credits_screen.dart';
 import '../../features/plans/presentation/plans_screen.dart';
 import '../../features/radio/presentation/travel_radio_screen.dart';
@@ -82,6 +83,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     // A rebuilt router (session changes) never re-opens onboarding for someone who finished it.
     initialLocation: AskodoxStartupHint.initialLocation,
     routes: [
+      // The old search tab is gone; an old link lands on the chat.
+      GoRoute(path: '/search', redirect: (context, state) => '/'),
       GoRoute(
           path: '/onboarding',
           builder: (context, state) =>
@@ -129,8 +132,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   path: '/',
                   builder: (context, state) => const ChatFirstHomeHost())
             ]),
+            // Owner 2026-11-22: "Money" on the bottom bar in both sides -- the person's own money (Buyer) or the
+            // shop's money (Seller), each a phone-style screen of pages and folders.
             StatefulShellBranch(routes: [
-              GoRoute(path: '/search', redirect: (context, state) => '/')
+              GoRoute(
+                  path: '/money-home',
+                  builder: (context, state) => const AskodoxMoneyHomeScreen())
             ]),
             // Owner 2026-11-19: no Shopping page. The third tab slot is only the shopping-mode switch (the
             // bottom-bar button never opens this branch); an old link to /shopping lands on the chat.

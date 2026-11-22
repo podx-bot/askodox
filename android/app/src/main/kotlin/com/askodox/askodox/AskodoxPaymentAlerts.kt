@@ -168,6 +168,26 @@ object AskodoxPaymentAlerts {
                             config(app), null)
                         result.success(true)
                     }
+                    // Owner 2026-11-22 (Payment voice folder): which kinds of money message are SPOKEN, per scope
+                    // ("personal" = My phone, else the shop on this phone). Kept apart from configure() so a later
+                    // configure never wipes the person's choices.
+                    "setVoiceKinds" -> {
+                        val personal = call.argument<String>("scope") == "personal"
+                        val next = try { JSONObject(call.argument<String>("kinds") ?: "{}") } catch (_: Exception) { JSONObject() }
+                        next.remove("fake") // the fake-message warning is always on
+                        prefs(app).edit().putString(voiceKindsKey(personal), next.toString()).apply()
+                        result.success(voiceKinds(app, personal).toString())
+                    }
+                    "voiceKinds" -> result.success(voiceKinds(app, call.argument<String>("scope") == "personal").toString())
+                    // "▶ Listen" in the folder: the SAME words and voice a real message of that kind gets.
+                    "speakKind" -> {
+                        val personal = call.argument<String>("scope") == "personal"
+                        val cfg = if (personal) personalConfig(app) else config(app)
+                        val language = (call.argument<String>("language") ?: cfg.optString("language", "te")).ifEmpty { "te" }
+                        val parts = sampleParts(call.argument<String>("kind") ?: "in", language, personal, cfg)
+                        if (parts.isNotEmpty()) CloudVoice.say(app, parts, language, cfg, null)
+                        result.success(parts.joinToString(" "))
+                    }
                     "speakRemote" -> result.success(speakRemote(app, call.argument<String>("eventId") ?: "",
                         call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, false, null))
                     "events" -> result.success(events(app).toString())
@@ -698,8 +718,16 @@ object AskodoxPaymentAlerts {
         if (parsed is PaymentAlertParser.Result.Ignored) {
             // Owner 2026-11-21: refund started / payment initiated / failed / bill generated / suspicious link -- explained
             // in the person's own history (why it came, what to check), never spoken, never counted.
+            // Owner 2026-11-22: each kind is also SAID when the person keeps it on in the Payment voice folder.
             if (!test && cfg.optString("business_id").isEmpty()) {
                 PaymentAlertParser.notice(title, text)?.let { n -> return saveNotice(context, cfg, pkg, n, title, text, notificationKey, whenMillis) }
+            } else if (!test) {
+                // A shop phone: only the warnings (someone asking the shop to pay, a fake "credited" message) -- said, not kept.
+                PaymentAlertParser.notice(title, text)?.takeIf { it.kind == "request" || it.kind == "suspect" }?.let { n ->
+                    val key = "$pkg|shopnotice|${n.kind}|${n.amountPaise ?: 0}|$notificationKey"
+                    val said = firstTime(context, key, System.currentTimeMillis()) && speakNotice(context, cfg, n, null, whenMillis)
+                    return mapOf("result" to "notice", "kind" to n.kind, "spoken" to said)
+                }
             }
             return mapOf("result" to "ignored")
         }
@@ -748,7 +776,9 @@ object AskodoxPaymentAlerts {
             if (personal) fake.put("direction", "in")
             synchronized(this) { val list = events(context); list.put(fake); saveEvents(context, list) }
             main.post { channel?.invokeMethod("paymentEvent", fake.toString()) }
-            return mapOf("result" to "suspect", "localId" to fakeId, "amountPaise" to amount, "spoken" to false)
+            // Owner 2026-11-22: never "received" -- the phone says it looks fake (always on).
+            val warned = speakNotice(context, cfg, PaymentAlertParser.Notice("suspect", amount), null, whenMillis)
+            return mapOf("result" to "suspect", "localId" to fakeId, "amountPaise" to amount, "spoken" to false, "warned" to warned)
         }
         // Owner 2026-11-21 (Rs 3,000 received, PhonePe row said minus): the bank's own SMS is the truth. An opposite
         // row of the SAME amount from an app notification within 10 minutes is set aside (❓, not counted, not spoken).
@@ -781,7 +811,10 @@ object AskodoxPaymentAlerts {
         if (handle != null) event.put("upi_handle", handle) // this phone only; never uploaded
         if (amount != null) event.put("amount_paise", amount)
         if (reference != null) event.put("reference", reference)
-        if ((parsed as? PaymentAlertParser.Result.Accepted)?.refund == true) event.put("note", "refund")
+        val refund = (parsed as? PaymentAlertParser.Result.Accepted)?.refund == true
+        val bonus = (parsed as? PaymentAlertParser.Result.Accepted)?.bonus
+        if (refund) event.put("note", "refund")
+        if (bonus != null) event.put("note", bonus) // "cashback" / "interest" (owner 2026-11-22)
         if (personal) {
             event.put("direction", "in")
             if (account != null) event.put("account", account)
@@ -797,15 +830,17 @@ object AskodoxPaymentAlerts {
         // Owner 2026-11-18: a payment message with NO amount is written in the history, never spoken ("amount not
         // clear" only confused people -- e.g. PhonePe UPI Circle notifications).
         val unclear = (amount == null || bankDisagrees) && !test
-        val mayVoice = !unclear && (quiet || test || late || claimVoice(context, amount, now, "local"))
+        // Owner 2026-11-22 (Payment voice folder): the person may switch a kind off (received / refund / cashback).
+        val muted = !test && !voiceOn(context, cfg, if (refund) "refund" else if (bonus != null) "cashback" else "in")
+        val mayVoice = !unclear && !muted && (quiet || test || late || claimVoice(context, amount, now, "local"))
         // Owner 2026-11-17: whichever message comes FIRST (SMS or notification) speaks at once -- no waiting for a name.
-        event.put("spoken", if (bankDisagrees) "skipped_bank" else if (unclear) "seen" else if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
+        event.put("spoken", if (bankDisagrees) "skipped_bank" else if (unclear) "seen" else if (muted) "muted" else if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
-        if (!unclear && !quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg, if (personal) account else null)
+        if (!unclear && !muted && !quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg, if (personal) account else null, bonus)
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
-            "amountPaise" to amount, "spoken" to (!unclear && !quiet && !late && mayVoice))
+            "amountPaise" to amount, "spoken" to (!unclear && !muted && !quiet && !late && mayVoice))
     }
 
     /** A message whose own payment time is older than this (phone was off / asleep) is written, never spoken. */
@@ -1064,7 +1099,10 @@ object AskodoxPaymentAlerts {
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
         val late = now - posted > LATE_MS
-        val say = cfg.optBoolean("announce_debits", false) && !quiet && !late && !bankDisagrees
+        // Owner 2026-11-22 ("the 3rd one: when such ones come a sound should come"): a PAID bill / EMI / loan instalment
+        // has its own switch (on unless the person turns it off); other debits keep the debit switch.
+        val billPaid = o.bill || o.biller
+        val say = voiceOn(context, cfg, if (billPaid) "bill" else "out") && !quiet && !late && !bankDisagrees
         // Owner 2026-11-21: a debit read from an APP notification waits ~60 s -- if the bank's SMS says the money came
         // IN, the row is set aside and nothing "went out" is spoken. The bank's own debit SMS speaks at once.
         val wait = say && !bankSms && !test
@@ -1081,8 +1119,9 @@ object AskodoxPaymentAlerts {
                     main.post { channel?.invokeMethod("paymentEvent", "{}") }
                 } else {
                     update(context, localId) { it.put("spoken", "pending") }
-                    CloudVoice.say(context, withAccount(cfg, o.account, PaymentAlertParser.personalParts(o.amountPaise, language, false, name)),
-                        language, cfg) { ok ->
+                    val parts = if (billPaid) PaymentAlertParser.billPaidParts(o.amountPaise, language, o.party, emi)
+                        else withAccount(cfg, o.account, PaymentAlertParser.personalParts(o.amountPaise, language, false, name))
+                    CloudVoice.say(context, parts, language, cfg) { ok ->
                         update(context, localId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
                         main.post { channel?.invokeMethod("paymentEvent", "{}") }
                     }
@@ -1134,9 +1173,12 @@ object AskodoxPaymentAlerts {
             .put("test", false)
         if (n.amountPaise != null) event.put("amount_paise", n.amountPaise)
         if (!dueDate.isNullOrEmpty()) event.put("due_date", dueDate)
-        (label?.takeIf { it.isNotBlank() } ?: PaymentAlertParser.billerName(title)?.takeIf { !PaymentAlertParser.looksLikePersonNumber(title) })
-            ?.let { event.put("party", it) }
+        val party = label?.takeIf { it.isNotBlank() }
+            ?: PaymentAlertParser.billerName(title)?.takeIf { !PaymentAlertParser.looksLikePersonNumber(title) }
+        party?.let { event.put("party", it) }
         putRaw(event, title, text)
+        // Owner 2026-11-22: said aloud when the person keeps this kind ON (Payment voice folder) -- never as "received".
+        if (speakNotice(context, cfg, n, party, whenMillis)) event.put("spoken", "announced")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
         if (n.kind == "suspect") {
             val te = cfg.optString("language", "te") == "te"
@@ -1145,6 +1187,66 @@ object AskodoxPaymentAlerts {
         }
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         return mapOf("result" to "notice", "kind" to n.kind, "localId" to localId)
+    }
+
+    // ------------------------------------------------------------------ which kinds are SPOKEN (owner 2026-11-22)
+
+    private fun voiceKindsKey(personal: Boolean) = if (personal) "voice_kinds_personal" else "voice_kinds_shop"
+
+    /** The person's own on / off per kind ("in", "out", "bill", "refund", "cashback", "pending", "failed", "due",
+     *  "autopay", "request"); a kind never set keeps its default. */
+    fun voiceKinds(context: Context, personal: Boolean): JSONObject =
+        try { JSONObject(prefs(context).getString(voiceKindsKey(personal), "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+
+    /**
+     * Whether this kind of message is said aloud. Defaults: everything on, except "out" (an ordinary debit), which keeps
+     * the older "announce debits" setting. The fake-message warning ("fake") is always on.
+     */
+    fun voiceOn(context: Context, cfg: JSONObject, kind: String): Boolean {
+        if (kind == "fake") return true
+        val chosen = voiceKinds(context, cfg.optString("business_id").isEmpty())
+        if (chosen.has(kind)) return chosen.optBoolean(kind, true)
+        return if (kind == "out") cfg.optBoolean("announce_debits", false) else true
+    }
+
+    /**
+     * A money message that is not a payment, SAID (never "received"): refund started / pending, failed / cancelled, a bill
+     * that came, AutoPay set / stopped, someone asking for money, a fake message. Quiet hours and late messages stay silent.
+     */
+    private fun speakNotice(context: Context, cfg: JSONObject, n: PaymentAlertParser.Notice, party: String?, whenMillis: Long): Boolean {
+        if (!voiceOn(context, cfg, PaymentAlertParser.voiceKindOf(n.kind))) return false
+        val now = System.currentTimeMillis()
+        if (now - paymentTime(whenMillis, now) > LATE_MS) return false
+        val cal = Calendar.getInstance()
+        if (PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
+                cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))) return false
+        val language = cfg.optString("language", "te").ifEmpty { "te" }
+        val parts = PaymentAlertParser.noticeParts(n.kind, n.amountPaise, language, party)
+        if (parts.isEmpty()) return false
+        CloudVoice.say(context, parts, language, cfg, null)
+        return true
+    }
+
+    /** "▶ Listen" in the Payment voice folder: example words for one kind (made-up names / amounts). */
+    private fun sampleParts(kind: String, language: String, personal: Boolean, cfg: JSONObject): List<String> {
+        val te = language == "te"
+        val shop = cfg.optString("shop_name")
+        return when (kind) {
+            "in" -> if (personal) PaymentAlertParser.personalParts(20000, language, true, if (te) "రమేష్" else "Ramesh")
+                else PaymentAlertParser.announcementParts(20000, language, false, if (te) "రమేష్" else "Ramesh", shop)
+            "out" -> PaymentAlertParser.personalParts(50000, language, false, if (te) "సురేష్" else "Suresh")
+            "bill" -> PaymentAlertParser.billPaidParts(413300, language, "Bajaj Finance", true)
+            "refund" -> if (personal) PaymentAlertParser.personalParts(49900, language, true, null)
+                else PaymentAlertParser.announcementParts(49900, language, false, null, shop)
+            "cashback" -> PaymentAlertParser.bonusParts(5000, language, "cashback")
+            "pending" -> PaymentAlertParser.noticeParts("refund_started", 49900, language)
+            "failed" -> PaymentAlertParser.noticeParts("failed", 30000, language)
+            "due" -> PaymentAlertParser.noticeParts("bill", 96200, language, if (te) "కరెంట్" else "Electricity")
+            "autopay" -> PaymentAlertParser.noticeParts("autopay", 49900, language, "Netflix")
+            "request" -> PaymentAlertParser.noticeParts("request", 200000, language)
+            "fake" -> PaymentAlertParser.noticeParts("suspect", null, language)
+            else -> emptyList()
+        }
     }
 
     /** A bill / EMI reminder kept as a "due" row (the app offers it in Upcoming payments). Same due twice = once. */
@@ -1221,10 +1323,12 @@ object AskodoxPaymentAlerts {
     }
 
     private fun speak(context: Context, amount: Long?, test: Boolean, eventId: String?, payer: String? = null,
-                      cfg: JSONObject = config(context), account: String? = null) {
+                      cfg: JSONObject = config(context), account: String? = null, bonus: String? = null) {
         val language = cfg.optString("language", "te").ifEmpty { "te" }
         val name = if (cfg.optBoolean("say_name", true)) payer else null
-        val parts = if (cfg.optString("business_id").isEmpty() && amount != null && !test)
+        val parts = if (cfg.optString("business_id").isEmpty() && amount != null && !test && bonus != null)
+            withAccount(cfg, account, PaymentAlertParser.bonusParts(amount, language, bonus)) // cashback / interest
+        else if (cfg.optString("business_id").isEmpty() && amount != null && !test)
             withAccount(cfg, account, PaymentAlertParser.personalParts(amount, language, true, name))
         else PaymentAlertParser.announcementParts(amount, language, test, name, cfg.optString("shop_name"))
         CloudVoice.say(context, parts, language, cfg) { ok ->

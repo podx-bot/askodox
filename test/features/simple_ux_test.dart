@@ -269,7 +269,9 @@ void main() {
     expect(find.byKey(const Key('askodoxNavProfile')), findsNothing);
     // No steps counted yet: the Live Work dot is grey and still.
     expect(find.byKey(const Key('askodoxNavLiveWorkDot-idle')), findsOneWidget);
-    // The app opens on the Buyer side; one tap on the switch = Seller side (Money becomes Shop), another = back.
+    // The app opens on the Buyer side; one tap on the switch = Seller side, another = back.
+    // Owner 2026-11-22: "Money" on BOTH sides (it said "Shop" on the Seller side); it opens the Money tab (branch 1),
+    // and the switch stays on the tab in view instead of jumping to Home.
     expect(container.read(askodoxSellerModeProvider), isFalse);
     expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Buyer');
     await tester.tap(find.byKey(const Key('askodoxNavHistory')));
@@ -278,9 +280,17 @@ void main() {
     expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Seller');
     expect(find.byKey(const Key('askodoxNavShop')), askodoxPhase2 ? findsNothing : findsOneWidget);
     expect(find.byKey(const Key('askodoxNavPayments')), findsNothing);
+    if (!askodoxPhase2) {
+      expect(find.descendant(of: find.byKey(const Key('askodoxNavShop')), matching: find.text('Money')), findsOneWidget);
+      expect(find.text('Shop'), findsNothing);
+      await tester.tap(find.byKey(const Key('askodoxNavShop')));
+      await tester.pumpAndSettle();
+      expect(find.text('X'), findsOneWidget, reason: 'Money = the second tab');
+    }
     await tester.tap(find.byKey(const Key('askodoxNavHistory')));
     await tester.pumpAndSettle();
     expect(container.read(askodoxSellerModeProvider), isFalse);
+    if (!askodoxPhase2) expect(find.text('X'), findsOneWidget, reason: 'the switch stays on the Money tab');
     // Phase 1: no Orders tab (ASKODOX neither sells nor buys); the header bell opens request updates.
     expect(find.byKey(const Key('askodoxNavUpdates')), askodoxPhase2 ? findsOneWidget : findsNothing);
     // Phase 1 (owner 2026-11-10): Payments sits beside Ask.

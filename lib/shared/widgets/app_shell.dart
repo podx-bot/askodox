@@ -23,7 +23,6 @@ import 'header_menu.dart';
 import '../../features/staff/askodox_staff_access.dart';
 import '../../config/theme/app_theme.dart';
 import 'askodox_inner_theme.dart';
-import '../../core/providers/app_settings_provider.dart';
 import '../../features/companion/companion_floating.dart';
 import '../../features/companion/companion_hub.dart';
 import '../../features/home/domain/shopping_mode.dart';
@@ -79,8 +78,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     }
   }
 
+  /// Owner 2026-11-22: the switch flips the side and STAYS on the tab in view (Money shows the other side's money,
+  /// Home the other side's chat) -- it no longer jumps to Home.
   Future<void> _flipMode() async {
-    if (widget.shell.currentIndex != 0) widget.shell.goBranch(0, initialLocation: true);
     await askodoxSetSellerMode(ref, !ref.read(askodoxSellerModeProvider));
   }
 
@@ -338,24 +338,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           PopupMenuButton<String>(
             key: const Key('askodoxLanguageChip'),
             tooltip: isTe ? 'భాష' : 'Language',
-            onSelected: (code) {
-              // Automatic releases the explicit lock and lets conversation detection drive replies.
-              // A concrete choice locks UI + conversation to the same language.
-              if (code == 'auto') {
-                ref.read(appSettingsProvider.notifier).useSystemLocale();
-              } else {
-                ref.read(appSettingsProvider.notifier).setLocale(Locale(code));
-              }
-              ref.read(askodoxConversationLanguageProvider.notifier).lockTo(code);
-            },
+            onSelected: (code) => askodoxApplyLanguage(ref, code),
             itemBuilder: (context) => [
-              for (final (code, name) in const [
-                ('auto', 'Automatic'),
-                ('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'),
-                ('ta', 'தமிழ்'), ('kn', 'ಕನ್ನಡ'), ('ml', 'മലയാളം'),
-                ('mr', 'मराठी'), ('bn', 'বাংলা'), ('gu', 'ગુજરાતી'),
-                ('pa', 'ਪੰਜਾਬੀ'), ('or', 'ଓଡ଼ିଆ'), ('ur', 'اردو'), ('as', 'অসমীয়া'),
-              ])
+              for (final (code, name) in askodoxLanguageChoices)
                 PopupMenuItem(value: code, key: ValueKey('askodoxLanguage-$code'), child: Text(name)),
             ],
             child: Padding(
@@ -430,6 +415,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               // "Ask about this": the screen the user is on becomes the question.
               onAskAboutThis: () {
                 final prompt = switch (shell.currentIndex) {
+                  1 => seller
+                      ? (isTe ? 'నా షాప్ డబ్బు, బిల్లులు, బాకీల గురించి సహాయం చేయండి' : 'Help me with my shop money, bills and dues')
+                      : (isTe ? 'నా డబ్బు, పేమెంట్ల గురించి సహాయం చేయండి' : 'Help me with my money and payments'),
                   2 => isTe ? 'నా సేవ్ చేసిన ఎంపికలు, చరిత్ర గురించి సహాయం చేయండి' : 'Help me with my saved options and history',
                   3 => isTe ? 'నా ఆర్డర్లు, అప్‌డేట్‌ల గురించి చెప్పండి' : 'Tell me about my orders and updates',
                   4 => isTe ? 'నా ప్రొఫైల్, సెట్టింగ్‌ల గురించి సహాయం చేయండి' : 'Help me with my profile and settings',
@@ -456,9 +444,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           ref.read(askodoxLiveWorkAttentionProvider.notifier).state = false;
           context.push('/work');
         },
-        // Buyer side: the person's OWN money only (the shop histories live on the Seller side).
-        onPayments: () => context.push(seller ? '/me/payments' : '/me/payments?mine=1'),
-        onShop: () => context.push('/me/business'),
+        // Owner 2026-11-22: "Money" on both sides (Shop's place too): Buyer = the person's own money, Seller = the
+        // shop's money. One tab; the side decides what it shows.
+        onMoney: () => shell.goBranch(1, initialLocation: true),
         onCompanion: () {
           // "Ask" = ONE tap starts listening (a second tap stops and sends).
           // No ring of buttons in between: attachments live on the chat's "+",
@@ -488,15 +476,14 @@ class _PrimaryBottomBar extends ConsumerWidget {
     required this.onHome,
     required this.onHistory,
     required this.onLiveWork,
-    required this.onPayments,
-    required this.onShop,
+    required this.onMoney,
     required this.onCompanion,
     required this.onUpdates,
   });
   final int currentBranch;
   final bool isTe, seller;
   final AskodoxLiveWorkStatus liveWork;
-  final VoidCallback onHome, onHistory, onLiveWork, onPayments, onShop, onCompanion, onUpdates;
+  final VoidCallback onHome, onHistory, onLiveWork, onMoney, onCompanion, onUpdates;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -542,12 +529,11 @@ class _PrimaryBottomBar extends ConsumerWidget {
             ]),
           ),
         )),
-        // Phase 1 (owner 2026-11-10): My payment methods sits right beside Ask.
-        // Owner 2026-11-21: the Buyer side shows the person's own money; the Seller side shows their shop here.
-        if (!askodoxPhase2 && !seller)
-          _item('askodoxNavPayments', false, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, isTe ? 'మనీ' : 'Money', onPayments),
-        if (!askodoxPhase2 && seller)
-          _item('askodoxNavShop', false, Icons.storefront_outlined, Icons.storefront_rounded, isTe ? 'షాప్' : 'Shop', onShop),
+        // Owner 2026-11-22: "Money" beside Ask on BOTH sides (it used to say "Shop" on the Seller side). The keys
+        // stay per side: askodoxNavPayments = own money (Buyer), askodoxNavShop = the shop's money (Seller).
+        if (!askodoxPhase2)
+          _item(seller ? 'askodoxNavShop' : 'askodoxNavPayments', currentBranch == 1, Icons.account_balance_wallet_outlined,
+              Icons.account_balance_wallet_rounded, isTe ? 'మనీ' : 'Money', onMoney),
         // Phase 1 (owner 2026-11-09): ASKODOX neither sells nor buys, so no "Orders" tab; request
         // updates stay one tap away on the header bell.
         if (askodoxPhase2)

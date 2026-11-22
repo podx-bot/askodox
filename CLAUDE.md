@@ -7,6 +7,25 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #387 (2026-11-22, owner "Ok start work" on the Money / ☰ design artifact VJpPz7Ckp6yh7CiCZ4v3Zf): MONEY ON BOTH
+  SIDES -- bottom bar Home · Live Work · Ask · Money · Buy|Sell (Seller said "Shop"; keys stay `askodoxNavPayments` Buyer /
+  `askodoxNavShop` Seller), Money = shell branch 1 `/money-home` (`AskodoxMoneyHomeScreen`, `lib/features/money_home/`; old
+  `/search` = top-level redirect); the switch stays on the tab in view. Buyer = own money card (this month on this phone ->
+  `/money?owner=me&lock=1`) + pages; Seller = shop chooser (owner + staff shops, `askodoxMyShopsProvider`,
+  `askodoxMoneyShopProvider`), today's sales / dues / new orders (-> `/money?owner=<id>&lock=1`), the shop's tools from
+  `askodoxSellerPages` (role perms via `askodoxBizAllowed`, food-only tables / kitchen, Phase 1 `askodoxRouteShownNow`),
+  first time = `AskodoxShopSetupCard` (name + state + kind template). Phone-style pages = `AskodoxLaunchLayout` (folders,
+  move, hide never delete, fitTo adds new pages at the end, Reset), saved per side and PER SHOP (prefs
+  `askodox.money.layout.v1.buyer|seller`, account-scoped); press and hold arranges, the card's place shows the arranging
+  panel (the grid never moves under the finger). ☰ = `AskodoxMenuBox` dropping from the TOP (`showGeneralDialog`), per side:
+  person card (`askodoxMenu-more`) or shop card + `askodoxMenu-mybusiness`, history / language (`askodoxApplyLanguage`, shared
+  with the header chip) / location / notifications / AI Credits / settings / feedback / idea, company pages
+  (`askodoxCompanyLinks`, askodox.com), Sign in / Logout. PAYMENT VOICE FOLDER (`payment_voice_sheet.dart`): 11 kinds on my
+  phone, 4 on a shop counter; native `voiceOn` / `setVoiceKinds` / `voiceKinds` / `speakKind` (prefs
+  `voice_kinds_personal|shop`), "fake" always on, "out" follows announce_debits unless chosen; paid bill / EMI speaks
+  `billPaidParts`. Parser: cashback / interest landed = Accepted(bonus) (offers never), "cancelled" in reject, notices
+  `cancelled` / `autopay` / `autopay_off` / `request` (`noticeParts`, `voiceKindOf`, never received words). Parser gate 256
+  checks. Nothing phone verified.
 - `main` PR #386 (2026-11-22, owner HDFC "Bill Paid!" SMS + "bill payment is a payment too, bill generated etc."):
   PAID BILLS ARE PAYMENTS -- `PaymentAlertParser.paidBill` (bill / premium / EMI / instalment / challan + "paid" /
   "payment successful", or "... paid / successful ... from your A/c XX1234" -> `Outgoing(bill, ownAccount)`, party via

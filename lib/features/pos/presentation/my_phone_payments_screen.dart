@@ -26,7 +26,10 @@ import 'payment_source_icon.dart';
 /// access, battery, the maker's Autostart page, each app's own notifications, the SMS app) -- nothing to hunt for.
 /// A phone that also listens for a shop chooses per app where it goes (shop or my phone); both work together.
 class AskodoxMyPhonePaymentsScreen extends ConsumerStatefulWidget {
-  const AskodoxMyPhonePaymentsScreen({super.key});
+  const AskodoxMyPhonePaymentsScreen({super.key, this.open = ''});
+
+  /// Opens one part at once (history | apps | accounts | voice) -- the Money screen's folder pages link straight in.
+  final String open;
 
   @override
   ConsumerState<AskodoxMyPhonePaymentsScreen> createState() => _AskodoxMyPhonePaymentsScreenState();
@@ -461,7 +464,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
   bool _showDone = false;
 
   /// Which tile is open ('' = none: the history and the folded "More settings" show as before).
-  String _section = '';
+  late String _section = const {'history', 'apps', 'accounts', 'voice'}.contains(widget.open) ? widget.open : '';
 
   Widget _tiles(bool te) {
     Widget tile(String id, IconData icon, String en, String tel, String subEn, String subTe) {
@@ -1108,6 +1111,8 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               subtitle: Text([
                 if (askodoxRowDoubt(e) case final d?) te ? d.$2 : d.$1,
                 if (e['note'] == 'refund') te ? 'రిఫండ్ జమ' : 'Refund received',
+                if (e['note'] == 'cashback') te ? 'క్యాష్‌బ్యాక్' : 'Cashback',
+                if (e['note'] == 'interest') te ? 'వడ్డీ' : 'Interest',
                 '${e['source_label'] ?? ''}${'${e['also_from'] ?? ''}'.isEmpty ? '' : ' + ${e['also_from']}'}',
                 _placeName(m, accountOf(e), te),
                 if (askodoxBankConfirmedLabel(e) case final b?) te ? b.$2 : b.$1,
