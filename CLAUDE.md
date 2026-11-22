@@ -7,6 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #391 (2026-11-22, owner "1", owner test: 30-40 s before a spoken reply): SPEAK WHILE WRITING -- spoken turns
+  (`askodoxSpeakTypedReplies` + `_streamSpeaks`) no longer hide the stream until the whole answer: `_liveFeed` queues each
+  finished `askodoxSpeechChunks` part (last part only after `text_done` / the final), `_liveFetch` shares audio through
+  `_earlyAudio` (first part's engine locks the rest), `_liveRun` plays + shows each part (`_streamingReply`); `_speakChunks(
+  continueLive:)` waits for the part playing, then goes on from the first part not heard (`_liveHeard`; added words of the
+  last heard part only; Stop / mute -> nothing more). Replay / resume never continue. Stream event `{"type":"text_done"}`
+  (`_ReplyStream` -> `on_text.text_done`). ElevenLabs `DEFAULT_MODEL` eleven_v4_turbo, refused (400/404/422) -> eleven_v3
+  once + 30 min rest (log `ASKODOX VOICE MODEL refused`). Routing JSON "reply" first; planner max_tokens 400; first Gemini
+  photo read `thinking_budget=0` (next model keeps thinking). Registry `speak_while_writing`. Railway has a STAGED (not
+  applied) ELEVENLABS_TTS_MODEL=eleven_v4_turbo -- same as the code default. Nothing phone verified. Next: planner in
+  parallel with the answer (still ~1-1.5 s before routing).
 - Branch `claude/scam-sms-guard` (2026-11-22, owner: a JK-xxxxx-S "DEPOSIT SUCCESS ... A/c: <whole 10-digit number>
   Amount: Rs.8,551,00 Status: RECEIVED Open: bit.ly/.." SMS was said + counted as ₹8,55,100 received, "Bank SMS"):
   `PaymentAlertParser.fakeSigns` = public short link / broken comma groups (`wellGrouped`) / a whole account number
