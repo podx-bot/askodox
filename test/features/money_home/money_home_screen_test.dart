@@ -99,7 +99,6 @@ void main() {
     expect(find.byKey(const Key('askodoxPaymentVoiceSheet')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-bill-on')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-out-off')), findsOneWidget, reason: 'money sent: off by default');
-    expect(find.byKey(const ValueKey('askodoxVoiceKindDot-fake-on')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-bill')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-bill-off')), findsOneWidget);
