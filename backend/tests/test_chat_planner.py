@@ -70,8 +70,13 @@ def test_level_picks_the_model():
         brain, _ = _brain({"search": False, "query": "", "level": level})
         brain.decide("razorpay ఎందుకు ఓపెన్ అవ్వట్లేదు", locale="te")
         answer_models = [m for m, kind in brain.http.models if kind == "answer"]
-        assert answer_models and answer_models[0] == model, (level, brain.http.models)
-        assert brain.http.models[0] == ("claude-haiku-5-5", "plan"), "the planner itself is the fast model"
+        # Owner 2026-11-22: the routing call starts next to the planner on the fast model; a hard question drops that
+        # early call (never shown) and routes again with the strong model.
+        if level == "hard":
+            assert answer_models.count(model) == 1, (level, brain.http.models)
+        else:
+            assert answer_models == [model], (level, brain.http.models)
+        assert ("claude-haiku-5-5", "plan") in brain.http.models, "the planner itself is the fast model"
 
 
 def test_no_search_when_the_planner_says_so_and_no_old_word_matches():

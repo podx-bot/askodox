@@ -9417,6 +9417,11 @@
           "date": "2026-11-22",
           "change": "speak while writing + eleven_v4_turbo default (eleven_v3 fallback) + reply key first + text_done + planner limit + first photo read without thinking",
           "approved_by": "owner"
+        },
+        {
+          "date": "2026-11-23",
+          "change": "routing starts next to the planner (held until no search / not hard, else dropped and routed again)",
+          "approved_by": "owner"
         }
       ],
       "status": "approved"
