@@ -297,6 +297,27 @@ fun main() {
     yes("voice kind of a notice", PaymentAlertParser.voiceKindOf("refund_started") == "pending" &&
         PaymentAlertParser.voiceKindOf("cancelled") == "failed" && PaymentAlertParser.voiceKindOf("bill") == "due" &&
         PaymentAlertParser.voiceKindOf("suspect") == "fake" && PaymentAlertParser.voiceKindOf("autopay_off") == "autopay")
+    // Owner 2026-11-22 (a JK-xxxxx-S "DEPOSIT SUCCESS ... Rs.8,551,00 ... A/c: <10 digits> ... bit.ly" SMS was said and
+    // counted as ₹8,55,100 received). Made-up numbers only.
+    val fake = "TRADESFORNSEBILLAMT\nDEPOSIT SUCCESS\nA/c: 9000012345\nTime: 18:20 PM\nAmount: Rs.8,551,00\nStatus: RECEIVED\nOpen: bit.ly/4kYG0he\n-EXAMPLESECURITIES"
+    val fakeNoLink = fake.replace("\nOpen: bit.ly/4kYG0he", "")
+    check("fake deposit SMS = never money", "JK-ABCDEF-S", fake, "IGNORED")
+    check("fake deposit SMS without its link = never money", "JK-ABCDEF-S", fakeNoLink, "IGNORED")
+    yes("fake deposit = a ⚠️ warning, no amount (the amount itself is broken)",
+        PaymentAlertParser.notice("JK-ABCDEF-S", fakeNoLink)?.let { it.kind == "suspect" && it.amountPaise == null } == true)
+    yes("fake signs", PaymentAlertParser.fakeSigns(fake) == listOf("link", "bad_amount", "open_account"))
+    yes("an earlier confirmed wording does not make a fake one money",
+        PaymentAlertParser.parse("JK-ABCDEF-S", fakeNoLink, learnedIn = listOf(PaymentAlertParser.template(fakeNoLink))) is Result.Ignored)
+    yes("the person's own 'wrong -> came in' on that message still wins",
+        PaymentAlertParser.parse("JK-ABCDEF-S", fakeNoLink, learnedKinds = mapOf(PaymentAlertParser.skeleton(fakeNoLink) to "in")) is Result.Accepted)
+    check("whole account number + received = never money", "JK-ABCDEF-S", "Rs.5,000.00 received in A/c No. 9000012345 Status: SUCCESS", "IGNORED")
+    check("tinyurl credit = never money", null, "Rs 2,000 credited to your account. Open tinyurl.com/abcd to claim", "IGNORED")
+    for (g in listOf("8,55,100", "855,100", "8551", "8551.00", "1,00,000.50", "12,34,567", "500,")) yes("amount $g is well grouped", PaymentAlertParser.wellGrouped(g))
+    for (g in listOf("8,551,00", "85,5100", "1,0000")) yes("amount $g is broken", !PaymentAlertParser.wellGrouped(g))
+    check("real credit 8,551.00 stays money", "AX-HDFCBK-S", "Rs.8,551.00 credited to your A/c XX1234 on 22-11-26 by UPI", "IN 855100")
+    check("real NEFT from a broker stays money", "AX-SBIINB-S", "Rs 1,00,000.00 credited to A/c XXXXXX1234 by NEFT from EXAMPLE SECURITIES LTD", "IN 10000000")
+    check("bank's own link line is cut, credit stays", "AX-HDFCBK-S", "Rs.500.00 credited to A/c XX1234 on 22-11-26. Not you? Visit https://hdfcbk.io/a/x", "IN 50000")
+    check("EMI debit with a whole loan number stays a debit", "AX-HDFCBK-S", "Rs 4,133.00 debited from A/c XX1234 towards loan account 123456789012 EMI on 22-11-26", "OUT 413300")
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }
