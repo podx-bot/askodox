@@ -179,6 +179,45 @@ class AskodoxLaunchLayout {
     return AskodoxLaunchLayout(list, hidden: base.hidden);
   }
 
+  /// Takes every page out of folder [folderId], in its place and order (owner 2026-11-22: folders are only the person's
+  /// own; one tap empties one).
+  AskodoxLaunchLayout ungroup(String folderId) {
+    final out = <AskodoxLaunchEntry>[];
+    for (final e in entries) {
+      if (e.folder == folderId) {
+        out.addAll([for (final c in e.children) AskodoxLaunchEntry.page(c)]);
+      } else {
+        out.add(e);
+      }
+    }
+    return AskodoxLaunchLayout(out, hidden: hidden);
+  }
+
+  /// Folders the app made itself in an earlier version: their pages go back on the screen (user folders stay).
+  AskodoxLaunchLayout withoutFolders(Set<String> folderIds) {
+    var l = this;
+    for (final id in folderIds) {
+      if (l.entry('f:$id') != null) l = l.ungroup(id);
+    }
+    return l;
+  }
+
+  /// Moves [page] inside its folder to [to] (an index in the folder's list WITHOUT it). A page from elsewhere is
+  /// taken from where it was and put into the folder at [to].
+  AskodoxLaunchLayout moveInFolder(String folderId, String page, int to) {
+    var base = this;
+    final from = base.folderOf(page);
+    if (from != null && from.folder != folderId) base = base.takeOut(page);
+    if (base.entry('f:$folderId') == null) return this;
+    final list = [...base.entries]..removeWhere((e) => !e.isFolder && e.page == page);
+    final fi = list.indexWhere((e) => e.id == 'f:$folderId');
+    if (fi < 0) return this;
+    final kids = [for (final c in list[fi].children) if (c != page) c];
+    kids.insert(to.clamp(0, kids.length), page);
+    list[fi] = list[fi].withChildren(kids);
+    return AskodoxLaunchLayout(list, hidden: base.hidden);
+  }
+
   AskodoxLaunchLayout rename(String folderId, String name) {
     final clean = name.trim();
     if (clean.isEmpty) return this;

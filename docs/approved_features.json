@@ -9227,7 +9227,10 @@
           "askodoxShopSetup",
           "askodoxPaymentVoiceSheet",
           "askodoxMenuBox",
-          "askodoxMenuClose"
+          "askodoxMenuClose",
+          "askodoxMoneyFolderClose",
+          "askodoxMoneyFolderRename",
+          "askodoxMoneyFolderName"
         ],
         "symbols": [
           "AskodoxMoneyHomeScreen",
@@ -9241,7 +9244,11 @@
           "AskodoxMenuBox",
           "askodoxRunMenuChoice",
           "askodoxApplyLanguage",
-          "askodoxCompanyLinks"
+          "askodoxCompanyLinks",
+          "askodoxOpenPinRoute",
+          "askodoxRetiredFolderIds",
+          "AskodoxPaymentVoiceScreen",
+          "AskodoxMyDuesRouteScreen"
         ]
       },
       "flags": {},
@@ -9261,11 +9268,15 @@
       ],
       "status": "approved",
       "purpose": "Owner 2026-11-22: the bottom bar says Money on the Seller side too (it said Shop) and Money switches to the seller account -- shop name, its transactions, its own settings -- while the personal account stays on the Buyer side. Every page is an icon with its name under it, phone style, with the person's own folders (4-5 pages in one box) and more screens when one is full. The long payment-voice page is minimised into one folder. The ☰ menu opens as a box from the top, per side: profile name / phone / address (Buyer) or shop name / address (Seller), plus history, language, location, customer care, terms, contact, about, sign in / out.",
-      "expected_behavior": "Bottom bar Home · Live Work · Ask · Money · Buy|Sell on both sides (keys askodoxNavPayments = Buyer, askodoxNavShop = Seller; Money = shell branch 1 '/money-home'); the switch stays on the tab in view. Buyer Money: card = this month in / out on this phone + the latest two (tap -> /money?owner=me&lock=1, own money only) + pages QR / Payment voice / My bills / Coming up / Order by code / My orders + folders Shops I follow and My settings. Seller Money: shop chooser (owner and staff shops), today's sales / dues / new orders (tap -> /money?owner=<shop>&lock=1, shops only), the shop's own tools filtered by the person's role and the shop kind (tables + kitchen only for food), first time = name + state + kind setup card. Press and hold arranges: drop on another page = a folder, beside it = move, to the edge = next screen; rename folders, hide (never delete) and bring back, Reset; saved per side and per shop on the phone (account-scoped keys). Payment voice folder: 11 kinds on my phone (in, out, bill / EMI paid, refund, cashback / interest, pending, failed / cancelled, bill generated / due, autopay, collect request, looks fake), 4 on a shop counter; tap = on / off, ▶ = the real words; the fake warning is always on; 'out' keeps the older announce-debits switch in step. Parser: cashback / interest landed in the account = money in (offers never), cancelled never money, collect requests and autopay set / revoked are notices, never received money.",
+      "expected_behavior": "Bottom bar Home · Live Work · Ask · Money · Buy|Sell on both sides (keys askodoxNavPayments = Buyer, askodoxNavShop = Seller; Money = shell branch 1 '/money-home'); the switch stays on the tab in view. Buyer Money: card = this month in / out on this phone + the latest two (tap -> /money?owner=me&lock=1, own money only) + pages QR / Payment voice / My bills / Coming up / Order by code / My orders + folders Shops I follow and My settings. Seller Money: shop chooser (owner and staff shops), today's sales / dues / new orders (tap -> /money?owner=<shop>&lock=1, shops only), the shop's own tools filtered by the person's role and the shop kind (tables + kitchen only for food), first time = name + state + kind setup card. Press and hold arranges: drop on another page = a folder, beside it = move, to the edge = next screen; rename folders, hide (never delete) and bring back, Reset; saved per side and per shop on the phone (account-scoped keys). Payment voice folder: 11 kinds on my phone (in, out, bill / EMI paid, refund, cashback / interest, pending, failed / cancelled, bill generated / due, autopay, collect request, looks fake), 4 on a shop counter; tap = on / off, ▶ = the real words; the fake warning is always on; 'out' keeps the older announce-debits switch in step. Parser: cashback / interest landed in the account = money in (offers never), cancelled never money, collect requests and autopay set / revoked are notices, never received money. Round 2 (owner 2026-11-22 \"pages in a group don't move; any page as a Home chat shortcut; I am a businessman AND an employee; don't group anything\"): the app groups nothing (shipped screens flat; folders an earlier version made -- askodoxRetiredFolderIds -- come apart, the person's own stay). Press, hold and let go = the page's menu (put above the Home chat = the same five chat shortcuts for everyone, move, take out of a folder, hide; folders: open, rename, ungroup); press, hold and move = arranging. An open folder sits over the screen: drag a page inside it to a new place, or out of it onto the screen. Every page has a shortcut route (pinRoute: /payment-voice[?shop=], /me/dues); pins open bottom-bar tabs with go (askodoxOpenPinRoute); ☰ Settings pins as /profile?view=settings. Seller side per shop = the person's own side of it: owner = every tool; staff = the owner's ticks (tools) or, with none, the role, plus their OWN check in / attendance / tasks / month and salary (/biz/:id/staff/person/me, read only) and the payment sound only when given; the chooser lists 'My businesses' and 'Where I work'.",
       "history": [
         {
           "date": "2026-11-22",
           "change": "new; parser gate covers the new message kinds; not phone verified"
+        },
+        {
+          "date": "2026-11-22",
+          "change": "round 2: no app folders, drag in / out of folders, page menu + Home chat shortcuts, owner AND employee pages; not phone verified"
         }
       ]
     }

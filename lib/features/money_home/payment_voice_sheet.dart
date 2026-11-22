@@ -68,8 +68,11 @@ Future<void> askodoxOpenPaymentVoice(BuildContext context, {String? businessId})
     );
 
 class AskodoxPaymentVoiceSheet extends ConsumerStatefulWidget {
-  const AskodoxPaymentVoiceSheet({super.key, this.businessId});
+  const AskodoxPaymentVoiceSheet({super.key, this.businessId, this.inSheet = true});
   final String? businessId;
+
+  /// False when shown as its own page (`/payment-voice`, e.g. from a Home chat shortcut).
+  final bool inSheet;
 
   @override
   ConsumerState<AskodoxPaymentVoiceSheet> createState() => _AskodoxPaymentVoiceSheetState();
@@ -188,7 +191,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
             OutlinedButton.icon(
               key: const Key('askodoxPaymentVoiceMore'),
               onPressed: () {
-                Navigator.of(context).pop();
+                if (widget.inSheet) Navigator.of(context).pop();
                 final id = widget.businessId;
                 context.push(id == null ? '/me/payments/phone?open=voice' : askodoxBizRoute(id, 'money.sound'));
               },

@@ -310,8 +310,15 @@ class AskodoxMenuBox extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(14),
                   onTap: () => pick(value),
                   // Owner 2026-11-19: any menu page can be pinned above the chat (press and hold).
-                  onLongPress: value.startsWith('/')
-                      ? () => askodoxOfferChatPin(context, AskodoxChatPin(id: 'menu:$value', route: value, en: label, te: label))
+                  // Settings (not a route of its own) pins as the Settings tab of Profile.
+                  onLongPress: value.startsWith('/') || value == askodoxSettingsMenuValue
+                      ? () => askodoxOfferChatPin(
+                          context,
+                          AskodoxChatPin(
+                              id: 'menu:$value',
+                              route: value == askodoxSettingsMenuValue ? '/profile?view=settings' : value,
+                              en: label,
+                              te: label))
                       : null,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),

@@ -514,6 +514,10 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
 
   String get _ym => '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
 
+  /// Owner 2026-11-22 ("I am a businessman AND an employee"): `/biz/:id/staff/person/me` = a staff member's OWN month
+  /// in a shop they work in -- read only (the shop marks, gives advances and sets the salary).
+  bool get _mine => widget.staffRef == 'me';
+
   @override
   void initState() {
     super.initState();
@@ -689,7 +693,11 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
     final d = _data;
     final counts = askodoxPosMap(d?['counts']);
     final salary = askodoxPosMap(d?['salary']);
-    final name = '${d?['name'] ?? ''}'.isEmpty ? '••${widget.staffRef}' : '${d?['name']}';
+    final name = _mine
+        ? (te ? 'నా హాజరు & జీతం' : 'My attendance & salary')
+        : '${d?['name'] ?? ''}'.isEmpty
+            ? '••${widget.staffRef}'
+            : '${d?['name']}';
     const weekdays = ['సోమ', 'మంగళ', 'బుధ', 'గురు', 'శుక్ర', 'శని', 'ఆది'];
     const weekdaysEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return AskodoxBizScaffold(
@@ -744,7 +752,11 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
           ]),
         ),
         const SizedBox(height: 6),
-        Text(te ? 'ఒక్క నొక్కుతో మార్చండి: P = వచ్చారు, A = రాలేదు, OT = ఎక్కువ గంటలు, సె = సెలవు' : 'One tap: P present, A absent, OT overtime, L leave',
+        Text(
+            _mine
+                ? (te ? 'షాప్ వేసిన హాజరు: P = వచ్చారు, A = రాలేదు, OT = ఎక్కువ గంటలు, సె = సెలవు. తప్పు ఉంటే ఓనర్‌కి చెప్పండి.'
+                    : 'As the shop marked it: P present, A absent, OT overtime, L leave. Wrong? Tell the owner.')
+                : (te ? 'ఒక్క నొక్కుతో మార్చండి: P = వచ్చారు, A = రాలేదు, OT = ఎక్కువ గంటలు, సె = సెలవు' : 'One tap: P present, A absent, OT overtime, L leave'),
             style: const TextStyle(fontSize: 11.5, color: _muted)),
         const SizedBox(height: 6),
         if (d == null && _error == null) const Center(child: CircularProgressIndicator()),
@@ -777,7 +789,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
                         child: InkWell(
                           key: Key('askodoxAttMark-${day['date']}-$s'),
                           customBorder: const CircleBorder(),
-                          onTap: () => _mark('${day['date']}', s),
+                          onTap: _mine ? null : () => _mark('${day['date']}', s),
                           child: Container(
                             width: 38,
                             height: 38,
@@ -808,7 +820,9 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: salary['set'] != true
-                ? Text(te ? 'జీతం ఇంకా పెట్టలేదు — "జీతం సెట్టింగ్" నొక్కండి.' : 'Salary not set yet — tap "Salary settings".')
+                ? Text(_mine
+                    ? (te ? 'ఓనర్ ఇంకా జీతం పెట్టలేదు.' : 'The owner has not set a salary yet.')
+                    : (te ? 'జీతం ఇంకా పెట్టలేదు — "జీతం సెట్టింగ్" నొక్కండి.' : 'Salary not set yet — tap "Salary settings".'))
                 : Column(children: [
                     _line(te ? 'జీతం (${salary['days']} రోజులు × ${askodoxPaise(askodoxPosInt(salary['per_day_paise']))})' : 'Salary (${salary['days']} days × ${askodoxPaise(askodoxPosInt(salary['per_day_paise']))})',
                         askodoxPaise(askodoxPosInt(salary['base_paise']))),
@@ -824,7 +838,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
           ),
         ),
         const SizedBox(height: 10),
-        AskodoxBizGrid(children: [
+        if (!_mine) AskodoxBizGrid(children: [
           AskodoxBizTile(
             key: const Key('askodoxStaffAdvance'),
             icon: Icons.currency_rupee,

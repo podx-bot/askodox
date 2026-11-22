@@ -152,7 +152,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             StatefulShellBranch(routes: [
               GoRoute(
                   path: '/profile',
-                  builder: (context, state) => const ProfileScreen())
+                  builder: (context, state) => ProfileScreen(view: state.uri.queryParameters['view']))
             ]),
           ]),
       // One place per function: the old mock alerts / communication centre
