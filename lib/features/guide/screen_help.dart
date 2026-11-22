@@ -523,10 +523,12 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'Switch it on, then allow notification access for ASKODOX once.',
     'My apps / SMS: add or remove the apps and bank SMS you want read; rename or delete any of them.',
     'My accounts names the bank accounts; History lists every credit and debit — each row can be deleted.',
+    'A bill, recharge, EMI or premium you paid shows as ONE payment that went out (the bank "Bill Paid" SMS, the app message and the company receipt join into one); a bill that only CAME is a note or an upcoming payment, never money paid.',
   ], [
     'ఆన్ చేసి, ASKODOX కి నోటిఫికేషన్ యాక్సెస్ ఒకసారి ఇవ్వండి.',
     'నా యాప్‌లు / SMS: మీకు కావలసిన యాప్‌లు, బ్యాంక్ SMS జోడించండి లేదా తీసేయండి; ఏదైనా పేరు మార్చవచ్చు, తొలగించవచ్చు.',
     'నా ఖాతాలు లో బ్యాంక్ ఖాతాలకు పేరు పెట్టండి; హిస్టరీ లో ప్రతి క్రెడిట్ / డెబిట్ ఉంటుంది — ప్రతి వరుస తొలగించవచ్చు.',
+    'మీరు కట్టిన బిల్, రీఛార్జ్, EMI, ప్రీమియం ఒకే "వెళ్ళిన" పేమెంట్‌గా కనిపిస్తుంది (బ్యాంక్ "Bill Paid" SMS, యాప్ message, కంపెనీ రసీదు ఒకటిగా కలుస్తాయి); బిల్ వచ్చింది మాత్రమే అయితే అది నోట్ లేదా రాబోయే పేమెంట్ — కట్టిన డబ్బు కాదు.',
   ]),
   '/me/payment-methods': _H('My payment methods', 'నా పేమెంట్ పద్ధతులు', [
     'Add your UPI QR from ANY app or bank — pick its photo or photograph it — or type the UPI ID.',

@@ -9156,6 +9156,48 @@
           "change": "Owner approved \"1\" 2026-10-31 (branch claude/meta-oauth-callback). Needs META_APP_ID and META_APP_SECRET on Railway; NOT PRODUCTION VERIFIED; no token storage yet."
         }
       ]
+    },
+    {
+      "id": "paid_bills_are_payments",
+      "name": "A paid bill / recharge / EMI / premium is a payment that went out (every bank, app and company); a bill that came is a due or a note",
+      "roles": [
+        "any signed-in user"
+      ],
+      "domains": [
+        "payments"
+      ],
+      "api": [],
+      "ui": {
+        "symbols": [
+          "askodoxDueSuggestions",
+          "askodoxCategoryOf",
+          "askodoxItemsFromPhone",
+          "askodoxBillNote"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_chat_actions.py"
+        ],
+        "flutter": [
+          "test/features/pos/money_ledger_test.dart",
+          "test/features/pos/my_phone_payments_test.dart"
+        ]
+      },
+      "dependencies": [
+        "my_phone_payment_alerts",
+        "one_voice_per_reply_and_bank_wins"
+      ],
+      "status": "approved",
+      "purpose": "Owner 2026-11-22 (HDFC SMS \"Bill Paid! APCPDC Ele Bill ... of Rs. 962.00 paid on ... from HDFC Bank Account XX...\" was kept only as a \"bill generated\" note): a bill payment is a payment too -- and bills generated etc.; one example = every bank, UPI app and biller.",
+      "expected_behavior": "PaymentAlertParser (words decide, never a list of names): a bill / premium / EMI / instalment / challan message that says it is PAID or the payment is successful -> money out with what was paid for (\"APCPDC Ele Bill\") and the account's last digits; a message that names the person's own account as the source (\"paid / successful ... from your A/c XX1234\") -> money out; the payer's own \"payment to / for X successful\" -> money out (was read as received). Never when it says not paid / due / pay by / failed / pending / will be debited / generated / ignore if paid / an offer, when money came in (received, credited, to you) or when somebody else paid. The bank's own debit SMS is kept whatever it was FOR (EMI, loan, recharge, bill payment, card dues were dropped); SBI \"has a debit by transfer\". Company receipts in every wording (electricity / water / gas boards naming the service number, card issuers, insurers, lenders) -> money out, never when it came from a person. On the phone: the bank's own \"Bill Paid ... from your account\" SMS is kind billpay = the bank's word (confirmed); it joins the bank's debit SMS (within 10 min), the UPI app's message and the company's receipt into ONE row; two bills of the same amount stay two rows. Bill generated / due messages: \"ignore if already paid\" no longer hides the due, dates like 25-Nov-2026 are read, the date after \"due / pay by\" wins over the bill's own date, an SMS sender id is shown as the company's name; the bill that came is ALSO shown in the person's history as a note with its last date (askodoxBillNote; never counted, never spoken); a due whose amount went out after the reminder came is no longer offered. Electricity boards are categorised Current by the ending of their initials. Rows and their messages stay on the phone.",
+      "history": [
+        {
+          "date": "2026-11-22",
+          "change": "new; parser gate (android/parser-tests) covers it; not phone verified"
+        }
+      ]
     }
   ]
 }

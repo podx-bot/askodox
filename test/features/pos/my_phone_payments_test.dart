@@ -252,4 +252,12 @@ void main() {
     await tester.pumpAndSettle();
     expect((lastConfig['destinations'] as Map)['com.phonepe.app'], 'shop');
   });
+
+  test('a bill that came with a last date says the date; without one it says "bill generated"', () {
+    final dated = askodoxNoticeNote({'info': 'bill', 'due_date': '2026-12-05'})!;
+    expect(dated.$1, contains('05-12-2026'));
+    expect(dated.$2, contains('05-12-2026'));
+    expect(askodoxNoticeNote({'info': 'bill'})!.$1, contains('Bill generated'));
+    expect(askodoxNoticeNote({'info': 'bill', 'due_date': 'soon'})!.$1, contains('Bill generated'));
+  });
 }
