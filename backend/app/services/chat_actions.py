@@ -98,7 +98,8 @@ CATALOG: tuple[tuple[str, str, str, str, str], ...] = (
     ("updates", "/updates", "Updates", "Updates",
      "status of the user's requests, notifications inbox"),
     ("my_money", "/money", "My money", "నా Money",
-     "money in and out: payments received / paid, bank debit and credit alerts seen on this phone"),
+     "money in and out: payments received / paid, bank debit and credit alerts seen on this phone, bills paid "
+     "(current / electricity bill, recharge, EMI, premium), bills that came and upcoming dues"),
     ("my_bills", "/me/bills", "My bills", "నా Bills",
      "my bill / నా బిల్లు: bills sent to the user by shops, pay or settle a bill later"),
     ("my_payments", "/me/payments", "Payments", "Payments",

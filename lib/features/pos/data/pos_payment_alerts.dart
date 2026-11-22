@@ -613,16 +613,30 @@ bool askodoxRowCountsAsMoney(Map<String, Object?> e) =>
           'ℹ️ Payment failed. If money was cut, it usually comes back; if not in a few days, ask your bank.',
           'ℹ️ పేమెంట్ ఫెయిల్ అయింది. డబ్బు కట్ అయితే సాధారణంగా తిరిగి వస్తుంది; కొన్ని రోజుల్లో రాకపోతే బ్యాంక్‌ను అడగండి.'
         ),
-      'bill' => (
-          'ℹ️ Bill generated — this is what you have to pay, not money paid. Check the bill amount.',
-          'ℹ️ బిల్ వచ్చింది — ఇది కట్టాల్సింది, కట్టింది కాదు. బిల్లు మొత్తం సరిచూసుకోండి.'
-        ),
+      'bill' => askodoxBillNote(e),
       'suspect' => (
           '⚠️ Suspicious message — do not tap any link. Check your bank app to see if money really came.',
           '⚠️ అనుమానాస్పద message — లింక్ నొక్కకండి. డబ్బు నిజంగా వచ్చిందో మీ బ్యాంక్ యాప్‌లో చూడండి.'
         ),
       _ => null,
     };
+
+/// Owner 2026-11-22: a bill that CAME (not paid yet) says its last date when the message gave one ("2026-12-05" ->
+/// "05-12-2026"); when the bill is paid the payment is its own row.
+(String, String) askodoxBillNote(Map<String, Object?> e) {
+  final due = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch('${e['due_date'] ?? ''}');
+  if (due == null) {
+    return (
+      'ℹ️ Bill generated — this is what you have to pay, not money paid. Check the bill amount.',
+      'ℹ️ బిల్ వచ్చింది — ఇది కట్టాల్సింది, కట్టింది కాదు. బిల్లు మొత్తం సరిచూసుకోండి.'
+    );
+  }
+  final date = '${due.group(3)}-${due.group(2)}-${due.group(1)}';
+  return (
+    'ℹ️ Bill came — to be paid by $date; not money paid. It is also in Upcoming payments.',
+    'ℹ️ బిల్ వచ్చింది — $date లోపు కట్టాలి; ఇది కట్టిన డబ్బు కాదు. "రాబోయే చెల్లింపులు" లో కూడా ఉంది.'
+  );
+}
 
 /// The ❓ note of a doubtful row (en, te), or null.
 (String, String)? askodoxRowDoubt(Map<String, Object?> e) => askodoxNoticeNote(e) ?? switch ('${e['doubt'] ?? ''}') {

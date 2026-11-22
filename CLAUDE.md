@@ -7,6 +7,19 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #386 (2026-11-22, owner HDFC "Bill Paid!" SMS + "bill payment is a payment too, bill generated etc."):
+  PAID BILLS ARE PAYMENTS -- `PaymentAlertParser.paidBill` (bill / premium / EMI / instalment / challan + "paid" /
+  "payment successful", or "... paid / successful ... from your A/c XX1234" -> `Outgoing(bill, ownAccount)`, party via
+  `billPayee`), `paidOut` ("Payment of ₹962 to X successful" = the PAYER's message; was read as IN), guards `billNotPaid` /
+  `billToMe` / `stillDue` / `paidByOther`; `outgoingOrIgnored`: a strong debit word keeps a debit whatever it was FOR
+  (`purposeWords` emi / loan / recharge / bill pay -- they were dropped; not when credited / disbursed / will be);
+  `serviceAck` (boards naming SC / USC / consumer no, card issuers, insurers, lenders) never with `fromOther`;
+  `dueReminder` ("ignore if already paid", 25-Nov-2026, the date after "due / pay by" wins, sender id -> company name).
+  Phone: kind `billpay` = the bank's own "Bill Paid ... from your account" SMS (bank-confirmed, `SIDE_KINDS` with
+  `biller`: joins the bank's debit SMS within 10 min + app message + company receipt into ONE row; same kind never
+  joins); a bill that came = due row + an `info` bill note with `due_date` (`askodoxBillNote`). App:
+  `askodoxDueSuggestions` skips a due already paid, `_powerBoard` (board initials -> Current). Parser gate = 201 checks
+  with made-up numbers ONLY (public repo: never the owner's service numbers / account tail). Nothing phone verified.
 - `main` PR #383 (2026-11-21, owner "6, 7 + design, then merge + aab"; Play bundle `askodox-play-1590.aab`, Live Build run 44932718383; server deploy SUCCESS) + round 2 (2026-11-22, owner "finish all": Buyer Money = `/me/payments?mine=1` (`mineOnly`: own phone only), Seller greeting, reply `switch_mode` -> chip `askodoxSwitchMode-*` (`switch_mode_offer`, `askodoxSetSellerMode`), `RESULT_CARD_RULES`; PR #384, Play bundle `askodox-play-1592.aab`) + round 3 (2026-11-22, owner "start": header chip `askodoxHeaderModeChip` inside the wordmark FittedBox, `GUIDE_FRIEND_RULES` in how-to answers, Meta Page login `routes/meta_oauth.py` `/meta/oauth/start|callback` from old PR #259 -- needs `META_APP_ID` / `META_APP_SECRET`, stores no token): BUY / SELL SWITCH --
   `askodoxSellerModeProvider` (false = Buyer; kept on the phone under `askodoxSellerModePrefsKey`), bottom bar = Home ·
   Live Work (`askodoxNavLiveWork`, `/work`) · Ask · Money (Buyer) / Shop (Seller, `/me/business`) · switch

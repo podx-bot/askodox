@@ -38,7 +38,9 @@ class _AskodoxPaymentSourceIconState extends State<AskodoxPaymentSourceIcon> {
   void initState() {
     super.initState();
     final package = '${widget.event['source_app'] ?? ''}';
-    if (package.contains('.') && widget.event['kind'] != 'sms') _icon = AskodoxPaymentSourceIcon.iconOf(package);
+    // 'billpay' = the bank's own "Bill Paid" SMS: the bank's badge, like its debit SMS (never the messages app's icon).
+    final kind = widget.event['kind'];
+    if (package.contains('.') && kind != 'sms' && kind != 'billpay') _icon = AskodoxPaymentSourceIcon.iconOf(package);
   }
 
   @override

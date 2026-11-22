@@ -238,6 +238,9 @@ object AskodoxPaymentAlerts {
         return p.contains("business") || p.contains("merchant") || p.contains(".biz") || p.endsWith("forbusiness")
     }
 
+    /** Kinds of message that come through the SMS app NEXT TO the bank's debit SMS for the same money. */
+    private val SIDE_KINDS = setOf("biller", "billpay")
+
     /** upi | bank | sms | other: the person's list says it; otherwise guessed from the package name. */
     fun kindOf(cfg: JSONObject, pkg: String): String {
         cfg.optJSONObject("kinds")?.optString(pkg)?.takeIf { it.isNotEmpty() }?.let { return it }
@@ -671,7 +674,16 @@ object AskodoxPaymentAlerts {
         // Owner 2026-11-17: a bill / EMI REMINDER ("₹1,941 due on Nov 21") on the person's own phone -> an upcoming due
         // offered in "Upcoming payments" (never spoken, never a payment, never uploaded).
         if (!test && cfg.optString("business_id").isEmpty()) {
-            PaymentAlertParser.dueReminder(title, text)?.let { d -> return saveDue(context, cfg, pkg, d) }
+            PaymentAlertParser.dueReminder(title, text)?.let { d ->
+                val saved = saveDue(context, cfg, pkg, d)
+                // Owner 2026-11-22 ("bill generated etc. too"): the bill that CAME is also shown in the person's history
+                // with its last date (a note: never counted, never spoken) -- not only offered in Upcoming payments.
+                if (saved["result"] == "due") {
+                    saveNotice(context, cfg, pkg, PaymentAlertParser.Notice("bill", d.amountPaise), title, text, notificationKey,
+                        whenMillis, dueDate = d.dueDate, label = d.label)
+                }
+                return saved
+            }
         }
         // TRAI: a sender id ending in -P is an advertisement -- never a payment or a notice.
         if (PaymentAlertParser.isPromoSender(title)) return mapOf("result" to "ignored")
@@ -932,9 +944,10 @@ object AskodoxPaymentAlerts {
             val e = list.getJSONObject(i)
             val at = e.optLong("at_ms", 0L)
             if (at <= 0L || e.optBoolean("test")) continue
-            // Two messages from the same app never join -- except a company's "thank you for your payment" SMS and the
-            // bank's debit SMS, which both come through the SMS app (kind "biller" vs "sms").
-            if (e.optString("source_app") == pkg && kind != "biller" && e.optString("kind") != "biller") continue
+            // Two messages from the same app never join -- except a company's "thank you for your payment" SMS, the bank's
+            // own "Bill Paid" SMS and the bank's debit SMS, which all come through the SMS app (kinds "biller" /
+            // "billpay" vs "sms"; two of the same kind still never join).
+            if (e.optString("source_app") == pkg && kind !in SIDE_KINDS && e.optString("kind") !in SIDE_KINDS) continue
             if ((e.optString("direction").ifEmpty { "in" }) != direction) continue
             // A row set aside (❓) joins only the bank's own SMS that agrees with it (then it counts again).
             if (e.optBoolean("excluded") && !bankSms) continue
@@ -1002,8 +1015,18 @@ object AskodoxPaymentAlerts {
         val posted = paymentTime(whenMillis, now)
         // A company's "thank you for your payment" (Airtel, Jio, electricity ...) is the SAME money as the bank's debit
         // SMS / the UPI app's message: kind "biller" so it joins them (two SMS never join) and it is never the bank's word.
-        val kind = if (o.biller) "biller" else kindOf(cfg, pkg)
-        val bankSms = !o.biller && kindOf(cfg, pkg) == "sms" && PaymentAlertParser.isBankSender(title)
+        // Owner 2026-11-22 (HDFC "Bill Paid! ... from HDFC Bank Account XX1234"): the bank's OWN message that a bill /
+        // service was paid from the person's account is kind "billpay" -- the bank's word (confirmed), and the same money
+        // as its debit SMS and the company's thank-you. A paid-bill SMS that names no account of the person (the
+        // company's or an app's word) is "biller".
+        val source = kindOf(cfg, pkg)
+        val kind = when {
+            o.biller -> "biller"
+            o.bill && source == "sms" && o.ownAccount -> "billpay"
+            o.bill && source == "sms" -> "biller"
+            else -> source
+        }
+        val bankSms = source == "sms" && (kind == "sms" || kind == "billpay") && PaymentAlertParser.isBankSender(title)
         // Bank SMS wins (owner 2026-11-21): see the incoming side in [handle].
         if (!test && bankSms) setAsideOpposite(context, pkg, "out", o.amountPaise, posted)
         val bankDisagrees = !test && !bankSms && bankSaysOpposite(context, pkg, "out", o.amountPaise, posted)
@@ -1032,6 +1055,7 @@ object AskodoxPaymentAlerts {
         if (!o.party.isNullOrEmpty()) event.put("party", o.party)
         if (balance != null) event.put("balance_paise", balance)
         if (emi) event.put("emi", true)
+        if (o.bill) event.put("bill", true)
         if (bankSms) event.put("bank_confirmed", true).put("bank_sms_from", title?.trim()?.take(20) ?: "")
         putRaw(event, title, text)
         if (bankDisagrees) event.put("excluded", true).put("doubt", "bank_opposite")
@@ -1089,7 +1113,8 @@ object AskodoxPaymentAlerts {
 
     /** A money message that is not a payment: one "info" row (not counted, not spoken). Suspicious ones also notify. */
     private fun saveNotice(context: Context, cfg: JSONObject, pkg: String, n: PaymentAlertParser.Notice, title: String?,
-                           text: String?, notificationKey: String, whenMillis: Long): Map<String, Any?> {
+                           text: String?, notificationKey: String, whenMillis: Long, dueDate: String? = null,
+                           label: String? = null): Map<String, Any?> {
         val now = System.currentTimeMillis()
         val key = "$pkg|notice|${n.kind}|${n.amountPaise ?: 0}|$notificationKey|${paymentTime(whenMillis, now) / 60_000L}"
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
@@ -1108,7 +1133,9 @@ object AskodoxPaymentAlerts {
             .put("spoken", "none")
             .put("test", false)
         if (n.amountPaise != null) event.put("amount_paise", n.amountPaise)
-        PaymentAlertParser.billerName(title)?.takeIf { !PaymentAlertParser.looksLikePersonNumber(title) }?.let { event.put("party", it) }
+        if (!dueDate.isNullOrEmpty()) event.put("due_date", dueDate)
+        (label?.takeIf { it.isNotBlank() } ?: PaymentAlertParser.billerName(title)?.takeIf { !PaymentAlertParser.looksLikePersonNumber(title) })
+            ?.let { event.put("party", it) }
         putRaw(event, title, text)
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
         if (n.kind == "suspect") {

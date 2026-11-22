@@ -33,7 +33,11 @@ object PaymentAlertParser {
          * and the person can correct it.
          */
         data class Outgoing(val amountPaise: Long, val party: String?, val account: String?,
-                            val doubtful: Boolean = false, val biller: Boolean = false) : Result()
+                            val doubtful: Boolean = false, val biller: Boolean = false,
+                            /** A bill / service payment that is DONE ("Bill Paid!", "bill payment successful"). */
+                            val bill: Boolean = false,
+                            /** The message names the person's OWN account as the source ("from HDFC Bank Account XX1234"). */
+                            val ownAccount: Boolean = false) : Result()
     }
 
     /**
@@ -121,7 +125,10 @@ object PaymentAlertParser {
      */
     private val notPaymentHints = listOf("bill ", "bill of", "statement", "minimum", "limit", "premium", "policy", "order",
         "delivered", "shipped", "invoice", "generated", "plan", "validity", "data pack", "renew", "subscription", "fine",
-        "challan", "penalty", "charges", "fee ", "interest", "sale", "% off", "save ", "upto", "up to")
+        "challan", "penalty", "charges", "fee ", "interest", "sale", "% off", "save ", "upto", "up to",
+        // Owner 2026-11-22 ("etc."): autopay / mandate / standing-instruction notices of every bank and app -- not done yet.
+        "will be processed", "will be charged", "will be auto", "will be paid", "will be collected", "will be presented",
+        "will be executed", "will be recovered")
     private val refRegex = Regex(
         """\b(?:utr|upi\s*ref(?:erence)?|ref(?:erence)?|txn|transaction|upi)\s*(?:id|no\.?|number)?\s*[:#.\-/]?\s*([A-Za-z0-9]{6,40})""",
         RegexOption.IGNORE_CASE,
@@ -157,7 +164,8 @@ object PaymentAlertParser {
         // Owner 2026-11-21 (Airtel bill paid -> the voice said "3081 received"): a company THANKING you for your payment
         // ("Thank you for the payment of Rs 3081 for your Airtel number", "we have received your payment") is money YOU
         // paid -- never money that came in, even though it says "payment of" / "received".
-        if (corrected != "in" && billerAck.containsMatchIn(joined)) {
+        if (corrected != "in" && (billerAck.containsMatchIn(joined) ||
+                (serviceAck.containsMatchIn(joined) && !fromOther.containsMatchIn(joined)))) {
             val amounts = paymentAmounts(joined)
             return if (amounts.isEmpty()) Result.Ignored
             else Result.Outgoing(amounts.first(), billerName(title), accountTail(joined), biller = true)
@@ -172,6 +180,10 @@ object PaymentAlertParser {
             val amounts = paymentAmounts(joined)
             if (amounts.isNotEmpty()) return Result.Accepted(amounts.first(), rrn(joined), null, accountTail(joined), refund = true)
         }
+        // Owner 2026-11-22 (HDFC "Bill Paid! ... paid on ... from HDFC Bank Account XX1234" was kept only as a "bill
+        // generated" note): a bill / service payment that is DONE is money that went out -- before the words "bill",
+        // "bill pay", "recharge", "emi" below can throw it away.
+        if (!learned) paidBill(joined, lower, body, title)?.let { return it }
         val rejected = (reject + moreReject).any { it.isNotEmpty() && view.contains(it.lowercase()) }
         // Owner 2026-11-18 (PhonePe UPI Circle): "Manohar has paid BHUKYA SUJATHA" / "Payment of ₹2 successful by 2283"
         // = someone (a circle member, a family / on-behalf payment) paid a THIRD person -- never money this phone received.
@@ -181,6 +193,9 @@ object PaymentAlertParser {
             if (amounts.isEmpty()) return Result.Ignored
             return Result.Outgoing(amounts.first(), thirdPartyPayee(body) ?: thirdPartyPayee(title), accountTail(joined))
         }
+        // "Payment of ₹962 to APCPDCL successful" / "payment of Rs 950 for Indane is successful" is the PAYER's message
+        // (it was read as money received because of the words "payment of").
+        if (!learned) paidOut(joined, lower, body, title)?.let { return it }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
             if (rejected) return outgoingOrIgnored(joined, view, body, title)
             val only = paymentAmounts(joined).toSet()
@@ -192,6 +207,8 @@ object PaymentAlertParser {
                 return Result.Outgoing(only.first(), payeeName(body) ?: payeeName(title), accountTail(joined))
             }
             if (notPaymentHints.any { lower.contains(it) }) return Result.Ignored
+            // "Paid ₹5,000 to HDFC Bank credit card": still money that went out when the payee is not a clean name.
+            if (only.size == 1 && paidAmountTo.containsMatchIn(joined)) return Result.Outgoing(only.first(), null, accountTail(joined))
             return if (only.size == 1 && shape.contains("₹#") && shape.length >= 8) Result.Unknown(only.first(), shape)
             else Result.Ignored
         }
@@ -251,7 +268,8 @@ object PaymentAlertParser {
             listOf("failed", "declined", "unsuccessful", "could not be processed", "not processed", "reversed").any { cleanLower.contains(it) } ->
                 Notice("failed", amount)
             listOf("initiated", "pending", "processing", "in process", "under process", "in progress", "scheduled", "will be debited",
-                "will be deducted").any { cleanLower.contains(it) } -> Notice("pending", amount)
+                "will be deducted", "will be processed", "will be charged", "will be auto", "will be paid", "will be collected",
+                "will be presented", "will be executed", "will be recovered").any { cleanLower.contains(it) } -> Notice("pending", amount)
             Regex("""\bbill\b.{0,40}?\b(?:generated|amount|of|for|is|due)\b|\bstatement\b|\btotal\s+(?:amount\s+)?due\b|\bamount\s+due\b""")
                 .containsMatchIn(cleanLower) -> Notice("bill", amount)
             else -> null
@@ -270,12 +288,175 @@ object PaymentAlertParser {
         RegexOption.IGNORE_CASE,
     )
 
+    /**
+     * Owner 2026-11-22 ("etc."): the receipt of every company that names the SERVICE instead of "your" -- electricity /
+     * water / gas boards ("Rs.962 received towards SC No 1234...", "Rs.1941 paid for USC No ..."), card issuers
+     * ("Payment of Rs 5,000 received on your Credit Card"), insurers / lenders ("Premium of Rs.2500 for policy 12
+     * received", "Your EMI ... has been received"), "Bill payment of Rs 962 received". Money YOU paid -- unless the
+     * message says it came FROM somebody ([fromOther]: then it is money received, e.g. a shop's own message).
+     */
+    private val serviceAck = Regex(
+        """\b(?:payment\s+(?:of\s+$AMT\s+)?(?:has\s+been\s+|is\s+|was\s+)?(?:successfully\s+)?received\s+(?:successfully\s+)?""" +
+            """(?:towards|for|against)\s+(?:$SERVICE_ID)\b|""" +
+            """$AMT\s+(?:has\s+been\s+|is\s+|was\s+)?(?:successfully\s+)?(?:received|paid)\s+(?:towards|for|against)\s+""" +
+            """(?:your\s+|the\s+)?(?:$SERVICE_ID)\b|""" +
+            """bill\s+payment\s+(?:of\s+$AMT\s+)?(?:has\s+been\s+|is\s+|was\s+)?(?:successfully\s+)?received\b|""" +
+            """payment\s+(?:of\s+$AMT\s+)?(?:has\s+been\s+|is\s+|was\s+)?received\s+(?:on|in)\s+(?:your|the)\s+(?:[a-z]+\s+){0,4}?card\b|""" +
+            """(?:emi|premium|instal?lment)\b.{0,60}?\b(?:(?:has\s+been|is|was)\s+)?(?:successfully\s+)?received\b)""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** "from Ramesh" (a person / shop) -- never "from your HDFC a/c", "from A/c XX1234", "from HDFC Bank", "from UPI". */
+    private val fromOther = Regex(
+        """\bfrom\s+(?!your\b|the\s+(?:account|a/c|card)\b|a/c\b|acct?\b|account\b|[a-z]+\s+bank\b|upi\b|bank\b|card\b|wallet\b)[a-z]""",
+        RegexOption.IGNORE_CASE,
+    )
+
     /** The company name from an SMS sender id ("AD-AIRTEL-S" -> "AIRTEL"); a plain app title is kept as it is. */
     fun billerName(title: String?): String? {
         val t = title?.trim()?.takeIf { it.isNotEmpty() && it.length <= 40 } ?: return null
         val m = Regex("""^[A-Za-z]{2}-([A-Za-z0-9]{3,9})(?:-[STGstg])?$""").find(t)
         return m?.groupValues?.get(1) ?: t.takeIf { !it.any(Char::isDigit) }
     }
+
+    // ------------------------------------------------------------------ a bill that WAS paid (owner 2026-11-22)
+
+    /** The number a utility / insurer / lender names instead of "your": service / consumer / connection / policy / loan. */
+    private const val SERVICE_ID = """sc\b|usc\b|uscno\b|service\s+(?:no|number|connection)|consumer|connection|ca\s*(?:no|number)|""" +
+        """k\s*no|bp\s*(?:no|number)|policy|loan|subscriber|customer\s+(?:id|no|number)|vc\s*(?:no|number)"""
+
+    /** Something a person owes and pays: a bill, an insurance premium, an EMI / instalment, a challan. */
+    private const val BILL = """\b(?:e-?bill|bill\s*pay(?:ments?)?|bills?|premium|emi|instal?lments?|e-?challan|challan)\b"""
+    private val billWord = Regex(BILL, RegexOption.IGNORE_CASE)
+    private const val PAID_OK = """(?:successful|successfully|success|processed|completed|done|""" +
+        """(?:has\s+been|have\s+been|was|is)\s+(?:successfully\s+)?made)"""
+    private val billPaidPatterns = listOf(
+        // "Bill Paid!", "electricity bill of ₹962 paid", "... Bill 1234… of Rs. 962.00 paid on ...", "bill has been paid"
+        Regex("""$BILL.{0,90}?\bpaid\b""", RegexOption.IGNORE_CASE),
+        // "Paid ₹962 for your electricity bill", "You paid your Airtel bill", "₹962 paid for APCPDCL electricity bill" --
+        // never "Ramesh paid ₹500 for bill 12" (somebody else paid).
+        Regex("""(?:^|[.!:]\s*|\byou\s+(?:have\s+|'ve\s+)?(?:successfully\s+)?|\bsuccessfully\s+|""" +
+            """$AMT\s+(?:is\s+|was\s+|has\s+been\s+)?(?:successfully\s+)?)paid\b.{0,60}?$BILL""", RegexOption.IGNORE_CASE),
+        // "Bill payment of Rs 962 for APSPDCL is successful", "payment ... towards your Jio bill is successful", "BillPay ... processed"
+        Regex("""\b(?:payments?|bill\s*pay(?:ments?)?|paid)\b.{0,90}?\b$PAID_OK\b""", RegexOption.IGNORE_CASE),
+        // "Successful payment of ₹962 for your bill", "Success! Bill payment ..."
+        Regex("""\b(?:successful|successfully|success)\b.{0,40}?\b(?:payments?|bill\s*pay(?:ments?)?)\b""", RegexOption.IGNORE_CASE),
+    )
+
+    /** Wording that means the bill is NOT paid (yet), is asked for, or is an advertisement. */
+    private val billNotPaid = listOf(
+        "failed", "failure", "declined", "unsuccessful", "not successful", "could not", "couldn't", "unable to", "rejected",
+        "cancelled", "canceled", "reversed", "reversal", "refund", "pending", "initiated", "processing", "in process",
+        "under process", "in progress", "scheduled", "will be debited", "will be deducted", "will be processed",
+        "will be charged", "will be auto", "will be paid", "will be collected", "will be presented", "will be executed",
+        "will be recovered", "to be debited", "to be deducted", "to be paid", "not paid", "not been paid", "unpaid",
+        "if paid", "if already", "already paid", "ignore", "generated", "pay now", "pay by", "pay before", "pay on or before",
+        "payable", "overdue", "last date", "to avoid", "late fee", "reminder", "please pay", "kindly pay", "pay your", "pay online",
+        "to pay", "can be made", "can be done", "can be paid", "may be made", "may be paid", "to be made", "can pay",
+        "can make", "make payment", "make the payment", "make your payment", "ready for payment", "due for payment",
+        "available for payment", "collect request", "money request", "payment request", "requested", "requesting",
+        "request to pay", "request from", "approve payment", "approve the", "to approve", "otp", "one time", "verification code", "password", " pin ", "cashback", "reward",
+        "offer", "coupon", "scratch", " won ", " win ", "% off", "click", "kyc", "lottery",
+        // A bill message that only mentions an EARLIER payment, and advertisements.
+        "last paid", "last payment", "previous", "prev.", "prev ", "convert", "eligible", "pre-approved", "preapproved",
+        "apply now", "discount", "t&c",
+    )
+
+    /** "is due", "due date", "amount due" -- but a receipt's "Next due 02/2027" is about the NEXT bill, not this one. */
+    private val stillDue = Regex("""(?<!\bnext\s)(?<!\bnext\s\s)\bdue\b""")
+
+    /** "Bill 12 of Rs 500 paid by Ramesh": somebody ELSE paid (never "paid by UPI / card / cash"). */
+    private val paidByOther = Regex(
+        """\bpaid\s+by\s+(?!you\b|upi\b|card\b|cash\b|cheque\b|net\s*banking\b|debit\b|credit\b|wallet\b|auto|bank\b|neft\b|""" +
+            """imps\b|[a-z]+\s+(?:bank|upi|card|pay|wallet)\b)[a-z]""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** Wording of money that came TO the person (those messages are never a bill the person paid). */
+    private val billToMe = listOf(" to you", "paid you", "sent you", "received", "credited", "deposited", "added to your",
+        "జమ", "అందింది", "అందాయి", "प्राप्त", "जमा")
+
+    /** "from HDFC Bank Account XXXXXXXXXX1234" / "from your a/c XX1234" / "using your HDFC Bank Credit Card ending 1234". */
+    private val ownAccountSource = Regex(
+        """\b(?:from|using|via|through)\s+(?:your\s+)?(?:[A-Za-z&.]+\s+){0,4}?(?:a/c|acct?\.?|account|\bac\b|card)\s*""" +
+            """(?:no\.?|number)?\s*(?:ending\s+(?:with\s+|in\s+)?)?[:.\-]?\s*[xX*.]*\s*\d{3,4}\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val plainDebit = Regex("""\b(?:debited|withdrawn|spent|debit)\b""", RegexOption.IGNORE_CASE)
+    private val paidOkWord = Regex(
+        """\b(?:paid|successful|successfully|processed|completed|(?:has\s+been|have\s+been|was)\s+(?:successfully\s+)?made)\b""",
+        RegexOption.IGNORE_CASE)
+
+    /**
+     * Owner 2026-11-22 ("this bill payment should be a payment too, bill generated etc. too"): a bill / recharge /
+     * premium / any service payment that is DONE -- "Bill Paid! APCPDC Ele Bill … of Rs. 962.00 paid on … from HDFC Bank
+     * Account XX1234", "Bill payment of ₹962 for APSPDCL is successful", "electricity bill of ₹962 paid" -- is money that
+     * went out. Every bank, UPI app and biller: the words decide, never a list of names. Returns null when the message
+     * does not clearly say the payment is done (not paid yet, failed, asked for, an offer) or says money came in.
+     */
+    private fun paidBill(joined: String, lower: String, body: String?, title: String?): Result.Outgoing? {
+        if (billNotPaid.any { lower.contains(it) } || billToMe.any { lower.contains(it) }) return null
+        if (stillDue.containsMatchIn(lower) || paidByOther.containsMatchIn(joined)) return null
+        val own = ownAccountSource.containsMatchIn(joined)
+        val bill = billWord.containsMatchIn(joined) &&
+            billPaidPatterns.any { it.containsMatchIn(joined) || (body != null && it.containsMatchIn(body)) }
+        // Without a bill word: "... paid / successful ... from your A/c XX1234". The bank's plain debit SMS ("debited",
+        // "withdrawn", "spent") is not this -- it stays the bank's debit SMS below.
+        if (!bill && !(own && paidOkWord.containsMatchIn(joined) && !plainDebit.containsMatchIn(joined))) return null
+        val amounts = paymentAmounts(joined)
+        if (amounts.isEmpty()) return null
+        val party = billPayee(body) ?: billPayee(title) ?: payeeName(body)
+            ?: if (!own && isBankSender(title)) billerName(title) else null
+        return Result.Outgoing(amounts.first(), party, accountTail(joined), bill = true, ownAccount = own)
+    }
+
+    /** "Payment of ₹962 to APCPDCL successful", "payment of Rs 950 for Indane is successful", "payment ... for your order was successful". */
+    private val paidOutSuccess = Regex(
+        """\bpayments?\s+(?:of\s+$AMT\s+)?(?:made\s+)?(?:to\s+(?!you\b|your\b)|(?:for|towards)\s+(?!you\b|your\s+(?:a/c|acct?|account|bank|wallet|upi)\b|order\b))""" +
+            """.{2,80}?\b(?:(?:is|was|has\s+been)\s+)?(?:successful|successfully\s+(?:done|completed|processed|made)|completed)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val fromWord = Regex("""\bfrom\b""", RegexOption.IGNORE_CASE)
+
+    /**
+     * The payer's own success message without the word "bill" ("Payment of ₹962 to APCPDCL successful"): money that went
+     * out. Null when the message says money came in, names somebody it came FROM, or is not a finished payment.
+     */
+    private fun paidOut(joined: String, lower: String, body: String?, title: String?): Result.Outgoing? {
+        if (!paidOutSuccess.containsMatchIn(joined)) return null
+        if (billNotPaid.any { lower.contains(it) } || billToMe.any { lower.contains(it) } || stillDue.containsMatchIn(lower)) return null
+        val own = ownAccountSource.containsMatchIn(joined)
+        if (fromWord.containsMatchIn(joined) && !own) return null
+        val amounts = paymentAmounts(joined)
+        if (amounts.size != 1) return null
+        return Result.Outgoing(amounts.first(), billPayee(body) ?: billPayee(title) ?: payeeName(body), accountTail(joined),
+            bill = true, ownAccount = own)
+    }
+
+    private const val BILL_NAME = """([A-Za-z][A-Za-z .&'-]{1,40}?)"""
+    private const val BILL_END = """(?:\s+(?:on|via|in|from|using|ref|refno|upi|utr|at|thru|through|is|was|has|have|had|for|of|bill|no|""" +
+        """number|consumer|service|customer|a/c|ac|acct|account|successful|successfully|dated|dt|vide|with|towards|against|paid)\b|""" +
+        """\s*\d|\s*(?:₹|rs\b|inr\b)|[,!;(:]|\.(?=\s|$|\(|(?-i:[A-Z]))|$)"""
+    private val billPayeePatterns = listOf(
+        // HDFC BillPay: "Bill Paid! APCPDC Ele Bill 1234… of Rs. 962.00 paid on ..."
+        Regex("""\bbill\s+paid\b[\s!.:\-]*$BILL_NAME\s+(?:\d|(?:of|for)\s+$AMT|$AMT)""", RegexOption.IGNORE_CASE),
+        // "... for / towards / of your Airtel Postpaid bill", "paid your electricity bill"
+        Regex("""\b(?:for|towards|of|against)\s+(?:your\s+|the\s+)?$BILL_NAME\s+(?:bills?|premium|emi)\b""", RegexOption.IGNORE_CASE),
+        Regex("""\b(?:your|the)\s+$BILL_NAME\s+(?:bills?|premium|emi)\b""", RegexOption.IGNORE_CASE),
+        // "Bill payment of Rs 962 for / to / towards APSPDCL is successful", "₹962 paid for APCPDCL"
+        Regex("""\b(?:bill\s*pay(?:ments?)?|payments?|paid|auto\s*-?pay|e-?mandate|mandate|recharge)(?:\s*\([^)]{0,24}\))?\s+(?:of\s+$AMT\s+)?(?:successfully\s+)?(?:for|to|towards)\s+(?:your\s+|the\s+)?$BILL_NAME$BILL_END""", RegexOption.IGNORE_CASE),
+        // "Electricity bill of ₹962 paid successfully"
+        Regex("""(?:^|[.!]\s+)$BILL_NAME\s+bills?\s+(?:of|for)\s+$AMT""", RegexOption.IGNORE_CASE),
+    )
+
+    /** What was paid for ("APCPDC Ele Bill", "Airtel Postpaid", "APSPDCL"): letters only, shown / spoken on this phone. */
+    fun billPayee(text: String?): String? = nameFrom(billPayeePatterns, text)
+
+    /** "Please ignore if already paid" and its cousins (bill / due SMS of every company). */
+    private val ifPaidIgnore = Regex(
+        """(?:pl(?:ease|s|z)?\.?\s+|kindly\s+)?ignore\s+(?:this\s+(?:message|sms|reminder)\s+)?if\s+(?:you\s+have\s+)?(?:already\s+)?""" +
+            """(?:paid|made\s+(?:the\s+)?payment)|if\s+(?:you\s+have\s+)?(?:already\s+)?(?:paid|made\s+(?:the\s+)?payment)""" +
+            """(?:\s*,?\s*(?:pl(?:ease|s|z)?\.?\s+|kindly\s+)?ignore)?|already\s+paid\s*\??\s*(?:pl(?:ease|s|z)?\.?\s+|kindly\s+)?ignore""")
 
     private val circleWords = listOf("upi circle", "on your behalf", "on behalf of", "secondary user", "delegate")
     private val hasPaidSomeone = Regex("""\b(?:has|have)\s+paid\s+(?!you\b)(?!(?:₹|rs\b|rs\.|inr\b))[a-z]""", RegexOption.IGNORE_CASE)
@@ -292,16 +473,34 @@ object PaymentAlertParser {
     /** Who a third-party payment went to ("... has paid BHUKYA SUJATHA." -> "BHUKYA SUJATHA"). */
     fun thirdPartyPayee(text: String?): String? = nameFrom(thirdPartyPayeePattern, text)
 
+    private val paidAmountTo = Regex("""\b(?:paid|sent)\s+$AMT\s+to\s+(?!you\b|your\b)\S""", RegexOption.IGNORE_CASE)
     private val sentFrom = Regex("""\bsent\s+$AMT\s+from\b""", RegexOption.IGNORE_CASE)
 
-    private val debitWords = listOf("debited", "you paid", "you sent", "paid to", "sent to", "withdrawn", "spent")
+    private val debitWords = listOf("debited", "you paid", "you sent", "paid to", "sent to", "withdrawn", "spent",
+        // SBI and others: "Your A/C X1234 has a debit by transfer of Rs 962.00" (the mirror of "has a credit by").
+        "a debit by", "a debit of", "has a debit")
     private val notMoney = listOf("request", "collect", "otp", "one time", "failed", "declined", "unsuccessful", "pending",
         "refund", "reversed", "due", "reminder", "cashback", "reward", "offer", "coupon", "scratch", "verification code",
         "password", "pin ", "loan", "emi", "recharge", "bill pay")
 
+    /** What a debit was FOR (owner 2026-11-22: a bill / EMI / recharge that is paid IS a payment). */
+    private val purposeWords = setOf("loan", "emi", "recharge", "bill pay")
+    private val notDoneDebit = listOf("will be", "shall be", "would be", "to be debited", "to be deducted", "apply",
+        "pre-approved", "preapproved", "eligible", "avail ",
+        // "Loan of Rs 50,000 disbursed / credited to your a/c. Processing fee Rs 590 debited": the big amount came IN.
+        "credited", "disbursed", "deposited", "received", "a credit", "credit of")
+    private val dueWord = Regex("""\bdue\b""")
+
     /** Clear "money went out" wording with exactly one amount -> Outgoing; everything else stays ignored. */
     private fun outgoingOrIgnored(joined: String, lower: String, text: String?, title: String?): Result {
-        if (debitWords.none { lower.contains(it) } || notMoney.any { lower.contains(it) }) return Result.Ignored
+        if (debitWords.none { lower.contains(it) }) return Result.Ignored
+        // "Rs 1,941 debited from A/c XX1234 towards EMI of loan", "debited ... for Jio recharge", "you paid ... bill
+        // payment", "debited towards card dues": the bank / app says the money LEFT -- what it was for never drops it.
+        val done = strongDebit.any { lower.contains(it) } && notDoneDebit.none { lower.contains(it) }
+        val stopped = notMoney.any { w ->
+            lower.contains(w) && !(done && (w in purposeWords || (w == "due" && !dueWord.containsMatchIn(lower))))
+        }
+        if (stopped) return Result.Ignored
         val amounts = paymentAmounts(joined)
         if (amounts.isEmpty()) return Result.Ignored
         return Result.Outgoing(amounts.first(), payeeName(text) ?: payeeName(title), accountTail(joined))
@@ -314,6 +513,7 @@ object PaymentAlertParser {
         Regex("""(?:paid|sent)\s+to\s+(.{2,60}?)$END""", RegexOption.IGNORE_CASE),
         Regex("""(?:trf|transfer(?:red)?|upi)\s+to\s+(.{2,60}?)$END""", RegexOption.IGNORE_CASE),
         Regex("""\bsent\s+$AMT\s+from\s+.{0,60}?\s+to\s+(\S.{1,60}?)$END""", RegexOption.IGNORE_CASE), // HDFC / Kotak SMS
+        Regex("""$AMT\s+(?:sent|paid)\s+from\s+.{0,60}?\s+to\s+(\S.{1,60}?)$END""", RegexOption.IGNORE_CASE),
         Regex(""";\s*([A-Za-z][A-Za-z .]{1,40}?)\s+credited""", RegexOption.IGNORE_CASE),            // ICICI debit SMS
         Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
     )
@@ -384,7 +584,8 @@ object PaymentAlertParser {
     )
     private val notAName = setOf("you", "upi", "bank", "account", "a/c", "your", "someone", "phonepe", "paytm", "google",
         "gpay", "bhim", "money", "payment", "received", "ref", "neft", "imps", "utr", "rtgs", "txn", "transfer", "rs", "inr",
-        "mob", "bk", "vpa", "linked", "mobile", "cash", "atm", "branch", "cheque", "clearing", "interest", "salary", "of")
+        "mob", "bk", "vpa", "linked", "mobile", "cash", "atm", "branch", "cheque", "clearing", "interest", "salary", "of",
+        "order", "purchase", "transaction", "booking", "number")
 
     /**
      * The payer's display name from an incoming-payment message ("Bhagya sent ₹30 to you" -> "Bhagya"), or null.
@@ -653,8 +854,13 @@ object PaymentAlertParser {
 
     fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long): Boolean = when {
         kind in rowKinds -> false
-        kind == "sms" -> deltaMs in -NOTE_AFTER_SMS_MS..SMS_AFTER_NOTE_MS   // this SMS vs the row's notification
-        "sms" in rowKinds -> deltaMs in -SMS_AFTER_NOTE_MS..NOTE_AFTER_SMS_MS // this notification vs the row's SMS
+        // "billpay" (owner 2026-11-22) = the bank's own "Bill Paid ... from your account" SMS: as quick and as sure as
+        // its debit SMS, and it may be the same money as that debit SMS or the company's thank-you.
+        // The bank's two SMS for ONE bill (debit alert + "Bill Paid") come within minutes of each other.
+        (kind == "billpay" && "sms" in rowKinds) || (kind == "sms" && "billpay" in rowKinds) ->
+            kotlin.math.abs(deltaMs) <= SMS_AFTER_NOTE_MS
+        kind == "sms" || kind == "billpay" -> deltaMs in -NOTE_AFTER_SMS_MS..SMS_AFTER_NOTE_MS   // this SMS vs the row's notification
+        "sms" in rowKinds || "billpay" in rowKinds -> deltaMs in -SMS_AFTER_NOTE_MS..NOTE_AFTER_SMS_MS // this notification vs the row's SMS
         else -> kotlin.math.abs(deltaMs) <= NOTE_AND_NOTE_MS
     }
 
@@ -666,6 +872,24 @@ object PaymentAlertParser {
 
     private fun rupees(s: String): Long? = s.replace(",", "").toBigDecimalOrNull()?.movePointRight(2)?.toLong()
 
+    /** The first date in [low] (lower case): "nov 21, 2026", "21 Nov 2026", "25-Nov-2026", "25/Nov/26", "05-12-2026" -> yyyy-MM-dd. */
+    private fun dateIn(low: String, year: Int): String? {
+        Regex("""\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s*(\d{4}))?""").find(low)?.let { m ->
+            val mo = months.indexOf(m.groupValues[1]) + 1
+            return "%04d-%02d-%02d".format(m.groupValues[3].toIntOrNull() ?: year, mo, m.groupValues[2].toInt())
+        }
+        Regex("""\b(\d{1,2})(?:\s+|[-/.])(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(?:,?\s*(\d{4})|[-/.](\d{4}|\d{2})\b)?""").find(low)?.let { m ->
+            val mo = months.indexOf(m.groupValues[2]) + 1
+            val y = m.groupValues[3].toIntOrNull() ?: m.groupValues[4].toIntOrNull()?.let { if (it < 100) 2000 + it else it } ?: year
+            return "%04d-%02d-%02d".format(y, mo, m.groupValues[1].toInt())
+        }
+        Regex("""\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b""").find(low)?.let { m ->
+            val y = m.groupValues[3].toInt().let { if (it < 100) 2000 + it else it }
+            return "%04d-%02d-%02d".format(y, m.groupValues[2].toInt(), m.groupValues[1].toInt())
+        }
+        return null
+    }
+
     /**
      * A bill / EMI REMINDER (not a payment): "Due date for Andhra Pradesh … ₹1,941.00 due on Nov 21, 2026", "EMI of
      * Rs 2,500 is due on 05-12-2026", "Bill of Rs.821 due by 21/11/2026". Returns the amount, the date (yyyy-MM-dd) and a
@@ -675,24 +899,19 @@ object PaymentAlertParser {
         val body = "${title ?: ""} ${text ?: ""}".replace('\n', ' ')
         val low = body.lowercase(Locale.ROOT)
         if (!Regex("""\b(due|payable|pay by|last date)\b""").containsMatchIn(low)) return null
-        if (Regex("""\b(credited|received|debited|paid|sent you|successful)\b""").containsMatchIn(low)) return null
+        // "Please ignore if already paid" is on almost every bill / due SMS: it is not a payment (owner 2026-11-22).
+        val said = ifPaidIgnore.replace(low, " ")
+        if (Regex("""\b(credited|received|debited|paid|sent you|successful)\b""").containsMatchIn(said)) return null
         val amt = Regex("""(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""").find(low)?.groupValues?.get(1)?.let(::rupees) ?: return null
         if (amt <= 0) return null
-        var date: String? = null
-        Regex("""\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s*(\d{4}))?""").find(low)?.let { m ->
-            val mo = months.indexOf(m.groupValues[1]) + 1
-            date = "%04d-%02d-%02d".format(m.groupValues[3].toIntOrNull() ?: year, mo, m.groupValues[2].toInt())
-        }
-        if (date == null) Regex("""\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(?:,?\s*(\d{4}))?""").find(low)?.let { m ->
-            val mo = months.indexOf(m.groupValues[2]) + 1
-            date = "%04d-%02d-%02d".format(m.groupValues[3].toIntOrNull() ?: year, mo, m.groupValues[1].toInt())
-        }
-        if (date == null) Regex("""\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b""").find(low)?.let { m ->
-            val y = m.groupValues[3].toInt().let { if (it < 100) 2000 + it else it }
-            date = "%04d-%02d-%02d".format(y, m.groupValues[2].toInt(), m.groupValues[1].toInt())
-        }
+        // The date AFTER the word "due / pay by / last date" is the due date; a bill's own date ("bill dated 20-Nov-26
+        // ... due date 05-Dec-26") is not (owner 2026-11-22).
+        val dueAt = Regex("""\b(?:due|pay\s+by|payable|last\s+date|on\s+or\s+before)\b""").find(low)?.range?.first
+        val date = (dueAt?.let { dateIn(low.substring(it), year) }) ?: dateIn(low, year)
         val d = date ?: return null
-        val label = (title ?: "").replace(Regex("""(?i)^due date for\s+"""), "").trim().take(60).ifEmpty { "Bill" }
+        // An SMS sender id ("AD-APCPDC-S") is shown as the company's name ("APCPDC"), never the raw id.
+        val label = (if (isBankSender(title)) billerName(title) else null)
+            ?: (title ?: "").replace(Regex("""(?i)^due date for\s+"""), "").trim().take(60).ifEmpty { "Bill" }
         return Due(amt, d, label)
     }
 

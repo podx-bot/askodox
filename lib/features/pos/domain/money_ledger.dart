@@ -98,7 +98,7 @@ const askodoxMoneyCategories = <(String, String, String, List<String>)>[
   ('grocery', 'Grocery', 'కిరాణా', ['kirana', 'grocery', 'mart', 'stores', 'provision', 'supermarket', 'dmart', 'కిరాణా']),
   ('food', 'Food & hotel', 'భోజనం / హోటల్', ['hotel', 'restaurant', 'tiffin', 'cafe', 'bakery', 'swiggy', 'zomato', 'mess', 'హోటల్']),
   ('fuel', 'Petrol / fuel', 'పెట్రోల్', ['petrol', 'fuel', 'diesel', 'indian oil', 'iocl', 'bharat petroleum', 'bpcl', 'hpcl', 'hp petrol', 'పెట్రోల్']),
-  ('power', 'Current / water / gas', 'కరెంట్ / నీళ్లు / గ్యాస్', ['power', 'electricity', 'spdcl', 'npdcl', 'apspdcl', 'tsspdcl', 'bescom', 'tneb', 'water', 'gas', 'lpg', 'కరెంట్']),
+  ('power', 'Current / water / gas', 'కరెంట్ / నీళ్లు / గ్యాస్', ['power', 'electricity', 'electric', 'elec', 'ele', 'current bill', 'discom', 'vidyut', 'bijli', 'spdcl', 'npdcl', 'apspdcl', 'tsspdcl', 'bescom', 'tneb', 'tangedco', 'kseb', 'bses', 'water', 'gas', 'lpg', 'indane', 'కరెంట్']),
   ('phone', 'Phone / internet / DTH', 'ఫోన్ / ఇంటర్నెట్', ['jio', 'airtel', 'vodafone', 'vi ', 'bsnl', 'recharge', 'broadband', 'dth', 'tata play', 'రీఛార్జ్']),
   ('emi', 'EMI / loan', 'EMI / లోన్', ['emi', 'loan', 'nach', 'finance', 'bajaj', 'mandate', 'లోన్']),
   ('rent', 'Rent', 'అద్దె', ['rent', 'అద్దె']),
@@ -138,8 +138,13 @@ String askodoxCategoryOf(AskodoxMoneyItem item, {Map<String, String> rowCategory
   for (final c in askodoxMoneyCategories) {
     if (c.$4.any((w) => askodoxNameHasWord(words, w))) return c.$1;
   }
+  // Owner 2026-11-22 ("APCPDC Ele Bill"): electricity boards are named by their initials in every state (APCPDCL,
+  // TSNPDCL, MSEDCL, JVVNL, DHBVN, HESCOM ...) -- the ending says it, never a list of every board.
+  if (_powerBoard.hasMatch(words)) return 'power';
   return '';
 }
+
+final _powerBoard = RegExp(r' [a-z]{1,6}(?:pdcl|pdc|vvnl|bvn|sedcl|escom) ');
 
 /// True when [word] appears in the padded, normalised [padded] name as whole word(s). Indian-script words match
 /// anywhere (they join to the word before them: "చికెన్‌సెంటర్").
@@ -184,7 +189,8 @@ List<AskodoxMoneyItem> askodoxItemsFromPhone(Iterable<Map<String, Object?>> even
       how: how,
       account: account,
       // A debit read from the bank's own SMS IS the bank's word: no ⏳ (owner 2026-11-20).
-      confirmed: e['bank_confirmed'] == true || (e['direction'] == 'out' && e['kind'] == 'sms') ? 'bank_sms' : '',
+      // 'billpay' (owner 2026-11-22) = the bank's own "Bill Paid ... from your account" SMS.
+      confirmed: e['bank_confirmed'] == true || (e['direction'] == 'out' && (e['kind'] == 'sms' || e['kind'] == 'billpay')) ? 'bank_sms' : '',
       linkedTo: links[id] ?? '',
       raw: e,
     ));
@@ -469,11 +475,20 @@ List<Map<String, Object?>> askodoxDueSuggestions(Iterable<Map<String, Object?>> 
     Set<String> dismissed, DateTime today) {
   final out = <Map<String, Object?>>[];
   final seen = <String>{};
+  // Owner 2026-11-22: a bill that is already PAID is not offered as an upcoming due -- the phone saw the same amount
+  // go out after the reminder came ("Bill Paid!" SMS, the bank's debit SMS, the app's message).
+  final paid = <(int, int)>[
+    for (final e in phoneEvents)
+      if (e['direction'] == 'out' && e['test'] != true && e['excluded'] != true && e['amount_paise'] is num && e['at_ms'] is num)
+        ((e['amount_paise'] as num).toInt(), (e['at_ms'] as num).toInt()),
+  ];
   for (final e in phoneEvents) {
     if (e['direction'] != 'due') continue;
     final date = DateTime.tryParse('${e['due_date'] ?? ''}');
     final amount = e['amount_paise'];
     if (date == null || amount is! num) continue;
+    final cameAt = e['at_ms'];
+    if (cameAt is num && cameAt > 0 && paid.any((p) => p.$1 == amount.toInt() && p.$2 >= cameAt)) continue;
     if (date.isBefore(DateTime(today.year, today.month, today.day).subtract(const Duration(days: 1)))) continue;
     final key = '${amount.toInt()}|${askodoxDay(date)}';
     if (!seen.add(key) || dismissed.contains('${e['local_id']}')) continue;

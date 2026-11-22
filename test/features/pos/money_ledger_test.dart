@@ -78,6 +78,39 @@ void main() {
     expect(askodoxDueSuggestions(events, have, {'due-1'}, today).map((e) => e['local_id']), isEmpty);
   });
 
+  test('a bill reminder that is already paid is not offered as an upcoming due', () {
+    final today = DateTime(2026, 11, 22);
+    final reminder = {'local_id': 'due-1', 'direction': 'due', 'amount_paise': 96200, 'due_date': '2026-12-05', 'party': 'APCPDC', 'at_ms': 1000};
+    final other = {'local_id': 'due-2', 'direction': 'due', 'amount_paise': 194100, 'due_date': '2026-12-05', 'party': 'APCPDC', 'at_ms': 1000};
+    Map<String, Object?> out(int amount, int at, {bool excluded = false}) =>
+        {'local_id': 'p$at', 'direction': 'out', 'amount_paise': amount, 'at_ms': at, 'kind': 'billpay', if (excluded) 'excluded': true};
+    // paid after the reminder came -> gone; the other bill stays
+    expect(askodoxDueSuggestions([reminder, other, out(96200, 2000)], [], {}, today).map((e) => e['local_id']), ['due-2']);
+    // a payment of the same amount BEFORE the reminder is last month's bill; a row set aside is not money
+    expect(askodoxDueSuggestions([reminder, out(96200, 500)], [], {}, today).map((e) => e['local_id']), ['due-1']);
+    expect(askodoxDueSuggestions([reminder, out(96200, 2000, excluded: true)], [], {}, today).map((e) => e['local_id']), ['due-1']);
+    // money that came IN of the same amount never pays a bill
+    expect(askodoxDueSuggestions([reminder, {'local_id': 'i', 'direction': 'in', 'amount_paise': 96200, 'at_ms': 2000}], [], {}, today), hasLength(1));
+  });
+
+  test('a paid bill row: the "Bill Paid" SMS of the bank is the bank word, and an electricity board is Current', () {
+    final rows = askodoxItemsFromPhone([
+      {'local_id': 'b1', 'direction': 'out', 'amount_paise': 96200, 'at_ms': 1000, 'kind': 'billpay', 'party': 'APCPDC Ele Bill',
+        'source_app': 'com.google.android.apps.messaging', 'source_label': 'Messages (Google)', 'bill': true},
+    ], const [], const {}, const {});
+    expect(rows.single.direction, 'out');
+    expect(rows.single.confirmed, 'bank_sms');
+    expect(rows.single.title, 'APCPDC Ele Bill');
+    expect(askodoxCategoryOf(rows.single), 'power');
+    AskodoxMoneyItem named(String title) => AskodoxMoneyItem(
+        id: title, kind: 'payment', direction: 'out', amountPaise: 1, at: DateTime(2026, 11, 22), title: title, sub: '', how: 'sms', account: '');
+    for (final board in ['APCPDCL', 'TSNPDCL', 'MSEDCL', 'JVVNL', 'DHBVN', 'HESCOM', 'APEPDCL']) {
+      expect(askodoxCategoryOf(named(board)), 'power', reason: board);
+    }
+    expect(askodoxCategoryOf(named('Ramesh Kumar')), '');
+    expect(askodoxCategoryOf(named('HDFC current')), '');
+  });
+
   test('a payment of a due amount near its date is offered as "did you pay it?"', () {
     final d = AskodoxDue(id: 'c', name: 'Current bill', amountPaise: 82100, date: DateTime(2026, 11, 21));
     expect(askodoxDuePaidBy(pay('phone:a', 82100, DateTime(2026, 11, 19)), [d])?.$1.id, 'c');
