@@ -9440,9 +9440,7 @@
       "tests": {
         "backend": [],
         "flutter": [
-          "android/parser-tests/ParserTest.kt::notification, then bank SMS 1 h later = spoken once",
-          "android/parser-tests/ParserTest.kt::another payer's QR",
-          "android/parser-tests/ParserTest.kt::phonepe name with upi id in brackets"
+          "test/features/pos/my_phone_payments_test.dart"
         ]
       },
       "dependencies": [
@@ -9454,7 +9452,7 @@
       "history": [
         {
           "date": "2026-11-22",
-          "change": "new; parser gate (android/parser-tests) Sim() scenarios cover it; not phone verified"
+          "change": "new; the join decision and name reading are covered by the Payment parser gate (android/parser-tests/ParserTest.kt Sim() scenarios, Kotlin -- not a flutter test); not phone verified"
         }
       ]
     }
