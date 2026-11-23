@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/lite-offline-questions` (2026-11-23, owner "step 3" = ASKODOX Lite step 3): NO NET CHAT --
+  `home/domain/offline_questions.dart`: `askodoxOfflineAsk` (pure, money + time words te / hi / en) ->
+  `askodoxOfflineAnswer` from the phone's own payment rows (today / yesterday / week / month, last, who paid; always
+  says "phone's payment messages, not the bank balance"; phone voice); any other question -> `AskodoxHeldQuestions`
+  (prefs `askodox.offline_questions.v1`, account-scoped, max 10, 24 h) and asked by itself when
+  `AskodoxNetQuality` leaves offline (`_askHeldQuestions`, notification when the app is not in front). Strip above the
+  composer `AskodoxOfflineAskStrip`. Steps 4-6 of ASKODOX Lite NOT built. Nothing phone verified.
 - Branch `claude/lite-mode-slow-net` (2026-11-23, owner "2" = ASKODOX Lite step 2, choice A): LITE MODE --
   `lib/core/net/net_quality.dart`: `AskodoxNetQuality.instance` (ValueNotifier, started ONLY in `main()` with
   `askodoxHealthProbe` = `/health` timing; >= 2.5 s slow, failed / 6 s = offline, two readings < 1.5 s = good again,
