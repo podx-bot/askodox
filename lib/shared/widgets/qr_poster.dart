@@ -112,13 +112,17 @@ class _AskodoxQrPosterState extends State<AskodoxQrPoster> {
             border: Border.all(color: const Color(0xFF6C4DFF), width: 3),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
-              AskodoxLogo(size: 30),
-              SizedBox(width: 8),
-              Text('ASKODOX',
-                  key: Key('askodoxQrPosterBrand'),
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Color(0xFF151F45))),
-            ]),
+            // Shrinks on a small poster (a counter pay sheet) instead of overflowing.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                AskodoxLogo(size: 30),
+                SizedBox(width: 8),
+                Text('ASKODOX',
+                    key: Key('askodoxQrPosterBrand'),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Color(0xFF151F45))),
+              ]),
+            ),
             if (widget.title.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(widget.title,

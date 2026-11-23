@@ -1003,6 +1003,11 @@ this file, don't trust it blindly.
   `PosStore._issue` and app `askodoxTierPrice` (keep both rules equal); photos = `pos_product_photos` (<= 300 KB PNG/JPEG).
   Spoken orders = `askodoxSplitPosOrder` / `askodoxParsePosOrder` -> `AskodoxPosOrderReviewSheet` (never adds silently);
   items match in ANY script by sound (`pos_name_sound.dart` = twin of `name_sound.py`), rule `.claude/rules/pos-spoken-orders.md`.
+- Counter pay sheet (`AskodoxPosPaymentSheet`, owner 2026-11-24 "UPI select అవ్వట్లేదు"): picking a way moves a single
+  full payment to it (`_choose`), added payments come off (`askodoxPosPayment-<i>`), UPI shows the shop's own QR with the
+  amount (`askodoxPosPayQr`, `askodoxDefaultUpi` of `myPaymentMethods`, fetched only when UPI is chosen); way "బాకీ" /
+  Due (`askodoxPosPayWay-due`) = the rest is a due: no customer -> name / phone + pay-by day in the sheet
+  (`AskodoxPosPayResult`), the screen finds / adds the customer (`_dueCustomer`, walk-in prices kept) + `setDueDate`.
 - ONE name per shop page (owner 2026-11-24, "New bill" + "Counter bill" pins opened one page): `askodoxShopPageNames`
   (`pos/domain/shop_page_names.dart`) names it everywhere (Money pages, dashboard, `/my-shop/<tool>`, guide, chat buttons,
   ASK bar); pins are one per page (`askodoxSamePage`). Rule `.claude/rules/shop-page-names.md`.
