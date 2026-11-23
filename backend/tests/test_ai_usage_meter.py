@@ -113,11 +113,12 @@ def test_calls_are_attributed_to_the_bound_user_across_threads(tmp_path):
     try:
         _gem(client)
         _gem(client)  # same request, same group -> still ONE use
-        t = threading.Thread(target=_gem, args=(client,))
+        t = threading.Thread(target=meter.carry(_gem), args=(client,))
         t.start()
         t.join()
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            pool.submit(_gem, client, True).result()
+            pool.submit(meter.carry(_gem), client, True).result()
+            pool.submit(_gem, client).result()  # not carried: app total only
         client.get("https://api.search.brave.com/res/v1/web/search", params={"q": "x"})
     finally:
         meter.reset_user(token)
@@ -130,7 +131,7 @@ def test_calls_are_attributed_to_the_bound_user_across_threads(tmp_path):
     with sqlite3.connect(db) as conn:
         rows = {(u, f): (uses, calls) for u, f, uses, calls in
                 conn.execute("SELECT user_id, feature, uses, calls FROM ai_usage_user_daily")}
-    assert rows[("app-phone-9000000001", "chat")] == (1, 3), "thread call carried; one use per request"
+    assert rows[("app-phone-9000000001", "chat")] == (1, 3), "carried thread call counted; one use per request"
     assert rows[("app-phone-9000000001", "image")] == (1, 1), "pool task carried"
     assert rows[("app-phone-9000000001", "web_search")] == (1, 1)
     assert rows[("app-phone-9000000002", "chat")] == (1, 1)

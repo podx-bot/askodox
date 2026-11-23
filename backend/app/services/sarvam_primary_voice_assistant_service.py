@@ -117,7 +117,10 @@ class SarvamPrimaryVoiceAssistantService(FilesFallbackVoiceAssistantService):
         wavs = [self._wav_bytes(segment) for segment in segments]
         started = time.perf_counter()
         with ThreadPoolExecutor(max_workers=self.SEGMENT_PARALLELISM) as pool:
-            results = list(pool.map(lambda wav: self._transcribe_sarvam(audio_bytes=wav, mime_type="audio/wav"), wavs))
+            from app.services import ai_usage_meter
+
+            one = ai_usage_meter.carry(lambda wav: self._transcribe_sarvam(audio_bytes=wav, mime_type="audio/wav"))
+            results = list(pool.map(one, wavs))
         request_ms = round((time.perf_counter() - started) * 1000)
         parts: list[str] = []
         for index, result in enumerate(results):

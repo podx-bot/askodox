@@ -146,7 +146,9 @@ def assistant_decision_stream(payload: AssistantRequest, request: Request) -> An
         pieces.put(("final", decision))
         pieces.put(("end", done))
 
-    threading.Thread(target=work, name="assistant-stream", daemon=True).start()
+    from app.services import ai_usage_meter
+
+    threading.Thread(target=ai_usage_meter.carry(work), name="assistant-stream", daemon=True).start()
 
     def lines():
         while True:

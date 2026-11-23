@@ -95,7 +95,9 @@ class ProviderReliabilityExecutor(Generic[T]):
 
     def _run_with_timeout(self, operation: Callable[[], T]) -> T:
         executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="askodox-provider")
-        future = executor.submit(operation)
+        from app.services import ai_usage_meter
+
+        future = executor.submit(ai_usage_meter.carry(operation))
         try:
             return future.result(timeout=self.policy.timeout_seconds)
         finally:

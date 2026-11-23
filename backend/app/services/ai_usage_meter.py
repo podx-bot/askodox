@@ -16,7 +16,7 @@ GST and gateway fee (owner target 25%).
 PER-USER TRIAL METER (owner 2026-11-24, "show each user what it would cost; we see everything"): a request carrying a
 valid ASKODOX session token binds its app_user_id for the length of the request (``bind_user``, an ASGI middleware in
 app_factory). Every metered provider call made for that request -- including ones run on a worker thread the request
-started (``Thread.start`` / ``ThreadPoolExecutor.submit`` carry the id) -- also adds one row to
+hands work to through ``carry(fn)`` -- also adds one row to
 ``ai_usage_user_daily`` (day / user / feature group / uses / estimated cost in paise). ``user_usage`` gives the user
 their own VALUE (cost x markup = what it would cost at the target margin); ``users_report`` gives staff everything.
 Nothing is charged by this: AI Credits charging is a separate switch.
@@ -81,44 +81,21 @@ def current_user() -> str:
     return bound.user if bound else ""
 
 
-def _install_carry() -> None:
-    """New threads and pool tasks start with an EMPTY context in Python; carry only our one id across."""
-    import concurrent.futures
-    import threading
+def carry(fn):  # type: ignore[no-untyped-def]
+    """Wrap ``fn`` so a worker thread / pool task runs with this request's user (Python starts threads with an EMPTY
+    context). Used where the AI path hands work to a thread; anything not wrapped is simply not attributed."""
+    bound = _USER.get()
+    if bound is None:
+        return fn
 
-    if getattr(threading.Thread, "_askodox_carry", False):
-        return
-    start, submit = threading.Thread.start, concurrent.futures.ThreadPoolExecutor.submit
+    def carried(*args, **kwargs):  # type: ignore[no-untyped-def]
+        token = _USER.set(bound)  # same _Bound object: uses counted once per request
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _USER.reset(token)
 
-    def thread_start(self):  # type: ignore[no-untyped-def]
-        uid = _USER.get()
-        if uid is not None:
-            run = self.run
-
-            def carried() -> None:
-                _USER.set(uid)  # same _Bound object: uses counted once per request
-                run()
-
-            self.run = carried  # type: ignore[method-assign]
-        return start(self)
-
-    def pool_submit(self, fn, /, *args, **kwargs):  # type: ignore[no-untyped-def]
-        uid = _USER.get()
-        if uid is None:
-            return submit(self, fn, *args, **kwargs)
-
-        def carried(*a, **k):  # type: ignore[no-untyped-def]
-            token = _USER.set(uid)
-            try:
-                return fn(*a, **k)
-            finally:
-                _USER.reset(token)
-
-        return submit(self, carried, *args, **kwargs)
-
-    threading.Thread.start = thread_start  # type: ignore[method-assign]
-    concurrent.futures.ThreadPoolExecutor.submit = pool_submit  # type: ignore[method-assign]
-    threading.Thread._askodox_carry = True  # type: ignore[attr-defined]
+    return carried
 
 # Published list prices (2026-10-27; third-party price pages + Sarvam's own page) -- staff correct them in the console.
 DEFAULT_PRICES: Dict[str, Any] = {
@@ -180,7 +157,6 @@ def install(db_path: str) -> None:
         return response
 
     httpx.Client.send = send  # type: ignore[assignment]
-    _install_carry()
     _state["installed"] = True
 
 

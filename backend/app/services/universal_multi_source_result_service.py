@@ -280,12 +280,14 @@ class UniversalMultiSourceResultService:
         ))
 
         skip = self.bypassed
+        from app.services.ai_usage_meter import carry
+
         with ThreadPoolExecutor(max_workers=4) as pool:
-            external = (pool.submit(self._external, subject, location_text, lat, lon, radius_km)
+            external = (pool.submit(carry(self._external), subject, location_text, lat, lon, radius_km)
                         if "nearby" in plan and "nearby" not in skip else None)
-            web = (pool.submit(self._web_segments, subject, location_text)
+            web = (pool.submit(carry(self._web_segments), subject, location_text)
                    if "used_deals" in plan and "used_deals" not in skip else None)
-            jobs = (pool.submit(self._jobs, subject, location_text, constraints)
+            jobs = (pool.submit(carry(self._jobs), subject, location_text, constraints)
                     if "jobs" in plan and "jobs" not in skip else None)
             registered = self._registered(subject, location_text, budget, lat, lon, condition, place_words)
             external_rows = external.result() if external else []
