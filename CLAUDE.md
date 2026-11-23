@@ -7,6 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #400 (2026-11-23, owner "1"; no Play bundle yet; owner phone: Jio recharge Rs 448 from ICICI, "debited for Rs
+  448.00 ...; Jio Prepaid Recharge credited" = no voice, no row): `PaymentAlertParser.withoutPayee` drops the payee slot
+  ("; NAME credited", "and Cr. to X", "and credited to X", a UPI id) from the DEBIT checks only, so words in a payee's
+  name (recharge / emi / loan / offer / credited) never drop a debit; HDFC / Kotak "Sent Rs.X from" and BoB "Rs.X Dr. from
+  A/C ... Cr. to" = the bank's own debit (BoB payee from "Cr. to"). The operator's "Recharge Successful" SMS stays
+  ignored (reaches the recharged number). Skill rule 10. Parser gate +17 checks + one-row scenario. Nothing phone verified.
+  Offered next (owner has not said "చేయి"): a ❓ net for bank SMS with an amount the parser cannot read (ask in / out /
+  not a payment, learn the skeleton, shape-only upload with consent).
 - Branch `claude/payment-voice-pack` (2026-11-23, owner "start the 6 in order" on design artifact MUmbrCksUD9Mq1HR1ELT4U,
   ASKODOX Lite step 1): NO NET = SAME VOICE -- `PaymentVoicePack.kt` (pure, in the parser gate): number words te / hi / en
   (`numberWords`, Indian system; te 1 = "ఒక్క", 100 = "వంద", 1xx = "నూట"), `packTexts` = number words + the words of EVERY

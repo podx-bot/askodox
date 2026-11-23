@@ -25,3 +25,5 @@ Follow the procedure in `.claude/skills/askodox-payment-alerts/SKILL.md`. The sh
 - **No net never means another voice** (owner 2026-11-23): the phone puts the sentence together from the parts and the
   voice pack it keeps (`PaymentVoicePack`); the phone's own voice only when nothing can be put together. Keep every new
   spoken sentence inside `PaymentVoicePack.packTexts` (the gate checks it).
+- **A bank's debit SMS is money out whatever the payee is called** (owner 2026-11-23, ICICI "; Jio Prepaid Recharge
+  credited" gave no row): words inside the payee's name or UPI id never drop a debit (`withoutPayee`).

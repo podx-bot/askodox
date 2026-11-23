@@ -579,6 +579,23 @@ object PaymentAlertParser {
     private val paidAmountTo = Regex("""\b(?:paid|sent)\s+$AMT\s+to\s+(?!you\b|your\b)\S""", RegexOption.IGNORE_CASE)
     private val sentFrom = Regex("""\bsent\s+$AMT\s+from\b""", RegexOption.IGNORE_CASE)
 
+    /** Bank of Baroda and others: "Rs.448.00 Dr. from A/C XXXXXX1234 and Cr. to x@y" -- the bank's own debit SMS. */
+    private val drFrom = Regex("""$AMT\s+dr\.?\s+(?:from|in|to)\s+(?:your\s+)?(?:a/?c|acct?|account)\b""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Owner 2026-11-23 (ICICI "Acct XX123 debited for Rs 448.00 on 23-Nov-26; Jio Prepaid Recharge credited" -- no voice,
+     * no row): the part of a debit SMS that NAMES who was paid -- "; <payee> credited" (ICICI), "and Cr. to <payee>"
+     * (BoB), "and credited to <payee>", a UPI id -- is a name, never a sign that money came in, failed or was an offer.
+     * Removed only for the debit checks; the payee is still read from the full text.
+     */
+    private val payeeSlots = listOf(
+        Regex(""";\s*[a-z0-9][^;]{0,60}?\s+credited\b"""),
+        Regex("""\band\s+(?:cr\.?|credited)\s+to\s+(?!your\b)\S+"""),
+        Regex("""[a-z0-9._\-]+@[a-z][a-z0-9.\-]*"""),
+    )
+
+    private fun withoutPayee(lower: String): String = payeeSlots.fold(lower) { acc, re -> re.replace(acc, " ") }
+
     private val debitWords = listOf("debited", "you paid", "you sent", "paid to", "sent to", "withdrawn", "spent",
         // SBI and others: "Your A/C X1234 has a debit by transfer of Rs 962.00" (the mirror of "has a credit by").
         "a debit by", "a debit of", "has a debit")
@@ -596,12 +613,16 @@ object PaymentAlertParser {
 
     /** Clear "money went out" wording with exactly one amount -> Outgoing; everything else stays ignored. */
     private fun outgoingOrIgnored(joined: String, lower: String, text: String?, title: String?): Result {
-        if (debitWords.none { lower.contains(it) }) return Result.Ignored
+        // The bank's own "Sent Rs.X From ... A/C" (HDFC, Kotak) / "Rs.X Dr. from A/C" (BoB) is a debit as sure as "debited"
+        // (owner 2026-11-23: "To JIO PREPAID RECHARGE" / "to jiorecharge@paytm" made those SMS disappear).
+        val bankSent = sentFrom.containsMatchIn(joined) || drFrom.containsMatchIn(joined)
+        if (!bankSent && debitWords.none { lower.contains(it) }) return Result.Ignored
+        val view = withoutPayee(lower)
         // "Rs 1,941 debited from A/c XX1234 towards EMI of loan", "debited ... for Jio recharge", "you paid ... bill
         // payment", "debited towards card dues": the bank / app says the money LEFT -- what it was for never drops it.
-        val done = strongDebit.any { lower.contains(it) } && notDoneDebit.none { lower.contains(it) }
+        val done = (bankSent || strongDebit.any { view.contains(it) }) && notDoneDebit.none { view.contains(it) }
         val stopped = notMoney.any { w ->
-            lower.contains(w) && !(done && (w in purposeWords || (w == "due" && !dueWord.containsMatchIn(lower))))
+            view.contains(w) && !(done && (w in purposeWords || (w == "due" && !dueWord.containsMatchIn(view))))
         }
         if (stopped) return Result.Ignored
         val amounts = paymentAmounts(joined)
@@ -618,6 +639,7 @@ object PaymentAlertParser {
         Regex("""\bsent\s+$AMT\s+from\s+.{0,60}?\s+to\s+(\S.{1,60}?)$END""", RegexOption.IGNORE_CASE), // HDFC / Kotak SMS
         Regex("""$AMT\s+(?:sent|paid)\s+from\s+.{0,60}?\s+to\s+(\S.{1,60}?)$END""", RegexOption.IGNORE_CASE),
         Regex(""";\s*([A-Za-z][A-Za-z .]{1,40}?)\s+credited""", RegexOption.IGNORE_CASE),            // ICICI debit SMS
+        Regex("""\bcr\.?\s+to\s+(\S.{1,60}?)$END""", RegexOption.IGNORE_CASE),                          // BoB debit SMS
         Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
     )
 

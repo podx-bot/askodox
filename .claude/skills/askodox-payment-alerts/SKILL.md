@@ -38,13 +38,17 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
 7. What the phone is NOT SURE about is never said as a fact: ❓, not counted, an ASKODOX notification at once and a
    voice that asks to check the bank balance. When the bank's SMS shows that an earlier voice was wrong, the phone
    says sorry once (owner 2026-11-23).
-
 8. No net / slow net never changes the voice: a sentence is put together from parts heard before + the voice pack
    (`PaymentVoicePack.clipsFor`); a name heard for the first time is left out (same voice), never a second voice. A new
    sentence in `PaymentAlertParser` must stay inside `PaymentVoicePack.packTexts` -- the gate checks every clip of every
    sentence is in the pack (owner 2026-11-23).
 9. ASKODOX lines (tune / hello / customer / night) are switches in the Payment voice folder, all ON by default. ASKODOX is
    the voice, never where the money went. A day with no payment says nothing at night (owner 2026-11-23).
+10. A bank's debit SMS is money that went out whatever the payee is CALLED: "; Jio Prepaid Recharge credited" (ICICI),
+    "To JIO PREPAID RECHARGE" (HDFC), "to jiorecharge@paytm" (Kotak), "Cr. to x@y" (BoB), a shop named "OFFER MART".
+    Words in the payee's name (recharge, emi, loan, offer, credited) never drop it (`withoutPayee`). The operator's own
+    "Recharge Successful" SMS stays ignored: it reaches the recharged number, maybe paid by someone else (owner
+    2026-11-23).
 
 ## How a message joins a row (`pickSamePayment`)
 
