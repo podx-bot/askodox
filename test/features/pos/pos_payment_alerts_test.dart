@@ -61,6 +61,7 @@ Map<String, Object?> _settings({bool enabled = true}) => {
       'roles': ['manager', 'cashier'],
       'all_roles': ['manager', 'cashier', 'accountant', 'waiter', 'kitchen'],
       'apps': {'com.phonepe.app.business': 'PhonePe Business'},
+      'updated_at': '2026-11-01T10:00:00Z',
     };
 
 Map<String, Object?> _event(String id, {bool mine = true, int amount = 50000, String status = 'notification_unverified'}) => {
@@ -359,6 +360,35 @@ void main() {
     expect(find.byKey(const Key('askodoxPayAlertProviderOn')), findsOneWidget);
     expect(find.text('https://x/api/pos/payment-webhooks/razorpay/b1'), findsOneWidget);
     expect(find.textContaining('secret-good-123'), findsNothing);
+  });
+
+  testWidgets('owner 2026-11-23: a shop that never saved its voice settings starts in the region / phone language', (tester) async {
+    tester.view.physicalSize = const Size(900, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final api = _Api((m, p, b) {
+      if (p.endsWith('/payment-alerts/settings')) {
+        final never = {..._settings()}..remove('updated_at');
+        return m == 'PUT' ? {...never, ...(b as Map).cast<String, Object?>(), 'updated_at': '2026-11-23T10:00:00Z'} : never;
+      }
+      if (p.endsWith('/payment-alerts/devices')) {
+        return {'device_id': 'pad_1', 'devices': [
+          {'id': 'pad_1', 'label': 'Phone abcd', 'mine': true, 'role': 'owner', 'listener_on': false, 'revoked': false}
+        ]};
+      }
+      if (p.endsWith('/payment-alerts/events')) {
+        return {'events': [_event('e1')], 'last_24h': {'count': 1, 'notified_total_paise': 50000}};
+      }
+      return <String, Object?>{};
+    });
+    await tester.pumpWidget(_app(api, const AskodoxPosPaymentAlertsScreen(businessId: 'b1', pollEvery: Duration.zero, view: 'status')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxPayAlertEnable')));
+    await tester.pumpAndSettle();
+    final body = api.bodies['PUT /api/pos/businesses/b1/payment-alerts/settings'] as Map;
+    expect(body['enabled'], isFalse);
+    // no location in a test and no app language chosen: the phone's own language (English here), always te / hi / en
+    expect(body['language'], 'en');
   });
 
   test('timeline shows where the seconds went (paid -> server -> phone -> voice)', () {

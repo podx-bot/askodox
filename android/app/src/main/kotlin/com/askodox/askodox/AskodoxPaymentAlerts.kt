@@ -64,6 +64,7 @@ object AskodoxPaymentAlerts {
                             prefs(app).edit().putString("personal_config", next.toString()).apply()
                             requestRebind(app)
                             CloudVoice.prefetch(app, next)
+                            scheduleNight(app)
                             result.success(status(app))
                             return@setMethodCallHandler
                         }
@@ -78,6 +79,7 @@ object AskodoxPaymentAlerts {
                         prefs(app).edit().putString("config", next.toString()).apply()
                         requestRebind(app)
                         CloudVoice.prefetch(app, JSONObject(json)) // the fixed words, once per voice / language
+                        scheduleNight(app)
                         result.success(status(app))
                     }
                     // Owner 2026-11-20 (staff zero setup): a shop's staff phone hears that shop's payments without
@@ -1299,7 +1301,10 @@ object AskodoxPaymentAlerts {
                     update(context, localId) { it.put("spoken", "pending") }
                     val parts = if (billPaid) PaymentAlertParser.billPaidParts(o.amountPaise, language, o.party, emi)
                         else withAccount(cfg, o.account, PaymentAlertParser.personalParts(o.amountPaise, language, false, name))
-                    CloudVoice.say(context, parts, language, cfg) { ok ->
+                    // with no net a name / company heard for the first time cannot be made: said without it, same voice
+                    val alt = if (billPaid) PaymentAlertParser.billPaidParts(o.amountPaise, language, null, emi)
+                        else PaymentAlertParser.personalParts(o.amountPaise, language, false, null)
+                    CloudVoice.say(context, parts, language, cfg, alt) { ok ->
                         update(context, localId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
                         main.post { channel?.invokeMethod("paymentEvent", "{}") }
                     }
@@ -1324,6 +1329,109 @@ object AskodoxPaymentAlerts {
         if (account.isNullOrEmpty() || !cfg.optBoolean("say_account", false)) return parts
         val name = cfg.optJSONObject("account_names")?.optString(account).orEmpty().trim()
         return if (name.isEmpty()) parts else listOf("$name:") + parts
+    }
+
+    // ------------------------------------------------------------------ ASKODOX lines (owner 2026-11-23)
+
+    /** Hello before the day's first spoken payment, the customer line now and then ([PaymentVoicePack.brandChoice]). */
+    @Synchronized
+    private fun brandFor(context: Context, cfg: JSONObject): PaymentVoicePack.BrandChoice {
+        val p = prefs(context)
+        val s = PaymentVoicePack.BrandState(p.getLong("brand_pay_day", -1L), p.getInt("brand_pay_count", 0),
+            p.getLong("brand_hello_day", -1L), p.getLong("brand_cust_day", -1L), p.getInt("brand_cust_count", 0),
+            p.getLong("brand_cust_at", 0L))
+        val c = PaymentVoicePack.brandChoice(dayNumber(Calendar.getInstance()), System.currentTimeMillis(), s,
+            voiceOn(context, cfg, "hello"), voiceOn(context, cfg, "customer"))
+        p.edit().putLong("brand_pay_day", c.next.payDay).putInt("brand_pay_count", c.next.payCount)
+            .putLong("brand_hello_day", c.next.helloDay).putLong("brand_cust_day", c.next.customerDay)
+            .putInt("brand_cust_count", c.next.customerCount).putLong("brand_cust_at", c.next.lastCustomerAt).apply()
+        return c
+    }
+
+    const val ACTION_NIGHT = "com.askodox.askodox.NIGHT_COUNT"
+
+    /** "My phone" settings, also when an older build kept them as the shop settings with no business id. */
+    private fun mineConfig(context: Context): JSONObject {
+        val mine = personalConfig(context)
+        if (mine.length() > 0) return mine
+        val shop = config(context)
+        return if (shop.optString("business_id").isEmpty()) shop else JSONObject()
+    }
+
+    /**
+     * Sets the next night ASKODOX count (21:00, or `night_at` in the settings) while payment voice is on anywhere on
+     * this phone; cancels it otherwise. Called when alerts are set up, when the listener connects and after an update.
+     */
+    fun scheduleNight(context: Context) {
+        val app = context.applicationContext
+        val am = app.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return
+        val pi = android.app.PendingIntent.getBroadcast(app, 7302,
+            Intent(app, AskodoxPaymentAlertsReceiver::class.java).setAction(ACTION_NIGHT),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+        val shop = config(app)
+        val mine = mineConfig(app)
+        if (!shop.optBoolean("enabled", false) && !mine.optBoolean("enabled", false)) { am.cancel(pi); return }
+        val cal = Calendar.getInstance()
+        val offset = (cal.get(Calendar.ZONE_OFFSET) + cal.get(Calendar.DST_OFFSET)).toLong()
+        val minute = PaymentVoicePack.minuteOf(mine.optString("night_at").ifEmpty { shop.optString("night_at") })
+        val at = PaymentVoicePack.nextNightAt(System.currentTimeMillis(), offset, minute)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi)
+            else am.set(android.app.AlarmManager.RTC_WAKEUP, at, pi)
+        } catch (_: Exception) {
+        }
+    }
+
+    /** History rows as the night count sees them: money that CAME IN, counted, for the shop or for My phone. */
+    private fun nightRows(list: JSONArray, personal: Boolean): List<PaymentVoicePack.DayRow> {
+        val out = ArrayList<PaymentVoicePack.DayRow>()
+        for (i in 0 until list.length()) {
+            val e = list.optJSONObject(i) ?: continue
+            if (!e.optString("local_id").startsWith("pa-")) continue
+            val dir = e.optString("direction")
+            val mineRow = dir.isNotEmpty()
+            if (mineRow != personal) continue
+            val counted = !e.optBoolean("test") && !e.optBoolean("excluded") &&
+                e.optString("status") != "suspect_sender" && (!personal || dir == "in")
+            val day = dayNumber(Calendar.getInstance().apply { timeInMillis = e.optLong("at_ms", 0L) })
+            out += PaymentVoicePack.DayRow(day, e.optLong("amount_paise", 0L), counted)
+        }
+        return out
+    }
+
+    /**
+     * The night ASKODOX count (owner 2026-11-23): each side of this phone (the shop, My phone) that had payments TODAY
+     * says "ASKODOX count: today N payments came, total X" once and shows it as a notification. A day with no payment
+     * gives nothing at all -- no voice, no notification. Quiet hours: shown, not said. [done] runs when all is said.
+     */
+    fun nightCount(context: Context, done: () -> Unit) {
+        val app = context.applicationContext
+        val today = dayNumber(Calendar.getInstance())
+        val list = events(app)
+        val waiting = java.util.concurrent.atomic.AtomicInteger(1)
+        val finishOne = { if (waiting.decrementAndGet() == 0) done() }
+        val shop = config(app)
+        val sides = listOfNotNull(
+            if (shop.optBoolean("enabled", false) && shop.optString("business_id").isNotEmpty()) false to shop else null,
+            mineConfig(app).takeIf { it.optBoolean("enabled", false) }?.let { true to it },
+        )
+        for ((personal, cfg) in sides) {
+            if (!voiceOn(app, cfg, "night")) continue
+            val mark = "night_said:${if (personal) "mine" else "shop"}:$today"
+            if (prefs(app).getBoolean(mark, false)) continue
+            val (count, total) = PaymentVoicePack.dayTotals(nightRows(list, personal), today)
+            if (count == 0) continue // no payment today: nothing at all
+            prefs(app).edit().putBoolean(mark, true).apply()
+            val language = cfg.optString("language", "te").ifEmpty { "te" }
+            val parts = PaymentVoicePack.nightParts(count, total, language)
+            showPaymentNotification(app, mark, parts.first().trimEnd(':', ' '), parts.drop(1).joinToString(" "))
+            val cal = Calendar.getInstance()
+            if (PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
+                    cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))) continue
+            waiting.incrementAndGet()
+            CloudVoice.say(app, parts, language, cfg) { finishOne() }
+        }
+        finishOne()
     }
 
     /** Whole days since 1970 in the phone's own time zone (API 23 safe; no java.time). */
@@ -1428,6 +1536,11 @@ object AskodoxPaymentAlerts {
             "autopay" -> PaymentAlertParser.noticeParts("autopay", 49900, language, "Netflix")
             "request" -> PaymentAlertParser.noticeParts("request", 200000, language)
             "fake" -> PaymentAlertParser.noticeParts("suspect", null, language)
+            // Owner 2026-11-23 (ASKODOX lines): the tune plays before the money line; hello / customer line around it.
+            "tune" -> sampleParts("in", language, personal, cfg)
+            "hello" -> listOf(PaymentVoicePack.helloPart(language)) + sampleParts("in", language, personal, cfg)
+            "customer" -> sampleParts("in", language, personal, cfg) + PaymentVoicePack.customerPart(language)
+            "night" -> PaymentVoicePack.nightParts(12, 450_000, language)
             else -> emptyList()
         }
     }
@@ -1509,12 +1622,21 @@ object AskodoxPaymentAlerts {
                       cfg: JSONObject = config(context), account: String? = null, bonus: String? = null) {
         val language = cfg.optString("language", "te").ifEmpty { "te" }
         val name = if (cfg.optBoolean("say_name", true)) payer else null
-        val parts = if (cfg.optString("business_id").isEmpty() && amount != null && !test && bonus != null)
-            withAccount(cfg, account, PaymentAlertParser.bonusParts(amount, language, bonus)) // cashback / interest
+        fun sentence(who: String?, acct: String?) = if (cfg.optString("business_id").isEmpty() && amount != null && !test && bonus != null)
+            withAccount(cfg, acct, PaymentAlertParser.bonusParts(amount, language, bonus)) // cashback / interest
         else if (cfg.optString("business_id").isEmpty() && amount != null && !test)
-            withAccount(cfg, account, PaymentAlertParser.personalParts(amount, language, true, name))
-        else PaymentAlertParser.announcementParts(amount, language, test, name, cfg.optString("shop_name"))
-        CloudVoice.say(context, parts, language, cfg) { ok ->
+            withAccount(cfg, acct, PaymentAlertParser.personalParts(amount, language, true, who))
+        else PaymentAlertParser.announcementParts(amount, language, test, who, cfg.optString("shop_name"))
+        var parts = sentence(name, account)
+        // With no net a payer name heard for the first time cannot be made: the same voice says it without the name.
+        var alt = sentence(null, null)
+        // Owner 2026-11-23 (ASKODOX lines): hello before the day's first payment, the customer line now and then.
+        if (!test && amount != null) {
+            val b = brandFor(context, cfg)
+            if (b.hello) PaymentVoicePack.helloPart(language).let { parts = listOf(it) + parts; alt = listOf(it) + alt }
+            if (b.customer) PaymentVoicePack.customerPart(language).let { parts = parts + it; alt = alt + it }
+        }
+        CloudVoice.say(context, parts, language, cfg, alt) { ok ->
             if (eventId != null) {
                 update(context, eventId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
                 main.post { channel?.invokeMethod("paymentEvent", "{}") } // the open screen refreshes "Voice: Spoken"
@@ -1636,7 +1758,13 @@ object AskodoxPaymentAlerts {
         private val COMMON_AMOUNTS = longArrayOf(10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, 250, 300,
             350, 400, 450, 500, 600, 700, 800, 1000, 1200, 1500, 2000, 2500, 3000, 5000, 10000)
 
-        fun say(context: Context, parts: List<String>, language: String, cfg: JSONObject, finished: ((Boolean) -> Unit)?) {
+        /**
+         * [alt] = the same sentence without the parts that cannot be made with no internet (a payer name heard for the
+         * first time, an account name): with no net the phone says [parts] from what it keeps, else [alt], in the SAME
+         * voice -- the phone's own voice only when neither can be put together (owner 2026-11-23, ASKODOX Lite step 1).
+         */
+        fun say(context: Context, parts: List<String>, language: String, cfg: JSONObject, alt: List<String>? = null,
+                finished: ((Boolean) -> Unit)? = null) {
             val app = context.applicationContext
             // Owner 2026-11-20: ONE answer per payment, always -- if no voice finished in 45 s the payment is marked
             // "stuck" (never "Speaking..." for ever) and a loud beep plays so the money is still heard.
@@ -1671,19 +1799,58 @@ object AskodoxPaymentAlerts {
                     }
                 } catch (_: Exception) { null }
                 if (files == null || files.any { it == null }) {
-                    AskodoxPaymentAlerts.main.post { fallback() }
+                    // Owner 2026-11-23 (no net / slow net): the SAME voice, put together from the parts and the voice
+                    // pack kept on this phone; the name-less sentence when a new name cannot be had; else the phone's voice.
+                    val offline = offlineFiles(app, parts, language, cfg) ?: alt?.let { offlineFiles(app, it, language, cfg) }
+                    if (offline != null) playJoined(app, offline, cfg, done, fallback)
+                    else AskodoxPaymentAlerts.main.post { fallback() }
                     // keep fetching the missing parts in the background: the next payment gets the cloud voice
                     warmIo.execute { for (p in parts) try { fetch(app, p, language, cfg) } catch (_: Exception) { return@execute } }
                     return@execute
                 }
-                try {
-                    val dir = java.io.File(app.cacheDir, "payalert").apply { mkdirs() }
-                    val out = java.io.File(dir, "pv-${System.nanoTime()}.mp3")
-                    out.outputStream().use { o -> files.forEach { f -> f!!.inputStream().use { it.copyTo(o) } } }
-                    Player.enqueue(app, out, cfg) { ok -> if (ok) done(true) else AskodoxPaymentAlerts.main.post { fallback() } }
-                } catch (_: Exception) {
-                    AskodoxPaymentAlerts.main.post { fallback() }
-                }
+                playJoined(app, files.map { it!! }, cfg, done, fallback)
+            }
+        }
+
+        /** The parts joined into one MP3 (one format, one voice) and played; any failure -> the phone's own voice. */
+        private fun playJoined(app: Context, files: List<java.io.File>, cfg: JSONObject, done: (Boolean) -> Unit,
+                               fallback: () -> Unit) {
+            try {
+                val dir = java.io.File(app.cacheDir, "payalert").apply { mkdirs() }
+                val out = java.io.File(dir, "pv-${System.nanoTime()}.mp3")
+                out.outputStream().use { o -> files.forEach { f -> f.inputStream().use { it.copyTo(o) } } }
+                Player.enqueue(app, out, cfg) { ok -> if (ok) done(true) else AskodoxPaymentAlerts.main.post { fallback() } }
+            } catch (_: Exception) {
+                AskodoxPaymentAlerts.main.post { fallback() }
+            }
+        }
+
+        /**
+         * The sentence from what this phone already keeps, with NO network: a part heard before as it is, otherwise its
+         * words + number words from the voice pack ([PaymentVoicePack.clipsFor]). Null when any piece is missing.
+         */
+        private fun offlineFiles(context: Context, parts: List<String>, language: String, cfg: JSONObject): List<java.io.File>? {
+            val v = voice(cfg)
+            val out = ArrayList<java.io.File>()
+            for (p in parts) {
+                val whole = cached(context, p, language, v)
+                if (whole != null) { out += whole; continue }
+                val clips = PaymentVoicePack.clipsFor(p, language) ?: return null
+                for (c in clips) out += cached(context, c, language, v) ?: return null
+            }
+            return out.takeIf { it.isNotEmpty() }
+        }
+
+        /**
+         * Owner 2026-11-23: the voice pack -- number words and the fixed words of every payment sentence, fetched ONCE
+         * per voice + language while the net is there (the server keeps each line for every phone). Languages without
+         * number words here get the ASKODOX lines only; their amounts keep the earlier way.
+         */
+        private fun warmPack(app: Context, language: String, cfg: JSONObject) {
+            val texts = if (language in PaymentVoicePack.NUMBER_LANGUAGES) PaymentVoicePack.packTexts(language, cfg.optString("shop_name"))
+                else listOf(PaymentVoicePack.helloPart(language), PaymentVoicePack.customerPart(language))
+            warmIo.execute {
+                for (t in texts) try { fetch(app, t, language, cfg, pack = true) } catch (_: Exception) { return@execute }
             }
         }
 
@@ -1702,8 +1869,19 @@ object AskodoxPaymentAlerts {
                 p.filter { Regex("""\d""").containsMatchIn(it) }.forEach { warm.add(it) }
             }
             warmIo.execute {
-                for (p in warm) try { fetch(app, p, language, cfg) } catch (_: Exception) { return@execute }
+                // Which voice the server speaks with now: asked first (never from the phone's copy), so parts of an older
+                // voice are dropped BEFORE any sentence is put together from them.
+                try { fetch(app, PaymentVoicePack.helloPart(language), language, cfg, pack = true, fresh = true) } catch (_: Exception) {}
+                // Parts kept before 2026-11-23 sat in one folder for every voice / language: dropped once (a voice
+                // change could not be told apart there); every part is fetched again into its voice + language folder.
+                val p = AskodoxPaymentAlerts.prefs(app)
+                if (!p.getBoolean("pv_layout_v2", false)) {
+                    java.io.File(app.filesDir, "payvoice").listFiles { f -> f.isFile }?.forEach { it.delete() }
+                    p.edit().putBoolean("pv_layout_v2", true).apply()
+                }
+                for (w in warm) try { fetch(app, w, language, cfg) } catch (_: Exception) { return@execute }
             }
+            warmPack(app, language, cfg)
         }
 
         private fun enabled(cfg: JSONObject) =
@@ -1717,19 +1895,58 @@ object AskodoxPaymentAlerts {
         // never joined with new parts (two voices in one payment); prune() clears the old files over time.
         private const val VOICE_CACHE_TAG = "app-voice-1"
 
-        private fun dir(context: Context) = java.io.File(context.filesDir, "payvoice").apply { mkdirs() }
+        /** One folder per voice + language: a voice change empties only that folder (see [checkVoiceId]). */
+        private fun dir(context: Context, voice: String, language: String) =
+            java.io.File(context.filesDir, "payvoice/${voice}_${language.filter { it.isLetterOrDigit() }.take(8).ifEmpty { "xx" }}")
+                .apply { mkdirs() }
+
+        /** The voice pack lives apart from the heard parts: it is never thinned out by [prune]. */
+        private fun packDir(context: Context, voice: String, language: String) =
+            java.io.File(dir(context, voice, language), "pack").apply { mkdirs() }
 
         private fun key(text: String, language: String, voice: String): String {
             val digest = java.security.MessageDigest.getInstance("SHA-256").digest("$VOICE_CACHE_TAG|$voice|$language|$text".toByteArray())
             return digest.take(16).joinToString("") { "%02x".format(it) }
         }
 
+        /** The part's MP3 already on this phone (heard before, or in the voice pack), else null. No network. */
+        private fun cached(context: Context, text: String, language: String, voice: String): java.io.File? {
+            val name = key(text, language, voice) + ".mp3"
+            val loose = java.io.File(dir(context, voice, language), name)
+            if (loose.length() > 0) { loose.setLastModified(System.currentTimeMillis()); return loose }
+            val packed = java.io.File(packDir(context, voice, language), name)
+            return if (packed.length() > 0) packed else null
+        }
+
+        /**
+         * The server says which ElevenLabs voice made a part. When it is not the voice the parts on this phone were made
+         * with (a new voice was chosen), every part of this voice + language is dropped: a sentence is never put
+         * together from two different voices.
+         */
+        @Synchronized
+        private fun checkVoiceId(context: Context, voice: String, language: String, voiceId: String) {
+            val p = AskodoxPaymentAlerts.prefs(context)
+            val k = "pv_voice_id_${voice}_$language"
+            val known = p.getString(k, "") ?: ""
+            if (known == voiceId) return
+            if (known.isNotEmpty()) dir(context, voice, language).deleteRecursively()
+            p.edit().putString(k, voiceId).apply()
+        }
+
         /** The part's MP3 on this phone (fetched once), or null when ASKODOX / ElevenLabs did not give one. */
         private fun fetch(context: Context, text: String, language: String, cfg: JSONObject,
-                          deadline: Long = Long.MAX_VALUE): java.io.File? {
+                          deadline: Long = Long.MAX_VALUE, pack: Boolean = false, fresh: Boolean = false): java.io.File? {
             val v = voice(cfg)
-            val file = java.io.File(dir(context), key(text, language, v) + ".mp3")
-            if (file.length() > 0) { file.setLastModified(System.currentTimeMillis()); return file }
+            val name = key(text, language, v) + ".mp3"
+            val inPack = java.io.File(packDir(context, v, language), name)
+            if (inPack.length() > 0 && !fresh) return inPack
+            val loose = java.io.File(dir(context, v, language), name)
+            if (loose.length() > 0 && !fresh) {
+                loose.setLastModified(System.currentTimeMillis())
+                // a pack word heard before: kept in the pack too, so thinning out heard parts never takes it away
+                if (pack) try { loose.copyTo(inPack, overwrite = true) } catch (_: Exception) {}
+                return loose
+            }
             val left = deadline - System.currentTimeMillis()
             if (left < 300) return null // out of time: the phone's own voice speaks now (the part is fetched next time)
             val wait = minOf(SEGMENT_TIMEOUT_MS.toLong(), left).toInt()
@@ -1747,18 +1964,20 @@ object AskodoxPaymentAlerts {
                 if (conn.responseCode != 200) return null
                 // Only the ElevenLabs MP3 is kept: parts are joined byte-wise, which needs one format and one voice.
                 if (conn.getHeaderField("X-ASKODOX-TTS-Path") != "elevenlabs") return null
+                conn.getHeaderField("X-ASKODOX-TTS-Voice-Id")?.takeIf { it.isNotEmpty() }?.let { checkVoiceId(context, v, language, it) }
+                val file = java.io.File(if (pack) packDir(context, v, language) else dir(context, v, language), name)
                 val tmp = java.io.File(file.path + ".part")
                 conn.inputStream.use { input -> tmp.outputStream().use { input.copyTo(it) } }
                 if (tmp.length() == 0L || !tmp.renameTo(file)) { tmp.delete(); return null }
-                prune(context)
+                if (!pack) prune(context, v, language)
                 return file
             } finally {
                 conn.disconnect()
             }
         }
 
-        private fun prune(context: Context) {
-            val all = dir(context).listFiles { f -> f.name.endsWith(".mp3") } ?: return
+        private fun prune(context: Context, voice: String, language: String) {
+            val all = dir(context, voice, language).listFiles { f -> f.isFile && f.name.endsWith(".mp3") } ?: return
             if (all.size <= MAX_FILES) return
             all.sortedBy { it.lastModified() }.take(all.size - MAX_FILES).forEach { it.delete() }
         }
@@ -1993,15 +2212,49 @@ object AskodoxPaymentAlerts {
                 }
             }
             val chime = item.cfg.optBoolean("chime", true)
+            // Owner 2026-11-23 (ASKODOX branding): the ASKODOX tune before every voice, so the sound itself says ASKODOX.
+            // "ASKODOX tune" switched off (Payment voice folder) -> the earlier plain chime.
+            var lead = 0L
             if (chime) {
-                try {
-                    val tone = android.media.ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-                    tone.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 400)
-                    AskodoxPaymentAlerts.main.postDelayed({ tone.release() }, 900)
-                } catch (_: Exception) {
+                lead = if (AskodoxPaymentAlerts.voiceOn(context, item.cfg, "tune") && playTune(context)) TUNE_MS else {
+                    try {
+                        val tone = android.media.ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+                        tone.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 400)
+                        AskodoxPaymentAlerts.main.postDelayed({ tone.release() }, 900)
+                    } catch (_: Exception) {
+                    }
+                    650L
                 }
             }
-            AskodoxPaymentAlerts.main.postDelayed({ play(context, item) }, if (chime) 650L else 0L)
+            AskodoxPaymentAlerts.main.postDelayed({ play(context, item) }, lead)
+        }
+
+        /** How long the voice waits after the ASKODOX tune starts (the tune is ~0.9 s). */
+        private const val TUNE_MS = 1050L
+
+        /** The ASKODOX tune (res/raw/askodox_tune.ogg) on media audio (Bluetooth speaker too); false if it cannot play. */
+        private fun playTune(context: Context): Boolean {
+            var mp: android.media.MediaPlayer? = null
+            return try {
+                val player = android.media.MediaPlayer()
+                mp = player
+                player.setAudioAttributes(AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                val fd = context.resources.openRawResourceFd(R.raw.askodox_tune) ?: return false.also { player.release() }
+                try { player.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length) } finally { fd.close() }
+                var released = false
+                val release = { if (!released) { released = true; try { player.release() } catch (_: Exception) {} } }
+                player.setOnCompletionListener { release() }
+                player.setOnErrorListener { _, _, _ -> release(); true }
+                player.prepare()
+                player.start()
+                AskodoxPaymentAlerts.main.postDelayed({ release() }, 4_000L)
+                true
+            } catch (_: Exception) {
+                try { mp?.release() } catch (_: Exception) {}
+                false
+            }
         }
 
         private fun play(context: Context, item: Item) {
@@ -2062,6 +2315,7 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
     override fun onListenerConnected() {
         AskodoxPaymentAlerts.prefs(this).edit().putLong("listener_connected_at", System.currentTimeMillis()).apply()
         try { AskodoxPaymentAlerts.checkDues(this) } catch (_: Exception) {}
+        try { AskodoxPaymentAlerts.scheduleNight(this) } catch (_: Exception) {}
     }
 
     override fun onListenerDisconnected() {
@@ -2219,8 +2473,25 @@ private fun showPaymentNotification(context: Context, eventId: String, title: St
 /** After this app is updated from Play, bind the payment listener again (it is not always rebound by the system). */
 class AskodoxPaymentAlertsReceiver : android.content.BroadcastReceiver() {
     override fun onReceive(context: Context, intent: android.content.Intent?) {
-        if (intent?.action == android.content.Intent.ACTION_MY_PACKAGE_REPLACED) {
-            AskodoxPaymentAlerts.rebindIfEnabled(context)
+        when (intent?.action) {
+            android.content.Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                AskodoxPaymentAlerts.rebindIfEnabled(context)
+                AskodoxPaymentAlerts.scheduleNight(context)
+            }
+            // The night ASKODOX count (owner 2026-11-23): said, then the next night is set. The broadcast is kept
+            // open (goAsync) until the voice finished, at most 50 s.
+            AskodoxPaymentAlerts.ACTION_NIGHT -> {
+                val pending = goAsync()
+                val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+                val end = {
+                    if (closed.compareAndSet(false, true)) {
+                        try { AskodoxPaymentAlerts.scheduleNight(context) } catch (_: Exception) {}
+                        pending.finish()
+                    }
+                }
+                AskodoxPaymentAlerts.main.postDelayed({ end() }, 50_000L)
+                try { AskodoxPaymentAlerts.nightCount(context) { end() } } catch (_: Exception) { end() }
+            }
         }
     }
 }

@@ -10,6 +10,7 @@ on:
     paths:
       - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt'
       - 'android/app/src/main/kotlin/com/askodox/askodox/AskodoxPaymentAlerts.kt'
+      - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentVoicePack.kt'
       - 'android/parser-tests/**'
       - '.github/workflows/payment-parser-gate.yml'
       - '.claude/skills/askodox-payment-alerts/**'
@@ -18,6 +19,7 @@ on:
     paths:
       - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt'
       - 'android/app/src/main/kotlin/com/askodox/askodox/AskodoxPaymentAlerts.kt'
+      - 'android/app/src/main/kotlin/com/askodox/askodox/PaymentVoicePack.kt'
       - 'android/parser-tests/**'
   workflow_dispatch:
 
@@ -41,5 +43,6 @@ jobs:
       - name: Parser cases
         run: |
           /tmp/kotlinc/bin/kotlinc android/app/src/main/kotlin/com/askodox/askodox/PaymentAlertParser.kt \
+            android/app/src/main/kotlin/com/askodox/askodox/PaymentVoicePack.kt \
             android/parser-tests/ParserTest.kt -include-runtime -d /tmp/parser.jar
           java -jar /tmp/parser.jar

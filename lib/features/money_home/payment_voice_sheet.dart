@@ -52,6 +52,24 @@ const _fake = AskodoxVoiceKind('fake', 'Looks fake (warning)', 'ఫేక్‌�
 const askodoxPersonalVoiceKinds = [_in, _out, _bill, _refund, _cashback, _pending, _failed, _due, _autopay, _request, _fake];
 const askodoxShopVoiceKinds = [_in, _refund, _request, _fake];
 
+/// ASKODOX lines (owner 2026-11-23, all ON by default; each can be switched off): the ASKODOX tune before every voice,
+/// a hello before the day's first payment, the night count (only on a day with payments -- no payment = nothing) and a
+/// short line for customers (at most twice a day). ASKODOX is named as the voice, never as where the money went.
+const _tune = AskodoxVoiceKind('tune', 'ASKODOX tune', 'ASKODOX ట్యూన్', 'A short ASKODOX tune before every payment voice',
+    'ప్రతి పేమెంట్ వాయిస్ ముందు చిన్న ASKODOX ట్యూన్');
+const _hello = AskodoxVoiceKind('hello', 'Morning hello', 'ఉదయం నమస్తే',
+    '"Hello! ASKODOX will tell you today\'s payments." -- before the day\'s first payment',
+    '"నమస్తే! ఈరోజు మీ పేమెంట్స్ ASKODOX చెప్తుంది." — రోజు మొదటి పేమెంట్ ముందు');
+const _night = AskodoxVoiceKind('night', 'Night ASKODOX count', 'రాత్రి ASKODOX లెక్క',
+    '"ASKODOX count: 45 payments came today, total 12400 rupees." -- 9 pm, only on a day with payments',
+    '"ASKODOX లెక్క: ఈరోజు 45 పేమెంట్స్ వచ్చాయి, మొత్తం 12400 రూపాయలు." — రాత్రి 9కి, పేమెంట్ వచ్చిన రోజే');
+const _customer = AskodoxVoiceKind('customer', 'ASKODOX line for customers', 'Customers కి ASKODOX మాట',
+    '"This voice is from ASKODOX. Free for your shop too." -- at most twice a day',
+    '"ఈ సౌండ్ ASKODOX ది. మీ షాప్ కి కూడా ఫ్రీ." — రోజుకు 2 సార్లు మాత్రమే');
+
+/// The ASKODOX lines, the same on my phone and on a shop counter.
+const askodoxBrandVoiceKinds = [_tune, _hello, _night, _customer];
+
 /// On / off for each kind: a saved choice wins; otherwise everything is on except "out", which follows the older
 /// "say money sent" switch. The fake warning is always on (same rule as the phone's native `voiceOn`).
 Map<String, bool> askodoxVoiceKindsWithDefaults(Map<String, bool> saved, List<AskodoxVoiceKind> kinds, {bool announceDebits = false}) => {
@@ -81,6 +99,9 @@ class AskodoxPaymentVoiceSheet extends ConsumerStatefulWidget {
 class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSheet> {
   bool get _personal => widget.businessId == null;
   List<AskodoxVoiceKind> get _kinds => _personal ? askodoxPersonalVoiceKinds : askodoxShopVoiceKinds;
+
+  /// Money kinds + the ASKODOX lines: one on / off map, saved together.
+  List<AskodoxVoiceKind> get _allKinds => [..._kinds, ...askodoxBrandVoiceKinds];
   Map<String, bool>? _on;
   AskodoxMyPhoneAlerts? _mine;
   String? _playing;
@@ -106,7 +127,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
     if (!mounted) return;
     setState(() {
       _mine = mine;
-      _on = askodoxVoiceKindsWithDefaults(saved, _kinds, announceDebits: mine?.announceDebits ?? false);
+      _on = askodoxVoiceKindsWithDefaults(saved, _allKinds, announceDebits: mine?.announceDebits ?? false);
     });
   }
 
@@ -146,7 +167,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
     final te = Localizations.localeOf(context).languageCode == 'te';
     final language = _mine?.language ?? Localizations.localeOf(context).languageCode;
     final on = _on;
-    final count = on == null ? 0 : on.values.where((v) => v).length;
+    final count = on == null ? 0 : _kinds.where((k) => on[k.id] ?? true).length;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .86),
@@ -187,6 +208,19 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
               const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
             else
               for (final k in _kinds) _row(k, on[k.id] ?? true, te, language),
+            if (on != null) ...[
+              const SizedBox(height: 6),
+              Text(te ? 'ASKODOX మాటలు' : 'ASKODOX lines',
+                  key: const Key('askodoxPaymentVoiceBrand'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5)),
+              const SizedBox(height: 2),
+              Text(
+                  te
+                      ? 'అన్నీ ఆన్. పేమెంట్ రాని రోజు ఏ మాటా రాదు. ఏదైనా వద్దంటే నొక్కి ఆపండి.'
+                      : 'All on. On a day with no payment nothing is said. Tap one to switch it off.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+              const SizedBox(height: 8),
+              for (final k in askodoxBrandVoiceKinds) _row(k, on[k.id] ?? true, te, language),
+            ],
             const SizedBox(height: 8),
             OutlinedButton.icon(
               key: const Key('askodoxPaymentVoiceMore'),
