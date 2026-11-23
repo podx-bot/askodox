@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 import build  # noqa: E402
 
 ROUTES = ["", "about", "how-it-works", "discover", "sellers", "service-providers", "deals", "videos", "app", "join",
-          "partners", "support", "faq", "contact", "report-a-problem", "trust", "status", "privacy", "terms", "cookies", "refunds",
+          "partners", "support", "faq", "contact", "report-a-problem", "trust", "status", "privacy", "terms", "cookies", "refunds", "pricing",
           "affiliate-disclosure", "accessibility"]
 
 

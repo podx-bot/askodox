@@ -15,7 +15,7 @@
     "launch_year": 2026,
     "legal_name": "Kovelakaru Bhagya Sri, trading as ASKODOX AI",
     "legal_address": "4-244, 2nd Floor, Gandigunta, Vuyyuru, Krishna District, Andhra Pradesh, India",
-    "policies_effective_date": "14 November 2026",
+    "policies_effective_date": "23 November 2026",
     "legal_jurisdiction": "India, and the courts in Andhra Pradesh have jurisdiction",
     "grievance_officer": "Kovelakaru Bhagya Sri (Proprietor)",
     "legal_company_number": ""
@@ -277,9 +277,9 @@
     {
       "id": "partner_deals",
       "group": "Deals",
-      "name": "Partner and affiliate deals",
-      "status": "soon",
-      "note": "Only shown once a partner programme is approved."
+      "name": "Reference items with commission links",
+      "status": "beta",
+      "note": "Shown after nearby and ASKODOX shops. See the affiliate disclosure."
     },
     {
       "id": "sponsored",
@@ -377,7 +377,7 @@
       "group": "Payments",
       "name": "Payments inside ASKODOX",
       "status": "soon",
-      "note": "Today you pay the seller or provider directly."
+      "note": "You pay the seller or provider directly. ASKODOX never holds money."
     }
   ]
 }
