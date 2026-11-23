@@ -709,4 +709,20 @@ fun voicePackChecks() {
     ok("before 9 pm -> today 9 pm", P.nextNightAt(todayStart + 20 * h, ist, 21 * 60) == todayStart + 21 * h)
     ok("after 9 pm -> tomorrow 9 pm", P.nextNightAt(todayStart + 22 * h, ist, 21 * 60) == todayStart + 45 * h)
     ok("time setting", P.minuteOf("21:30") == 1290 && P.minuteOf("bad") == 1260 && P.minuteOf(null) == 1260)
+
+    // Owner 2026-11-23: each ACCOUNT is ON for "mine" / "shop" / "off"; the account decides, not the app.
+    val sides = mapOf("1234" to "shop", "5678" to "mine", "999" to "off")
+    val apps = mapOf(PHONEPE to "mine")
+    ok("bank SMS into the shop's account -> shop, even from the SMS app on the My phone list",
+        PaymentAlertParser.accountSide("1234", SMS, sides, apps) == "shop")
+    ok("same app, the person's own account -> mine", PaymentAlertParser.accountSide("5678", SMS, sides, apps) == "mine")
+    ok("an account switched OFF -> off", PaymentAlertParser.accountSide("4999", SMS, sides, apps) == "off")
+    ok("XX1234 written as 234 is the same account", PaymentAlertParser.accountSide("234", SMS, sides, emptyMap()) == "shop")
+    ok("no account digits -> the app linked to an account", PaymentAlertParser.accountSide(null, PHONEPE, sides, apps) == "mine")
+    ok("nothing chosen -> null (the app decides, as before)", PaymentAlertParser.accountSide("4321", SMS, sides, emptyMap()) == null)
+    ok("an unknown word is never a side", PaymentAlertParser.accountSide("1111", SMS, mapOf("1111" to "x"), emptyMap()) == null)
+    val shopAcct = PaymentAlertParser.parse(null,
+        "Money Received - INR 100.00 in your HDFC Bank A/c xx1234 on 23-11-26 by A/c linked to VPA mrs.manasa@okaxis (UPI Ref No. 532012345678).")
+    ok("a real bank SMS shape carries the account the side is read from",
+        shopAcct is Result.Accepted && PaymentAlertParser.accountSide(shopAcct.account, SMS, sides, apps) == "shop")
 }

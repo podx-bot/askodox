@@ -78,10 +78,11 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     }
   }
 
-  /// Owner 2026-11-22: the switch flips the side and STAYS on the tab in view (Money shows the other side's money,
-  /// Home the other side's chat) -- it no longer jumps to Home.
-  Future<void> _flipMode() async {
-    await askodoxSetSellerMode(ref, !ref.read(askodoxSellerModeProvider));
+  /// Owner 2026-11-23: tapping a side opens that side's own page (and switches to it when it was the other side).
+  Future<void> _openSide(bool seller) async {
+    if (ref.read(askodoxSellerModeProvider) != seller) await askodoxSetSellerMode(ref, seller);
+    if (!mounted) return;
+    widget.shell.goBranch(2, initialLocation: true);
   }
 
   bool _readingSteps = false;
@@ -435,9 +436,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         seller: seller,
         liveWork: liveWork,
         onHome: () => shell.goBranch(0, initialLocation: true),
-        // The buy / sell switch (owner 2026-11-21, where Tools used to be): one tap flips the side and shows the
-        // chat. Purple = Buyer, green = Seller; the last side is remembered.
-        onHistory: _flipMode,
+        // Owner 2026-11-23 (design "Money · కొను · అమ్ము"): tap కొను = Buyer side + its page, tap అమ్ము = Seller side +
+        // the shop's page; Money keeps only money. Purple = Buyer, green = Seller; the last side is remembered.
+        onBuy: () => _openSide(false),
+        onSell: () => _openSide(true),
         // Live Work (where ASKODOX Club used to be): opens the walking game; its dot shows whether work is running.
         onLiveWork: () {
           // Opening the game runs its own permission flow, so the red dot clears here.
@@ -474,7 +476,8 @@ class _PrimaryBottomBar extends ConsumerWidget {
     required this.seller,
     required this.liveWork,
     required this.onHome,
-    required this.onHistory,
+    required this.onBuy,
+    required this.onSell,
     required this.onLiveWork,
     required this.onMoney,
     required this.onCompanion,
@@ -483,7 +486,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
   final int currentBranch;
   final bool isTe, seller;
   final AskodoxLiveWorkStatus liveWork;
-  final VoidCallback onHome, onHistory, onLiveWork, onMoney, onCompanion, onUpdates;
+  final VoidCallback onHome, onBuy, onSell, onLiveWork, onMoney, onCompanion, onUpdates;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -582,51 +585,68 @@ class _PrimaryBottomBar extends ConsumerWidget {
     ));
   }
 
-  /// The buy / sell switch: one pill with both words, the side in use filled in its colour.
+  /// The buy / sell switch: one pill with both words, the side in use filled in its colour. Owner 2026-11-23: each
+  /// word is its own button -- కొను opens the Buyer page, అమ్ము the shop's page (switching side when needed).
   Widget _modeSwitch() {
     final color = seller ? _sellerColor : _buyerColor;
-    Widget side(String text, bool active) => Expanded(
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: active ? color : Colors.transparent, borderRadius: BorderRadius.circular(13)),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Text(text,
-                    maxLines: 1,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: active ? Colors.white : _navInk)),
+    final onPage = currentBranch == 2;
+    Widget side(String key, String text, bool active, VoidCallback onTap) => Expanded(
+          child: Semantics(
+            button: true,
+            selected: active,
+            child: InkWell(
+              key: Key(key),
+              borderRadius: BorderRadius.circular(13),
+              onTap: onTap,
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: active ? color : Colors.transparent, borderRadius: BorderRadius.circular(13)),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Text(text,
+                        maxLines: 1,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: active ? Colors.white : _navInk)),
+                  ),
+                ),
               ),
             ),
           ),
         );
     return Expanded(
         child: Semantics(
-      button: true,
-      toggled: seller,
       label: isTe
-          ? (seller ? 'సెల్లర్ మోడ్ ఆన్. నొక్కితే బయ్యర్ మోడ్' : 'బయ్యర్ మోడ్ ఆన్. నొక్కితే సెల్లర్ మోడ్')
-          : (seller ? 'Seller mode on. Tap for Buyer mode' : 'Buyer mode on. Tap for Seller mode'),
-      child: InkWell(
+          ? (seller ? 'సెల్లర్ మోడ్. కొను నొక్కితే బయ్యర్ పేజీ, అమ్ము నొక్కితే షాప్ పేజీ' : 'బయ్యర్ మోడ్. కొను నొక్కితే బయ్యర్ పేజీ, అమ్ము నొక్కితే షాప్ పేజీ')
+          : (seller ? 'Seller mode. Buy opens the buyer page, Sell the shop page' : 'Buyer mode. Buy opens the buyer page, Sell the shop page'),
+      child: Container(
         key: const Key('askodoxNavHistory'),
-        onTap: onHistory,
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 6, 0),
-            child: Container(
-              height: 26,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
-              child: Row(children: [
-                side(isTe ? 'కొను' : 'Buy', !seller),
-                side(isTe ? 'అమ్ము' : 'Sell', seller),
-              ]),
+        child: Stack(children: [
+          if (onPage)
+            Positioned(
+              top: 0,
+              left: 14,
+              right: 14,
+              child: Container(height: 3, decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(3)))),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(seller ? (isTe ? 'సెల్లర్' : 'Seller') : (isTe ? 'బయ్యర్' : 'Buyer'),
-              key: const Key('askodoxNavShoppingState'),
-              maxLines: 1,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
+          Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 6, 0),
+              child: Container(
+                height: 28,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  side('askodoxNavBuy', isTe ? 'కొను' : 'Buy', !seller, onBuy),
+                  side('askodoxNavSell', isTe ? 'అమ్ము' : 'Sell', seller, onSell),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(seller ? (isTe ? 'సెల్లర్' : 'Seller') : (isTe ? 'బయ్యర్' : 'Buyer'),
+                key: const Key('askodoxNavShoppingState'),
+                maxLines: 1,
+                style: TextStyle(fontSize: 11, fontWeight: onPage ? FontWeight.w900 : FontWeight.w800, color: color)),
+          ]),
         ]),
       ),
     ));

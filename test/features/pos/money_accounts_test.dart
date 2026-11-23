@@ -64,4 +64,35 @@ void main() {
     expect(back.apps, ['com.phonepe.app']);
     expect(AskodoxMoneyPlace.fromJson({'key': 'x', 'type': 'nope'}), isNull);
   });
+
+  test('owner 2026-11-23: each account is ON for My own, the shop, or OFF -- kept, sent to the phone, asked once', () {
+    const shopAcct = AskodoxMoneyPlace(key: 'bank:1234', type: 'bank', name: 'Shop current', tail: '1234', side: 'shop',
+        apps: ['com.phonepe.app.business']);
+    const mine = AskodoxMoneyPlace(key: 'bank:5678', type: 'bank', name: 'Savings', tail: '5678', side: 'mine');
+    const unset = AskodoxMoneyPlace(key: 'bank:9999', type: 'bank', name: 'Old', tail: '9999');
+    expect(AskodoxMoneyPlace.fromJson(shopAcct.toJson())!.side, 'shop');
+    expect(AskodoxMoneyPlace.fromJson({...mine.toJson(), 'side': 'weird'})!.side, '', reason: 'unknown words are not a side');
+    expect(unset.toJson().containsKey('side'), isFalse);
+    expect(mine.copyWith(side: 'off').side, 'off');
+    final maps = askodoxAccountSideMaps([shopAcct, mine, unset]);
+    expect(maps.accounts, {'1234': 'shop', '5678': 'mine'}, reason: 'only chosen sides go to the phone');
+    expect(maps.apps, {'com.phonepe.app.business': 'shop'});
+    final events = [
+      {'account': '1234', 'direction': 'in'},
+      {'account': '4321', 'direction': 'in'},
+      {'account': '234', 'direction': 'in'}, // "XX234" = the shop's 1234
+      {'account': '4321', 'direction': 'out'},
+      {'direction': 'in'},
+    ];
+    expect(askodoxTailsWithoutSide(events, [shopAcct, mine, unset]), ['4321'], reason: 'asked once per account');
+  });
+
+  test('owner 2026-11-23: a row moved to the shop is not "My own" money any more', () {
+    final rows = [
+      {'local_id': 'a', 'direction': 'in', 'amount_paise': 10000, 'at_ms': DateTime(2026, 11, 23, 18, 32).millisecondsSinceEpoch},
+      {'local_id': 'b', 'direction': 'in', 'amount_paise': 500, 'moved_to_shop': 'biz1',
+        'at_ms': DateTime(2026, 11, 23, 18, 40).millisecondsSinceEpoch},
+    ];
+    expect(askodoxMoneyTotals(rows, DateTime(2026, 11, 1)).inPaise, 10000);
+  });
 }

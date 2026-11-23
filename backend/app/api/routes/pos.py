@@ -1634,6 +1634,9 @@ class PaymentEventIn(BaseModel):
     spoken: Optional[str] = Field(default=None, max_length=20)
     reason: Optional[str] = Field(default=None, max_length=40)
     test: bool = False
+    # Owner 2026-11-23: an EARLIER payment the owner moved from "My own" to the shop (its account is now ON for the
+    # shop). Owner only; up to MOVED_MAX_AGE old; never spoken on any phone.
+    moved: bool = False
     # Present only so a client claiming more than a notification is REFUSED (never trusted).
     verification: Optional[str] = Field(default=None, max_length=40)
     status: Optional[str] = Field(default=None, max_length=40)

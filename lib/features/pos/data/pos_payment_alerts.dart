@@ -45,6 +45,18 @@ class AskodoxPaymentAlertsBridge {
   Future<AskodoxJson> configurePersonal(AskodoxJson config) =>
       _map('configure', {'config': jsonEncode(config), 'scope': 'personal'});
   Future<AskodoxJson> audioRoute() => _map('audioRoute');
+
+  /// Owner 2026-11-23: an account turned ON for the shop -- its earlier money in "My own" since [since] moves to the
+  /// shop (never spoken again). Returns how many moved; 0 off the phone / with no shop on this phone / offline.
+  Future<int> moveAccountRows(String tail, DateTime since) async {
+    try {
+      return await _ch.invokeMethod<int>('moveAccountRows', {'tail': tail, 'sinceMs': since.millisecondsSinceEpoch}) ?? 0;
+    } on MissingPluginException {
+      return 0;
+    } on PlatformException {
+      return 0;
+    }
+  }
   /// Can the phone speak [language] with no internet? (ready / supported / installed / offline)
   Future<AskodoxJson> offlineVoice(String language) => _map('offlineVoice', {'language': language});
   /// Opens the phone's own "download voice data" page.
@@ -561,6 +573,9 @@ class AskodoxMyPhoneAlerts {
         'destinations': destinations,
         'say_account': sayAccount,
         'account_names': accounts,
+        // owner 2026-11-23: each account ON for "My own", the shop, or OFF -- the account decides, not the app
+        'account_sides': askodoxAccountSideMaps(places).accounts,
+        'app_sides': askodoxAccountSideMaps(places).apps,
         // the next date of each upcoming payment: the phone says it 2 days before and on the day
         'dues': [
           for (final d in dues)

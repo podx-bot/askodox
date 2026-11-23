@@ -50,6 +50,13 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
     "Recharge Successful" SMS stays ignored: it reaches the recharged number, maybe paid by someone else (owner
     2026-11-23).
 
+11. Each money ACCOUNT is ON for one side -- "My own" (`mine`), the shop this phone listens for (`shop`) -- or `off`.
+    The ACCOUNT decides, not the app it came through (one PhonePe / one SMS app carries both): `PaymentAlertParser.
+    accountSide` (last digits, 1234 = 234; else an app linked to an account) runs right after `parse` in `handle`
+    (`routeByAccount`); shop money never falls into My own nor the other way round; nothing chosen = the app list, as
+    before. Earlier rows move to the shop only on the person's yes (`moveAccountRows`, server `moved`: owner only,
+    never spoken) (owner 2026-11-23).
+
 ## How a message joins a row (`pickSamePayment`)
 
 - Same RRN on both → same payment, any order, within `SAME_REF_MS` (24 h). Two different full RRNs → never.

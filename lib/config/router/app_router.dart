@@ -139,10 +139,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   path: '/money-home',
                   builder: (context, state) => const AskodoxMoneyHomeScreen())
             ]),
-            // Owner 2026-11-19: no Shopping page. The third tab slot is only the shopping-mode switch (the
-            // bottom-bar button never opens this branch); an old link to /shopping lands on the chat.
+            // Owner 2026-11-23 (design "Money · కొను · అమ్ము"): tapping కొను / అమ్ము on the bottom bar opens that side's
+            // own page (orders, shops, items, staff, customers, settings); Money keeps only money. An old link to
+            // /shopping still lands on the chat (top-level redirect below).
             StatefulShellBranch(routes: [
-              GoRoute(path: '/shopping', redirect: (context, state) => '/')
+              GoRoute(
+                  path: '/mode',
+                  builder: (context, state) => const AskodoxMoneyHomeScreen(section: 'side'))
             ]),
             StatefulShellBranch(routes: [
               GoRoute(
@@ -157,6 +160,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
       // One place per function: the old mock alerts / communication centre
       // / preferences screens are merged into Updates + Notifications.
+      GoRoute(path: '/shopping', redirect: (context, state) => '/'),
       GoRoute(path: '/watchlist', builder: (context, state) => const WatchlistScreen()),
       GoRoute(path: '/alerts', redirect: (context, state) => '/updates'),
       GoRoute(path: '/explore', redirect: (context, state) => '/'),

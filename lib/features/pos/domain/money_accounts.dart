@@ -15,6 +15,7 @@ class AskodoxMoneyPlace {
     this.upi = '',
     this.apps = const [],
     this.fromMethod = '',
+    this.side = '',
   });
 
   /// `bank:DIGITS` or `place:ID`
@@ -36,6 +37,10 @@ class AskodoxMoneyPlace {
   /// Imported from the person's "ways to get paid" (server payment method id), so a deleted one is never re-added.
   final String fromMethod;
 
+  /// Owner 2026-11-23: which side this account's payments go to -- `mine` ("My own", Buyer), `shop` (the shop this
+  /// phone listens for, Seller) or `off` (not read at all). '' = not chosen yet: the app decides, as before.
+  final String side;
+
   Map<String, Object?> toJson() => {
         'key': key,
         'type': type,
@@ -44,6 +49,7 @@ class AskodoxMoneyPlace {
         if (upi.isNotEmpty) 'upi': upi,
         if (apps.isNotEmpty) 'apps': apps,
         if (fromMethod.isNotEmpty) 'from_method': fromMethod,
+        if (side.isNotEmpty) 'side': side,
       };
 
   static AskodoxMoneyPlace? fromJson(Object? j) {
@@ -59,11 +65,51 @@ class AskodoxMoneyPlace {
       upi: '${j['upi'] ?? ''}',
       apps: j['apps'] is List ? [for (final a in j['apps'] as List) '$a'] : const [],
       fromMethod: '${j['from_method'] ?? ''}',
+      side: askodoxAccountSides.contains('${j['side'] ?? ''}') ? '${j['side']}' : '',
     );
   }
 
-  AskodoxMoneyPlace copyWith({String? name, List<String>? apps}) => AskodoxMoneyPlace(
-      key: key, type: type, name: name ?? this.name, tail: tail, upi: upi, apps: apps ?? this.apps, fromMethod: fromMethod);
+  AskodoxMoneyPlace copyWith({String? name, List<String>? apps, String? side}) => AskodoxMoneyPlace(
+      key: key,
+      type: type,
+      name: name ?? this.name,
+      tail: tail,
+      upi: upi,
+      apps: apps ?? this.apps,
+      fromMethod: fromMethod,
+      side: side ?? this.side);
+}
+
+/// The sides an account can be ON for (owner 2026-11-23).
+const askodoxAccountSides = ['mine', 'shop', 'off'];
+
+/// What the phone's listener reads (personal config): last digits -> side, and app package -> side for an app the
+/// person linked to an account. Only chosen sides are sent; the rest keep the old app rule.
+({Map<String, String> accounts, Map<String, String> apps}) askodoxAccountSideMaps(List<AskodoxMoneyPlace> places) {
+  final accounts = <String, String>{};
+  final apps = <String, String>{};
+  for (final p in places) {
+    if (p.side.isEmpty) continue;
+    if (p.type == 'bank' && p.tail.length >= 3) accounts[p.tail] = p.side;
+    for (final a in p.apps) {
+      apps[a] = p.side;
+    }
+  }
+  return (accounts: accounts, apps: apps);
+}
+
+/// Bank accounts seen in the history whose side is not chosen yet (newest first): "whose is ••1234 -- mine / shop /
+/// not needed?" is asked once for each (owner 2026-11-23).
+List<String> askodoxTailsWithoutSide(Iterable<Map<String, Object?>> events, List<AskodoxMoneyPlace> places) {
+  final chosen = {for (final p in places) if (p.type == 'bank' && p.side.isNotEmpty) p.tail};
+  final out = <String>[];
+  for (final e in events) {
+    final tail = '${e['account'] ?? ''}';
+    if (tail.length < 3 || out.contains(tail)) continue;
+    if (chosen.any((c) => c.endsWith(tail) || tail.endsWith(c))) continue;
+    out.add(tail);
+  }
+  return out;
 }
 
 const askodoxMoneyPlaceTypes = ['bank', 'upi', 'wallet', 'qr'];
@@ -135,6 +181,7 @@ List<String> askodoxUnnamedTails(Iterable<Map<String, Object?>> events, List<Ask
   for (final e in events) {
     // Test rows, likely-fake SMS and rows set aside (❓ bank said otherwise / "not a payment") never count.
     if (e['test'] == true || e['excluded'] == true || e['status'] == 'suspect_sender') continue;
+    if (e['moved_to_shop'] != null) continue; // owner 2026-11-23: now the shop's money
     final amount = e['amount_paise'];
     if (amount is! num) continue;
     final at = askodoxEventTime(e);

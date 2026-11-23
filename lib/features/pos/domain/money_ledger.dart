@@ -182,6 +182,8 @@ List<AskodoxMoneyItem> askodoxItemsFromPhone(Iterable<Map<String, Object?>> even
     if (e['status'] == 'suspect_sender') continue;
     // Owner 2026-11-21: a row set aside (bank SMS said the opposite / "not a payment") is never money.
     if (e['excluded'] == true) continue;
+    // Owner 2026-11-23: moved to the shop (its account is the shop's) -- it is shop money now, not "My own".
+    if (e['moved_to_shop'] != null) continue;
     final id = 'phone:${e['local_id']}';
     final party = '${e['party'] ?? ''}'.trim();
     final label = '${e['source_label'] ?? ''}';
