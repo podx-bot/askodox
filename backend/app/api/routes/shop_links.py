@@ -3,7 +3,8 @@
 Owner / manager: ``GET|PUT /api/pos/businesses/{id}/link``, ``GET .../link/check?slug=``, ``GET .../link/stats``
 (only the OWNER may PUT). Public (no sign-in, rate-limited): ``/s/{slug}`` (shop page), ``/s/{slug}/order``
 (the menu form -> WhatsApp page / app page), ``/s/{slug}/go/{kind}`` (counted redirects to https targets),
-``POST /s/{slug}/c/{kind}`` (``ping`` counts for call / UPI taps). Proxied on askodox.com (website Caddyfile).
+``POST /s/{slug}/c/{kind}`` (``ping`` counts for call / UPI taps), ``POST /s/{slug}/order`` (order into the shop's
+app, or the WhatsApp page), ``/s/{slug}/o/{token}`` (the customer's order status) + ``POST .../cancel``. Proxied on askodox.com (website Caddyfile).
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.api.routes.pos import _call, _store, _user
+from app.services.pos_store import PosError
 from app.services import rate_limit
 from app.services import shop_link_pages as pages
 from app.services.shop_links import ShopLinks
@@ -49,7 +51,7 @@ def links(request: Request) -> ShopLinks:
             first = next((m for m in found if m.get("kind") == "upi" and m.get("upi_link")), None)
             return {"upi_id": first["upi_id"], "payee_name": first.get("payee_name") or "", "upi_link": first["upi_link"]} if first else None
 
-        existing = ShopLinks(store, menu=menu, upi=upi)
+        existing = ShopLinks(store, menu=menu, upi=upi, desk=lambda: _desk(request))
         try:
             container.shop_links = existing
         except Exception:
@@ -132,6 +134,68 @@ def shop_order(slug: str, request: Request):
         return HTMLResponse(pages.shop_html(page, error="ఏమీ ఎంచుకోలేదు — ఐటమ్ పక్కన ఎన్ని కావాలో రాయండి."), headers=HEADERS)
     service.count(page["business_id"], "order_wa")
     return HTMLResponse(pages.after_html(page, order), headers=HEADERS)
+
+
+def _order_error(exc: PosError) -> str:
+    """The front desk's refusals in the customer's words (its own text is English)."""
+    return {
+        "too_many": "ఈ ఫోన్ నంబర్‌తో ఈ షాప్‌లో ఇప్పటికే 3 ఆర్డర్లు నడుస్తున్నాయి — ఒకటి అయ్యాక మళ్లీ పంపండి.",
+        "unavailable": "ఒక ఐటమ్ ఇప్పుడే అయిపోయింది — దాన్ని తీసేసి మళ్లీ పంపండి.",
+        "items": "ఏమీ ఎంచుకోలేదు — ఐటమ్ పక్కన ఎన్ని కావాలో రాయండి.",
+        "shop": "ఈ షాప్ ఇప్పుడు తెరిచి లేదు.",
+        "address": "డెలివరీకి చిరునామా రాయండి.",
+        "qty": "ఎన్ని కావాలో 1 నుండి 50 లోపు రాయండి.",
+    }.get(exc.code, str(exc.message))
+
+
+@page_router.post("/s/{slug}/order", response_class=HTMLResponse)
+async def shop_order_send(slug: str, request: Request):
+    """The menu form (POST): "ఆర్డర్ పంపు" -> an order in the shop's ASKODOX app (Live orders) and the customer's own
+    status page; "WhatsApp లో" -> the ready WhatsApp message page (nothing is saved)."""
+    rate_limit.check(request, "shoplink-send", limit=6)
+    page, other = _page_or_redirect(request, slug)
+    if other is not None:
+        return other
+    form = {key: value for key, value in (await request.form()).items() if isinstance(value, str)}
+    service = links(request)
+    if form.get("via") == "wa":
+        quantities = {key[2:]: value for key, value in form.items() if key.startswith("q_")}
+        order = service.order(page, quantities, form.get("name", ""), form.get("note", ""))
+        if not order["lines"]:
+            return HTMLResponse(pages.shop_html(page, error="ఏమీ ఎంచుకోలేదు — ఐటమ్ పక్కన ఎన్ని కావాలో రాయండి.",
+                                                values=form), headers=HEADERS)
+        service.count(page["business_id"], "order_wa")
+        return HTMLResponse(pages.after_html(page, order), headers=HEADERS)
+    try:
+        placed = service.place_order(page, form)
+    except PosError as exc:
+        return HTMLResponse(pages.shop_html(page, error=_order_error(exc), values=form), status_code=200, headers=HEADERS)
+    return RedirectResponse(f"/s/{page['slug']}/o/{placed['token']}", status_code=303, headers={"Cache-Control": "no-store"})
+
+
+@page_router.get("/s/{slug}/o/{token}", response_class=HTMLResponse)
+def shop_order_status(slug: str, token: str, request: Request):
+    rate_limit.check(request, "shoplink-status", limit=60)
+    page, other = _page_or_redirect(request, slug, f"/o/{token}")
+    if other is not None:
+        return other
+    view = links(request).order_status(page, token)
+    if view is None:
+        return HTMLResponse(pages.missing_html(), status_code=404, headers=HEADERS)
+    return HTMLResponse(pages.status_html(page, view, token), headers=HEADERS)
+
+
+@page_router.post("/s/{slug}/o/{token}/cancel")
+def shop_order_cancel(slug: str, token: str, request: Request):
+    rate_limit.check(request, "shoplink-send", limit=6)
+    page, other = _page_or_redirect(request, slug)
+    if other is not None:
+        return other
+    try:
+        links(request).cancel_order(page, token)
+    except PosError:
+        pass  # already accepted: the status page says so
+    return RedirectResponse(f"/s/{page['slug']}/o/{token}", status_code=303, headers={"Cache-Control": "no-store"})
 
 
 @page_router.get("/s/{slug}/go/{kind}")

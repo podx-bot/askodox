@@ -81,7 +81,10 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
     final link = _link;
     _slug.text = '${link['slug'] ?? _data?['suggested_slug'] ?? ''}';
     _offer.text = '${link['offer'] ?? ''}';
-    final phone = '${link['whatsapp'] ?? askodoxPosMap(_data?['shop'])['phone'] ?? ''}'.replaceAll(RegExp(r'\D'), '');
+    // The saved number, else the shop phone, else the owner's own sign-in number (the server says which).
+    var saved = '${link['whatsapp'] ?? ''}';
+    if (saved.isEmpty) saved = '${_data?['whatsapp_default'] ?? askodoxPosMap(_data?['shop'])['phone'] ?? ''}';
+    final phone = saved.replaceAll(RegExp(r'\D'), '');
     _whatsapp.text = phone.length > 10 ? phone.substring(phone.length - 10) : phone;
     final color = '${link['color'] ?? ''}';
     if (askodoxShopLinkColors.containsKey(color)) _color = color;
@@ -321,7 +324,7 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
     final upiId = '${_data?['upi_id'] ?? ''}';
     return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
       _toggle('show_menu', Icons.restaurant_menu_rounded, te ? 'మెనూ / సరుకులు' : 'Menu / items',
-          te ? 'కస్టమర్ ఎంచుకుని WhatsApp లో ఆర్డర్ పంపుతారు' : 'Customers pick and send the order on WhatsApp'),
+          te ? 'కస్టమర్ ఎంచుకుని పంపితే ఆర్డర్ మీ యాప్ Live orders లోకి వస్తుంది' : 'Customers pick and the order comes into your Live orders'),
       if (_show['show_menu'] == true)
         _toggle('show_prices', Icons.currency_rupee_rounded, te ? 'ధరలు' : 'Prices', te ? 'మెనూలో ధరలు చూపించు' : 'Show prices on the menu'),
       _toggle('show_call', Icons.call_rounded, te ? 'కాల్ బటన్' : 'Call button', te ? 'షాప్ ఫోన్‌కి ఒక్క నొక్కుతో' : 'One tap to the shop phone'),
@@ -353,8 +356,13 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
         maxLength: 10,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         decoration: InputDecoration(
-          labelText: te ? 'ఆర్డర్లు వచ్చే WhatsApp నంబర్' : 'WhatsApp number for orders',
+          labelText: te ? 'WhatsApp బ్యాకప్ నంబర్ (ఐచ్ఛికం)' : 'WhatsApp backup number (optional)',
           border: const OutlineInputBorder(),
+          counterText: '',
+          helperMaxLines: 3,
+          helperText: te
+              ? 'లింక్ ఆర్డర్లు మీ ASKODOX యాప్ Live orders లోకే వస్తాయి. ఈ నంబర్ ఇస్తే కస్టమర్‌కి "WhatsApp లో" బటన్ కూడా ఉంటుంది — ఆ మెసేజ్ ఈ నంబర్‌కి వస్తుంది. ఖాళీ = ఆ బటన్ ఉండదు.'
+              : 'Link orders come into your ASKODOX Live orders. With this number customers also get a "WhatsApp" button — that message comes to this number. Empty = no such button.',
         ),
       ),
     ]);

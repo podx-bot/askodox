@@ -424,7 +424,9 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
             Expanded(
                 child: Text(
                     '${o['table_name'] != null ? (te ? 'టేబుల్ ${o['table_name']}' : 'Table ${o['table_name']}') : {'dine_in': te ? 'టేబుల్' : 'Dine in', 'takeaway': te ? 'పార్సిల్' : 'Takeaway', 'delivery': te ? 'డెలివరీ' : 'Delivery'}[o['kind']]}'
-                    '${'${o['customer_name']}'.isEmpty ? '' : ' · ${o['customer_name']}'}',
+                    '${'${o['customer_name']}'.isEmpty ? '' : ' · ${o['customer_name']}'}'
+                    // Owner 2026-11-23: an order from the public shop link (askodox.com/s/...) -- phone not OTP-checked.
+                    '${o['source'] == 'shop_link' ? (te ? ' · 🔗 లింక్' : ' · 🔗 Link') : ''}',
                     style: const TextStyle(fontWeight: FontWeight.w800))),
             Chip(label: Text(_stageLabel(stage, te))),
           ]),

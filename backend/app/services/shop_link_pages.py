@@ -4,6 +4,7 @@ call / UPI are counted with the link ``ping`` attribute. Telugu first, short Eng
 from __future__ import annotations
 
 import html
+import secrets
 from typing import Any, Dict, List
 
 from app.services.shop_links import _WEIGHED, _rupees
@@ -62,6 +63,8 @@ def _head(title: str, color: str) -> str:
         '.foot{text-align:center;color:#6b7280;font-size:12.5px;padding:18px 14px}'
         '.foot a{color:#1d4ed8;font-weight:700}'
         '.note{color:#6b7280;font-size:12.5px;margin:6px 14px}'
+        '.pick{display:block;font-size:15px;padding:8px 2px}.pick input{width:auto;margin:0 8px 0 0}'
+        '.stage{font-size:20px;font-weight:900;margin:4px 0}'
         '.err{margin:10px 12px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:10px 12px;'
         'font-size:14px;font-weight:700;color:#92400e}'
         '</style></head><body><div class="w">'
@@ -87,7 +90,8 @@ def _food_dot(kind: str) -> str:
     return f'<span class="dot" style="background:{color}"></span>' if color else ""
 
 
-def _menu_rows(page: Dict[str, Any]) -> str:
+def _menu_rows(page: Dict[str, Any], values: Dict[str, Any] | None = None) -> str:
+    values = values or {}
     show_prices = bool(page["settings"].get("show_prices", True))
     can_order = bool(page.get("can_order"))
     groups: Dict[str, List[Dict[str, Any]]] = {}
@@ -108,8 +112,10 @@ def _menu_rows(page: Dict[str, Any]) -> str:
                 right = '<span class="out">ఈ రోజు అయిపోయింది</span>'
             elif can_order:
                 step = "0.25" if unit in _WEIGHED else "1"
+                typed = str(values.get(f'q_{item.get("id")}') or "")[:6]
                 right = (f'<input type="number" name="q_{esc(str(item.get("id")), quote=True)}" min="0" max="50" '
-                         f'step="{step}" inputmode="decimal" placeholder="0" aria-label="{esc(str(item.get("name")), quote=True)}">')
+                         f'step="{step}" inputmode="decimal" placeholder="0" value="{esc(typed, quote=True)}" '
+                         f'aria-label="{esc(str(item.get("name")), quote=True)}">')
             else:
                 right = ""
             out.append(f'<div class="it"><div class="n">{_food_dot(str(item.get("food_type") or ""))}'
@@ -117,7 +123,8 @@ def _menu_rows(page: Dict[str, Any]) -> str:
     return "".join(out)
 
 
-def shop_html(page: Dict[str, Any], error: str = "") -> str:
+def shop_html(page: Dict[str, Any], error: str = "", values: Dict[str, Any] | None = None) -> str:
+    values = values or {}
     slug = esc(page["slug"])
     s = page["settings"]
     chips = [esc(page["kind_te"])]
@@ -156,14 +163,33 @@ def shop_html(page: Dict[str, Any], error: str = "") -> str:
     if page.get("upi_id"):
         parts.append(f'<p class="note">UPI ID: <b>{esc(page["upi_id"])}</b> — మొత్తం మీ UPI యాప్‌లో రాయండి.</p>')
     if page["items"]:
-        parts.append(f'<form method="get" action="/s/{slug}/order"><h2>మెనూ · Menu</h2>{_menu_rows(page)}')
+        parts.append(f'<form method="post" action="/s/{slug}/order"><h2>మెనూ · Menu</h2>{_menu_rows(page, values)}')
         if page.get("can_order"):
-            parts.append('<div class="who"><input name="name" maxlength="40" placeholder="మీ పేరు (ఐచ్ఛికం)">'
-                         '<textarea name="note" maxlength="160" rows="2" placeholder="గమనిక: పార్సిల్ / డెలివరీ / సమయం"></textarea>'
-                         '<p class="note">ధర సుమారు — ఆఫర్ / పన్ను షాప్ బిల్లులో.</p></div>'
-                         '<div class="bar"><div class="in">'
-                         '<button class="btn wa" name="via" value="wa">WhatsApp లో ఆర్డర్</button>'
-                         '<button class="btn app" name="via" value="app">యాప్‌లో ఆర్డర్</button></div></div>')
+            v = {k: esc(str(values.get(k) or ""), quote=True) for k in ("name", "phone", "address")}
+            note = esc(str(values.get("note") or ""))
+            delivery = ' checked' if values.get("kind") == "delivery" else ''
+            parcel = '' if delivery else ' checked'
+            parts.append(
+                '<div class="who"><h2 style="margin:6px 0 2px">మీ వివరాలు</h2>'
+                f'<input name="name" maxlength="40" placeholder="మీ పేరు" value="{v["name"]}" required>'
+                f'<input name="phone" type="tel" inputmode="numeric" maxlength="13" placeholder="ఫోన్ నంబర్ (10 అంకెలు)" '
+                f'value="{v["phone"]}" required>'
+                f'<label class="pick"><input type="radio" name="kind" value="takeaway"{parcel}> పార్సిల్ — నేను వచ్చి తీసుకుంటా</label>'
+                f'<label class="pick"><input type="radio" name="kind" value="delivery"{delivery}> డెలివరీ — ఇంటికి</label>'
+                f'<textarea name="address" maxlength="240" rows="2" placeholder="డెలివరీ అయితే చిరునామా">{v["address"]}</textarea>'
+                f'<textarea name="note" maxlength="120" rows="2" placeholder="గమనిక (ఐచ్ఛికం): సమయం / కారం తక్కువ">{note}</textarea>'
+                # a box people never see; simple bots fill every box
+                '<input name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-5000px" aria-hidden="true">'
+                f'<input type="hidden" name="txn" value="{secrets.token_hex(8)}">'
+                '<p class="note">ధర సుమారు — ఆఫర్ / పన్ను షాప్ బిల్లులో. ఆర్డర్ షాప్ ASKODOX యాప్‌కి వెళ్తుంది; '
+                'షాప్ ఒప్పుకున్నాక ఇదే పేజీలో కనిపిస్తుంది.</p></div>')
+            wa = ('<button class="btn wa" name="via" value="wa" formnovalidate>WhatsApp లో</button>'
+                  if page.get("whatsapp") else "")
+            send = ('<button class="btn app" name="via" value="shop">ఆర్డర్ పంపు</button>' if page.get("app_orders")
+                    else '<button class="btn app" name="via" value="wa">WhatsApp లో ఆర్డర్</button>')
+            if not page.get("app_orders"):
+                wa = ""
+            parts.append(f'<div class="bar"><div class="in">{send}{wa}</div></div>')
         parts.append("</form>")
     parts.append(_foot(page))
     parts.append("</div></body></html>")
@@ -230,3 +256,66 @@ def missing_html(off: bool = False) -> str:
             else "ఈ షాప్ లింక్ లేదు · This shop link does not exist.")
     return (_head("ASKODOX", "#0B7A4B") + f'<div class="top"><h1>{text}</h1></div>'
             '<div class="foot">ASKODOX · askodox.com</div></div></body></html>')
+
+
+_STAGE_TE = {"placed": "షాప్ చూడాలి", "accepted": "ఒప్పుకున్నారు", "preparing": "తయారవుతోంది", "ready": "సిద్ధం",
+             "packed": "ప్యాక్ అయింది", "handed": "ఇచ్చేశారు", "out_for_delivery": "దారిలో ఉంది", "delivered": "అందింది",
+             "served": "ఇచ్చేశారు", "done": "పూర్తి", "rejected": "షాప్ తీసుకోలేదు", "cancelled": "రద్దు చేశారు"}
+
+
+def status_html(page: Dict[str, Any], view: Dict[str, Any], token: str) -> str:
+    """The customer's order page (opened by the random token): where it is now, the items, the bill + the shop's
+    own UPI once billed, cancel while the shop has not accepted, call / WhatsApp the shop, and the app ask."""
+    slug = esc(page["slug"])
+    stage = str(view.get("stage") or "placed")
+    closed = stage in ("done", "rejected", "cancelled", "delivered", "handed", "served")
+    head = _head(page["name"] + " · ఆర్డర్", page["color"])
+    if not closed:  # no script: the page reloads itself while the order moves
+        head = head.replace("<title>", '<meta http-equiv="refresh" content="20"><title>', 1)
+    flow = [st for st in view.get("flow") or [] if st != "done"]
+    steps = []
+    for i, st in enumerate(flow):
+        reached = stage in flow and flow.index(stage) >= i
+        mark = "✓" if reached else str(i + 1)
+        steps.append(f'<div class="step"><b style="{"" if reached else "background:#cbd5e1"}">{mark}</b>'
+                     f'<span>{esc(_STAGE_TE.get(st, st))}</span></div>')
+    rows = "".join(f'<div class="row"><span>{float(i.get("qty") or 0):g} × {esc(str(i.get("name")))}</span>'
+                   f'<span>{_rupees(int(i.get("price_paise") or 0) * float(i.get("qty") or 0))}</span></div>'
+                   for i in view.get("items") or [] if i.get("status") != "unavailable")
+    invoice = view.get("invoice") or {}
+    money = ""
+    if invoice:
+        money = (f'<div class="row tot"><span>బిల్ {esc(str(invoice.get("number") or ""))}</span>'
+                 f'<span>{_rupees(int(invoice.get("total_paise") or 0))}</span></div>')
+        if int(invoice.get("balance_paise") or 0) > 0:
+            upi = next((m for m in view.get("pay") or [] if m.get("upi_link")), None)
+            if upi:
+                money += (f'<a class="btn app" style="margin-top:10px" href="{esc(upi["upi_link"], quote=True)}" '
+                          f'ping="/s/{slug}/c/pay">{_rupees(int(invoice["balance_paise"]))} UPI తో కట్టండి</a>'
+                          '<p class="note">డబ్బు నేరుగా షాప్ UPI కే — ASKODOX పట్టుకోదు.</p>')
+    else:
+        money = (f'<div class="row tot"><span>సుమారు</span><span>{_rupees(int(view.get("estimate_paise") or 0))}</span></div>')
+    cancel = (f'<form method="post" action="/s/{slug}/o/{esc(token, quote=True)}/cancel" style="padding:0 12px">'
+              '<button class="btn ghost">ఆర్డర్ రద్దు చేయి</button></form>' if view.get("can_cancel") else "")
+    contact = []
+    if page.get("phone"):
+        contact.append(f'<a class="btn ghost" href="tel:+91{esc(page["phone"])}" ping="/s/{slug}/c/call">షాప్‌కి కాల్</a>')
+    if page.get("whatsapp"):
+        contact.append(f'<a class="btn ghost" href="/s/{slug}/go/chat">WhatsApp</a>')
+    reason = f'<p class="note">{esc(str(view.get("reason") or ""))}</p>' if stage == "rejected" and view.get("reason") else ""
+    text = (view.get("stage_text") or {}).get("te", "")
+    return "".join([
+        head,
+        f'<div class="top"><h1>{esc(page["name"])}</h1><div class="k">మీ ఆర్డర్ · {"డెలివరీ" if view.get("kind") == "delivery" else "పార్సిల్"}</div></div>',
+        f'<div class="card"><div class="stage">{esc(_STAGE_TE.get(stage, stage))}</div><p>{esc(text)}</p>{reason}'
+        f'{"".join(steps)}</div>',
+        f'<div class="card">{rows}{money}</div>',
+        cancel,
+        f'<div style="display:flex;gap:8px;padding:10px 12px">{"".join(contact)}</div>' if contact else "",
+        '<p class="note">ఈ పేజీ లింక్ దాచుకోండి — ఆర్డర్ ఎక్కడుందో ఇక్కడే కనిపిస్తుంది.</p>',
+        '<div class="card"><b>ASKODOX యాప్‌లో ఇంకా సులువు</b>'
+        '<p>ప్రతి ఆర్డర్ లైవ్‌లో · బిల్లులు మీ ఫోన్‌లోనే · ఈ షాప్ ఆఫర్లు ముందే.</p>'
+        f'<a class="btn app" href="/s/{slug}/go/app">ASKODOX యాప్ (ఉచితం)</a></div>',
+        f'<p class="foot"><a href="/s/{slug}">← షాప్ పేజీకి</a></p>',
+        _foot(page), "</div></body></html>",
+    ])
