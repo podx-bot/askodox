@@ -192,6 +192,7 @@ object AskodoxPaymentAlerts {
                         call.argument<String>("text") ?: "", call.argument<String>("language") ?: "te", null, false, null))
                     "events" -> {
                         recheckFakes(app)
+                        recheckSummaries(app)
                         result.success(events(app).toString())
                     }
                     "deleteEvents" -> result.success(deleteEvents(app, call.argument<List<String>>("localIds")))
@@ -510,6 +511,34 @@ object AskodoxPaymentAlerts {
         p.edit().putInt("fake_rules", FAKE_RULES).apply()
     }
 
+    private const val SUMMARY_RULES = 1
+
+    /**
+     * Owner 2026-11-23: a row an OLDER build made by reading an app's summary of several transactions as ONE payment
+     * (one line's amount + another line's name) is not a payment -- set aside once (not counted, struck out in the
+     * history), only rows that still carry the message they were read from, never a row the person corrected.
+     */
+    @Synchronized
+    fun recheckSummaries(context: Context) {
+        val p = prefs(context)
+        if (p.getInt("summary_rules", 0) >= SUMMARY_RULES) return
+        val list = events(context)
+        var changed = false
+        for (i in 0 until list.length()) {
+            val e = list.optJSONObject(i) ?: continue
+            val dir = e.optString("direction")
+            if ((dir != "in" && dir != "out") || e.has("corrected") || e.optBoolean("test") || e.optBoolean("from_summary")) continue
+            if (e.optJSONArray("merged_kinds") != null) continue // other messages joined it: a real payment
+            val rawText = e.optString("raw_text")
+            if (rawText.isBlank() || PaymentAlertParser.digestLines(e.optString("raw_title").ifEmpty { null }, rawText).size < 2) continue
+            e.put("excluded", true).put("doubt", "not_payment").put("rechecked", "summary")
+            e.remove("bank_confirmed")
+            changed = true
+        }
+        if (changed) saveEvents(context, list)
+        p.edit().putInt("summary_rules", SUMMARY_RULES).apply()
+    }
+
     @Synchronized
     private fun saveEvents(context: Context, list: JSONArray) {
         val trimmed = JSONArray()
@@ -719,12 +748,42 @@ object AskodoxPaymentAlerts {
     // -------------------------------------------------------------- pipeline
     /** Returns a small map describing what happened (for tests / the simulate button). */
     fun handle(context: Context, pkg: String, title: String?, text: String?, notificationKey: String, whenMillis: Long,
-               test: Boolean = false, cfgIn: JSONObject? = null, messageTime: Long = 0L): Map<String, Any?> {
+               test: Boolean = false, cfgIn: JSONObject? = null, messageTime: Long = 0L,
+               summaryKey: String? = null, summaryTaken: MutableSet<String>? = null,
+               parts: List<String>? = null): Map<String, Any?> {
         val cfg = cfgIn ?: config(context)
         if (!test && !cfg.optBoolean("enabled", false)) return mapOf("result" to "disabled")
+        // Owner 2026-11-23 (PhonePe "2 new completed transaction updates · A has sent ₹3,000 to your bank account ·
+        // ₹3,360 has been sent to B" was read as ONE message and said as "₹3,000 went to B", 9 h after that money
+        // had come IN): a payment app's SUMMARY is several EARLIER transactions. Each line is read alone
+        // ([summaryKey] = that line's own identity): it joins the row it belongs to silently; a line the history does
+        // not have is written and said once as an earlier payment -- never as new money.
+        if (summaryKey == null) {
+            // [parts] = the notification's own pieces (text, big text, every line): an app fills them with the same
+            // summary in different layouts, so the fullest ONE is read -- never all of them added together.
+            val lines = if (parts != null) PaymentAlertParser.digestLinesOf(title, parts) else PaymentAlertParser.digestLines(title, text)
+            if (lines.size >= 2) {
+                val taken = HashSet<String>()
+                val counts = HashMap<String, Int>()
+                val results = ArrayList<String>()
+                for (line in lines) {
+                    val norm = line.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
+                    val nth = (counts[norm] ?: 0) + 1
+                    counts[norm] = nth
+                    val r = this.handle(context, pkg, null, line, notificationKey, whenMillis, test, cfg, 0L,
+                        "$pkg|summary|${norm.hashCode()}|$nth", taken)
+                    results.add(r["result"]?.toString() ?: "")
+                }
+                return mapOf("result" to "summary", "lines" to results, "spoken" to false)
+            }
+        } else if (!test && !firstTime(context, summaryKey, System.currentTimeMillis())) {
+            // The same summary shown again (it grows by a line each time): a line already read is not read twice.
+            return mapOf("result" to "duplicate")
+        }
+        val summary = summaryKey != null
         // Owner 2026-11-17: a bill / EMI REMINDER ("₹1,941 due on Nov 21") on the person's own phone -> an upcoming due
         // offered in "Upcoming payments" (never spoken, never a payment, never uploaded).
-        if (!test && cfg.optString("business_id").isEmpty()) {
+        if (!test && !summary && cfg.optString("business_id").isEmpty()) {
             PaymentAlertParser.dueReminder(title, text)?.let { d ->
                 val saved = saveDue(context, cfg, pkg, d)
                 // Owner 2026-11-22 ("bill generated etc. too"): the bill that CAME is also shown in the person's history
@@ -743,10 +802,11 @@ object AskodoxPaymentAlerts {
             strings(phrases?.optJSONArray("reject")), learned(context, "learned_in"), learned(context, "learned_out"),
             learnedKinds(context))
         if (parsed is PaymentAlertParser.Result.Unknown) {
-            if (!test) rememberUnknown(context, pkg, parsed)
+            if (!test && !summary) rememberUnknown(context, pkg, parsed)
             return mapOf("result" to "unknown", "template" to parsed.template)
         }
         if (parsed is PaymentAlertParser.Result.Ignored) {
+            if (summary) return mapOf("result" to "ignored") // a summary line is only ever an earlier PAYMENT
             // Owner 2026-11-21: refund started / payment initiated / failed / bill generated / suspicious link -- explained
             // in the person's own history (why it came, what to check), never spoken, never counted.
             // Owner 2026-11-22: each kind is also SAID when the person keeps it on in the Payment voice folder.
@@ -766,7 +826,8 @@ object AskodoxPaymentAlerts {
         val personal = cfg.optString("business_id").isEmpty()
         if (parsed is PaymentAlertParser.Result.Outgoing) {
             if (!personal) return mapOf("result" to "ignored") // a shop only cares about money coming in
-            return handleOutgoing(context, cfg, pkg, parsed, notificationKey, whenMillis, test, messageTime, text, title)
+            return handleOutgoing(context, cfg, pkg, parsed, notificationKey, whenMillis, test, messageTime, text, title,
+                summaryKey, summaryTaken)
         }
         val amount = (parsed as? PaymentAlertParser.Result.Accepted)?.amountPaise
         val reference = (parsed as? PaymentAlertParser.Result.Accepted)?.reference
@@ -776,10 +837,11 @@ object AskodoxPaymentAlerts {
         // Owner 2026-11-17 (Rs 1,000 twice at 09:55): an app RE-POSTS its own notification with a new time. The message's
         // own time (chat-style notifications) is the identity; without it, the same notification + amount within 3 min.
         val identity = if (messageTime > 0) messageTime else whenMillis
-        val key = if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$identity"
+        val key = if (summaryKey != null) "$summaryKey|in|${if (test) whenMillis else 0L}"
+            else if (reference != null) "$pkg|ref|$reference" else "$pkg|$notificationKey|${amount ?: 0}|$identity"
         val now = System.currentTimeMillis()
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
-        if (!test && reference == null && messageTime <= 0 && amount != null &&
+        if (!test && !summary && reference == null && messageTime <= 0 && amount != null &&
             repostOf(context, pkg, notificationKey, "in", amount, paymentTime(whenMillis, now))) return mapOf("result" to "duplicate")
         // Owner 2026-11-16 (double sound): a UPI app's notification sometimes reaches the phone MINUTES after its SMS. The
         // payment's own time (the notification's `when`) decides whether two messages are one payment, not the arrival time.
@@ -813,11 +875,13 @@ object AskodoxPaymentAlerts {
         }
         // Owner 2026-11-21 (Rs 3,000 received, PhonePe row said minus): the bank's own SMS is the truth. An opposite
         // row of the SAME amount from an app notification within 10 minutes is set aside (❓, not counted, not spoken).
-        if (!test && amount != null && personal && bankSms) setAsideOpposite(context, pkg, "in", amount, posted)
-        val bankDisagrees = !test && amount != null && personal && !bankSms && bankSaysOpposite(context, pkg, "in", amount, posted)
+        if (!test && amount != null && personal && bankSms) setAsideOpposite(context, cfg, pkg, "in", amount, posted)
+        val bankDisagrees = !test && !summary && amount != null && personal && !bankSms &&
+            bankSaysOpposite(context, pkg, "in", amount, posted)
         if (!test && amount != null && !bankDisagrees) {
             mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle, notificationKey,
-                balance, raw = rawOf(title, text))?.let {
+                balance, raw = rawOf(title, text), summary = summary, skipIds = summaryTaken)?.let {
+                summaryTaken?.add(it)
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to amount, "spoken" to false)
             }
         }
@@ -837,6 +901,7 @@ object AskodoxPaymentAlerts {
             .put("test", test)
         if (bankSms) event.put("bank_confirmed", true).put("bank_sms_from", title?.trim()?.take(20) ?: "")
         putRaw(event, title, text) // this phone only; never uploaded (the row's "what we read")
+        if (summary) event.put("from_summary", true) // heard of only in an app's summary: an earlier payment
         if (bankDisagrees) event.put("excluded", true).put("doubt", "bank_opposite")
         if (balance != null) event.put("balance_paise", balance) // this phone only; never uploaded
         if (handle != null) event.put("upi_handle", handle) // this phone only; never uploaded
@@ -857,7 +922,7 @@ object AskodoxPaymentAlerts {
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
         // A payment that happened long before the phone saw it (phone asleep, app stopped by the battery saver) is
         // written in the history but NOT spoken: a voice minutes later sounds like a second, new payment.
-        val late = !test && now - posted > LATE_MS
+        val late = !test && (summary || now - posted > LATE_MS)
         // Owner 2026-11-18: a payment message with NO amount is written in the history, never spoken ("amount not
         // clear" only confused people -- e.g. PhonePe UPI Circle notifications).
         val unclear = (amount == null || bankDisagrees) && !test
@@ -867,9 +932,19 @@ object AskodoxPaymentAlerts {
         // Owner 2026-11-17: whichever message comes FIRST (SMS or notification) speaks at once -- no waiting for a name.
         event.put("spoken", if (bankDisagrees) "skipped_bank" else if (unclear) "seen" else if (muted) "muted" else if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
+        summaryTaken?.add(localId)
         if (!unclear && !muted && !quiet && !late && mayVoice) speak(context, amount, test, localId, payer, cfg, if (personal) account else null, bonus)
+        // Owner 2026-11-23: money the phone hears of only in a summary is said ONCE, as an earlier payment
+        // ("found out late: ..."), never as money that came just now. Quiet hours / the "received" switch still decide.
+        if (summary && !test && amount != null && !unclear &&
+            speakNotice(context, cfg, PaymentAlertParser.Notice("late_in", amount),
+                if (cfg.optBoolean("say_name", true)) payer else null, whenMillis)) {
+            update(context, localId) { it.put("spoken", "announced") }
+        }
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
-        if (!test && !personal) { upload(context, localId); retryPending(context, localId) }
+        // A summary line is an OLD payment with no time of its own: kept on this phone, never sent to the shop's
+        // other phones (they would say it as a new payment).
+        if (!test && !personal && !summary) { upload(context, localId); retryPending(context, localId) }
         return mapOf("result" to if (amount != null) "accepted" else "ambiguous", "localId" to localId,
             "amountPaise" to amount, "spoken" to (!unclear && !muted && !quiet && !late && mayVoice))
     }
@@ -904,23 +979,47 @@ object AskodoxPaymentAlerts {
      * within 10 minutes is the same money read wrongly -- set aside (❓, not counted; a debit still waiting is not spoken).
      */
     @Synchronized
-    private fun setAsideOpposite(context: Context, pkg: String, direction: String, amount: Long, now: Long) {
+    private fun setAsideOpposite(context: Context, cfg: JSONObject, pkg: String, direction: String, amount: Long, now: Long) {
         val list = events(context)
         var changed = false
+        var saidWrongly: String? = null
         for (i in 0 until list.length()) {
             val e = list.getJSONObject(i)
             if (e.optBoolean("test") || e.optBoolean("bank_confirmed") || e.optString("source_app") == pkg) continue
             val dir = e.optString("direction")
             if (dir.isEmpty() || dir == "due" || dir == direction || e.optLong("amount_paise", -1L) != amount) continue
-            if (kotlin.math.abs(now - e.optLong("at_ms", 0L)) > BANK_OPPOSITE_MS || e.optBoolean("excluded")) continue
+            if (kotlin.math.abs(now - e.optLong("at_ms", 0L)) > BANK_OPPOSITE_MS) continue
+            // A row the phone was not sure about (❓ "wording") is settled by the bank too; any other row that is
+            // already set aside stays as it is.
+            val wasUnsure = e.optString("doubt") == "wording"
+            if (e.optBoolean("excluded") && !wasUnsure) continue
+            val spoken = e.optString("spoken")
             e.put("excluded", true).put("doubt", "bank_opposite")
-            if (e.optString("spoken") == "waiting") e.put("spoken", "skipped_bank")
+            if (spoken == "waiting") {
+                e.put("spoken", "skipped_bank")
+            } else if ((spoken == "announced" || spoken == "pending") && !wasUnsure && !e.optBoolean("said_sorry")) {
+                // Owner 2026-11-23 ("if what it said was wrong it should say sorry"): the phone already SAID this money
+                // the other way round -- it says so once (an unsure row only ever asked to check: nothing to take back).
+                e.put("said_sorry", true)
+                saidWrongly = dir
+            }
             changed = true
         }
         if (changed) {
             saveEvents(context, list)
             main.post { channel?.invokeMethod("paymentEvent", "{}") }
         }
+        saidWrongly?.let { saySorry(context, cfg, it, amount) }
+    }
+
+    /** What the phone SAID earlier turned out wrong (the bank's own SMS says the opposite): said once, and shown. */
+    private fun saySorry(context: Context, cfg: JSONObject, saidDirection: String, amount: Long) {
+        val kind = if (saidDirection == "out") "sorry_out" else "sorry_in"
+        val language = cfg.optString("language", "te").ifEmpty { "te" }
+        val text = PaymentAlertParser.noticeParts(kind, amount, language).joinToString(" ")
+        showPaymentNotification(context, "sorry-$amount-${System.currentTimeMillis() / 60_000L}",
+            if (language == "te") "సరిచేశాం" else "Corrected", text)
+        speakNotice(context, cfg, PaymentAlertParser.Notice(kind, amount), null, System.currentTimeMillis())
     }
 
     /** True when the bank's own SMS already said the OTHER direction for the same amount within 10 minutes. */
@@ -1001,17 +1100,21 @@ object AskodoxPaymentAlerts {
                                account: String?, reference: String?, party: String?, now: Long,
                                bankSms: Boolean = false, handle: String? = null, notificationKey: String? = null,
                                balance: Long? = null, emi: Boolean = false, raw: String? = null,
-                               asKind: String? = null): String? {
+                               asKind: String? = null, summary: Boolean = false, skipIds: Set<String>? = null): String? {
         // [now] = THIS message's payment time; rows keep theirs in at_ms.
         val kind = asKind ?: kindOf(cfg, pkg)
         val list = events(context)
+        // Owner 2026-11-23: a line of an app's summary tells an EARLIER payment -- it may be up to two days old, and a
+        // row another line of the same summary already took ([skipIds]) is not taken twice.
+        val reach = if (summary) maxOf(PaymentAlertParser.SAME_REF_MS, PaymentAlertParser.SUMMARY_MS) else PaymentAlertParser.SAME_REF_MS
         // The decision itself is PaymentAlertParser.pickSamePayment (pure, covered by android/parser-tests): one
         // payment = one voice, whatever the order of the SMS / notification and however late the second one comes.
         val rows = ArrayList<PaymentAlertParser.Row>()
         for (i in 0 until list.length()) {
             val e = list.getJSONObject(i)
             val at = e.optLong("at_ms", 0L)
-            if (at <= 0L || e.optBoolean("test") || kotlin.math.abs(now - at) > PaymentAlertParser.SAME_REF_MS) continue
+            if (at <= 0L || e.optBoolean("test") || kotlin.math.abs(now - at) > reach) continue
+            if (skipIds != null && e.optString("local_id") in skipIds) continue
             val dir = e.optString("direction").ifEmpty { "in" }
             val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
                 (0 until a.length()).map { a.optString(it) }
@@ -1040,7 +1143,7 @@ object AskodoxPaymentAlerts {
         }
         val picked = PaymentAlertParser.pickSamePayment(rows, PaymentAlertParser.Msg(
             sourceApp = pkg, kind = kind, direction = direction, amountPaise = amount, atMs = now, account = account,
-            reference = reference, handle = handle, payer = party, bankSms = bankSms,
+            reference = reference, handle = handle, payer = party, bankSms = bankSms, summary = summary,
         )) ?: return null
         val e = list.getJSONObject(picked)
         val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
@@ -1048,7 +1151,9 @@ object AskodoxPaymentAlerts {
         }
         val label = cfg.optJSONObject("apps")?.optString(pkg, pkg) ?: pkg
         if (kind !in kinds) e.put("merged_kinds", JSONArray(kinds + kind))
-        e.put("also_from", listOfNotNull(e.optString("also_from").takeIf { it.isNotEmpty() }, label).joinToString(", "))
+        // A summary line of the app that already told this payment adds nothing to "also from".
+        val told = summary && (e.optString("source_app") == pkg || label in e.optString("also_from").split(", "))
+        if (!told) e.put("also_from", listOfNotNull(e.optString("also_from").takeIf { it.isNotEmpty() }, label).joinToString(", "))
         if (account != null && !e.has("account")) e.put("account", account)
         if (reference != null && !e.has("reference")) e.put("reference", reference)
         if (handle != null && !e.has("upi_handle")) e.put("upi_handle", handle)
@@ -1077,13 +1182,16 @@ object AskodoxPaymentAlerts {
     /** Personal phone: a debit is kept in the history; it is SPOKEN only when the person turned debit alerts on. */
     private fun handleOutgoing(context: Context, cfg: JSONObject, pkg: String, o: PaymentAlertParser.Result.Outgoing,
                                notificationKey: String, whenMillis: Long, test: Boolean, messageTime: Long = 0L,
-                               text: String? = null, title: String? = null): Map<String, Any?> {
+                               text: String? = null, title: String? = null, summaryKey: String? = null,
+                               summaryTaken: MutableSet<String>? = null): Map<String, Any?> {
+        val summary = summaryKey != null
         val balance = if (kindOf(cfg, pkg) == "sms") PaymentAlertParser.availableBalance(text) else null
         val emi = PaymentAlertParser.isEmi(text)
         val now = System.currentTimeMillis()
-        val key = "$pkg|out|$notificationKey|${o.amountPaise}|${if (messageTime > 0) messageTime else whenMillis}"
+        val key = if (summaryKey != null) "$summaryKey|out|${if (test) whenMillis else 0L}"
+            else "$pkg|out|$notificationKey|${o.amountPaise}|${if (messageTime > 0) messageTime else whenMillis}"
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
-        if (!test && messageTime <= 0 && repostOf(context, pkg, notificationKey, "out", o.amountPaise, paymentTime(whenMillis, now)))
+        if (!test && !summary && messageTime <= 0 && repostOf(context, pkg, notificationKey, "out", o.amountPaise, paymentTime(whenMillis, now)))
             return mapOf("result" to "duplicate")
         val posted = paymentTime(whenMillis, now)
         // A company's "thank you for your payment" (Airtel, Jio, electricity ...) is the SAME money as the bank's debit
@@ -1101,11 +1209,13 @@ object AskodoxPaymentAlerts {
         }
         val bankSms = source == "sms" && (kind == "sms" || kind == "billpay") && PaymentAlertParser.isBankSender(title)
         // Bank SMS wins (owner 2026-11-21): see the incoming side in [handle].
-        if (!test && bankSms) setAsideOpposite(context, pkg, "out", o.amountPaise, posted)
-        val bankDisagrees = !test && !bankSms && bankSaysOpposite(context, pkg, "out", o.amountPaise, posted)
+        if (!test && bankSms) setAsideOpposite(context, cfg, pkg, "out", o.amountPaise, posted)
+        val bankDisagrees = !test && !summary && !bankSms && bankSaysOpposite(context, pkg, "out", o.amountPaise, posted)
         if (!test && !bankDisagrees) {
             mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted, bankSms = bankSms,
-                notificationKey = notificationKey, balance = balance, emi = emi, raw = rawOf(title, text), asKind = kind)?.let {
+                notificationKey = notificationKey, balance = balance, emi = emi, raw = rawOf(title, text), asKind = kind,
+                summary = summary, skipIds = summaryTaken)?.let {
+                summaryTaken?.add(it)
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to o.amountPaise, "spoken" to false)
             }
         }
@@ -1131,29 +1241,59 @@ object AskodoxPaymentAlerts {
         if (o.bill) event.put("bill", true)
         if (bankSms) event.put("bank_confirmed", true).put("bank_sms_from", title?.trim()?.take(20) ?: "")
         putRaw(event, title, text)
+        if (summary) event.put("from_summary", true) // heard of only in an app's summary: an earlier payment
+        // Owner 2026-11-23 ("₹3,000 went to X" said for money that had come IN): a debit the phone is NOT SURE about
+        // (the message also says money came in, with no strong debit word) is not money that went out until the bank's
+        // SMS or the person says so -- ❓, not counted, never said as a fact.
+        val unsure = o.doubtful && !bankSms && !bankDisagrees
         if (bankDisagrees) event.put("excluded", true).put("doubt", "bank_opposite")
-        else if (o.doubtful && !bankSms) event.put("doubt", "wording")
+        else if (unsure) event.put("excluded", true).put("doubt", "wording")
         val cal = Calendar.getInstance()
         val quiet = PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))
-        val late = now - posted > LATE_MS
+        val late = summary || now - posted > LATE_MS
         // Owner 2026-11-22 ("the 3rd one: when such ones come a sound should come"): a PAID bill / EMI / loan instalment
         // has its own switch (on unless the person turns it off); other debits keep the debit switch.
         val billPaid = o.bill || o.biller
-        val say = voiceOn(context, cfg, if (billPaid) "bill" else "out") && !quiet && !late && !bankDisagrees
+        val sayDebit = voiceOn(context, cfg, if (billPaid) "bill" else "out") && !quiet && !late && !bankDisagrees
+        // An unsure debit is never said as "went out": after the wait it asks the person to check their bank balance
+        // (unless the bank's SMS settled it meanwhile -- then it is said, or dropped, like any other debit).
+        val sayCheck = unsure && !quiet && !late && voiceOn(context, cfg, PaymentAlertParser.voiceKindOf("unsure"))
+        val say = sayDebit || sayCheck
         // Owner 2026-11-21: a debit read from an APP notification waits ~60 s -- if the bank's SMS says the money came
         // IN, the row is set aside and nothing "went out" is spoken. The bank's own debit SMS speaks at once.
         val wait = say && !bankSms && !test
         event.put("spoken", if (bankDisagrees) "skipped_bank" else if (wait) "waiting" else if (say) "pending"
             else if (quiet) "quiet_hours" else if (late) "late" else "seen")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
+        summaryTaken?.add(localId)
+        val language = cfg.optString("language", "te").ifEmpty { "te" }
+        val name = if (cfg.optBoolean("say_name", true)) o.party else null
+        if (unsure && !test) {
+            // Owner 2026-11-23: shown AT ONCE on the phone -- "check once: is it true?" (the voice follows the wait).
+            val te = language == "te"
+            val money = PaymentAlertParser.moneyWords(o.amountPaise, if (te) "te" else "en")
+            showPaymentNotification(context, localId,
+                if (te) "❓ ఒకసారి చూసుకోండి: $money" else "❓ Please check: $money",
+                if (te) "ఈ మెసేజ్‌లో డబ్బు వెళ్ళిందో లేదో ఖచ్చితంగా తెలియలేదు. మీ బ్యాంక్ బ్యాలెన్స్ ఒకసారి చూసుకోండి. ASKODOX లో ఆ వరుస నొక్కి సరిచేయవచ్చు."
+                else "It is not sure that this money went out. Check your bank balance once. You can correct the row in ASKODOX.")
+        }
         if (say) {
-            val language = cfg.optString("language", "te").ifEmpty { "te" }
-            val name = if (cfg.optBoolean("say_name", true)) o.party else null
             val speakNow = {
                 val row = eventById(context, localId)
-                if (row == null || row.optBoolean("excluded") || row.optString("direction") != "out") {
+                val stillUnsure = row != null && row.optBoolean("excluded") && row.optString("doubt") == "wording"
+                if (row != null && stillUnsure && sayCheck) {
+                    update(context, localId) { it.put("spoken", "pending") }
+                    CloudVoice.say(context, PaymentAlertParser.noticeParts("unsure", o.amountPaise, language), language, cfg) { ok ->
+                        update(context, localId) { it.put("spoken", if (ok) "announced" else "tts_failed") }
+                        main.post { channel?.invokeMethod("paymentEvent", "{}") }
+                    }
+                } else if (row == null || row.optBoolean("excluded") || row.optString("direction") != "out") {
                     if (row != null) update(context, localId) { it.put("spoken", "skipped_bank") }
+                    main.post { channel?.invokeMethod("paymentEvent", "{}") }
+                } else if (!sayDebit) {
+                    // The bank settled an unsure debit, but the person keeps debit voices off: written, not said.
+                    update(context, localId) { it.put("spoken", "seen") }
                     main.post { channel?.invokeMethod("paymentEvent", "{}") }
                 } else {
                     update(context, localId) { it.put("spoken", "pending") }
@@ -1166,6 +1306,11 @@ object AskodoxPaymentAlerts {
                 }
             }
             if (wait) main.postDelayed({ speakNow() }, DEBIT_WAIT_MS) else speakNow()
+        } else if (summary && !test && !unsure && !bankDisagrees) {
+            // Owner 2026-11-23: a debit the phone hears of only in a summary is said ONCE, as an earlier payment.
+            if (speakNotice(context, cfg, PaymentAlertParser.Notice("late_out", o.amountPaise), name, whenMillis)) {
+                update(context, localId) { it.put("spoken", "announced") }
+            }
         }
         main.post { channel?.invokeMethod("paymentEvent", event.toString()) }
         return mapOf("result" to "outgoing", "localId" to localId, "amountPaise" to o.amountPaise, "spoken" to say)
@@ -1949,17 +2094,21 @@ class AskodoxPaymentAlertListener : NotificationListenerService() {
             val newest = newestBundle?.getCharSequence("text")?.toString()
             // The newest message's OWN time: the same message shown again keeps it (owner 2026-11-17 duplicate).
             val messageTime = newestBundle?.getLong("time", 0L) ?: 0L
-            val lines = try {
-                extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)?.lastOrNull()?.toString()
-            } catch (_: Exception) { null }
-            val text = listOfNotNull(
+            val allLines: List<String> = try {
+                extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)?.map { it.toString() } ?: emptyList()
+            } catch (_: Exception) { emptyList() }
+            val lines = allLines.lastOrNull()
+            val pieces = listOfNotNull(
                 extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString(),
                 extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString(),
                 newest, lines,
-            ).distinct().joinToString(" ")
+            ).distinct()
+            val text = pieces.joinToString(" ")
             val whenMillis = if (notification.`when` > 0) notification.`when` else n.postTime
+            // Owner 2026-11-23: an app's SUMMARY of several transactions is read line by line (see handle); it gets
+            // every piece of the notification on its own, all the lines included.
             AskodoxPaymentAlerts.handle(this, n.packageName, title, text, n.key ?: "${n.id}", whenMillis, cfgIn = cfg,
-                messageTime = messageTime)
+                messageTime = messageTime, parts = (pieces + allLines).distinct())
         } catch (_: Exception) {
             // a malformed notification never crashes the listener
         }

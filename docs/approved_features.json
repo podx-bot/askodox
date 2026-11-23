@@ -9467,6 +9467,40 @@
       ]
     },
     {
+      "id": "payment_summary_check_late_sorry",
+      "name": "A payment app's summary is read line by line; an unsure message asks to check; late and sorry voices",
+      "purpose": "Owner 2026-11-23: a PhonePe \"2 new completed transaction updates\" notification (money that came in last night + money sent the day before) was read as ONE message and said as money sent to the second line's person, 9.5 h after the money had come in. Owner: say at once but compare what comes later; when it was wrong say sorry; say a payment found out late; show a notification at once asking to check the bank balance. One example = every bank, UPI app and phone.",
+      "expected_behavior": "A summary = two or more lines / bullet points that each carry a payment amount, with a counting heading or bullets (PaymentAlertParser.digestLines / digestLinesOf; the fullest piece of the notification is read, pieces are never added together). Each line is read alone: it joins the row of the same amount and direction up to 48 h before it silently (also a row the same app made; never a row whose person's name shares no word; one row per line); a line with no row is written and said once as an earlier payment (\"found out late\"), never uploaded from a shop phone. A debit the phone is not sure about (incoming and outgoing words, no strong debit word) is set aside with a question mark (not counted), shown at once in an ASKODOX notification, and after the 60 s wait the voice asks to check the bank balance -- never \"went out\"; the bank's SMS or the person's correction settles it. When the bank's SMS says the opposite of a row that was already spoken, the phone says sorry once (voice + notification). Rows an older build made from a summary are set aside once.",
+      "roles": [
+        "any signed-in user",
+        "shop owner",
+        "staff"
+      ],
+      "domains": [
+        "payments"
+      ],
+      "api": [],
+      "ui": {},
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/my_phone_payments_test.dart"
+        ]
+      },
+      "dependencies": [
+        "one_payment_one_voice",
+        "one_voice_per_reply_and_bank_wins"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new; covered by the Payment parser gate (android/parser-tests/ParserTest.kt: summary checks and Sim() scenarios, Kotlin -- not a flutter test); the voice switches \"check\" and \"sorry\" have no screen yet (on); not phone verified"
+        }
+      ]
+    },
+    {
       "id": "shop_link_page",
       "name": "Shop link: one free public page per shop (askodox.com/s/<name>) made in 3 steps",
       "roles": [
