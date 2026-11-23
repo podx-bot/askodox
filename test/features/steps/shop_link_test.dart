@@ -145,7 +145,10 @@ void main() {
       return {};
     });
     await _pump(tester, api, const AskodoxShopLinkStepsScreen(businessId: 'b2'));
-    await tester.ensureVisible(find.byKey(const Key('askodoxShopLinkWhatsapp')));
+    // the list builds lazily: scroll until the WhatsApp box exists
+    await tester.dragUntilVisible(
+        find.byKey(const Key('askodoxShopLinkWhatsapp')), find.byType(ListView).first, const Offset(0, -250));
+    await tester.pumpAndSettle();
     expect(find.text('9400000411'), findsOneWidget);
     expect(find.textContaining('Link orders come into your ASKODOX Live orders'), findsOneWidget);
   });
