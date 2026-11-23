@@ -22,7 +22,11 @@ this file, don't trust it blindly.
   in one tap; far -> 409 `far` unless `outside` = "ask the owner", note `outside`); coming in / half = live face check
   (`AskodoxLiveCheck`, `live_face_screen.dart`, google_mlkit_face_detection on the phone, random turn / nod / blink, method
   `face_live`, kiosk `kiosk_live`); older app = note `old_app`. Rule `.claude/rules/attendance.md`. Proves a live person, not
-  WHICH person (no face matching). Nothing phone verified.
+  WHICH person (no face matching). Nothing phone verified. Then #410 (owner "1", Play Console "significantly increases
+  the size" on 1619 = 118.9 MB): the face model comes from Google Play services (`play-services-mlkit-face-detection`,
+  bundled `com.google.mlkit:face-detection` excluded in `android/app/build.gradle.kts`, manifest
+  `com.google.mlkit.vision.DEPENDENCIES` = face, guard `tests/test_android_app_size.py`) -> Play bundle
+  `askodox-play-1621.aab` = 105.3 MB (1611 was 104.5 MB), Live Build run 45228699477.
 - `main` PR #405 (2026-11-23, owner "step 3" = ASKODOX Lite step 3): NO NET CHAT --
   `home/domain/offline_questions.dart`: `askodoxOfflineAsk` (pure, money + time words te / hi / en) ->
   `askodoxOfflineAnswer` from the phone's own payment rows (today / yesterday / week / month, last, who paid; always
