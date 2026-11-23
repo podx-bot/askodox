@@ -102,7 +102,7 @@ def test_picture_must_be_png_and_small(env):
         follows.post(shop, OWNER, "x", b"JPEG-ish")
     assert not_png.value.code == "image"
     with pytest.raises(PosError) as big:
-        follows.post(shop, OWNER, "x", PNG + b"0" * 900_000)
+        follows.post(shop, OWNER, "x", PNG + b"0" * 2_000_000)
     assert big.value.code == "image"
 
 

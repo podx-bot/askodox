@@ -1,5 +1,6 @@
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/notices/notice_repository.dart';
+import 'package:podx/features/shops/presentation/shop_post_screens.dart' show askodoxShopPostDesignPrompt;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -37,5 +38,13 @@ void main() {
     expect(prompt, contains('Ravi Stores'));
     expect(prompt, contains('ASKODOX'));
     expect(prompt, contains('No phone numbers'));
+  });
+
+  test("today's post: the box is a subject; AI writes the greeting in the owner's language", () {
+    final te = askodoxShopPostDesignPrompt(subject: 'Diwali wishes', shop: 'Ravi Stores', te: true);
+    expect(te, contains('Telugu'));
+    expect(te, contains('Ravi Stores'));
+    expect(te, contains('No phone numbers'));
+    expect(askodoxShopPostDesignPrompt(subject: 'Sale', shop: '', te: false), contains('English'));
   });
 }
