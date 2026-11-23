@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/lite-mode-slow-net` (2026-11-23, owner "2" = ASKODOX Lite step 2, choice A): LITE MODE --
+  `lib/core/net/net_quality.dart`: `AskodoxNetQuality.instance` (ValueNotifier, started ONLY in `main()` with
+  `askodoxHealthProbe` = `/health` timing; >= 2.5 s slow, failed / 6 s = offline, two readings < 1.5 s = good again,
+  pure `askodoxNetAfter`; checked at start, on every send, every 20 s while Lite / 2 min otherwise). Home chat:
+  `AskodoxLiteBanner` on top of the column; in Lite `_streamSpeaks` is false (text streams and shows at once),
+  `_speakChunks` sets no reveal and shows chip `askodoxVoiceComing` until the first audio is here; result card photo =
+  `AskodoxLiteImage` (tap to load). Steps 3-6 of ASKODOX Lite NOT built. Nothing phone verified.
 - `main` PR #400 (2026-11-23, owner "1"; no Play bundle yet; owner phone: Jio recharge Rs 448 from ICICI, "debited for Rs
   448.00 ...; Jio Prepaid Recharge credited" = no voice, no row): `PaymentAlertParser.withoutPayee` drops the payee slot
   ("; NAME credited", "and Cr. to X", "and credited to X", a UPI id) from the DEBIT checks only, so words in a payee's

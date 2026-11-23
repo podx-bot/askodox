@@ -1,4 +1,5 @@
 import '../../../core/flags/askodox_remote_flags.dart';
+import '../../../core/net/net_quality.dart';
 import '../../business/presentation/biz_chat.dart';
 import '../../pos/data/pos_repository.dart' show AskodoxJson, askodoxPosRepositoryProvider;
 import '../../../shared/widgets/chat_pins.dart' show AskodoxChatPinStrip, askodoxLiveOrderChip, askodoxLiveOrdersProvider;
@@ -452,6 +453,9 @@ class _AskodoxPrimaryHomeScreenState
   /// and how much of its markup is shown (null = the whole reply).
   int? _revealTurn;
   int? _revealEnd;
+
+  /// Lite mode: the reply whose text is shown while its voice is still downloading ("voice is coming" chip).
+  int? _voiceComingTurn;
   Timer? _revealTimer;
 
   void _clearReveal() {
@@ -2452,7 +2456,9 @@ class _AskodoxPrimaryHomeScreenState
     // A long answer (how-to guide / advice) appears while it is written (owner 2026-11-10:
     // feels like 2-3 s); the decision that comes back is still the real answer.
     _streamingScrolledAt = 0;
-    _streamSpeaks = speakResponse && !_speechMuted;
+    // Lite mode (slow net, owner 2026-11-23, choice A): the text comes at once, the voice after it has downloaded.
+    unawaited(AskodoxNetQuality.instance.check());
+    _streamSpeaks = speakResponse && !_speechMuted && !AskodoxNetQuality.instance.lite;
     _earlyAudioAsked = false;
     _earlyAudio.clear();
     _liveReset(userText: text);
@@ -4081,10 +4087,12 @@ class _AskodoxPrimaryHomeScreenState
     if (mounted) {
       setState(() {
         _voicePhase = _VoicePhase.speaking;
-        if (revealIndex >= 0) {
+        // Lite mode: the whole text is already on screen; only the voice is still coming.
+        if (revealIndex >= 0 && !AskodoxNetQuality.instance.lite) {
           _revealTurn = revealIndex;
           _revealEnd = skip > 0 ? chunks[skip - 1].end : (restOfFirst.isEmpty ? 0 : chunks[skip].start);
         }
+        _voiceComingTurn = AskodoxNetQuality.instance.lite && revealIndex >= 0 ? revealIndex : null;
       });
     }
     final lips = ref.read(askodoxCompanionVoiceProvider);
@@ -4114,6 +4122,7 @@ class _AskodoxPrimaryHomeScreenState
       for (var i = skip; i < chunks.length; i++) {
         final audio = await next;
         if (!current()) return;
+        if (_voiceComingTurn != null && mounted) setState(() => _voiceComingTurn = null); // the voice is here
         if (lockedEngine.isEmpty && audio != null) lockedEngine = askodoxAudioEngine[audio] ?? '';
         if (i + 1 < chunks.length) next = fetch(plain[i + 1]);
         final text = plain[i];
@@ -4166,6 +4175,7 @@ class _AskodoxPrimaryHomeScreenState
         _speakingEngine = '';
         _speechQueue = const [];
         _clearReveal();
+        if (mounted && _voiceComingTurn != null) setState(() => _voiceComingTurn = null);
         if (mounted && _voicePhase == _VoicePhase.speaking) {
           setState(() {
             _speechPaused = false;
@@ -4559,6 +4569,8 @@ class _AskodoxPrimaryHomeScreenState
                 ? askodoxBoardMegaHeight(constraints.maxHeight)
                 : askodoxBoardMaxHeight(constraints.maxHeight, keyboard: keyboard, expanded: expandedMode);
             return Column(children: [
+              // Owner 2026-11-23: weak / slow net -> Lite mode says so here (nothing on a good net).
+              AskodoxLiteBanner(te: te),
               switch (board) {
                 AskodoxBoardState.hidden => const SizedBox.shrink(),
                 AskodoxBoardState.archived => _archivedResultsChip(te, pinned!),
@@ -5578,6 +5590,17 @@ class _AskodoxPrimaryHomeScreenState
                                   ? askodoxRevealPrefix(turn.text, _revealEnd!)
                                   : turn.text,
                               style: const TextStyle(color: _ink, height: 1.35, fontWeight: FontWeight.w500)),
+                    if (!turn.isUser && _voiceComingTurn == index)
+                      Padding(
+                        key: const Key('askodoxVoiceComing'),
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                          const SizedBox(width: 8),
+                          Text(te ? 'voice వస్తోంది…' : 'voice is coming…',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF3B26B8))),
+                        ]),
+                      ),
                   ],
                 ),
               ),
@@ -7756,9 +7779,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               child: _match.imageUrl?.trim().isNotEmpty == true
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(_resolvedImage(_match.imageUrl!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _sourceIcon()))
+                      // Lite mode (slow net): the photo waits for a tap; the card itself comes at once.
+                      child: AskodoxLiteImage(_resolvedImage(_match.imageUrl!), fallback: _sourceIcon()))
                   : _sourceIcon()),
           SizedBox(width: compact ? 8 : 10),
           Expanded(

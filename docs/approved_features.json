@@ -9770,6 +9770,51 @@
           "approved_by": "owner"
         }
       ]
+    },
+    {
+      "id": "lite_mode_slow_net",
+      "name": "Lite mode on a slow / missing net: text first, voice after, photos on tap, banner above the chat",
+      "purpose": "Owner 2026-11-23 (ASKODOX Lite step 2, choice A): where 4G is weak the app must stay usable by itself -- no setting to find.",
+      "expected_behavior": "AskodoxNetQuality (started only in main()) times the server's tiny /health answer: at start, when a question is sent, every 20 s while Lite and every 2 min otherwise. A reading of 2.5 s or more = slow, a failed / timed-out (6 s) reading = offline; two readings under 1.5 s in a row = good again (askodoxNetAfter, pure). While not good (Lite mode): a strip above the Home chat says so (slow: text first, the voice follows; offline: payment sound and bills work on the phone); a reply's text streams and shows at once and its voice plays when it has downloaded, with a 'voice is coming' chip under the reply (no reveal-with-voice, no speak-while-writing); result card photos wait for a tap. On a good net nothing changes. The payment voice never depends on this.",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/health"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxVoiceComing",
+          "askodoxLitePhotoTap"
+        ],
+        "symbols": [
+          "AskodoxLiteBanner",
+          "AskodoxLiteImage",
+          "askodoxNetAfter"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/core/net/net_quality_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new: net watcher, banner, text-first replies with a voice chip, photos on tap; NOT PHONE VERIFIED",
+          "approved_by": "owner"
+        }
+      ]
     }
   ]
 }
