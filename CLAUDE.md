@@ -7,6 +7,29 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #423 + #424 (2026-11-24, owner "no more designs, merge and finish everything"): (#423) ☰ menu: Feedback + "Your
+  idea" = ONE "సలహాలు & సూచనలు" / Ideas & suggestions (`askodoxMenu-ideas` -> `/me/ideas`); Customer care (`askodoxMenu-care`,
+  `askodoxCareMenuValue`) opens the Home chat with `askodoxCareOpening` (AI-first care in `app_care.dart`, unsolved -> ticket
+  email + Command Center); website support / report-a-problem links removed. (#424) PAID NOTIFICATIONS: `notice_broadcast.py`
+  + `routes/notices.py` (`/api/notices/preview|mine|{id}|{id}/image`, POST `/api/notices`): anyone sends to own shop's
+  followers (owner only) / people within 1-10 km (profile lat/lon) / both; rate `notices.rate_paise` (5) x people via
+  `AiCredits.spend` (free while charging OFF; `refund_unused` for phones not reached); receivers: push kind `offers`
+  (app switch), max `notices.per_day_receiver` (3) a day + 1 per sender, quiet 21:00-08:00 IST, no links / phone numbers,
+  `talk_moderation` masks words; app ☰ `askodoxMenu-notify` -> `/notices/new` (subject -> AI design via `/api/images/edit`
+  or own photo -> audience chips -> count + price -> Send, sent list), viewer `/notice/:id`. TODAY'S POST: the box is a
+  subject, "AI design" (`askodoxShopPostDesignPrompt`) draws picture + greeting line, card keeps the shop + ASKODOX bar
+  (post limit 2 MB). CUSTOMER SUGGESTIONS: `pos_customer_suggestions.py` (orders with phone + sent bills, not in the list,
+  ✕ = `pos_customer_suggest_skips`) + GET/POST `.../customers/suggestions[/skip]`, strip `AskodoxCustomerSuggestions` on the
+  Customer list. STAFF PAGE holds "Order alerts: who hears each step" (`askodoxStaffOrderAlerts` -> `/desk/:id/settings`);
+  Seller pages `s.orderalerts` + `s.agents` removed. చెప్పు BUTTON: guide tab label "చెప్పు" / "Tell"; guide sheet top =
+  `AskodoxCommandMic` (`command_mic.dart`: stops 2 s after speech / 6 s no speech, 3 s countdown with Stop / Change, then
+  `AskodoxChatRequest.ask` + Home). LITE STEP 6: shop link GET `sms_text` (`ShopLinks.sms_card`, <= 160) + button
+  `askodoxShopLinkSms` (sms: composer). TASKS: `rank_task_chips` (90 days, half weight / 14 days, x1.6 near this hour,
+  usual person, pin / hide in `pos_task_chips`, day-one starters by template) + GET/PUT `.../tasks/chips`, chips strip
+  `askodoxTaskChips`, person picked by face (`AskodoxStaffFace`, today's check-in photo). COUNTER ORDERS: Counter bill chips
+  Bill now / Table / Parcel / Delivery (`pos_counter_orders.dart`) -> "To kitchen" = `deskStaffPlace` (source counter) ->
+  Live orders (KOT, delivery person, bill). Also #421 (counter pay UPI QR + బాకీ). Lite step 4 (staff phones over Bluetooth)
+  and step 5 (Lite app) NOT built. Nothing phone verified.
 - `main` PR #411 (2026-11-23, owner "1"; in Play bundle `askodox-play-1625.aab` = Live Build run 45235830781 on 029e161, with
   #414; design artifact SpUyet3NmCbMqCQZNorWYE "ASKODOX గైడ్ ఆన్ / ఆఫ్"): GUIDE SWITCH -- `lib/features/guide/guide_switch.dart`:
   `askodoxGuideOnProvider` (prefs `askodox.guide.on.v1`, default OFF), `AskodoxGuideChip` (key `askodoxGuideSwitch`, grey
