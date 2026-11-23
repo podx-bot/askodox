@@ -82,9 +82,10 @@ def test_speak_refuses_non_sarvam_paths_so_the_app_can_say_device_tts():
     assert response.json()["detail"] == "SARVAM_TTS_NOT_CONFIGURED"
 
 
-def test_speak_follows_the_profile_voice_choice():
-    """APK 1273: Female selected in Profile, the same male voice played --
-    the Sarvam call ignored the preference (fixed speaker)."""
+def test_speak_sarvam_fallback_is_always_the_female_speaker():
+    """Owner 2026-11-23: one female app voice in every language -- the Sarvam
+    fallback speaks its female speaker whatever an older app still asks for
+    (APK 1273 history: a fixed speaker once ignored the Profile choice)."""
 
     class _VoiceTTS(_FakeTTS):
         def synthesize(self, text, voice=""):
@@ -96,10 +97,13 @@ def test_speak_follows_the_profile_voice_choice():
     response = _client(tts).post("/api/in-app/voice/speak", json={"text": "hello", "voice": "female"})
     assert response.status_code == 200 and response.headers["x-askodox-tts-voice"] == "female"
     assert tts.texts == [("hello", "female")]
+    male = _client(tts).post("/api/in-app/voice/speak", json={"text": "hey", "voice": "male2"})
+    assert male.status_code == 200 and male.headers["x-askodox-tts-voice"] == "male2"
+    assert tts.texts[-1] == ("hey", "female")
     assert _client(tts).post("/api/in-app/voice/speak", json={"text": "hi", "voice": "robot"}).status_code == 422
-    # an engine that cannot choose a voice never plays the wrong gender
+    # an engine that cannot choose a voice speaks its own (no user choice exists any more)
     assert _client(_FakeTTS(ok)).post("/api/in-app/voice/speak",
-                                      json={"text": "hi", "voice": "female"}).status_code == 503
+                                      json={"text": "hi", "voice": "female"}).status_code == 200
 
 
 def test_sarvam_speaker_mapping(monkeypatch):

@@ -65,10 +65,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       }
     }
 
+    // Owner 2026-11-23: ONE app voice (female, every language) -- the Profile Automatic / Male / Female choice is
+    // gone, so a choice saved by an older build is dropped and never restored.
     if (!_voiceChangedInSession) {
-      nextVoicePreference = VoicePreferenceStorage.fromStorage(
-        preferences.getString(_voicePreferenceKey),
-      );
+      nextVoicePreference = VoicePreference.automatic;
+      if (preferences.containsKey(_voicePreferenceKey)) {
+        unawaited(preferences.remove(_voicePreferenceKey));
+      }
     }
 
     state = AppSettings(

@@ -29,12 +29,30 @@ def test_language_from_script_for_every_supported_language():
     assert language_of("123 !") is None
 
 
-def test_voice_choice_and_override(monkeypatch):
+def test_one_app_voice_for_every_language(monkeypatch):
+    """Owner 2026-11-23: one female voice (Chaitra G) for every language; no Automatic / Male / Female choice."""
+    from app.services.elevenlabs_tts import APP_VOICE
+
+    for name in ("ELEVENLABS_APP_VOICE", "ELEVENLABS_APP_VOICE_TA", "ASKODOX_TTS_DEFAULT_GENDER"):
+        monkeypatch.delenv(name, raising=False)
+    assert APP_VOICE == "oyjIr5XAhIyRjfNq6spl"
+    for language in VOICES:
+        assert voice_for(language, "automatic") == APP_VOICE
+        assert voice_for(language, "") == APP_VOICE
+    monkeypatch.setenv("ASKODOX_TTS_DEFAULT_GENDER", "male")  # the old default switch no longer changes anything
+    assert voice_for("te", "automatic") == APP_VOICE
+    monkeypatch.setenv("ELEVENLABS_APP_VOICE_TA", "tamil-only")  # one language that sounds wrong gets its own id
+    assert voice_for("ta", "automatic") == "tamil-only" and voice_for("te", "automatic") == APP_VOICE
+    monkeypatch.setenv("ELEVENLABS_APP_VOICE", "everyone")
+    assert voice_for("te", "automatic") == "everyone" and voice_for("ta", "automatic") == "tamil-only"
+    assert voice_for("sat", "automatic") is None  # Santali: no ElevenLabs voice -> caller falls back
+
+
+def test_explicit_gender_stays_for_product_video_presenters(monkeypatch):
     female, male = VOICES["te"]
+    monkeypatch.delenv("ELEVENLABS_VOICE_TE_MALE", raising=False)
     assert voice_for("te", "female") == female
     assert voice_for("te", "male") == male
-    monkeypatch.setenv("ASKODOX_TTS_DEFAULT_GENDER", "male")
-    assert voice_for("te", "automatic") == male
     monkeypatch.setenv("ELEVENLABS_VOICE_TE_MALE", "custom123")
     assert voice_for("te", "male") == "custom123"
     assert voice_for("sat", "male") is None  # Santali: no ElevenLabs voice -> caller falls back
@@ -151,6 +169,33 @@ def test_speak_route_uses_elevenlabs_first(monkeypatch):
     assert response.headers["x-askodox-tts-model"] == "eleven_v3"
     assert response.headers["x-askodox-tts-voice"] == "female"
     assert response.content == b"ID3mp3"
+
+
+def test_speak_route_speaks_the_one_app_voice_whatever_an_old_app_asks(monkeypatch):
+    """Owner 2026-11-23: old apps still send male / female2 ...; the reply / payment voice is always the app voice."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.routes.in_app_assistant import router
+
+    asked = []
+
+    class RecordingEleven:
+        configured = True
+
+        def synthesize(self, text, voice="automatic", locale=""):
+            asked.append(voice)
+            return {"success": True, "content": b"ID3mp3", "model": "eleven_v4_turbo", "language_code": "te"}
+
+    app = FastAPI()
+    app.include_router(router)
+    app.state.container = type("C", (), {"voice_assistant_service": None, "elevenlabs_tts": RecordingEleven()})()
+    client = TestClient(app)
+    for old_choice in ("male", "male2", "female2", "female", "automatic"):
+        response = client.post("/api/in-app/voice/speak", json={"text": "నమస్కారం", "voice": old_choice})
+        assert response.status_code == 200
+        assert response.headers["x-askodox-tts-voice"] == old_choice  # echoed: the old app keeps the audio
+    assert asked == ["automatic"] * 5
 
 
 def test_speak_route_falls_back_to_sarvam(monkeypatch):

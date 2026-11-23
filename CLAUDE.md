@@ -7,6 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #398 (2026-11-23, owner "1"; no Play bundle yet; owner "female voice for all languages, remove Automatic / Male / Female"):
+  ONE APP VOICE = `elevenlabs_tts.APP_VOICE` (ElevenLabs "Chaitra G", lively Telugu female) for every reply / payment
+  part in every language; `voice_for(lang, "automatic")` -> `app_voice_for` (override `ELEVENLABS_APP_VOICE_<LANG>` /
+  `ELEVENLABS_APP_VOICE`); explicit genders stay only for product-video presenters. `/api/in-app/voice/speak` always asks
+  "automatic" (older apps' male / female2 ignored, header echoes them), Sarvam fallback = female. App: Profile voice row
+  gone, saved choice dropped on start; payment-alert voice dropdown -> fixed row (key `askodoxPayAlertVoice` kept), phone
+  config voice "female"; Kotlin `CloudVoice` keys kept parts with `VOICE_CACHE_TAG` (old-voice parts never joined), phone
+  voice fallback female. Nothing phone verified.
 - `main` PR #396 (2026-11-23, owner "1"; no Play bundle yet; owner phone: PhonePe "2 new completed transaction updates · A has
   sent ₹3,000 to your bank account HDFC Bank-NNNN · ₹3,360 has been sent to B" came 9.5 h after the ₹3,000 had come IN
   and was read as ONE message: row "❓ −₹3,000 · B", voice "B కి 3000 రూపాయలు వెళ్ళాయి"; owner "do it + late + sorry +
@@ -771,6 +779,8 @@ this file, don't trust it blindly.
   Location; the header chip is the one location control).
 - Self-healing: APPLIED != recovered; `verify_applied` sets VERIFIED /
   NOT_RECOVERED from real evidence, else UNVERIFIED (console "Recovery").
+- ONE app voice (owner 2026-11-23): never re-add a reply / payment voice picker; `/voice/speak` speaks
+  `elevenlabs_tts.APP_VOICE` whatever the app sends. Changing the voice = new id there + bump Kotlin `VOICE_CACHE_TAG`.
 - Reply voice engine lock: the parts of ONE reply keep the first part's engine (`engine` on `/voice/speak`); never
   remove the lock or shorten the locked ElevenLabs wait without checking `ASKODOX VOICE SPEAK` ms in the deploy log.
 - Voice = ONE audio lifecycle: every `_speakReply` takes `_speechTurn`; Stop / a newer
