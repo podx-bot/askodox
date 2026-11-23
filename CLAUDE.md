@@ -7,8 +7,9 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- BRANCH `claude/launcher-place-not-group` (2026-11-23, NOT merged, NOT run -- no Flutter in the container; owner: "I drop
-  Report settings on Sales and it becomes a group; it must sit in THAT place, Buyer and Seller alike"): a page dropped on
+- `main` PR #414 (2026-11-23, owner "1" + merged it himself; CI green incl. the new tests; Play bundle `askodox-play-1625.aab`
+  = 105.4 MB, Live Build run 45235830781; owner: "I drop Report settings on Sales and it becomes a group; it must sit in
+  THAT place, Buyer and Seller alike"): a page dropped on
   a page = `AskodoxLaunchLayout.placeAt` (takes the target's place, the rest shift), never a folder. Folders only from
   the page menu "Put in a folder" (`_folderSheet`: an own folder or another page); a drop on the middle of a folder the
   person already made still goes into it. Tests: `launcher_layout_test.dart`, `money_home_screen_test.dart` (+2).
