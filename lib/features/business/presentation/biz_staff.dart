@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -978,6 +979,44 @@ class AskodoxBizTasksScreen extends ConsumerStatefulWidget {
 
 class _AskodoxBizTasksScreenState extends ConsumerState<AskodoxBizTasksScreen> {
   AskodoxJson? _data;
+  List<AskodoxJson> _chips = const [];
+
+  Future<void> _loadChips() async {
+    try {
+      final chips = await ref.read(askodoxPosRepositoryProvider).taskChips(widget.businessId);
+      if (mounted) setState(() => _chips = chips);
+    } catch (_) {
+      // Only owners / managers get chips; others see none.
+    }
+  }
+
+  Future<void> _chipMenu(AskodoxJson chip) async {
+    final te = askodoxPosTe(context);
+    final pinned = chip['pinned'] == true;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+              key: const Key('askodoxTaskChipPin'),
+              leading: Icon(pinned ? Icons.push_pin_outlined : Icons.push_pin),
+              title: Text(pinned ? (te ? 'పిన్ తీసేయి' : 'Unpin') : (te ? 'ఎప్పుడూ ముందు ఉంచు (పిన్)' : 'Always first (pin)')),
+              onTap: () => Navigator.pop(ctx, pinned ? 'auto' : 'pin')),
+          ListTile(
+              key: const Key('askodoxTaskChipHide'),
+              leading: const Icon(Icons.close_rounded),
+              title: Text(te ? 'ఈ చిప్ వద్దు' : 'Remove this chip'),
+              onTap: () => Navigator.pop(ctx, 'hide')),
+        ]),
+      ),
+    );
+    if (choice == null) return;
+    try {
+      await ref.read(askodoxPosRepositoryProvider).setTaskChip(widget.businessId, '${chip['title']}', choice);
+    } catch (_) {}
+    await _loadChips();
+  }
 
   @override
   void initState() {
@@ -990,12 +1029,14 @@ class _AskodoxBizTasksScreenState extends ConsumerState<AskodoxBizTasksScreen> {
       final d = await ref.read(askodoxPosRepositoryProvider).tasks(widget.businessId);
       if (mounted) setState(() => _data = d);
     } catch (_) {}
+    unawaited(_loadChips());
   }
 
-  Future<void> _add(List<AskodoxJson> people) async {
+  Future<void> _add(List<AskodoxJson> people, {String text = '', String ref = ''}) async {
     final te = askodoxPosTe(context);
-    final title = TextEditingController();
-    String? who = people.isEmpty ? null : '${people.first['ref']}';
+    final title = TextEditingController(text: text);
+    final usual = people.where((p) => '${p['ref']}' == ref).firstOrNull;
+    String? who = usual != null ? ref : (people.isEmpty ? null : '${people.first['ref']}');
     TimeOfDay? due;
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -1016,14 +1057,33 @@ class _AskodoxBizTasksScreenState extends ConsumerState<AskodoxBizTasksScreen> {
                       labelText: te ? 'ఏ పని? (ఉదా: టేబుల్స్ శుభ్రం)' : 'What? (e.g. clean the tables)',
                       border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final p in people)
-                  ChoiceChip(
-                    label: Text('${p['name']}'.isEmpty ? '••${p['ref']}' : '${p['name']}'),
-                    selected: who == '${p['ref']}',
-                    onSelected: (_) => setS(() => who = '${p['ref']}'),
-                  ),
-              ]),
+              // Owner 2026-11-24: the staff side by side with their photo (today's check-in photo when there is one).
+              SizedBox(
+                height: 86,
+                child: ListView(scrollDirection: Axis.horizontal, children: [
+                  for (final p in people)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: InkWell(
+                        key: Key('askodoxTaskWho-${p['ref']}'),
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => setS(() => who = '${p['ref']}'),
+                        child: Column(children: [
+                          AskodoxStaffFace(businessId: widget.businessId, person: p, selected: who == '${p['ref']}'),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            width: 64,
+                            child: Text('${p['name']}'.isEmpty ? '••${p['ref']}' : '${p['name']}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, fontWeight: who == '${p['ref']}' ? FontWeight.w900 : FontWeight.w500)),
+                          ),
+                        ]),
+                      ),
+                    ),
+                ]),
+              ),
               TextButton.icon(
                 onPressed: () async {
                   final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.now());
@@ -1092,6 +1152,31 @@ class _AskodoxBizTasksScreenState extends ConsumerState<AskodoxBizTasksScreen> {
             icon: const Icon(Icons.add),
             label: Text(te ? 'పని కేటాయించు' : 'Give a task'),
           ),
+        if (boss && _chips.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(te ? 'ఒక్క టచ్‌తో (మీరు ఎక్కువగా ఇచ్చే పనులు)' : 'One tap (the tasks you give most)',
+              style: const TextStyle(fontSize: 12.5, color: _muted)),
+          const SizedBox(height: 4),
+          SizedBox(
+            key: const Key('askodoxTaskChips'),
+            height: 40,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final c in _chips)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: GestureDetector(
+                    onLongPress: () => _chipMenu(c),
+                    child: ActionChip(
+                      key: Key('askodoxTaskChip-${c['chip']}'),
+                      avatar: Icon(c['pinned'] == true ? Icons.push_pin : Icons.bolt_rounded, size: 16, color: _purple),
+                      label: Text('${c['title']}'),
+                      onPressed: () => _add(people, text: '${c['title']}', ref: '${c['ref'] ?? ''}'),
+                    ),
+                  ),
+                ),
+            ]),
+          ),
+        ],
         const SizedBox(height: 8),
         if (_data != null && tasks.isEmpty) Text(te ? 'పనులు లేవు.' : 'No tasks.', textAlign: TextAlign.center),
         if (tasks.isNotEmpty)
@@ -1586,6 +1671,72 @@ class AskodoxBizAttTodayScreen extends ConsumerWidget {
               ),
           ]),
         ]),
+      ),
+    );
+  }
+}
+
+
+/// A staff member's face for picking who gets a task: today's check-in photo when the shop has it, else their initial
+/// on a colour (owner 2026-11-24: "staff photos" on the Tasks page).
+class AskodoxStaffFace extends ConsumerStatefulWidget {
+  const AskodoxStaffFace({super.key, required this.businessId, required this.person, this.selected = false, this.size = 56});
+  final String businessId;
+  final AskodoxJson person;
+  final bool selected;
+  final double size;
+
+  @override
+  ConsumerState<AskodoxStaffFace> createState() => _AskodoxStaffFaceState();
+}
+
+class _AskodoxStaffFaceState extends ConsumerState<AskodoxStaffFace> {
+  static final _cache = <String, Uint8List>{};
+  Uint8List? _photo;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final today = askodoxPosMap(widget.person['today']);
+    final id = '${today['id'] ?? ''}';
+    if (widget.person['has_photo'] != true || id.isEmpty) return;
+    final cached = _cache[id];
+    if (cached != null) {
+      setState(() => _photo = cached);
+      return;
+    }
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).attendancePhoto(widget.businessId, id);
+      final bytes = base64Decode('${out['image_base64'] ?? ''}');
+      if (bytes.isEmpty) return;
+      _cache[id] = bytes;
+      if (mounted) setState(() => _photo = bytes);
+    } catch (_) {
+      // No photo: the initial stays.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = '${widget.person['name'] ?? ''}'.trim();
+    final present = askodoxPosMap(widget.person['today'])['status'] != null;
+    final ring = widget.selected ? _purple : (present ? _green : const Color(0xFFCBD5E1));
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      padding: const EdgeInsets.all(2.5),
+      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ring, width: widget.selected ? 3 : 2)),
+      child: CircleAvatar(
+        backgroundColor: const Color(0xFFEDE9FE),
+        backgroundImage: _photo == null ? null : MemoryImage(_photo!),
+        child: _photo != null
+            ? null
+            : Text(name.isEmpty ? '••' : name.characters.first.toUpperCase(),
+                style: const TextStyle(fontWeight: FontWeight.w900, color: _purple, fontSize: 20)),
       ),
     );
   }

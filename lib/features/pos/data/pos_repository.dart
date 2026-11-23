@@ -292,6 +292,10 @@ class AskodoxPosRepository {
   Future<AskodoxJson> salaryPaid(String biz, String ref, String month) =>
       _send('POST', '${_b(biz)}/staff/$ref/salary/$month/paid');
   Future<AskodoxJson> tasks(String biz) => _send('GET', '${_b(biz)}/tasks');
+  /// One-tap chips learned from the tasks given most often (owner 2026-11-24).
+  Future<List<AskodoxJson>> taskChips(String biz) async => askodoxPosList((await _send('GET', '${_b(biz)}/tasks/chips'))['chips']);
+  Future<AskodoxJson> setTaskChip(String biz, String title, String state) =>
+      _send('PUT', '${_b(biz)}/tasks/chips', body: {'title': title, 'state': state});
   Future<AskodoxJson> taskAdd(String biz, String title, String ref, {String dueAt = ''}) =>
       _send('POST', '${_b(biz)}/tasks', body: {'title': title, 'ref': ref, 'due_at': dueAt});
   Future<AskodoxJson> taskDone(String biz, String taskId, {bool undo = false}) =>

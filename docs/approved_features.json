@@ -10422,6 +10422,59 @@
           "askodoxCommandEndpointer"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/tasks/chips",
+          "response_keys": [
+            "chips"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/tasks/chips",
+          "response_keys": [
+            "chip",
+            "state"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Tasks page (owner / manager): a side-scrolling strip of one-tap chips learned from the tasks given most often in the last 90 days (phrasing variants joined, recent weigh more, the ones usually given around this hour first, each with the person it usually goes to); tap = the task sheet pre-filled; hold = pin / remove; day-one starters by kind of shop. The task sheet picks the person by face (today's check-in photo, else the initial; green ring = came today).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: learned task chips + staff faces (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "task_chips_staff_faces",
+      "name": "Learned task chips + staff faces",
+      "purpose": "Owner 2026-11-24: give tasks in one tap -- chips from the commands he gives most, staff chosen by photo.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_task_chips.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxTaskChips"
+        ],
+        "symbols": [
+          "AskodoxStaffFace"
+        ]
+      }
     }
   ]
 }
