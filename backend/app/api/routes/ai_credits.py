@@ -51,7 +51,20 @@ def my_credits(request: Request) -> Dict[str, Any]:
     return {"balance_paise": service.balance(user), "charging": settings["charging"],
             "rates_paise": settings["rates_paise"], "free_per_day": settings["free_per_day"],
             "used_today": service.usage_today(user), "packs": packs, "history": service.history(user, limit=50),
+            "usage": _my_usage(container, user) if settings.get("show_usage") else None,
             "note": "AI Credits are only for ASKODOX AI features: not transferable, not cash, never used to pay a seller."}
+
+
+def _my_usage(container: Any, user: str) -> Optional[Dict[str, Any]]:
+    """Trial meter: the user's own AI use and what it WOULD cost (estimate); nothing is deducted by this."""
+    from app.services import ai_usage_meter
+
+    try:
+        out = ai_usage_meter.user_usage(container.settings.database_path, user)
+    except Exception:
+        return None
+    out["free_now"] = not ai_credits(container).settings()["charging"]
+    return out
 
 
 def _require(request: Request, permission: str) -> dict:
@@ -62,6 +75,7 @@ def _require(request: Request, permission: str) -> dict:
 
 class SettingsBody(BaseModel):
     charging: Optional[bool] = None
+    show_usage: Optional[bool] = None
     rates_paise: Optional[Dict[str, int]] = None
     free_per_day: Optional[Dict[str, int]] = None
 
@@ -108,6 +122,20 @@ def costs(request: Request, days: int = 7) -> Dict[str, Any]:
 
     _require(request, "growth:view")
     return ai_usage_meter.report(request.app.state.container.settings.database_path, days=max(1, min(int(days), 90)))
+
+
+@admin_router.get("/users")
+def users(request: Request, days: int = 7) -> Dict[str, Any]:
+    """Trial meter, staff view: per signed-in user uses, our estimated cost and the value shown to them."""
+    from app.services import ai_usage_meter
+
+    _require(request, "growth:view")
+    out = ai_usage_meter.users_report(request.app.state.container.settings.database_path,
+                                      days=max(1, min(int(days), 90)))
+    for row in out["users"]:  # a sign-in number is never shown in full (same rule as Shops వాడకం)
+        digits = "".join(ch for ch in str(row["user"]) if ch.isdigit())
+        row["user"] = ("••••" + digits[-4:]) if len(digits) >= 4 else "user"
+    return out
 
 
 @admin_router.put("/prices")

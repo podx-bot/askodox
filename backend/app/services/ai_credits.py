@@ -44,6 +44,9 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "charging": False,  # nothing is ever deducted until staff turn this on
     "rates_paise": {f: 0 for f in FEATURES},
     "free_per_day": {f: 0 for f in FEATURES},
+    # Trial meter (owner 2026-11-24): each signed-in user sees what their AI use WOULD cost (ai_usage_meter.user_usage)
+    # while nothing is deducted. Independent of ``charging``. ON by default.
+    "show_usage": True,
 }
 MAX_RATE_PAISE = 100_00  # ₹100 per use is far above any real cost; guards a typo
 SCHEMA = [
@@ -100,7 +103,8 @@ class AiCredits:
         data = json.loads(row["data"]) if row else {}
         out = {"charging": bool(data.get("charging", False)),
                "rates_paise": {f: int((data.get("rates_paise") or {}).get(f, 0)) for f in FEATURES},
-               "free_per_day": {f: int((data.get("free_per_day") or {}).get(f, 0)) for f in FEATURES}}
+               "free_per_day": {f: int((data.get("free_per_day") or {}).get(f, 0)) for f in FEATURES},
+               "show_usage": bool(data.get("show_usage", DEFAULT_SETTINGS["show_usage"]))}
         out["updated_by"] = row["updated_by"] if row else ""
         out["updated_at"] = row["updated_at"] if row else ""
         return out
@@ -108,7 +112,8 @@ class AiCredits:
     def update_settings(self, data: Dict[str, Any], *, actor: str) -> Dict[str, Any]:
         current = self.settings()
         new = {"charging": bool(data.get("charging", current["charging"])),
-               "rates_paise": dict(current["rates_paise"]), "free_per_day": dict(current["free_per_day"])}
+               "rates_paise": dict(current["rates_paise"]), "free_per_day": dict(current["free_per_day"]),
+               "show_usage": bool(data.get("show_usage", current["show_usage"]))}
         for key, limit in (("rates_paise", MAX_RATE_PAISE), ("free_per_day", 10_000)):
             for feature, value in (data.get(key) or {}).items():
                 if shop_free_core.is_free(feature):
