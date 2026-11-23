@@ -58,7 +58,7 @@ FLOWS: Dict[str, tuple] = {
     "delivery": ("placed", "accepted", "preparing", "ready", "packed", "out_for_delivery", "delivered", "done"),
 }
 CLOSED = ("done", "rejected", "cancelled")
-SOURCES = ("table_qr", "shop_qr", "counter", "reception")
+SOURCES = ("table_qr", "shop_qr", "counter", "reception", "shop_link")  # shop_link = the public askodox.com/s/<name> page
 ESCALATE_AFTER = timedelta(seconds=60)
 MAX_OPEN_PER_CUSTOMER = 3
 

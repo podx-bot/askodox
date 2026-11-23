@@ -147,6 +147,6 @@ void main() {
     await _pump(tester, api, const AskodoxShopLinkStepsScreen(businessId: 'b2'));
     await tester.ensureVisible(find.byKey(const Key('askodoxShopLinkWhatsapp')));
     expect(find.text('9400000411'), findsOneWidget);
-    expect(find.textContaining('the order message comes to this number'), findsOneWidget);
+    expect(find.textContaining('Link orders come into your ASKODOX Live orders'), findsOneWidget);
   });
 }

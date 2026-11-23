@@ -34,11 +34,20 @@ SCHEMA = [
     "CREATE TABLE IF NOT EXISTS shop_link_aliases (slug TEXT PRIMARY KEY, business_id TEXT NOT NULL, at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS shop_link_counts (business_id TEXT NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL,"
     " n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (business_id, day, kind))",
+    # An order sent from the page INTO the shop's ASKODOX app (front desk): the customer's status page opens by this
+    # random token only (no sign-in on the web).
+    "CREATE TABLE IF NOT EXISTS shop_link_orders (token TEXT PRIMARY KEY, order_id TEXT NOT NULL UNIQUE,"
+    " business_id TEXT NOT NULL, day TEXT NOT NULL, created_at TEXT NOT NULL)",
 ]
+
+# Owner 2026-11-23 ("orders come in the app; WhatsApp too?" -> "into the app + WhatsApp backup"): a customer WITHOUT
+# the app orders from the page with a name + phone; the order lands in the shop's Live orders like any app order.
+MAX_LINK_ORDERS_PER_DAY = 150  # per shop; a person is limited by the desk's 3 running orders per phone
+WEB_CUSTOMER_PREFIX = "weblink-"
 
 # What the page counts (no person, only how many): a page view, the two order ways, call / map / pay taps,
 # a WhatsApp chat, the app banner, follow (opens the app page) and "a free link for my shop too".
-COUNT_KINDS = ("view", "order_wa", "order_app", "call", "chat", "map", "pay", "app", "follow", "join")
+COUNT_KINDS = ("view", "order_shop", "order_wa", "order_app", "call", "chat", "map", "pay", "app", "follow", "join")
 
 COLORS: Dict[str, str] = {"green": "#0B7A4B", "blue": "#1D4ED8", "maroon": "#9D1D5A", "orange": "#C2410C",
                           "purple": "#6D28D9", "dark": "#1E293B"}
@@ -110,10 +119,12 @@ class ShopLinks:
     def __init__(self, store: PosStore, *,
                  menu: Optional[Callable[[sqlite3.Connection, str], List[Dict[str, Any]]]] = None,
                  upi: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
-                 clock: Optional[Callable[[], datetime]] = None) -> None:
+                 clock: Optional[Callable[[], datetime]] = None, desk: Optional[Callable[[], Any]] = None) -> None:
         """``menu(conn, business_id)`` = the shop's live menu (the front desk's own list); ``upi(owner_user_id)`` =
-        {"upi_id", "payee_name", "upi_link"} of the owner's default UPI or None."""
+        {"upi_id", "payee_name", "upi_link"} of the owner's default UPI or None; ``desk()`` = the front desk service
+        (orders into the shop's app)."""
         self.store = store
+        self.desk = desk
         self.menu = menu or (lambda conn, business_id: [])
         self.upi = upi or (lambda owner: None)
         self.clock = clock or (lambda: datetime.now(IST))
@@ -325,6 +336,7 @@ class ShopLinks:
                 "color": COLORS.get(settings["color"], COLORS["green"]), "items": items, "rating": rating,
                 "followers": followers, "upi_id": upi.get("upi_id", ""), "upi_link": upi.get("upi_link", ""),
                 "can_order": status == "open" and bool(items) and settings["show_menu"],
+                "app_orders": self.desk is not None,
                 "play": play_link(found["slug"]), "join": play_link(found["slug"], "shop_link_join")}
 
     def order(self, page: Dict[str, Any], quantities: Dict[str, Any], name: str = "", note: str = "") -> Dict[str, Any]:
@@ -371,3 +383,70 @@ class ShopLinks:
         if page.get("whatsapp") and lines:
             wa = f"https://wa.me/91{page['whatsapp']}?text={quote(text, safe='')}"
         return {"lines": lines, "total_paise": total, "text": text, "whatsapp_url": wa}
+
+
+    # ------------------------------------------------------------------ orders into the shop's app
+    def place_order(self, page: Dict[str, Any], form: Dict[str, Any]) -> Dict[str, Any]:
+        """The page's form -> one front desk order in the shop's app (source ``shop_link``). Returns {"token"}.
+        The phone is the customer's own word (not OTP-checked): the shop sees that, calls before cooking if unsure, and
+        the desk allows 3 running orders per phone; a shop gets at most MAX_LINK_ORDERS_PER_DAY link orders a day."""
+        if self.desk is None or not page.get("can_order"):
+            raise PosError(409, "no_orders", "ఈ షాప్ ఇప్పుడు ఆర్డర్లు తీసుకోవడం లేదు.")
+        if str(form.get("website") or "").strip():  # the hidden box people never fill
+            raise PosError(400, "form", "Please try again.")
+        phone = ten_digits(form.get("phone"))
+        if not phone:
+            raise PosError(400, "phone", "మీ ఫోన్ నంబర్ (10 అంకెలు) రాయండి — షాప్ మీకు కాల్ చేస్తుంది.")
+        name = re.sub(r"\s+", " ", str(form.get("name") or "")).strip()[:40]
+        if len(name) < 2:
+            raise PosError(400, "name", "మీ పేరు రాయండి.")
+        kind = "delivery" if str(form.get("kind") or "") == "delivery" else "takeaway"
+        address = re.sub(r"\s+", " ", str(form.get("address") or "")).strip()[:240]
+        if kind == "delivery" and len(address) < 6:
+            raise PosError(400, "address", "డెలివరీకి చిరునామా రాయండి.")
+        quantities = {key[2:]: value for key, value in form.items() if str(key).startswith("q_")}
+        lines = self.order(page, quantities)["lines"]
+        if not lines:
+            raise PosError(400, "items", "ఏమీ ఎంచుకోలేదు — ఐటమ్ పక్కన ఎన్ని కావాలో రాయండి.")
+        txn = re.sub(r"[^A-Za-z0-9-]", "", str(form.get("txn") or ""))[:40]
+        if len(txn) < 8:
+            txn = secrets.token_hex(8)
+        business_id = page["business_id"]
+        with closing(self.store._connect()) as conn:
+            today = int(conn.execute("SELECT COUNT(*) AS n FROM shop_link_orders WHERE business_id = ? AND day = ?",
+                                     (business_id, self._day())).fetchone()["n"])
+        if today >= MAX_LINK_ORDERS_PER_DAY:
+            raise PosError(429, "busy", "ఈ రోజు ఈ షాప్‌కి లింక్ ఆర్డర్లు చాలా వచ్చాయి — షాప్‌కి కాల్ చేయండి.")
+        note = re.sub(r"\s+", " ", str(form.get("note") or "")).strip()[:120]
+        payload = {"client_txn_id": f"link-{txn}", "kind": kind, "name": name, "phone": phone, "address": address,
+                   "notes": ("🔗 లింక్ ఆర్డర్ · ఫోన్ OTP తో నిర్ధారించలేదు. " + note).strip(),
+                   "items": [{"product_id": line["id"], "qty": line["qty"]} for line in lines]}
+        view = self.desk().place(WEB_CUSTOMER_PREFIX + phone, business_id, payload, source="shop_link")
+        with closing(self.store._connect()) as conn:
+            row = conn.execute("SELECT token FROM shop_link_orders WHERE order_id = ?", (view["id"],)).fetchone()
+            if row:  # the same form sent twice
+                return {"token": row["token"], "order": view}
+            token = secrets.token_urlsafe(16)
+            conn.execute("INSERT INTO shop_link_orders (token, order_id, business_id, day, created_at) VALUES (?, ?, ?, ?, ?)",
+                         (token, view["id"], business_id, self._day(), self._now()))
+        self.count(business_id, "order_shop")
+        return {"token": token, "order": view}
+
+    def _link_order(self, page: Dict[str, Any], token: str) -> Optional[sqlite3.Row]:
+        with closing(self.store._connect()) as conn:
+            row = conn.execute("SELECT o.order_id, d.customer_user FROM shop_link_orders o JOIN pos_desk_orders d"
+                               " ON d.id = o.order_id WHERE o.token = ? AND o.business_id = ?",
+                               (str(token or "")[:64], page["business_id"])).fetchone()
+        return row
+
+    def order_status(self, page: Dict[str, Any], token: str) -> Optional[Dict[str, Any]]:
+        row = self._link_order(page, token) if self.desk is not None else None
+        if row is None:
+            return None
+        return self.desk().view_mine(row["customer_user"], row["order_id"])
+
+    def cancel_order(self, page: Dict[str, Any], token: str) -> Optional[Dict[str, Any]]:
+        row = self._link_order(page, token) if self.desk is not None else None
+        if row is None:
+            return None
+        return self.desk().cancel_mine(row["customer_user"], row["order_id"])

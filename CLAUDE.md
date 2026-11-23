@@ -30,7 +30,12 @@ this file, don't trust it blindly.
   app reads the install referrer + opens the shop, order tracking from the link, install counts, product photos.
   Fix (owner phone 2026-11-23, "WhatsApp number enduku?" with an EMPTY box): a shop from the short setup card has no
   phone -> GET returns `whatsapp_default` (shop phone, else the OWNER's own sign-in number, owner only), first save
-  falls back the same way, the box explains where orders go. Nothing phone verified.
+  falls back the same way, the box explains where orders go. ORDERS INTO THE APP (owner "order ravataniki app vundhi"
+  -> "into the app + WhatsApp backup"): the menu form POSTs `/s/{slug}/order`; via=shop = name + 10-digit phone (not
+  OTP-checked, honeypot `website`, desk limit 3 running per phone, `MAX_LINK_ORDERS_PER_DAY` 150) -> `PosFrontDesk.place`
+  as `weblink-<phone>` with source `shop_link` (added to `SOURCES`) -> the shop's Live orders (card tag 🔗); customer page
+  `/s/{slug}/o/{token}` (`shop_link_orders`, meta refresh 20 s, cancel while placed, UPI with the bill amount once
+  billed); via=wa = the old WhatsApp page, only when a WhatsApp number is set. Nothing phone verified.
 - `main` PR #391 (2026-11-22, owner "1", owner test: 30-40 s before a spoken reply): SPEAK WHILE WRITING -- spoken turns
   (`askodoxSpeakTypedReplies` + `_streamSpeaks`) no longer hide the stream until the whole answer: `_liveFeed` queues each
   finished `askodoxSpeechChunks` part (last part only after `text_done` / the final), `_liveFetch` shares audio through

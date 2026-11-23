@@ -154,3 +154,68 @@ def test_whatsapp_box_starts_with_the_owner_number_when_the_shop_has_no_phone(en
     assert links.get(biz, "app-phone-9400000312")["whatsapp_default"] == ""  # the owner's number only to the owner
     assert links.save(biz, owner, {"slug": "no-phone-shop"})["link"]["whatsapp"] == "9400000311"
     assert links.save(biz, owner, {"whatsapp": ""})["link"]["whatsapp"] == ""  # cleared on purpose stays cleared
+
+
+def test_link_order_lands_in_the_shop_app_and_the_customer_follows_it(monkeypatch):
+    """Owner 2026-11-23: "orders come in the app; why WhatsApp?" -> a customer without the app orders from the link with
+    a name + phone; the order lands in the shop's Live orders (source shop_link); the customer follows it on the page."""
+    import re
+
+    from fastapi.testclient import TestClient
+
+    from app.services import rate_limit
+    from app.services.session_tokens import issue_token
+    from server import app, container
+
+    rate_limit.reset_for_tests()
+    for name in ("pos_store", "pos_frontdesk", "pos_bills", "shop_links"):
+        monkeypatch.setattr(container, name, None, raising=False)
+    client = TestClient(app)
+    h = {"Authorization": f"Bearer {issue_token('app-phone-9411100091', container.settings.session_token_secret)}"}
+    bid = client.post("/api/pos/businesses", headers=h, json={
+        "name": "Link Tiffins", "template": "restaurant", "invoice_prefix": "LT", "state_code": "37",
+        "registration_type": "unregistered"}).json()["id"]
+    pid = client.post(f"/api/pos/businesses/{bid}/products", headers=h,
+                      json={"name": "Idli", "unit": "plate", "price_paise": 4000}).json()["id"]
+    assert client.put(f"/api/pos/businesses/{bid}/link", headers=h, json={"slug": "link-tiffins"}).status_code == 200
+    page = client.get("/s/link-tiffins").text
+    assert 'method="post"' in page and "ఆర్డర్ పంపు" in page and 'name="phone"' in page
+    # a wrong phone keeps what was typed and says why
+    bad = client.post("/s/link-tiffins/order", data={f"q_{pid}": "2", "name": "Ravi", "phone": "12345", "via": "shop"})
+    assert bad.status_code == 200 and "ఫోన్ నంబర్" in bad.text and 'value="2"' in bad.text
+    # the hidden box only bots fill
+    bot = client.post("/s/link-tiffins/order", data={f"q_{pid}": "1", "name": "Bot", "phone": "9411100092",
+                                                     "website": "x", "via": "shop"})
+    assert "Please try again" in bot.text
+    sent = client.post("/s/link-tiffins/order", follow_redirects=False,
+                       data={f"q_{pid}": "2", "name": "Ravi", "phone": "94111 00093", "kind": "takeaway",
+                             "note": "less spicy", "txn": "abcdef123456", "via": "shop"})
+    assert sent.status_code == 303 and re.match(r"^/s/link-tiffins/o/[A-Za-z0-9_-]{16,}$", sent.headers["location"])
+    again = client.post("/s/link-tiffins/order", follow_redirects=False,
+                        data={f"q_{pid}": "2", "name": "Ravi", "phone": "9411100093", "txn": "abcdef123456", "via": "shop"})
+    assert again.headers["location"] == sent.headers["location"]  # the same form twice = one order
+    status = client.get(sent.headers["location"])
+    assert status.status_code == 200 and "షాప్ చూడాలి" in status.text and "ఆర్డర్ రద్దు చేయి" in status.text
+    assert 'http-equiv="refresh"' in status.text
+    orders = client.get(f"/api/pos/businesses/{bid}/desk/orders", headers=h).json()
+    rows = orders.get("orders") or orders.get("items") or []
+    link_rows = [o for o in rows if o.get("source") == "shop_link"]
+    assert len(link_rows) == 1 and link_rows[0]["customer_name"] == "Ravi" and link_rows[0]["customer_phone"].endswith("9411100093")
+    assert "లింక్ ఆర్డర్" in link_rows[0]["notes"]
+    # the customer cancels before the shop accepts
+    cancel = client.post(sent.headers["location"] + "/cancel", follow_redirects=False)
+    assert cancel.status_code == 303
+    assert "రద్దు చేశారు" in client.get(sent.headers["location"]).text
+    assert client.get("/s/link-tiffins/o/not-a-real-token-123").status_code == 404
+    # a second order: the shop accepts in the app -> billed -> the customer's page shows it
+    second = client.post("/s/link-tiffins/order", follow_redirects=False,
+                         data={f"q_{pid}": "1", "name": "Sita", "phone": "9411100094", "via": "shop"})
+    rows = client.get(f"/api/pos/businesses/{bid}/desk/orders", headers=h).json()
+    rows = rows.get("orders") or rows.get("items") or []
+    sita = next(o for o in rows if o.get("customer_name") == "Sita")
+    ok = client.post(f"/api/pos/businesses/{bid}/desk/orders/{sita['id']}/confirm", headers=h, json={})
+    assert ok.status_code == 200, ok.text
+    after = client.get(second.headers["location"]).text
+    assert "ఒప్పుకున్నారు" in after and "ఆర్డర్ రద్దు చేయి" not in after
+    stats = client.get(f"/api/pos/businesses/{bid}/link/stats", headers=h).json()["today"]
+    assert stats["order_shop"] == 2
