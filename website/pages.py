@@ -413,6 +413,10 @@ def about(cfg: dict) -> Page:
   </ul>
   <h2>Where we are today</h2>
   <p>ASKODOX is early. The Android app is in beta and being tested by real people. This website is live, and support is available by email. You can see exactly what's available on the <a href="/status/">What's live</a> page.</p>
+  <h2>Who runs ASKODOX</h2>
+  <p>ASKODOX is run by {legal_entity(cfg)}, a GST-registered business in India.</p>
+  <h2>What it costs</h2>
+  <p>ASKODOX is free to use, and the everyday shop tools are free for ever. See <a href="/pricing/">Pricing</a>.</p>
   <h2>Talk to us</h2>
   <p>Questions, ideas or partnership interest: {mail(cfg, 'general_email')}.</p>
 </div></section>
@@ -552,7 +556,7 @@ def providers(cfg: dict) -> Page:
 def deals(cfg: dict) -> Page:
     active = [l for l in cfg["links"] if l.get("status") == "active" and l.get("approved") and l.get("url")]
     partner_html = (("<ul>" + "".join(f'<li><a href="/go/{e(l["slug"])}" rel="sponsored nofollow noopener">{e(l["partner"])}</a> <span class="tag t-paid">Affiliate link</span> <span class="muted">{e(l["programme"])}</span></li>' for l in active) + "</ul>")
-                    if active else "<p><strong>No partner or affiliate programmes are active yet.</strong> When one is approved, its offers will appear here and in answers, always labelled.</p>")
+                    if active else "<p>Reference items with commission links appear in the app's answers and on ASKODOX product pages. See the <a href=\"/affiliate-disclosure/\">Affiliate disclosure</a>.</p>")
     body = page_hero("Deals and offers", "Offers that fit what you're actually looking for, shown beside the other options, with the conditions explained.", "Deals and offers") + f"""
 <section class="section-tight zone-day"><div class="wrap"><p class="disclosure-strip">Some links on ASKODOX may be partner or affiliate links. They're always labelled and never decide which option we recommend. <a href="/affiliate-disclosure/">Affiliate disclosure</a></p></div></section>
 <section class="section zone-mist"><div class="wrap">
@@ -653,17 +657,17 @@ FAQ = [
         ("How do I start?", "<p>The ASKODOX Android app is in beta. <a href='/join/'>Ask for early access</a>. Asking from this website is coming soon.</p>"),
         ("Which languages does it support?", "<p>The app works in English and Telugu today. More languages are planned. This website is in English for now.</p>"),
         ("Which countries does it work in?", "<p>ASKODOX is designed for any country. Nearby discovery is currently tuned for India first, and more countries are planned. Online answers work anywhere.</p>"),
-        ("Does it cost anything?", "<p>Using ASKODOX is free during the beta. You pay sellers and providers directly for what you buy or book.</p>"),
+        ("Does it cost anything?", "<p>Using ASKODOX is free, and the everyday shop tools are free for ever. Heavier AI features can use optional prepaid AI Credits. You pay sellers and providers directly for what you buy or book. See <a href='/pricing/'>Pricing</a>.</p>"),
     ]),
     ("Selling and offering services", [
         ("How do I list something?", "<p>In the app, tell ASKODOX what you're selling or offering. It drafts the listing or profile, and you confirm it.</p>"),
         ("Who sees my phone number?", "<p>Only the person whose request you accept, or the seller who accepts yours. Before that, they see the request and your general area only.</p>"),
-        ("How do I get paid?", "<p>Customers pay you directly. Payments inside ASKODOX are not available yet.</p>"),
+        ("How do I get paid?", "<p>Customers pay you directly, to your own UPI ID, QR code or bank account. ASKODOX never holds your money and takes no commission.</p>"),
     ]),
     ("Privacy and safety", [
         ("Does ASKODOX track my location?", "<p>Only when you allow it, and only while you're using the app. Others see your area, never your exact location.</p>"),
-        ("How do I delete my account or data?", "<p>In the Android app, open the Privacy screen to download or delete your data. You can also email <a href='mailto:{privacy}'>{privacy}</a>.</p>"),
-        ("Are recommendations paid for?", "<p>No. Partner or affiliate relationships don't decide what ASKODOX recommends, and any partner link is labelled. See the <a href='/affiliate-disclosure/'>affiliate disclosure</a>.</p>"),
+        ("How do I delete my account or data?", "<p>In the Android app, open Your privacy (under Settings) to download or delete your data. You can also email <a href='mailto:{privacy}'>{privacy}</a>.</p>"),
+        ("Are recommendations paid for?", "<p>No. Commission never decides what ASKODOX recommends. Some items carry a commission link; these are shown as reference items. See the <a href='/affiliate-disclosure/'>affiliate disclosure</a>.</p>"),
         ("How do I report someone?", "<p>Use <a href='/report-a-problem/'>Report a problem</a> or email us. Include what happened and when.</p>"),
     ]),
 ]
@@ -936,7 +940,7 @@ def grievance(cfg: dict) -> str:
 def privacy(cfg: dict) -> Page:
     p = cfg["contact"]["privacy_email"]
     inner = f"""
-<p class="lead">This policy explains what information ASKODOX collects, why, who it's shared with and the choices you have. It covers the askodox.com website and the ASKODOX app.</p>
+<p class="lead">This policy explains what information ASKODOX collects, why, who it's shared with and the choices you have. It covers the askodox.com website, shop pages on askodox.com and the ASKODOX app.</p>
 <h2>Who we are</h2>
 <p>ASKODOX is operated by {legal_entity(cfg)}. For any privacy question or request, email <a href="mailto:{e(p)}">{e(p)}</a>.</p>
 <h2>Information we collect</h2>
@@ -944,69 +948,81 @@ def privacy(cfg: dict) -> Page:
 <ul>
 <li><strong>Server logs.</strong> Like most websites, our hosting provider records technical information such as IP address, browser type, pages requested and time, to keep the site secure and working.</li>
 <li><strong>What you send us.</strong> If you email us, including through the forms on this site (which open your own email app), we receive what you write and your email address.</li>
+<li><strong>Shop pages and product pages.</strong> When you open a shop's page or a product page on askodox.com we count views and taps per day, never who you are. If you place an order from a shop's page, the name, phone number and order you enter are checked with a one-time code and given to that shop.</li>
 <li>This website does not use advertising cookies or third-party analytics. See the <a href="/cookies/">Cookie policy</a>.</li>
 </ul>
 <h3>In the ASKODOX app</h3>
 <ul>
-<li><strong>Account.</strong> Your phone number, used to sign in with a one-time code, and any name or profile details you add.</li>
+<li><strong>Account.</strong> Your phone number, used to sign in with a one-time code sent by SMS, and any name or profile details you add. To fill the code in for you, Android shows that one message to the app only after you tap Allow; the app has no permission to read your SMS inbox.</li>
 <li><strong>Your conversations.</strong> What you type or say to ASKODOX, and photos or files you choose to share, so it can understand and answer your request.</li>
 <li><strong>Location.</strong> Your device location only when you allow it, used to find nearby options. Others see your general area, never your exact location.</li>
 <li><strong>Listings, requests and orders.</strong> What you list, the requests you send or receive, and their status.</li>
 <li><strong>Device and notifications.</strong> Basic device information and, if you allow notifications, a notification token.</li>
-<li><strong>Voice.</strong> When you use the mic, your recording is sent to a speech-to-text provider to turn it into text. Replies can be read aloud using a text-to-speech provider.</li>
-<li><strong>Photos and pictures you make.</strong> Photos you share, and the words you use to create or edit a picture, are sent to an AI image provider to make that picture.</li>
-<li><strong>Personal memory.</strong> Your earlier requests may be used to make answers more relevant to you. You can turn this off or clear it in the app's memory settings.</li>
+<li><strong>Voice.</strong> When you use the mic, your recording is sent to a speech-to-text provider to turn it into text. Replies are read aloud using a text-to-speech provider, which receives the words to be spoken.</li>
+<li><strong>Camera, photos and pictures you make.</strong> The camera is used only when you take a photo or scan a code. Photos you share, and the words you use to create or edit a picture, are sent to an AI provider to read the photo or make that picture.</li>
+<li><strong>Steps (Live Work).</strong> If you use Live Work and allow physical-activity access, the app reads your phone's step counter. Step readings are kept on your phone; if you join a team or share a result, the name you chose and that result are shown to the people you share with.</li>
+<li><strong>Bluetooth.</strong> Used only to play sound through a speaker or device you connect.</li>
+<li><strong>Personalisation.</strong> Your earlier requests and profile are used to make answers fit you better. This is on by default. You can turn it off or clear it in the app's memory settings at any time.</li>
 <li><strong>AI Credits purchases.</strong> What you bought, when, and the credits used. Payments are handled by our payment processor; we never see or store your card number or UPI PIN.</li>
 </ul>
 <h3>For shops and businesses</h3>
 <ul>
-<li><strong>Business details.</strong> What you enter about your business: name, category, description, address and map pin, opening hours, links, offers and delivery. These are shown to people using ASKODOX. A GST or Udyam number, if you add one, is used only for ASKODOX's checks and is never shown to others.</li>
+<li><strong>Business details.</strong> What you enter about your business: name, category, description, address and map pin, opening hours, links, offers and delivery. These are shown to people using ASKODOX and on your shop page. A GST or Udyam number, if you add one, is used only for ASKODOX's checks and is never shown to others.</li>
 <li><strong>Your ways to be paid.</strong> UPI IDs and QR codes you add, and bank details if you add them (stored encrypted), so customers can pay you directly. ASKODOX never holds your money.</li>
+<li><strong>Shop records.</strong> Items and prices, bills, orders, dues (money customers owe you), advances, sales reports, and the customer names and phone numbers you enter for them. These are stored in your shop's account so you and the staff you allow can see them. You are responsible for having your customers' agreement to keep their details and to send them bills or reminders.</li>
+<li><strong>Staff.</strong> The names, phone numbers and roles of staff you add, and attendance, salary and task records you keep for them. Tell your staff before you add them.</li>
 <li><strong>Follows and posts.</strong> The shops you follow are private to you; a shop sees only how many people follow it, never who. Pictures a shop posts are shown to its followers.</li>
-<li><strong>Bills.</strong> Bills made with the quick bill are not stored by ASKODOX; they stay on your phone unless you share them.</li>
+<li><strong>If you are a shop's customer.</strong> A shop using ASKODOX may record your name, phone number, bills, dues or an advance. Ask that shop first to see or correct them; you can also write to us.</li>
 </ul>
-<h3 id="payment-alerts">Payment alerts (optional, for shops)</h3>
-<p>If you switch on payment alerts and give the app <strong>notification access</strong> on your Android phone, ASKODOX reads notifications <strong>only from the payment apps listed in the app</strong> (for example PhonePe, Google Pay, Paytm, BHIM and the banking apps shown there), and only to detect money you received. It does not read notifications from any other app.</p>
+<h3 id="payment-alerts">Payment alerts and phone payments (optional)</h3>
+<p>If you switch on payment alerts and give the app <strong>notification access</strong> on your Android phone, ASKODOX reads notifications <strong>only from the apps you switch on in the app's list</strong>: payment apps (for example PhonePe, Google Pay, Paytm, BHIM and the banking apps shown there) and, if you switch it on, your messages app for bank payment messages. It reads them only to find money received or paid. It does not read notifications from any other app, and it has no permission to read your SMS inbox.</p>
 <ul>
-<li>From a payment notification the app takes the <strong>amount, time, the payment app and a short reference</strong>. These are saved in your payment-alert history and shared with the people you choose (for example your staff) so their phones can announce the payment.</li>
-<li>The <strong>payer's name</strong> is used only to say "thank you" aloud on your phone. It is not saved and not sent to ASKODOX.</li>
-<li>The full notification text is not uploaded.</li>
+<li><strong>For a shop:</strong> the app sends the <strong>amount, time, the payment app and a short reference</strong> to your shop's ASKODOX account. These are saved in the shop's payment history and shared with the people you choose (for example your staff) so their phones can announce the payment.</li>
+<li><strong>Kept on your phone only:</strong> the payer's name and UPI ID, a bank balance if the message shows one, and the text of the message, so the app can show the row and avoid announcing the same payment twice. The phone keeps a limited recent list. These are not uploaded with the payment.</li>
+<li><strong>Your own phone's payments</strong> (money you received or paid personally) stay on your phone and are not sent to ASKODOX.</li>
+<li><strong>Saying a name aloud:</strong> to speak "received from" a name in the ASKODOX voice, the words to be spoken (which can include the payer's name and the amount) are sent to our voice provider to be turned into sound. They are not stored with the payment on our servers. You can switch off saying the name.</li>
 <li>If you connect your own payment provider account (such as Razorpay) for bank-confirmed alerts, that provider sends payment events for your shop to ASKODOX.</li>
 <li>You can turn this off at any time in the app, or by removing ASKODOX from <em>Settings › Notification access</em> on your phone. Alerts are a convenience only; always check important payments in your bank or payment app.</li>
 </ul>
+<h3 id="screen-guide">Screen guide (optional)</h3>
+<p>In versions of the app that offer the screen guide, it works only if you switch it on and give Android's Accessibility permission yourself. It reads the labels on the screen you ask for help with, to point at what to tap next. It never taps, types or pays for you. It stops on payment and banking apps, password fields and screens that show codes, PINs, card or identity numbers, and nothing from those screens is kept or sent. You can switch it off at any time in the app or in your phone's Accessibility settings.</p>
 <h2>How we use it</h2>
 <ul>
 <li>To understand your requests and find relevant options, people and information.</li>
 <li>To send requests to sellers or providers you choose, and share contact details only after a request is accepted.</li>
+<li>To run the shop tools you use: bills, orders, dues, payment alerts, staff and reports.</li>
+<li>To make answers fit you better (personalisation), unless you turn it off.</li>
 <li>To keep ASKODOX secure, prevent abuse and fix problems.</li>
 <li>To provide support and respond to you.</li>
 <li>To improve ASKODOX.</li>
 </ul>
-<p>We don't sell your personal information.</p>
+<p>We don't sell your personal information, and we don't use it for third-party advertising.</p>
 <h2>Who we share it with</h2>
 <ul>
-<li><strong>Other users</strong>, only as described above: a request and your general area before acceptance, and contact details after acceptance.</li>
-<li><strong>Service providers</strong> that run parts of ASKODOX for us. Today these include cloud hosting (Railway), AI language models (Anthropic, OpenAI), speech (ElevenLabs, Sarvam), web search (Serper, Brave), maps, places, sign-in and notifications (Google and Firebase) and payments (Razorpay). They process information only to provide their service to us.</li>
+<li><strong>Other users</strong>, only as described above: a request and your general area before acceptance, and contact details after acceptance; an order you place with a shop goes to that shop.</li>
+<li><strong>Service providers</strong> that run parts of ASKODOX for us. Today these include cloud hosting (Railway), AI models (Anthropic, OpenAI, Google), speech (ElevenLabs, Sarvam), web search (Serper, Brave), maps, places, sign-in codes and notifications (Google and Firebase), messages you or a shop choose to send on WhatsApp (Meta) and payments (Razorpay). They process information only to provide their service to us.</li>
+<li><strong>Stores you choose to visit.</strong> If you tap a link to an online store, that store's own privacy policy applies there. We don't send the store who you are.</li>
 <li><strong>Authorities</strong>, when the law requires it.</li>
 </ul>
-<p>Some of these providers may process information in other countries. We use providers that protect information appropriately.</p>
+<p>Some of these providers process information outside India. We use providers that protect information appropriately.</p>
 <h2>Why we may use it</h2>
-<p>We use your information on the basis of your consent, which you give when you sign in and when you switch on optional features (location, notifications, payment alerts, memory), and for the legitimate uses the law allows, such as keeping ASKODOX safe and meeting legal duties. You can withdraw consent at any time; features that depend on it will then stop.</p>
+<p>We use your information on the basis of your consent, which you give when you sign in and when you switch on optional features (location, notifications, payment alerts, steps, the screen guide), and for the legitimate uses the law allows, such as keeping ASKODOX safe and meeting legal duties. You can withdraw consent at any time; features that depend on it will then stop.</p>
 <h2 id="your-rights">Your choices and rights</h2>
 <ul>
-<li><strong>Access and download</strong> your data from the Privacy screen in the app, or by email.</li>
+<li><strong>Access and download</strong> your data from the Your privacy screen in the app, or by email.</li>
 <li><strong>Delete</strong> your account and data from the app, or by email. Records of orders you made with another person may remain on their side.</li>
-<li><strong>Location and notifications</strong> can be turned off at any time in your phone's settings.</li>
+<li><strong>Location, notifications, microphone, camera and physical activity</strong> can be turned off at any time in your phone's settings.</li>
+<li><strong>Personalisation</strong> can be turned off or cleared in the app's memory settings.</li>
 <li><strong>Correct</strong> your details in the app, or ask us by email.</li>
 <li><strong>Nominate</strong> someone to exercise these rights for you if you die or cannot act, by emailing us.</li>
 <li>You can also <strong>complain</strong> to our Grievance Officer (below). Depending on where you live, you may have further rights. Email <a href="mailto:{e(p)}">{e(p)}</a> and we'll respond.</li>
 </ul>
 <h2 id="delete-account">Deleting your account</h2>
 <ol>
-<li>In the ASKODOX app open <strong>Profile › Settings &amp; Privacy › Privacy &amp; data › Delete my account</strong> and confirm. Your account, profile, business details, conversations, memory, follows and payment-alert settings are deleted.</li>
+<li>In the ASKODOX app open <strong>Your privacy</strong> (under Settings), tap <strong>Delete my account</strong> and confirm. Your account, profile, business details, conversations, memory, follows and payment-alert settings are deleted.</li>
 <li>Without the app, email <a href="mailto:{e(p)}">{e(p)}</a> from your registered number's account or include that number, with the subject "Delete my ASKODOX account". We confirm within 7 days.</li>
 </ol>
-<p>Some records may be kept for as long as the law requires, such as purchase and tax records for AI Credits, and records of requests you made with another person may remain on their side.</p>
+<p>Some records may be kept for as long as the law requires, such as purchase and tax records for AI Credits, and records of requests, bills or orders you made with another person or shop may remain on their side.</p>
 <h2>How long we keep it</h2>
 <p>We keep information while your account is active and as long as needed for the purposes above. When you delete your account, we delete or anonymise your information unless we need to keep some of it to meet legal obligations or resolve disputes.</p>
 <h2>Age</h2>
@@ -1026,55 +1042,66 @@ def terms(cfg: dict) -> Page:
     law = (f"<p>These terms are governed by the laws of {juris}.</p>" if juris else
            '<p><span class="placeholder">The governing law and courts will be stated here once confirmed.</span> Nothing here limits consumer rights that apply where you live.</p>')
     inner = f"""
-<p class="lead">These terms apply when you use the askodox.com website or the ASKODOX app. By using ASKODOX you agree to them.</p>
+<p class="lead">These terms apply when you use the askodox.com website, shop pages on askodox.com or the ASKODOX app. By using ASKODOX you agree to them and to the <a href="/privacy/">Privacy policy</a>.</p>
 <h2>What ASKODOX is</h2>
-<p>ASKODOX helps people discover products, services, people and information, and connect with each other. Unless we clearly say otherwise, ASKODOX is not the seller or provider of the products and services you find, and is not a party to agreements between users.</p>
+<p>ASKODOX helps people discover products, services, people and information, connect with each other, and run everyday shop work such as bills and payment alerts. Unless we clearly say otherwise, ASKODOX is not the seller or provider of the products and services you find, and is not a party to agreements between users.</p>
 <p>For content that users post (listings, business details, posts, messages), ASKODOX acts as an intermediary under the Information Technology Act, 2000 and follows the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021. We act on valid complaints and on lawful orders.</p>
 <h2>Beta features</h2>
 <p>Features marked Beta are still being tested and may change, be interrupted or be removed. Features marked Coming soon are not available yet.</p>
 <h2>Your account</h2>
-<ul><li>Give accurate information and keep your phone and one-time codes secure.</li><li>You're responsible for activity on your account.</li><li>You must be 18 or older to use ASKODOX.</li></ul>
+<ul><li>Give accurate information and keep your phone and one-time codes secure.</li><li>One person, one account. You're responsible for activity on your account.</li><li>You must be 18 or older to use ASKODOX.</li></ul>
 <h2>Using ASKODOX responsibly</h2>
 <p>You agree not to:</p>
 <ul><li>List or request anything illegal, dangerous, counterfeit or prohibited where you are.</li><li>Mislead, harass, threaten or defraud anyone.</li><li>Misuse other people's contact details or use them for spam.</li><li>Interfere with, scrape or try to break ASKODOX or its security.</li></ul>
-<p>We may remove content or suspend accounts that break these terms.</p>
+<p>We may remove content, or suspend or close accounts that break these terms. You can stop using ASKODOX and delete your account at any time.</p>
+<h2>What it costs</h2>
+<p>Asking ASKODOX and the everyday shop tools are free. Some heavier AI features can use prepaid AI Credits. Current prices are on the <a href="/pricing/">Pricing</a> page and in the app. ASKODOX takes no commission on what users sell to each other.</p>
 <h2>Sellers and service providers</h2>
-<p>If you list products or services, you're responsible for accurate descriptions, fair pricing, having the right to sell and delivering what you promise, and for complying with laws that apply to you, including tax and consumer law.</p>
+<p>If you list products or services, you're responsible for accurate descriptions, fair pricing, having the right to sell and delivering what you promise, and for complying with laws that apply to you, including tax, licence and consumer law.</p>
 <h2>Buyers and customers</h2>
 <p>Check items and providers before you pay. Payment is made directly to the seller or provider unless ASKODOX clearly offers otherwise.</p>
 <h2>AI answers</h2>
-<p>ASKODOX uses AI to understand requests and suggest options. Answers can be incomplete or wrong. Prices from the web are marked unverified. ASKODOX does not give professional legal, medical or financial advice; consult a qualified professional for those.</p>
+<p>ASKODOX uses AI to understand requests and suggest options, in text and in voice. Answers can be incomplete or wrong. Prices from the web are marked unverified. ASKODOX does not give professional legal, medical, tax or financial advice; consult a qualified professional for those.</p>
+<h2>Personalisation</h2>
+<p>ASKODOX uses your earlier requests and profile to make answers fit you better. It is on by default and you can turn it off or clear it in the app. Details are in the <a href="/privacy/">Privacy policy</a>.</p>
 <h2>Payments between users</h2>
 <p>ASKODOX never holds money for buyers or sellers. When you pay a shop or provider, you pay them directly, for example to their own UPI ID, QR code or bank account. Disputes about goods, services or payments are between you and that shop or provider, though you can report problems to us.</p>
 <h2>AI Credits</h2>
 <ul>
-<li>Some AI features, such as creating pictures and heavier tasks, use prepaid AI Credits. Prices and what each use costs are shown in the app and include applicable taxes unless stated otherwise.</li>
+<li>Some AI features, such as creating pictures and heavier tasks, can use prepaid AI Credits. Packs are sold only when the app shows them as on sale. Prices are shown in the app before you pay and include applicable taxes unless stated otherwise.</li>
 <li>Credits are used up as you use those features. They have no cash value and can't be transferred or exchanged for money.</li>
 <li>If a task fails, the credits held for it are returned automatically.</li>
 <li>If you were charged by mistake, contact us and we'll review it. Credits you have used are not refundable, except where the law requires. See <a href="/refunds/">Refunds and cancellations</a>.</li>
 </ul>
-<h2>Payment alerts for shops</h2>
-<p>Payment alerts announce money based on the notification from your payment app, or on events from a payment provider you connect. They are a convenience, not proof of payment. Always confirm important payments in your bank or payment app. ASKODOX is not responsible for an alert that is missed, late or wrong, for example because your phone was off, the payment app changed its notification, or notification access was turned off.</p>
-<h2>Business profiles, posts and bills</h2>
+<h2>Payment alerts</h2>
+<p>Payment alerts announce money based on the notification or bank message your phone receives, or on events from a payment provider you connect. They are a convenience, not proof of payment. Always confirm important payments in your bank or payment app. ASKODOX is not responsible for an alert that is missed, late, repeated or wrong, for example because your phone was off, the payment app or bank changed its message, a message was fake, or notification access was turned off.</p>
+<h2>Shop tools: bills, dues, orders, advances and staff</h2>
 <ul>
 <li>If you add a business, the details must be true and you must have the right to run it. A "verified" mark means ASKODOX checked the documents you gave at that time; it is not a guarantee of the business.</li>
+<li>Bills, dues, advances, orders and reports in ASKODOX are your shop's own records. You are responsible for their accuracy, for proper tax invoices and for the taxes you owe. ASKODOX is not your accountant or tax adviser.</li>
+<li>An advance or a due is money between the shop and its customer. ASKODOX only keeps the record; it does not hold, collect or guarantee that money.</li>
+<li>You must have your customers' agreement before you store their details or send them bills, reminders or messages, and you must tell staff before you add them. Don't send unwanted messages.</li>
+<li>Staff you add act for your shop within the role you give them. You are responsible for who you add and what they do.</li>
 <li>You are responsible for what you post to followers. Posts must not be misleading, unlawful or infringe anyone's rights. We may remove posts or profiles that break these terms.</li>
-<li>The quick bill is a calculator to help you; it is not stored by ASKODOX and is not a tax invoice. You remain responsible for proper invoices and taxes.</li>
 </ul>
+<h2>Shop pages and orders</h2>
+<p>A shop can have a free page on askodox.com that shows its menu or items and lets customers order, call or pay the shop. The shop decides the items, prices and whether to accept an order. An order is an agreement between the customer and the shop. ASKODOX only passes it on.</p>
+<h2>Live Work</h2>
+<p>Live Work turns your walking into progress in a game. Points, results and any coupon have no cash value and can't be exchanged for money unless an offer clearly says so. Watch the road and your surroundings while you walk; you use it at your own risk. Don't use it if you've been advised not to exercise.</p>
 <h2>Pictures you create</h2>
 <p>Don't use ASKODOX to create or edit pictures that are illegal, sexual, hateful, violent, deceptive, or that use another person's likeness or work without permission. We may refuse a request or remove content that breaks these rules.</p>
-<h2>Third-party links and partners</h2>
-<p>ASKODOX may show links to other websites and, once approved, partner or affiliate offers. We're not responsible for third-party sites. See the <a href="/affiliate-disclosure/">Affiliate disclosure</a>.</p>
+<h2>Third-party links and reference items</h2>
+<p>ASKODOX shows links to other websites and stores. Some items, shown as "For your reference" or with an affiliate label, carry a commission link: if you buy, the store may pay a commission, at no extra cost to you. The purchase, delivery, returns and refunds are with that store, under its terms. We're not responsible for third-party sites. See the <a href="/affiliate-disclosure/">Affiliate disclosure</a>.</p>
 <h2>Our content</h2>
-<p>The ASKODOX name, logo, design and software belong to the provider named above. You keep ownership of what you post, and give us permission to use it to run and improve ASKODOX.</p>
+<p>The ASKODOX name, logo, design and software belong to the provider named below. You keep ownership of what you post, and give us permission to use it to run and improve ASKODOX.</p>
 <h2>Liability</h2>
-<p>ASKODOX is provided "as is". To the extent the law allows, we're not liable for losses arising from dealings between users or from relying on AI answers. Nothing in these terms limits rights you have under consumer laws that can't be excluded.</p>
+<p>ASKODOX is provided "as is". To the extent the law allows, we're not liable for losses arising from dealings between users, from relying on AI answers or payment alerts, or from third-party stores and services. If you misuse ASKODOX and that causes a claim against us, you agree to bear the cost of that claim. Nothing in these terms limits rights you have under consumer laws that can't be excluded.</p>
 <h2>Who provides ASKODOX</h2>
 <p>ASKODOX is provided by {name}.</p>
 <h2>Governing law</h2>
 {law}
 <h2>Changes and contact</h2>
-<p>We may update these terms and will show the new effective date here. Questions: {mail(cfg, 'general_email')}.</p>
+<p>We may update these terms and will show the new effective date here. For significant changes we'll tell you in the app. Questions: {mail(cfg, 'general_email')}.</p>
 {grievance(cfg)}
 """
     return legal_page("/terms/", "Terms and conditions", "The terms for using the ASKODOX website and app.", inner, cfg)
@@ -1096,20 +1123,23 @@ def cookies(cfg: dict) -> Page:
 
 def refunds(cfg: dict) -> Page:
     inner = f"""
-<p class="lead">ASKODOX sells one thing itself: <strong>AI Credits</strong>, a prepaid balance for heavier AI features such as creating pictures. This page explains delivery, cancellation and refunds for them.</p>
+<p class="lead">ASKODOX sells one thing itself: <strong>AI Credits</strong>, a prepaid balance for heavier AI features such as creating pictures. Everything else in ASKODOX is free, so there is nothing to refund for it. This page explains delivery, cancellation and refunds for AI Credits.</p>
 <h2>Delivery</h2>
 <p>AI Credits are digital. They are added to your account as soon as the payment is confirmed, usually within a minute. Nothing is shipped. If credits are not added within 24 hours of a successful payment, email {mail(cfg, 'support_email')} with your payment reference and we will add them or refund you.</p>
 <h2>Cancellation</h2>
-<p>A purchase can't be cancelled once the credits are added, because they are available to use straight away. Unused credits stay in your account; they have no cash value and can't be transferred.</p>
+<p>A purchase can't be cancelled once the credits are added, because they are available to use straight away. Unused credits stay in your account; they have no cash value and can't be transferred. There is no subscription, so nothing renews by itself.</p>
 <h2>Refunds</h2>
 <ul>
 <li><strong>Failed tasks:</strong> if a feature fails, the credits held for it are returned to your balance automatically.</li>
 <li><strong>Charged twice or charged without credits:</strong> we refund the extra amount in full.</li>
 <li><strong>Other cases:</strong> credits you have used are not refundable, except where the law requires. Write to us within 7 days of the purchase and we'll look at it fairly.</li>
+<li>When a pack is refunded, the credits from that pack are taken back from your balance.</li>
 <li>Approved refunds go back to the original payment method, normally within 5 to 7 working days of approval, depending on your bank.</li>
 </ul>
 <h2>Payments to shops and other people</h2>
-<p>ASKODOX does not take or hold payments between buyers and sellers. Money you pay a shop or provider goes directly to them, so refunds for those purchases are between you and them. You can still report a problem to us.</p>
+<p>ASKODOX does not take or hold payments between buyers and sellers. Money you pay a shop or provider, including an advance or an order from a shop's page, goes directly to them, so cancellations and refunds for those are between you and them. You can still report a problem to us.</p>
+<h2>Things you buy from online stores</h2>
+<p>If you follow a link from ASKODOX and buy from an online store, that store delivers the item and handles returns and refunds under its own policy.</p>
 <h2>How to ask</h2>
 <p>Email {mail(cfg, 'support_email')} with your registered phone number, the payment reference and what happened.</p>
 {grievance(cfg)}
@@ -1117,25 +1147,65 @@ def refunds(cfg: dict) -> Page:
     return legal_page("/refunds/", "Refunds and cancellations", "Delivery, cancellation and refund terms for ASKODOX AI Credits, and how payments to shops work.", inner, cfg)
 
 
+def pricing(cfg: dict) -> Page:
+    inner = f"""
+<p class="lead">ASKODOX is free to use. There is no subscription and no commission on what people sell to each other.</p>
+<h2>Free</h2>
+<ul>
+<li>Asking ASKODOX by typing, voice or photo, and seeing nearby and online options.</li>
+<li>Listing what you sell or offer, and receiving requests.</li>
+<li>A shop page on askodox.com for your business.</li>
+</ul>
+<h2>Free for ever for shops</h2>
+<p>The tools a shop runs on every day stay free, however ASKODOX earns later:</p>
+<ul>
+<li>Payment voice alerts</li>
+<li>Quick bill</li>
+<li>Dues book</li>
+<li>Day and month sales reports</li>
+</ul>
+<h2>AI Credits (optional)</h2>
+<ul>
+<li>Heavier AI features, such as creating or editing pictures, can use prepaid AI Credits. A number of uses each day are free.</li>
+<li>Packs are sold only when the app shows them as on sale. The price of each pack is shown in the app before you pay, in rupees, including applicable taxes unless stated otherwise.</li>
+<li>Pay as you go: you recharge when you want. Nothing renews by itself.</li>
+<li>Delivery, cancellation and refunds are explained in <a href="/refunds/">Refunds and cancellations</a>.</li>
+</ul>
+<h2>What ASKODOX does not charge</h2>
+<ul>
+<li>No fee or commission on payments between a customer and a shop. That money goes directly to the shop; ASKODOX never holds it.</li>
+<li>No extra cost when you buy through a reference link. See the <a href="/affiliate-disclosure/">Affiliate disclosure</a>.</li>
+</ul>
+<h2>Costs from others</h2>
+<p>Your mobile data, and any charges from your bank, payment app or payment provider, are yours and are not set by ASKODOX.</p>
+<h2>If prices change</h2>
+<p>New prices are shown in the app and on this page before they apply. Credits you already bought keep their value. Questions: {mail(cfg, 'support_email')}.</p>
+"""
+    return legal_page("/pricing/", "Pricing", "ASKODOX is free to use, the everyday shop tools are free for ever, and AI Credits are an optional pay-as-you-go recharge.", inner, cfg)
+
+
 def affiliate(cfg: dict) -> Page:
     active = [l for l in cfg["links"] if l.get("status") == "active" and l.get("approved") and l.get("url") and l.get("affiliate")]
-    current = ("<ul>" + "".join(f"<li>{e(l['partner'])}: {e(l['programme'])}</li>" for l in active) + "</ul>") if active else "<p><strong>As of today, ASKODOX does not participate in any affiliate programme and has no active commercial partnerships.</strong> This page will list programmes as they're approved.</p>"
-    amazon = "<p>When ASKODOX joins the Amazon Associates programme, this statement applies: <em>As an Amazon Associate, ASKODOX earns from qualifying purchases.</em></p>"
+    listed = ("<p>Programmes linked directly from this website:</p><ul>" + "".join(f"<li>{e(l['partner'])}: {e(l['programme'])}</li>" for l in active) + "</ul>") if active else ""
     inner = f"""
-<p class="lead">ASKODOX may earn a commission when you buy through some links. Here's how that works and how we keep recommendations honest.</p>
-<h2>Current programmes</h2>
-{current}
-<h2>How affiliate links work</h2>
-<p>An affiliate link tells a store that you came from ASKODOX. If you buy something, the store may pay ASKODOX a commission. You don't pay more because of it.</p>
+<p class="lead">Some items and links in ASKODOX are commission links. If you buy through one, the store may pay a commission to ASKODOX or the people who run it. You don't pay more because of it.</p>
+<h2>Where you'll see them</h2>
+<ul>
+<li>In the app's result cards, as items shown "For your reference" or with an affiliate label.</li>
+<li>On ASKODOX product pages (askodox.com/shop and the pages it links to) and in ASKODOX videos and posts on social media that point to them.</li>
+</ul>
+<p>These links lead to online stores and affiliate networks. A store's name or product appearing in ASKODOX does not mean that store sponsors or endorses ASKODOX.</p>
+{listed}
+<h2>How commission links work</h2>
+<p>A commission link tells a store that you came from ASKODOX. If you buy something, the store may pay a commission. The price you pay is the store's own price. The purchase, delivery, returns and refunds are with that store.</p>
 <h2>Our rules</h2>
 <ul>
-<li>Affiliate and partner links are always labelled where they appear.</li>
-<li>They never decide which option ASKODOX recommends. Recommendations are based on what fits your request.</li>
-<li>We show nearby and non-partner options alongside partner ones whenever they fit.</li>
+<li>Commission never decides which option ASKODOX recommends. Recommendations are based on what fits your request.</li>
+<li>Nearby shops and shops registered on ASKODOX are shown first; reference items come after them.</li>
+<li>We show options without a commission link alongside whenever they fit.</li>
+<li>Paid placements, if ever shown, are labelled Sponsored.</li>
 <li>We never say we're a partner of a company unless we have an approved agreement.</li>
 </ul>
-<h2>Specific programmes</h2>
-{amazon}
 <p>Questions: {mail(cfg, 'partners_email')}.</p>
 """
     return legal_page("/affiliate-disclosure/", "Affiliate disclosure", "How affiliate and partner links work on ASKODOX, which programmes are active and how recommendations stay independent.", inner, cfg)
@@ -1167,4 +1237,4 @@ def not_found(cfg: dict) -> Page:
 def all_pages(cfg: dict) -> list[Page]:
     return [home(cfg), about(cfg), how_it_works(cfg), discover(cfg), sellers(cfg), providers(cfg), deals(cfg), videos(cfg),
             app_page(cfg), join(cfg), partners(cfg), support(cfg), faq(cfg), contact(cfg), report(cfg), trust(cfg), status(cfg),
-            privacy(cfg), terms(cfg), cookies(cfg), refunds(cfg), affiliate(cfg), accessibility(cfg), not_found(cfg)]
+            privacy(cfg), terms(cfg), cookies(cfg), refunds(cfg), pricing(cfg), affiliate(cfg), accessibility(cfg), not_found(cfg)]
