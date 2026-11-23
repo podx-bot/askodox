@@ -26,7 +26,7 @@ import json
 import math
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from app.services.account_identity import phone_key
@@ -66,7 +66,71 @@ SCHEMA = (
     " assignee TEXT NOT NULL, due_at TEXT, status TEXT NOT NULL DEFAULT 'open', done_at TEXT, created_by TEXT NOT NULL,"
     " created_at TEXT NOT NULL)",
     "CREATE INDEX IF NOT EXISTS idx_pos_tasks_biz ON pos_tasks(business_id, status)",
+    # Task chips the owner pinned / removed (owner 2026-11-24: chips learned from the tasks given most often).
+    "CREATE TABLE IF NOT EXISTS pos_task_chips (business_id TEXT NOT NULL, chip TEXT NOT NULL, state TEXT NOT NULL,"
+    " title TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL, PRIMARY KEY (business_id, chip))",
 )
+
+# Day-one chips per kind of shop (before any task was given); they fade once real tasks exist.
+TASK_CHIP_DEFAULTS = {
+    "restaurant": ["టేబుల్స్ శుభ్రం చేయి", "కూరగాయలు తీసుకురా", "గ్యాస్ సిలిండర్ చూడు", "పార్సిల్ డెలివరీ ఇవ్వు"],
+    "kirana": ["షెల్ఫ్‌లు సర్దు", "స్టాక్ లెక్కపెట్టు", "హోమ్ డెలివరీ ఇవ్వు", "షాప్ శుభ్రం చేయి"],
+    "_": ["షాప్ శుభ్రం చేయి", "స్టాక్ చూడు", "డెలివరీ ఇవ్వు", "బ్యాంక్‌లో డబ్బు వేయి"],
+}
+_CHIP_DROP = re.compile(r"\b\d{1,2}([:.]\d{2})?\s*(am|pm|గంటలకు|గంటకు|కి)?\b|[^\w\s]", re.IGNORECASE)
+_CHIP_TAIL = {"at", "by", "around", "before", "today", "ఈరోజు", "లోపు"}
+
+
+def task_chip_key(title: str) -> str:
+    """Phrasing variants of one job share a key: case, punctuation, times and spaces do not matter."""
+    words = _CHIP_DROP.sub(" ", str(title or "").lower()).split()
+    while words and words[-1] in _CHIP_TAIL:  # "... at 3 pm" -> "..."
+        words.pop()
+    return " ".join(words)[:80]
+
+
+def rank_task_chips(rows, now: datetime, prefs: Dict[str, Dict[str, str]], template: str = "", limit: int = 8):
+    """The jobs given most often, recent ones weighing more (half weight every 14 days), the ones usually given at
+    this hour first; each chip carries the person it usually goes to. Pinned first, removed never; day-one defaults
+    by kind of shop until real tasks exist."""
+    score: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        key = task_chip_key(r["title"])
+        if not key:
+            continue
+        try:
+            at = datetime.fromisoformat(str(r["created_at"]))
+        except ValueError:
+            continue
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+        weight = 0.5 ** (max(0.0, (now - at).total_seconds()) / (14 * 86400))
+        gap = abs(at.astimezone(IST).hour - now.astimezone(IST).hour)
+        if min(gap, 24 - gap) <= 2:
+            weight *= 1.6  # usually given around this time of day
+        row = score.setdefault(key, {"chip": key, "title": r["title"], "score": 0.0, "times": 0, "who": {}})
+        row["score"] += weight
+        row["times"] += 1
+        row["who"][r["assignee"]] = row["who"].get(r["assignee"], 0) + weight
+        if at.isoformat() >= str(row.get("last", "")):
+            row["last"], row["title"] = at.isoformat(), r["title"]
+    out = []
+    for row in score.values():
+        if prefs.get(row["chip"], {}).get("state") == "hide":
+            continue
+        who = max(row["who"].items(), key=lambda kv: kv[1])[0] if row["who"] else ""
+        out.append({"chip": row["chip"], "title": row["title"], "times": row["times"], "ref": who[-4:],
+                    "pinned": prefs.get(row["chip"], {}).get("state") == "pin", "score": round(row["score"], 3)})
+    for chip, pref in prefs.items():  # a pinned chip with no recent task stays
+        if pref.get("state") == "pin" and not any(o["chip"] == chip for o in out):
+            out.append({"chip": chip, "title": pref.get("title") or chip, "times": 0, "ref": "", "pinned": True, "score": 0})
+    if not out:
+        for title in TASK_CHIP_DEFAULTS.get(template, TASK_CHIP_DEFAULTS["_"]):
+            key = task_chip_key(title)
+            if prefs.get(key, {}).get("state") != "hide":
+                out.append({"chip": key, "title": title, "times": 0, "ref": "", "pinned": False, "score": 0, "starter": True})
+    out.sort(key=lambda o: (not o["pinned"], -o["score"]))
+    return out[:limit]
 
 
 def _now() -> datetime:
@@ -619,6 +683,34 @@ class PosAttendance:
         return {"tasks": out, "counts": {"open": sum(1 for t in out if t["status"] == "open"),
                                          "done": sum(1 for t in out if t["status"] == "done"),
                                          "late": sum(1 for t in out if t["late"])}}
+
+    def task_chips(self, business_id: str, user: str) -> Dict[str, Any]:
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "members")
+            rows = conn.execute("SELECT title, assignee, created_at FROM pos_tasks WHERE business_id = ? AND created_at >= ?"
+                                " ORDER BY created_at DESC LIMIT 1000",
+                                (business_id, (self.clock() - timedelta(days=90)).isoformat())).fetchall()
+            prefs = {r["chip"]: {"state": r["state"], "title": r["title"]} for r in conn.execute(
+                "SELECT chip, state, title FROM pos_task_chips WHERE business_id = ?", (business_id,))}
+            template = self.store._business_row(conn, business_id)["template"] or ""
+        return {"chips": rank_task_chips(rows, self.clock(), prefs, template)}
+
+    def set_task_chip(self, business_id: str, user: str, title: str, state: str) -> Dict[str, Any]:
+        if state not in ("pin", "hide", "auto"):
+            raise PosError(400, "state", "pin, hide or auto.")
+        key = task_chip_key(title)
+        if not key:
+            raise PosError(400, "title", "Which chip?")
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "members")
+            if state == "auto":
+                conn.execute("DELETE FROM pos_task_chips WHERE business_id = ? AND chip = ?", (business_id, key))
+            else:
+                conn.execute("INSERT INTO pos_task_chips (business_id, chip, state, title, updated_at) VALUES (?,?,?,?,?)"
+                             " ON CONFLICT(business_id, chip) DO UPDATE SET state = excluded.state, title = excluded.title,"
+                             " updated_at = excluded.updated_at",
+                             (business_id, key, state, str(title)[:120], self.clock().isoformat()))
+        return {"chip": key, "state": state}
 
     def add_task(self, business_id: str, user: str, title: str, ref: str, due_at: str = "") -> Dict[str, Any]:
         title = re.sub(r"\s+", " ", str(title or "")).strip()[:120]

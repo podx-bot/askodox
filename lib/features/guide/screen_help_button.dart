@@ -354,7 +354,8 @@ class _GuideLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
-    return Text(te ? 'గైడ్' : 'Guide',
+    // Owner 2026-11-24: one button "చెప్పు" -- first tap explains this page, inside it the mic takes a command.
+    return Text(te ? 'చెప్పు' : 'Tell',
         style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF1769FF)));
   }
 }

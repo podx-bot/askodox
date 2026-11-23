@@ -219,3 +219,12 @@ def test_link_order_lands_in_the_shop_app_and_the_customer_follows_it(monkeypatc
     assert "ఒప్పుకున్నారు" in after and "ఆర్డర్ రద్దు చేయి" not in after
     stats = client.get(f"/api/pos/businesses/{bid}/link/stats", headers=h).json()["today"]
     assert stats["order_shop"] == 2
+
+
+def test_sms_card_fits_one_sms_and_carries_link_and_upi():
+    from app.services.shop_links import ShopLinks
+
+    text = ShopLinks.sms_card("Sri Lakshmi Tiffins", "https://askodox.com/s/lakshmi-tiffins", "lakshmi@okaxis")
+    assert text == "Sri Lakshmi Tiffins - menu & order: askodox.com/s/lakshmi-tiffins UPI: lakshmi@okaxis"
+    long = ShopLinks.sms_card("A" * 200, "https://askodox.com/s/x", "y@upi")
+    assert len(long) <= 160 and long.endswith("askodox.com/s/x UPI: y@upi")

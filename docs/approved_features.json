@@ -10244,6 +10244,283 @@
           "askodoxDefaultUpi"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/notices/preview",
+          "response_keys": [
+            "people",
+            "rate_paise",
+            "cost_paise",
+            "charging"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/notices",
+          "response_keys": [
+            "id",
+            "status",
+            "people"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/notices/mine",
+          "response_keys": [
+            "notices"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/notices/{notice_id}",
+          "response_keys": [
+            "title",
+            "body",
+            "from_shop"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Any signed-in person (buyer or seller) opens ☰ -> Send a notification (/notices/new): subject -> AI design (POST /api/images/edit) or own photo -> heading + offer (no links / phone numbers, rude words masked) -> who: own shop's followers (owner only), people within 1/3/5/10 km, or both -> live count + price (notices.rate_paise, default 5 paise per person, from AI Credits; free while charging is OFF) -> Send. Charged only for phones that took it (the rest is given back). Receivers: push kind 'offers' (Settings -> Notifications switch), max 3 a day and 1 a day from the same sender, nothing 21:00-08:00 IST; tap opens /notice/:id (picture, shop button, turn-off link).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: paid notifications for everyone (owner 2026-11-24 'anyone can send, 5 / 10 paise'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "paid_notifications",
+      "name": "Paid notifications (anyone sends offers)",
+      "purpose": "Owner 2026-11-24: buyers and sellers send a designed offer notification to ASKODOX users for a few paise per person.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_notice_broadcast.py"
+        ],
+        "flutter": [
+          "test/features/notices/notice_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMenu-notify",
+          "askodoxNoticeSubject",
+          "askodoxNoticeDesign",
+          "askodoxNoticePhoto",
+          "askodoxNoticeCount",
+          "askodoxNoticeSend",
+          "askodoxNoticeTurnOff"
+        ],
+        "symbols": [
+          "askodoxNoticeAnswerOf",
+          "askodoxNoticeReason",
+          "askodoxNoticeDesignPrompt",
+          "AskodoxNoticeCreateScreen",
+          "AskodoxNoticeViewScreen"
+        ]
+      }
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/customers/suggestions",
+          "response_keys": [
+            "suggestions"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/customers/suggestions/skip",
+          "response_keys": [
+            "skipped"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "The shop's Customer list shows 'Save these customers? (N)' with side-by-side chips for people who ordered (front desk / shop link / app / counter orders with a phone) or got a bill sent to their number and are not in the list yet, most seen first; ✓ saves (name + phone via add_customer), ✕ hides that number for this shop for ever. Nothing is saved without the tap; other shops' customers never show.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: customer list grows by itself from orders / bills (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "customer_suggestions",
+      "name": "Customer list suggestions",
+      "purpose": "Owner 2026-11-24: the customer list should fill itself from payments / bills / orders instead of typing every customer.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_customer_suggestions.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxCustomerSuggestions"
+        ],
+        "symbols": [
+          "AskodoxCustomerSuggestions"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "The guide tab on every page is labelled 'చెప్పు' / 'Tell'. First tap opens the page's guide; at its top the big mic (askodoxCommandMic) takes a command: it stops by itself 2 s after the person stops talking (6 s when nothing is said, 45 s max), shows the heard words and sends them after 3 s unless Stop / Change is tapped (no send button needed). The words go to the ASKODOX chat (AskodoxChatRequest.ask + Home), which opens the page or does the job (risky jobs still ask for a ✓ there).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: guide + command mic on one button with auto-send (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "tell_button_command_mic",
+      "name": "చెప్పు button: guide + command mic",
+      "purpose": "Owner 2026-11-24: one button on top of every page -- first tap guide, second tap a mic that takes a command and sends by itself after a short quiet.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/guide/command_mic_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCommandMic",
+          "askodoxCommandCountdown",
+          "askodoxCommandStop",
+          "askodoxCommandChange"
+        ],
+        "symbols": [
+          "AskodoxCommandMic",
+          "askodoxCommandEndpointer"
+        ]
+      }
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/tasks/chips",
+          "response_keys": [
+            "chips"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/tasks/chips",
+          "response_keys": [
+            "chip",
+            "state"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Tasks page (owner / manager): a side-scrolling strip of one-tap chips learned from the tasks given most often in the last 90 days (phrasing variants joined, recent weigh more, the ones usually given around this hour first, each with the person it usually goes to); tap = the task sheet pre-filled; hold = pin / remove; day-one starters by kind of shop. The task sheet picks the person by face (today's check-in photo, else the initial; green ring = came today).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: learned task chips + staff faces (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "task_chips_staff_faces",
+      "name": "Learned task chips + staff faces",
+      "purpose": "Owner 2026-11-24: give tasks in one tap -- chips from the commands he gives most, staff chosen by photo.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_task_chips.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxTaskChips"
+        ],
+        "symbols": [
+          "AskodoxStaffFace"
+        ]
+      }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders",
+          "response_keys": [
+            "id"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Counter bill with items in the cart shows side-by-side chips Bill now / Table / Parcel / Delivery. Bill now = the pay sheet as before. Table (pick the table), Parcel (name, phone optional) or Delivery (name, phone, address) = 'To kitchen': the cart goes to the front desk as a counter order (source counter) -> Live orders, where it is accepted, sent to the kitchen (KOT), a delivery person assigned and billed (split or together).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: counter takes table / parcel / delivery orders (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "counter_order_kinds",
+      "name": "Counter: table / parcel / delivery orders",
+      "purpose": "Owner 2026-11-24: POS works as the cashier counter for walk-in, table and delivery orders, sends to the chef, assigns delivery.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/counter_orders_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCounterSend"
+        ],
+        "symbols": [
+          "askodoxCounterDeskLines",
+          "AskodoxCounterKindChips"
+        ]
+      }
     }
   ]
 }

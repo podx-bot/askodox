@@ -264,6 +264,20 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'దేని గురించో ఎంచుకోండి, మైక్‌తో చెప్పండి లేదా రాయండి.',
     'పంపు నొక్కండి. మా టీమ్ ప్రతి ఐడియా చదువుతుంది. ఫోన్ నంబర్, OTP, కార్డ్ నంబర్లు రాయకండి.',
   ]),
+  '/notices/new': _H('Send a notification', 'నోటిఫికేషన్ పంపండి', [
+    'Write the subject, tap AI design (or add your photo), check the heading and offer.',
+    'Choose who gets it: your shop followers, people within 1-10 km, or both. The count and price show below; tap Send.',
+  ], [
+    'సబ్జెక్ట్ రాయండి, AI డిజైన్ నొక్కండి (లేదా మీ ఫోటో పెట్టండి), హెడ్డింగ్, ఆఫర్ చూసుకోండి.',
+    'ఎవరికో ఎంచుకోండి: ఫాలోవర్స్, 1-10 కి.మీ లోపు వాళ్ళు, లేదా రెండూ. ఎంతమంది, ఎంత ఖర్చో కింద కనిపిస్తుంది; పంపండి నొక్కండి.',
+  ]),
+  '/notice/:id': _H('Offer', 'ఆఫర్', [
+    'A shop or person near you sent this. Tap See the shop to open it.',
+    'Don\'t want these? Turn "Offers" off in Settings → Notifications.',
+  ], [
+    'మీ దగ్గర షాప్ / వ్యక్తి పంపారు. షాప్ చూడండి నొక్కితే తెరుచుకుంటుంది.',
+    'ఇవి వద్దా? సెట్టింగ్స్ → నోటిఫికేషన్స్‌లో "ఆఫర్లు" ఆపేయండి.',
+  ]),
   '/beta-feedback': _H('Report a problem', 'సమస్య చెప్పండి', [
     'Write what went wrong; add a screenshot if you like.',
     'Diagnostics are sent only if you allow it.',

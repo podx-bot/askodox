@@ -193,8 +193,7 @@ const _sellerSpecs = <_SellerSpec>[
       tool: 'customers', perm: 'customers'),
   _SellerSpec('s.crm', 'customers.crm', 'Enquiries', 'ఎంక్వైరీలు', Icons.forum_rounded, Color(0xFF0284C7),
       tool: 'crm', perm: 'crm'),
-  _SellerSpec('s.orderalerts', 'orders.alerts', 'Who accepts & alerts', 'ఎవరు ఒప్పుకోవాలి', Icons.notifications_active_rounded,
-      Color(0xFF7C3AED), who: 'owner'),
+  // Owner 2026-11-24: "Who accepts & alerts" is part of Staff & roles now (one page; its order-alert steps open there).
   _SellerSpec('s.qrcodes', 'orders.qr', 'QR codes', 'QR కోడ్‌లు', Icons.qr_code_2_rounded, Color(0xFF334155), who: 'owner'),
   _SellerSpec('s.kiosk', 'staff.kiosk', 'Shop phone attendance', 'షాప్ ఫోన్ హాజరు', Icons.phone_android_rounded,
       Color(0xFF0D9488), tool: 'staff', perm: 'members'),
@@ -208,8 +207,7 @@ const _sellerSpecs = <_SellerSpec>[
       tool: 'printer', perm: 'settings'),
   _SellerSpec('s.selfshop', 'settings.selfshop', 'Self-shopping', 'సెల్ఫ్ షాపింగ్', Icons.shopping_cart_rounded,
       Color(0xFF16A34A), tool: 'selfshop', perm: 'settings'),
-  _SellerSpec('s.agents', 'settings.agents', 'AI agents', 'AI Agents', Icons.smart_toy_rounded, Color(0xFF7C3AED),
-      tool: 'agents', perm: 'settings'),
+  // Owner 2026-11-24: the "AI agents" page was unclear -- asking / doing things by voice lives in the guide + chat.
   _SellerSpec('s.reportset', 'reports.settings', 'Report settings', 'రిపోర్ట్ సెట్టింగ్స్', Icons.edit_calendar_rounded,
       Color(0xFF475569), who: 'owner'),
 ];

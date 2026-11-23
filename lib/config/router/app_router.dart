@@ -9,6 +9,7 @@ import '../../core/providers/backend_providers.dart';
 import '../../features/home/presentation/chat_first_home_host.dart';
 import '../../features/catalog/presentation/product_details_screen.dart';
 import '../../features/catalog/presentation/product_not_found_screen.dart';
+import '../../features/notices/notice_screens.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/kyc/presentation/kyc_screen.dart';
 import '../../features/money_home/money_home_screen.dart';
@@ -257,6 +258,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/me/ideas',
           builder: (context, state) => AskodoxIdeasScreen(about: state.uri.queryParameters['about'] ?? '')),
+      GoRoute(
+          path: '/notices/new',
+          builder: (context, state) => AskodoxNoticeCreateScreen(shopId: state.uri.queryParameters['shop'] ?? '')),
+      GoRoute(
+          path: '/notice/:id',
+          builder: (context, state) => AskodoxNoticeViewScreen(id: state.pathParameters['id']!)),
       GoRoute(
           path: '/beta-feedback',
           builder: (context, state) => const BetaFeedbackScreen()),

@@ -1263,6 +1263,22 @@ def task_add(business_id: str, body: TaskIn, request: Request) -> dict:
     return _call(_att(request).add_task, business_id, _user(request, "tasks", 120), body.title, body.ref, body.due_at)
 
 
+@router.get("/businesses/{business_id}/tasks/chips")
+def task_chips(business_id: str, request: Request) -> dict:
+    """Owner 2026-11-24: one-tap task chips learned from the tasks given most often (by person, time of day)."""
+    return _call(_att(request).task_chips, business_id, _user(request, "tasks", 300))
+
+
+class TaskChipIn(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    state: str = Field(pattern="^(pin|hide|auto)$")
+
+
+@router.put("/businesses/{business_id}/tasks/chips")
+def set_task_chip(business_id: str, body: TaskChipIn, request: Request) -> dict:
+    return _call(_att(request).set_task_chip, business_id, _user(request, "tasks", 120), body.title, body.state)
+
+
 @router.post("/businesses/{business_id}/tasks/{task_id}/done")
 def task_done(business_id: str, task_id: str, request: Request, undo: bool = False) -> dict:
     return _call(_att(request).task_done, business_id, _user(request, "tasks", 120), task_id, not undo)

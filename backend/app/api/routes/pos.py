@@ -346,6 +346,21 @@ def customers(business_id: str, request: Request, q: str = "") -> dict:
     return {"customers": _call(_store(request).customers, business_id, _user(request), q)}
 
 
+@router.get("/businesses/{business_id}/customers/suggestions")
+def customer_suggestions(business_id: str, request: Request) -> dict:
+    """Owner 2026-11-24: the customer list grows by itself -- suggested from orders / sent bills, saved on a tap."""
+    return {"suggestions": _call(_store(request).customer_suggestions, business_id, _user(request))}
+
+
+class SuggestionSkipIn(BaseModel):
+    phone: str = Field(min_length=10, max_length=20)
+
+
+@router.post("/businesses/{business_id}/customers/suggestions/skip")
+def skip_customer_suggestion(business_id: str, body: SuggestionSkipIn, request: Request) -> dict:
+    return _call(_store(request).skip_customer_suggestion, business_id, _user(request), body.phone)
+
+
 @router.post("/businesses/{business_id}/customers")
 def add_customer(business_id: str, body: CustomerIn, request: Request) -> dict:
     return _call(_store(request).add_customer, business_id, _user(request), _dump(body))

@@ -164,6 +164,18 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
     }
   }
 
+  /// The server's <= 160 character card (shop, light page, own UPI); opens the phone's SMS app with it.
+  Future<void> _sms() async {
+    final te = _te;
+    final text = '${_data?['sms_text'] ?? ''}'.trim().isEmpty ? '$_shop - menu & order: $_url' : '${_data?['sms_text']}';
+    final opened = await launchUrl(Uri.parse('sms:?body=${Uri.encodeComponent(text)}'), mode: LaunchMode.externalApplication)
+        .catchError((_) => false);
+    if (!opened) {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) askodoxPosSnack(context, te ? 'SMS యాప్ తెరుచుకోలేదు — మెసేజ్ కాపీ చేశాను.' : 'SMS app did not open — message copied.');
+    }
+  }
+
   Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: _url));
     if (mounted) askodoxPosSnack(context, _te ? 'లింక్ కాపీ అయింది.' : 'Link copied.');
@@ -457,6 +469,13 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
             label: te ? 'QR పోస్టర్' : 'QR poster',
             color: askodoxStepInk,
             onTap: enabled ? _poster : null),
+        // ASKODOX Lite step 6: one plain SMS for keypad / small phones (no app, no WhatsApp needed).
+        AskodoxStepRoundAction(
+            key: const Key('askodoxShopLinkSms'),
+            icon: Icons.sms_rounded,
+            label: te ? 'SMS కార్డ్' : 'SMS card',
+            color: const Color(0xFF0369A1),
+            onTap: enabled ? _sms : null),
         AskodoxStepRoundAction(
             key: const Key('askodoxShopLinkOpen'),
             icon: Icons.open_in_new_rounded,

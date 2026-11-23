@@ -125,7 +125,7 @@ void main() {
     // Buyer side: the person's own card, their own places, the company's pages, Sign in (signed out here).
     final phase2Only = ['business', 'listings', 'enquiries', 'orders', 'mobility'];
     for (final key in [
-      'more', 'saved', 'newchat', 'language', 'location', 'notifications', 'credits', 'settings', 'ideas', 'care',
+      'more', 'saved', 'newchat', 'language', 'location', 'notifications', 'notify', 'credits', 'settings', 'ideas', 'care',
       'contact', 'about', 'terms', 'privacy', 'signin',
       if (askodoxPhase2) ...['orders', 'mobility'],
     ]) {

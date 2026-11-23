@@ -21,6 +21,7 @@ import '../domain/pos_pricing.dart';
 import '../domain/pos_scale.dart';
 import '../domain/pos_tax.dart';
 import 'pos_common.dart';
+import 'pos_counter_orders.dart';
 import 'pos_dues_screen.dart' show askodoxDueDateChoices, askodoxIsoDay;
 import 'pos_restaurant_screens.dart' show AskodoxPosDraftsScreen;
 import 'pos_order_review.dart';
@@ -112,6 +113,41 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   Map<String, int> _customerPrices = const {};
   bool _loading = true;
   bool _issuing = false;
+
+  /// Owner 2026-11-24: now (bill at once) / dine_in / takeaway / delivery (sent to the kitchen via the front desk).
+  String _kind = 'now';
+
+  Future<void> _sendToKitchen() async {
+    final te = askodoxPosTe(context);
+    final extra = await askodoxCounterOrderDetails(context, ref, widget.businessId, _kind);
+    if (extra == null || !mounted) return;
+    final lines = askodoxCounterDeskLines([
+      for (final l in _cart) (productId: '${l.product['id'] ?? ''}', qtyMilli: l.qtyMilli),
+    ]);
+    if (lines.isEmpty) return;
+    setState(() => _issuing = true);
+    try {
+      await ref.read(askodoxPosRepositoryProvider).deskStaffPlace(widget.businessId, {
+        ...extra,
+        'items': lines,
+        'source': 'counter',
+        'client_txn_id': 'ctr-${DateTime.now().microsecondsSinceEpoch}',
+      });
+      if (!mounted) return;
+      setState(() {
+        _cart.clear();
+        _kind = 'now';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(te ? '✓ కిచెన్‌కి వెళ్ళింది. డెలివరీ వ్యక్తి, బిల్లు లైవ్ ఆర్డర్స్‌లో.' : '✓ Sent to the kitchen. Delivery person and bill in Live orders.'),
+        action: SnackBarAction(label: te ? 'చూడు' : 'Open', onPressed: () => context.push('/desk/${widget.businessId}')),
+      ));
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    } finally {
+      if (mounted) setState(() => _issuing = false);
+    }
+  }
   bool _cartOpen = true;
   String? _error;
 
@@ -1140,6 +1176,11 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(_error!, key: const Key('askodoxPosSaleError'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
+        if (_cart.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: AskodoxCounterKindChips(kind: _kind, onKind: (k) => setState(() => _kind = k)),
+          ),
         SafeArea(
           top: false,
           child: Padding(
@@ -1156,9 +1197,13 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
               ),
               FilledButton.icon(
                 key: const Key('askodoxPosPay'),
-                onPressed: _cart.isEmpty || _issuing ? null : _pay,
-                icon: const Icon(Icons.payments_outlined),
-                label: Text(_issuing ? (te ? 'బిల్లు…' : 'Billing…') : (te ? 'చెల్లింపు' : 'Pay')),
+                onPressed: _cart.isEmpty || _issuing ? null : (_kind == 'now' ? _pay : _sendToKitchen),
+                icon: Icon(_kind == 'now' ? Icons.payments_outlined : Icons.soup_kitchen_rounded),
+                label: Text(_issuing
+                    ? (te ? 'బిల్లు…' : 'Billing…')
+                    : _kind == 'now'
+                        ? (te ? 'చెల్లింపు' : 'Pay')
+                        : (te ? 'కిచెన్‌కి' : 'To kitchen')),
               ),
             ]),
           ),

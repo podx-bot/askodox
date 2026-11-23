@@ -61,7 +61,7 @@ def my_follows(request: Request) -> Dict[str, Any]:
 
 class ShopPostIn(BaseModel):
     caption: str = Field(default="", max_length=600)
-    image_base64: str = Field(default="", max_length=1_300_000)
+    image_base64: str = Field(default="", max_length=2_700_000)
 
 
 @router.post("/api/shops/{business_id}/posts")

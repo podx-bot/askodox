@@ -82,7 +82,7 @@ class PushService:
 
     # ----------------------------------------------------- preferences --
 
-    KINDS = ("requests", "replies", "leads", "opportunities", "notices")
+    KINDS = ("requests", "replies", "leads", "opportunities", "notices", "offers")
 
     def set_prefs(self, user_id: str, *, enabled: bool, muted: list[str]) -> dict[str, Any]:
         """The app's Notifications switches (same keys as the app), so the
@@ -115,6 +115,8 @@ class PushService:
             return "requests"  # my own request's progress
         if key.startswith("demand:"):
             return "opportunities"
+        if key.startswith("notice:"):
+            return "offers"  # a shop's / person's paid notification (owner 2026-11-24); the person can switch it off
         if key.startswith(("reply:", "message:")) or "/deals" in route:
             return "replies"
         return "notices"

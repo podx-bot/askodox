@@ -104,6 +104,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxMenu-signout')), 120,
         scrollable: find.byType(Scrollable).last);
+    // A longer menu (owner 2026-11-24 "Send a notification") can leave the button half under the box edge.
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxMenu-signout')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('askodoxMenu-signout')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxSignOutDialog')), findsOneWidget);
@@ -118,6 +121,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxMenu-signout')), 120,
         scrollable: find.byType(Scrollable).last);
+    // A longer menu (owner 2026-11-24 "Send a notification") can leave the button half under the box edge.
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxMenu-signout')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('askodoxMenu-signout')));
     await tester.pumpAndSettle();
     final before = builds;
