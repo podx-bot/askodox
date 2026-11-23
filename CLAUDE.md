@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` PR #406 + #407 + #408 (2026-11-23, owner "1"; Play bundle: see tracker / next checkpoint line): (#406) SORT WITH AI
+- `main` PR #406 + #407 + #408 (2026-11-23, owner "1"; server deploy 8b5a5b3 SUCCESS; Play bundle `askodox-play-1619.aab`, Live Build run 45216267983): (#406) SORT WITH AI
   = `pos_menu_sort.sort_menu` numbers items once, 25 per part in parallel, missing items asked again, `_parse` skips a cut
   last line; `MenuSortJobs` (one running job per shop, 30 min) + `POST .../desk/menu/sort?background=1` / `GET` -> push
   when done. Counter bill: grid on top, folding cart only when not empty, command + search boxes BELOW above Total; pay sheet
