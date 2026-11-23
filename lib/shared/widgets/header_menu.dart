@@ -58,6 +58,13 @@ const askodoxSettingsMenuValue = '__settings__';
 /// Owner 2026-11-18: personal + business details open from the Menu (the bottom tab became "Tools").
 const askodoxProfileDetailsMenuValue = '__profile_details__';
 
+/// Owner 2026-11-24: Customer care opens the ASKODOX chat (not the website) -- the chat studies the app, the person's
+/// own bills / payments / orders and answers; only what it cannot solve becomes a ticket (email + Command Center).
+const askodoxCareMenuValue = '__care__';
+
+/// What Customer care says first in the chat.
+String askodoxCareOpening(bool te) => te ? 'నేను కస్టమర్ కేర్‌తో మాట్లాడాలి' : 'I want to talk to Customer Care';
+
 /// Menu value that starts a clean conversation (the old one stays in History).
 const askodoxNewChatMenuValue = '__new_chat__';
 
@@ -86,12 +93,10 @@ void askodoxApplyLanguage(WidgetRef ref, String code) {
 
 /// The company's own pages (askodox.com), the same in both sides.
 const askodoxCompanyLinks = <(String, IconData, String, String, String)>[
-  ('support', Icons.support_agent_rounded, 'Customer care', 'కస్టమర్ కేర్', 'https://askodox.com/support/'),
   ('contact', Icons.mail_outline_rounded, 'Contact us', 'మమ్మల్ని సంప్రదించండి', 'https://askodox.com/contact/'),
   ('about', Icons.info_outline_rounded, 'About us', 'మా గురించి', 'https://askodox.com/about/'),
   ('terms', Icons.gavel_rounded, 'Terms & conditions', 'నిబంధనలు', 'https://askodox.com/terms/'),
   ('privacy', Icons.privacy_tip_outlined, 'Privacy', 'ప్రైవసీ', 'https://askodox.com/privacy/'),
-  ('report', Icons.flag_outlined, 'Report a problem', 'సమస్య చెప్పండి', 'https://askodox.com/report-a-problem/'),
 ];
 
 const _buyerColor = Color(0xFF6C4DFF);
@@ -184,6 +189,11 @@ Future<void> askodoxRunMenuChoice(BuildContext context, WidgetRef ref, String ro
     askodoxStartNewChat(ref, context);
     return;
   }
+  if (route == askodoxCareMenuValue) {
+    ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(askodoxCareOpening(te));
+    context.go('/');
+    return;
+  }
   if (route == askodoxSettingsMenuValue || route == '/profile') {
     ref.read(askodoxProfileViewProvider.notifier).state = route == askodoxSettingsMenuValue ? 'settings' : 'me';
     context.go('/profile'); // a bottom-bar tab, not a page on top
@@ -217,8 +227,10 @@ class AskodoxMenuBox extends ConsumerWidget {
               : '/notices/new'),
       ('askodoxMenu-credits', Icons.bolt_rounded, te ? 'AI క్రెడిట్స్' : 'AI Credits', '/me/ai-credits'),
       ('askodoxMenu-settings', Icons.settings_outlined, te ? 'సెట్టింగ్స్' : 'Settings', askodoxSettingsMenuValue),
-      ('askodoxMenu-feedback', Icons.rate_review_outlined, te ? 'ఫీడ్‌బ్యాక్' : 'Feedback', '/beta-feedback'),
-      ('askodoxMenu-ideas', Icons.lightbulb_outline, te ? 'మీ ఐడియా' : 'Your idea', '/me/ideas'),
+      // Owner 2026-11-24: ONE place for ideas, suggestions and feedback ("help us grow"); a problem goes to Customer
+      // care in the chat (the website "report a problem" page is gone from here).
+      ('askodoxMenu-ideas', Icons.lightbulb_outline, te ? 'సలహాలు & సూచనలు' : 'Ideas & suggestions', '/me/ideas'),
+      ('askodoxMenu-care', Icons.support_agent_rounded, te ? 'కస్టమర్ కేర్' : 'Customer care', askodoxCareMenuValue),
       if (askodoxGuidesOn)
         ('askodoxMenu-guide', Icons.assistant_navigation, te ? 'స్క్రీన్ గైడ్' : 'Screen Guide', askodoxGuideMenuValue),
       // Phase 2 places, each on its own side.
