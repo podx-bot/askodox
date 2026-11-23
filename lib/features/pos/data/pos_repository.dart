@@ -328,6 +328,11 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> customers(String id, {String q = ''}) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/customers', query: {if (q.isNotEmpty) 'q': q}))['customers']);
   Future<AskodoxJson> addCustomer(String id, AskodoxJson body) => _send('POST', '${_b(id)}/customers', body: body);
+  /// People who ordered / got a bill but are not in the list (owner 2026-11-24); saved only on a tap.
+  Future<List<AskodoxJson>> customerSuggestions(String id) async =>
+      askodoxPosList((await _send('GET', '${_b(id)}/customers/suggestions'))['suggestions']);
+  Future<AskodoxJson> skipCustomerSuggestion(String id, String phone) =>
+      _send('POST', '${_b(id)}/customers/suggestions/skip', body: {'phone': phone});
   Future<AskodoxJson> customer(String id, String customerId) => _send('GET', '${_b(id)}/customers/$customerId');
   Future<AskodoxJson> setCustomerPrice(String id, String customerId, String productId, int? paise) =>
       _send('PUT', '${_b(id)}/customers/$customerId/prices/$productId', body: {'price_paise': paise});

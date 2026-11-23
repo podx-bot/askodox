@@ -800,6 +800,7 @@ class _AskodoxPosCustomersScreenState extends ConsumerState<AskodoxPosCustomersS
           if (snap.hasError) return AskodoxPosError(error: snap.error!, onRetry: _reload);
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           return ListView(key: const Key('askodoxPosCustomers'), children: [
+            AskodoxCustomerSuggestions(businessId: widget.businessId, onSaved: _reload),
             for (final c in snap.data!)
               ListTile(
                 key: ValueKey('askodoxPosCustomerRow-${c['id']}'),
@@ -814,6 +815,120 @@ class _AskodoxPosCustomersScreenState extends ConsumerState<AskodoxPosCustomersS
               ),
           ]);
         },
+      ),
+    );
+  }
+}
+
+/// "Save these?" (owner 2026-11-24): people who ordered or got a bill, one row each, side by side chips -- ✓ saves to
+/// the customer list, ✕ never shows that number again. Hidden when there is nobody to suggest.
+class AskodoxCustomerSuggestions extends ConsumerStatefulWidget {
+  const AskodoxCustomerSuggestions({super.key, required this.businessId, this.onSaved});
+  final String businessId;
+  final VoidCallback? onSaved;
+
+  @override
+  ConsumerState<AskodoxCustomerSuggestions> createState() => _AskodoxCustomerSuggestionsState();
+}
+
+class _AskodoxCustomerSuggestionsState extends ConsumerState<AskodoxCustomerSuggestions> {
+  List<AskodoxJson> _rows = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rows = await ref.read(askodoxPosRepositoryProvider).customerSuggestions(widget.businessId);
+      if (mounted) setState(() => _rows = rows);
+    } catch (_) {
+      // Suggestions are extra: no network = no strip.
+    }
+  }
+
+  Future<void> _save(AskodoxJson row) async {
+    final te = askodoxPosTe(context);
+    final phone = '${row['phone']}';
+    final name = '${row['name'] ?? ''}'.trim().isEmpty ? phone : '${row['name']}';
+    try {
+      await ref.read(askodoxPosRepositoryProvider).addCustomer(widget.businessId, {'name': name, 'phone': phone});
+      if (!mounted) return;
+      setState(() => _rows = [for (final r in _rows) if ('${r['phone']}' != phone) r]);
+      askodoxPosSnack(context, te ? '✓ $name కస్టమర్ లిస్ట్‌లో చేరారు.' : '✓ $name saved to the customer list.');
+      widget.onSaved?.call();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
+  Future<void> _skip(AskodoxJson row) async {
+    final phone = '${row['phone']}';
+    setState(() => _rows = [for (final r in _rows) if ('${r['phone']}' != phone) r]);
+    try {
+      await ref.read(askodoxPosRepositoryProvider).skipCustomerSuggestion(widget.businessId, phone);
+    } catch (_) {
+      // Shown again next time: harmless.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_rows.isEmpty) return const SizedBox.shrink();
+    final te = askodoxPosTe(context);
+    return Card(
+      key: const Key('askodoxCustomerSuggestions'),
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(te ? 'వీళ్ళని కస్టమర్ లిస్ట్‌లో చేర్చాలా? (${_rows.length})' : 'Save these customers? (${_rows.length})',
+              style: Theme.of(context).textTheme.titleSmall),
+          Text(te ? 'మీ షాప్‌లో ఆర్డర్ చేసినవాళ్ళు / బిల్లు పంపినవాళ్ళు.' : 'People who ordered or got a bill from you.',
+              style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 58,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _rows.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final r = _rows[i];
+                final phone = '${r['phone']}';
+                final name = '${r['name'] ?? ''}'.trim();
+                return DecoratedBox(
+                  key: ValueKey('askodoxCustomerSuggestion-$phone'),
+                  decoration: BoxDecoration(
+                      border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(12)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(name.isEmpty ? '••${phone.substring(phone.length - 4)}' : name,
+                            style: const TextStyle(fontWeight: FontWeight.w700)),
+                        Text(te ? '${r['times']} సార్లు' : '${r['times']} times', style: Theme.of(context).textTheme.bodySmall),
+                      ]),
+                    ),
+                    IconButton(
+                        key: ValueKey('askodoxCustomerSuggestionSave-$phone'),
+                        tooltip: te ? 'చేర్చు' : 'Save',
+                        onPressed: () => _save(r),
+                        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF15803D))),
+                    IconButton(
+                        key: ValueKey('askodoxCustomerSuggestionSkip-$phone'),
+                        tooltip: te ? 'వద్దు' : 'No',
+                        onPressed: () => _skip(r),
+                        icon: const Icon(Icons.close_rounded)),
+                  ]),
+                );
+              },
+            ),
+          ),
+        ]),
       ),
     );
   }

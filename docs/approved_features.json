@@ -10284,6 +10284,58 @@
           "AskodoxNoticeViewScreen"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/customers/suggestions",
+          "response_keys": [
+            "suggestions"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/customers/suggestions/skip",
+          "response_keys": [
+            "skipped"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "The shop's Customer list shows 'Save these customers? (N)' with side-by-side chips for people who ordered (front desk / shop link / app / counter orders with a phone) or got a bill sent to their number and are not in the list yet, most seen first; ✓ saves (name + phone via add_customer), ✕ hides that number for this shop for ever. Nothing is saved without the tap; other shops' customers never show.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: customer list grows by itself from orders / bills (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "customer_suggestions",
+      "name": "Customer list suggestions",
+      "purpose": "Owner 2026-11-24: the customer list should fill itself from payments / bills / orders instead of typing every customer.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_customer_suggestions.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxCustomerSuggestions"
+        ],
+        "symbols": [
+          "AskodoxCustomerSuggestions"
+        ]
+      }
     }
   ]
 }
