@@ -7,6 +7,23 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #396 (2026-11-23, owner "1"; no Play bundle yet; owner phone: PhonePe "2 new completed transaction updates · A has
+  sent ₹3,000 to your bank account HDFC Bank-NNNN · ₹3,360 has been sent to B" came 9.5 h after the ₹3,000 had come IN
+  and was read as ONE message: row "❓ −₹3,000 · B", voice "B కి 3000 రూపాయలు వెళ్ళాయి"; owner "do it + late + sorry +
+  an immediate 'check once' notification"): SUMMARIES -- `PaymentAlertParser.digestLines` / `digestLinesOf` (two or more
+  lines / bullets that EACH carry an amount + a counting heading or bullets; the listener passes every piece of the
+  notification, the fullest ONE is read, pieces are never added together); `parse` of a whole summary = Ignored; phone
+  `handle` reads each line alone (`summaryKey` = line identity kept 2 days, `summaryTaken` = one row per line):
+  `Msg.summary` joins the row of the same amount + direction up to `SUMMARY_MS` (48 h) before it, even a row the SAME
+  app made, unless both names share no word (`namesClash`); joined = silent; no row = written (`from_summary`), said
+  ONCE as "ఆలస్యంగా తెలిసింది: ..." (`late_in` / `late_out`, follows the in / out switch), never uploaded from a shop
+  phone. UNSURE (❓ `doubtful`) app debit = `excluded` + doubt `wording` (not counted, not on the Money screen until the
+  bank SMS or the person settles it), an ASKODOX notification AT ONCE ("check once"), after the 60 s wait the voice asks
+  to check the bank balance (`unsure`) -- never "went out". SORRY: `setAsideOpposite` (bank SMS says the opposite within
+  10 min) on a row already SPOKEN -> `saySorry` (`sorry_out` / `sorry_in` voice + notification, once). Voice kinds
+  `check` / `sorry` have no switch yet (on). `recheckSummaries` sets aside rows an older build made from a summary (once).
+  `accountTail` reads "HDFC Bank-1234". Parser gate 349 checks (made-up names; a real payer name was removed from the
+  tests). Money sheet still does not show the row's message (owner has not said go). Nothing phone verified.
 - Branch `claude/free-shop-core-retention` (2026-11-23, owner "1+4 do" on the ProfitWell idea): (1) SHOP CORE FREE
   FOR EVER -- ONE list `shop_free_core.py` `FREE_FOREVER` (payment_voice, quick_bill, dues, sales_reports + the route
   patterns that ARE each tool, incl. `/api/in-app/voice/speak` where the phone fetches payment voice): `AiCredits`
@@ -56,8 +73,9 @@ this file, don't trust it blindly.
   last heard part only; Stop / mute -> nothing more). Replay / resume never continue. Stream event `{"type":"text_done"}`
   (`_ReplyStream` -> `on_text.text_done`). ElevenLabs `DEFAULT_MODEL` eleven_v4_turbo, refused (400/404/422) -> eleven_v3
   once + 30 min rest (log `ASKODOX VOICE MODEL refused`). Routing JSON "reply" first; planner max_tokens 400; first Gemini
-  photo read `thinking_budget=0` (next model keeps thinking). Registry `speak_while_writing`. Railway has a STAGED (not
-  applied) ELEVENLABS_TTS_MODEL=eleven_v4_turbo -- same as the code default. Nothing phone verified.
+  photo read `thinking_budget=0` (next model keeps thinking). Registry `speak_while_writing`. Railway variable ELEVENLABS_TTS_MODEL
+  OVERRIDES the code default (staged eleven_v4_turbo on 2026-11-22, a redeploy followed; the value is not readable --
+  deploy log 2026-11-23: payment voice parts 413 ms / 790 ms uncached, was 5-13 s on eleven_v3). Nothing phone verified.
   ROUND 2 (PR "planner in parallel", owner "Ok go"): `_EarlyRoute` starts the routing call (fast model, no evidence) next
   to `_plan`; its reply waits in `_HeldText` until the planner says no search + not hard (then `take` releases it), else
   it is dropped (never shown) and routing runs again with grounding / the hard model. Never when `_needs_lookup` (the

@@ -116,9 +116,9 @@ void main() {
       ..clear()
       ..addAll([
         // Owner 2026-11-21: the bank SMS said +3,000; the PhonePe row read it as minus -> set aside with ❓.
-        {'local_id': 'b1', 'direction': 'in', 'amount_paise': 300000, 'party': 'VOODUGULA DURGA', 'source_label': 'Messages',
+        {'local_id': 'b1', 'direction': 'in', 'amount_paise': 300000, 'party': 'KOTA SRINIVAS', 'source_label': 'Messages',
          'bank_confirmed': true, 'detected_at': today, 'spoken': 'announced', 'raw_title': 'AX-ICICIT-S',
-         'raw_text': 'ICICI Bank Acct XX321 credited with Rs 3,000.00 from VOODUGULA DURGA'},
+         'raw_text': 'ICICI Bank Acct XX321 credited with Rs 3,000.00 from KOTA SRINIVAS'},
         {'local_id': 'b2', 'direction': 'out', 'amount_paise': 300000, 'source_label': 'PhonePe', 'detected_at': today,
          'spoken': 'skipped_bank', 'excluded': true, 'doubt': 'bank_opposite', 'raw_text': 'Sent ₹3,000 to your ICICI account'},
         // A bill message is explained (never money): ℹ️ + why it came.

@@ -29,6 +29,13 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
    even for the same amount a minute apart (owner 2026-11-15).
 4. The payer's name on the notification must be spoken (owner 2026-11-22: "the name was there but not read").
 5. A fake "money received" SMS is never money (owner 2026-11-19 / 22).
+6. A payment app's SUMMARY of several transactions ("2 new completed transaction updates · ... · ...") is several
+   EARLIER payments, never one message (owner 2026-11-23: one line's amount + another line's name was said as money
+   sent). Each line is read alone; it joins its row silently; a line with no row is written and said once as
+   "found out late", never as new money.
+7. What the phone is NOT SURE about is never said as a fact: ❓, not counted, an ASKODOX notification at once and a
+   voice that asks to check the bank balance. When the bank's SMS shows that an earlier voice was wrong, the phone
+   says sorry once (owner 2026-11-23).
 
 ## How a message joins a row (`pickSamePayment`)
 
@@ -40,6 +47,16 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
 - Known trade-off: with no clue at all, another customer's QR payment (SMS only) of exactly the same amount that
   arrives within 2 h of an unpaired notification joins it. Payer handles usually prevent this, so keep handle parsing
   strong rather than shortening the window.
+
+## Summaries, unsure rows, late and sorry voices
+
+- `digestLines` / `digestLinesOf` decide what a summary is (two or more lines / bullets that each carry an amount,
+  plus a counting heading or bullets). The listener hands over every piece of the notification; the fullest single
+  piece is read. Never add the pieces together: the same line twice would look like two payments.
+- A summary line uses `Msg.summary`: it reaches `SUMMARY_MS` (48 h) back and may join a row the same app made;
+  `namesClash` keeps another person's same amount out. `skip` gives each row to one line only (Rs 1 + Rs 1).
+- The row's own message is the first thing to ask for when a row looks wrong: My phone payments → History → the row →
+  "Read from this message". The owner's phone keeps it; the server never has it.
 
 ## Procedure for an owner bug report
 
