@@ -6079,6 +6079,7 @@ class _AskodoxPrimaryHomeScreenState
           ),
         Expanded(
           child: TextField(
+          key: const Key('askodoxComposerField'),
           controller: _controller,
           focusNode: _focusNode,
           enabled: !_sending,

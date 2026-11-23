@@ -14,6 +14,7 @@ import '../../core/flags/askodox_remote_flags.dart';
 import '../../core/providers/app_settings_provider.dart';
 import '../../services/reply_speech_service.dart';
 import '../../shared/widgets/askodox_mascot.dart';
+import 'guide_switch.dart';
 
 /// ASKODOX Screen Guide INSIDE the app: it points at the real button on the
 /// real screen (dim + spotlight + pulse + arrow), says what to do in Telugu
@@ -26,7 +27,7 @@ import '../../shared/widgets/askodox_mascot.dart';
 /// `ValueKey('x')`; a trailing `*` matches a key prefix), so screens need no
 /// guide-specific code.
 class AskodoxGuideStep {
-  const AskodoxGuideStep(this.target, this.en, this.te, {this.route, this.fill = false});
+  const AskodoxGuideStep(this.target, this.en, this.te, {this.route, this.fill = false, this.info = false});
 
   final String target;
   final String en;
@@ -38,6 +39,9 @@ class AskodoxGuideStep {
   /// A field to fill in ("write your name here"): tapping it does NOT move on
   /// -- the person types, then taps "Next".
   final bool fill;
+
+  /// A tour stop ("this is Live Work"): only explained, the person taps "Next" (tapping it does not move on).
+  final bool info;
 }
 
 class AskodoxGuideFlow {
@@ -126,6 +130,46 @@ const askodoxGuideFlows = <AskodoxGuideFlow>[
         route: '/beta-feedback'),
   ]),
   ...askodoxScreenGuides,
+  ...askodoxAutoGuides,
+];
+
+/// Owner 2026-11-23: walkthroughs the guide starts BY ITSELF when it is ON and the person stops for
+/// [askodoxGuideIdle] on that screen (each only until it finished once). Keyed by the screen they run on.
+const askodoxAutoGuideRoutes = <String, String>{'/onboarding': 'signin', '/': 'home_tour'};
+
+const askodoxAutoGuides = <AskodoxGuideFlow>[
+  AskodoxGuideFlow('signin', 'Sign in', 'సైన్ ఇన్', ['how to sign in', 'how to register', 'సైన్ ఇన్ ఎలా', 'రిజిస్టర్ ఎలా'], [
+    AskodoxGuideStep('askodoxLanguageContinue', 'Is this your language? Tap Continue. For another language, pick it below.',
+        'మీ భాష ఇదేనా? "కొనసాగించండి" నొక్కండి. వేరే భాష కావాలంటే కింద ఎంచుకోండి.'),
+    AskodoxGuideStep('mobile-input', 'Type your mobile number here. 10 digits are enough.',
+        'మీ మొబైల్ నంబర్ ఇక్కడ టైప్ చేయండి. 10 అంకెలు చాలు.', fill: true),
+    AskodoxGuideStep('askodoxSendOtp', 'Now tap "Send OTP".', 'ఇప్పుడు "OTP పంపండి" నొక్కండి.'),
+    AskodoxGuideStep('otp-input',
+        'Wait a moment, the OTP SMS is coming and the code fills by itself. If Google asks "Allow", tap it. No code in 30 seconds? Tap "Resend".',
+        'కాసేపు ఆగండి… OTP SMS వస్తోంది, కోడ్ దానంతట అదే నిండుతుంది. పైన "Allow" అడిగితే అది నొక్కండి. 30 సెకన్లలో రాకపోతే "మళ్లీ పంపండి" నొక్కండి.',
+        fill: true),
+    AskodoxGuideStep('name-input', 'Write your name.', 'మీ పేరు రాయండి.', fill: true),
+    AskodoxGuideStep('askodoxNameNext', 'Tap "Continue".', '"కొనసాగించండి" నొక్కండి.'),
+    AskodoxGuideStep('askodoxSignUpRole-seller', 'Have a shop? Also tick "Sell products".',
+        'షాప్ ఉంటే "ఉత్పత్తులు అమ్మడం" కూడా టిక్ చేయండి.', info: true),
+    AskodoxGuideStep('askodoxFinishSignUp', 'Tap "Continue to ASKODOX".', '"ASKODOXకి కొనసాగండి" నొక్కండి.'),
+  ], listed: false),
+  AskodoxGuideFlow('home_tour', 'ASKODOX tour', 'ASKODOX పరిచయం', ['app tour', 'show me the app', 'యాప్ పరిచయం'], [
+    AskodoxGuideStep('askodoxComposerField', 'This is your chat. Type anything you need here: shopping, questions, payments.',
+        'ఇది మీ చాట్. ఏది కావాలన్నా ఇక్కడ టైప్ చేయండి — షాపింగ్, ప్రశ్నలు, పేమెంట్లు.', route: '/', info: true),
+    AskodoxGuideStep('askodoxNavSpeak', 'Tap "Ask" once and speak. Tap again to send.',
+        '"అడగండి" ఒక్కసారి నొక్కి మాట్లాడండి. మళ్లీ నొక్కితే పంపుతుంది.', route: '/', info: true),
+    AskodoxGuideStep('askodoxNavLiveWork', 'Live Work: a game you play while walking or working. A green blinking dot = your work is running.',
+        'ఇది లైవ్ వర్క్ — నడుస్తూ, పని చేస్తూ ఆడే గేమ్. చుక్క పచ్చగా మెరుస్తుంటే మీ పని నడుస్తోంది.', route: '/', info: true),
+    AskodoxGuideStep('askodoxNavPayments', 'Money: the payments your phone received and the payment voice live here.',
+        'మనీ — మీ ఫోన్‌కు వచ్చిన పేమెంట్లు, పేమెంట్ సౌండ్ ఇక్కడ.', route: '/', info: true),
+    AskodoxGuideStep('askodoxNavHistory', 'Buy / Sell: have a shop? Tap "Sell" for your shop work.',
+        'కొను / అమ్ము — షాప్ ఉంటే "అమ్ము" నొక్కితే మీ షాప్ పనులు వస్తాయి.', route: '/', info: true),
+    AskodoxGuideStep('askodoxHeaderMenu', 'Menu: language, location, settings and help.',
+        '☰ మెనూ — భాష, లొకేషన్, సెట్టింగ్స్, సహాయం ఇక్కడ.', route: '/', info: true),
+    AskodoxGuideStep('askodoxGuideSwitch', 'I stay here. Do not want the guide? Tap this to turn it off.',
+        'నేను ఇక్కడే ఉంటా. గైడ్ వద్దనుకుంటే ఈ బటన్ నొక్కి ఆఫ్ చేయండి.', route: '/', info: true),
+  ], listed: false),
 ];
 
 /// "Guide" on every Profile tile: opens the screen and shows what each part
@@ -393,6 +437,13 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
   int _missing = 0;
   bool _private = false;
   String? _spoken;
+  String _location = '';
+  Timer? _idle;
+  final Map<String, int> _stops = {};
+
+  /// Private screens pause the guide, except the sign-in walkthrough on our own sign-in screen (it never reads what
+  /// is typed there).
+  bool _pausedFor(AskodoxGuideState? s) => _private && !(s != null && s.flow.id == 'signin');
 
   bool get _te => Localizations.maybeLocaleOf(context)?.languageCode == 'te';
 
@@ -401,7 +452,17 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     super.initState();
     GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
     widget.router?.routerDelegate.addListener(_onRoute);
+    ref.listenManual<bool>(askodoxGuideOnProvider, (previous, next) => _resetIdle());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onRoute());
     ref.listenManual<AskodoxGuideState?>(askodoxGuideProvider, (previous, next) {
+      if (next != null && next.done) unawaited(askodoxMarkGuideDone(next.flow.id));
+      if (next == null && previous != null && !previous.done) {
+        // Stopped twice: that walkthrough never starts by itself again.
+        final n = (_stops[previous.flow.id] ?? 0) + 1;
+        _stops[previous.flow.id] = n;
+        if (n >= 2) unawaited(askodoxMarkGuideDone(previous.flow.id));
+      }
+      if (next == null) _resetIdle();
       if (next == null) {
         _scan?.cancel();
         _scan = null;
@@ -434,6 +495,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
     widget.router?.routerDelegate.removeListener(_onRoute);
     _scan?.cancel();
+    _idle?.cancel();
     _pulse.dispose();
     super.dispose();
   }
@@ -445,6 +507,10 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
       final config = widget.router?.routerDelegate.currentConfiguration;
       location = config == null || config.isEmpty ? '' : config.last.matchedLocation;
     } catch (_) {}
+    if (location != _location) {
+      _location = location;
+      _resetIdle();
+    }
     final private = askodoxGuideIsPrivate(location);
     if (private == _private) return;
     // The router notifies while the app is building: apply after the frame.
@@ -453,8 +519,26 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     });
   }
 
+  /// Guide ON + no touch for [askodoxGuideIdle] -> the screen's own walkthrough starts (once, until it finished).
+  void _resetIdle() {
+    _idle?.cancel();
+    if (!mounted || !ref.read(askodoxGuideOnProvider) || ref.read(askodoxGuideProvider) != null) return;
+    _idle = Timer(askodoxGuideIdle, () => unawaited(_autoStart()));
+  }
+
+  Future<void> _autoStart() async {
+    if (!mounted || !ref.read(askodoxGuideOnProvider) || ref.read(askodoxGuideProvider) != null) return;
+    final path = _location.split('?').first;
+    final id = askodoxAutoGuideRoutes[path];
+    final flow = id == null ? null : askodoxGuideById(id);
+    if (flow == null || !askodoxGuideAvailable(flow)) return;
+    if ((await askodoxGuideDoneFlows()).contains(flow.id)) return;
+    if (!mounted || ref.read(askodoxGuideProvider) != null || _location.split('?').first != path) return;
+    ref.read(askodoxGuideProvider.notifier).start(flow);
+  }
+
   void _speak(AskodoxGuideState s) {
-    if (_private) return;
+    if (_pausedFor(s)) return;
     final line = s.done
         ? (_te ? 'పూర్తయింది!' : 'Done!')
         : (_te ? s.step.te : s.step.en);
@@ -540,12 +624,13 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
 
   /// The user's own tap on the highlighted button completes the step.
   void _onPointer(PointerEvent event) {
+    if (event is PointerDownEvent) _resetIdle();
     if (event is! PointerUpEvent) return;
     final s = ref.read(askodoxGuideProvider);
     final rect = _rect;
     final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (s == null || s.done || rect == null || stack == null || _private) return;
-    if (s.step.fill) return; // typing here: the person taps "Next" when done
+    if (s == null || s.done || rect == null || stack == null || _pausedFor(s)) return;
+    if (s.step.fill || s.step.info) return; // typing here / a tour stop: the person taps "Next" when done
     final local = stack.globalToLocal(event.position);
     if (rect.inflate(6).contains(local)) {
       // After the tap's own action runs.
@@ -571,7 +656,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
     final s = ref.watch(askodoxGuideProvider);
     return Stack(key: _stackKey, children: [
       widget.child,
-      if (s != null && _private)
+      if (s != null && _pausedFor(s))
         Positioned(
           left: 16,
           right: 16,
@@ -674,11 +759,15 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
                     key: const Key('askodoxGuideTakeMe'),
                     onPressed: () => _takeMeThere(step.route!),
                     child: Text(_te ? 'అక్కడికి తీసుకెళ్లు' : 'Take me there')),
-              if (!s.done && (!s.last || step.fill))
+              if (!s.done && (!s.last || step.fill || step.info))
                 TextButton(
                     key: const Key('askodoxGuideSkip'),
                     onPressed: () => ref.read(askodoxGuideProvider.notifier).advance(),
-                    child: Text(step.fill ? (_te ? 'రాశాను, తర్వాత' : 'Done, next') : (_te ? 'తర్వాతి దశ' : 'Skip step'))),
+                    child: Text(step.fill
+                        ? (_te ? 'రాశాను, తర్వాత' : 'Done, next')
+                        : step.info
+                            ? (_te ? 'తర్వాత' : 'Next')
+                            : (_te ? 'తర్వాతి దశ' : 'Skip step'))),
               TextButton(
                   key: const Key('askodoxGuideStop'),
                   onPressed: () => ref.read(askodoxGuideProvider.notifier).stop(),
