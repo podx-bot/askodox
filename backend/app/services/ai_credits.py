@@ -210,6 +210,39 @@ class AiCredits:
             conn.close()
         raise CreditsError("insufficient", 402, {"needed_paise": rate, "balance": self.balance(user_id)})
 
+    def spend(self, user_id: str, paise: int, ref: str, *, feature: str, note: str = "") -> Dict[str, Any]:
+        """One charge of any size (e.g. a notification to N people at a few paise each). Free while charging is OFF;
+        atomic like ``reserve``; a repeated ``ref`` is never charged twice. Raises CreditsError('insufficient', 402)."""
+        if not self.settings()["charging"] or paise <= 0:
+            return {"charged": False, "reason": "charging_off" if paise > 0 else "free", "paise": 0}
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT 1 FROM ai_credit_ledger WHERE ref = ?", (f"use:{ref}",)).fetchone():
+                conn.execute("COMMIT")
+                return {"charged": True, "paise": paise, "repeat": True}
+            for mode in MODES:
+                if self._balance(conn, user_id, mode) >= paise:
+                    self._insert(conn, user_id, mode, -paise, "usage", f"use:{ref}", feature=feature, note=note)
+                    conn.execute("COMMIT")
+                    return {"charged": True, "paise": paise, "mode": mode}
+            conn.execute("ROLLBACK")
+        finally:
+            conn.close()
+        raise CreditsError("insufficient", 402, {"needed_paise": paise, "balance": self.balance(user_id)})
+
+    def refund_unused(self, user_id: str, ref: str, paise: int, *, feature: str) -> bool:
+        """Part of a ``spend`` was not used (e.g. fewer phones reached): give that part back, once."""
+        if paise <= 0:
+            return False
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT mode FROM ai_credit_ledger WHERE ref = ? AND kind = 'usage'",
+                               (f"use:{ref}",)).fetchone()
+            if not row:
+                return False
+            return self._insert(conn, user_id, row["mode"], paise, "release", f"release:{ref}", feature=feature,
+                                note="not delivered")
+
     def release(self, user_id: str, ref: str) -> bool:
         """The AI call produced nothing: give the reserved charge back (once)."""
         with closing(self._connect()) as conn:

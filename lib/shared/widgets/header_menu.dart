@@ -211,6 +211,10 @@ class AskodoxMenuBox extends ConsumerWidget {
       ('askodoxMenu-location', Icons.location_on_outlined, te ? 'లొకేషన్' : 'Location', '/location'),
       ('askodoxMenu-notifications', Icons.notifications_none_rounded, te ? 'నోటిఫికేషన్లు' : 'Notifications',
           '/settings/notifications'),
+      ('askodoxMenu-notify', Icons.campaign_rounded, te ? 'నోటిఫికేషన్ పంపండి' : 'Send a notification',
+          seller && ref.read(askodoxMoneyShopProvider) != null
+              ? '/notices/new?shop=${ref.read(askodoxMoneyShopProvider)}'
+              : '/notices/new'),
       ('askodoxMenu-credits', Icons.bolt_rounded, te ? 'AI క్రెడిట్స్' : 'AI Credits', '/me/ai-credits'),
       ('askodoxMenu-settings', Icons.settings_outlined, te ? 'సెట్టింగ్స్' : 'Settings', askodoxSettingsMenuValue),
       ('askodoxMenu-feedback', Icons.rate_review_outlined, te ? 'ఫీడ్‌బ్యాక్' : 'Feedback', '/beta-feedback'),

@@ -10199,6 +10199,91 @@
           "askodoxOnePinPerPage"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/notices/preview",
+          "response_keys": [
+            "people",
+            "rate_paise",
+            "cost_paise",
+            "charging"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/notices",
+          "response_keys": [
+            "id",
+            "status",
+            "people"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/notices/mine",
+          "response_keys": [
+            "notices"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/notices/{notice_id}",
+          "response_keys": [
+            "title",
+            "body",
+            "from_shop"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Any signed-in person (buyer or seller) opens ☰ -> Send a notification (/notices/new): subject -> AI design (POST /api/images/edit) or own photo -> heading + offer (no links / phone numbers, rude words masked) -> who: own shop's followers (owner only), people within 1/3/5/10 km, or both -> live count + price (notices.rate_paise, default 5 paise per person, from AI Credits; free while charging is OFF) -> Send. Charged only for phones that took it (the rest is given back). Receivers: push kind 'offers' (Settings -> Notifications switch), max 3 a day and 1 a day from the same sender, nothing 21:00-08:00 IST; tap opens /notice/:id (picture, shop button, turn-off link).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: paid notifications for everyone (owner 2026-11-24 'anyone can send, 5 / 10 paise'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "paid_notifications",
+      "name": "Paid notifications (anyone sends offers)",
+      "purpose": "Owner 2026-11-24: buyers and sellers send a designed offer notification to ASKODOX users for a few paise per person.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_notice_broadcast.py"
+        ],
+        "flutter": [
+          "test/features/notices/notice_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMenu-notify",
+          "askodoxNoticeSubject",
+          "askodoxNoticeDesign",
+          "askodoxNoticePhoto",
+          "askodoxNoticeCount",
+          "askodoxNoticeSend",
+          "askodoxNoticeTurnOff"
+        ],
+        "symbols": [
+          "askodoxNoticeAnswerOf",
+          "askodoxNoticeReason",
+          "askodoxNoticeDesignPrompt",
+          "AskodoxNoticeCreateScreen",
+          "AskodoxNoticeViewScreen"
+        ]
+      }
     }
   ]
 }

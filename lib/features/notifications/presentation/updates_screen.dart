@@ -96,6 +96,7 @@ class UpdatesScreen extends ConsumerWidget {
                               AskodoxUpdateKind.leads => Icons.campaign_outlined,
                               AskodoxUpdateKind.opportunities => Icons.trending_up_rounded,
                               AskodoxUpdateKind.notices => Icons.info_outline_rounded,
+                              AskodoxUpdateKind.offers => Icons.local_offer_outlined,
                             }),
                             title: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis),
                             subtitle: Text(item.status),

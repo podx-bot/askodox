@@ -27,6 +27,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
           AskodoxUpdateKind.opportunities =>
             t('Demand matched to my listings', 'నా లిస్టింగ్‌లకు సరిపోయే డిమాండ్'),
           AskodoxUpdateKind.notices => t('ASKODOX notices', 'ASKODOX సమాచారం'),
+          AskodoxUpdateKind.offers => t('Offers from shops and people', 'షాపులు / వ్యక్తుల ఆఫర్లు'),
         };
     return Scaffold(
       appBar: AppBar(title: Text(t('Notifications', 'నోటిఫికేషన్స్'))),

@@ -12,7 +12,8 @@ import '../../opportunities/data/opportunities_repository.dart';
 import '../../orders/data/order_repository.dart';
 
 /// What the user may choose to receive (advanced; all ON by default).
-enum AskodoxUpdateKind { requests, replies, leads, opportunities, notices }
+/// `offers` = notifications shops / people send (paid notices, owner 2026-11-24); switching it off stops them.
+enum AskodoxUpdateKind { requests, replies, leads, opportunities, notices, offers }
 
 /// Notifications: ON by default; routine ASKODOX updates are SILENT (no
 /// sound/vibration). One switch for everyone, per-kind choices only under
