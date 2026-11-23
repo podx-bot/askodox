@@ -9567,6 +9567,117 @@
           "change": "orders into the shop's app (front desk, source shop_link) + customer status page; WhatsApp = backup; WhatsApp box prefilled with the owner's number"
         }
       ]
+    },
+    {
+      "id": "shop_core_free_forever",
+      "name": "Shop core free for ever: payment voice, quick bill, dues (baaki) book and sales reports are never charged and never behind a plan",
+      "purpose": "Owner 2026-11-23 (ProfitWell idea, \"1 + 4 do\"): the everyday tools a shop runs on stay free for ever so shops join and stay; ASKODOX earns only where it brings the shop something extra (AI Credits features), never by renting the counter back to the shop.",
+      "expected_behavior": "ONE list app/services/shop_free_core.py FREE_FOREVER (keys payment_voice, quick_bill, dues, sales_reports; each with its API route patterns). AI Credits can never carry a rate or a free-per-day number for these keys (PUT /admin/cc/ai-credits/settings answers 400 free_forever) and a reserve for one always answers free, with charging ON too. The handler of every route in the list (payment alerts, the payment-voice audio route /api/in-app/voice/speak, invoices / drafts / bills, dues, customer payments / statement, day / range / GST reports, sales, day close) never reserves credits, answers 402 or checks a plan; the services behind them never import credits / billing. The Command Center AI Credits page shows the list as locked (\"ఎప్పటికీ Free\"). Paid extras (AI agents, photo studio, chat) stay outside the list. Adding a tool = one more row (owner decision); taking one out needs the owner's own word.",
+      "roles": [
+        "shop owner",
+        "staff",
+        "staff (Command Center)"
+      ],
+      "domains": [
+        "shop",
+        "payments",
+        "billing"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/invoices"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/dues"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/reports/day"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/events"
+        },
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/speak"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/ai-credits/settings"
+        }
+      ],
+      "ui": {},
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_shop_free_core.py::test_no_free_forever_route_charges_or_checks_a_plan",
+          "tests/test_shop_free_core.py::test_every_pattern_still_points_at_a_real_route",
+          "tests/test_shop_free_core.py::test_credits_can_never_carry_a_rate_for_them",
+          "tests/test_shop_free_core.py::test_command_center_shows_the_list_as_locked"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "ai_credits_pay_as_you_go",
+        "pos_payment_voice_alerts",
+        "quick_bill_real",
+        "business_cashbook_dues",
+        "business_reports_analytics"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new: the list, the credits guard, the route tripwire test, the locked card on the AI Credits page; nothing shown to shops yet (where to say it is the owner's decision)",
+          "approved_by": "owner"
+        }
+      ]
+    },
+    {
+      "id": "shop_retention_page",
+      "name": "Command Center \"Shops వాడకం\": do shops keep using ASKODOX (active, going quiet, stopped, still using in week 2 / month 2)",
+      "purpose": "Owner 2026-11-23 (\"1 + 4 do\"): without knowing how many shops still use ASKODOX 30 days after joining and how many stopped, nobody can tell whether the app really works for shops -- and whom to call before they are lost.",
+      "expected_behavior": "GET /admin/cc/shop-retention (analytics:view; ?fresh=true rolls now, else at most every 10 min, answer cached 5 min). A shop is active on an India day when real counter work happened: a bill, a payment, a payment-voice event, day close, attendance, a table order or a purchase bill (opening the app is not use). Each (shop, day) is rolled up into shop_activity_days by the periodic job shop_activity (6 h) and when the page is read; counts only grow (MAX), so the days survive the 90-day purge of payment events and re-rolling adds nothing. The answer has totals (shops, ever_used, never_used, active_7, active_30, quiet = worked in 30 days but not in 7, stopped = used before and nothing for 30 days, new_7, new_30), kept (week_1 / week_2 / month_2 = worked on days 0-6 / 7-13 / 30-59 after joining, only for shops old enough for the whole window; pct None = too early, never a guess), tools_30, a join-month table (12 months) and a 30-day trend. The shops to call (quiet, stopped, never_used; 200 each) come only for staff with users:view: shop name, the shop's own counter number, address, joined, last working day, silent days; the owner's sign-in number is shown masked only (last four digits). Console view shopretention under Analytics, ONE mixed Telugu-English text per label. Nothing is shown to shops or customers.",
+      "roles": [
+        "staff (Command Center)"
+      ],
+      "domains": [
+        "analytics",
+        "shop"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/shop-retention"
+        }
+      ],
+      "ui": {},
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_shop_retention.py::test_counts_who_still_uses_who_went_quiet_and_who_stopped",
+          "tests/test_shop_retention.py::test_the_days_stay_after_payment_events_are_deleted_and_rolling_twice_adds_nothing",
+          "tests/test_shop_retention.py::test_a_persons_own_number_is_never_shown_in_full",
+          "tests/test_shop_retention.py::test_command_center_route_permissions_and_page"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "universal_pos_core",
+        "pos_payment_voice_alerts",
+        "console_map_and_logo"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new: roll-up table, report, route, console page; made-up shops only in tests; not checked on production data",
+          "approved_by": "owner"
+        }
+      ]
     }
   ]
 }

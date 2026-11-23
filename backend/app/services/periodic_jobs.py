@@ -170,9 +170,18 @@ def _studio_reminders(container: Any) -> Any:
     return send_reminders(container)
 
 
+def _shop_activity(container: Any) -> Any:
+    """Each shop's working days copied into shop_activity_days (owner 2026-11-23: do shops keep using ASKODOX?).
+    Payment events are deleted after 90 days; the roll-up keeps the days for the Command Center retention page."""
+    from app.services.shop_retention import shop_retention
+
+    return shop_retention(container).roll()
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
             ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports),
             ("payalert_missed", 60.0, _payalert_missed), ("dues_followup", 3600.0, _dues_followup),
-            ("expiry_alerts", 3600.0, _expiry_alerts), ("studio_reminders", 1800.0, _studio_reminders)]
+            ("expiry_alerts", 3600.0, _expiry_alerts), ("studio_reminders", 1800.0, _studio_reminders),
+            ("shop_activity", 21600.0, _shop_activity)]
