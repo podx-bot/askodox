@@ -7,6 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- BRANCH `claude/launcher-place-not-group` (2026-11-23, NOT merged, NOT run -- no Flutter in the container; owner: "I drop
+  Report settings on Sales and it becomes a group; it must sit in THAT place, Buyer and Seller alike"): a page dropped on
+  a page = `AskodoxLaunchLayout.placeAt` (takes the target's place, the rest shift), never a folder. Folders only from
+  the page menu "Put in a folder" (`_folderSheet`: an own folder or another page); a drop on the middle of a folder the
+  person already made still goes into it. Tests: `launcher_layout_test.dart`, `money_home_screen_test.dart` (+2).
 - `main` PR #406 + #407 + #408 (2026-11-23, owner "1"; server deploy 8b5a5b3 SUCCESS; Play bundle `askodox-play-1619.aab`, Live Build run 45216267983): (#406) SORT WITH AI
   = `pos_menu_sort.sort_menu` numbers items once, 25 per part in parallel, missing items asked again, `_parse` skips a cut
   last line; `MenuSortJobs` (one running job per shop, 30 min) + `POST .../desk/menu/sort?background=1` / `GET` -> push

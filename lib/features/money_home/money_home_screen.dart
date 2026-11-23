@@ -31,7 +31,8 @@ const _ink = Color(0xFF16203F);
 /// Pages sit like apps on a phone: icon + name, more screens when one is full. Nothing comes grouped -- every page
 /// starts on its own and the person makes their own folders (owner 2026-11-22). Press and hold: let go = the page's
 /// menu (put it above the Home chat -- the same five shortcuts for everyone --, move, take out of a folder, hide); move
-/// it = arrange: drop on another = a folder, beside it = move there, to the screen's edge = the next screen, out of an
+/// it = arrange: drop it anywhere = it sits there and the rest shift (never a group, owner 2026-11-23; folders only from
+/// the menu), to the screen's edge = the next screen, out of an
 /// open folder = back on the screen, inside a folder = its new place. Pages are hidden (never deleted) and brought
 /// back; "Reset" brings the shipped screen back.
 class AskodoxMoneyHomeScreen extends ConsumerStatefulWidget {
@@ -67,6 +68,9 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
 
   /// What is on screen now (the menus act on it after the person chooses).
   AskodoxLaunchLayout _current = const AskodoxLaunchLayout([]);
+
+  /// The pages on the screen now (for the "put in a folder" list).
+  List<AskodoxLaunchPage> _pagesNow = const [];
 
   @override
   void initState() {
@@ -409,6 +413,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     final byId = {for (final p in pages) p.id: p};
     final layout = _layoutFor(shop, [for (final p in pages) p.id]);
     _current = layout;
+    _pagesNow = pages;
     // While arranging, the account card's place shows the arranging panel: nothing on the screen moves under the
     // finger (a moved grid would drop a page on the wrong neighbour).
     final editPanel = _editing ? _editBar(te, shop, layout, byId, color) : null;
@@ -638,7 +643,9 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   void _dropOnTile(bool te, String? shop, AskodoxLaunchLayout layout, AskodoxLaunchEntry e, DragTargetDetails<String> d) {
     // Back onto its own folder: it stays inside.
     if (e.isFolder && e.children.contains(d.data)) return;
-    // Where on the tile it was dropped: the left / right quarter = move beside it, the middle = a folder.
+    // Owner 2026-11-23: a page dropped on another page takes THAT place (the rest shift) -- it never becomes a group.
+    // Folders are made only from the page's menu. Only a folder the person already made takes a page dropped on its
+    // middle; its left / right quarter = beside it.
     var zone = 'middle';
     final r = _tileBoxes[e.id];
     if (r != null) {
@@ -652,9 +659,12 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
       _change(shop, base);
       return;
     }
-    if (zone == 'middle' && !dragged.isFolder) {
-      final name = e.isFolder ? e.name : (te ? 'కొత్త ఫోల్డర్' : 'New folder');
-      _change(shop, base.combine(d.data, e.id, newFolderId: 'u${DateTime.now().microsecondsSinceEpoch}', name: name));
+    if (!e.isFolder || dragged.isFolder) {
+      _change(shop, base.placeAt(d.data, e.id));
+      return;
+    }
+    if (zone == 'middle') {
+      _change(shop, base.combine(d.data, e.id, newFolderId: e.folder!, name: e.name));
       return;
     }
     final from = base.indexOf(d.data);
@@ -923,7 +933,8 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     final choice = await _menu(_tileBoxes[page.id], [
       ('pin', Icons.push_pin_rounded,
           pinned ? (te ? 'హోమ్ చాట్ షార్ట్‌కట్ (మార్చు / తీసేయి)' : 'Home chat shortcut (move / remove)') : (te ? 'హోమ్ చాట్ పైన పెట్టు' : 'Put above the Home chat')),
-      ('arrange', Icons.open_with_rounded, te ? 'జరుపు / ఫోల్డర్ చేయి' : 'Move / make a folder'),
+      ('arrange', Icons.open_with_rounded, te ? 'జరుపు' : 'Move'),
+      if (!inFolder) ('folder', Icons.create_new_folder_rounded, te ? 'ఫోల్డర్‌లో పెట్టు' : 'Put in a folder'),
       if (inFolder) ('out', Icons.north_east_rounded, te ? 'ఫోల్డర్ నుంచి బయటకు' : 'Take out of the folder'),
       ('hide', Icons.visibility_off_outlined, te ? 'దాచు' : 'Hide'),
     ]);
@@ -933,10 +944,63 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         await askodoxOfferChatPin(context, AskodoxChatPin(id: pinId, route: page.pinRoute(shop), en: page.en, te: page.te));
       case 'arrange':
         setState(() => _editing = true);
+      case 'folder':
+        await _folderSheet(te, shop, page);
       case 'out':
         _change(shop, _current.takeOut(page.id));
       case 'hide':
         _change(shop, _current.hide(page.id));
+    }
+  }
+
+  /// Folders are the person's own choice, made here (never by a drop): into a folder they already have, or a new one
+  /// with another page.
+  Future<void> _folderSheet(bool te, String? shop, AskodoxLaunchPage page) async {
+    final byId = {for (final p in _pagesNow) p.id: p};
+    final layout = _current;
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+          Text(te ? '"${page.label(te)}" ని దేనితో కలిపి ఫోల్డర్ చేయాలి?' : 'Put "${page.label(te)}" in a folder with…',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 6),
+          for (final e in layout.entries)
+            if (e.isFolder)
+              ListTile(
+                key: ValueKey('askodoxMoneyFolderPick-${e.id}'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.folder_rounded),
+                title: Text(e.name.isEmpty ? askodoxLaunchFolderName(e.folder!, te) : e.name),
+                onTap: () => Navigator.pop(sheet, e.id),
+              )
+            else if (e.page != page.id && byId[e.page] != null)
+              ListTile(
+                key: ValueKey('askodoxMoneyFolderPick-${e.id}'),
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: byId[e.page]!.color, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(byId[e.page]!.icon, color: Colors.white, size: 20),
+                ),
+                title: Text(byId[e.page]!.label(te)),
+                onTap: () => Navigator.pop(sheet, e.id),
+              ),
+        ]),
+      ),
+    );
+    if (pick == null || !mounted) return;
+    final now = _current;
+    if (pick.startsWith('f:')) {
+      _change(shop, now.addToFolder(pick.substring(2), page.id));
+    } else {
+      _change(
+        shop,
+        now.combine(page.id, pick,
+            newFolderId: 'u${DateTime.now().microsecondsSinceEpoch}', name: te ? 'కొత్త ఫోల్డర్' : 'New folder'),
+      );
     }
   }
 
@@ -1060,8 +1124,8 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           ]),
           Text(
               te
-                  ? 'పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్, ఫోల్డర్ నుంచి బయటకు లాగితే బయటకు. "−" = దాచు.'
-                  : 'Hold and drag: drop on another = a folder, beside it = move there, to the edge = next screen, out of a folder = out. "−" = hide.',
+                  ? 'పట్టుకుని లాగండి: ఎక్కడ వదిలితే అక్కడే ఉంటుంది, మిగతావి జరుగుతాయి. అంచుకి = తర్వాతి స్క్రీన్. ఫోల్డర్: నొక్కి పట్టి వదిలి "ఫోల్డర్‌లో పెట్టు". "−" = దాచు.'
+                  : 'Hold and drag: it stays where you drop it, the others shift. Edge = next screen. Folder: press, hold, let go → "Put in a folder". "−" = hide.',
               style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
         ])),
           ),

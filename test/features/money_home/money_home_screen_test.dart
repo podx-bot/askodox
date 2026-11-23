@@ -128,6 +128,43 @@ void main() {
     expect(saved, isNot(contains('"folder"')));
   });
 
+  testWidgets('owner 2026-11-23: a page dropped ON another page takes that place -- it never becomes a folder', (tester) async {
+    await _pump(tester);
+    final first = find.byKey(const ValueKey('askodoxMoneyTile-b.qr'));
+    final last = find.byKey(const ValueKey('askodoxMoneyTile-b.language'));
+    final g = await tester.startGesture(tester.getCenter(last));
+    await tester.pump(const Duration(milliseconds: 600));
+    await g.moveBy(const Offset(0, 150)); // away from its own place: arranging starts
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final place = tester.getCenter(first);
+    await g.moveTo(place + const Offset(-2, -2));
+    await tester.pump();
+    await g.moveTo(place); // the very middle of the other page: this used to make a folder
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(find.byKey(const ValueKey('askodoxMoneyTile-b.language'))), place, reason: 'it sits there');
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.qr')), findsOneWidget, reason: 'the other page only shifted');
+    final saved = (await SharedPreferences.getInstance()).getString(askodoxMoneyLayoutKey(false))!;
+    expect(saved, isNot(contains('"folder"')));
+  });
+
+  testWidgets('a folder is the person\'s own choice: page menu -> "Put in a folder" -> with which page', (tester) async {
+    await _pump(tester);
+    await tester.longPress(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('askodoxMoneyMenu-folder')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('askodoxMoneyFolderPick-b.dues')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')), findsNothing);
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.dues')), findsNothing);
+    final saved = jsonDecode((await SharedPreferences.getInstance()).getString(askodoxMoneyLayoutKey(false))!) as Map;
+    final folder = (saved['entries'] as List).whereType<Map>().firstWhere((e) => e['folder'] != null);
+    expect(folder['children'], ['b.dues', 'b.bills']);
+  });
+
   testWidgets('press, hold and let go = the page\'s menu: put it above the Home chat (the five shortcuts)', (tester) async {
     final container = await _pump(tester);
     await tester.longPress(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')));
