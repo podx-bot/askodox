@@ -1736,6 +1736,19 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
                             : 'A new order rings the people who "accept orders"; one tap from any of them is enough. Allow nobody and it is only you. Nothing is accepted by itself.',
                         style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
                     const SizedBox(height: 8),
+                    // Owner 2026-11-24: Staff and "who accepts orders / who hears each step" are ONE page.
+                    Card(
+                      color: const Color(0xFFF5F3FF),
+                      child: ListTile(
+                        key: const Key('askodoxStaffOrderAlerts'),
+                        leading: const Icon(Icons.notifications_active_rounded, color: Color(0xFF7C3AED)),
+                        title: Text(te ? 'ఆర్డర్ అలర్ట్స్: ఏ స్టెప్ ఎవరికి వినిపించాలి' : 'Order alerts: who hears each step',
+                            style: const TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Text(te ? 'కొత్త ఆర్డర్, వంట అయింది, డెలివరీ — ఒక్కో స్టెప్‌కి ఎవరో ఎంచుకోండి.' : 'New order, ready, delivery — choose people per step.'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/desk/${widget.businessId}/settings'),
+                      ),
+                    ),
                     Card(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Column(children: [for (final m in current) _person(m, te)]))),
                     if (removed.isNotEmpty) ...[
                       const SizedBox(height: 12),
