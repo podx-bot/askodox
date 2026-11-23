@@ -9,17 +9,19 @@ import '../pos/data/pos_repository.dart';
 import 'launcher_layout.dart';
 
 /// Saved per side (owner 2026-11-22): the Buyer and the Seller screens are separate, each with its own folders.
-String askodoxMoneyLayoutKey(bool seller) => 'askodox.money.layout.v1.${seller ? 'seller' : 'buyer'}';
+/// Owner 2026-11-23: the కొను / అమ్ము page keeps its own screen next to Money's (`side`).
+String askodoxMoneyLayoutKey(bool seller, {bool side = false}) =>
+    'askodox.money.layout.v1.${seller ? 'seller' : 'buyer'}${side ? '.side' : ''}';
 
 /// The shop the Seller side shows (a person may run or help in more than one).
 const askodoxMoneyShopKey = 'askodox.money.shop.v1';
 
 /// The Buyer side keeps one screen; the Seller side keeps one per shop (a hotel and a kirana need different pages),
 /// all under the one Seller key: {"v": 1, "shops": {shop id: layout}}.
-Future<AskodoxLaunchLayout?> askodoxLoadMoneyLayout(bool seller, {String? shop}) async {
+Future<AskodoxLaunchLayout?> askodoxLoadMoneyLayout(bool seller, {String? shop, bool side = false}) async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    final text = prefs.getString(askodoxMoneyLayoutKey(seller));
+    final text = prefs.getString(askodoxMoneyLayoutKey(seller, side: side));
     if (!seller) return AskodoxLaunchLayout.decode(text);
     final shops = _shopLayouts(text);
     return shop == null ? null : AskodoxLaunchLayout.decode(shops[shop]);
@@ -40,10 +42,10 @@ Map<String, String> _shopLayouts(String? text) {
 }
 
 /// [layout] null = back to the shipped screen.
-Future<void> askodoxSaveMoneyLayout(bool seller, AskodoxLaunchLayout? layout, {String? shop}) async {
+Future<void> askodoxSaveMoneyLayout(bool seller, AskodoxLaunchLayout? layout, {String? shop, bool side = false}) async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    final key = askodoxMoneyLayoutKey(seller);
+    final key = askodoxMoneyLayoutKey(seller, side: side);
     if (!seller) {
       layout == null ? await prefs.remove(key) : await prefs.setString(key, layout.encode());
       return;

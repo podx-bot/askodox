@@ -69,8 +69,9 @@ String askodoxLaunchFolderName(String id, bool te) {
 /// The Buyer side: the person's own money, bills, orders from shops and shops they follow. History lives in the ☰ menu;
 /// Home, Live Work and Ask are on the bottom bar, the bell on the header -- never repeated here.
 const askodoxBuyerPages = <AskodoxLaunchPage>[
+  // Owner 2026-11-23: one accounts page (ON / OFF per account for "My own"; "Account names" merged in; QR one tap in).
   AskodoxLaunchPage('b.qr', 'My QR / accounts', 'నా QR / ఖాతాలు', Icons.qr_code_2_rounded, Color(0xFF10204A),
-      route: '/me/payment-methods'),
+      route: '/me/payments/phone?open=accounts'),
   AskodoxLaunchPage('b.voice', 'Payment voice', 'పేమెంట్ వాయిస్', Icons.volume_up_rounded, Color(0xFF0D9488),
       action: 'voice'),
   AskodoxLaunchPage('b.bills', 'My bills', 'నా బిల్లులు', Icons.receipt_long_rounded, Color(0xFFEA580C), route: '/me/bills'),
@@ -85,11 +86,22 @@ const askodoxBuyerPages = <AskodoxLaunchPage>[
       route: '/me/shop-feed'),
   AskodoxLaunchPage('b.apps', 'Apps that are read', 'ఏ యాప్స్ చదవాలి', Icons.apps_rounded, Color(0xFF2563EB),
       route: '/me/payments/phone?open=apps'),
-  AskodoxLaunchPage('b.accounts', 'Account names', 'ఖాతాల పేర్లు', Icons.account_balance_outlined, Color(0xFF475569),
-      route: '/me/payments/phone?open=accounts'),
   AskodoxLaunchPage('b.language', 'Voice & language', 'భాష & వాయిస్', Icons.record_voice_over_outlined, Color(0xFF0E7490),
       route: '/me/payments/phone?open=voice'),
 ];
+
+/// Owner 2026-11-23 (design "Money · కొను · అమ్ము"): "Money" holds ONLY money -- payments, bills, dues, accounts,
+/// reports. Every other page sits on the side's own page, opened by tapping కొను / అమ్ము on the bottom bar: the
+/// Buyer page (orders, shops I follow, shop updates) and the Shop page (orders, items, staff, customers, settings).
+const askodoxMoneySectionIds = {
+  'b.qr', 'b.voice', 'b.bills', 'b.dues', 'b.apps', 'b.language', //
+  's.bill', 's.counter', 's.dues', 's.qr', 's.voice', 's.history', 's.sales', 's.reports', 's.cashbook', 's.day',
+  's.gst', 's.purchases', 's.salary', 's.reportset',
+};
+
+/// The pages of one section: `money` (the Money tab) or `side` (the కొను / అమ్ము page).
+List<AskodoxLaunchPage> askodoxPagesFor(List<AskodoxLaunchPage> pages, String section) =>
+    [for (final p in pages) if (askodoxMoneySectionIds.contains(p.id) == (section == 'money')) p];
 
 /// Every page on its own (no folders): the person makes their own.
 AskodoxLaunchLayout askodoxBuyerShippedLayout() =>

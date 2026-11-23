@@ -9951,6 +9951,98 @@
           "askodoxBillModeHow"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/payment-alerts/events"
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Each money account (bank last digits, an app linked to an account) is ON for one side -- \"My own\" (mine), the shop this phone listens for (shop) -- or OFF. The phone routes every message by its ACCOUNT before the app list (PaymentAlertParser.accountSide; 1234 and 234 are one account): shop money never falls into My own and the other way round; an OFF account is not read; nothing chosen = the app decides, as before. The accounts page (My QR / accounts, Buyer and Seller) shows a switch per account for its own side, \"now: <side>\" when it is ON elsewhere (one side at a time, moving asks first), asks once \"whose is ••1234?\" for accounts seen with no side, and links the QR. Turning an account ON for the shop offers to move this month's earlier rows: they go to the shop history as moved (owner only, up to 40 days, never spoken on any phone, any app) and leave My own.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: account ON / OFF per side, routing by account, move earlier rows; NOT PHONE VERIFIED",
+          "date": "2026-11-23"
+        }
+      ],
+      "id": "account_sides",
+      "name": "Money accounts ON / OFF per side (My own / shop / off)",
+      "purpose": "Owner 2026-11-23: Rs 100 paid to the shop's account showed in My own; the person chooses which account each side reads.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_payment_alerts.py::test_owner_moves_earlier_payments_of_a_shop_account_silently"
+        ],
+        "flutter": [
+          "test/features/pos/money_accounts_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAccountsShopOff",
+          "askodoxMineQrLink"
+        ],
+        "symbols": [
+          "askodoxAccountSideMaps",
+          "askodoxTailsWithoutSide"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "account_sides"
+      ],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Bottom bar: tapping కొను opens the Buyer side page (/mode, switching to Buyer when needed), అమ్ము the shop page (switching to Seller); Money (both sides) holds only money pages (askodoxMoneySectionIds: accounts, payment voice, bills, dues, apps, language; shop bills, counter, dues, accounts, voice, history, sales, reports, cashbook, day close, GST, purchases, salary, report settings). Every other page of the side sits on its page; the side page has a search that finds any page of the side (marked \"in Money\"). Each section keeps its own saved screen per side / shop; \"Account names\" is merged into My QR / accounts.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: Money = money only; కొను / అమ్ము open their side pages; NOT PHONE VERIFIED",
+          "date": "2026-11-23"
+        }
+      ],
+      "id": "money_side_pages",
+      "name": "Money · కొను · అమ్ము: money in Money, everything else on the side page",
+      "purpose": "Owner 2026-11-23 (design approved): Money showed every page; split money from buying / shop work.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/money_home/money_home_screen_test.dart",
+          "test/features/simple_ux_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxNavBuy",
+          "askodoxNavSell",
+          "askodoxSidePage",
+          "askodoxSidePageSearch",
+          "askodoxBuyPageCard",
+          "askodoxShopPageCard"
+        ],
+        "symbols": [
+          "askodoxPagesFor",
+          "askodoxMoneySectionIds"
+        ]
+      }
     }
   ]
 }

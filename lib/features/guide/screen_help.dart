@@ -501,6 +501,16 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ప్రతి పేజీ ఒక ఐకాన్, కింద పేరు. పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్.',
     '"−" పేజీని దాచుతుంది (తొలగించదు); "దాచినవి" లో తిరిగి పెట్టండి; "మొదటిలా" మొదట ఉన్నట్టు పెడుతుంది. పేమెంట్ వాయిస్: వరుస నొక్కి ఆన్ / ఆఫ్, ▶ తో వినండి.',
   ]),
+  // Owner 2026-11-23: the కొను / అమ్ము page (bottom bar): everything of the side that is not money.
+  '/mode': _H('Buy / Sell page', 'కొను / అమ్ము పేజీ', [
+    'Tap కొను (Buy) or అమ్ము (Sell) on the bottom bar: that side\'s page opens. Money stays under "Money".',
+    'Buy page: orders, shops you follow, shop updates. Shop page: orders, items, staff, customers, settings.',
+    'Search at the top finds any page of this side. Press and hold a page to arrange it, like a phone.',
+  ], [
+    'కింద కొను లేదా అమ్ము నొక్కితే ఆ వైపు పేజీ తెరుచుకుంటుంది. డబ్బు "మనీ" లోనే ఉంటుంది.',
+    'కొను పేజీ: ఆర్డర్లు, ఫాలో షాప్‌లు, షాప్ అప్‌డేట్స్. షాప్ పేజీ: ఆర్డర్లు, ఐటమ్స్, సిబ్బంది, కస్టమర్లు, సెట్టింగ్స్.',
+    'పైన వెతికితే ఈ వైపు ఏ పేజీ అయినా దొరుకుతుంది. పేజీని పట్టుకుని ఫోన్ లాగా సర్దుకోవచ్చు.',
+  ]),
   '/payment-voice': _H('Payment voice', 'పేమెంట్ వాయిస్', [
     'Tap a line to switch what the phone says out loud: money received, sent, bill / EMI paid, refund, cashback, pending, failed, bill due, autopay, money asked.',
     '▶ plays the exact words. The "looks fake" warning is always on — a fake message is never counted as money.',

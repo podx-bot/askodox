@@ -49,7 +49,8 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
   GoRoute(path: '/me/dues', builder: (context, state) => const AskodoxMyDuesRouteScreen()),
   GoRoute(
       path: '/me/payments/phone',
-      builder: (context, state) => AskodoxMyPhonePaymentsScreen(open: state.uri.queryParameters['open'] ?? '')),
+      builder: (context, state) => AskodoxMyPhonePaymentsScreen(
+          open: state.uri.queryParameters['open'] ?? '', shop: state.uri.queryParameters['shop'] ?? '')),
   GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),
   // Payment sound alerts without the POS (owner 2026-11-10): the shop, its staff and who hears the sound.
   GoRoute(path: '/me/payment-alerts', builder: (context, state) => const AskodoxMyPaymentAlertsScreen()),

@@ -67,7 +67,8 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'money.dues' => '/biz/$id/money/dues',
       'money.cashbook' => '/biz/$id/money/cashbook',
       'money.sound' => askodoxRouteShownNow('/pos') ? '/pos/$id/payment-alerts' : '/me/payment-alerts/$id',
-      'money.accounts' => '/me/payment-methods',
+      // Owner 2026-11-23: the shop's accounts page -- each account ON / OFF for THIS shop (the QR is one tap inside).
+      'money.accounts' => '/me/payments/phone?open=accounts&shop=$id',
       'money.sales' => '/desk/$id/sales',
       'money.history' => '/biz/$id/money/history',
       'money.gst' => '/pos/$id/gst',

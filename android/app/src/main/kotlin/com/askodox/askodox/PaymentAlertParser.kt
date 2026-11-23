@@ -685,6 +685,29 @@ object PaymentAlertParser {
     private val bankDashRegex = Regex("""\bbank\s?[-–]\s?[xX*]{0,8}(\d{4})\b(?![\s-]*\d)""", RegexOption.IGNORE_CASE)
 
     /** Last 3-4 digits of the account a bank SMS names ("A/c XX1234" -> "1234"); never more than that. */
+    /** The sides an account can be ON for (owner 2026-11-23). */
+    val SIDES = setOf("mine", "shop", "off")
+
+    /**
+     * Owner 2026-11-23 ("seller account has 2 accounts"; Rs 100 paid to the shop's QR landed in "My own" because its
+     * bank app was on the "My phone" list): each money ACCOUNT is ON for one side -- "mine" (the person) or "shop"
+     * (the shop this phone listens for) -- or "off". The money's account decides, not the app it came through: one
+     * PhonePe / one SMS app carries both kinds of money, for every bank. [accountSides] = the account's last digits
+     * -> side (3-4 digits; "1234" and "234" are the same account), [appSides] = package -> side (an app the person
+     * linked to an account). null = nothing chosen: the app decides, as before.
+     */
+    fun accountSide(account: String?, pkg: String, accountSides: Map<String, String>, appSides: Map<String, String>): String? {
+        val tail = account?.filter { it.isDigit() }.orEmpty()
+        if (tail.length >= 3) {
+            accountSides[tail]?.let { return it.takeIf { s -> s in SIDES } }
+            for ((k, v) in accountSides) {
+                val key = k.filter { it.isDigit() }
+                if (key.length >= 3 && (key.endsWith(tail) || tail.endsWith(key)) && v in SIDES) return v
+            }
+        }
+        return appSides[pkg]?.takeIf { it in SIDES }
+    }
+
     fun accountTail(text: String?): String? = accountRegex.find(text ?: "")?.groupValues?.get(1)
         ?: bankDashRegex.find(text ?: "")?.groupValues?.get(1)
 

@@ -200,6 +200,11 @@ object AskodoxPaymentAlerts {
                     "deleteEvents" -> result.success(deleteEvents(app, call.argument<List<String>>("localIds")))
                     "correctEvent" -> result.success(correctEvent(app, call.argument<String>("localId") ?: "",
                         call.argument<String>("choice") ?: ""))
+                    "moveAccountRows" -> {
+                        val tail = call.argument<String>("tail") ?: ""
+                        val since = (call.argument<Number>("sinceMs") ?: 0).toLong()
+                        moveAccountRows(app, tail, since) { n -> main.post { result.success(n) } }
+                    }
                     "installedApps" -> result.success(installedApps(app))
                     "unknowns" -> result.success(unknowns(app).toString())
                     "learnUnknown" -> result.success(learnUnknown(app, call.argument<String>("id") ?: "",
@@ -257,6 +262,30 @@ object AskodoxPaymentAlerts {
         if (shopOn) return "shop" to shop
         if (mineOn) return "mine" to mineCfg
         return null
+    }
+
+    /**
+     * Owner 2026-11-23: where a message goes by its ACCOUNT ("My phone" accounts page / the shop's "My QR / accounts":
+     * each account ON for one side, or OFF). [cfg] = the side the app list chose. Returns the other side's settings
+     * when the account belongs there, [cfg] when nothing is chosen, null when the account is OFF -- or belongs to a
+     * side this phone does not listen for (shop money never falls into "My own", nor the other way round).
+     */
+    fun routeByAccount(context: Context, cfg: JSONObject, pkg: String, account: String?): JSONObject? {
+        val shop = config(context)
+        val mine = personalConfig(context)
+        val legacyMine = !shop.has("business_id") || shop.optString("business_id").isEmpty()
+        val mineCfg = if (mine.length() == 0 && legacyMine) shop else mine
+        fun sides(key: String): Map<String, String> {
+            val o = mineCfg.optJSONObject(key) ?: return emptyMap()
+            return o.keys().asSequence().associateWith { o.optString(it) }
+        }
+        return when (PaymentAlertParser.accountSide(account, pkg, sides("account_sides"), sides("app_sides"))) {
+            null -> cfg
+            "off" -> null
+            "shop" -> if (shop.optBoolean("enabled", false) && shop.optString("business_id").isNotEmpty()) shop else null
+            "mine" -> if (mineCfg.optBoolean("enabled", false) && mineCfg.optString("business_id").isEmpty()) mineCfg else null
+            else -> cfg
+        }
     }
 
     fun isBusinessApp(pkg: String): Boolean {
@@ -396,6 +425,8 @@ object AskodoxPaymentAlerts {
             "listenerAllowed" to listenerAllowed(context),
             "enabled" to cfg.optBoolean("enabled", false),
             "personalEnabled" to personalConfig(context).optBoolean("enabled", false),
+            // the shop whose payments this phone reads (owner 2026-11-23: an account can be ON for that shop)
+            "shopBusinessId" to (if (cfg.optBoolean("enabled", false)) cfg.optString("business_id") else ""),
             "autostartPage" to (autostartIntent(context) != null),
             "smsApp" to defaultSmsPackage(context),
             "connectedAt" to prefs(context).getLong("listener_connected_at", 0L),
@@ -752,7 +783,7 @@ object AskodoxPaymentAlerts {
     fun handle(context: Context, pkg: String, title: String?, text: String?, notificationKey: String, whenMillis: Long,
                test: Boolean = false, cfgIn: JSONObject? = null, messageTime: Long = 0L,
                summaryKey: String? = null, summaryTaken: MutableSet<String>? = null,
-               parts: List<String>? = null): Map<String, Any?> {
+               parts: List<String>? = null, routed: Boolean = false): Map<String, Any?> {
         val cfg = cfgIn ?: config(context)
         if (!test && !cfg.optBoolean("enabled", false)) return mapOf("result" to "disabled")
         // Owner 2026-11-23 (PhonePe "2 new completed transaction updates · A has sent ₹3,000 to your bank account ·
@@ -823,6 +854,20 @@ object AskodoxPaymentAlerts {
                 }
             }
             return mapOf("result" to "ignored")
+        }
+        // Owner 2026-11-23: the money's ACCOUNT decides the side (ON for "My own", ON for the shop, or OFF), not the app
+        // it came through. Summary lines only join rows already made, so they are never re-routed.
+        if (!routed && !test && !summary) {
+            val acct = when (parsed) {
+                is PaymentAlertParser.Result.Accepted -> parsed.account
+                is PaymentAlertParser.Result.Outgoing -> parsed.account
+                else -> null
+            }
+            val to = routeByAccount(context, cfg, pkg, acct) ?: return mapOf("result" to "account_off")
+            if (to !== cfg) {
+                return handle(context, pkg, title, text, notificationKey, whenMillis, test, to, messageTime, summaryKey,
+                    summaryTaken, parts, routed = true)
+            }
         }
         // Owner 2026-11-15: a normal person's own phone (no shop) keeps credits AND debits of any app / bank SMS they chose.
         val personal = cfg.optString("business_id").isEmpty()
@@ -1650,6 +1695,62 @@ object AskodoxPaymentAlerts {
      * and every new payment re-tries anything still waiting. Only a real refusal (4xx) stops, and it is kept on the
      * event as `upload_error` so the history can show why. The server is idempotent on client_event_id.
      */
+    /**
+     * Owner 2026-11-23: an account turned ON for the shop -- its money already in "My own" since [sinceMs] moves to the
+     * shop once, when the person says yes. Each row goes to the shop's history as an EARLIER payment (`moved`: never
+     * spoken on any phone, owner only on the server) and leaves "My own" (`moved_to_shop`). Calls [done] with how many
+     * moved (0 when this phone listens for no shop or is offline).
+     */
+    fun moveAccountRows(context: Context, tail: String, sinceMs: Long, done: (Int) -> Unit) {
+        io.execute {
+            var moved = 0
+            try {
+                val cfg = config(context)
+                val base = cfg.optString("base_url").trimEnd('/')
+                val token = cfg.optString("token")
+                val biz = cfg.optString("business_id")
+                val digits = tail.filter { it.isDigit() }
+                if (digits.length >= 3 && base.isNotEmpty() && token.isNotEmpty() && biz.isNotEmpty()) {
+                    val rows = synchronized(this) { events(context).let { l -> (0 until l.length()).map { l.getJSONObject(it) } } }
+                    for (e in rows) {
+                        val acct = e.optString("account").filter { it.isDigit() }
+                        if (e.optString("direction") != "in" || e.optBoolean("test") || e.optBoolean("excluded")) continue
+                        if (e.has("moved_to_shop") || !e.has("amount_paise") || e.optLong("at_ms") < sinceMs) continue
+                        if (acct.length < 3 || !(acct.endsWith(digits) || digits.endsWith(acct))) continue
+                        val id = (e.optString("client_event_id").ifEmpty { e.optString("local_id") } + "|moved")
+                            .replace(Regex("[^A-Za-z0-9_.:|-]"), "_").takeLast(120)
+                        val body = JSONObject()
+                            .put("client_event_id", id)
+                            .put("source_app", e.optString("source_app"))
+                            .put("amount_paise", e.optLong("amount_paise"))
+                            .put("detected_at", e.optString("detected_at"))
+                            .put("moved", true)
+                        if (e.has("reference")) body.put("reference", e.optString("reference"))
+                        val device = cfg.optJSONObject("device_ids")?.optString(biz)?.takeIf { it.isNotEmpty() }
+                            ?: cfg.optString("device_id")
+                        if (device.isNotEmpty()) body.put("device_id", device)
+                        val conn = URL("$base/api/pos/businesses/$biz/payment-alerts/events").openConnection() as HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.connectTimeout = 15000
+                        conn.readTimeout = 15000
+                        conn.doOutput = true
+                        conn.setRequestProperty("Content-Type", "application/json")
+                        conn.setRequestProperty("Authorization", "Bearer $token")
+                        conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                        if (conn.responseCode == 200) {
+                            update(context, e.optString("local_id")) { it.put("moved_to_shop", biz) }
+                            moved++
+                        }
+                        conn.disconnect()
+                    }
+                }
+            } catch (_: Exception) {
+                // offline: what moved stays moved, the rest can be moved again later
+            }
+            done(moved)
+        }
+    }
+
     private fun upload(context: Context, localId: String, attempt: Int = 0) {
         io.execute {
             var done = false

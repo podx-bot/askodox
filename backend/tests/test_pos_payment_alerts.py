@@ -457,3 +457,31 @@ def test_staff_never_see_the_other_staff_the_owner_added(env):
     assert "Prasad" not in {p["name"] for p in mine["people"]}, "the staff list belongs to the owner"
     assert {p["role"] for p in mine["people"]} == {"owner", "cashier"}
     assert mine["my_share"]["mode"] == "some" and len(mine["my_share"]["listeners"]) == 1
+
+
+def test_owner_moves_earlier_payments_of_a_shop_account_silently(env):
+    """Owner 2026-11-23: Rs 100 paid to the shop's account landed in "My own" (its bank app was on the My phone list).
+    When that account is turned ON for the shop, the owner moves this month's earlier payments in: kept in the shop's
+    history, never said as new money on any phone, from any app (the account decides), owner only."""
+    store, alerts, biz, owner_dev, cashier_dev, pushes, _, clock = env
+    old = (clock.now - timedelta(days=12)).isoformat()
+    sms = "com.google.android.apps.messaging"
+    moved = alerts.report(biz, OWNER, {"client_event_id": f"{sms}|ref|532012345678|moved", "source_app": sms,
+                                       "amount_paise": 10000, "detected_at": old, "moved": True,
+                                       "device_id": owner_dev})
+    assert moved["amount_paise"] == 10000 and moved["duplicate"] is False
+    assert pushes == [], "an earlier payment is never spoken on the staff phones"
+    again = alerts.report(biz, OWNER, {"client_event_id": f"{sms}|ref|532012345678|moved", "source_app": sms,
+                                       "amount_paise": 10000, "detected_at": old, "moved": True})
+    assert again["duplicate"] is True, "moving twice keeps one row"
+    with pytest.raises(PosError) as err:
+        alerts.report(biz, CASHIER, {"client_event_id": f"{sms}|key|9|moved", "source_app": sms, "amount_paise": 500,
+                                     "detected_at": old, "moved": True, "device_id": cashier_dev})
+    assert err.value.code in ("owner_only", "sound_only")
+    with pytest.raises(PosError) as err:
+        alerts.report(biz, OWNER, {"client_event_id": f"{sms}|key|10|moved", "source_app": sms, "amount_paise": 500,
+                                   "detected_at": (clock.now - timedelta(days=41)).isoformat(), "moved": True})
+    assert err.value.code == "too_old"
+    # an ordinary (not moved) report from an app the shop does not read is still refused
+    with pytest.raises(PosError):
+        alerts.report(biz, OWNER, {"client_event_id": f"{sms}|key|11", "source_app": sms, "amount_paise": 500})

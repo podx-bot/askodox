@@ -10,7 +10,7 @@ import 'package:podx/features/money_home/money_home_store.dart';
 import 'package:podx/shared/widgets/chat_pins.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false}) async {
+Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false, String section = 'money'}) async {
   tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
@@ -19,7 +19,7 @@ Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false}) asyn
   container.read(askodoxSellerModeProvider.notifier).state = seller;
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(home: Scaffold(body: AskodoxMoneyHomeScreen())),
+    child: MaterialApp(home: Scaffold(body: AskodoxMoneyHomeScreen(section: section))),
   ));
   await tester.pumpAndSettle();
   return container;
@@ -51,14 +51,31 @@ void main() {
     expect(find.byKey(const Key('askodoxMoneyHome')), findsOneWidget);
     expect(find.byKey(const Key('askodoxMoneyHomeCard')), findsOneWidget);
     expect(find.text('My money · this month'), findsOneWidget);
-    for (final id in ['b.qr', 'b.voice', 'b.bills', 'b.dues', 'b.ordercode', 'b.updates', 'b.following', 'b.shopfeed', 'b.apps',
-      'b.accounts', 'b.language']) {
+    // Owner 2026-11-23: Money holds money only ("Account names" is inside My QR / accounts now).
+    for (final id in ['b.qr', 'b.voice', 'b.bills', 'b.dues', 'b.apps', 'b.language']) {
       expect(find.byKey(ValueKey('askodoxMoneyTile-$id')), findsOneWidget, reason: id);
     }
+    for (final id in ['b.ordercode', 'b.updates', 'b.following', 'b.shopfeed', 'b.accounts']) {
+      expect(find.byKey(ValueKey('askodoxMoneyTile-$id')), findsNothing, reason: '$id is not money');
+    }
     expect(find.byKey(const ValueKey('askodoxMoneyTile-f:shops')), findsNothing, reason: 'owner 2026-11-22: no app folders');
+  });
+
+  testWidgets('owner 2026-11-23: the కొను page holds the buyer pages; its search finds any page of the side', (tester) async {
+    await _pump(tester, section: 'side');
+    expect(find.byKey(const Key('askodoxSidePage')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxBuyPageCard')), findsOneWidget);
+    for (final id in ['b.ordercode', 'b.updates', 'b.following', 'b.shopfeed']) {
+      expect(find.byKey(ValueKey('askodoxMoneyTile-$id')), findsOneWidget, reason: id);
+    }
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')), findsNothing, reason: 'money stays in Money');
     // Registry keys stay findable on their pages.
     expect(find.byKey(const ValueKey('askodoxShoppingOrderCode')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxShoppingFollowing')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('askodoxSidePageSearch')), 'bill');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxSidePageHit-b.bills')), findsOneWidget, reason: 'a Money page is found too');
+    expect(find.text('in Money'), findsWidgets);
   });
 
   testWidgets('folders an earlier version made by itself come apart; the person\'s own folders stay', (tester) async {
@@ -66,15 +83,15 @@ void main() {
       askodoxMoneyLayoutKey(false): jsonEncode({
         'v': 1,
         'entries': [
-          {'folder': 'shops', 'name': '', 'children': ['b.following', 'b.shopfeed']},
-          {'folder': 'u1', 'name': 'Mine', 'children': ['b.apps', 'b.accounts']},
+          {'folder': 'shops', 'name': '', 'children': ['b.bills', 'b.dues']},
+          {'folder': 'u1', 'name': 'Mine', 'children': ['b.apps', 'b.language']},
         ],
         'hidden': [],
       }),
     });
     await _pump(tester);
     expect(find.byKey(const ValueKey('askodoxMoneyTile-f:shops')), findsNothing);
-    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.following')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.bills')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxMoneyTile-f:u1')), findsOneWidget);
     expect(find.text('Mine'), findsOneWidget);
   });
@@ -84,7 +101,7 @@ void main() {
       askodoxMoneyLayoutKey(false): jsonEncode({
         'v': 1,
         'entries': [
-          {'folder': 'u1', 'name': 'Two', 'children': ['b.apps', 'b.accounts']},
+          {'folder': 'u1', 'name': 'Two', 'children': ['b.apps', 'b.language']},
         ],
         'hidden': [],
       }),
@@ -106,7 +123,7 @@ void main() {
     expect(find.byKey(const ValueKey('askodoxMoneyFolder-u1')), findsNothing, reason: 'the folder closed');
     expect(find.byKey(const ValueKey('askodoxMoneyTile-b.apps')), findsOneWidget, reason: 'now on the screen');
     expect(find.byKey(const ValueKey('askodoxMoneyTile-f:u1')), findsNothing, reason: 'one page left = no folder');
-    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.accounts')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxMoneyTile-b.language')), findsOneWidget);
     final saved = (await SharedPreferences.getInstance()).getString(askodoxMoneyLayoutKey(false))!;
     expect(saved, isNot(contains('"folder"')));
   });

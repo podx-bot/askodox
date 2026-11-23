@@ -269,14 +269,14 @@ void main() {
     expect(find.byKey(const Key('askodoxNavProfile')), findsNothing);
     // No steps counted yet: the Live Work dot is grey and still.
     expect(find.byKey(const Key('askodoxNavLiveWorkDot-idle')), findsOneWidget);
-    // The app opens on the Buyer side; one tap on the switch = Seller side, another = back.
-    // Owner 2026-11-22: "Money" on BOTH sides (it said "Shop" on the Seller side); it opens the Money tab (branch 1),
-    // and the switch stays on the tab in view instead of jumping to Home.
+    // The app opens on the Buyer side. Owner 2026-11-23 (design "Money · కొను · అమ్ము"): అమ్ము = Seller side + the
+    // shop's page (branch 2), కొను = Buyer side + the buyer page; "Money" on BOTH sides opens the Money tab (branch 1).
     expect(container.read(askodoxSellerModeProvider), isFalse);
     expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Buyer');
-    await tester.tap(find.byKey(const Key('askodoxNavHistory')));
+    await tester.tap(find.byKey(const Key('askodoxNavSell')));
     await tester.pumpAndSettle();
     expect(container.read(askodoxSellerModeProvider), isTrue);
+    expect(find.text('HISTORY'), findsOneWidget, reason: 'అమ్ము opens the side page (branch 2)');
     expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Seller');
     expect(find.byKey(const Key('askodoxNavShop')), askodoxPhase2 ? findsNothing : findsOneWidget);
     expect(find.byKey(const Key('askodoxNavPayments')), findsNothing);
@@ -287,10 +287,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('X'), findsOneWidget, reason: 'Money = the second tab');
     }
-    await tester.tap(find.byKey(const Key('askodoxNavHistory')));
+    await tester.tap(find.byKey(const Key('askodoxNavBuy')));
     await tester.pumpAndSettle();
     expect(container.read(askodoxSellerModeProvider), isFalse);
-    if (!askodoxPhase2) expect(find.text('X'), findsOneWidget, reason: 'the switch stays on the Money tab');
+    expect(find.text('HISTORY'), findsOneWidget, reason: 'కొను opens the Buyer side page');
+    await tester.tap(find.byKey(const Key('askodoxNavBuy')));
+    await tester.pumpAndSettle();
+    expect(container.read(askodoxSellerModeProvider), isFalse, reason: 'tapping the side in use never flips it');
     // Phase 1: no Orders tab (ASKODOX neither sells nor buys); the header bell opens request updates.
     expect(find.byKey(const Key('askodoxNavUpdates')), askodoxPhase2 ? findsOneWidget : findsNothing);
     // Phase 1 (owner 2026-11-10): Payments sits beside Ask.

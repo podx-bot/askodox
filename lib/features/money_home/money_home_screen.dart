@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/backend_providers.dart';
-import '../business/presentation/biz_hub.dart' show askodoxBizHubProvider;
+import '../business/presentation/biz_hub.dart' show askodoxBizHubProvider, askodoxBizRoute;
 import '../home/domain/shopping_mode.dart';
 import '../pos/data/pos_payment_alerts.dart';
 import '../pos/data/pos_repository.dart';
@@ -35,7 +35,11 @@ const _ink = Color(0xFF16203F);
 /// open folder = back on the screen, inside a folder = its new place. Pages are hidden (never deleted) and brought
 /// back; "Reset" brings the shipped screen back.
 class AskodoxMoneyHomeScreen extends ConsumerStatefulWidget {
-  const AskodoxMoneyHomeScreen({super.key});
+  const AskodoxMoneyHomeScreen({super.key, this.section = 'money'});
+
+  /// Owner 2026-11-23: `money` = the Money tab (money only); `side` = the కొను / అమ్ము page (everything else of the
+  /// side: orders, shops, items, staff, customers, settings).
+  final String section;
 
   @override
   ConsumerState<AskodoxMoneyHomeScreen> createState() => _AskodoxMoneyHomeScreenState();
@@ -77,8 +81,13 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     super.dispose();
   }
 
+  bool get _side => widget.section == 'side';
+
+  /// The page search on the కొను / అమ్ము page (owner 2026-11-23): finds a page of either section of this side.
+  String _query = '';
+
   Future<void> _load() async {
-    final buyer = await askodoxLoadMoneyLayout(false);
+    final buyer = await askodoxLoadMoneyLayout(false, side: _side);
     List<AskodoxJson> events = const [];
     AskodoxMyPhoneAlerts? mine;
     try {
@@ -98,7 +107,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   void _loadShop(String id) {
     if (_shops.containsKey(id) || _loadingShops.contains(id)) return;
     _loadingShops.add(id);
-    unawaited(askodoxLoadMoneyLayout(true, shop: id).then((l) {
+    unawaited(askodoxLoadMoneyLayout(true, shop: id, side: _side).then((l) {
       _loadingShops.remove(id);
       if (mounted) setState(() => _shops[id] = l);
     }));
@@ -118,7 +127,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         _shops[shop] = next;
       }
     });
-    unawaited(askodoxSaveMoneyLayout(shop != null, next, shop: shop));
+    unawaited(askodoxSaveMoneyLayout(shop != null, next, shop: shop, side: _side));
   }
 
   // ------------------------------------------------------------------------------------------------ build
@@ -132,8 +141,9 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         te: te,
         shop: null,
         color: _buyerColor,
-        pages: askodoxBuyerPages,
-        card: _buyerCard(te),
+        pages: askodoxPagesFor(askodoxBuyerPages, widget.section),
+        allPages: askodoxBuyerPages,
+        card: _side ? _buyerSideCard(te) : _buyerCard(te),
         canEdit: true,
       );
     }
@@ -155,11 +165,13 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         _loadShop(id);
         final hub = ref.watch(askodoxBizHubProvider(id));
         final business = hub.valueOrNull?.$1 ?? shop;
+        final all = askodoxSellerPages(id, business);
         return _launcher(
           te: te,
           shop: id,
           color: _sellerColor,
-          pages: askodoxSellerPages(id, business),
+          pages: askodoxPagesFor(all, widget.section),
+          allPages: all,
           card: _sellerCard(te, list, shop, hub.valueOrNull?.$2),
           // A staff member's pages are known once the shop answers: arranging before that could lose hidden ones.
           canEdit: hub.hasValue && _shops.containsKey(id),
@@ -228,6 +240,20 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     );
   }
 
+  /// Buyer page (కొను): what the person buys -- orders, shops they follow, shop updates (money stays in Money).
+  Widget _buyerSideCard(bool te) => _card(
+        key: const Key('askodoxBuyPageCard'),
+        color: _buyerColor,
+        onTap: () => context.push('/updates'),
+        title: te ? 'కొను — నా ఆర్డర్లు, షాప్‌లు' : 'Buy — my orders and shops',
+        numbers: const [],
+        lines: [
+          (te ? 'ఆర్డర్ల స్థితి, ఫాలో చేసే షాప్‌లు, వాటి అప్‌డేట్స్ — అన్నీ ఇక్కడ.' : 'Order status, shops you follow and their updates — all here.',
+              '', const Color(0xFF5B6475)),
+          (te ? 'డబ్బు, బిల్లులు, ఖాతాలు కింద "మనీ" లో.' : 'Money, bills and accounts are under "Money".', '', const Color(0xFF5B6475)),
+        ],
+      );
+
   /// Seller: the shop in view (chooser), today's sales / dues / new orders; tap = the shop's full money history.
   Widget _sellerCard(bool te, List<AskodoxJson> shops, AskodoxJson shop, AskodoxJson? hub) {
     final id = '${shop['id']}';
@@ -243,9 +269,9 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         height: 30,
         child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B6475))));
     return _card(
-      key: const Key('askodoxMoneyHomeCard'),
+      key: Key(_side ? 'askodoxShopPageCard' : 'askodoxMoneyHomeCard'),
       color: _sellerColor,
-      onTap: () => context.push('/money?owner=$id&lock=1'),
+      onTap: () => context.push(_side ? askodoxBizRoute(id, 'orders.incoming') : '/money?owner=$id&lock=1'),
       // Owner 2026-11-22: one person can own a shop AND work in another -- each shows that person's side of it.
       title: '${shop['name'] ?? ''}${staff ? (te ? ' · నేను ఇక్కడ సిబ్బంది' : ' · I work here') : ''}',
       trailing: PopupMenuButton<String>(
@@ -269,7 +295,12 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           PopupMenuItem(value: '__add__', child: Text(te ? '+ కొత్త షాప్' : '+ Add a shop')),
         ],
       ),
-      numbers: [
+      numbers: _side
+          ? [
+              (te ? 'కొత్త ఆర్డర్లు' : 'New orders', hub == null ? '…' : '${askodoxPosInt(askodoxPosMap(hub['orders'])['new'])}',
+                  const Color(0xFF1E3FA0)),
+            ]
+          : [
         (te ? 'ఈ రోజు అమ్మకం' : 'Today', hub == null ? '…' : askodoxPaise(askodoxPosInt(askodoxPosMap(hub['sales'])['paise'])),
             const Color(0xFF12A150)),
         (te ? 'బాకీ' : 'Dues', hub == null ? '…' : askodoxPaise(askodoxPosInt(askodoxPosMap(hub['dues'])['paise'])),
@@ -277,7 +308,10 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         (te ? 'కొత్త ఆర్డర్లు' : 'New orders', hub == null ? '…' : '${askodoxPosInt(askodoxPosMap(hub['orders'])['new'])}',
             const Color(0xFF1E3FA0)),
       ],
-      lines: const [],
+      lines: _side
+          ? [(te ? 'ఆర్డర్లు, ఐటమ్స్, సిబ్బంది, కస్టమర్లు, సెట్టింగ్స్' : 'Orders, items, staff, customers, settings', '',
+              const Color(0xFF5B6475))]
+          : const [],
     );
   }
 
@@ -369,14 +403,17 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     required List<AskodoxLaunchPage> pages,
     required Widget card,
     required bool canEdit,
+    List<AskodoxLaunchPage> allPages = const [],
   }) {
+    if (_side && _query.trim().isNotEmpty) return _searchResults(te, shop, allPages, color);
     final byId = {for (final p in pages) p.id: p};
     final layout = _layoutFor(shop, [for (final p in pages) p.id]);
     _current = layout;
     // While arranging, the account card's place shows the arranging panel: nothing on the screen moves under the
     // finger (a moved grid would drop a page on the wrong neighbour).
     final editPanel = _editing ? _editBar(te, shop, layout, byId, color) : null;
-    return Column(key: const Key('askodoxMoneyHome'), children: [
+    return Column(key: Key(_side ? 'askodoxSidePage' : 'askodoxMoneyHome'), children: [
+      if (_side && !_editing) _searchBox(te),
       Expanded(
         child: LayoutBuilder(builder: (context, box) {
           final h = box.maxHeight.isFinite ? box.maxHeight : 600.0;
@@ -441,6 +478,46 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
             ],
           ]);
         }),
+      ),
+    ]);
+  }
+
+  /// "Which page? Search here" (owner 2026-11-23 design): any page of this side, in Money or here.
+  Widget _searchBox(bool te) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        child: TextField(
+          key: const Key('askodoxSidePageSearch'),
+          onChanged: (v) => setState(() => _query = v),
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: const Icon(Icons.search_rounded),
+            hintText: te ? 'ఏ పేజీ కావాలి? ఇక్కడ వెతకండి' : 'Which page? Search here',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      );
+
+  Widget _searchResults(bool te, String? shop, List<AskodoxLaunchPage> all, Color color) {
+    final q = _query.trim().toLowerCase();
+    final hits = [
+      for (final p in all)
+        if (p.en.toLowerCase().contains(q) || p.te.contains(q)) p,
+    ];
+    return Column(key: const Key('askodoxSidePage'), children: [
+      _searchBox(te),
+      Expanded(
+        child: hits.isEmpty
+            ? Center(child: Text(te ? 'ఆ పేరుతో పేజీ లేదు' : 'No page by that name'))
+            : ListView(children: [
+                for (final p in hits)
+                  ListTile(
+                    key: ValueKey('askodoxSidePageHit-${p.id}'),
+                    leading: CircleAvatar(backgroundColor: p.color, child: Icon(p.icon, color: Colors.white, size: 20)),
+                    title: Text(te ? p.te : p.en),
+                    subtitle: Text(askodoxMoneySectionIds.contains(p.id) ? (te ? 'మనీ లో' : 'in Money') : (te ? 'ఈ పేజీలో' : 'on this page')),
+                    onTap: () => _open(p, shop),
+                  ),
+              ]),
       ),
     ]);
   }

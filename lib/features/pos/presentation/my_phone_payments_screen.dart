@@ -29,10 +29,14 @@ import 'payment_source_icon.dart';
 /// access, battery, the maker's Autostart page, each app's own notifications, the SMS app) -- nothing to hunt for.
 /// A phone that also listens for a shop chooses per app where it goes (shop or my phone); both work together.
 class AskodoxMyPhonePaymentsScreen extends ConsumerStatefulWidget {
-  const AskodoxMyPhonePaymentsScreen({super.key, this.open = ''});
+  const AskodoxMyPhonePaymentsScreen({super.key, this.open = '', this.shop = ''});
 
   /// Opens one part at once (history | apps | accounts | voice) -- the Money screen's folder pages link straight in.
   final String open;
+
+  /// Owner 2026-11-23: opened from the Seller side ("My QR / accounts" of shop [shop]) -- the account switches are
+  /// for that shop; empty = the Buyer side ("My own").
+  final String shop;
 
   @override
   ConsumerState<AskodoxMyPhonePaymentsScreen> createState() => _AskodoxMyPhonePaymentsScreenState();
@@ -806,13 +810,120 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     if (out != null) await _savePlace(out);
   }
 
+  /// The side this page switches: the shop (Seller "My QR / accounts") or "My own" (Buyer).
+  String get _side => widget.shop.isEmpty ? 'mine' : 'shop';
+
+  /// True when this phone reads the payments of the shop this page is for (an account can be ON only for that shop).
+  bool get _phoneHasThisShop => widget.shop.isNotEmpty && '${_status['shopBusinessId'] ?? ''}' == widget.shop;
+
+  bool get _phoneHasAShop => '${_status['shopBusinessId'] ?? ''}'.isNotEmpty;
+
+  String _sideName(String side, bool te) => switch (side) {
+        'mine' => te ? 'నా సొంతం' : 'My own',
+        'shop' => te ? 'షాప్' : 'the shop',
+        'off' => te ? 'ఆఫ్' : 'off',
+        _ => te ? 'ఇంకా ఎంచుకోలేదు' : 'not chosen yet',
+      };
+
+  /// Owner 2026-11-23: one account is ON for one side at a time -- My own OR the shop -- or OFF.
+  Future<void> _setSide(AskodoxMyPhoneAlerts m, AskodoxMoneyPlace p, String side, bool te) async {
+    if (side != 'off' && p.side.isNotEmpty && p.side != 'off' && p.side != side) {
+      final ok = await _confirm(
+          te ? '${_sideName(p.side, te)} నుంచి తీసి ఇక్కడ ON చేయాలా?' : 'Move it from ${_sideName(p.side, te)} to here?',
+          te ? 'ఒక ఖాతా ఒకేసారి ఒక వైపే ఉంటుంది — సొంత డబ్బు, షాప్ డబ్బు కలవవు.' : 'An account is on one side at a time -- own and shop money never mix.',
+          te);
+      if (!ok) return;
+    }
+    await _savePlace(p.copyWith(side: side));
+    if (side == 'shop' && p.type == 'bank' && p.tail.length >= 3 && mounted) {
+      final now = DateTime.now();
+      final earlier = _events.where((e) =>
+          '${e['direction']}' == 'in' && e['moved_to_shop'] == null && '${e['account'] ?? ''}'.isNotEmpty &&
+          (p.tail.endsWith('${e['account']}') || '${e['account']}'.endsWith(p.tail)));
+      if (earlier.isEmpty) return;
+      final move = await _confirm(
+          te ? 'ఈ నెల ఇప్పటికే వచ్చినవి కూడా షాప్ కి మార్చాలా?' : 'Move this month\'s earlier payments to the shop too?',
+          te
+              ? '"నా సొంతం" లో పడిన ఈ ఖాతా పేమెంట్లు షాప్ హిస్టరీకి వెళ్తాయి. మళ్ళీ వాయిస్ రాదు.'
+              : 'This account\'s payments in "My own" go to the shop history. Nothing is spoken again.',
+          te);
+      if (!move) return;
+      final n = await _bridge.moveAccountRows(p.tail, DateTime(now.year, now.month));
+      await _reload();
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+            content: Text(n > 0
+                ? (te ? '$n పేమెంట్లు షాప్ కి మార్చాం ✓' : 'Moved $n payments to the shop ✓')
+                : (te ? 'ఏదీ మారలేదు — ఇంటర్నెట్ చూసి మళ్ళీ ప్రయత్నించండి' : 'Nothing moved -- check the internet and try again'))));
+      }
+    }
+  }
+
+  /// "Whose is ••1234?" -- a bank account the history shows with no side yet becomes an account with that side.
+  Future<void> _sideForTail(AskodoxMyPhoneAlerts m, String tail, String side) async {
+    final existing = m.places.where((p) => p.type == 'bank' && (p.tail.endsWith(tail) || tail.endsWith(p.tail))).firstOrNull;
+    await _savePlace(existing?.copyWith(side: side) ??
+        AskodoxMoneyPlace(key: askodoxBankKey(tail), type: 'bank', name: 'A/c ••$tail', tail: tail, side: side));
+  }
+
   Widget _accountsCard(AskodoxMyPhoneAlerts m, bool te) {
+    final unchosen = askodoxTailsWithoutSide(_events, m.places).take(3).toList();
     return Card(
       key: const Key('askodoxMineAccounts'),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(te ? 'నా డబ్బు ఖాతాలు' : 'My money accounts', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(te ? 'నా QR / ఖాతాలు' : 'My QR / accounts', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(
+              widget.shop.isEmpty
+                  ? (te ? 'ఏ ఖాతా ON చేస్తే ఆ ఖాతా పేమెంట్లు మాత్రమే "నా సొంతం" లో వస్తాయి.' : 'Only the accounts you switch ON come into "My own".')
+                  : (te ? 'ఏ ఖాతా ON చేస్తే ఆ ఖాతా పేమెంట్లు మాత్రమే ఈ షాప్ కి వస్తాయి.' : 'Only the accounts you switch ON come into this shop.'),
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+          if (widget.shop.isNotEmpty && !_phoneHasThisShop)
+            Container(
+              key: const Key('askodoxAccountsShopOff'),
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(12)),
+              child: Row(children: [
+                Expanded(
+                    child: Text(
+                        te
+                            ? 'ఈ ఫోన్ ఇంకా ఈ షాప్ పేమెంట్లు చదవట్లేదు. ముందు షాప్ పేమెంట్ వాయిస్ ఆన్ చేయండి.'
+                            : 'This phone does not read this shop\'s payments yet. Turn on the shop\'s payment voice first.',
+                        style: const TextStyle(fontSize: 12.5))),
+                TextButton(
+                  onPressed: () => context.push('/pos/${widget.shop}/payment-alerts'),
+                  child: Text(te ? 'ఆన్ చేయి' : 'Turn on'),
+                ),
+              ]),
+            ),
+          for (final tail in unchosen)
+            Container(
+              key: ValueKey('askodoxAccountWhose-$tail'),
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(12)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(te ? 'కొత్త ఖాతా ••$tail కనిపించింది — ఇది ఎవరిది?' : 'New account ••$tail seen -- whose is it?',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                Wrap(spacing: 8, children: [
+                  OutlinedButton(
+                      key: ValueKey('askodoxAccountWhose-$tail-mine'),
+                      onPressed: () => _sideForTail(m, tail, 'mine'),
+                      child: Text(te ? 'నా సొంతం' : 'My own')),
+                  if (_phoneHasAShop)
+                    OutlinedButton(
+                        key: ValueKey('askodoxAccountWhose-$tail-shop'),
+                        onPressed: () => _sideForTail(m, tail, 'shop'),
+                        child: Text(te ? 'షాప్' : 'Shop')),
+                  TextButton(
+                      key: ValueKey('askodoxAccountWhose-$tail-off'),
+                      onPressed: () => _sideForTail(m, tail, 'off'),
+                      child: Text(te ? 'వద్దు' : 'Not needed')),
+                ]),
+              ]),
+            ),
           Text(
               te
                   ? 'బ్యాంక్ ఖాతా, UPI ID, వాలెట్, QR — ఏదైనా జోడించండి. హిస్టరీ ఖాతాల వారీగా కనిపిస్తుంది. ఒక యాప్‌ని ఖాతాకి లింక్ చేస్తే (ఉదా. PhonePe = HDFC కరెంట్) ఆ యాప్ పేమెంట్లు ఆ ఖాతాలో పడతాయి.'
@@ -835,8 +946,16 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                 if (p.tail.isNotEmpty) '••${p.tail}',
                 if (p.upi.isNotEmpty) p.upi,
                 if (p.apps.isNotEmpty) '🔗 ${p.apps.map((a) => m.apps[a] ?? a).join(', ')}',
+                if (p.side != _side) (te ? 'ఇప్పుడు: ${_sideName(p.side, te)}' : 'now: ${_sideName(p.side, te)}'),
               ].join(' · ')),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                Switch(
+                  key: ValueKey('askodoxMineAccountOn-${p.key}'),
+                  value: p.side == _side,
+                  onChanged: widget.shop.isNotEmpty && !_phoneHasThisShop
+                      ? null
+                      : (on) => _setSide(m, p, on ? _side : 'off', te),
+                ),
                 IconButton(
                   key: ValueKey('askodoxMineAccountEdit-${p.key}'),
                   icon: const Icon(Icons.edit_outlined),
@@ -852,6 +971,12 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               ]),
             ),
           const SizedBox(height: 6),
+          TextButton.icon(
+            key: const Key('askodoxMineQrLink'),
+            onPressed: () => context.push('/me/payment-methods'),
+            icon: const Icon(Icons.qr_code_2_rounded),
+            label: Text(te ? 'నా QR — డబ్బు తీసుకునే మార్గాలు' : 'My QR -- ways to get paid'),
+          ),
           OutlinedButton.icon(
             key: const Key('askodoxMineAccountAdd'),
             onPressed: () => _editPlace(m, te),

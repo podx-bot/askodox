@@ -51,6 +51,8 @@ SAME_PAYMENT_WINDOW_MIN = 2  # the same payment reported again inside this windo
 RETENTION_DAYS = 90
 MAX_AMOUNT_PAISE = 10_000_000_00  # ₹1 crore: anything above is not a counter UPI alert
 MAX_DELAY = timedelta(days=3)  # an event detected earlier than this (phone offline long) is refused
+# Owner 2026-11-23: earlier payments the owner moves from "My own" to the shop (the account is now ON for the shop).
+MOVED_MAX_AGE = timedelta(days=40)
 # Owner 2026-11-14: every Indian language an ElevenLabs voice speaks (elevenlabs_tts.VOICES), not only te / hi / en.
 LANGUAGES = ("te", "hi", "en", "ta", "kn", "ml", "bn", "mr", "gu", "pa", "or", "ur")
 
@@ -798,10 +800,13 @@ class PosPaymentAlerts:
         detected = _parse_time(data.get("detected_at")) or now
         if detected > now + timedelta(minutes=10):
             raise PosError(400, "detected_at", "detected_at is in the future.")
-        if now - detected > MAX_DELAY:
+        moved = bool(data.get("moved")) and not test
+        if now - detected > (MOVED_MAX_AGE if moved else MAX_DELAY):
             raise PosError(400, "too_old", "This notification is too old to announce.")
         with self.store._tx() as conn:
             role = self._member(conn, business_id, user)
+            if moved and role != "owner":
+                raise PosError(403, "owner_only", "Only the shop owner can move earlier payments to the shop.")
             # Owner 2026-11-15: staff added for the SOUND only (attendant, waiter, kitchen, accountant) hear alerts
             # but their phone is never a payment source: money they receive privately must never reach the shop.
             if role != "owner" and "collect" not in PERMISSIONS.get(role, frozenset()):
@@ -813,9 +818,10 @@ class PosPaymentAlerts:
             if test:
                 source, label = "askodox.test", "ASKODOX test"
             else:
-                if source not in settings["apps"]:
+                if source not in settings["apps"] and not moved:
                     raise PosError(400, "unsupported_app", "This payment app is not in the shop's allowed list.")
-                label = settings["apps"][source]
+                # a moved payment came through the owner's own app / SMS (its ACCOUNT is the shop's)
+                label = settings["apps"].get(source) or ("Bank SMS" if "messag" in source.lower() else "Phone")
             device_id = self._device(conn, business_id, user, data.get("device_id"))
             self._purge(conn)
             # Same payment = same reference in the same app; without a reference, the phone's own event id.
@@ -827,7 +833,7 @@ class PosPaymentAlerts:
                 event = self._event_out(conn, existing, user)
                 event["duplicate"] = True
                 return event
-            if amount is not None and not test:
+            if amount is not None and not test and not moved:
                 seen = self._same_payment_recent(conn, business_id, int(amount), self._now())
                 # Owner 2026-11-15: every real payment is recorded. A second notification from the SAME phone and
                 # the SAME payment app is a new payment (same reference / notification key is caught above); only
@@ -859,7 +865,8 @@ class PosPaymentAlerts:
             event = self._event_out(conn, row, user)
             receivers = self._receivers(conn, business_id, settings, exclude=user, source=user)
             # Owner 2026-11-18: a message with no amount is kept in the history, never spoken on any phone.
-            if amount is None and not test:
+            # Owner 2026-11-23: an earlier payment moved in is history too -- never said as new money.
+            if (amount is None and not test) or moved:
                 receivers = []
             self._plan_deliveries(conn, business_id, event_id, receivers)
             shop = self.store._business_row(conn, business_id)["name"]
