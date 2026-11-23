@@ -253,6 +253,9 @@ class PlatformRepository:
                status: str | None = None, data: Dict[str, Any] | None = None, archived: bool | None = None,
                expected_version: int | None = None) -> Dict[str, Any]:
         with self._connect() as conn:
+            # Read-modify-write under the write lock: a background writer (e.g. the video watermark thread) must not
+            # write back a status it read before a concurrent approve committed (lost update, seen as a flaky test).
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT * FROM pf_records WHERE id=?", (record_id,)).fetchone()
             if not row:
                 raise KeyError(record_id)

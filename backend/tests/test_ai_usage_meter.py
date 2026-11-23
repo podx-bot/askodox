@@ -195,3 +195,4 @@ def test_my_credits_shows_usage_and_staff_route_is_protected(monkeypatch):
     assert usage["free_now"] is True and usage["estimate"] is True
     assert set(usage["today"]["by_feature"]) >= {"chat", "voice", "web_search", "image"}
     assert client.get("/admin/cc/ai-credits/users").status_code in (401, 403)
+
