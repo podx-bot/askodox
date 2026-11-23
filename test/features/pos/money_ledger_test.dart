@@ -158,4 +158,19 @@ void main() {
     ], const [], const {}, const {});
     expect(rows.map((r) => r.confirmed), ['bank_sms', '', '']);
   });
+
+  test('a shop bill paid by UPI with no app named says UPI, never "Other" (owner 2026-11-23, Rs 580)', () {
+    final rows = askodoxItemsFromShopBills([
+      {'id': 'i7', 'status': 'issued', 'number': 'INV/2627/000007', 'total_paise': 58000, 'due_paise': 0,
+       'modes': ['other_upi'], 'issued_at': '2026-11-22T18:36:00+05:30'},
+      {'id': 'i8', 'status': 'issued', 'number': 'INV/2627/000008', 'total_paise': 54000, 'due_paise': 0,
+       'modes': ['cash'], 'issued_at': '2026-11-23T16:32:00+05:30'},
+      {'id': 'i9', 'status': 'issued', 'number': 'INV/2627/000009', 'total_paise': 10000, 'due_paise': 0,
+       'modes': ['bank_transfer'], 'issued_at': '2026-11-23T17:00:00+05:30'},
+    ]);
+    expect(rows.map((r) => askodoxHowLabel(r.how).$1), ['UPI', 'Cash', 'Bank']);
+    for (final mode in ['phonepe', 'gpay', 'paytm', 'bhim', 'other_upi', 'card', 'cheque', 'cash', 'bank_transfer']) {
+      expect(askodoxHowLabel(askodoxBillModeHow(mode)).$1, isNot('Other'), reason: mode);
+    }
+  });
 }

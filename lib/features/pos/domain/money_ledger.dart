@@ -74,6 +74,14 @@ String askodoxHowOf(String package, String label, {String kind = ''}) {
   return 'upi';
 }
 
+/// A shop bill's payment mode (server `pos_bills.MODE_KEYS`) as a "how" key. Owner 2026-11-23: a ₹580 UPI bill showed
+/// "Other" -- UPI with no app named is `other_upi` on the server, which no label knew.
+String askodoxBillModeHow(String mode) => switch (mode) {
+      'other_upi' || 'upi' || 'bhim' => 'upi',
+      'bank_transfer' || 'neft' || 'imps' || 'rtgs' => 'bank',
+      _ => mode,
+    };
+
 /// (en, te) for a "how" key.
 (String, String) askodoxHowLabel(String how) => switch (how) {
       'phonepe' => ('PhonePe', 'PhonePe'),
@@ -86,7 +94,9 @@ String askodoxHowOf(String package, String label, {String kind = ''}) {
       'cash' => ('Cash', 'క్యాష్'),
       'razorpay' => ('Razorpay', 'Razorpay'),
       'sms' => ('Bank SMS', 'బ్యాంక్ SMS'),
-      'upi' => ('UPI', 'UPI'),
+      'upi' || 'other_upi' => ('UPI', 'UPI'),
+      'cheque' => ('Cheque', 'చెక్'),
+      'credit' || 'due' => ('Due', 'బాకీ'),
       _ => ('Other', 'ఇతరాలు'),
     };
 
@@ -253,7 +263,7 @@ List<AskodoxMoneyItem> askodoxItemsFromShopBills(Iterable<Map<String, Object?>> 
             at: _when(b['issued_at']),
             title: '${b['customer_name'] ?? ''}'.isEmpty ? 'Bill ${b['number']}' : '${b['customer_name']}',
             sub: '#${b['number']}',
-            how: (b['modes'] is List && (b['modes'] as List).isNotEmpty) ? '${(b['modes'] as List).first}' : '',
+            how: (b['modes'] is List && (b['modes'] as List).isNotEmpty) ? askodoxBillModeHow('${(b['modes'] as List).first}') : '',
             confirmed: ((b['due_paise'] as num?)?.toInt() ?? 0) <= 0 ? 'cashier' : '',
             pending: ((b['due_paise'] as num?)?.toInt() ?? 0) > 0,
             raw: b,

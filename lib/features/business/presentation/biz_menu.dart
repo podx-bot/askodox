@@ -585,7 +585,7 @@ class _AskodoxBizMenuSortScreenState extends ConsumerState<AskodoxBizMenuSortScr
     super.dispose();
   }
 
-  Future<void> _read() async {
+  Future<void> _read({bool fresh = false}) async {
     setState(() {
       _error = null;
       _rows = null;
@@ -595,9 +595,27 @@ class _AskodoxBizMenuSortScreenState extends ConsumerState<AskodoxBizMenuSortScr
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _seconds++);
     });
+    final repo = ref.read(askodoxPosRepositoryProvider);
     try {
-      final out = await ref.read(askodoxPosRepositoryProvider).menuSort(widget.businessId);
+      // Owner 2026-11-23: no "stay on this page". A reading already done (or running) is picked up; otherwise one is
+      // started in the background and the page checks every 3 s -- leaving is fine, a notification says when ready.
+      var out = fresh ? const <String, Object?>{} : await repo.menuSortState(widget.businessId);
       if (!mounted) return;
+      if (fresh || out['status'] == 'none' || out['status'] == 'failed') {
+        out = await repo.menuSortStart(widget.businessId, lang: askodoxPosTe(context) ? 'te' : 'en');
+      }
+      _seconds = askodoxPosInt(out['seconds']);
+      while (mounted && out['status'] == 'running') {
+        await Future<void>.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        out = await repo.menuSortState(widget.businessId);
+      }
+      if (!mounted) return;
+      if (out['status'] != 'done') {
+        setState(() => _error = AskodoxPosException('failed',
+            askodoxPosTe(context) ? 'మెనూ చదవలేకపోయా. ఒక నిమిషం తర్వాత మళ్ళీ ప్రయత్నించండి.' : 'Could not read the menu just now. Try again in a minute.'));
+        return;
+      }
       setState(() {
         _rows = [for (final r in askodoxPosList(out['items'])) Map<String, Object?>.of(r)];
         _groups = [for (final g in (out['groups'] as List? ?? const [])) '$g'];
@@ -677,7 +695,7 @@ class _AskodoxBizMenuSortScreenState extends ConsumerState<AskodoxBizMenuSortScr
             ),
       children: [
         if (_error != null) ...[
-          AskodoxPosError(error: _error!, onRetry: _read),
+          AskodoxPosError(error: _error!, onRetry: () => _read(fresh: true)),
         ] else if (rows == null) ...[
           Card(
             margin: EdgeInsets.zero,
@@ -687,7 +705,10 @@ class _AskodoxBizMenuSortScreenState extends ConsumerState<AskodoxBizMenuSortScr
                 Text(te ? 'AI మీ మెనూ చదువుతోంది — భాగాలుగా, ఒకేసారి' : 'AI is reading your menu — in parts, at the same time',
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 const SizedBox(height: 4),
-                Text(te ? '1–2 నిమిషాలు పట్టవచ్చు. ఈ పేజీలోనే ఉండండి. ($_seconds సె.)' : 'May take 1–2 minutes. Stay on this page. (${_seconds}s)',
+                Text(
+                    te
+                        ? 'మీరు వేరే పని చేసుకోవచ్చు — అయ్యాక notification వస్తుంది. ($_seconds సె.)'
+                        : 'You can do other work — a notification comes when it is ready. (${_seconds}s)',
                     key: const Key('askodoxMenuSortWaiting'), style: const TextStyle(color: Color(0xFF4B5563))),
                 const SizedBox(height: 10),
                 LinearProgressIndicator(value: (_seconds / 90).clamp(0.05, 0.95), minHeight: 8, borderRadius: BorderRadius.circular(4)),

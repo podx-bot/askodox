@@ -109,6 +109,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   Map<String, int> _customerPrices = const {};
   bool _loading = true;
   bool _issuing = false;
+  bool _cartOpen = true;
   String? _error;
 
   @override
@@ -894,6 +895,16 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
         'balance_paise': preview.totalPaise - payments.fold<int>(0, (a, p) => a + askodoxPosInt(p['amount_paise'])),
       };
 
+  /// The spoken-order example from THIS shop's own items ("2 Apollo Chicken, 1 Apollo Fish"), never another trade's.
+  String _sayExample(bool te) {
+    final names = [
+      for (final p in _products)
+        if ('${p['name'] ?? ''}'.trim().isNotEmpty && '${p['name']}'.length <= 22) '${p['name']}'.trim()
+    ].take(2).toList();
+    if (names.isEmpty) return te ? '"2 కిలో చికెన్, 1 కూల్ డ్రింక్"' : '"2 kg chicken, 1 cool drink"';
+    return names.length == 1 ? '"2 ${names[0]}"' : '"2 ${names[0]}, 1 ${names[1]}"';
+  }
+
   @override
   Widget build(BuildContext context) {
     _applyOffers(); // idempotent: the offer discount follows the quantity on every rebuild
@@ -930,71 +941,10 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
           ),
         ],
       ),
+      // Owner 2026-11-23 (drew an arrow from the two boxes down to the total): the tiles fill the screen, the speak /
+      // type boxes sit at the bottom right above Total + Pay -- where the thumb is, like the chat.
       body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Row(children: [
-            Expanded(
-              child: TextField(
-                key: const Key('askodoxPosCommand'),
-                controller: _command,
-                onSubmitted: (_) => _runCommand(),
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: AskodoxQuestionMic(
-                    lang: te ? 'te' : 'en',
-                    onText: (text) {
-                      _command.text = text;
-                      _runCommand();
-                    },
-                  ),
-                  hintText: te ? '"10 కిలో కంది పప్పు, పావు కిలో జీడిపప్పు"' : '"10 kg dal, 60 samosa, ¼ kg cashew"',
-                ),
-              ),
-            ),
-            IconButton(key: const Key('askodoxPosCommandGo'), onPressed: _runCommand, icon: const Icon(Icons.send)),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: TextField(
-            key: const Key('askodoxPosSearch'),
-            controller: _search,
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (text) {
-              final code = askodoxCleanBarcode(text);
-              final packHit = code.isNotEmpty &&
-                  _products.any((p) => askodoxPosList(p['packs']).any((k) => askodoxCleanBarcode('${k['barcode'] ?? ''}') == code));
-              if (packHit || askodoxProductsByBarcode(text, _products).length == 1) {
-                _search.clear();
-                _handleBarcode(text);
-                return;
-              }
-              // A typed menu number + Enter adds that item at once (the keyboard's tick = one tap).
-              final number = int.tryParse(text.replaceFirst('#', '').trim());
-              final hits = number == null ? const <AskodoxJson>[] : _products.where((p) => askodoxPosInt(p['item_no']) == number).toList();
-              if (hits.length == 1) {
-                _search.clear();
-                setState(() {});
-                _choose(hits.first);
-              }
-            },
-            decoration: InputDecoration(
-                isDense: true,
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  key: const Key('askodoxPosScan'),
-                  tooltip: te ? 'బార్‌కోడ్ స్కాన్' : 'Scan barcode',
-                  onPressed: _scanBarcode,
-                  icon: const Icon(Icons.qr_code_scanner),
-                ),
-                hintText: te ? 'నంబర్ / పేరు / బార్‌కోడ్' : 'Number / name / barcode'),
-          ),
-        ),
         Expanded(
-          flex: 3,
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _products.isEmpty
@@ -1032,34 +982,116 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
                       );
                     }),
         ),
-        const Divider(height: 1),
-        Expanded(
-          flex: 3,
-          child: ListView(key: const Key('askodoxPosCart'), children: [
-            for (var i = 0; i < _cart.length; i++)
-              ListTile(
-                key: ValueKey('askodoxPosCartLine-$i'),
-                dense: true,
-                title: Text('${_cart[i].product['name']}'),
-                subtitle: Text([
-                  '${askodoxQty(_cart[i].qtyMilli, _cart[i].unit)} × ${askodoxPaise(_cart[i].pricePaise)}',
-                  if (_cart[i].grossMilli != null)
-                    '(${askodoxQty(_cart[i].grossMilli!, '')} − ${askodoxQty(_cart[i].tareMilli ?? 0, '')} ${te ? 'ట్రే' : 'tare'})',
-                  if (_cart[i].discountPaise > 0) '− ${askodoxPaise(_cart[i].discountPaise)}',
-                  if (_cart[i].override) (te ? 'ధర మార్పు (మేనేజర్)' : 'price changed (manager)'),
-                  if (_cart[i].fromScale) (te ? '· తూకం యంత్రం' : '· from scale'),
-                  if (_cart[i].serials.isNotEmpty) '· ${_cart[i].serials.join(', ')}',
-                ].join(' ')),
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (preview != null && i < preview.lines.length) Text(askodoxPaise(preview.lines[i].totalPaise)),
-                  IconButton(
-                    key: ValueKey('askodoxPosRemove-$i'),
-                    onPressed: () => setState(() => _cart.removeAt(i)),
-                    icon: const Icon(Icons.close, size: 18),
+        // Owner 2026-11-23: an EMPTY cart took half the screen and cut the item tiles. The cart shows only when it
+        // has items -- a strip (how many) that folds; the list under it is bounded so the tiles stay big.
+        if (_cart.isNotEmpty) ...[
+          const Divider(height: 1),
+          InkWell(
+            key: const Key('askodoxPosCartStrip'),
+            onTap: () => setState(() => _cartOpen = !_cartOpen),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+              child: Row(children: [
+                const Icon(Icons.shopping_basket_outlined, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(te ? '${_cart.length} ఐటమ్స్ బిల్లులో' : '${_cart.length} in the bill',
+                        style: const TextStyle(fontWeight: FontWeight.w800))),
+                Icon(_cartOpen ? Icons.expand_more : Icons.expand_less),
+              ]),
+            ),
+          ),
+          if (_cartOpen)
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.28),
+              child: ListView(key: const Key('askodoxPosCart'), shrinkWrap: true, children: [
+                for (var i = 0; i < _cart.length; i++)
+                  ListTile(
+                    key: ValueKey('askodoxPosCartLine-$i'),
+                    dense: true,
+                    title: Text('${_cart[i].product['name']}'),
+                    subtitle: Text([
+                      '${askodoxQty(_cart[i].qtyMilli, _cart[i].unit)} × ${askodoxPaise(_cart[i].pricePaise)}',
+                      if (_cart[i].grossMilli != null)
+                        '(${askodoxQty(_cart[i].grossMilli!, '')} − ${askodoxQty(_cart[i].tareMilli ?? 0, '')} ${te ? 'ట్రే' : 'tare'})',
+                      if (_cart[i].discountPaise > 0) '− ${askodoxPaise(_cart[i].discountPaise)}',
+                      if (_cart[i].override) (te ? 'ధర మార్పు (మేనేజర్)' : 'price changed (manager)'),
+                      if (_cart[i].fromScale) (te ? '· తూకం యంత్రం' : '· from scale'),
+                      if (_cart[i].serials.isNotEmpty) '· ${_cart[i].serials.join(', ')}',
+                    ].join(' ')),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (preview != null && i < preview.lines.length) Text(askodoxPaise(preview.lines[i].totalPaise)),
+                      IconButton(
+                        key: ValueKey('askodoxPosRemove-$i'),
+                        onPressed: () => setState(() => _cart.removeAt(i)),
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
+                    ]),
                   ),
-                ]),
+              ]),
+            ),
+        ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                key: const Key('askodoxPosCommand'),
+                controller: _command,
+                onSubmitted: (_) => _runCommand(),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: AskodoxQuestionMic(
+                    lang: te ? 'te' : 'en',
+                    onText: (text) {
+                      _command.text = text;
+                      _runCommand();
+                    },
+                  ),
+                  hintText: _sayExample(te),
+                ),
               ),
+            ),
+            IconButton(key: const Key('askodoxPosCommandGo'), onPressed: _runCommand, icon: const Icon(Icons.send)),
           ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+          child: TextField(
+            key: const Key('askodoxPosSearch'),
+            controller: _search,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (text) {
+              final code = askodoxCleanBarcode(text);
+              final packHit = code.isNotEmpty &&
+                  _products.any((p) => askodoxPosList(p['packs']).any((k) => askodoxCleanBarcode('${k['barcode'] ?? ''}') == code));
+              if (packHit || askodoxProductsByBarcode(text, _products).length == 1) {
+                _search.clear();
+                _handleBarcode(text);
+                return;
+              }
+              // A typed menu number + Enter adds that item at once (the keyboard's tick = one tap).
+              final number = int.tryParse(text.replaceFirst('#', '').trim());
+              final hits = number == null ? const <AskodoxJson>[] : _products.where((p) => askodoxPosInt(p['item_no']) == number).toList();
+              if (hits.length == 1) {
+                _search.clear();
+                setState(() {});
+                _choose(hits.first);
+              }
+            },
+            decoration: InputDecoration(
+                isDense: true,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  key: const Key('askodoxPosScan'),
+                  tooltip: te ? 'బార్‌కోడ్ స్కాన్' : 'Scan barcode',
+                  onPressed: _scanBarcode,
+                  icon: const Icon(Icons.qr_code_scanner),
+                ),
+                hintText: te ? 'నంబర్ / పేరు / బార్‌కోడ్' : 'Number / name / barcode'),
+          ),
         ),
         if (_error != null)
           Padding(
@@ -1126,6 +1158,23 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
     super.dispose();
   }
 
+  /// The amount in the box as a payment, when it can be one.
+  AskodoxJson? get _typed {
+    final paise = askodoxParsePaise(_amount.text);
+    if (paise == null || paise <= 0 || paise > _left) return null;
+    return {'method': _method, 'amount_paise': paise, 'reference': _reference.text.trim()};
+  }
+
+  /// Owner 2026-11-23: one payment needs no "Add payment" tap -- with nothing added yet, Issue takes the amount in the
+  /// box with the chosen way (the button says which). "All as due" stays its own button.
+  List<AskodoxJson>? get _issuePayments {
+    if (_payments.isNotEmpty) return _left == 0 || widget.allowCredit ? _payments : null;
+    final typed = _typed;
+    if (typed == null) return widget.allowCredit ? const [] : null;
+    final left = _left - askodoxPosInt(typed['amount_paise']);
+    return left == 0 || widget.allowCredit ? [typed] : null;
+  }
+
   void _add() {
     final paise = askodoxParsePaise(_amount.text);
     if (paise == null || paise <= 0 || paise > _left) return;
@@ -1155,7 +1204,8 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
           for (final e in labels.entries)
             ChoiceChip(label: Text(e.value), selected: _method == e.key, onSelected: (_) => setState(() => _method = e.key)),
         ]),
-        AskodoxPosField(controller: _amount, number: true, label: te ? 'మొత్తం (₹)' : 'Amount (₹)'),
+        AskodoxPosField(
+            controller: _amount, number: true, label: te ? 'మొత్తం (₹)' : 'Amount (₹)', onChanged: (_) => setState(() {})),
         if (_method != 'cash') AskodoxPosField(controller: _reference, label: te ? 'రిఫరెన్స్ (UTR మొదలైనవి)' : 'Reference (UTR etc.)'),
         if (_method == 'upi' || _method == 'card')
           Text(
@@ -1178,10 +1228,22 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
           width: double.infinity,
           child: FilledButton(
             key: const Key('askodoxPosIssue'),
-            onPressed: _left == 0 || widget.allowCredit ? () => Navigator.pop(context, _payments) : null,
-            child: Text(te ? 'బిల్లు ఇవ్వు' : 'Issue bill'),
+            onPressed: _issuePayments == null ? null : () => Navigator.pop(context, _issuePayments),
+            child: Text(_payments.isEmpty && _typed != null
+                ? (te
+                    ? '${labels[_method]} ${askodoxPaise(askodoxPosInt(_typed!['amount_paise']))} — బిల్లు ఇవ్వు'
+                    : 'Issue bill — ${labels[_method]} ${askodoxPaise(askodoxPosInt(_typed!['amount_paise']))}')
+                : (te ? 'బిల్లు ఇవ్వు' : 'Issue bill')),
           ),
         ),
+        if (_payments.isEmpty && widget.allowCredit)
+          Center(
+            child: TextButton(
+              key: const Key('askodoxPosAllDue'),
+              onPressed: () => Navigator.pop(context, const <AskodoxJson>[]),
+              child: Text(te ? 'మొత్తం బాకీగా ఇవ్వు' : 'Issue all as due'),
+            ),
+          ),
       ]),
     );
   }

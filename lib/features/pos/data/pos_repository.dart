@@ -240,6 +240,11 @@ class AskodoxPosRepository {
   // 193 items took longer than the old 20 s (owner 2026-11-18 "no internet"): the server now reads parts at once.
   Future<AskodoxJson> menuSort(String biz) =>
       _send('POST', '${_b(biz)}/desk/menu/sort', timeout: const Duration(seconds: 150));
+  /// Owner 2026-11-23: the reading runs on the server in the background ([menuSortState] polls it; a notification
+  /// says when it is ready), so the owner may leave the page.
+  Future<AskodoxJson> menuSortStart(String biz, {String lang = 'te'}) =>
+      _send('POST', '${_b(biz)}/desk/menu/sort', query: {'background': 1, 'lang': lang});
+  Future<AskodoxJson> menuSortState(String biz) => _send('GET', '${_b(biz)}/desk/menu/sort');
   /// Today's numbers for the business hub and its 6 group pages.
   Future<AskodoxJson> hub(String biz) => _send('GET', '${_b(biz)}/hub');
   /// The ASK bar: one sentence -> {reply, open?, confirm?}. A change runs only through [askConfirm].
