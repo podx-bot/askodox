@@ -320,6 +320,35 @@ void main() {
       expect(find.text('INVOICE inv9'), findsOneWidget, reason: 'the server-issued bill opens');
     });
 
+    testWidgets('owner 2026-11-23: boxes at the bottom, no empty cart, one-tap single UPI payment', (tester) async {
+      final api = await pump(tester);
+      final tiles = tester.getRect(find.byKey(const Key('askodoxPosProducts')));
+      final command = tester.getRect(find.byKey(const Key('askodoxPosCommand')));
+      final search = tester.getRect(find.byKey(const Key('askodoxPosSearch')));
+      final total = tester.getRect(find.byKey(const Key('askodoxPosTotal')));
+      expect(command.top, greaterThanOrEqualTo(tiles.bottom), reason: 'the speak box sits under the tiles');
+      expect(search.top, greaterThanOrEqualTo(command.bottom));
+      expect(total.top, greaterThanOrEqualTo(search.bottom), reason: 'right above Total + Pay');
+      expect(find.byKey(const Key('askodoxPosCart')), findsNothing, reason: 'an empty cart takes no room');
+      expect(find.byKey(const Key('askodoxPosCartStrip')), findsNothing);
+      final hint = tester.widget<TextField>(find.byKey(const Key('askodoxPosCommand'))).decoration!.hintText!;
+      expect(hint.contains('dal') || hint.contains('samosa'), isFalse, reason: 'examples come from this shop\'s items');
+      await tester.enterText(find.byKey(const Key('askodoxPosCommand')), '2 kg chicken');
+      await tester.tap(find.byKey(const Key('askodoxPosCommandGo')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('askodoxPosConfirmYes')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('askodoxPosCartStrip')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('askodoxPosPay')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('UPI'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('UPI ₹480.00'), findsOneWidget, reason: 'the button says what it will record');
+      await tester.tap(find.byKey(const Key('askodoxPosIssue')));
+      await tester.pumpAndSettle();
+      expect(api.calls, contains('POST /api/pos/businesses/b1/invoices'), reason: 'no separate "Add payment" tap');
+    });
+
     testWidgets('no internet: kept on the phone with this device\'s own bill number', (tester) async {
       await pump(tester, offline: {'/invoices'});
       await tester.enterText(find.byKey(const Key('askodoxPosCommand')), '2 kg chicken');

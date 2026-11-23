@@ -318,6 +318,30 @@ void main() {
     expect(container.read(askodoxChatRequestProvider)?.hubAction, AskodoxHubAction.voice);
   });
 
+  testWidgets('bottom bar: the buy / sell switch keeps clear of the screen edge on a narrow phone (owner 2026-11-23)',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    final container = ProviderContainer(overrides: _overrides(signedIn: false));
+    addTearDown(container.dispose);
+    Widget page(String name) => Center(child: Text(name));
+    final router = GoRouter(routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => AppShell(shell: shell),
+        branches: [
+          for (final (path, name) in [('/', 'HOME'), ('/search', 'X'), ('/watchlist', 'HISTORY'), ('/updates', 'UPDATES'), ('/profile', 'PROFILE')])
+            StatefulShellBranch(routes: [GoRoute(path: path, builder: (context, state) => page(name))]),
+        ],
+      ),
+    ]);
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
+    await tester.pumpAndSettle();
+    final slot = tester.getRect(find.byKey(const Key('askodoxNavHistory')));
+    expect(slot.right, lessThanOrEqualTo(360 - 8), reason: '"అమ్ము" was cut at the right edge of a rounded screen');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('header: logo + game / talk / radio buttons fit on a narrow phone (owner 2026-11-08)', (tester) async {
     tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
     tester.view.devicePixelRatio = 3.0;

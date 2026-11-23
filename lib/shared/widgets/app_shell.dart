@@ -490,6 +490,9 @@ class _PrimaryBottomBar extends ConsumerWidget {
     final live = ref.watch(askodoxCompanionLiveProvider);
     return SafeArea(top: false, child: Container(
       height: 76,
+      // Owner 2026-11-23: the switch touched the screen edge and "అమ్ము" was cut on curved / rounded screens -- the
+      // bar keeps clear of both edges.
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE6ECF5)))),
       child: Row(children: [
         _item('askodoxNavHome', currentBranch == 0, Icons.home_outlined, Icons.home_rounded, isTe ? 'హోమ్' : 'Home', onHome),
@@ -609,7 +612,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
         onTap: onHistory,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.fromLTRB(4, 0, 6, 0),
             child: Container(
               height: 26,
               decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),

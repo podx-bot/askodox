@@ -9858,6 +9858,99 @@
           "approved_by": "owner"
         }
       ]
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/sort"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/menu/sort"
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Sort with AI reads the item names in parts of 25 (one short line per item: number|section|food), each item keeps ONE number in every part, a cut answer still gives every finished line (a half-written last line is never a section), the items no part answered are asked once more, and only a menu with nothing read at all says \"could not read\". background=1 starts the reading on the server and answers at once; GET gives none / running / done (+ items) / failed; one reading per shop at a time; the owner may leave the page and gets a notification when it is ready; Save (apply) clears the preview. Calls without background still wait for the answer (older apps).",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: cut answers no longer give 503; background reading + notification; NOT PHONE VERIFIED",
+          "date": "2026-11-23"
+        }
+      ],
+      "id": "menu_sort_background",
+      "name": "Sort with AI: never fails on a cut answer, reads in the background",
+      "purpose": "Owner 2026-11-23: Sort with AI answered 503 three times (all 4 parts of a 150+ item menu came back cut at max_tokens).",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_menu_sort.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxBizMenuSort",
+          "askodoxMenuSortWaiting",
+          "askodoxMenuSortSave"
+        ],
+        "symbols": [
+          "AskodoxBizMenuSortScreen"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "New bill (counter POS): item tiles fill the screen; the speak / type box and the number / name / barcode box sit at the bottom right above Total + Pay; an empty cart takes no room, a filled one is a folding strip with a bounded list; the speak example uses this shop's own item names. Pay sheet: with nothing added yet, Issue records the amount in the box with the chosen way in one tap (the button names it), \"Issue all as due\" is its own button when a customer is chosen. Shop money shows a UPI bill with no app named as UPI (askodoxBillModeHow), never \"Other\". The bottom bar keeps 8 px from both screen edges so the buy / sell switch is never cut.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: bottom boxes, folding cart, one-tap single payment, UPI label, switch margin; NOT PHONE VERIFIED",
+          "date": "2026-11-23"
+        }
+      ],
+      "id": "counter_bill_bottom_boxes",
+      "name": "Counter bill: boxes at the bottom, one-tap single payment; UPI never \"Other\"",
+      "purpose": "Owner 2026-11-23 screenshots: boxes on top + an empty cart cut the tiles; a Rs 580 UPI bill showed \"Other\"; \"అమ్ము\" cut at the edge.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/pos_test.dart",
+          "test/features/pos/money_ledger_test.dart",
+          "test/features/simple_ux_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxPosCartStrip",
+          "askodoxPosAllDue",
+          "askodoxPosCommand",
+          "askodoxPosSearch"
+        ],
+        "symbols": [
+          "askodoxBillModeHow"
+        ]
+      }
     }
   ]
 }

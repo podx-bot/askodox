@@ -793,12 +793,21 @@ class MenuSortApplyIn(BaseModel):
     items: List[MenuSortRowIn] = Field(min_length=1, max_length=300)
 
 
-@router.post("/businesses/{business_id}/desk/menu/sort")
-def menu_sort(business_id: str, request: Request) -> dict:
-    """Preview only: the model reads the item NAMES and proposes sections + veg / non-veg. Nothing is saved."""
-    from app.services.pos_menu_sort import sort_menu
+def _menu_sort_jobs(request: Request):
+    from app.services.pos_menu_sort import MenuSortJobs
 
-    user = _user(request, "menu-sort", 10)
+    container: Any = request.app.state.container
+    jobs = getattr(container, "pos_menu_sort_jobs", None)
+    if jobs is None:
+        jobs = MenuSortJobs()
+        try:
+            container.pos_menu_sort_jobs = jobs
+        except Exception:
+            pass
+    return jobs
+
+
+def _menu_sort_input(request: Request, business_id: str, user: str):
     store = _store(request)
     with store._connect() as conn:
         _call(store._require, conn, business_id, user, "products")
@@ -806,16 +815,53 @@ def menu_sort(business_id: str, request: Request) -> dict:
     service = getattr(request.app.state.container, "universal_ai_assistant_service", None)
     if service is None or not hasattr(service, "write_text"):
         raise HTTPException(503, "The AI helper is not available right now. Set sections by hand with ✏.")
-    out = sort_menu([{"id": i["id"], "name": i["name"], "menu_group": i.get("menu_group", ""),
-                      "food_type": i.get("food_type", "")} for i in items][:300], service.write_text)
-    if not out["read"]:
-        raise HTTPException(503, "Could not read the menu just now. Try again in a minute.")
-    return out
+    rows = [{"id": i["id"], "name": i["name"], "menu_group": i.get("menu_group", ""),
+             "food_type": i.get("food_type", "")} for i in items][:300]
+    return rows, service.write_text
+
+
+@router.post("/businesses/{business_id}/desk/menu/sort")
+def menu_sort(business_id: str, request: Request, background: bool = False, lang: str = "te") -> dict:
+    """Preview only: the model reads the item NAMES and proposes sections + veg / non-veg. Nothing is saved.
+    ``background=1`` (owner 2026-11-23): starts the reading and answers at once; GET gives the state, a notification
+    says when it is ready. Without it (older apps) the answer waits for the reading, as before."""
+    from app.services.pos_menu_sort import sort_menu
+
+    user = _user(request, "menu-sort", 10)
+    rows, write_text = _menu_sort_input(request, business_id, user)
+    if not background:
+        out = sort_menu(rows, write_text)
+        if not out["read"]:
+            raise HTTPException(503, "Could not read the menu just now. Try again in a minute.")
+        return out
+    desk = _desk(request)
+    te = lang != "en"
+
+    def done(view: dict) -> None:
+        ok = view.get("status") == "done"
+        n = len(view.get("items") or [])
+        title = (("మెనూ సర్దడం అయింది ✓" if te else "Menu sorted ✓") if ok
+                 else ("మెనూ చదవలేకపోయా" if te else "Could not read the menu"))
+        body = ((f"{n} ఐటమ్స్ — చూసి సేవ్ చేయండి" if te else f"{n} items — check and save") if ok
+                else ("ఒక నిమిషం తర్వాత మళ్ళీ ప్రయత్నించండి" if te else "Try again in a minute"))
+        desk.notify(user, title, body, f"/biz/{business_id}/menu/sort", f"menu_sort:{business_id}:{int(view.get('seconds', 0))}:{n}")
+
+    return _menu_sort_jobs(request).start(business_id, lambda: sort_menu(rows, write_text), done)
+
+
+@router.get("/businesses/{business_id}/desk/menu/sort")
+def menu_sort_state(business_id: str, request: Request) -> dict:
+    user = _user(request, "menu-sort-state", 120)
+    store = _store(request)
+    with store._connect() as conn:
+        _call(store._require, conn, business_id, user, "products")
+    return _menu_sort_jobs(request).get(business_id)
 
 
 @router.post("/businesses/{business_id}/desk/menu/sort/apply")
 def menu_sort_apply(business_id: str, body: MenuSortApplyIn, request: Request) -> dict:
     user = _user(request, "menu-sort", 20)
+    _menu_sort_jobs(request).clear(business_id)
     store = _store(request)
     saved = 0
     for row in body.items:
@@ -832,6 +878,7 @@ def menu_sort_apply(business_id: str, body: MenuSortApplyIn, request: Request) -
                     conn.execute("UPDATE pos_products SET item_no = ? WHERE id = ? AND business_id = ?",
                                  (row.item_no, row.id, business_id))
         saved += 1
+    _menu_sort_jobs(request).clear(business_id)  # the preview is used: reopening the page reads afresh
     return {"saved": saved}
 
 
