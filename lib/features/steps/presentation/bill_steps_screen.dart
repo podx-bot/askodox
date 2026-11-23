@@ -593,7 +593,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
           more: _more(),
           body: _doneStep(te),
           bottom: AskodoxStepBottom(
-              buttonKey: const Key('askodoxBillStepsNew'), label: te ? 'కొత్త బిల్లు' : 'New bill', icon: Icons.add_rounded, onPressed: _newBill),
+              buttonKey: const Key('askodoxBillStepsNew'), label: te ? 'తర్వాతి బిల్లు' : 'Next bill', icon: Icons.add_rounded, onPressed: _newBill),
         ),
       _ => AskodoxStepScaffold(
           key: const Key('askodoxBillSteps1'),

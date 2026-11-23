@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/flags/askodox_release_phase.dart';
 import '../business/presentation/biz_hub.dart' show AskodoxBizKind, askodoxBizKind, askodoxBizRoute;
 import '../pos/data/pos_repository.dart' show AskodoxJson;
+import '../pos/domain/shop_page_names.dart';
 import 'launcher_layout.dart';
 
 /// One page on the Money screen (owner 2026-11-22): an icon with its name under it, phone style.
@@ -158,7 +159,7 @@ const _sellerSpecs = <_SellerSpec>[
       tool: 'gst', perm: 'reports'),
   _SellerSpec('s.purchases', 'money.purchases', 'Purchases', 'కొనుగోళ్లు', Icons.local_shipping_rounded, Color(0xFFB45309),
       tool: 'suppliers', perm: 'purchases'),
-  _SellerSpec('s.counter', 'money.counter', 'Counter billing', 'కౌంటర్ బిల్లింగ్', Icons.point_of_sale_rounded,
+  _SellerSpec('s.counter', 'money.counter', 'Counter bill', 'కౌంటర్ బిల్లు', Icons.point_of_sale_rounded,
       Color(0xFF334155), tool: 'sale', perm: 'sell'),
   _SellerSpec('s.tables', 'orders.tables', 'Tables', 'టేబుల్స్', Icons.table_restaurant_rounded, Color(0xFF0D9488),
       tool: 'tables|desk', perm: 'tables', food: true),
@@ -207,7 +208,7 @@ const _sellerSpecs = <_SellerSpec>[
       tool: 'printer', perm: 'settings'),
   _SellerSpec('s.selfshop', 'settings.selfshop', 'Self-shopping', 'సెల్ఫ్ షాపింగ్', Icons.shopping_cart_rounded,
       Color(0xFF16A34A), tool: 'selfshop', perm: 'settings'),
-  _SellerSpec('s.agents', 'settings.agents', 'AI helpers', 'AI సహాయకులు', Icons.smart_toy_rounded, Color(0xFF7C3AED),
+  _SellerSpec('s.agents', 'settings.agents', 'AI agents', 'AI Agents', Icons.smart_toy_rounded, Color(0xFF7C3AED),
       tool: 'agents', perm: 'settings'),
   _SellerSpec('s.reportset', 'reports.settings', 'Report settings', 'రిపోర్ట్ సెట్టింగ్స్', Icons.edit_calendar_rounded,
       Color(0xFF475569), who: 'owner'),
@@ -255,7 +256,10 @@ List<AskodoxLaunchPage> askodoxSellerPages(String businessId, AskodoxJson busine
     if (s.food && !food) continue;
     final route = _sellerRoute(businessId, s.page);
     if (!askodoxRouteShownNow(route) || !_sees(s, role, business)) continue;
-    out.add(AskodoxLaunchPage(s.id, staff ? (s.staffEn ?? s.en) : s.en, staff ? (s.staffTe ?? s.te) : s.te, s.icon, s.color,
+    // ONE name per shop page (owner 2026-11-24): a shop page is called what `shop_page_names.dart` calls it everywhere.
+    final named = askodoxShopPageName(route);
+    final en = named?.$1 ?? s.en, tel = named?.$2 ?? s.te;
+    out.add(AskodoxLaunchPage(s.id, staff ? (s.staffEn ?? en) : en, staff ? (s.staffTe ?? tel) : tel, s.icon, s.color,
         route: route, perm: s.perm, foodOnly: s.food));
   }
   // The shop's payment sound on this phone: the owner, and staff the owner gave "Payment sound".
