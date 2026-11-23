@@ -1,7 +1,8 @@
 """Names written in any Indian script match the same name in English letters (owner 2026-11-17: "మురళి మనోహర్ చికెన్"
 must find the shop "Murali Manohar Chicken"). No word lists, no per-shop data: the Indic Unicode blocks share one
 layout, so ONE table reads Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada and Malayalam.
-A name's "sound" is its consonant skeleton, so spelling differences (chicken / chiken, mutton / matan) disappear."""
+A name's "sound" is its consonant skeleton, so spelling differences (chicken / chiken, mutton / matan) disappear; a soft
+c sounds as s (piece / పీస్, rice / రైస్). Twin of the app's lib/features/pos/domain/pos_name_sound.dart: keep both alike."""
 from __future__ import annotations
 
 import re
@@ -35,6 +36,14 @@ def latin(text: str) -> str:
         code = ord(ch)
         if _FIRST <= code <= _LAST:
             off = (code - _FIRST) % 0x80
+            if off == 0x3C:  # nukta: the consonant keeps waiting for its vowel
+                continue
+            if 0x66 <= off <= 0x6F:  # ౬౫ / ६५ -> 65
+                if pending:
+                    out.append("a")
+                pending = False
+                out.append(str(off - 0x66))
+                continue
             if off in _SIGNS:
                 out.append(_SIGNS[off])
                 pending = False
@@ -47,8 +56,6 @@ def latin(text: str) -> str:
                 pending = True
             elif off in _LETTERS:
                 out.append(_LETTERS[off])
-            elif off == 0x3C:  # nukta
-                continue
             else:
                 out.append(" ")
             continue
@@ -66,7 +73,7 @@ def sound(word: str) -> str:
     w = re.sub(r"[^a-z]", "", str(word or "").lower())
     if not w:
         return ""
-    for a, b in (("ck", "k"), ("ch", "C"), ("sh", "s"), ("ph", "f"), ("th", "t"), ("dh", "d"), ("kh", "k"),
+    for a, b in (("ck", "k"), ("ch", "C"), ("ce", "se"), ("ci", "si"), ("cy", "sy"), ("sh", "s"), ("ph", "f"), ("th", "t"), ("dh", "d"), ("kh", "k"),
                  ("gh", "g"), ("bh", "b"), ("jh", "j"), ("q", "k"), ("x", "ks"), ("z", "j"), ("w", "v"), ("c", "k"),
                  ("C", "c"), ("ee", "i"), ("oo", "u")):
         w = w.replace(a, b)
