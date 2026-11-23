@@ -599,7 +599,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'స్థితి & టెస్ట్ లో అలర్ట్స్ ఆన్ చేసి స్పీకర్ టెస్ట్ చేయండి; ఎవరు వింటారు, సిబ్బంది లో మనుషులను ఎంచుకోండి.',
     'వాయిస్ & నిశ్శబ్ద సమయం లో గొంతు; పేమెంట్ హిస్టరీ లో అన్ని అలర్ట్స్ — పెద్ద మొత్తాలు బ్యాంక్ యాప్‌లో చూసుకోండి.',
   ]),
-  '/pos/:id/payment-alerts': _H('Payment voice alerts', 'పేమెంట్ వాయిస్ అలర్ట్స్', [
+  '/pos/:id/payment-alerts': _H('Payment alerts', 'పేమెంట్ అలర్ట్స్', [
     'Turn on alerts for the shop, then "Turn on" notification access and switch ASKODOX on in Android settings.',
     'Press "Speaker test" — connect a Bluetooth speaker first if you want the voice there.',
     'Every payment notification is listed with its time, app, voice status and "received" — check big amounts in your bank app.',
@@ -816,20 +816,20 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ షాప్ తెరవండి, లేదా కొత్తది తయారు చేయండి (పేరు, GST రకం, రాష్ట్రం).',
   ]),
   '/pos/:id': _H('Shop dashboard', 'షాప్ డ్యాష్‌బోర్డ్', [
-    'New bill to sell; Items & stock to add what you sell.',
-    'Customers & credit for dues; Day close at night.',
+    'Counter bill to sell; Stock & barcodes to add what you sell.',
+    'Customer list for dues; Close the day at night.',
   ], [
-    'అమ్మడానికి "కొత్త బిల్లు"; అమ్మేవి చేర్చడానికి "సరుకులు & స్టాక్".',
-    'బాకీలకు "కస్టమర్లు & ఖాతా"; రాత్రి "రోజు ముగింపు".',
+    'అమ్మడానికి "కౌంటర్ బిల్లు"; అమ్మేవి చేర్చడానికి "స్టాక్ & బార్‌కోడ్".',
+    'బాకీలకు "కస్టమర్ల లిస్ట్"; రాత్రి "రోజు ముగింపు".',
   ]),
-  '/pos/:id/sale': _H('New bill', 'కొత్త బిల్లు', [
+  '/pos/:id/sale': _H('Counter bill', 'కౌంటర్ బిల్లు', [
     'Tap items (or scan a barcode photo) to add them.',
     'Tap Pay, add how the customer paid, then Issue.',
   ], [
     'సరుకులు నొక్కి చేర్చండి (లేదా బార్‌కోడ్ ఫోటో స్కాన్ చేయండి).',
     '"పే" నొక్కి కస్టమర్ ఎలా కట్టారో చేర్చి "ఇష్యూ" నొక్కండి.',
   ]),
-  '/pos/:id/items': _H('Items & stock', 'సరుకులు & స్టాక్', [
+  '/pos/:id/items': _H('Stock & barcodes', 'స్టాక్ & బార్‌కోడ్', [
     'Add an item with its price and GST; set where you sell it (POS / Online / Both).',
     'Tap an item for box / piece units; use the box icon to add stock.',
   ], [
@@ -854,7 +854,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఏ ఫీల్డ్ పక్కనైనా ? నొక్కితే ఏం రాయాలో ఉదాహరణతో చెబుతుంది.',
     'ఆన్‌లైన్ ధర వేరుగా కావాలంటే పెట్టి, సేవ్ నొక్కండి.',
   ]),
-  '/pos/:id/customers': _H('Customers & credit', 'కస్టమర్లు & ఖాతా', [
+  '/pos/:id/customers': _H('Customer list', 'కస్టమర్ల లిస్ట్', [
     'Add customers; tap one to see dues, statement and shop advance.',
   ], [
     'కస్టమర్లను చేర్చండి; ఒకరిని నొక్కితే బాకీ, స్టేట్‌మెంట్, షాప్ అడ్వాన్స్ కనిపిస్తాయి.',
@@ -899,7 +899,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ], [
     'మీ records మాత్రమే: మీ కోసం ఆగిన shop advances, మీ payment methods. మీ తరఫున pay / approve చేయదు.',
   ]),
-  '/pos/:id/crm': _H('Business CRM', 'Business CRM', [
+  '/pos/:id/crm': _H('Enquiries', 'ఎంక్వైరీలు', [
     'Today: follow-ups due, pipeline by stage, and ASKODOX requests you can save as enquiries.',
     'Tap + Add lead for a new lead or enquiry; set a follow-up and you get a reminder.',
     'Quotations are made on the bill screen ("Quotation"); here you mark them sent / accepted / rejected.',
@@ -950,7 +950,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ప్రింట్, PDF షేర్, సరుకు వాపసు (క్రెడిట్ నోట్) లేదా ఈ రోజు బిల్లు రద్దు.',
     'ఇష్యూ చేసిన బిల్లు ఎప్పుడూ మార్చబడదు.',
   ]),
-  '/pos/:id/day': _H('Day close', 'రోజు ముగింపు', [
+  '/pos/:id/day': _H('Close the day', 'రోజు ముగింపు', [
     'Three steps. 1: is today\'s online money right? Compare with your bank app (a difference -> today\'s bills).',
     '2: type the cash in the drawer — "should be" and the difference show live. 3: done — today\'s sales; send on WhatsApp.',
     'Closing is final; it asks once before closing.',
@@ -968,7 +968,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '2: రంగు, English లో చిన్న పేరు ఎంచుకోండి: askodox.com/s/<పేరు>. 3: అయింది — WhatsApp లో పంపండి, కాపీ చేయండి లేదా QR పోస్టర్ ప్రింట్ చేయండి.',
     'యాప్ లేని కస్టమర్ కూడా పేజీ నుండి (పేరు + ఫోన్) ఆర్డర్ చేస్తారు: ఆర్డర్ మీ Live orders లోకి వస్తుంది; WhatsApp బ్యాకప్. డబ్బు మీ సొంత UPI కే. లింక్ తయారు / మార్చడం ఓనర్ మాత్రమే (⋮).',
   ]),
-  '/pos/:id/gst': _H('GST summary', 'GST సారాంశం', [
+  '/pos/:id/gst': _H('GST report', 'GST రిపోర్ట్', [
     'Pick the dates; share the summary or CSV with your accountant.',
     'It is not a filed return.',
   ], [
@@ -1016,7 +1016,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఫాలో నొక్కితే షాప్ వార్తలు ASKODOX లో వస్తాయి. ఇతర యాప్‌లలో ఫాలో మీరే అక్కడ నొక్కాలి.',
     'ఐటమ్స్‌కి నక్షత్రాలు మాత్రమే. ఇక్కడ కొన్న తర్వాత షాప్ గురించి ఒక రివ్యూ (3 ఫోటోల వరకు) రాయవచ్చు; ఓనర్ జవాబు ఇవ్వవచ్చు.',
   ]),
-  '/desk/:id': _H('Orders desk', 'ఆర్డర్స్ డెస్క్', [
+  '/desk/:id': _H('Incoming orders', 'వచ్చిన ఆర్డర్లు', [
     'All table, shop-QR, counter and reception orders in one place: New, Kitchen, Ready, Delivery, Done.',
     'Accept an order and switch OFF what is finished; the customer is told. Then move it step by step.',
     'Bill when it is ready (GST only if your shop has GST). Delivery orders open the map pin.',
@@ -1061,7 +1061,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'వీటిని ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
     'కస్టమర్ QR కింద కోడ్‌ని "ఆర్డర్ కోడ్" లో రాస్తే మెనూ తెరుచుకుంటుంది.',
   ]),
-  '/pos/:id/tables': _H('Tables & KOT', 'టేబుల్స్ & KOT', [
+  '/pos/:id/tables': _H('Tables', 'టేబుల్స్', [
     'Tap a table to open an order, add items, send the KOT, then bill.',
   ], [
     'టేబుల్ నొక్కి ఆర్డర్ తెరవండి, సరుకులు చేర్చండి, KOT పంపండి, తర్వాత బిల్లు.',
@@ -1071,12 +1071,12 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ], [
     'నోట్స్‌తో సరుకులు చేర్చండి, KOT వంటగదికి పంపండి, తర్వాత టేబుల్ బిల్లు.',
   ]),
-  '/pos/:id/kitchen': _H('Kitchen screen', 'వంటగది స్క్రీన్', [
+  '/pos/:id/kitchen': _H('Kitchen (KOT)', 'వంటగది KOT', [
     'New orders appear here; move each to Preparing, Ready and Served.',
   ], [
     'కొత్త ఆర్డర్లు ఇక్కడ వస్తాయి; ఒక్కోదాన్ని తయారవుతోంది, సిద్ధం, అందించాం అని మార్చండి.',
   ]),
-  '/pos/:id/printer': _H('Receipt printer', 'రసీదు ప్రింటర్', [
+  '/pos/:id/printer': _H('Printer', 'ప్రింటర్', [
     'Bluetooth LE: Find printer. Classic Bluetooth: pair in phone settings, then Paired. USB: connect with OTG.',
     'Pick the printer and do a test print.',
   ], [
@@ -1090,7 +1090,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'నిబంధనలు చదివి టిక్ చేసి, పరిమితి పెట్టి ఆన్ చేయండి.',
     'ASKODOX రికార్డు మాత్రమే ఉంచుతుంది; డబ్బు మీ దగ్గరే ఉంటుంది.',
   ]),
-  '/pos/:id/suppliers': _H('Suppliers & purchases', 'సప్లయర్లు & కొనుగోళ్లు', [
+  '/pos/:id/suppliers': _H('Purchases', 'కొనుగోళ్లు', [
     'Add suppliers; record their bills; pay them; see what you owe.',
   ], [
     'సప్లయర్లను చేర్చండి; వారి బిల్లులు నమోదు చేయండి; చెల్లించండి; బాకీ చూడండి.',

@@ -235,7 +235,8 @@ class _PinButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final route = tile.pinRoute!;
-    final pinned = ref.watch(askodoxChatPinsProvider).pins.any((p) => p.id == tile.id);
+    final mine = AskodoxChatPin(id: tile.id, route: route, en: tile.title, te: tile.title);
+    final pinned = ref.watch(askodoxChatPinsProvider).pins.any((p) => p.samePageAs(mine));
     final te = Localizations.localeOf(context).languageCode == 'te';
     return IconButton(
       key: ValueKey('askodoxPin-${tile.id}'),
@@ -243,7 +244,7 @@ class _PinButton extends ConsumerWidget {
       iconSize: 18,
       tooltip: pinned ? (te ? 'చాట్ పైనుంచి తీసేయి' : 'Remove from above the chat') : (te ? 'చాట్ పైన పిన్ చేయి' : 'Pin above the chat'),
       icon: Icon(pinned ? Icons.push_pin : Icons.push_pin_outlined, color: pinned ? const Color(0xFF2563EB) : const Color(0xFF9CA3AF)),
-      onPressed: () => askodoxOfferChatPin(context, AskodoxChatPin(id: tile.id, route: route, en: tile.title, te: tile.title)),
+      onPressed: () => askodoxOfferChatPin(context, mine),
     );
   }
 }

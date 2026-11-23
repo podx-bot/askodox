@@ -10155,6 +10155,50 @@
           "askodoxAutoGuideRoutes"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Every shop page has ONE name (lib/features/pos/domain/shop_page_names.dart) on the Seller Money page, the shop dashboard tiles, /my-shop/<tool> (chat buttons + pins), the chat's buttons, the ASK bar and the screen guide: the counter page is \"Counter bill\" / \"కౌంటర్ బిల్లు\" (\"New bill\" is gone; the 3-step quick bill stays \"Make a bill\" / \"బిల్లు చేయి\"). Pins above the chat: one pin per page whatever button pinned it (pinning the same page again offers move / remove, never a second pin); saved pins of the same page join into the first one on start and take the page's name.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: one page one name + one pin per page (owner: New bill and Counter bill pins opened the same page); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "one_page_one_name",
+      "name": "One name and one pin per shop page",
+      "purpose": "Owner 2026-11-24: \"New bill\" and \"Counter bill\" were two pins for the same page -- the same page must never carry two names or take two of the five pins.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_chat_actions.py"
+        ],
+        "flutter": [
+          "test/features/pos/one_page_one_name_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxChatPinAdd",
+          "askodoxChatPinRemove"
+        ],
+        "symbols": [
+          "askodoxShopPageNames",
+          "askodoxShopToolPages",
+          "askodoxShopPageName",
+          "askodoxSamePage",
+          "askodoxOnePinPerPage"
+        ]
+      }
     }
   ]
 }

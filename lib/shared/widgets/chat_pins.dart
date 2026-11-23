@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/pos/data/pos_repository.dart';
+import '../../features/pos/domain/shop_page_names.dart';
 
 /// Chat shortcut strip (owner 2026-11-19): at most FIVE buttons the person pinned themselves, shown just above the
 /// chat box. Long-press a tile / row anywhere (the ☰ menu, every Buyer and Seller page on the Money screen) -> "Pin
@@ -25,6 +26,16 @@ class AskodoxChatPin {
   final String te;
 
   String label(bool telugu) => telugu && te.isNotEmpty ? te : en;
+
+  /// A shop page always shows its ONE name (`shop_page_names.dart`), whatever button it was pinned from.
+  AskodoxChatPin named() {
+    final name = askodoxShopPageName(route);
+    return name == null ? this : AskodoxChatPin(id: id, route: route, en: name.$1, te: name.$2);
+  }
+
+  /// The same pin, or the same page under another button (owner 2026-11-24: "New bill" and "Counter bill" were two
+  /// pins for one counter page).
+  bool samePageAs(AskodoxChatPin other) => id == other.id || askodoxSamePage(route, other.route);
 
   Map<String, Object?> toJson() => {'id': id, 'route': route, 'en': en, 'te': te};
 
@@ -55,7 +66,9 @@ class AskodoxChatPinsController extends StateNotifier<AskodoxChatPinsState> {
       final list = raw == null ? const [] : (jsonDecode(raw) as List? ?? const []);
       if (!mounted) return;
       state = AskodoxChatPinsState(
-        pins: [for (final v in list) AskodoxChatPin.fromJson(v)].whereType<AskodoxChatPin>().take(askodoxChatPinsMax).toList(),
+        pins: askodoxOnePinPerPage([for (final v in list) AskodoxChatPin.fromJson(v)].whereType<AskodoxChatPin>())
+            .take(askodoxChatPinsMax)
+            .toList(),
         folded: prefs.getBool(askodoxChatPinsFoldedKey) ?? false,
       );
     } catch (_) {}
@@ -71,11 +84,23 @@ class AskodoxChatPinsController extends StateNotifier<AskodoxChatPinsState> {
 
   bool isPinned(String id) => state.pins.any((p) => p.id == id);
 
-  /// Adds [pin]; with three already, [replace] names the one it takes the place of.
+  /// The pin already holding [pin]'s page (the same pin, or the same page pinned from another button), if any.
+  AskodoxChatPin? pinnedAs(AskodoxChatPin pin) => state.pins.where((p) => p.samePageAs(pin)).firstOrNull;
+
+  /// Adds [pin]; with five already, [replace] names the one it takes the place of. A page already pinned (under
+  /// any button) keeps its place -- never a second pin for the same page.
   void pin(AskodoxChatPin pin, {String? replace}) {
-    final list = [for (final p in state.pins) if (p.id != pin.id && p.id != replace) p];
+    final named = pin.named();
+    final at = state.pins.indexWhere((p) => p.samePageAs(named));
+    if (at >= 0) {
+      final list = [...state.pins]..[at] = named;
+      state = AskodoxChatPinsState(pins: list, folded: false);
+      _save();
+      return;
+    }
+    final list = [for (final p in state.pins) if (p.id != replace) p];
     if (list.length >= askodoxChatPinsMax) return;
-    state = AskodoxChatPinsState(pins: [...list, pin], folded: false);
+    state = AskodoxChatPinsState(pins: [...list, named], folded: false);
     _save();
   }
 
@@ -102,6 +127,16 @@ class AskodoxChatPinsController extends StateNotifier<AskodoxChatPinsState> {
   }
 }
 
+/// Pins as saved, one per page (the first one stays, in its place), each showing the page's one name.
+List<AskodoxChatPin> askodoxOnePinPerPage(Iterable<AskodoxChatPin> pins) {
+  final out = <AskodoxChatPin>[];
+  for (final p in pins) {
+    final named = p.named();
+    if (!out.any((o) => o.samePageAs(named))) out.add(named);
+  }
+  return out;
+}
+
 final askodoxChatPinsProvider =
     StateNotifierProvider<AskodoxChatPinsController, AskodoxChatPinsState>((ref) => AskodoxChatPinsController());
 
@@ -123,6 +158,8 @@ Future<void> askodoxOfferChatPin(BuildContext context, AskodoxChatPin pin) async
   final container = ProviderScope.containerOf(context);
   final pins = container.read(askodoxChatPinsProvider.notifier);
   final te = _te(context);
+  // The page may already be pinned from another button: then this sheet moves / removes THAT pin.
+  pin = pins.pinnedAs(pin) ?? pin.named();
   final pinned = pins.isPinned(pin.id);
   final current = container.read(askodoxChatPinsProvider).pins;
   final choice = await showModalBottomSheet<String>(

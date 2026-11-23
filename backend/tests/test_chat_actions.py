@@ -127,3 +127,54 @@ def test_shopping_switch_adds_the_shop_tools_to_a_phase1_build():
     assert ca.resolve({"key": "shop_agents"}, False, phase1)["route"] == "/my-shop/agents"
     assert ca.resolve({"key": "rides_parcels"}, False, shopping) is None
     assert "my ai agents" in ca.prompt_block(phase1)
+
+
+def _shop_page_names():
+    """The app's ONE name per shop page (lib/features/pos/domain/shop_page_names.dart) + `/my-shop/<tool>` -> page."""
+    import pathlib
+
+    lib = pathlib.Path(__file__).resolve().parents[2] / "lib"
+    src = lib / "features" / "pos" / "domain" / "shop_page_names.dart"
+    if not src.exists():
+        pytest.skip("app sources not in this checkout")
+    text = src.read_text(encoding="utf-8")
+    names = {t: (en, te) for t, en, te in re.findall(r"  '([^']+)': \('([^']+)', '([^']+)'\),", text)}
+    tools = dict(re.findall(r"  '([^']+)': '(/[^']+)',", text))
+    biz = (lib / "features" / "business" / "presentation" / "biz_hub.dart").read_text(encoding="utf-8")
+    body = biz[biz.index("String askodoxBizRoute"):biz.index("class AskodoxBizTileSpec")]
+    pages = {}
+    for keys, route in re.findall(r"((?:'[^']+'\s*(?:\|\|\s*)?)+)=>\s*'([^'$]*\$id[^']*)',", body):
+        for key in re.findall(r"'([^']+)'", keys):
+            pages[key] = route.replace("$id", "<id>")
+    return names, tools, pages
+
+
+def test_a_chat_button_names_a_shop_page_exactly_as_the_app_does():
+    """Owner 2026-11-24: "New bill" and "Counter bill" were two pins for the same counter page -- one page, one name."""
+    names, tools, _ = _shop_page_names()
+    assert names["/pos/<id>/sale"] == ("Counter bill", "కౌంటర్ బిల్లు")
+    checked = 0
+    for key, route, en, te, _about in ca.CATALOG:
+        m = re.fullmatch(r"/my-shop/([^/?]+)", route)
+        if not m:
+            continue
+        assert m.group(1) in tools, f"{key}: /my-shop/{m.group(1)} is not in askodoxShopToolPages"
+        assert (en, te) == names[tools[m.group(1)]], f"{key} is called {(en, te)}, the app calls it {names[tools[m.group(1)]]}"
+        checked += 1
+    assert checked >= 15
+
+
+def test_the_ask_bar_names_a_shop_page_exactly_as_the_app_does():
+    from app.services import pos_hub
+
+    names, _, pages = _shop_page_names()
+    # These keys are ACTIONS that land on a shared page ("Add staff" opens Staff & roles), not that page's name.
+    actions = {"orders.calls", "orders.delivery", "staff.add"}
+    checked = 0
+    for key, (en, te) in pos_hub.PAGES.items():
+        page = pages.get(key)
+        if key in actions or page not in names:
+            continue
+        assert (en, te) == names[page], f"ASK bar page {key} is called {(en, te)}, the app calls it {names[page]}"
+        checked += 1
+    assert checked >= 5

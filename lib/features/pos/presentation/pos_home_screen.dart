@@ -6,6 +6,7 @@ import '../../../core/providers/backend_providers.dart';
 import '../../../shared/widgets/askodox_fill_bar.dart';
 import '../../../shared/widgets/askodox_tile_grid.dart';
 import '../data/pos_repository.dart';
+import '../domain/shop_page_names.dart';
 import 'pos_common.dart';
 import 'pos_payment_alerts_screen.dart';
 
@@ -295,33 +296,33 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
           final id = widget.businessId;
           final reg = '${b['registration_type']}';
           final tiles = <(String, IconData, String, String, String)>[
-            if (askodoxPosCan(b, 'sell')) ('sale', Icons.point_of_sale, 'New bill', 'కొత్త బిల్లు', '/pos/$id/sale'),
-            ('payalerts', Icons.volume_up_outlined, 'Payment alerts', 'పేమెంట్ అలర్ట్స్', '/pos/$id/payment-alerts'),
-            ('collect', Icons.qr_code_2, 'Collect by UPI', 'UPI తో కట్టించుకోండి', '/pos/$id/collect'),
+            if (askodoxPosCan(b, 'sell')) _tile('sale', Icons.point_of_sale, '/pos/$id/sale'),
+            _tile('payalerts', Icons.volume_up_outlined, '/pos/$id/payment-alerts'),
+            _tile('collect', Icons.qr_code_2, '/pos/$id/collect'),
             // Front desk: one orders desk for table / shop-QR / counter orders (owner 2026-11-15).
             if (askodoxPosCan(b, 'kitchen') || askodoxPosCan(b, 'tables') || askodoxPosCan(b, 'sell'))
-              ('desk', Icons.receipt_long_outlined, 'Orders desk', 'ఆర్డర్స్ డెస్క్', '/desk/$id'),
+              _tile('desk', Icons.receipt_long_outlined, '/desk/$id'),
             if (askodoxPosCan(b, 'tables') && askodoxPosTableTemplates.contains(b['template']))
-              ('tables', Icons.table_restaurant_outlined, 'Tables & KOT', 'టేబుల్స్ & KOT', '/pos/$id/tables'),
+              _tile('tables', Icons.table_restaurant_outlined, '/pos/$id/tables'),
             if (askodoxPosCan(b, 'kitchen') && askodoxPosTableTemplates.contains(b['template']))
-              ('kitchen', Icons.soup_kitchen_outlined, 'Kitchen screen', 'వంటగది స్క్రీన్', '/pos/$id/kitchen'),
-            ('items', Icons.inventory_2_outlined, 'Items & stock', 'సరుకులు & స్టాక్', '/pos/$id/items'),
+              _tile('kitchen', Icons.soup_kitchen_outlined, '/pos/$id/kitchen'),
+            _tile('items', Icons.inventory_2_outlined, '/pos/$id/items'),
             if (askodoxPosCan(b, 'purchases'))
-              ('suppliers', Icons.local_shipping_outlined, 'Suppliers & purchases', 'సప్లయర్లు & కొనుగోళ్లు', '/pos/$id/suppliers'),
-            if (askodoxPosCan(b, 'stock')) ('stock', Icons.event_busy_outlined, 'Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ', '/pos/$id/stock-report'),
-            ('customers', Icons.people_alt_outlined, 'Customers & credit', 'కస్టమర్లు & ఖాతా', '/pos/$id/customers'),
-            if (askodoxPosCan(b, 'sell')) ('dues', Icons.notifications_active_outlined, 'Baaki reminders', 'బాకీ గుర్తులు', '/pos/$id/dues'),
-            if (askodoxPosCan(b, 'crm')) ('crm', Icons.groups_2_outlined, 'Business CRM', 'Business CRM', '/pos/$id/crm'),
-            ('agents', Icons.smart_toy_outlined, 'AI agents', 'AI Agents', '/pos/$id/agents'),
-            ('bills', Icons.receipt_long_outlined, 'Bills', 'బిల్లులు', '/pos/$id/invoices'),
-            ('day', Icons.calculate_outlined, 'Day close', 'రోజు ముగింపు', '/pos/$id/day'),
-            if (askodoxPosCan(b, 'reports')) ('gst', Icons.summarize_outlined, 'GST summary', 'GST సారాంశం', '/pos/$id/gst'),
-            if (askodoxPosCan(b, 'members')) ('staff', Icons.badge_outlined, 'Staff & roles', 'సిబ్బంది', '/pos/$id/staff'),
-            ('printer', Icons.print_outlined, 'Printer', 'ప్రింటర్', '/pos/$id/printer'),
+              _tile('suppliers', Icons.local_shipping_outlined, '/pos/$id/suppliers'),
+            if (askodoxPosCan(b, 'stock')) _tile('stock', Icons.event_busy_outlined, '/pos/$id/stock-report'),
+            _tile('customers', Icons.people_alt_outlined, '/pos/$id/customers'),
+            if (askodoxPosCan(b, 'sell')) _tile('dues', Icons.notifications_active_outlined, '/pos/$id/dues'),
+            if (askodoxPosCan(b, 'crm')) _tile('crm', Icons.groups_2_outlined, '/pos/$id/crm'),
+            _tile('agents', Icons.smart_toy_outlined, '/pos/$id/agents'),
+            _tile('bills', Icons.receipt_long_outlined, '/pos/$id/invoices'),
+            _tile('day', Icons.calculate_outlined, '/pos/$id/day'),
+            if (askodoxPosCan(b, 'reports')) _tile('gst', Icons.summarize_outlined, '/pos/$id/gst'),
+            if (askodoxPosCan(b, 'members')) _tile('staff', Icons.badge_outlined, '/pos/$id/staff'),
+            _tile('printer', Icons.print_outlined, '/pos/$id/printer'),
             if (askodoxPosCan(b, 'settings'))
-              ('advance', Icons.savings_outlined, 'Shop advance', 'షాప్ అడ్వాన్స్', '/pos/$id/advance'),
+              _tile('advance', Icons.savings_outlined, '/pos/$id/advance'),
             if (askodoxPosCan(b, 'sell'))
-              ('selfshop', Icons.qr_code_2, 'Self-shopping', 'సెల్ఫ్ షాపింగ్', '/pos/$id/selfshop'),
+              _tile('selfshop', Icons.qr_code_2, '/pos/$id/selfshop'),
           ].where((t) => askodoxPosToolAllowed(b, t.$1)).toList();
           return RefreshIndicator(
             onRefresh: () async {
@@ -378,4 +379,10 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
       ),
     );
   }
+}
+
+/// A dashboard tile named by the page it opens: ONE name per page (`shop_page_names.dart`, owner 2026-11-24).
+(String, IconData, String, String, String) _tile(String key, IconData icon, String route) {
+  final name = askodoxShopPageName(route)!;
+  return (key, icon, name.$1, name.$2, route);
 }

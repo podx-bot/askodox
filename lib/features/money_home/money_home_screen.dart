@@ -928,7 +928,8 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
   /// its folder, hide.
   Future<void> _pageMenu(bool te, String? shop, AskodoxLaunchPage page) async {
     final pinId = 'money:${shop ?? 'me'}:${page.id}';
-    final pinned = ref.read(askodoxChatPinsProvider).pins.any((p) => p.id == pinId);
+    final mine = AskodoxChatPin(id: pinId, route: page.pinRoute(shop), en: page.en, te: page.te);
+    final pinned = ref.read(askodoxChatPinsProvider).pins.any((p) => p.samePageAs(mine));
     final inFolder = _current.folderOf(page.id) != null;
     final choice = await _menu(_tileBoxes[page.id], [
       ('pin', Icons.push_pin_rounded,
@@ -941,7 +942,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     if (!mounted || choice == null) return;
     switch (choice) {
       case 'pin':
-        await askodoxOfferChatPin(context, AskodoxChatPin(id: pinId, route: page.pinRoute(shop), en: page.en, te: page.te));
+        await askodoxOfferChatPin(context, mine);
       case 'arrange':
         setState(() => _editing = true);
       case 'folder':

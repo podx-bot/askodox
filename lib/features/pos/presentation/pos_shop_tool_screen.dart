@@ -3,30 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/pos_repository.dart';
+import '../domain/shop_page_names.dart';
 import 'pos_common.dart';
 
-/// Shop tool -> its page inside the shop (`<id>` is filled in). Owner 2026-11-19: a shop person opens ANY shop tool by
-/// talking ("new bill", "my AI agents", "stock") or from a pin, without first finding the shop dashboard.
-const askodoxShopTools = <String, (String, String, String)>{
-  'sale': ('/pos/<id>/sale', 'New bill', 'కొత్త బిల్లు'),
-  'payment-alerts': ('/pos/<id>/payment-alerts', 'Payment alerts', 'పేమెంట్ అలర్ట్స్'),
-  'collect': ('/pos/<id>/collect', 'Collect by UPI', 'UPI తో కట్టించుకోండి'),
-  'orders': ('/desk/<id>', 'Orders desk', 'ఆర్డర్స్ డెస్క్'),
-  'tables': ('/pos/<id>/tables', 'Tables & KOT', 'టేబుల్స్ & KOT'),
-  'kitchen': ('/pos/<id>/kitchen', 'Kitchen screen', 'వంటగది స్క్రీన్'),
-  'items': ('/pos/<id>/items', 'Items & stock', 'సరుకులు & స్టాక్'),
-  'suppliers': ('/pos/<id>/suppliers', 'Suppliers & purchases', 'సప్లయర్లు & కొనుగోళ్లు'),
-  'expiry': ('/pos/<id>/stock-report', 'Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ'),
-  'customers': ('/pos/<id>/customers', 'Customers & credit', 'కస్టమర్లు & ఖాతా'),
-  'dues': ('/pos/<id>/dues', 'Baaki reminders', 'బాకీ గుర్తులు'),
-  'agents': ('/pos/<id>/agents', 'AI agents', 'AI Agents'),
-  'bills': ('/pos/<id>/invoices', 'Bills', 'బిల్లులు'),
-  'day': ('/pos/<id>/day', 'Day close', 'రోజు ముగింపు'),
-  'gst': ('/pos/<id>/gst', 'GST summary', 'GST సారాంశం'),
-  'staff': ('/pos/<id>/staff', 'Staff & roles', 'సిబ్బంది'),
-  'printer': ('/pos/<id>/printer', 'Printer', 'ప్రింటర్'),
-  'advance': ('/pos/<id>/advance', 'Shop advance', 'షాప్ అడ్వాన్స్'),
-  'selfshop': ('/pos/<id>/selfshop', 'Self-shopping', 'సెల్ఫ్ షాపింగ్'),
+/// Shop tool -> its page inside the shop (`<id>` is filled in) + the page's ONE name (`shop_page_names.dart`). Owner
+/// 2026-11-19: a shop person opens ANY shop tool by talking ("counter bill", "my AI agents", "stock") or from a pin,
+/// without first finding the shop dashboard.
+final askodoxShopTools = <String, (String, String, String)>{
+  for (final e in askodoxShopToolPages.entries)
+    e.key: (e.value, askodoxShopPageNames[e.value]!.$1, askodoxShopPageNames[e.value]!.$2),
 };
 
 String askodoxShopToolRoute(String tool, String businessId, [String query = '']) =>

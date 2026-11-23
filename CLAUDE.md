@@ -1003,6 +1003,9 @@ this file, don't trust it blindly.
   `PosStore._issue` and app `askodoxTierPrice` (keep both rules equal); photos = `pos_product_photos` (<= 300 KB PNG/JPEG).
   Spoken orders = `askodoxSplitPosOrder` / `askodoxParsePosOrder` -> `AskodoxPosOrderReviewSheet` (never adds silently);
   items match in ANY script by sound (`pos_name_sound.dart` = twin of `name_sound.py`), rule `.claude/rules/pos-spoken-orders.md`.
+- ONE name per shop page (owner 2026-11-24, "New bill" + "Counter bill" pins opened one page): `askodoxShopPageNames`
+  (`pos/domain/shop_page_names.dart`) names it everywhere (Money pages, dashboard, `/my-shop/<tool>`, guide, chat buttons,
+  ASK bar); pins are one per page (`askodoxSamePage`). Rule `.claude/rules/shop-page-names.md`.
 - Self-shopping = `pos_selfshop.py` (tables `pos_selfshop_*`) + `/api/pos/selfshop/*` (customer, any signed-in user, join
   rate-limited) + `/api/pos/businesses/{id}/selfshop*` (staff). Daily 6-digit code (QR `ASKODOX-SHOP:<code>`); sessions
   OPEN -> CHECKOUT (4-digit exit code) -> BILLED via `PosStore.create_invoice` (client_txn_id `selfshop-<sid>`); weighed /

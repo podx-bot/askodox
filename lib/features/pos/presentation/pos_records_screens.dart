@@ -1740,7 +1740,7 @@ class _AskodoxPosPrinterScreenState extends ConsumerState<AskodoxPosPrinterScree
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'రసీదు ప్రింటర్' : 'Receipt printer')),
+      appBar: AppBar(title: Text(te ? 'ప్రింటర్' : 'Printer')),
       body: ListView(key: const Key('askodoxPosPrinter'), padding: const EdgeInsets.all(12), children: [
         Text(
           te
