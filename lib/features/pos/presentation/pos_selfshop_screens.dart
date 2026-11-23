@@ -7,7 +7,7 @@ import '../data/pos_hardware.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
-import 'pos_sale_screen.dart' show AskodoxPosPaymentSheet;
+import 'pos_sale_screen.dart' show AskodoxPosPaymentSheet, AskodoxPosPayResult;
 import '../../../shared/widgets/qr_poster.dart';
 
 String _itemName(AskodoxJson item, bool te) =>
@@ -272,12 +272,13 @@ class _AskodoxPosSelfShopCheckScreenState extends ConsumerState<AskodoxPosSelfSh
   Future<void> _bill() async {
     final te = askodoxPosTe(context);
     final total = askodoxPosInt(_session?['total_paise']);
-    final payments = await showModalBottomSheet<List<AskodoxJson>>(
+    final result = await showModalBottomSheet<AskodoxPosPayResult>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => AskodoxPosPaymentSheet(total: total, allowCredit: false, te: te),
+      builder: (ctx) => AskodoxPosPaymentSheet(total: total, allowCredit: false, allowDue: false, te: te),
     );
-    if (payments == null || !mounted) return;
+    if (result == null || !mounted) return;
+    final payments = result.payments;
     setState(() => _busy = true);
     try {
       final out = await ref.read(askodoxPosRepositoryProvider).selfShopBill(widget.businessId, widget.sessionId, payments);

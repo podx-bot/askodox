@@ -1187,9 +1187,13 @@ class AskodoxPosPayResult {
 }
 
 class AskodoxPosPaymentSheet extends StatefulWidget {
-  const AskodoxPosPaymentSheet({super.key, required this.total, required this.allowCredit, required this.te, this.shopUpi});
+  const AskodoxPosPaymentSheet(
+      {super.key, required this.total, required this.allowCredit, required this.te, this.shopUpi, this.allowDue = true});
   final int total;
   final bool allowCredit;
+
+  /// The బాకీ / Due way (off where a bill cannot carry a customer, e.g. self-shopping checkout).
+  final bool allowDue;
   final bool te;
 
   /// The shop's own UPI (id, payee) for the QR shown when UPI is chosen; null = no QR.
@@ -1312,7 +1316,7 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
       'card': te ? 'కార్డ్' : 'Card',
       'bank_transfer': te ? 'బ్యాంక్' : 'Bank',
       'cheque': te ? 'చెక్' : 'Cheque',
-      'due': te ? 'బాకీ' : 'Due',
+      if (widget.allowDue) 'due': te ? 'బాకీ' : 'Due',
     };
     // Scrolls when the QR makes it taller than a small phone.
     return SingleChildScrollView(
@@ -1420,7 +1424,11 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
         if (_left > 0 && widget.allowCredit && _method != 'due')
           Text(te ? 'మిగిలినది కస్టమర్ ఖాతాలో బాకీగా ఉంటుంది.' : 'The rest goes on the customer\'s credit account.', style: const TextStyle(fontSize: 12)),
         if (_left > 0 && !widget.allowCredit && _method != 'due')
-          Text(te ? 'మిగిలినది బాకీ పెట్టాలంటే "బాకీ" నొక్కండి.' : 'To leave the rest as a due, tap Due.', style: const TextStyle(fontSize: 12)),
+          Text(
+              widget.allowDue
+                  ? (te ? 'మిగిలినది బాకీ పెట్టాలంటే "బాకీ" నొక్కండి.' : 'To leave the rest as a due, tap Due.')
+                  : (te ? 'మొత్తం కట్టాలి.' : 'The whole bill must be paid.'),
+              style: const TextStyle(fontSize: 12)),
         if (_method == 'due' && !_dueOk)
           Text(te ? 'బాకీకి పేరు లేదా ఫోన్ నంబర్ రాయండి.' : 'Give a name or phone number for the due.',
               style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
