@@ -1,5 +1,6 @@
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/net/net_quality.dart';
+import '../../notifications/application/askodox_notifications.dart' show askodoxDeviceNotificationsProvider;
 import '../../business/presentation/biz_chat.dart';
 import '../../pos/data/pos_repository.dart' show AskodoxJson, askodoxPosRepositoryProvider;
 import '../../../shared/widgets/chat_pins.dart' show AskodoxChatPinStrip, askodoxLiveOrderChip, askodoxLiveOrdersProvider;
@@ -23,6 +24,7 @@ import '../../../services/multimodal_capture_service.dart';
 import '../../../services/reply_speech_service.dart';
 import '../../../services/support_escalation_service.dart';
 import '../domain/app_care.dart';
+import '../domain/offline_questions.dart';
 import '../domain/own_money_records.dart';
 import '../../pos/data/pos_payment_alerts.dart' show askodoxJoinStaffShopVoices, askodoxPaymentAlertsBridgeProvider;
 import '../../../services/voice_endpointing.dart';
@@ -91,6 +93,7 @@ import '../domain/result_board_tabs.dart';
 import 'result_board_tab_row.dart';
 import 'attachment_menu.dart';
 import 'chat_bill_card.dart';
+import 'offline_ask_strip.dart';
 import 'chat_shop_menu_card.dart';
 import '../application/chat_shop_cart.dart';
 import '../application/voice_mode.dart';
@@ -904,6 +907,9 @@ class _AskodoxPrimaryHomeScreenState
       if (next != null) unawaited(_handleChatRequest(next));
     }, fireImmediately: true);
     _restoring = _restore();
+    // Lite step 3: questions kept while there was no net are asked by themselves when it is back.
+    AskodoxNetQuality.instance.state.addListener(_onNetChanged);
+    unawaited(_restoring.then((_) => _askHeldQuestions()).catchError((Object _) {}));
     unawaited(_loadLeads());
     // First open after install: the phone's own location Allow dialog, then the town is named by itself.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1935,6 +1941,89 @@ class _AskodoxPrimaryHomeScreenState
         ),
       );
 
+  /// One turn with NO net (Lite step 3): a money question the phone's own records can answer is answered here;
+  /// anything else waits in [AskodoxHeldQuestions].
+  Future<void> _offlineTurn(String typed, bool speakResponse, {required bool clearComposer}) async {
+    final lang = _lang;
+    final ask = askodoxOfflineAsk(typed);
+    String reply;
+    if (ask != null) {
+      List<Map<String, Object?>> events;
+      try {
+        events = await ref.read(askodoxPaymentAlertsBridgeProvider).localEvents();
+      } catch (_) {
+        events = const [];
+      }
+      reply = askodoxOfflineAnswer(ask, events, DateTime.now(), lang);
+    } else {
+      final waiting = await AskodoxHeldQuestions.instance.add(typed);
+      reply = askodoxOfflineKeptText(lang, waiting);
+    }
+    if (!mounted) return;
+    askodoxTestLog('offline_turn', detail: {'answered': ask != null});
+    setState(() {
+      _active = true;
+      _turns.add(ConversationTurnRecord(text: typed, isUser: true));
+      _turns.add(ConversationTurnRecord(text: reply, isUser: false));
+    });
+    if (clearComposer) _controller.clear();
+    _scrollBottom();
+    unawaited(_saveSnapshot());
+    // The phone's own voice: the server voice needs the net.
+    if (speakResponse) unawaited(_speakReply(reply, userText: typed, deviceOnly: true));
+    // The net may be back already (the watcher looks every 20 s): look now, so a kept question does not wait.
+    unawaited(AskodoxNetQuality.instance.check());
+  }
+
+  void _onNetChanged() {
+    if (AskodoxNetQuality.instance.state.value != AskodoxNet.offline) unawaited(_askHeldQuestions());
+  }
+
+  bool _askingHeld = false;
+
+  /// The net is back: every kept question is asked in order, as if the person had just sent it.
+  Future<void> _askHeldQuestions() async {
+    if (_askingHeld || !mounted) return;
+    _askingHeld = true;
+    try {
+      final List<AskodoxHeldQuestion> held;
+      try {
+        held = await AskodoxHeldQuestions.instance.load();
+      } catch (_) {
+        return;
+      }
+      var answered = 0;
+      for (final q in held) {
+        // Something else is being answered: wait for it (never two turns at once).
+        for (var i = 0; i < 120 && mounted && (_sending || _analyzingAttachments); i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+        if (!mounted || AskodoxNetQuality.instance.state.value == AskodoxNet.offline) return;
+        final before = _turns.length;
+        await _send(q.text);
+        if (!mounted) return;
+        // No reply and the net is gone again: the question stays for the next time.
+        if (_turns.length <= before + 1 && AskodoxNetQuality.instance.state.value == AskodoxNet.offline) return;
+        await AskodoxHeldQuestions.instance.remove(q);
+        answered++;
+      }
+      // The person is not looking at the app: a notification says the answer is here.
+      if (answered > 0 && mounted && WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        final te = _te;
+        unawaited(ref.read(askodoxDeviceNotificationsProvider).show(
+              id: 0x0ff1a57,
+              title: te ? 'ASKODOX · జవాబు వచ్చింది' : 'ASKODOX · your answer is here',
+              body: te
+                  ? 'Net లేనప్పుడు అడిగిన ${answered > 1 ? '$answered ప్రశ్నలకు' : 'ప్రశ్నకు'} జవాబు సిద్ధం'
+                  : 'The answer to ${answered > 1 ? 'the $answered questions' : 'the question'} you asked without internet is ready',
+              route: '/',
+            ));
+      }
+    } finally {
+      _askingHeld = false;
+    }
+  }
+
   Future<void> _sendTurn([String? preset, bool speakResponse = false]) async {
     final attachments = List<ChatAttachment>.of(_attachments);
     final typed = (preset ?? _controller.text).trim();
@@ -1945,6 +2034,12 @@ class _AskodoxPrimaryHomeScreenState
     if (askodoxLiveOrderChip) unawaited(ref.read(askodoxLiveOrdersProvider.notifier).refresh());
     // Owner 2026-11-19: EVERY reply is text + voice (typed turns too); the Mute button is the only way off.
     speakResponse = speakResponse || (askodoxSpeakTypedReplies && !_speechMuted);
+    // Owner 2026-11-23 (Lite step 3): NO net -> the phone answers what its own payment records know; any other
+    // question is kept and asked by itself when the net is back (never lost, never a guessed answer).
+    if (attachments.isEmpty && typed.isNotEmpty && AskodoxNetQuality.instance.state.value == AskodoxNet.offline) {
+      await _offlineTurn(typed, speakResponse, clearComposer: preset == null);
+      return;
+    }
     var text = typed;
     _companionError = false;
     if (!speakResponse) unawaited(_stopSpeaking());
@@ -4582,6 +4677,8 @@ class _AskodoxPrimaryHomeScreenState
               // The person's own pinned shortcuts (max 3, owner 2026-11-19); folds to a handle, never over the keyboard.
               if (!keyboard) const AskodoxChatPinStrip(),
               _shoppingModeBanner(te),
+              // Owner 2026-11-23 (Lite step 3): no net -> the questions the phone answers by itself, one tap away.
+              AskodoxOfflineAskStrip(lang: _lang, onAsk: (q) => unawaited(_send(q))),
               _composer(te)
             ]);
           }),
@@ -6436,6 +6533,7 @@ class _AskodoxPrimaryHomeScreenState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AskodoxNetQuality.instance.state.removeListener(_onNetChanged);
     _device.setMethodCallHandler(null);
     _modeBannerTimer?.cancel();
     askodoxShoppingMode = false;

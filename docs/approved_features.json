@@ -9815,6 +9815,49 @@
           "approved_by": "owner"
         }
       ]
+    },
+    {
+      "id": "lite_offline_questions",
+      "name": "No net: the phone answers its own payment questions; other questions wait and are asked when the net is back",
+      "purpose": "Owner 2026-11-23 (ASKODOX Lite step 3): with no internet the chat must still be of use and must never lose or guess an answer.",
+      "expected_behavior": "While AskodoxNetQuality says offline, a typed / spoken Home chat turn without attachments never goes to the server. askodoxOfflineAsk (pure; money + time words only, te / hi / en, no bank / app / shop names) recognises: how much came or went today / yesterday / this week / this month, the last payment, who paid. askodoxOfflineAnswer answers from the phone's own payment rows (askodoxItemsFromPhone: test, suspect and set-aside rows never count): total with Indian grouping, count, the biggest, how many a bank SMS has not confirmed, and always the line that this is what the phone's payment messages showed, not the bank balance; no rows = it says there is no record, never a figure. It is spoken with the phone's own voice. Any other question (price, weather, how-to, dues, shopping ...) is kept in AskodoxHeldQuestions (on the phone, account-scoped, same words once, max 10, dropped after 24 h) and the chat says it will be answered when the net is back. When the net leaves offline (and at app start) the kept questions are sent in order as normal turns, one at a time, each removed once asked; if the app is not in front a notification says the answer is ready. Above the composer AskodoxOfflineAskStrip shows the ready questions (tap = asked) while offline and how many questions wait.",
+      "roles": [
+        "any"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [
+          "askodoxOfflineAskStrip",
+          "askodoxOfflineHeld"
+        ],
+        "symbols": [
+          "AskodoxOfflineAskStrip",
+          "askodoxOfflineAsk",
+          "askodoxOfflineAnswer",
+          "AskodoxHeldQuestions"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/home/offline_questions_test.dart"
+        ]
+      },
+      "dependencies": [
+        "lite_mode_slow_net"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new: offline money answers from the phone's records, kept questions, ready-question strip; NOT PHONE VERIFIED",
+          "approved_by": "owner"
+        }
+      ]
     }
   ]
 }
