@@ -1,0 +1,25 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1621]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45228699477 -R "$GITHUB_REPOSITORY" -n askodox-android-621 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1621.aab
+          sha256sum askodox-play-1621.aab
+          ls -l askodox-play-1621.aab
+          unzip -l askodox-play-1621.aab | grep -iE "face|mlkit" | head -20 || true
+          gh release create play-bundle-1621 askodox-play-1621.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1621" --notes "Play Console upload only (not installable on a phone). #410 face check model from Google Play services (smaller app); includes #406-#408."
