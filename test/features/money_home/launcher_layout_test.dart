@@ -117,7 +117,8 @@ void main() {
       expect(staff.contains('s.details'), isFalse);
       // Every Seller page opens THIS shop's own screen.
       for (final p in askodoxSellerPages('k1', {'role': 'owner', 'template': 'kirana'})) {
-        if (p.route != null && p.route!.contains('/k1')) continue;
+        // owner 2026-11-23: the shop's accounts page is the accounts card for THIS shop (?shop=k1)
+        if (p.route != null && (p.route!.contains('/k1') || p.route!.contains('shop=k1'))) continue;
         expect(p.route == null || p.route == '/me/payment-methods' || p.route!.startsWith('/me/business/k1'), isTrue,
             reason: '${p.id} -> ${p.route}');
       }
