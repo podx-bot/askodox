@@ -68,8 +68,11 @@ class SettingsBody(BaseModel):
 
 @admin_router.get("/settings")
 def get_settings(request: Request) -> Dict[str, Any]:
+    from app.services import shop_free_core
+
     _require(request, "growth:view")
-    return ai_credits(request.app.state.container).settings()
+    # free_forever = the shop tools that can never carry a rate (owner 2026-11-23); shown locked on the page.
+    return {**ai_credits(request.app.state.container).settings(), "free_forever": shop_free_core.public()}
 
 
 @admin_router.put("/settings")

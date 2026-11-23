@@ -7,6 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/free-shop-core-retention` (2026-11-23, owner "1+4 do" on the ProfitWell idea): (1) SHOP CORE FREE
+  FOR EVER -- ONE list `shop_free_core.py` `FREE_FOREVER` (payment_voice, quick_bill, dues, sales_reports + the route
+  patterns that ARE each tool, incl. `/api/in-app/voice/speak` where the phone fetches payment voice): `AiCredits`
+  refuses a rate for them (400 `free_forever`), `reserve` answers free; `tests/test_shop_free_core.py` reads every
+  such route handler and fails on a credits reserve / 402 / plan check; AI Credits console page shows the locked
+  list; rule `.claude/rules/shop-free-core.md`. Nothing is shown to shops yet (where to say it = owner's decision).
+  (4) SHOPS KEEP USING? -- `shop_retention.py` (roll-up `shop_activity_days`: a shop is active on an India day with
+  a bill / payment / payment-voice event / day close / attendance / table order / purchase; MAX upserts, periodic job
+  `shop_activity` 6 h + lazily on read, survives the 90-day event purge) + `GET /admin/cc/shop-retention`
+  (analytics:view; shop names + the shop's counter number only with users:view, owner number masked) + console view
+  `shopretention` "Shops వాడకం" (active 7 / 30, quiet, stopped, never used, week 1 / week 2 / month 2 kept -- None =
+  too early, join-month table, 30-day trend, call lists). Backend 1882 pass. Not checked on production data.
 - `main` PR #392 (2026-11-22, in Play bundle `askodox-play-1606.aab`, owner: PhonePe notification with the name came first but the
   voice had no name; the bank SMS came ~1 h later and was spoken AGAIN; SMS first + late notification also spoken
   twice): payer name now read from "NAME (id@ibl) sent you ₹X", "NAME sent you ₹X", title/text split (`payerOf`).
@@ -913,6 +925,9 @@ this file, don't trust it blindly.
   LISTENER is NEVER in the default manifest: Play Protect blocked sideloaded APK 1366 for it -- Play builds only
   (`tool/apply_android_payment_alerts.sh`, Live Build `include_payment_alerts` + `build_play_bundle`); CI fails a
   sideloaded APK that declares it. Flag `pos.payment_alerts` = emergency off. Flutter: `/pos/:id/payment-alerts`.
+- Shop core is FREE FOR EVER (owner 2026-11-23): `shop_free_core.py` lists payment voice / quick bill / dues / sales
+  reports and their routes; never reserve credits, answer 402 or check a plan there (`test_shop_free_core.py` fails).
+  Shop retention = `shop_retention.py` (`shop_activity_days` roll-up; a new kind of counter work = one row in `SOURCES`).
 - AI Credits = `ai_credits.py` + `routes/ai_credits.py` (append-only `ai_credit_ledger`, UNIQUE ref, live + TEST balance;
   added ONLY in `billing.on_payment`; assistant reserves one 'chat' use before the model, releases on no answer; charging
   OFF until staff rates). Packs = growth plans audience `ai_credits` (seeded INACTIVE). Play Store sale needs Play Billing.
