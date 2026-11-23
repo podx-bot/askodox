@@ -7,6 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #411 (2026-11-23, owner "1"; in Play bundle `askodox-play-1625.aab` = Live Build run 45235830781 on 029e161, with
+  #414; design artifact SpUyet3NmCbMqCQZNorWYE "ASKODOX గైడ్ ఆన్ / ఆఫ్"): GUIDE SWITCH -- `lib/features/guide/guide_switch.dart`:
+  `askodoxGuideOnProvider` (prefs `askodox.guide.on.v1`, default OFF), `AskodoxGuideChip` (key `askodoxGuideSwitch`, grey
+  "గైడ్ ఆఫ్" / gold "గైడ్ ఆన్", 2 s SnackBar banner) inside the header wordmark FittedBox (Phase 1; the header language chip
+  is Phase 2 only -- language lives in the ☰ menu) and on the sign-in screen; `askodoxGuideIntroOnce` = one card on the
+  first open (only when `askodoxGuideIntroEnabled`, set in `main()`), ON there starts the `signin` walkthrough at once.
+  Engine: guide ON + no touch for `askodoxGuideIdle` (5 s) -> `askodoxAutoGuideRoutes` ('/onboarding' -> `signin`, '/' ->
+  `home_tour`), each until finished once (prefs `askodox.guide.done.v1`) or stopped twice; the `signin` flow runs on the
+  private sign-in route (`_pausedFor`) and never reads input; new step kind `info` (tour stop, moves on with "తర్వాత").
+  New keys `askodoxLanguageContinue`, `askodoxComposerField`. Registry `guide_switch_idle_walkthrough`. Home tour stop 4
+  targets `askodoxNavPayments` (Buyer side only). Next (not built): walkthroughs for Live Work / Money pages / bill / dues,
+  voice in all 23 languages (guide speaks te / en). Nothing phone verified.
 - BRANCH `claude/launcher-place-not-group` (2026-11-23, NOT merged, NOT run -- no Flutter in the container; owner: "I drop
   Report settings on Sales and it becomes a group; it must sit in THAT place, Buyer and Seller alike"): a page dropped on
   a page = `AskodoxLaunchLayout.placeAt` (takes the target's place, the rest shift), never a folder. Folders only from
