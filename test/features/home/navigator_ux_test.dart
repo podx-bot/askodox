@@ -125,13 +125,17 @@ void main() {
     // Buyer side: the person's own card, their own places, the company's pages, Sign in (signed out here).
     final phase2Only = ['business', 'listings', 'enquiries', 'orders', 'mobility'];
     for (final key in [
-      'more', 'saved', 'newchat', 'language', 'location', 'notifications', 'credits', 'settings', 'feedback', 'ideas',
-      'support', 'contact', 'about', 'terms', 'privacy', 'signin',
+      'more', 'saved', 'newchat', 'language', 'location', 'notifications', 'credits', 'settings', 'ideas', 'care',
+      'contact', 'about', 'terms', 'privacy', 'signin',
       if (askodoxPhase2) ...['orders', 'mobility'],
     ]) {
       await tester.scrollUntilVisible(find.byKey(ValueKey('askodoxMenu-$key')), 120,
           scrollable: find.byType(Scrollable).last);
       expect(find.byKey(ValueKey('askodoxMenu-$key')), findsOneWidget, reason: key);
+    }
+    // Owner 2026-11-24: feedback + "your idea" are ONE entry; Customer care / Report a problem open the chat.
+    for (final key in ['feedback', 'support', 'report']) {
+      expect(find.byKey(ValueKey('askodoxMenu-$key')), findsNothing, reason: '$key is merged');
     }
     if (!askodoxPhase2) {
       for (final key in phase2Only) {

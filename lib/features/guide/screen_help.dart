@@ -257,7 +257,7 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రైడ్ లేదా పార్సెల్ ఎంచుకోండి, మ్యాప్‌లో పికప్, డ్రాప్ పెట్టండి.',
     'రిక్వెస్ట్ పంపండి; పార్ట్నర్ అంగీకరించాకే వివరాలు కనిపిస్తాయి.',
   ]),
-  '/me/ideas': _H('Tell us your idea', 'మీ ఐడియా చెప్పండి', [
+  '/me/ideas': _H('Ideas & suggestions', 'సలహాలు & సూచనలు', [
     'Choose what it is about, then say it with the mic or type it.',
     'Tap Send. Our team reads every idea. Never write phone numbers, OTPs or card numbers.',
   ], [
