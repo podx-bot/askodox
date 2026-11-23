@@ -600,6 +600,7 @@ class _AskodoxBizMenuSortScreenState extends ConsumerState<AskodoxBizMenuSortScr
       // Owner 2026-11-23: no "stay on this page". A reading already done (or running) is picked up; otherwise one is
       // started in the background and the page checks every 3 s -- leaving is fine, a notification says when ready.
       var out = fresh ? const <String, Object?>{} : await repo.menuSortState(widget.businessId);
+      if (!mounted) return;
       if (fresh || out['status'] == 'none' || out['status'] == 'failed') {
         out = await repo.menuSortStart(widget.businessId, lang: askodoxPosTe(context) ? 'te' : 'en');
       }
