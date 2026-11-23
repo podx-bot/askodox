@@ -15,8 +15,9 @@ this file, don't trust it blindly.
   ignored (reaches the recharged number). Skill rule 10. Parser gate +17 checks + one-row scenario. Nothing phone verified.
   Offered next (owner has not said "చేయి"): a ❓ net for bank SMS with an amount the parser cannot read (ask in / out /
   not a payment, learn the skeleton, shape-only upload with consent).
-- Branch `claude/payment-voice-pack` (2026-11-23, owner "start the 6 in order" on design artifact MUmbrCksUD9Mq1HR1ELT4U,
-  ASKODOX Lite step 1): NO NET = SAME VOICE -- `PaymentVoicePack.kt` (pure, in the parser gate): number words te / hi / en
+- `main` PR #399 (2026-11-23, owner "1"; Play bundle `askodox-play-1611.aab`, Live Build run 45132985124; owner "start the 6
+  in order" on design artifact MUmbrCksUD9Mq1HR1ELT4U, ASKODOX Lite step 1 of 6 -- steps 2-6 (slow-net Lite mode, offline
+  questions, staff phones over Bluetooth, Lite app, light shop page + SMS card) NOT built): NO NET = SAME VOICE -- `PaymentVoicePack.kt` (pure, in the parser gate): number words te / hi / en
   (`numberWords`, Indian system; te 1 = "ఒక్క", 100 = "వంద", 1xx = "నూట"), `packTexts` = number words + the words of EVERY
   sentence the phone speaks (from the same builders; gate `voicePackChecks` fails if any clip of any sentence is missing),
   `clipsFor` (part -> clips). `CloudVoice`: parts kept per voice + language (`payvoice/<voice>_<lang>/`, pack in `pack/`,
@@ -29,7 +30,7 @@ this file, don't trust it blindly.
   `ACTION_NIGHT` (Play builds only declare the receiver) -> `nightCount` per side only when today had counted incoming
   payments (no payment = no voice, no notification). Voice language: first My phone visit / a shop's first settings save =
   app language, else the region from the location label (`voice_language.dart`), else the phone's. Nothing phone verified.
-- `main` PR #398 (2026-11-23, owner "1"; no Play bundle yet; owner "female voice for all languages, remove Automatic / Male / Female"):
+- `main` PR #398 (2026-11-23, owner "1"; in Play bundle `askodox-play-1611.aab`; owner "female voice for all languages, remove Automatic / Male / Female"):
   ONE APP VOICE = `elevenlabs_tts.APP_VOICE` (ElevenLabs "Chaitra G", lively Telugu female) for every reply / payment
   part in every language; `voice_for(lang, "automatic")` -> `app_voice_for` (override `ELEVENLABS_APP_VOICE_<LANG>` /
   `ELEVENLABS_APP_VOICE`); explicit genders stay only for product-video presenters. `/api/in-app/voice/speak` always asks
@@ -37,7 +38,7 @@ this file, don't trust it blindly.
   gone, saved choice dropped on start; payment-alert voice dropdown -> fixed row (key `askodoxPayAlertVoice` kept), phone
   config voice "female"; Kotlin `CloudVoice` keys kept parts with `VOICE_CACHE_TAG` (old-voice parts never joined), phone
   voice fallback female. Nothing phone verified.
-- `main` PR #396 (2026-11-23, owner "1"; no Play bundle yet; owner phone: PhonePe "2 new completed transaction updates · A has
+- `main` PR #396 (2026-11-23, owner "1"; in Play bundle `askodox-play-1611.aab`; owner phone: PhonePe "2 new completed transaction updates · A has
   sent ₹3,000 to your bank account HDFC Bank-NNNN · ₹3,360 has been sent to B" came 9.5 h after the ₹3,000 had come IN
   and was read as ONE message: row "❓ −₹3,000 · B", voice "B కి 3000 రూపాయలు వెళ్ళాయి"; owner "do it + late + sorry +
   an immediate 'check once' notification"): SUMMARIES -- `PaymentAlertParser.digestLines` / `digestLinesOf` (two or more
