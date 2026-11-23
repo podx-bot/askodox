@@ -188,7 +188,7 @@ class AskodoxPosRepository {
   /// A scanned barcode -> {found, item: {name, brand, pack, mrp_paise, photo, source, credit}} (never a selling price).
   Future<AskodoxJson> barcodeLookup(String biz, String barcode) =>
       _send('GET', '${_b(biz)}/barcode-lookup', query: {'barcode': barcode});
-  /// A shared pack photo by its ref ("p:<id>" / "m:<barcode>"): {image_base64, mime}.
+  /// A shared pack photo by its ref (`p:<id>` / `m:<barcode>`): `{image_base64, mime}`.
   Future<AskodoxJson> masterPhoto(String ref) => _send('GET', '/api/pos/product-master/photo', query: {'ref': ref});
   Future<AskodoxJson> deskMenuImport(String biz, List<AskodoxJson> items, {int rateBp = 0}) =>
       _send('POST', '${_b(biz)}/desk/menu/import', body: {'items': items, 'rate_bp': rateBp});
