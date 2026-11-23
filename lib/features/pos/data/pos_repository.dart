@@ -181,6 +181,15 @@ class AskodoxPosRepository {
   /// server had read the menu, and showed "No internet").
   Future<AskodoxJson> deskMenuPhoto(String biz, List<AskodoxJson> images) =>
       _send('POST', '${_b(biz)}/desk/menu/photo', body: {'images': images}, timeout: const Duration(seconds: 90));
+  /// A shelf / counter photo -> every pack on it as a PREVIEW, each with its own cut-out photo (`photo_b64`), brand,
+  /// pack and the printed MRP (owner 2026-11-24: items come in by themselves).
+  Future<AskodoxJson> deskMenuShelf(String biz, List<AskodoxJson> images) =>
+      _send('POST', '${_b(biz)}/desk/menu/shelf', body: {'images': images}, timeout: const Duration(seconds: 90));
+  /// A scanned barcode -> {found, item: {name, brand, pack, mrp_paise, photo, source, credit}} (never a selling price).
+  Future<AskodoxJson> barcodeLookup(String biz, String barcode) =>
+      _send('GET', '${_b(biz)}/barcode-lookup', query: {'barcode': barcode});
+  /// A shared pack photo by its ref ("p:<id>" / "m:<barcode>"): {image_base64, mime}.
+  Future<AskodoxJson> masterPhoto(String ref) => _send('GET', '/api/pos/product-master/photo', query: {'ref': ref});
   Future<AskodoxJson> deskMenuImport(String biz, List<AskodoxJson> items, {int rateBp = 0}) =>
       _send('POST', '${_b(biz)}/desk/menu/import', body: {'items': items, 'rate_bp': rateBp});
   Future<AskodoxJson> deskAvailability(String biz, String product, bool available) =>

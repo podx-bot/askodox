@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -885,6 +886,58 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
     if (mounted) setState(() => _reading = false);
   }
 
+  /// Owner 2026-11-24: one photo of a shelf / counter -> every pack on it, each with its own photo, brand, pack and the
+  /// MRP printed on it; nothing is typed one by one and nothing is saved until the owner checks the preview.
+  Future<void> _shelf(String source) async {
+    final te = askodoxPosTe(context);
+    final picked = (await ref.read(askodoxMediaPickerProvider).pick(source)).where((a) => a.isImage).toList();
+    if (picked.isEmpty || !mounted) return;
+    if (picked.any((a) => a.bytes.length > 4400000)) {
+      askodoxPosSnack(context, te ? 'ఫోటో చాలా పెద్దది. చిన్న ఫోటో వాడండి.' : 'That photo is too large. Use a smaller one.');
+      return;
+    }
+    setState(() => _reading = true);
+    await _photoGuard(() async {
+      final out = await ref.read(askodoxPosRepositoryProvider).deskMenuShelf(widget.businessId, [
+        for (final a in picked.take(4)) {'data': base64Encode(a.bytes), 'mime': a.mimeType},
+      ]);
+      if (!mounted) return null;
+      final items = askodoxPosList(out['items']);
+      setState(() {
+        _preview = items;
+        _gst = out['gst'] == true;
+      });
+      if (items.isEmpty) {
+        askodoxPosSnack(context, te ? 'షెల్ఫ్ ఫోటో నుంచి ఏ ప్యాకెట్ చదవలేకపోయాను. దగ్గరగా, వెలుతురులో తీయండి.' : 'Could not read any pack. Take the photo closer, in good light.');
+      }
+      return null;
+    });
+    if (mounted) setState(() => _reading = false);
+  }
+
+  /// The pack photo of a previewed item: cut out of the shelf photo, or a pack photo ASKODOX already has.
+  Widget? _previewThumb(AskodoxJson m) {
+    final own = '${m['photo_b64'] ?? ''}';
+    if (own.isNotEmpty) {
+      try {
+        return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(base64Decode(own), width: 44, height: 44, fit: BoxFit.cover, gaplessPlayback: true));
+      } catch (_) {
+        return null;
+      }
+    }
+    final photoRef = '${m['photo'] ?? ''}';
+    return photoRef.isEmpty ? null : AskodoxMasterThumb(photoRef: photoRef);
+  }
+
+  String _previewDetails(AskodoxJson m, bool te) => [
+        for (final k in ['brand', 'pack'])
+          if ('${m[k] ?? ''}'.isNotEmpty) '${m[k]}',
+        if (m['price_from'] == 'mrp') te ? 'ధర = ప్యాక్ మీది MRP' : 'price = MRP on the pack',
+        if ('${m['credit'] ?? ''}'.isNotEmpty) '${m['credit']}',
+      ].join(' · ');
+
   /// Fix one previewed item (name / price) before saving.
   Future<void> _editPreview(int i, bool te) async {
     final m = _preview[i];
@@ -995,6 +1048,12 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                         icon: const Icon(Icons.photo_library_outlined),
                         label: Text(te ? 'గ్యాలరీ నుంచి' : 'From gallery'))),
               ]),
+              const SizedBox(height: 6),
+              OutlinedButton.icon(
+                  key: const Key('askodoxDeskMenuShelf'),
+                  onPressed: _reading ? null : () => _shelf('camera'),
+                  icon: const Icon(Icons.shelves),
+                  label: Text(te ? 'షెల్ఫ్ / కౌంటర్ ఫోటో — ప్యాకెట్లు అన్నీ ఫోటోలతో' : 'Shelf / counter photo — every pack with its photo')),
               if (_reading) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator(key: Key('askodoxDeskMenuReading'))),
               if (_reading)
                 Padding(
@@ -1009,12 +1068,14 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                   ListTile(
                     key: Key('askodoxDeskPreview-$i'),
                     contentPadding: EdgeInsets.zero,
+                    leading: _previewThumb(_preview[i]),
                     onTap: () => _editPreview(i, te),
                     title: Text(askodoxPosInt(_preview[i]['price_paise']) > 0 ? '${_preview[i]['name']} · ${askodoxPaise(askodoxPosInt(_preview[i]['price_paise']))}' : '${_preview[i]['name']} · ${te ? 'రేటు రాయండి' : 'add price'}',
                         style: TextStyle(color: askodoxPosInt(_preview[i]['price_paise']) > 0 ? null : const Color(0xFFB91C1C))),
                     subtitle: Text([
                       _preview[i]['exists'] == true ? (te ? 'ఉన్నదే — ధర మారుతుంది (పాతది ${askodoxPaise(askodoxPosInt(_preview[i]['old_price_paise']))})' : 'Exists — price changes (was ${askodoxPaise(askodoxPosInt(_preview[i]['old_price_paise']))})') : (te ? 'కొత్తది' : 'New'),
                       if (_preview[i]['today_only'] == true) te ? 'ఈ రోజు మాత్రమే' : 'Today only',
+                      if (_previewDetails(_preview[i], te).isNotEmpty) _previewDetails(_preview[i], te),
                     ].join(' · ')),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(key: Key('askodoxDeskPreviewEdit-$i'), tooltip: te ? 'మార్చు' : 'Edit', icon: const Icon(Icons.edit_outlined, size: 20), onPressed: () => _editPreview(i, te)),
@@ -1258,4 +1319,42 @@ class _AskodoxDeskQrScreenState extends ConsumerState<AskodoxDeskQrScreen> {
                 ]),
     );
   }
+}
+
+
+/// A shared pack photo (`p:<id>` / `m:<barcode>`) fetched once and kept for the screen's life.
+class AskodoxMasterThumb extends ConsumerStatefulWidget {
+  const AskodoxMasterThumb({super.key, required this.photoRef});
+  final String photoRef;
+
+  @override
+  ConsumerState<AskodoxMasterThumb> createState() => _AskodoxMasterThumbState();
+}
+
+final Map<String, Future<Uint8List?>> _askodoxMasterPhotos = {};
+
+class _AskodoxMasterThumbState extends ConsumerState<AskodoxMasterThumb> {
+  late final Future<Uint8List?> _bytes = _askodoxMasterPhotos.putIfAbsent(widget.photoRef, () async {
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).masterPhoto(widget.photoRef);
+      final data = '${out['image_base64'] ?? ''}';
+      return data.isEmpty ? null : base64Decode(data);
+    } catch (_) {
+      return null;
+    }
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 44,
+        height: 44,
+        child: FutureBuilder<Uint8List?>(
+          future: _bytes,
+          builder: (context, snap) => snap.data == null
+              ? const Icon(Icons.inventory_2_outlined, color: Color(0xFF94A3B8))
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(snap.data!, width: 44, height: 44, fit: BoxFit.cover)),
+        ),
+      );
 }

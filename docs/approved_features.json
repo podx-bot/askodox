@@ -10289,6 +10289,50 @@
           "AskodoxShopQuestionsScreen"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "business_kit"
+      ],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Items come in by themselves: a shelf / counter photo gives every pack on it as a preview with its own cut-out photo, brand, pack and the MRP printed on it; a menu / list / note photo's items are filled from barcoded packs other shops already keep on ASKODOX (brand, pack, MRP, pack photo -- never another shop's selling price; a shop's own dish photo is never shared); a scanned barcode fills the new-item form from ASKODOX first, then Open Food Facts (credited, kept once found, a miss remembered). A price is only ever the owner's or the MRP printed on the pack (marked 'price = MRP on the pack'); import keeps barcode / brand / pack / MRP / photo without overwriting the owner's own entries.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: product master + shelf photo + barcode fill (owner 2026-11-24 'do all 4'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "items_come_in_by_themselves",
+      "name": "Items automatically: shelf photo, barcode fill, ASKODOX product master",
+      "purpose": "Owner 2026-11-24: a new shop must not type items one by one -- paper, note or photo prepares them with brand photos and details.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_product_master.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeskMenuShelf",
+          "askodoxPosItemBarcodeFill",
+          "askodoxPosItemBarcodeNote"
+        ],
+        "symbols": [
+          "AskodoxMasterThumb",
+          "deskMenuShelf",
+          "barcodeLookup",
+          "masterPhoto"
+        ]
+      }
     }
   ]
 }
