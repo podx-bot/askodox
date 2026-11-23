@@ -10514,7 +10514,6 @@
       },
       "ui": {
         "keys": [
-          "askodoxCounterKind-now",
           "askodoxCounterSend"
         ],
         "symbols": [
