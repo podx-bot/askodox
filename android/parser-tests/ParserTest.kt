@@ -1,4 +1,5 @@
 import com.askodox.askodox.PaymentAlertParser
+import com.askodox.askodox.PaymentVoicePack
 import com.askodox.askodox.PaymentAlertParser.Result
 
 var fails = 0
@@ -568,6 +569,111 @@ fun main() {
     yes("voice switches of the new lines", PaymentAlertParser.voiceKindOf("late_in") == "in" &&
         PaymentAlertParser.voiceKindOf("late_out") == "out" && PaymentAlertParser.voiceKindOf("unsure") == "check" &&
         PaymentAlertParser.voiceKindOf("sorry_in") == "sorry")
+    voicePackChecks()
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
+}
+
+/**
+ * Owner 2026-11-23 (ASKODOX Lite step 1): any amount is said with NO internet in the same ElevenLabs voice, from a
+ * pack of clips fetched once; ASKODOX lines (hello, customer line, night count) follow fixed rules.
+ */
+fun voicePackChecks() {
+    fun ok(name: String, cond: Boolean) {
+        if (!cond) fails++
+        println((if (cond) "ok   " else "FAIL ") + name)
+    }
+    val P = PaymentVoicePack
+    ok("te 1234", P.numberWords(1234, "te") == listOf("వెయ్యి", "రెండు వందల", "ముప్పై నాలుగు"))
+    ok("te 500", P.numberWords(500, "te") == listOf("ఐదు వందల"))
+    ok("te 100 / 150", P.numberWords(100, "te") == listOf("వంద") && P.numberWords(150, "te") == listOf("నూట", "యాభై"))
+    ok("te 2000", P.numberWords(2000, "te") == listOf("రెండు", "వేల"))
+    ok("te 1,25,000", P.numberWords(125_000, "te") == listOf("ఒక లక్ష", "ఇరవై ఐదు", "వేల"))
+    ok("te 1 rupee", P.numberWords(1, "te") == listOf("ఒక్క"))
+    ok("te 1 crore", P.numberWords(10_000_000, "te") == listOf("ఒక కోటి"))
+    ok("hi 1234", P.numberWords(1234, "hi") == listOf("एक", "हज़ार", "दो", "सौ", "चौंतीस"))
+    ok("en 25,30,045", P.numberWords(2_530_045, "en") == listOf("twenty five", "lakh", "thirty", "thousand", "forty five"))
+    ok("hi 1..99 all different", (1..99).map { P.below100(it, "hi") }.toSet().size == 99)
+    ok("te 1..99 all different", (1..99).map { P.below100(it, "te") }.toSet().size == 99)
+    ok("a language without number words is not guessed", P.numberWords(5, "ta") == null && P.clipsFor("5 ரூபாய்", "ta") == null)
+    ok("no 0 / no number past 99 crore", P.numberWords(0, "te") == null && P.numberWords(1_000_000_000L, "te") == null)
+    ok("segments", P.segments("1,250 రూపాయలు 50 పైసలు జమ అయ్యాయి.") == listOf(
+        PaymentVoicePack.Seg(1250, "1,250"), PaymentVoicePack.Seg(null, "రూపాయలు"), PaymentVoicePack.Seg(50, "50"),
+        PaymentVoicePack.Seg(null, "పైసలు జమ అయ్యాయి.")))
+    ok("clips of a credit line", P.clipsFor("1250 రూపాయలు జమ అయ్యాయి.", "te") ==
+        listOf("వెయ్యి", "రెండు వందల", "యాభై", "రూపాయలు జమ అయ్యాయి."))
+    ok("words with no number stay one clip", P.clipsFor("మాకు అందాయి.", "te") == listOf("మాకు అందాయి."))
+
+    // EVERY clip of every sentence the phone says (no names) is in the pack -- any amount, rupees and paise.
+    val amounts = listOf(1L, 7L, 99L, 100L, 101L, 999L, 1000L, 1001L, 12_345L, 99_999L, 100_000L, 250_075L, 9_999_999L, 10_000_000L)
+    for (lang in listOf("te", "hi", "en")) {
+        val shop = "Lakshmi Kirana"
+        val pack = P.packTexts(lang, shop).toSet()
+        val missing = LinkedHashSet<String>()
+        for (rupees in amounts) for (paise in listOf(0L, 5L, 50L)) {
+            val a = rupees * 100 + paise
+            if (a > 1_000_000_000L) continue
+            val sentences = ArrayList<List<String>>()
+            for (credit in listOf(true, false)) sentences += PaymentAlertParser.personalParts(a, lang, credit, null)
+            sentences += PaymentAlertParser.announcementParts(a, lang, false, null, shop)
+            sentences += PaymentAlertParser.announcementParts(a, lang, false, null, null)
+            sentences += PaymentAlertParser.billPaidParts(a, lang, null, true)
+            sentences += PaymentAlertParser.bonusParts(a, lang, "cashback")
+            for (k in listOf("refund_started", "failed", "unsure", "late_in", "sorry_in", "request"))
+                sentences += PaymentAlertParser.noticeParts(k, a, lang, null)
+            sentences += P.nightParts(3, a, lang)
+            for (s in sentences) for (part in s) {
+                val clips = P.clipsFor(part, lang)
+                if (clips == null) missing += "<no clips> $part" else clips.filter { it !in pack }.forEach { missing += it }
+            }
+        }
+        ok("$lang: every clip is in the pack" + (if (missing.isEmpty()) "" else " -- missing $missing"), missing.isEmpty())
+        ok("$lang: pack is small (${pack.size} clips)", pack.size in 60..400)
+    }
+    ok("the shop's own words are in its pack", "Lakshmi Kirana కి అందాయి." in P.packTexts("te", "Lakshmi Kirana"))
+
+    // ASKODOX lines: ASKODOX is the VOICE, never where the money went.
+    for (lang in listOf("te", "hi", "en", "ta", "kn", "ml", "bn", "mr", "gu", "pa", "or", "ur")) {
+        val all = (listOf(P.helloPart(lang), P.customerPart(lang)) + P.nightParts(2, 120_000, lang)).joinToString(" ")
+        ok("$lang: ASKODOX lines exist", lang == "en" || P.helloPart(lang) != P.helloPart("en"))
+        ok("$lang: lines never say money came INTO ASKODOX", !all.contains("ASKODOX లో") && !all.lowercase().contains("in askodox"))
+    }
+    ok("night, one payment (te)", P.nightParts(1, 50_000, "te") ==
+        listOf("ఆస్కోడాక్స్ లెక్క:", "ఈరోజు ఒక్క పేమెంట్ వచ్చింది,", "మొత్తం 500 రూపాయలు.", "రేపు కలుద్దాం!"))
+    ok("night, 45 payments (en)", P.nightParts(45, 1_240_000, "en")[1] == "45 payments came today,")
+
+    // Owner 2026-11-23: no payment that day = no night count at all (no voice, no notification).
+    val rows = listOf(PaymentVoicePack.DayRow(20_000, 50_000, true), PaymentVoicePack.DayRow(20_000, 30_000, true),
+        PaymentVoicePack.DayRow(19_999, 99_900, true), PaymentVoicePack.DayRow(20_000, 70_000, false))
+    ok("night count = today's counted payments only", P.dayTotals(rows, 20_000) == (2 to 80_000L))
+    ok("a day with no payment = nothing", P.dayTotals(rows, 20_001) == (0 to 0L) && P.dayTotals(emptyList(), 5) == (0 to 0L))
+
+    // Hello before the FIRST payment of the day; customer line from the 3rd payment, max 2 a day, 2 h apart.
+    val h = 60 * 60_000L
+    var st = PaymentVoicePack.BrandState()
+    val day = 20_000L
+    val t0 = day * 86_400_000L
+    val seen = ArrayList<String>()
+    for ((i, at) in listOf(0L, 10 * 60_000L, 20 * 60_000L, 30 * 60_000L, 3 * h, 4 * h, 9 * h).withIndex()) {
+        val c = P.brandChoice(day, t0 + at, st, helloOn = true, customerOn = true)
+        seen += "${i + 1}:" + (if (c.hello) "H" else "") + (if (c.customer) "C" else "")
+        st = c.next
+    }
+    ok("hello once, customer on the 3rd and again 2 h later, never a 3rd time -- $seen",
+        seen == listOf("1:H", "2:", "3:C", "4:", "5:C", "6:", "7:"))
+    val next = P.brandChoice(day + 1, t0 + 25 * h, st, helloOn = true, customerOn = true)
+    ok("a new day starts with hello again", next.hello && !next.customer && next.next.payCount == 1)
+    var off = PaymentVoicePack.BrandState()
+    val offSeen = ArrayList<Boolean>()
+    for (i in 0 until 3) { val c = P.brandChoice(day, t0 + i * h, off, helloOn = false, customerOn = true); offSeen += c.hello; off = c.next }
+    ok("hello switched off is never said", offSeen.none { it })
+    val noLine = P.brandChoice(day, t0, PaymentVoicePack.BrandState(day, 5, day, -1, 0, 0), helloOn = true, customerOn = false)
+    ok("customer line switched off is never said", !noLine.customer)
+
+    // The night count at 21:00 local time (India +5:30).
+    val ist = 19_800_000L
+    val todayStart = day * 86_400_000L - ist
+    ok("before 9 pm -> today 9 pm", P.nextNightAt(todayStart + 20 * h, ist, 21 * 60) == todayStart + 21 * h)
+    ok("after 9 pm -> tomorrow 9 pm", P.nextNightAt(todayStart + 22 * h, ist, 21 * 60) == todayStart + 45 * h)
+    ok("time setting", P.minuteOf("21:30") == 1290 && P.minuteOf("bad") == 1260 && P.minuteOf(null) == 1260)
 }

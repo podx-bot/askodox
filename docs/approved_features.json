@@ -9717,6 +9717,55 @@
           "approved_by": "owner"
         }
       ]
+    },
+    {
+      "id": "payment_voice_offline_pack_and_askodox_lines",
+      "name": "Payment voice with no internet in the same voice (voice pack) + ASKODOX tune / hello / night count / customer line",
+      "purpose": "Owner 2026-11-23 (ASKODOX Lite step 1, 'start the 6 in order'): slow 4G or no net must never turn the payment voice into another voice or silence, and the voice should carry the ASKODOX name (the alerts said payer names but never ASKODOX).",
+      "expected_behavior": "The phone keeps a voice pack per voice + language (number words 1-99 + crore / lakh / thousand / hundred, and the fixed words of every payment sentence taken from the same builders the phone speaks with: PaymentVoicePack.packTexts), fetched ONCE from /api/in-app/voice/speak while the net is there (Telugu, Hindi, English; other languages keep the earlier way). With no net / slow net a sentence never heard before is put together from the parts heard before + the pack (PaymentVoicePack.clipsFor) in the SAME ElevenLabs voice; a payer name heard for the first time cannot be made offline, so the same voice says it without the name (the name stays in the history); only when nothing can be put together does the phone's own voice speak (unchanged). The server sends X-ASKODOX-TTS-Voice-Id; when it changes the phone drops that voice + language's parts (never two voices in one sentence). ASKODOX lines, all ON by default and each switchable in the Payment voice folder (kinds tune / hello / night / customer): the ASKODOX tune (res/raw/askodox_tune.ogg, ~1 s) before every voice instead of the plain chime; 'Namaste, today ASKODOX tells your payments' before the day's first spoken payment; the customer line 'this voice is ASKODOX's, free for your shop too' from the 3rd payment, at most twice a day, 2 h apart; the night ASKODOX count at 21:00 (night_at) per side (shop / My phone) only on a day that had counted incoming payments -- a day with no payment gives no voice and no notification; quiet hours = notification only. ASKODOX is named as the voice, never as where the money went.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier",
+        "person (My phone)"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/voice/speak"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxPaymentVoiceBrand"
+        ],
+        "symbols": [
+          "askodoxBrandVoiceKinds"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_elevenlabs_tts.py::test_speak_route_names_the_voice_id"
+        ],
+        "flutter": [
+          "test/features/money_home/money_home_screen_test.dart"
+        ]
+      },
+      "dependencies": [
+        "pos_payment_voice_alerts"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new: voice pack (te/hi/en number words + sentence words), offline join in the same voice, voice-id check, ASKODOX tune + hello + customer line + night count, four switches in the Payment voice folder; parser gate checks every clip of every sentence is in the pack; NOT PHONE VERIFIED",
+          "approved_by": "owner"
+        }
+      ]
     }
   ]
 }

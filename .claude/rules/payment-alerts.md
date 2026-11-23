@@ -22,3 +22,6 @@ Follow the procedure in `.claude/skills/askodox-payment-alerts/SKILL.md`. The sh
   `samePaymentWindow` / `pickSamePayment` rule without a scenario that fails before and passes after.
 - **Run the parser gate locally before pushing** (commands in the skill). CI runs the same gate on every change
   to these files.
+- **No net never means another voice** (owner 2026-11-23): the phone puts the sentence together from the parts and the
+  voice pack it keeps (`PaymentVoicePack`); the phone's own voice only when nothing can be put together. Keep every new
+  spoken sentence inside `PaymentVoicePack.packTexts` (the gate checks it).

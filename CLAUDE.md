@@ -7,6 +7,20 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/payment-voice-pack` (2026-11-23, owner "start the 6 in order" on design artifact MUmbrCksUD9Mq1HR1ELT4U,
+  ASKODOX Lite step 1): NO NET = SAME VOICE -- `PaymentVoicePack.kt` (pure, in the parser gate): number words te / hi / en
+  (`numberWords`, Indian system; te 1 = "ఒక్క", 100 = "వంద", 1xx = "నూట"), `packTexts` = number words + the words of EVERY
+  sentence the phone speaks (from the same builders; gate `voicePackChecks` fails if any clip of any sentence is missing),
+  `clipsFor` (part -> clips). `CloudVoice`: parts kept per voice + language (`payvoice/<voice>_<lang>/`, pack in `pack/`,
+  never pruned), `warmPack` once per voice + language, `say(..., alt)`: fetch fails -> `offlineFiles` (heard parts + pack)
+  -> the name-less `alt` -> phone voice last. Server header `X-ASKODOX-TTS-Voice-Id` -> `checkVoiceId` drops a voice's
+  parts when the ElevenLabs voice changes (prefetch asks fresh first). ASKODOX LINES (all ON, switches `tune` / `hello` /
+  `night` / `customer` in the Payment voice folder, `askodoxBrandVoiceKinds`): tune `res/raw/askodox_tune.ogg` replaces
+  the chime (`Player.playTune`), hello before the day's first spoken payment, customer line from the 3rd payment max 2 a
+  day 2 h apart (`brandChoice`, prefs `brand_*`), night count 21:00 (`night_at`) via AlarmManager -> receiver action
+  `ACTION_NIGHT` (Play builds only declare the receiver) -> `nightCount` per side only when today had counted incoming
+  payments (no payment = no voice, no notification). Voice language: first My phone visit / a shop's first settings save =
+  app language, else the region from the location label (`voice_language.dart`), else the phone's. Nothing phone verified.
 - `main` PR #398 (2026-11-23, owner "1"; no Play bundle yet; owner "female voice for all languages, remove Automatic / Male / Female"):
   ONE APP VOICE = `elevenlabs_tts.APP_VOICE` (ElevenLabs "Chaitra G", lively Telugu female) for every reply / payment
   part in every language; `voice_for(lang, "automatic")` -> `app_voice_for` (override `ELEVENLABS_APP_VOICE_<LANG>` /

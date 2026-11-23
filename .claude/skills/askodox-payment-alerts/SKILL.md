@@ -17,6 +17,8 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
 | Is this message the same payment as an earlier row? | `PaymentAlertParser.pickSamePayment` + `samePaymentWindow` (same file, pure Kotlin) |
 | Listener, voice, history JSON, upload | `android/app/src/main/kotlin/com/askodox/askodox/AskodoxPaymentAlerts.kt` (`handle`, `mergeSameMoney`) |
 | Tests (message shapes + `Sim()` scenarios) | `android/parser-tests/ParserTest.kt` |
+| Voice pack (offline amounts in the same voice), ASKODOX lines, night count rules | `android/app/src/main/kotlin/com/askodox/askodox/PaymentVoicePack.kt` (pure; checks in `voicePackChecks()`) |
+| ASKODOX tune | `android/app/src/main/res/raw/askodox_tune.ogg` (made by `tool/make_askodox_tune.py`) |
 | CI gate | `.github/workflows/payment-parser-gate.yml` |
 | Owner's rules (history) | `docs/ASKODOX_EXECUTION_TRACKER.md`, comments starting `Owner YYYY-MM-DD` |
 
@@ -36,6 +38,13 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
 7. What the phone is NOT SURE about is never said as a fact: ❓, not counted, an ASKODOX notification at once and a
    voice that asks to check the bank balance. When the bank's SMS shows that an earlier voice was wrong, the phone
    says sorry once (owner 2026-11-23).
+
+8. No net / slow net never changes the voice: a sentence is put together from parts heard before + the voice pack
+   (`PaymentVoicePack.clipsFor`); a name heard for the first time is left out (same voice), never a second voice. A new
+   sentence in `PaymentAlertParser` must stay inside `PaymentVoicePack.packTexts` -- the gate checks every clip of every
+   sentence is in the pack (owner 2026-11-23).
+9. ASKODOX lines (tune / hello / customer / night) are switches in the Payment voice folder, all ON by default. ASKODOX is
+   the voice, never where the money went. A day with no payment says nothing at night (owner 2026-11-23).
 
 ## How a message joins a row (`pickSamePayment`)
 

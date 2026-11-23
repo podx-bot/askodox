@@ -657,6 +657,9 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
                         "X-ASKODOX-TTS-Model": str(spoken.get("model") or ""),
                         "X-ASKODOX-TTS-Language": str(spoken.get("language_code") or ""),
                         "X-ASKODOX-TTS-Voice": payload.voice,
+                        # Owner 2026-11-23: the phone keeps payment-voice parts per voice; a new voice id makes it drop
+                        # the old parts so a sentence is never put together from two voices (not a secret).
+                        "X-ASKODOX-TTS-Voice-Id": str(spoken.get("voice_id") or ""),
                     },
                 )
             if locked:  # the reply's earlier parts were ElevenLabs: never switch to another voice mid-reply

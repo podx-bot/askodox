@@ -6,11 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../location/application/location_controller.dart';
 import '../data/pos_hardware.dart' show AskodoxScanException;
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import '../domain/money_accounts.dart';
+import '../domain/voice_language.dart';
 import 'offline_voice_card.dart';
 import 'pos_collect_screens.dart' show askodoxQrReaderProvider;
 import 'pos_common.dart';
@@ -67,7 +70,22 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     if (state == AppLifecycleState.resumed) unawaited(_reload());
   }
 
+  /// Owner 2026-11-23: the voice starts in the person's own app language, else the region's language from their
+  /// location, else the phone's language. Read before any wait (the location is only read when the app already has it).
+  String _suggestedLanguage() {
+    String? place;
+    String? chosen;
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      if (container.exists(locationControllerProvider)) place = container.read(locationControllerProvider).displayLocation;
+      chosen = container.read(appSettingsProvider).locale?.languageCode;
+    } catch (_) {}
+    return askodoxSuggestedVoiceLanguage(
+        chosen: chosen, place: place, device: WidgetsBinding.instance.platformDispatcher.locale.languageCode);
+  }
+
   Future<void> _start() async {
+    final suggested = _suggestedLanguage();
     final mine = await AskodoxMyPhoneAlerts.load();
     _mine = mine;
     final prefs = await SharedPreferences.getInstance();
@@ -85,6 +103,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
         };
         if (mine.apps.isEmpty) mine.apps = AskodoxMyPhoneAlerts.defaultApps();
       }
+      mine.language = suggested;
       mine.setupDone = true;
       await mine.save();
     }

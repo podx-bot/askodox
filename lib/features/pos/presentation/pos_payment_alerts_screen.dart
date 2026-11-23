@@ -9,11 +9,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/flags/askodox_remote_flags.dart';
+import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../location/application/location_controller.dart';
 import '../../../core/share/askodox_image_share.dart';
 import '../data/pos_payment_alerts.dart';
 import '../data/pos_repository.dart';
 import '../domain/payment_alert_setup.dart';
+import '../domain/voice_language.dart';
 import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 import 'offline_voice_card.dart';
 import 'pay_alert_staff_card.dart';
@@ -701,10 +704,31 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     }
   }
 
+  /// Owner 2026-11-23: a shop that never saved its voice settings starts in the owner's own app language, else the
+  /// region's language from the location (te / hi / en on a shop counter).
+  String _suggestedLanguage() {
+    String? place;
+    String? chosen;
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      if (container.exists(locationControllerProvider)) place = container.read(locationControllerProvider).displayLocation;
+      chosen = container.read(appSettingsProvider).locale?.languageCode;
+    } catch (_) {}
+    return askodoxSuggestedVoiceLanguage(
+        chosen: chosen,
+        place: place,
+        device: WidgetsBinding.instance.platformDispatcher.locale.languageCode,
+        allowed: askodoxShopVoiceLanguages);
+  }
+
   Future<void> _save(AskodoxJson change) async {
+    // never saved before (no updated_at): the first save also sets the starting language
+    final send = _settings['updated_at'] == null && !change.containsKey('language')
+        ? {...change, 'language': _suggestedLanguage()}
+        : change;
     setState(() => _busy = true);
     try {
-      _settings = await _repo.updatePaymentAlertSettings(_id, change);
+      _settings = await _repo.updatePaymentAlertSettings(_id, send);
       await _configureNative();
     } on AskodoxPosException catch (e) {
       if (mounted) askodoxPosSnack(context, e.message(askodoxPosTe(context)));

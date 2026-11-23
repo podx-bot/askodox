@@ -198,6 +198,16 @@ def test_speak_route_speaks_the_one_app_voice_whatever_an_old_app_asks(monkeypat
     assert asked == ["automatic"] * 5
 
 
+def test_speak_route_names_the_voice_id(monkeypatch):
+    # Owner 2026-11-23 (payment voice pack): the phone drops its kept parts when the voice id changes, so a sentence
+    # is never put together from two voices.
+    client = _speak_client(monkeypatch, {"success": True, "content": b"ID3mp3", "model": "eleven_v4_turbo",
+                                         "language_code": "te", "voice_id": "voiceABC", "status": "SYNTHESIZED_ELEVENLABS"})
+    response = client.post("/api/in-app/voice/speak", json={"text": "వెయ్యి", "locale": "te-IN", "voice": "female"})
+    assert response.status_code == 200
+    assert response.headers["x-askodox-tts-voice-id"] == "voiceABC"
+
+
 def test_speak_route_falls_back_to_sarvam(monkeypatch):
     client = _speak_client(monkeypatch, {"success": False, "status": "ELEVENLABS_QUOTA_EXHAUSTED", "status_code": 402})
     response = client.post("/api/in-app/voice/speak", json={"text": "నమస్కారం", "locale": "te"})

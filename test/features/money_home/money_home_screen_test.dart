@@ -180,6 +180,28 @@ void main() {
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-fake-on')), findsOneWidget, reason: 'never switched off');
   });
 
+  testWidgets('Payment voice folder: ASKODOX lines are all on by default and each can be switched off', (tester) async {
+    await _pump(tester);
+    await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-b.voice')));
+    await tester.pumpAndSettle();
+    final list = find.byType(Scrollable).last;
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxVoiceKind-customer')), 100, scrollable: list);
+    expect(find.byKey(const Key('askodoxPaymentVoiceBrand')), findsOneWidget);
+    for (final id in ['tune', 'hello', 'night', 'customer']) {
+      expect(find.byKey(ValueKey('askodoxVoiceKindDot-$id-on')), findsOneWidget, reason: '$id: owner 2026-11-23, all ON');
+    }
+    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-customer')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxVoiceKindDot-customer-off')), findsOneWidget);
+    final saved = jsonDecode('${(_calls.lastWhere((c) => c.method == 'setVoiceKinds').arguments as Map)['kinds']}') as Map;
+    expect(saved['customer'], isFalse);
+    expect(saved['night'], isTrue);
+    // ▶ plays the same words the phone says at night.
+    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKindPlay-night')));
+    await tester.pumpAndSettle();
+    expect(_calls.where((c) => c.method == 'speakKind').single.arguments, containsPair('kind', 'night'));
+  });
+
   testWidgets('Seller Money signed out: asks to sign in (the shop money never shows the personal account)', (tester) async {
     await _pump(tester, seller: true);
     expect(find.byKey(const Key('askodoxMoneyHomeSignIn')), findsOneWidget);
