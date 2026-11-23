@@ -10199,6 +10199,51 @@
           "askodoxOnePinPerPage"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Counter bill pay sheet: picking a way (Cash / UPI / Card / Bank / Cheque / బాకీ) after a full payment was added moves that payment to the way picked; every added payment can be taken off. UPI shows the shop's own UPI QR with the amount right in the sheet (no UPI saved -> \"Add your UPI to show a QR\"). బాకీ / Due: what is left stays a due -- with no customer on the bill the sheet asks whose (name or 10-digit phone) and when they will pay; cash / UPI parts are added first (half cash, half due). The bill is issued on the shop's customer with that number (added when new) at the walk-in prices, and the pay-by day feeds the baaki reminders.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: UPI really selects + shop QR + Due way mixed with cash / UPI (owner phone screenshot 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "counter_pay_upi_due",
+      "name": "Counter pay sheet: UPI with the shop QR, Due mixed with cash / UPI",
+      "purpose": "Owner 2026-11-24: UPI did not select after Cash was added; the counter needs the QR there and a బాకీ option (some pay cash, some UPI, some leave half as a due).",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/counter_pay_upi_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxPosPayQr",
+          "askodoxPosPayAddUpi",
+          "askodoxPosDueName",
+          "askodoxPosDuePhone",
+          "askodoxPosDueLeft",
+          "askodoxPosAddPayment",
+          "askodoxPosIssue"
+        ],
+        "symbols": [
+          "AskodoxPosPaymentSheet",
+          "AskodoxPosPayResult",
+          "askodoxDefaultUpi"
+        ]
+      }
     }
   ]
 }
