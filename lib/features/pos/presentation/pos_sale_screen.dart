@@ -539,8 +539,11 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
     final cmd = askodoxParsePosCommand(_command.text, items);
     if (cmd.kind == AskodoxPosCommandKind.unknown || cmd.needsChoice || (cmd.item == null && cmd.kind != AskodoxPosCommandKind.clear &&
         cmd.kind != AskodoxPosCommandKind.checkout && cmd.kind != AskodoxPosCommandKind.discount)) {
+      final names = cmd.candidates.map((c) => c.name).join(', ');
       askodoxPosSnack(context, cmd.needsChoice
-          ? (te ? 'ఒకటి కంటే ఎక్కువ సరుకులు సరిపోయాయి: ${cmd.candidates.map((c) => c.name).join(', ')}' : 'More than one item matches: ${cmd.candidates.map((c) => c.name).join(', ')}')
+          ? (cmd.candidates.length == 1
+              ? (te ? '"${cmd.query}" దొరకలేదు. $names అనాలా?' : '"${cmd.query}" not found. Did you mean $names?')
+              : (te ? 'ఒకటి కంటే ఎక్కువ సరుకులు సరిపోయాయి: $names' : 'More than one item matches: $names'))
           : (te ? 'అర్థం కాలేదు. ఉదా: "2 kg chicken" / "అర కిలో చికెన్"' : 'Not understood. Try "2 kg chicken" or "remove chicken".'));
       return;
     }

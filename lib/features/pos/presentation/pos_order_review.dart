@@ -73,7 +73,9 @@ class _AskodoxPosOrderReviewSheetState extends State<AskodoxPosOrderReviewSheet>
 
   String? _problem(_Row r, bool te) {
     final c = r.command;
-    if (c.needsChoice) return te ? 'ఏది? ఎంచుకోండి' : 'Which one? Pick';
+    if (c.needsChoice) {
+      return c.candidates.length == 1 ? (te ? 'ఇదేనా? నొక్కండి' : 'This one? Tap it') : (te ? 'ఏది? ఎంచుకోండి' : 'Which one? Pick');
+    }
     if (c.kind != AskodoxPosCommandKind.add || c.item == null) return te ? 'సరుకు దొరకలేదు' : 'Item not found';
     final p = _product(c.item!.id);
     final min = p == null ? null : askodoxMinQty(p);
@@ -94,8 +96,10 @@ class _AskodoxPosOrderReviewSheetState extends State<AskodoxPosOrderReviewSheet>
     return sum;
   }
 
+  /// The cashier's own choice wins: the phrase gives only the quantity (a Telugu phrase for an English-named item
+  /// used to stay "Item not found" even after picking it from the list).
   void _pick(_Row r, AskodoxPosItemRef item) {
-    final again = askodoxParsePosCommand(r.phrase, [item]);
+    final again = askodoxParsePosCommand(r.phrase, [item], pick: item);
     setState(() => r.command = again.item != null ? again : AskodoxPosCommand(AskodoxPosCommandKind.unknown, query: r.phrase));
   }
 
@@ -193,6 +197,15 @@ class _AskodoxPosOrderReviewSheetState extends State<AskodoxPosOrderReviewSheet>
         dense: true,
         leading: const Icon(Icons.help_outline, color: Color(0xFFB45309)),
         title: Text('"${r.phrase}" — $problem'),
+        trailing: PopupMenuButton<AskodoxPosItemRef>(
+          key: ValueKey('askodoxPosMultiChoose-$i'),
+          tooltip: te ? 'సరుకు ఎంచుకోండి' : 'Choose the item',
+          onSelected: (item) => _pick(r, item),
+          itemBuilder: (_) => [
+            for (final ref in _refs) PopupMenuItem(value: ref, child: Text(te && ref.nameTe.isNotEmpty ? ref.nameTe : ref.name)),
+          ],
+          icon: const Icon(Icons.list),
+        ),
         subtitle: Wrap(spacing: 6, children: [
           for (final cand in c.candidates)
             ActionChip(
