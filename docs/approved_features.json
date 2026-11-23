@@ -4091,7 +4091,7 @@
       "id": "ai_credits_pay_as_you_go",
       "name": "AI Credits (optional pay-as-you-go for the AI assistant)",
       "purpose": "Owner decision 2026-10-27: free app; optional AI Credits recharge (₹100-₹1000 packs) through the ONE billing flow (Razorpay first). Not a wallet: ASKODOX AI only, not transferable, not cash, never used for buyer-seller payments.",
-      "expected_behavior": "Credits are added only by billing.on_payment after a gateway-confirmed PAID (TEST money -> separate TEST balance); every ledger row has a unique ref (idempotent); each AI chat use is reserved atomically before the model runs and released if no answer; charging is OFF until staff set rates; refunds remove the pack's credits; no manual or app-side top-up route exists.",
+      "expected_behavior": "Credits are added only by billing.on_payment after a gateway-confirmed PAID (TEST money -> separate TEST balance); every ledger row has a unique ref (idempotent); each AI chat use is reserved atomically before the model runs and released if no answer; charging is OFF until staff set rates; refunds remove the pack's credits; no manual or app-side top-up route exists. Trial meter (owner 2026-11-24, setting show_usage, default ON): every provider call made for a signed-in request (and the threads it starts) is attributed to that user in ai_usage_user_daily; GET /api/me/ai-credits carries usage (today / month uses and value = estimated cost x markup, free_now) and the app shows it as 'Your AI use' (askodoxAiCreditsUsage); staff see per-user cost / value in GET /admin/cc/ai-credits/users (numbers masked to the last 4). Nothing is deducted by the meter.",
       "roles": [
         "buyer",
         "seller",
@@ -4120,6 +4120,10 @@
         {
           "method": "GET",
           "path": "/admin/cc/ai-credits/costs"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/ai-credits/users"
         }
       ],
       "flags": {},
@@ -4138,6 +4142,10 @@
         {
           "pr": null,
           "change": "Owner command 2026-10-27 (branch claude/ai-credits); TEST mode only; Play Billing / user-choice billing needed before a Play Store release; NOT PHONE VERIFIED"
+        },
+        {
+          "pr": null,
+          "change": "2026-11-24 trial meter: per-user AI usage + value shown to the user, staff per-user report; NOT PHONE VERIFIED"
         }
       ]
     },

@@ -21,7 +21,13 @@ class AskodoxAiCreditsState {
   Map usedToday() => (data['used_today'] as Map?) ?? const {};
   List<Map> packs() => ((data['packs'] as List?) ?? const []).whereType<Map>().toList();
   List<Map> history() => ((data['history'] as List?) ?? const []).whereType<Map>().toList();
+
+  /// Trial meter (owner 2026-11-24): what the person's own AI use WOULD cost; null when the server does not send it.
+  Map? usage() => data['usage'] as Map?;
 }
+
+/// The four groups the trial meter shows (server `ai_usage_meter.USER_FEATURES`).
+const askodoxUsageGroups = ['chat', 'voice', 'web_search', 'image'];
 
 final askodoxAiCreditsProvider = FutureProvider.autoDispose<AskodoxAiCreditsState>((ref) async {
   final session = ref.watch(authSessionProvider);
@@ -100,6 +106,10 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
                 ]),
               ),
             ),
+            if (s.usage() != null) ...[
+              const SizedBox(height: 8),
+              _UsageCard(usage: s.usage()!, t: t),
+            ],
             if (s.charging) ...[
               const SizedBox(height: 8),
               Text(t('Rates', 'రేట్లు'), style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -195,5 +205,78 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
         context: context,
         builder: (_) => AskodoxPaymentStatusDialog(purchaseId: started.purchaseId!, repo: repo, t: t, credits: true));
     ref.invalidate(askodoxAiCreditsProvider);
+  }
+}
+
+
+/// "Your AI use" -- today and this month: uses per group and their approximate value. While testing (charging OFF)
+/// it says plainly that nothing is deducted. Our cost / margin is never shown here.
+class _UsageCard extends StatelessWidget {
+  const _UsageCard({required this.usage, required this.t});
+  final Map usage;
+  final String Function(String, String) t;
+
+  int _value(Map? block) => ((block?['value_paise'] as num?) ?? 0).toInt();
+
+  @override
+  Widget build(BuildContext context) {
+    final today = usage['today'] as Map?;
+    final month = usage['month'] as Map?;
+    final feats = (month?['by_feature'] as Map?) ?? const {};
+    final todayFeats = (today?['by_feature'] as Map?) ?? const {};
+    final free = usage['free_now'] != false;
+    return Card(
+      key: const Key('askodoxAiCreditsUsage'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(t('Your AI use', 'మీ AI వాడకం'), style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(t('Today', 'ఈరోజు'), style: Theme.of(context).textTheme.bodySmall),
+                Text('~${askodoxRupees(_value(today))}',
+                    key: const Key('askodoxAiCreditsUsageToday'),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+              ]),
+            ),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(t('This month', 'ఈ నెల'), style: Theme.of(context).textTheme.bodySmall),
+                Text('~${askodoxRupees(_value(month))}',
+                    key: const Key('askodoxAiCreditsUsageMonth'),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          for (final g in askodoxUsageGroups)
+            if (((feats[g] as Map?)?['uses'] as num? ?? 0) > 0)
+              Padding(
+                key: ValueKey('askodoxAiCreditsUsage-$g'),
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(children: [
+                  Expanded(child: Text(t(_features[g]!.$1, _features[g]!.$2))),
+                  Text(t('today ${(todayFeats[g] as Map?)?['uses'] ?? 0} · month ${(feats[g] as Map)['uses']}',
+                      'ఈరోజు ${(todayFeats[g] as Map?)?['uses'] ?? 0} · నెల ${(feats[g] as Map)['uses']}')),
+                  const SizedBox(width: 8),
+                  Text('~${askodoxRupees((((feats[g] as Map)['value_paise'] as num?) ?? 0).toInt())}',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ]),
+              ),
+          const SizedBox(height: 8),
+          Text(
+              free
+                  ? t('Testing time: this is what your use would cost. It is free for you now, nothing is deducted. '
+                      'Amounts are approximate.',
+                      'టెస్టింగ్ సమయం: మీ వాడకానికి ఇంత అయ్యేది. ఇప్పుడు మీకు ఉచితం, ఏమీ కట్ అవ్వదు. మొత్తాలు సుమారుగా.')
+                  : t('Approximate value of your AI use. What is really deducted is in the history below.',
+                      'మీ AI వాడకం సుమారు విలువ. నిజంగా కట్ అయినవి కింద చరిత్రలో ఉన్నాయి.'),
+              key: const Key('askodoxAiCreditsUsageNote'),
+              style: Theme.of(context).textTheme.bodySmall),
+        ]),
+      ),
+    );
   }
 }

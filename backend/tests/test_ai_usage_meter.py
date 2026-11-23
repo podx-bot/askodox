@@ -91,3 +91,108 @@ def test_admin_cost_route_needs_staff():
     client = TestClient(app)
     assert client.get("/admin/cc/ai-credits/costs").status_code in (401, 403)
     assert client.put("/admin/cc/ai-credits/prices", json={"usd_inr": 1}).status_code in (401, 403)
+
+
+# ---------------------------------------------------------------- per-user trial meter (owner 2026-11-24) --
+def _gem(client: httpx.Client, media: bool = False) -> None:
+    part = {"inline_data": {"mime_type": "image/jpeg", "data": "AAA"}} if media else {"text": "hi"}
+    client.post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+                json={"contents": [{"parts": [part]}]})
+
+
+def test_calls_are_attributed_to_the_bound_user_across_threads(tmp_path):
+    import concurrent.futures
+    import sqlite3
+    import threading
+
+    db = str(tmp_path / "u.db")
+    meter.install(db)
+    client = httpx.Client(transport=httpx.MockTransport(_handler))
+    _gem(client)  # no user bound: counted in the app total only
+    token = meter.bind_user("app-phone-9000000001")
+    try:
+        _gem(client)
+        _gem(client)  # same request, same group -> still ONE use
+        t = threading.Thread(target=meter.carry(_gem), args=(client,))
+        t.start()
+        t.join()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            pool.submit(meter.carry(_gem), client, True).result()
+            pool.submit(_gem, client).result()  # not carried: app total only
+        client.get("https://api.search.brave.com/res/v1/web/search", params={"q": "x"})
+    finally:
+        meter.reset_user(token)
+    other = meter.bind_user("app-phone-9000000002")
+    try:
+        _gem(client)
+    finally:
+        meter.reset_user(other)
+    assert meter.current_user() == ""
+    with sqlite3.connect(db) as conn:
+        rows = {(u, f): (uses, calls) for u, f, uses, calls in
+                conn.execute("SELECT user_id, feature, uses, calls FROM ai_usage_user_daily")}
+    assert rows[("app-phone-9000000001", "chat")] == (1, 3), "carried thread call counted; one use per request"
+    assert rows[("app-phone-9000000001", "image")] == (1, 1), "pool task carried"
+    assert rows[("app-phone-9000000001", "web_search")] == (1, 1)
+    assert rows[("app-phone-9000000002", "chat")] == (1, 1)
+    assert len(rows) == 4, "the unbound call belongs to nobody"
+
+    mine = meter.user_usage(db, "app-phone-9000000001")
+    chat = mine["today"]["by_feature"]["chat"]
+    # 3 gemini chat calls at ~0.506 INR each, shown x markup 2.06
+    assert chat["uses"] == 1 and abs(chat["value_paise"] - 3 * 50.6 * 2.06) < 5
+    assert mine["today"]["uses"] == 3 and mine["month"]["value_paise"] >= mine["today"]["value_paise"]
+    assert meter.user_usage(db, "app-phone-nobody")["today"]["value_paise"] == 0
+
+    rep = meter.users_report(db, days=1)
+    assert rep["user_count"] == 2 and rep["users"][0]["user"] == "app-phone-9000000001"
+    assert rep["totals"]["unattributed_cost_inr"] > 0, "the signed-out call shows as unattributed"
+    assert abs(rep["totals"]["value_inr"] - rep["totals"]["cost_inr"] * rep["markup"]) < 0.05
+
+
+def test_middleware_binds_only_a_valid_session(tmp_path):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.ai_usage_user_middleware import AiUsageUserMiddleware
+    from app.services.session_tokens import issue_token
+
+    class _Settings:
+        session_token_secret = "s" * 32
+
+    class _Container:
+        settings = _Settings()
+
+    app = FastAPI()
+
+    @app.get("/who")
+    def who() -> dict:  # sync route: runs on a worker thread, must still see the user
+        return {"user": meter.current_user()}
+
+    app.add_middleware(AiUsageUserMiddleware, container=_Container())
+    client = TestClient(app)
+    good = issue_token("app-phone-9000000003", _Settings.session_token_secret)
+    assert client.get("/who", headers={"Authorization": f"Bearer {good}"}).json() == {"user": "app-phone-9000000003"}
+    assert client.get("/who", headers={"Authorization": "Bearer forged.token"}).json() == {"user": ""}
+    assert client.get("/who").json() == {"user": ""}
+
+
+def test_my_credits_shows_usage_and_staff_route_is_protected(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.services import rate_limit
+    from app.services.session_tokens import issue_token
+    from server import app, container
+
+    rate_limit.reset_for_tests()
+    monkeypatch.setattr(container, "ai_credits", None, raising=False)
+    user = "app-phone-9411100702"
+    auth = {"Authorization": f"Bearer {issue_token(user, container.settings.session_token_secret)}"}
+    client = TestClient(app)
+    mine = client.get("/api/me/ai-credits", headers=auth).json()
+    assert mine["charging"] is False
+    usage = mine["usage"]
+    assert usage["free_now"] is True and usage["estimate"] is True
+    assert set(usage["today"]["by_feature"]) >= {"chat", "voice", "web_search", "image"}
+    assert client.get("/admin/cc/ai-credits/users").status_code in (401, 403)
+

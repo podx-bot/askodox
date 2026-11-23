@@ -501,7 +501,9 @@ class _EarlyRoute:
             finally:
                 self.finished.set()
 
-        threading.Thread(target=work, name="askodox-early-route", daemon=True).start()
+        from app.services import ai_usage_meter
+
+        threading.Thread(target=ai_usage_meter.carry(work), name="askodox-early-route", daemon=True).start()
 
     def drop(self) -> None:
         if self.held is not None:

@@ -69,4 +69,48 @@ void main() {
     await tester.scrollUntilVisible(find.text('Recharge').last, 200);
     expect(find.text('-₹0.50'), findsOneWidget);
   });
+
+  testWidgets('trial meter: my use today / month shown, free while testing, no cost or margin', (tester) async {
+    await tester.pumpWidget(_app({
+      'balance_paise': {'live': 0, 'test': 0},
+      'charging': false,
+      'packs': [],
+      'history': [],
+      'usage': {
+        'free_now': true,
+        'today': {
+          'value_paise': 1250,
+          'uses': 5,
+          'by_feature': {
+            'chat': {'uses': 4, 'value_paise': 450},
+            'voice': {'uses': 1, 'value_paise': 800},
+          },
+        },
+        'month': {
+          'value_paise': 9050,
+          'uses': 30,
+          'by_feature': {
+            'chat': {'uses': 25, 'value_paise': 3050},
+            'voice': {'uses': 5, 'value_paise': 6000},
+            'image': {'uses': 0, 'value_paise': 0},
+          },
+        },
+      },
+    }));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxAiCreditsUsage')), findsOneWidget);
+    expect(find.text('~₹12.50'), findsOneWidget);
+    expect(find.text('~₹90.50'), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxAiCreditsUsage-chat')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxAiCreditsUsage-voice')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxAiCreditsUsage-image')), findsNothing, reason: 'no use -> no row');
+    expect(find.textContaining('nothing is deducted'), findsWidgets);
+    expect(find.textContaining('margin'), findsNothing);
+  });
+
+  testWidgets('no usage block from an older server: no trial card', (tester) async {
+    await tester.pumpWidget(_app({'balance_paise': {'live': 0, 'test': 0}, 'charging': false, 'packs': [], 'history': []}));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxAiCreditsUsage')), findsNothing);
+  });
 }

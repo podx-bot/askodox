@@ -19,6 +19,14 @@ this file, don't trust it blindly.
   New keys `askodoxLanguageContinue`, `askodoxComposerField`. Registry `guide_switch_idle_walkthrough`. Home tour stop 4
   targets `askodoxNavPayments` (Buyer side only). Next (not built): walkthroughs for Live Work / Money pages / bill / dues,
   voice in all 23 languages (guide speaks te / en). Nothing phone verified.
+- BRANCH `claude/ai-credits-trial` (2026-11-24, owner "charging on + show users their bill + test with real users, no
+  money cut"): TRIAL METER -- `ai_usage_meter` binds the signed-in user per request (`AiUsageUserMiddleware`, outermost,
+  valid token only; `bind_user` / `current_user`; `Thread.start` + `ThreadPoolExecutor.submit` carry the id) and every
+  metered provider call also writes `ai_usage_user_daily` (day / user / group chat|voice|web_search|image / uses = one per
+  request + group / calls / cost_paise ESTIMATE). `user_usage` = value (cost x markup) today / month -> `usage` in GET
+  `/api/me/ai-credits` when setting `show_usage` (default ON) -> app card `askodoxAiCreditsUsage` ("testing: nothing is
+  deducted"); staff GET `/admin/cc/ai-credits/users` (masked last 4) + console AI Credits card + `show_usage` switch.
+  Real charging stays OFF (ON with no balance answers chat with a Recharge notice -- `test_ai_credits`). Not phone verified.
 - BRANCH `claude/launcher-place-not-group` (2026-11-23, NOT merged, NOT run -- no Flutter in the container; owner: "I drop
   Report settings on Sales and it becomes a group; it must sit in THAT place, Buyer and Seller alike"): a page dropped on
   a page = `AskodoxLaunchLayout.placeAt` (takes the target's place, the rest shift), never a folder. Folders only from

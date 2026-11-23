@@ -8,13 +8,22 @@ OpenAI, Sarvam, Brave) records, per day / feature / provider / model, the provid
 * Sarvam text-to-speech: characters sent;
 * Brave: one search per call.
 
-Nothing about the user or the content is stored (no text, no ids) -- only counts. Recording never raises into the
+Nothing about the content is stored (no text) -- only counts. Recording never raises into the
 caller and never reads a streamed body. Cost = counts x a staff-editable price table (``prices``) -> an ESTIMATE until
 it is compared with the provider's bill; the suggested rate per use = cost x markup for the target net margin after
 GST and gateway fee (owner target 25%).
+
+PER-USER TRIAL METER (owner 2026-11-24, "show each user what it would cost; we see everything"): a request carrying a
+valid ASKODOX session token binds its app_user_id for the length of the request (``bind_user``, an ASGI middleware in
+app_factory). Every metered provider call made for that request -- including ones run on a worker thread the request
+hands work to through ``carry(fn)`` -- also adds one row to
+``ai_usage_user_daily`` (day / user / feature group / uses / estimated cost in paise). ``user_usage`` gives the user
+their own VALUE (cost x markup = what it would cost at the target margin); ``users_report`` gives staff everything.
+Nothing is charged by this: AI Credits charging is a separate switch.
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import math
@@ -34,7 +43,59 @@ SCHEMA = [
     " chars INTEGER NOT NULL DEFAULT 0, seconds REAL NOT NULL DEFAULT 0, PRIMARY KEY (day, feature, provider, model))",
     "CREATE TABLE IF NOT EXISTS ai_usage_prices (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL,"
     " updated_by TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS ai_usage_user_daily (day TEXT NOT NULL, user_id TEXT NOT NULL, feature TEXT NOT NULL,"
+    " uses INTEGER NOT NULL DEFAULT 0, calls INTEGER NOT NULL DEFAULT 0, cost_paise REAL NOT NULL DEFAULT 0,"
+    " PRIMARY KEY (day, user_id, feature))",
+    "CREATE INDEX IF NOT EXISTS idx_ai_usage_user_daily_user ON ai_usage_user_daily(user_id, day)",
 ]
+
+# What the user sees: four groups (the meter's own features fold into them).
+USER_FEATURES = ("chat", "voice", "web_search", "image")
+_GROUP = {"voice_in": "voice", "voice_out": "voice"}
+
+class _Bound:
+    """The signed-in user of one request + the (user, group) uses already counted for it (shared with its threads)."""
+
+    __slots__ = ("user", "counted")
+
+    def __init__(self, user: str) -> None:
+        self.user = user
+        self.counted: set = set()
+
+
+_USER: contextvars.ContextVar[Optional[_Bound]] = contextvars.ContextVar("askodox_ai_usage_user", default=None)
+
+
+def bind_user(user_id: str) -> contextvars.Token:
+    """Attribute provider calls in this request (and the threads it starts) to ``user_id``."""
+    clean = str(user_id or "")[:120]
+    return _USER.set(_Bound(clean) if clean else None)
+
+
+def reset_user(token: contextvars.Token) -> None:
+    _USER.reset(token)
+
+
+def current_user() -> str:
+    bound = _USER.get()
+    return bound.user if bound else ""
+
+
+def carry(fn):  # type: ignore[no-untyped-def]
+    """Wrap ``fn`` so a worker thread / pool task runs with this request's user (Python starts threads with an EMPTY
+    context). Used where the AI path hands work to a thread; anything not wrapped is simply not attributed."""
+    bound = _USER.get()
+    if bound is None:
+        return fn
+
+    def carried(*args, **kwargs):  # type: ignore[no-untyped-def]
+        token = _USER.set(bound)  # same _Bound object: uses counted once per request
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _USER.reset(token)
+
+    return carried
 
 # Published list prices (2026-10-27; third-party price pages + Sarvam's own page) -- staff correct them in the console.
 DEFAULT_PRICES: Dict[str, Any] = {
@@ -190,6 +251,18 @@ def record(*, provider: str, model: str, feature: str, input_tokens: int = 0, ou
     if not db:
         return
     day = day or datetime.now(timezone.utc).date().isoformat()
+    bound = _USER.get()
+    paise, group = 0.0, ""
+    if bound is not None:
+        try:  # priced BEFORE the write: prices() opens its own connection
+            one = {"provider": provider, "model": model or "-", "feature": feature, "calls": 1,
+                   "input_tokens": int(input_tokens), "output_tokens": int(output_tokens), "chars": int(chars),
+                   "seconds": float(seconds)}
+            paise = cost_inr(_cached_prices(db), one) * 100
+            group = _GROUP.get(feature, feature if feature in USER_FEATURES else "chat")
+        except Exception:
+            _log.debug("ai_usage_meter.user price failed", exc_info=True)
+            bound = None
     with _state["lock"], closing(sqlite3.connect(db, timeout=5)) as conn:
         conn.execute(
             "INSERT INTO ai_usage_daily(day, feature, provider, model, calls, errors, input_tokens, output_tokens,"
@@ -199,7 +272,29 @@ def record(*, provider: str, model: str, feature: str, input_tokens: int = 0, ou
             " seconds = seconds + excluded.seconds",
             (day, feature, provider, (model or "-")[:60], 0 if ok else 1, int(input_tokens), int(output_tokens),
              int(chars), float(seconds)))
+        if bound is not None:
+            try:
+                # One "use" per request and group: the several provider calls behind one answer are one use.
+                first = group not in bound.counted
+                bound.counted.add(group)
+                conn.execute(
+                    "INSERT INTO ai_usage_user_daily(day, user_id, feature, uses, calls, cost_paise) VALUES(?,?,?,?,1,?)"
+                    " ON CONFLICT(day, user_id, feature) DO UPDATE SET calls = calls + 1, uses = uses + excluded.uses,"
+                    " cost_paise = cost_paise + excluded.cost_paise", (day, bound.user, group, 1 if first else 0, paise))
+            except Exception:  # the per-user row must never break metering
+                _log.debug("ai_usage_meter.user row failed", exc_info=True)
         conn.commit()
+
+
+_PRICE_CACHE: Dict[str, Any] = {"at": 0.0, "db": None, "data": None}
+
+
+def _cached_prices(db: str) -> Dict[str, Any]:
+    import time
+
+    if _PRICE_CACHE["data"] is None or _PRICE_CACHE["db"] != db or time.monotonic() - _PRICE_CACHE["at"] > 60:
+        _PRICE_CACHE.update(data=prices(db), db=db, at=time.monotonic())
+    return _PRICE_CACHE["data"]
 
 
 # ------------------------------------------------------------------ prices / report --
@@ -308,3 +403,81 @@ def report(db_path: str, *, days: int = 7) -> Dict[str, Any]:
     return {"since": since, "days": days, "rows": rows, "features": sorted(by_feature.values(), key=lambda x: x["feature"]),
             "markup": factor, "prices": p,
             "basis": "ESTIMATE: provider-reported usage x the price table below; compare with the provider's bill."}
+
+
+# ------------------------------------------------------------------ per-user trial meter --
+def _month_start(today: datetime) -> str:
+    return today.date().replace(day=1).isoformat()
+
+
+def user_usage(db_path: str, user_id: str) -> Dict[str, Any]:
+    """The user's OWN usage: uses and VALUE (estimated cost x markup = what it would cost at the target margin)."""
+    p = prices(db_path)
+    factor = markup(p)
+    now = datetime.now(timezone.utc)
+    today, month = now.date().isoformat(), _month_start(now)
+    with closing(sqlite3.connect(db_path)) as conn:
+        for statement in SCHEMA:
+            conn.execute(statement)
+        rows = conn.execute("SELECT day, feature, uses, cost_paise FROM ai_usage_user_daily WHERE user_id = ? AND"
+                            " day >= ?", (str(user_id), min(month, today))).fetchall()
+
+    def block(days: set) -> Dict[str, Any]:
+        feats = {f: {"uses": 0, "value_paise": 0} for f in USER_FEATURES}
+        for day, feature, uses, cost in rows:
+            if day in days:
+                f = feats.setdefault(feature, {"uses": 0, "value_paise": 0})
+                f["uses"] += int(uses or 0)
+                f["value_paise"] += float(cost or 0) * factor
+        for f in feats.values():
+            f["value_paise"] = int(math.ceil(f["value_paise"])) if f["value_paise"] > 0 else 0
+        return {"value_paise": sum(f["value_paise"] for f in feats.values()),
+                "uses": sum(f["uses"] for f in feats.values()), "by_feature": feats}
+
+    month_days = {r[0] for r in rows if r[0] >= month}
+    return {"today": block({today}), "month": block(month_days), "since": month, "estimate": True}
+
+
+def users_report(db_path: str, *, days: int = 7, limit: int = 200) -> Dict[str, Any]:
+    """Staff view: per user uses, our estimated cost, the value shown to them (cost x markup), and totals."""
+    p = prices(db_path)
+    factor = markup(p)
+    since = (datetime.now(timezone.utc).date() - timedelta(days=max(1, days) - 1)).isoformat()
+    with closing(sqlite3.connect(db_path)) as conn:
+        for statement in SCHEMA:
+            conn.execute(statement)
+        rows = conn.execute("SELECT user_id, feature, SUM(uses), SUM(calls), SUM(cost_paise), COUNT(DISTINCT day)"
+                            " FROM ai_usage_user_daily WHERE day >= ? GROUP BY user_id, feature",
+                            (since,)).fetchall()
+        all_cost = conn.execute("SELECT feature, provider, model, SUM(calls) AS calls, SUM(input_tokens) AS"
+                                " input_tokens, SUM(output_tokens) AS output_tokens, SUM(chars) AS chars,"
+                                " SUM(seconds) AS seconds FROM ai_usage_daily WHERE day >= ? GROUP BY feature,"
+                                " provider, model", (since,)).fetchall()
+    users: Dict[str, Dict[str, Any]] = {}
+    for user, feature, uses, calls, cost, active in rows:
+        u = users.setdefault(user, {"user": user, "uses": 0, "calls": 0, "cost_inr": 0.0, "active_days": 0,
+                                    "by_feature": {}})
+        u["uses"] += int(uses or 0)
+        u["calls"] += int(calls or 0)
+        u["cost_inr"] += float(cost or 0) / 100
+        u["active_days"] = max(u["active_days"], int(active or 0))
+        u["by_feature"][feature] = {"uses": int(uses or 0), "cost_inr": round(float(cost or 0) / 100, 2)}
+    out = []
+    for u in users.values():
+        u["cost_inr"] = round(u["cost_inr"], 2)
+        u["value_inr"] = round(u["cost_inr"] * factor, 2)
+        u["per_day_cost_inr"] = round(u["cost_inr"] / max(1, u["active_days"]), 2)
+        out.append(u)
+    out.sort(key=lambda x: x["cost_inr"], reverse=True)
+    names = ("feature", "provider", "model", "calls", "input_tokens", "output_tokens", "chars", "seconds")
+    total_cost = sum(cost_inr(p, dict(zip(names, r))) for r in all_cost)
+    attributed = sum(u["cost_inr"] for u in out)
+    n = len(out)
+    return {"since": since, "days": days, "markup": factor, "users": out[:max(1, limit)], "user_count": n,
+            "totals": {"cost_inr": round(attributed, 2), "value_inr": round(attributed * factor, 2),
+                       "avg_cost_per_user_inr": round(attributed / n, 2) if n else 0.0,
+                       "avg_value_per_user_inr": round(attributed * factor / n, 2) if n else 0.0,
+                       "all_ai_cost_inr": round(total_cost, 2),
+                       "unattributed_cost_inr": round(max(0.0, total_cost - attributed), 2)},
+            "basis": "ESTIMATE: provider-reported usage x the price table; value = cost x markup. Unattributed ="
+                     " calls with no signed-in user (staff tools, background jobs, signed-out chat)."}

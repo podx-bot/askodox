@@ -265,6 +265,10 @@ def create_app() -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestObservabilityMiddleware)
     app.add_middleware(AppointmentLocationMiddleware, container=container)
+    # Outermost: binds the signed-in user for the per-user AI usage meter (owner 2026-11-24, trial meter).
+    from app.api.ai_usage_user_middleware import AiUsageUserMiddleware
+
+    app.add_middleware(AiUsageUserMiddleware, container=container)
     # Browser-hosted Command Center (Flutter web) calls this API cross-origin.
     # Opt-in only: without ADMIN_WEB_ORIGINS nothing changes. Credentials are
     # headers (owner key / staff token), never cookies, so no CSRF exposure.
