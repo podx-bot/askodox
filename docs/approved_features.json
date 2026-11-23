@@ -10475,6 +10475,53 @@
           "AskodoxStaffFace"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/orders",
+          "response_keys": [
+            "id"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Counter bill with items in the cart shows side-by-side chips Bill now / Table / Parcel / Delivery. Bill now = the pay sheet as before. Table (pick the table), Parcel (name, phone optional) or Delivery (name, phone, address) = 'To kitchen': the cart goes to the front desk as a counter order (source counter) -> Live orders, where it is accepted, sent to the kitchen (KOT), a delivery person assigned and billed (split or together).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: counter takes table / parcel / delivery orders (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "counter_order_kinds",
+      "name": "Counter: table / parcel / delivery orders",
+      "purpose": "Owner 2026-11-24: POS works as the cashier counter for walk-in, table and delivery orders, sends to the chef, assigns delivery.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/counter_orders_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCounterKind-now",
+          "askodoxCounterSend"
+        ],
+        "symbols": [
+          "askodoxCounterDeskLines",
+          "AskodoxCounterKindChips"
+        ]
+      }
     }
   ]
 }
