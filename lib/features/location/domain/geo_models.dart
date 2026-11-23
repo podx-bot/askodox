@@ -5,9 +5,15 @@ enum LocationPermissionStatus { notRequested, granted, denied, deniedPermanently
 enum MapDisplayMode { map, list }
 
 class GeoPoint {
-  const GeoPoint(this.latitude, this.longitude);
+  const GeoPoint(this.latitude, this.longitude, {this.mocked = false, this.accuracyM});
   final double latitude;
   final double longitude;
+
+  /// Owner 2026-11-23 (attendance): the phone says this fix came from a fake-location app.
+  final bool mocked;
+
+  /// How sure the fix is, in metres (null = not known).
+  final double? accuracyM;
   bool get isValid => latitude.isFinite && longitude.isFinite && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }
 

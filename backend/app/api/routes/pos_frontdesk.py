@@ -1110,9 +1110,13 @@ class CheckIn(BaseModel):
     action: str = Field(pattern="^(in|out|leave|half)$")
     lat: Optional[float] = Field(default=None, ge=-90, le=90)
     lng: Optional[float] = Field(default=None, ge=-180, le=180)
-    method: str = Field(default="device_lock", pattern="^(device_lock|photo)$")
+    method: str = Field(default="device_lock", pattern="^(device_lock|photo|face_live)$")
     photo: str = Field(default="", max_length=600_000)
     for_ref: str = Field(default="", max_length=20)
+    # Owner 2026-11-23: the phone says when its location comes from a fake-GPS app; "outside" = the person asks the
+    # owner to accept a check-in away from the shop (field work).
+    mocked: bool = False
+    outside: bool = False
 
 
 class MarkIn(BaseModel):
@@ -1130,6 +1134,11 @@ class AttSettingsIn(BaseModel):
     radius_m: Optional[int] = Field(default=None, ge=30, le=5000)
     own_phone: Optional[bool] = None
     kiosk: Optional[bool] = None
+    require_location: Optional[bool] = None
+    require_live_face: Optional[bool] = None
+    outside_needs_ok: Optional[bool] = None
+    pin_lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    pin_lng: Optional[float] = Field(default=None, ge=-180, le=180)
 
 
 class PayIn(BaseModel):
@@ -1164,7 +1173,8 @@ def attendance_today(business_id: str, request: Request) -> dict:
 @router.post("/businesses/{business_id}/attendance/check")
 def attendance_check(business_id: str, body: CheckIn, request: Request) -> dict:
     return _call(_att(request).check, business_id, _user(request, "att-check", 60), body.action, lat=body.lat,
-                 lng=body.lng, method=body.method, photo_b64=body.photo, for_ref=body.for_ref)
+                 lng=body.lng, method=body.method, photo_b64=body.photo, for_ref=body.for_ref, mocked=body.mocked,
+                 outside=body.outside)
 
 
 @router.post("/businesses/{business_id}/attendance/mark")

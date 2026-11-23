@@ -2,16 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../location/application/location_controller.dart' show deviceLocationGatewayProvider;
-import '../../location/domain/geo_models.dart' show LocationPermissionStatus;
+import '../../location/domain/geo_models.dart' show GeoPoint, LocationPermissionStatus;
 import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxPaise, askodoxParsePaise;
 import '../../pos/presentation/pos_common.dart';
+import '../../steps/presentation/live_face_screen.dart';
 import 'biz_hub.dart';
 
 /// Staff & attendance (owner 2026-11-18): who came when (own phone lock + location, or the shop phone with a photo),
@@ -186,7 +185,7 @@ class _PersonTile extends StatelessWidget {
   }
 }
 
-/// `/biz/:id/staff/checkin` -- the person's own phone: phone lock (fingerprint / face / PIN) + where the phone is.
+/// `/biz/:id/staff/checkin?full=1` -- the old one-page check-in: a live face check + where the phone is.
 class AskodoxBizCheckInScreen extends ConsumerStatefulWidget {
   const AskodoxBizCheckInScreen({super.key, required this.businessId});
   final String businessId;
@@ -196,30 +195,16 @@ class AskodoxBizCheckInScreen extends ConsumerStatefulWidget {
 }
 
 class _AskodoxBizCheckInScreenState extends ConsumerState<AskodoxBizCheckInScreen> {
-  static const _hardware = MethodChannel('com.askodox.app/hardware');
   bool _busy = false;
   String _place = '';
 
-  Future<String> _lock(bool te) async {
-    try {
-      return await _hardware.invokeMethod<String>('confirmDeviceLock', {
-            'title': te ? 'హాజరు — మీరేనా?' : 'Attendance — is it you?',
-            'subtitle': te ? 'మీ ఫోన్ వేలిముద్ర / ముఖం / PIN' : 'Your phone fingerprint / face / PIN',
-          }) ??
-          'unsupported';
-    } catch (_) {
-      return 'unsupported';
-    }
-  }
-
-  Future<(double?, double?)> _where() async {
+  Future<GeoPoint?> _where() async {
     try {
       final gate = ref.read(deviceLocationGatewayProvider);
-      if (await gate.ensurePermission() != LocationPermissionStatus.granted) return (null, null);
-      final p = await gate.getCurrentPosition();
-      return (p?.latitude, p?.longitude);
+      if (await gate.ensurePermission() != LocationPermissionStatus.granted) return null;
+      return await gate.getCurrentPosition();
     } catch (_) {
-      return (null, null);
+      return null;
     }
   }
 
@@ -227,27 +212,25 @@ class _AskodoxBizCheckInScreenState extends ConsumerState<AskodoxBizCheckInScree
     final te = askodoxPosTe(context);
     setState(() => _busy = true);
     try {
+      // Owner 2026-11-23: a fingerprint / plain selfie is not proof -- coming in is a live face check (random head moves)
+      // on this old page too; leaving / leave need only the place.
       var method = 'device_lock';
       String photo = '';
-      if (action != 'leave') {
-        final lock = await _lock(te);
-        if (lock == 'cancelled') return;
-        if (lock == 'no_lock' || lock == 'unsupported') {
-          // No screen lock on this phone: a selfie proves it instead.
-          final shot = await ImagePicker().pickImage(
-              source: ImageSource.camera, preferredCameraDevice: CameraDevice.front, maxWidth: 480, imageQuality: 60);
-          if (shot == null) return;
-          photo = base64Encode(await shot.readAsBytes());
-          method = 'photo';
-        }
+      if (action == 'in' || action == 'half') {
+        final still = await askodoxLiveFaceCheck(context, te: te);
+        if (still == null) return;
+        photo = base64Encode(still);
+        method = 'face_live';
       }
-      final (lat, lng) = await _where();
+      final at = action == 'leave' ? null : await _where();
+      final lat = at?.latitude, lng = at?.longitude;
       final out = await ref.read(askodoxPosRepositoryProvider).attendanceCheck(widget.businessId, {
         'action': action,
         'method': method,
         if (photo.isNotEmpty) 'photo': photo,
         if (lat != null) 'lat': lat,
         if (lng != null) 'lng': lng,
+        'mocked': at?.mocked == true,
       });
       if (!mounted) return;
       setState(() => _place = out['far'] == true
@@ -404,13 +387,14 @@ class _AskodoxBizKioskScreenState extends ConsumerState<AskodoxBizKioskScreen> {
     }
     setState(() => _busy = true);
     try {
-      final shot = await ImagePicker().pickImage(
-          source: ImageSource.camera, preferredCameraDevice: CameraDevice.front, maxWidth: 480, imageQuality: 60);
-      if (shot == null) return;
+      // Owner 2026-11-23: a plain photo is not proof -- the shop phone runs the same live face check (random moves).
+      final still = await askodoxLiveFaceCheck(context, te: te);
+      if (still == null) return;
       final out = await ref.read(askodoxPosRepositoryProvider).attendanceCheck(widget.businessId, {
         'action': action,
         'for_ref': who,
-        'photo': base64Encode(await shot.readAsBytes()),
+        'method': 'face_live',
+        'photo': base64Encode(still),
       });
       if (!mounted) return;
       setState(() {
@@ -1255,6 +1239,27 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
     if (t != null) await _save({key: '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'});
   }
 
+  /// Owner 2026-11-23: "location select avvatledu" -- the shop's place is set HERE, standing in the shop, in one tap
+  /// (no trip to Business details). A fake-GPS fix is never taken as the shop.
+  Future<void> _pinHere() async {
+    final te = askodoxPosTe(context);
+    GeoPoint? at;
+    try {
+      final gate = ref.read(deviceLocationGatewayProvider);
+      if (await gate.ensurePermission() == LocationPermissionStatus.granted) at = await gate.getCurrentPosition();
+    } catch (_) {}
+    if (!mounted) return;
+    if (at == null) {
+      askodoxPosSnack(context, te ? 'లొకేషన్ దొరకలేదు — ఫోన్ లొకేషన్ ఆన్ చేయండి.' : 'No location — turn on the phone\'s location.');
+      return;
+    }
+    if (at.mocked) {
+      askodoxPosSnack(context, te ? 'ఈ ఫోన్ లో నకిలీ GPS యాప్ ఉంది — షాప్ లొకేషన్ గా తీసుకోం.' : 'A fake-GPS app is on — not taken as the shop.');
+      return;
+    }
+    await _save({'pin_lat': at.latitude, 'pin_lng': at.longitude});
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = askodoxPosTe(context);
@@ -1278,7 +1283,7 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
                 value: s['own_phone'] == true,
                 onChanged: (v) => _save({'own_phone': v}),
                 title: Text(te ? 'ప్రతి ఒక్కరి ఫోన్‌లో' : "On each person's phone"),
-                subtitle: Text(te ? 'వారి ఫోన్ వేలిముద్ర / ముఖం / PIN + షాప్ దగ్గర ఉన్నారా' : 'Their phone lock + are they at the shop'),
+                subtitle: Text(te ? 'షాప్ దగ్గర ఉన్నారా (GPS) + ముఖం లైవ్ చెక్ (తల తిప్పడం)' : 'At the shop (GPS) + a live face check (head moves)'),
               ),
               const SizedBox(height: 6),
               SwitchListTile(
@@ -1287,20 +1292,71 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
                 value: s['kiosk'] == true,
                 onChanged: (v) => _save({'kiosk': v}),
                 title: Text(te ? 'షాప్ ఫోన్ / ట్యాబ్‌లో' : 'On the shop phone / tablet'),
-                subtitle: Text(te ? 'ఫోన్ లేనివారికి — ఫోటో + టైం' : 'For people without a phone — photo + time'),
+                subtitle: Text(te ? 'ఫోన్ లేనివారికి — ముఖం లైవ్ చెక్ + టైం' : 'For people without a phone — live face check + time'),
               ),
-              if (s['shop_pin'] != true) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFFFFF1E3), borderRadius: BorderRadius.circular(12)),
-                  child: Text(
-                      te
-                          ? 'షాప్ మ్యాప్ పిన్ ఇంకా పెట్టలేదు — "బిజినెస్ వివరాలు"లో పెడితే "షాప్ దగ్గర ఉన్నారా" చూడగలం.'
-                          : 'The shop map pin is not set — set it in "Business details" to check "at the shop".',
-                      style: const TextStyle(color: _orange, fontWeight: FontWeight.w700)),
-                ),
-              ],
+              AskodoxBizSection(te ? 'షాప్ ఎక్కడ?' : 'Where is the shop?'),
+              Container(
+                key: const Key('askodoxAttPinCard'),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: s['shop_pin'] == true ? const Color(0xFFE8F7EE) : const Color(0xFFFFF1E3),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(
+                      s['shop_pin'] == true
+                          ? (te ? 'షాప్ లొకేషన్ పెట్టారు ✓ — ${s['radius_m']} m లోపల ఉంటేనే హాజరు' : 'Shop location set ✓ — attendance only within ${s['radius_m']} m')
+                          : (te ? 'షాప్ లొకేషన్ ఇంకా లేదు. షాప్ లో నిలబడి కింద నొక్కండి — ఒక్కసారే.' : 'No shop location yet. Stand in the shop and tap below — once.'),
+                      style: TextStyle(color: s['shop_pin'] == true ? _green : _orange, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    key: const Key('askodoxAttPinHere'),
+                    icon: const Icon(Icons.my_location_rounded),
+                    label: Text(s['shop_pin'] == true
+                        ? (te ? 'మళ్ళీ — ఇక్కడే షాప్' : 'Again — the shop is here')
+                        : (te ? 'ఇక్కడే షాప్ — లొకేషన్ పెట్టు' : 'The shop is here — set it')),
+                    onPressed: _pinHere,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, children: [
+                    for (final m in const [50, 100, 150, 300])
+                      ChoiceChip(
+                        key: Key('askodoxAttRadius-$m'),
+                        label: Text('$m m'),
+                        selected: askodoxPosInt(s['radius_m']) == m,
+                        onSelected: (_) => _save({'radius_m': m}),
+                      ),
+                  ]),
+                ]),
+              ),
+              AskodoxBizSection(te ? 'మోసం రాకుండా' : 'No cheating'),
+              SwitchListTile(
+                key: const Key('askodoxAttRequireLocation'),
+                tileColor: Colors.white,
+                value: s['require_location'] != false,
+                onChanged: (v) => _save({'require_location': v}),
+                title: Text(te ? 'లొకేషన్ తప్పనిసరి' : 'Location is a must'),
+                subtitle: Text(te ? 'GPS ఆఫ్ / నకిలీ GPS = హాజరు పడదు, మీకు వెంటనే తెలుస్తుంది' : 'GPS off / fake GPS = not marked, you are told at once'),
+              ),
+              const SizedBox(height: 6),
+              SwitchListTile(
+                key: const Key('askodoxAttRequireFace'),
+                tileColor: Colors.white,
+                value: s['require_live_face'] != false,
+                onChanged: (v) => _save({'require_live_face': v}),
+                title: Text(te ? 'ముఖం లైవ్ చెక్' : 'Live face check'),
+                subtitle: Text(te
+                    ? 'ప్రతిసారీ వేరే కదలికలు (ఎడమ/కుడి/పైకి/కిందకి/కళ్ళు మూసి తెరవడం) — ఫోటో పెట్టి మోసం చేయలేరు. ఉచితం, ఫోన్ లోనే.'
+                    : 'Random moves every time (left / right / up / down / blink) — a photo cannot do it. Free, on the phone.'),
+              ),
+              const SizedBox(height: 6),
+              SwitchListTile(
+                key: const Key('askodoxAttOutsideOk'),
+                tileColor: Colors.white,
+                value: s['outside_needs_ok'] != false,
+                onChanged: (v) => _save({'outside_needs_ok': v}),
+                title: Text(te ? 'దూరంగా ఉంటే నన్ను అడగాలి' : 'Away from the shop = ask me'),
+                subtitle: Text(te ? 'బయట పని అయితే "ఓనర్ ని అడుగు" — మీకు notification వస్తుంది' : 'Field work goes as "ask the owner" — you get a notification'),
+              ),
               AskodoxBizSection(te ? 'నియమాలు' : 'Rules'),
               AskodoxBizGrid(children: [
                 AskodoxBizTile(
@@ -1452,6 +1508,8 @@ class AskodoxBizAttTodayScreen extends ConsumerWidget {
     final status = t.isEmpty ? '' : '${t['status']}';
     final name = '${p['name']}'.isEmpty ? '••${p['ref']}' : '${p['name']}';
     final how = switch ('${t['method'] ?? ''}') {
+      'face_live' => te ? 'ముఖం లైవ్ ✓' : 'Live face ✓',
+      'kiosk_live' => te ? 'షాప్ ఫోన్ · ముఖం లైవ్ ✓' : 'Shop phone · live face ✓',
       'device_lock' => te ? 'ఫోన్ లాక్ ✓' : 'Phone lock ✓',
       'photo' || 'kiosk' => te ? 'ఫోటో ✓' : 'Photo ✓',
       'owner' => te ? 'ఓనర్ రాశారు' : 'By owner',
@@ -1488,6 +1546,18 @@ class AskodoxBizAttTodayScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: _pill(te ? 'ఆలస్యం ${askodoxPosInt(t['late_min'])} ని.' : 'Late ${askodoxPosInt(t['late_min'])} min', _orange),
+            ),
+          // owner 2026-11-23: field work and an old app are shown, never hidden
+          if ('${t['note'] ?? ''}'.contains('outside'))
+            Padding(
+              key: Key('askodoxAttTodayOutside-${p['ref']}'),
+              padding: const EdgeInsets.only(top: 4),
+              child: _pill(te ? 'బయట నుంచి — మీరు ఒప్పుకోవాలి' : 'From outside — your call', _orange),
+            ),
+          if ('${t['note'] ?? ''}'.contains('old_app'))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: _pill(te ? 'పాత యాప్ — ముఖం చెక్ లేదు' : 'Old app — no face check', _red),
             ),
           const SizedBox(height: 8),
           Row(children: [

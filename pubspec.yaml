@@ -29,6 +29,9 @@ dependencies:
   camera: ^0.11.0+2
   # The older Android implementation: camera_android_camerax failed to compile with this build's javac (2026-11-19).
   camera_android: ^0.10.10
+  # Owner 2026-11-23 (attendance): live face check on the phone -- Google ML Kit face detection, free, on-device, no
+  # API bill (head turn / nod / blink in a random order; a photo of a photo does not move).
+  google_mlkit_face_detection: ^1.0.2
   file_picker: ^12.2.0
   pdf: ^3.11.3
   qr_flutter: ^4.1.0

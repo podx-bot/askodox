@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/core/api/api_client.dart';
 import 'package:podx/core/api/api_models.dart';
 import 'package:podx/features/home/presentation/question_mic.dart';
+import 'package:podx/features/location/application/location_controller.dart' show deviceLocationGatewayProvider;
+import 'package:podx/features/location/domain/device_location_gateway.dart';
+import 'package:podx/features/location/domain/geo_models.dart';
 import 'package:podx/features/pos/data/pos_repository.dart';
 import 'package:podx/features/steps/presentation/bill_steps_screen.dart';
 import 'package:podx/features/steps/presentation/checkin_steps_screen.dart';
@@ -41,12 +44,31 @@ class _Api implements ApiClient {
       throw UnimplementedError();
 }
 
-Future<void> _pump(WidgetTester tester, _Api api, Widget child) async {
+/// The phone's place in a test (owner 2026-11-23 attendance: location is compulsory; a fake-GPS fix says so).
+class _Place extends DeviceLocationGateway {
+  _Place(this.point, {this.allowed = true});
+  final GeoPoint? point;
+  final bool allowed;
+  @override
+  Future<LocationPermissionStatus> ensurePermission() async =>
+      allowed ? LocationPermissionStatus.granted : LocationPermissionStatus.denied;
+  @override
+  Future<LocationPermissionStatus> checkPermission() => ensurePermission();
+  @override
+  Future<GeoPoint?> getCurrentPosition() async => point;
+  @override
+  Stream<GeoPoint> watchPosition({int distanceFilterMetres = 300}) => const Stream.empty();
+}
+
+Future<void> _pump(WidgetTester tester, _Api api, Widget child, {DeviceLocationGateway? place}) async {
   tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
-    overrides: [askodoxPosRepositoryProvider.overrideWithValue(AskodoxPosRepository(api, authToken: 't'))],
+    overrides: [
+      askodoxPosRepositoryProvider.overrideWithValue(AskodoxPosRepository(api, authToken: 't')),
+      if (place != null) deviceLocationGatewayProvider.overrideWithValue(place),
+    ],
     child: MaterialApp(home: child),
   ));
   await tester.pumpAndSettle();
@@ -219,6 +241,58 @@ void main() {
     me = {'in_at': '2026-11-22T09:02:00+05:30', 'out_at': '2026-11-22T21:10:00+05:30', 'status': 'P'};
     await _pump(tester, api, const AskodoxCheckInStepsScreen(businessId: 'b1'));
     expect(find.byKey(const Key('askodoxCheckInStepsFinished')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('check-in (owner 2026-11-23): location off, far away, no shop pin and fake GPS each stop it in words',
+      (tester) async {
+    var pin = <String, Object?>{'lat': 16.3650, 'lng': 80.8470};
+    final sent = <Object?>[];
+    final api = _Api((method, path, body) {
+      if (path.endsWith('/attendance/today')) return {'boss': true, 'people': [], 'settings': {'start_time': '09:00'}, 'me': null};
+      if (path.endsWith('/attendance/settings') && method == 'GET') {
+        return {'radius_m': 150, 'require_location': true, 'require_live_face': true, 'outside_needs_ok': true, 'pin': pin};
+      }
+      if (path.endsWith('/attendance/settings') && method == 'PUT') {
+        pin = {'lat': (body as Map)['pin_lat'], 'lng': body['pin_lng']};
+        return {'radius_m': 150, 'require_location': true, 'require_live_face': false, 'pin': pin};
+      }
+      if (path.endsWith('/attendance/check')) {
+        sent.add(body);
+        return {'in_at': '2026-11-23T09:01:00+05:30', 'status': 'P', 'distance_m': 0, 'far': false, 'method': 'device_lock'};
+      }
+      return _common(method, path) ?? {};
+    });
+    // location off
+    await _pump(tester, api, const AskodoxCheckInStepsScreen(businessId: 'b1'), place: _Place(null, allowed: false));
+    await tester.tap(find.byKey(const Key('askodoxCheckInStepsGo-in')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxCheckInOpenLocation')), findsOneWidget);
+    expect(sent, isEmpty, reason: 'nothing is marked without a place');
+    await tester.pumpWidget(const SizedBox());
+    // 2.3 km away: ask the owner or go back -- never marked silently
+    await _pump(tester, api, const AskodoxCheckInStepsScreen(businessId: 'b1'), place: _Place(const GeoPoint(16.385, 80.847)));
+    await tester.tap(find.byKey(const Key('askodoxCheckInStepsGo-in')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxCheckInAskOwner')), findsOneWidget);
+    expect(find.textContaining('2.2 km'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    // fake GPS: sent as such -- the server refuses and tells the owner
+    await _pump(tester, api, const AskodoxCheckInStepsScreen(businessId: 'b1'),
+        place: _Place(const GeoPoint(16.3651, 80.8471, mocked: true)));
+    await tester.tap(find.byKey(const Key('askodoxCheckInStepsGo-in')));
+    await tester.pumpAndSettle();
+    expect((sent.last as Map)['mocked'], isTrue);
+    await tester.pumpWidget(const SizedBox());
+    // no shop pin yet, the owner is in the shop: "yes, this is the shop" sets it once
+    pin = {};
+    await _pump(tester, api, const AskodoxCheckInStepsScreen(businessId: 'b1'), place: _Place(const GeoPoint(16.3651, 80.8471)));
+    await tester.tap(find.byKey(const Key('askodoxCheckInStepsGo-in')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxCheckInPinHere')));
+    await tester.pumpAndSettle();
+    expect(pin['lat'], 16.3651);
+    expect(api.calls.keys, contains('PUT /api/pos/businesses/b1/attendance/settings'));
     await tester.pumpWidget(const SizedBox());
   });
 

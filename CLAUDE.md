@@ -7,14 +7,30 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- Branch `claude/lite-offline-questions` (2026-11-23, owner "step 3" = ASKODOX Lite step 3): NO NET CHAT --
+- `main` PR #406 + #407 + #408 (2026-11-23, owner "1"; Play bundle: see tracker / next checkpoint line): (#406) SORT WITH AI
+  = `pos_menu_sort.sort_menu` numbers items once, 25 per part in parallel, missing items asked again, `_parse` skips a cut
+  last line; `MenuSortJobs` (one running job per shop, 30 min) + `POST .../desk/menu/sort?background=1` / `GET` -> push
+  when done. Counter bill: grid on top, folding cart only when not empty, command + search boxes BELOW above Total; pay sheet
+  one tap for the typed amount + `askodoxPosAllDue`; `askodoxBillModeHow` (other_upi / bhim -> UPI, never "Other"); bottom
+  bar 8 dp side padding (అమ్ము not cut). (#407) ACCOUNT SIDES: `AskodoxMoneyPlace.side` mine / shop / off,
+  `PaymentAlertParser.accountSide` (suffix match, then app side) -> `routeByAccount` in `handle` (OFF = `account_off`, not
+  read); accounts card "నా QR / ఖాతాలు" (switch per account, "whose is ••1234?", shop ON -> `moveAccountRows` this month's
+  rows to the shop as `moved` events: owner only, <= 40 days, never spoken). Money = money pages only
+  (`askodoxMoneySectionIds`); కొను / అమ్ము = shell branch 2 `/mode` (`AskodoxMoneyHomeScreen(section: 'side')`, search
+  `askodoxSidePageSearch`), layouts per section (`.side` prefs keys). (#408) ATTENDANCE: own phone needs the real location
+  (`require_location`; fake GPS `GeoPoint.mocked` -> 403 `mock_location` + owner told; no pin -> 409 `no_pin`, owner sets it
+  in one tap; far -> 409 `far` unless `outside` = "ask the owner", note `outside`); coming in / half = live face check
+  (`AskodoxLiveCheck`, `live_face_screen.dart`, google_mlkit_face_detection on the phone, random turn / nod / blink, method
+  `face_live`, kiosk `kiosk_live`); older app = note `old_app`. Rule `.claude/rules/attendance.md`. Proves a live person, not
+  WHICH person (no face matching). Nothing phone verified.
+- `main` PR #405 (2026-11-23, owner "step 3" = ASKODOX Lite step 3): NO NET CHAT --
   `home/domain/offline_questions.dart`: `askodoxOfflineAsk` (pure, money + time words te / hi / en) ->
   `askodoxOfflineAnswer` from the phone's own payment rows (today / yesterday / week / month, last, who paid; always
   says "phone's payment messages, not the bank balance"; phone voice); any other question -> `AskodoxHeldQuestions`
   (prefs `askodox.offline_questions.v1`, account-scoped, max 10, 24 h) and asked by itself when
   `AskodoxNetQuality` leaves offline (`_askHeldQuestions`, notification when the app is not in front). Strip above the
   composer `AskodoxOfflineAskStrip`. Steps 4-6 of ASKODOX Lite NOT built. Nothing phone verified.
-- Branch `claude/lite-mode-slow-net` (2026-11-23, owner "2" = ASKODOX Lite step 2, choice A): LITE MODE --
+- `main` PR #403 (2026-11-23, owner "2" = ASKODOX Lite step 2, choice A): LITE MODE --
   `lib/core/net/net_quality.dart`: `AskodoxNetQuality.instance` (ValueNotifier, started ONLY in `main()` with
   `askodoxHealthProbe` = `/health` timing; >= 2.5 s slow, failed / 6 s = offline, two readings < 1.5 s = good again,
   pure `askodoxNetAfter`; checked at start, on every send, every 20 s while Lite / 2 min otherwise). Home chat:
@@ -545,7 +561,8 @@ this file, don't trust it blindly.
   Team = `AskodoxWorkCrewMember` list (each member moved by their own steps); solo shows only the person. No
   points / rewards / money anywhere in Work Mode (owner rule).
 - Customer shell (`app_shell.dart`): Home · Live Work · centre "Ask" (one tap = voice via the hub action
-  `voice`; NO companion ring -- attachments live on the composer "+") · Money / Shop · buy / sell switch. No drawer.
+  `voice`; NO companion ring -- attachments live on the composer "+") · Money · కొను / అమ్ము switch (each half opens its
+  side page, branch 2 `/mode`; Money holds money pages only). No drawer.
   One place per function: request status lives in Updates
   (`features/notifications`); old mock alerts/communication/preferences
   routes only redirect. Don't re-add duplicate entry points.
