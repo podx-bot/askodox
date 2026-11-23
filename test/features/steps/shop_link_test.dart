@@ -134,4 +134,19 @@ void main() {
     expect(find.text('30'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
   });
+
+  testWidgets('a shop without a phone: the WhatsApp box starts with the owner number and says why', (tester) async {
+    final api = _Api((method, path, body) {
+      if (path.endsWith('/link')) {
+        return {'link': null, 'can_change': true, 'suggested_slug': 'no-phone', 'has_upi': false,
+          'whatsapp_default': '9400000411', 'shop': {'name': 'No Phone', 'phone': '', 'template': 'kirana'},
+          'stats': {'today': {}, 'week': {}, 'month': {}}};
+      }
+      return {};
+    });
+    await _pump(tester, api, const AskodoxShopLinkStepsScreen(businessId: 'b2'));
+    await tester.ensureVisible(find.byKey(const Key('askodoxShopLinkWhatsapp')));
+    expect(find.text('9400000411'), findsOneWidget);
+    expect(find.textContaining('the order message comes to this number'), findsOneWidget);
+  });
 }

@@ -141,3 +141,16 @@ def test_routes_and_public_html(monkeypatch):
     stats = client.get(f"/api/pos/businesses/{bid}/link/stats", headers=h).json()["today"]
     assert stats["view"] >= 1 and stats["order_wa"] == 1 and stats["order_app"] == 1 and stats["app"] == 1
     assert client.get("/s/nobody-here").status_code == 404
+
+
+def test_whatsapp_box_starts_with_the_owner_number_when_the_shop_has_no_phone(env):
+    """Owner 2026-11-23: a shop made from the short setup card has no phone -> the WhatsApp box was empty."""
+    store, links, _, now = env
+    owner = "app-phone-9400000311"
+    biz = store.create_business(owner, {"name": "No Phone Shop", "template": "kirana", "invoice_prefix": "NP",
+                                        "state_code": "37", "registration_type": "unregistered"})["id"]
+    store.set_member(biz, owner, "9400000312", "manager")
+    assert links.get(biz, owner)["whatsapp_default"] == "9400000311"
+    assert links.get(biz, "app-phone-9400000312")["whatsapp_default"] == ""  # the owner's number only to the owner
+    assert links.save(biz, owner, {"slug": "no-phone-shop"})["link"]["whatsapp"] == "9400000311"
+    assert links.save(biz, owner, {"whatsapp": ""})["link"]["whatsapp"] == ""  # cleared on purpose stays cleared

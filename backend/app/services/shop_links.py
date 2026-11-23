@@ -174,7 +174,11 @@ class ShopLinks:
             suggested = row["slug"] if row else self.suggest(conn, business_id, biz["name"], biz["template"])
             stats = self._stats(conn, business_id)
         upi = self.upi(biz["owner_user_id"]) or {}
+        # The WhatsApp box starts with the shop phone, else the owner's own sign-in number (shown to the owner only):
+        # a shop made from the short setup card has no phone, and an empty box meant no WhatsApp orders.
+        own = ten_digits(biz["owner_user_id"]) if role == "owner" else ""
         return {"link": self._out(row) if row else None, "suggested_slug": suggested, "base": PUBLIC_BASE,
+                "whatsapp_default": ten_digits(biz["phone"]) or own,
                 "my_role": role, "can_change": role == "owner", "has_upi": bool(upi.get("upi_id")),
                 "upi_id": upi.get("upi_id", ""), "shop": {"name": biz["name"], "phone": biz["phone"],
                                                           "template": biz["template"], "address": biz["address"]},
@@ -224,8 +228,8 @@ class ShopLinks:
                 if raw and not number:
                     raise PosError(422, "whatsapp", "WhatsApp number: 10 digits starting with 6-9.")
                 settings["whatsapp"] = number
-            if not row and not settings["whatsapp"]:
-                settings["whatsapp"] = ten_digits(biz["phone"])
+            if not row and not settings["whatsapp"] and "whatsapp" not in body:
+                settings["whatsapp"] = ten_digits(biz["phone"]) or ten_digits(biz["owner_user_id"])
             enabled = bool(body.get("enabled", row["enabled"] if row else True))
             now = self._now()
             if row is None:

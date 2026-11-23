@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- Branch `claude/one-payment-one-voice` (2026-11-22, owner: PhonePe notification with the name came first but the
+- `main` PR #392 (2026-11-22, in Play bundle `askodox-play-1606.aab`, owner: PhonePe notification with the name came first but the
   voice had no name; the bank SMS came ~1 h later and was spoken AGAIN; SMS first + late notification also spoken
   twice): payer name now read from "NAME (id@ibl) sent you ₹X", "NAME sent you ₹X", title/text split (`payerOf`).
   The join decision moved to pure `PaymentAlertParser.pickSamePayment` (RRN 24 h; same payer handle / name 6 h;
@@ -15,7 +15,7 @@ this file, don't trust it blindly.
   "*akar@ibl" now count; the shop's own id / e-mails are never the payer). `Sim()` scenarios of every reported case
   in `android/parser-tests`; the gate also runs on `AskodoxPaymentAlerts.kt`. New `.claude/rules/payment-alerts.md`
   + skill `.claude/skills/askodox-payment-alerts`. Nothing phone verified.
-- Branch `claude/shop-link` (2026-11-23, owner "Ok" on design artifact GyGuSkNsVrf6cxXQBZk7h4, PlayboxTV / Linktree idea):
+- `main` PR #394 (2026-11-23, Play bundle `askodox-play-1606.aab`, owner "Ok" on design artifact GyGuSkNsVrf6cxXQBZk7h4, PlayboxTV / Linktree idea):
   SHOP LINK -- one free public page per shop `askodox.com/s/<slug>` (`shop_links.py`: tables `shop_links` /
   `shop_link_aliases` (old names 301 -> new, printed posters keep working) / `shop_link_counts` (per day + kind, no
   customer identity); HTML `shop_link_pages.py`, NO script (CSP script-src 'none'; menu = plain GET form; call / UPI
@@ -28,7 +28,9 @@ this file, don't trust it blindly.
   App: `/pos/:id/link` = `AskodoxShopLinkStepsScreen` (what to show -> colour + name checked live -> ✓ WhatsApp / copy /
   QR poster / open + 7-day counts), Seller Money page `s.link` (owner), biz page `customers.link`. Phase 2 (not built):
   app reads the install referrer + opens the shop, order tracking from the link, install counts, product photos.
-  Nothing phone verified.
+  Fix (owner phone 2026-11-23, "WhatsApp number enduku?" with an EMPTY box): a shop from the short setup card has no
+  phone -> GET returns `whatsapp_default` (shop phone, else the OWNER's own sign-in number, owner only), first save
+  falls back the same way, the box explains where orders go. Nothing phone verified.
 - `main` PR #391 (2026-11-22, owner "1", owner test: 30-40 s before a spoken reply): SPEAK WHILE WRITING -- spoken turns
   (`askodoxSpeakTypedReplies` + `_streamSpeaks`) no longer hide the stream until the whole answer: `_liveFeed` queues each
   finished `askodoxSpeechChunks` part (last part only after `text_done` / the final), `_liveFetch` shares audio through

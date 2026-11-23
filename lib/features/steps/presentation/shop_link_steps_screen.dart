@@ -81,7 +81,10 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
     final link = _link;
     _slug.text = '${link['slug'] ?? _data?['suggested_slug'] ?? ''}';
     _offer.text = '${link['offer'] ?? ''}';
-    final phone = '${link['whatsapp'] ?? askodoxPosMap(_data?['shop'])['phone'] ?? ''}'.replaceAll(RegExp(r'\D'), '');
+    // The saved number, else the shop phone, else the owner's own sign-in number (the server says which).
+    var saved = '${link['whatsapp'] ?? ''}';
+    if (saved.isEmpty) saved = '${_data?['whatsapp_default'] ?? askodoxPosMap(_data?['shop'])['phone'] ?? ''}';
+    final phone = saved.replaceAll(RegExp(r'\D'), '');
     _whatsapp.text = phone.length > 10 ? phone.substring(phone.length - 10) : phone;
     final color = '${link['color'] ?? ''}';
     if (askodoxShopLinkColors.containsKey(color)) _color = color;
@@ -355,6 +358,11 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
         decoration: InputDecoration(
           labelText: te ? 'ఆర్డర్లు వచ్చే WhatsApp నంబర్' : 'WhatsApp number for orders',
           border: const OutlineInputBorder(),
+          counterText: '',
+          helperMaxLines: 3,
+          helperText: te
+              ? 'కస్టమర్ లింక్‌లో ఐటమ్స్ ఎంచుకుని "WhatsApp లో ఆర్డర్" నొక్కితే, ఆర్డర్ మెసేజ్ ఈ నంబర్‌కే వస్తుంది. ఖాళీగా ఉంటే WhatsApp ఆర్డర్ బటన్ ఉండదు.'
+              : 'When a customer picks items on your link and taps "Order on WhatsApp", the order message comes to this number. Empty = no WhatsApp order button.',
         ),
       ),
     ]);
