@@ -147,7 +147,7 @@ void main() {
     );
   });
 
-  test('voice preference persists and restores across provider recreation', () async {
+  test('one app voice: a choice made earlier is not restored after recreation (owner 2026-11-23)', () async {
     SharedPreferences.setMockInitialValues({});
 
     final first = ProviderContainer();
@@ -160,18 +160,13 @@ void main() {
     final second = ProviderContainer();
     addTearDown(second.dispose);
     second.read(appSettingsProvider);
-
     for (var i = 0; i < 20; i++) {
-      if (second.read(appSettingsProvider).voicePreference ==
-          VoicePreference.male) {
-        break;
-      }
       await Future<void>.delayed(Duration.zero);
     }
 
     expect(
       second.read(appSettingsProvider).voicePreference,
-      VoicePreference.male,
+      VoicePreference.automatic,
     );
   });
 
