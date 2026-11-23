@@ -16,6 +16,7 @@ import 'features/companion/companion_performance_panel.dart';
 import 'features/analytics/application/analytics_providers.dart';
 import 'features/analytics/domain/analytics_models.dart';
 import 'core/startup/startup_hint.dart';
+import 'core/net/net_quality.dart';
 import 'shared/widgets/chat_pins.dart' show askodoxLiveOrderChip;
 import 'features/home/presentation/askodox_primary_home_screen.dart' show askodoxSpeakTypedReplies;
 import 'services/in_app_assistant_service.dart' show askodoxAutoOpenAppActions;
@@ -52,6 +53,9 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
   void initState() {
     super.initState();
     askodoxInstallBuildErrorView(ref.read(appConfigProvider).apiBaseUrl);
+    // Owner 2026-11-23 (ASKODOX Lite step 2): watch the net; slow / none -> Lite mode by itself.
+    final netBase = ref.read(appConfigProvider).apiBaseUrl;
+    if (netBase != null && netBase.hasScheme) AskodoxNetQuality.instance.start(askodoxHealthProbe(netBase));
     Future.microtask(() async {
       await ref.read(authSessionProvider.notifier).restore();
       await ref.read(analyticsServiceProvider).record(
