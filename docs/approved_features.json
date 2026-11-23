@@ -457,6 +457,10 @@
         {
           "pr": "post-1313",
           "change": "pause / resume (Sarvam in place; device voice resumes from the last word, same engine), mute, replay"
+        },
+        {
+          "pr": "one-app-voice",
+          "change": "owner 2026-11-23: ONE female reply voice (ElevenLabs Chaitra G, elevenlabs_tts.APP_VOICE) for every language; Profile Automatic / Male / Female choice removed; older apps' choices ignored by /api/in-app/voice/speak (header echoes them); Sarvam fallback = female speaker; per-language override ELEVENLABS_APP_VOICE_<LANG>"
         }
       ]
     },
@@ -5763,8 +5767,8 @@
     {
       "id": "payment_alert_thank_you_voice",
       "name": "Payment thank-you by name in a chosen voice",
-      "purpose": "Owner 2026-11-13: when a payment comes the shop phone thanks the customer by name (\"Thank you <name> garu, 30 rupees reached <shop>, please visit again\") in one of 2 female + 2 male ElevenLabs voices, without asking yes / no per payment.",
-      "expected_behavior": "PaymentAlertParser reads the payer's display name (letters only) from PhonePe / Google Pay / Paytm wording; the name is spoken on the phone only, never stored in the event or uploaded. Settings say_name (default on), voice female|female2|male|male2, language te|hi|en (dropdowns). Each spoken part is fetched once from /api/in-app/voice/speak (ElevenLabs MP3 only) and kept on the phone (payvoice, max 400 files); fixed parts are fetched when settings are saved. Any failure or offline -> the phone's own voice says the whole sentence.",
+      "purpose": "Owner 2026-11-13: when a payment comes the shop phone thanks the customer by name (\"Thank you <name> garu, 30 rupees reached <shop>, please visit again\") in the ONE ASKODOX voice (owner 2026-11-23; was 2 female + 2 male), without asking yes / no per payment.",
+      "expected_behavior": "PaymentAlertParser reads the payer's display name (letters only) from PhonePe / Google Pay / Paytm wording; the name is spoken on the phone only, never stored in the event or uploaded. Settings say_name (default on), language dropdown; the voice row (askodoxPayAlertVoice) only shows the one ASKODOX voice -- no male / female / second-voice choice (owner 2026-11-23); an older saved voice is ignored and the server speaks elevenlabs_tts.APP_VOICE. Each spoken part is fetched once from /api/in-app/voice/speak (ElevenLabs MP3 only) and kept on the phone (payvoice, max 400 files); fixed parts are fetched when settings are saved. Any failure or offline -> the phone's own voice says the whole sentence.",
       "roles": [
         "seller",
         "staff"
@@ -5804,7 +5808,8 @@
       ],
       "status": "approved",
       "history": [
-        "2026-11-13: owner approved (thank-you by name, voice + language dropdowns, fixed words fetched once)"
+        "2026-11-13: owner approved (thank-you by name, voice + language dropdowns, fixed words fetched once)",
+        "2026-11-23: owner: one female voice (ElevenLabs Chaitra G) for every language; the voice dropdown is replaced by a fixed voice row (same key); phones key their kept parts with a new tag so old-voice parts are never joined"
       ]
     },
     {

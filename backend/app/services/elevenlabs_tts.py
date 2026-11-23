@@ -4,11 +4,18 @@ The owner found Sarvam Bulbul "sounds like a computer" (2026-10-28) and asked
 for the voices most people actually use on ElevenLabs, per Indian language,
 with fallbacks where ElevenLabs has no voice.
 
-* ONE voice table (`VOICES`): per language a female and a male voice, picked
-  from the ElevenLabs voice library sorted by one-year usage, conversational /
-  assistant voices preferred over audiobook or loan-recovery voices.
-  Staff can override any id with `ELEVENLABS_VOICE_<LANG>_<GENDER>` (e.g.
-  `ELEVENLABS_VOICE_TE_MALE`) without a code change.
+* ONE APP VOICE (owner 2026-11-23): every app reply and payment voice, in every
+  language, is `APP_VOICE` ("Chaitra G" -- lively, expressive Telugu female; the
+  multilingual model speaks the other languages with the same voice). The
+  Profile Automatic / Male / Female choice and the payment-alert "2 male,
+  2 female" picker are gone; old apps still send those words and the reply /
+  payment route ignores them (`voice="automatic"`). A language that sounds
+  wrong can get its own id with `ELEVENLABS_APP_VOICE_<LANG>` (or all with
+  `ELEVENLABS_APP_VOICE`) without a code change.
+* The gendered table (`VOICES` / `SECOND_VOICES`) stays ONLY for callers that
+  name a gender on purpose (AI product videos: the presenter's gender) and as
+  the list of languages ElevenLabs speaks. Staff override any of those ids with
+  `ELEVENLABS_VOICE_<LANG>_<GENDER>` (e.g. `ELEVENLABS_VOICE_TE_MALE`).
 * The language comes from the text's own script (same rule as Sarvam), so the
   voice always speaks the language that is on the screen.
 * Languages ElevenLabs cannot speak (Bodo, Dogri, Kashmiri, Konkani,
@@ -72,6 +79,21 @@ SECOND_VOICES: Dict[str, tuple[str, str]] = {
 }
 VOICE_CHOICES = ("female", "male", "female2", "male2")
 
+# Owner 2026-11-23 ("this female voice for all languages, remove the Automatic / Male / Female options"): the ONE
+# voice the app speaks with, every language. ElevenLabs library voice "Chaitra G - Expressive & Lively Girl".
+APP_VOICE = "oyjIr5XAhIyRjfNq6spl"
+
+
+def app_voice_for(language: str) -> Optional[str]:
+    """The app's one voice for a language ElevenLabs speaks (``None`` -> the caller falls back)."""
+    if language not in VOICES:
+        return None
+    for name in (f"ELEVENLABS_APP_VOICE_{language.upper()}", "ELEVENLABS_APP_VOICE"):
+        override = os.environ.get(name, "").strip()
+        if override:
+            return override
+    return APP_VOICE
+
 # Indian scheduled languages ElevenLabs has no model for (fall back to Sarvam / device).
 UNSUPPORTED = ("brx", "doi", "ks", "kok", "mai", "mni", "sa", "sat")
 
@@ -116,15 +138,14 @@ def api_key() -> str:
 
 
 def voice_for(language: str, voice: str = "automatic") -> Optional[str]:
-    """Voice id for a language and the choice (automatic | male | female | male2 | female2)."""
+    """Voice id for a language. "automatic" (and anything that is not a gender) = the app's one voice; an explicit
+    gender (male | female | male2 | female2) is only for callers that need one on purpose (product video presenter)."""
     pair = VOICES.get(language)
     if not pair:
         return None
     choice = (voice or "").strip().lower()
     if choice not in VOICE_CHOICES:
-        choice = (os.environ.get("ASKODOX_TTS_DEFAULT_GENDER", "") or "female").strip().lower()
-        if choice not in ("male", "female"):
-            choice = "female"
+        return app_voice_for(language)
     override = os.environ.get(f"ELEVENLABS_VOICE_{language.upper()}_{choice.upper()}", "").strip()
     if override:
         return override

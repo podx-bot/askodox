@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/auth/sign_out.dart';
 import '../../../core/flags/askodox_release_phase.dart';
 import '../../../core/providers/backend_providers.dart';
@@ -51,48 +50,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _message;
 
   bool get _te => Localizations.localeOf(context).languageCode == 'te';
-
-  String _voiceLabel(VoicePreference preference, bool te) =>
-      switch (preference) {
-        VoicePreference.automatic => te ? 'ఆటోమేటిక్' : 'Automatic',
-        VoicePreference.male => te ? 'పురుష వాయిస్' : 'Male voice',
-        VoicePreference.female => te ? 'మహిళా వాయిస్' : 'Female voice',
-      };
-
-  Future<void> _pickVoicePreference(bool te) async {
-    final current = ref.read(appSettingsProvider).voicePreference;
-    final selected = await showModalBottomSheet<VoicePreference>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.record_voice_over_outlined),
-              title: Text(te ? 'వాయిస్ ప్రాధాన్యత' : 'Voice preference'),
-              subtitle: Text(te
-                  ? 'ASKODOX మాట్లాడే వాయిస్‌ను ఎంచుకోండి. Automatic మీ డివైస్‌కు సరిపోయే వాయిస్‌ను ఉపయోగిస్తుంది.'
-                  : 'Choose the voice ASKODOX uses. Automatic picks a compatible device voice.'),
-            ),
-            RadioGroup<VoicePreference>(
-              groupValue: current,
-              onChanged: (value) => Navigator.pop(context, value),
-              child: Column(
-                children: [
-                  for (final preference in VoicePreference.values)
-                    RadioListTile<VoicePreference>(value: preference, title: Text(_voiceLabel(preference, te))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (selected == null || !mounted) return;
-    ref.read(appSettingsProvider.notifier).setVoicePreference(selected);
-  }
 
   Future<void> _checkUpdate() async {
     if (_checking || _installing) return;
@@ -214,7 +171,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final te = _te;
-    final voicePreference = ref.watch(appSettingsProvider).voicePreference;
     final locationState = ref.watch(locationControllerProvider);
     final selectedLocation = locationState.defaultLocation;
     final locationLabel = selectedLocation == null
@@ -573,8 +529,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 value: ref.watch(askodoxTestModeProvider).enabled,
                 onChanged: (on) => ref.read(askodoxTestModeProvider.notifier).setEnabled(on),
               ),
-            row('profile-voice', 'settings', Icons.record_voice_over_outlined, 'Voice preference', 'వాయిస్ ప్రాధాన్యత', '', '',
-                () => _pickVoicePreference(te), subtitle: _voiceLabel(voicePreference, te), words: ['voice', 'వాయిస్', 'గొంతు']),
             row('profile-notifications', 'settings', Icons.notifications_none_rounded, 'Notifications', 'నోటిఫికేషన్స్',
                 'Choose what you are told about.', 'ఏ విషయాలు తెలియజేయాలో ఎంచుకోండి.', () => context.push('/settings/notifications'), route: '/settings/notifications',
                 guide: 'screen_notifications', words: ['notification', 'alerts', 'నోటిఫికేషన్']),

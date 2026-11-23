@@ -1564,14 +1564,18 @@ object AskodoxPaymentAlerts {
         private fun enabled(cfg: JSONObject) =
             cfg.optBoolean("cloud_voice", true) && cfg.optString("base_url").startsWith("http")
 
-        private fun voice(cfg: JSONObject) = cfg.optString("voice", "female").let {
-            if (it in setOf("female", "male", "female2", "male2")) it else "female"
-        }
+        // Owner 2026-11-23: ONE ASKODOX voice for every language (server elevenlabs_tts.APP_VOICE); the old
+        // male / female / second-voice choice is ignored. The server speaks the one voice whatever is sent.
+        private fun voice(@Suppress("UNUSED_PARAMETER") cfg: JSONObject) = "female"
+
+        // Parts kept on this phone before the one-voice change were spoken by the OLD voices: a new key so they are
+        // never joined with new parts (two voices in one payment); prune() clears the old files over time.
+        private const val VOICE_CACHE_TAG = "app-voice-1"
 
         private fun dir(context: Context) = java.io.File(context.filesDir, "payvoice").apply { mkdirs() }
 
         private fun key(text: String, language: String, voice: String): String {
-            val digest = java.security.MessageDigest.getInstance("SHA-256").digest("$voice|$language|$text".toByteArray())
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest("$VOICE_CACHE_TAG|$voice|$language|$text".toByteArray())
             return digest.take(16).joinToString("") { "%02x".format(it) }
         }
 
@@ -1742,13 +1746,10 @@ object AskodoxPaymentAlerts {
                 spoken = PaymentAlertParser.announcement(Regex("""\d+""").find(text)?.value?.toLongOrNull()?.times(100), "en",
                     text.startsWith("టెస్ట్") || text.startsWith("टेस्ट"))
             }
-            val wantMale = cfg.optString("voice").startsWith("male")
+            // One ASKODOX voice (female, owner 2026-11-23): the phone's own voice matches it.
             try {
                 engine.voices?.filter { it.locale.language == engine.voice?.locale?.language && !it.isNetworkConnectionRequired }
-                    ?.firstOrNull { v ->
-                        val name = v.name.lowercase()
-                        if (wantMale) name.contains("male") && !name.contains("female") else name.contains("female")
-                    }
+                    ?.firstOrNull { v -> v.name.lowercase().contains("female") }
                     ?.let { engine.voice = it }
             } catch (_: Exception) {
             }

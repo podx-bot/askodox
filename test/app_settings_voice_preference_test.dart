@@ -28,7 +28,7 @@ void main() {
     );
   });
 
-  test('ASKODOX restores a persisted voice preference', () async {
+  test('an old saved Male / Female choice is dropped: one app voice (owner 2026-11-23)', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'askodox.voice.preference': 'male',
     });
@@ -42,8 +42,10 @@ void main() {
 
     expect(
       container.read(appSettingsProvider).voicePreference,
-      VoicePreference.male,
+      VoicePreference.automatic,
     );
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.containsKey('askodox.voice.preference'), isFalse);
   });
 
   test('invalid persisted voice preference safely falls back to automatic', () async {

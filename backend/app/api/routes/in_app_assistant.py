@@ -634,11 +634,14 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
             import time as _time
 
             started = _time.monotonic()
+            # Owner 2026-11-23: ONE voice for every reply / payment, every language (elevenlabs_tts.APP_VOICE). Older
+            # apps still send Profile / payment-alert choices (male, female2 ...): ignored, the header below echoes them
+            # so those apps keep accepting the audio.
             try:
-                spoken = eleven.synthesize(payload.text, voice=payload.voice, locale=payload.locale,
+                spoken = eleven.synthesize(payload.text, voice="automatic", locale=payload.locale,
                                            timeout_seconds=LOCKED_ELEVENLABS_TIMEOUT_S if locked else None)
             except TypeError:  # a test double without the timeout argument
-                spoken = eleven.synthesize(payload.text, voice=payload.voice, locale=payload.locale)
+                spoken = eleven.synthesize(payload.text, voice="automatic", locale=payload.locale)
             _observe_elevenlabs(spoken)
             # Where a spoken turn's time goes (owner 2026-11-16: talk felt slow). print(): app loggers at INFO never
             # reached Railway, so the fallback reason was invisible (owner 2026-11-21). chars + ms + status, no text.
@@ -663,13 +666,12 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
     synthesize = getattr(container.voice_assistant_service, "synthesize", None)
     if not callable(synthesize):
         raise HTTPException(status_code=503, detail="TTS_UNAVAILABLE")
-    # Sarvam knows only male / female: the second voices fall back to their gender.
-    gender = payload.voice[:-1] if payload.voice.endswith("2") else payload.voice
+    # Owner 2026-11-23: the app voice is female in every language, so the Sarvam fallback is always its female
+    # speaker, whatever an older app still asks for.
+    gender = "female"
     try:
         result = synthesize(payload.text, voice=gender) or {}
-    except TypeError:  # an engine without voice choice: only valid for "automatic"
-        if gender != "automatic":
-            raise HTTPException(status_code=503, detail="TTS_VOICE_UNSUPPORTED") from None
+    except TypeError:  # an engine without voice choice speaks its own voice (there is no user choice any more)
         result = synthesize(payload.text) or {}
     path = str(result.get("tts_path") or "")
     audio = result.get("content")

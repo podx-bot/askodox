@@ -559,9 +559,11 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     _status = await _bridge.configure({
       'enabled': _settings['enabled'] == true && _settings['feature_on'] != false,
       'language': _settings['language'] ?? 'te',
-      'voice': _settings['voice'] ?? 'female',
-      // Thank-you with the payer's name (spoken on this phone only) + the shop name; the chosen ElevenLabs
-      // voice is fetched once per part and kept on the phone (device voice when offline).
+      // Owner 2026-11-23: one ASKODOX voice for every language; a male / second voice saved by an older build is
+      // never sent on (the server speaks the one voice anyway; the phone's own voice fallback stays female).
+      'voice': 'female',
+      // Thank-you with the payer's name (spoken on this phone only) + the shop name; the ASKODOX voice is
+      // fetched once per part and kept on the phone (device voice when offline).
       'say_name': _settings['say_name'] ?? true,
       'shop_name': _settings['shop_name'] ?? '',
       'cloud_voice': true,
@@ -1243,22 +1245,16 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           ),
           AskodoxOfflineVoiceCard(language: lang),
           const SizedBox(height: 10),
-          // A new language has its own voice list: a fresh field so the old choice never lingers.
-          KeyedSubtree(key: ValueKey('askodoxPayAlertVoiceFor-$lang'), child: DropdownButtonFormField<String>(
+          // Owner 2026-11-23: ONE ASKODOX voice for every language (no male / female / second-voice choice any more).
+          ListTile(
             key: const Key('askodoxPayAlertVoice'),
-            isExpanded: true,
-            initialValue: askodoxPayAlertVoicesFor(lang).contains('${_settings['voice']}') ? '${_settings['voice']}' : 'female',
-            decoration: InputDecoration(
-                labelText: te ? 'వాయిస్' : 'Voice',
-                helperText: te
-                    ? 'ఎంచుకుని "స్పీకర్ టెస్ట్" నొక్కి వినండి. నెట్ లేకపోతే ఫోన్ వాయిస్.'
-                    : 'Choose, then tap "Speaker test" to hear it. Without internet the phone voice speaks.'),
-            items: [
-              for (final v in askodoxPayAlertVoicesFor(lang))
-                DropdownMenuItem(value: v, child: Text(askodoxPayAlertVoiceLabel(v, lang, te))),
-            ],
-            onChanged: _busy ? null : (v) => v == null || v == '${_settings['voice']}' ? null : _save({'voice': v}),
-          )),
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.record_voice_over_outlined),
+            title: Text(te ? 'వాయిస్: ASKODOX వాయిస్' : 'Voice: the ASKODOX voice'),
+            subtitle: Text(te
+                ? 'అన్ని భాషలకీ ఒకటే వాయిస్. "స్పీకర్ టెస్ట్" నొక్కి వినండి. నెట్ లేకపోతే ఫోన్ వాయిస్.'
+                : 'One voice for every language. Tap "Speaker test" to hear it. Without internet the phone voice speaks.'),
+          ),
           SwitchListTile(
             key: const Key('askodoxPayAlertSayName'),
             contentPadding: EdgeInsets.zero,
@@ -1549,31 +1545,3 @@ const askodoxPayAlertLanguages = [
   ('bn', 'বাংলা'), ('mr', 'मराठी'), ('gu', 'ગુજરાતી'), ('pa', 'ਪੰਜਾਬੀ'), ('or', 'ଓଡ଼ିଆ'), ('ur', 'اردو'),
 ];
 
-/// Two female + two male voices (ElevenLabs, server `elevenlabs_tts.SECOND_VOICES`).
-const askodoxPayAlertVoiceIds = ['female', 'female2', 'male', 'male2'];
-
-/// te / hi / en have two voices of each kind; the other languages have one female + one male voice.
-List<String> askodoxPayAlertVoicesFor(String language) =>
-    const {'te', 'hi', 'en'}.contains(language) ? askodoxPayAlertVoiceIds : const ['female', 'male'];
-
-/// "Madhavi (female)" -- the ElevenLabs voice's name for the chosen language.
-String askodoxPayAlertVoiceLabel(String voice, String language, bool te) {
-  const names = {
-    'te': {'female': 'Madhavi', 'female2': 'Vijaya', 'male': 'Jayesh', 'male2': 'Maddy'},
-    'hi': {'female': 'Sia', 'female2': 'Anika', 'male': 'Bunty', 'male2': 'Viraj'},
-    'en': {'female': 'Sia', 'female2': 'Anika', 'male': 'Bunty', 'male2': 'Viraj'},
-    'ta': {'female': 'Meera', 'male': 'Muthu'},
-    'kn': {'female': 'Asiri', 'male': 'Srivatsa'},
-    'ml': {'female': 'Samitha', 'male': 'Manikandan'},
-    'bn': {'female': 'Madhusmita', 'male': 'Biju'},
-    'mr': {'female': 'Sayali', 'male': 'Vinayak'},
-    'gu': {'female': 'Hetalben', 'male': 'Jayesh Bhai'},
-    'pa': {'female': 'Sia', 'male': 'Yatin'},
-    'or': {'female': 'Barsha', 'male': 'Manohar'},
-    'ur': {'female': 'Reva', 'male': 'Raju'},
-  };
-  final name = names[language]?[voice] ?? names['te']![voice] ?? voice;
-  final female = voice.startsWith('female');
-  final kind = te ? (female ? 'స్త్రీ' : 'పురుషుడు') : (female ? 'female' : 'male');
-  return '$name ($kind ${voice.endsWith('2') ? 2 : 1})';
-}
