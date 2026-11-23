@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/widgets/qr_poster.dart';
 import '../../devices/data/device_repository.dart';
 import '../../guide/in_app_guide.dart' show askodoxGuideSpeakerProvider;
 import '../../home/presentation/question_mic.dart';
@@ -791,7 +792,13 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
     final payments = await showModalBottomSheet<List<AskodoxJson>>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => AskodoxPosPaymentSheet(total: preview.totalPaise, allowCredit: _customer != null, te: te),
+      builder: (ctx) => AskodoxPosPaymentSheet(
+        total: preview.totalPaise,
+        allowCredit: _customer != null,
+        te: te,
+        // Owner 2026-11-24: UPI at the counter shows the shop's own QR right there (fetched only when UPI is chosen).
+        shopUpi: () => ref.read(askodoxPosRepositoryProvider).myPaymentMethods().then(askodoxDefaultUpi, onError: (_) => null),
+      ),
     );
     if (payments == null || !mounted) return;
     await _issue(business, preview, payments);
@@ -1129,11 +1136,22 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
   }
 }
 
+/// The default UPI (id, payee) among the person's own ways to be paid; null when there is none.
+(String, String)? askodoxDefaultUpi(List<AskodoxJson> methods) {
+  final upis = [for (final m in methods) if (m['kind'] != 'bank' && '${m['upi_id'] ?? ''}'.isNotEmpty) m];
+  if (upis.isEmpty) return null;
+  final m = upis.firstWhere((u) => u['is_default'] == true, orElse: () => upis.first);
+  return ('${m['upi_id']}', '${m['payee_name'] ?? ''}');
+}
+
 class AskodoxPosPaymentSheet extends StatefulWidget {
-  const AskodoxPosPaymentSheet({super.key, required this.total, required this.allowCredit, required this.te});
+  const AskodoxPosPaymentSheet({super.key, required this.total, required this.allowCredit, required this.te, this.shopUpi});
   final int total;
   final bool allowCredit;
   final bool te;
+
+  /// The shop's own UPI (id, payee) for the QR shown when UPI is chosen; null = no QR.
+  final Future<(String, String)?> Function()? shopUpi;
 
   @override
   State<AskodoxPosPaymentSheet> createState() => AskodoxPosPaymentSheetState();
@@ -1144,6 +1162,7 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
   final _amount = TextEditingController();
   final _reference = TextEditingController();
   String _method = 'cash';
+  Future<(String, String)?>? _upi;
 
   int get _paid => _payments.fold(0, (a, p) => a + askodoxPosInt(p['amount_paise']));
   int get _left => widget.total - _paid;
@@ -1178,6 +1197,33 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
     return left == 0 || widget.allowCredit ? [typed] : null;
   }
 
+  /// Owner 2026-11-24 ("UPI select అవ్వట్లేదు"): the bill was already paid in full by ONE added payment (Cash, the
+  /// default), so picking UPI changed nothing. Picking a way now moves that one payment to it; UPI also shows the QR.
+  void _choose(String method) {
+    setState(() {
+      _method = method;
+      if (_payments.length == 1 && _left == 0) _payments[0] = {..._payments[0], 'method': method};
+      if (method == 'upi') _upi ??= widget.shopUpi?.call();
+    });
+  }
+
+  /// An added payment can be taken off again (a wrong tap is never stuck in the bill).
+  void _remove(int index) {
+    setState(() {
+      _payments.removeAt(index);
+      _amount.text = askodoxPaise(_left, symbol: false).replaceAll(',', '');
+    });
+  }
+
+  /// The amount the QR asks for: the box when it holds a valid amount, else what is left.
+  int get _qrPaise {
+    final typed = askodoxParsePaise(_amount.text);
+    if (typed != null && typed > 0 && typed <= _left) return typed;
+    if (_left > 0) return _left;
+    final upi = _payments.where((p) => p['method'] == 'upi');
+    return upi.isEmpty ? widget.total : askodoxPosInt(upi.last['amount_paise']);
+  }
+
   void _add() {
     final paise = askodoxParsePaise(_amount.text);
     if (paise == null || paise <= 0 || paise > _left) return;
@@ -1198,18 +1244,55 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
       'bank_transfer': te ? 'బ్యాంక్' : 'Bank',
       'cheque': te ? 'చెక్' : 'Cheque',
     };
-    return Padding(
+    // Scrolls when the QR makes it taller than a small phone.
+    return SingleChildScrollView(
+        child: Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${te ? 'మొత్తం' : 'Total'} ${askodoxPaise(widget.total)} · ${te ? 'మిగిలింది' : 'left'} ${askodoxPaise(_left)}',
             key: const Key('askodoxPosLeft'), style: const TextStyle(fontWeight: FontWeight.w800)),
         Wrap(spacing: 6, children: [
           for (final e in labels.entries)
-            ChoiceChip(label: Text(e.value), selected: _method == e.key, onSelected: (_) => setState(() => _method = e.key)),
+            ChoiceChip(
+                key: ValueKey('askodoxPosPayWay-${e.key}'),
+                label: Text(e.value),
+                selected: _method == e.key,
+                onSelected: (_) => _choose(e.key)),
         ]),
         AskodoxPosField(
             controller: _amount, number: true, label: te ? 'మొత్తం (₹)' : 'Amount (₹)', onChanged: (_) => setState(() {})),
         if (_method != 'cash') AskodoxPosField(controller: _reference, label: te ? 'రిఫరెన్స్ (UTR మొదలైనవి)' : 'Reference (UTR etc.)'),
+        if (_method == 'upi' && _upi != null)
+          FutureBuilder<(String, String)?>(
+            future: _upi,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator()));
+              }
+              final upi = snap.data;
+              if (upi == null) {
+                return TextButton(
+                  key: const Key('askodoxPosPayAddUpi'),
+                  onPressed: () => context.push('/me/payment-methods'),
+                  child: Text(te ? 'QR చూపడానికి మీ UPI జోడించండి' : 'Add your UPI to show a QR'),
+                );
+              }
+              return Center(
+                child: AskodoxQrPoster(
+                  qrKey: const Key('askodoxPosPayQr'),
+                  data: 'upi://pay?pa=${Uri.encodeComponent(upi.$1)}${upi.$2.isEmpty ? '' : '&pn=${Uri.encodeComponent(upi.$2)}'}'
+                      '&am=${(_qrPaise / 100).toStringAsFixed(2)}&cu=INR',
+                  te: te,
+                  title: upi.$2.isEmpty ? upi.$1 : upi.$2,
+                  size: 160,
+                  actions: false,
+                  fileName: 'askodox-counter-qr',
+                  footnoteEn: "Shop's own UPI · ASKODOX never holds your money",
+                  footnoteTe: 'షాప్ సొంత UPI · ASKODOX మీ డబ్బు ఉంచుకోదు',
+                ),
+              );
+            },
+          ),
         if (_method == 'upi' || _method == 'card')
           Text(
             te
@@ -1220,7 +1303,16 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
         Row(children: [
           OutlinedButton(key: const Key('askodoxPosAddPayment'), onPressed: _add, child: Text(te ? 'చెల్లింపు జోడించు' : 'Add payment')),
           const Spacer(),
-          for (final p in _payments) Padding(padding: const EdgeInsets.only(left: 4), child: Chip(label: Text('${labels[p['method']]} ${askodoxPaise(askodoxPosInt(p['amount_paise']))}'))),
+          for (var i = 0; i < _payments.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: InputChip(
+                key: ValueKey('askodoxPosPayment-$i'),
+                label: Text('${labels[_payments[i]['method']]} ${askodoxPaise(askodoxPosInt(_payments[i]['amount_paise']))}'),
+                onDeleted: () => _remove(i),
+                deleteButtonTooltipMessage: te ? 'తీసేయి' : 'Remove',
+              ),
+            ),
         ]),
         if (_left > 0 && widget.allowCredit)
           Text(te ? 'మిగిలినది కస్టమర్ ఖాతాలో బాకీగా ఉంటుంది.' : 'The rest goes on the customer\'s credit account.', style: const TextStyle(fontSize: 12)),
@@ -1248,7 +1340,7 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
             ),
           ),
       ]),
-    );
+    ));
   }
 }
 

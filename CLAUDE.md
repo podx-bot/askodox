@@ -1003,6 +1003,9 @@ this file, don't trust it blindly.
   `PosStore._issue` and app `askodoxTierPrice` (keep both rules equal); photos = `pos_product_photos` (<= 300 KB PNG/JPEG).
   Spoken orders = `askodoxSplitPosOrder` / `askodoxParsePosOrder` -> `AskodoxPosOrderReviewSheet` (never adds silently);
   items match in ANY script by sound (`pos_name_sound.dart` = twin of `name_sound.py`), rule `.claude/rules/pos-spoken-orders.md`.
+- Counter pay sheet (`AskodoxPosPaymentSheet`, owner 2026-11-24 "UPI select అవ్వట్లేదు"): picking a way moves a single
+  full payment to it (`_choose`), added payments come off (`askodoxPosPayment-<i>`), UPI shows the shop's own QR with the
+  amount (`askodoxPosPayQr`, `askodoxDefaultUpi` of `myPaymentMethods`, fetched only when UPI is chosen).
 - Self-shopping = `pos_selfshop.py` (tables `pos_selfshop_*`) + `/api/pos/selfshop/*` (customer, any signed-in user, join
   rate-limited) + `/api/pos/businesses/{id}/selfshop*` (staff). Daily 6-digit code (QR `ASKODOX-SHOP:<code>`); sessions
   OPEN -> CHECKOUT (4-digit exit code) -> BILLED via `PosStore.create_invoice` (client_txn_id `selfshop-<sid>`); weighed /
