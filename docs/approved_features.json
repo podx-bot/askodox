@@ -10043,6 +10043,64 @@
           "askodoxMoneySectionIds"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/attendance/check"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/attendance/settings"
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Attendance on a person's own phone needs the phone's REAL location inside the shop's radius (require_location): GPS off -> not marked with \"turn on location\"; a fake-GPS fix -> 403 mock_location + the owner / managers are told; no shop pin -> the owner sets it in one tap standing in the shop (check-in step or Attendance setup \"The shop is here\"), staff are told to ask the owner; far -> the distance is shown and the person can only go \"field work -- ask the owner\" (kept with note outside + the owner is told) when outside_needs_ok. Coming in / half day = a live face check (require_live_face): Google ML Kit on the phone (free, no internet), the moves (turn, nod, blink) in a new random order every time, a straight look between moves, the same face throughout (tracking id), 40 s limit -- a still photo never passes; only the last straight frame is sent (method face_live) for the owner. The shop phone (kiosk) does the same check (kiosk_live). An older app's phone lock / plain photo is kept with note old_app and the owner is told (the shop never stops). Setup: pin here, radius 50 / 100 / 150 / 300 m, three switches. No fingerprint / phone lock as proof.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: location compulsory + fake GPS refused + live face check (design approved); NOT PHONE VERIFIED",
+          "date": "2026-11-23"
+        }
+      ],
+      "id": "attendance_live_face",
+      "name": "Attendance: real location + live face check (no fingerprint, no plain photo)",
+      "purpose": "Owner 2026-11-23: the location was not selected, a fingerprint / plain photo can be cheated -- a free live face check with head moves.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_attendance.py::test_owner_2026_11_23_location_pin_fake_gps_and_live_face_are_required"
+        ],
+        "flutter": [
+          "test/features/steps/live_face_test.dart",
+          "test/features/steps/step_pages_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxLiveFace",
+          "askodoxCheckInPinHere",
+          "askodoxCheckInAskOwner",
+          "askodoxCheckInOpenLocation",
+          "askodoxAttPinHere",
+          "askodoxAttRequireLocation",
+          "askodoxAttRequireFace",
+          "askodoxAttOutsideOk"
+        ],
+        "symbols": [
+          "AskodoxLiveCheck",
+          "askodoxLiveFaceCheck",
+          "askodoxDistanceM"
+        ]
+      }
     }
   ]
 }

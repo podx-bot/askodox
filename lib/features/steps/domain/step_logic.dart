@@ -1,6 +1,8 @@
 // The 3-step pages (owner 2026-11-22: "every second page in 3 pieces, done in just 3 steps, understood at a glance").
 // Pure rules shared by the bill / dues / check-in / day-close steps, kept here so they are tested without a screen.
 
+import 'dart:math' as math;
+
 import '../../pos/domain/pos_money.dart';
 
 /// One key on the big number pad: digits, "00" and "del". The value is whole rupees as typed ("2350"); a leading
@@ -105,3 +107,17 @@ int? askodoxParseQtyMilli(String text) {
   if (v == null || v < 0) return null;
   return (v * 1000).round();
 }
+
+/// Metres between two places (the server measures the same way): "you are 40 m from the shop" is shown BEFORE the face
+/// check, so nobody does the face part only to be refused for the distance (owner 2026-11-23).
+int askodoxDistanceM(double aLat, double aLng, double bLat, double bLng) {
+  const r = 6371000.0;
+  final p1 = aLat * math.pi / 180, p2 = bLat * math.pi / 180;
+  final dp = (bLat - aLat) * math.pi / 180, dl = (bLng - aLng) * math.pi / 180;
+  final h = math.sin(dp / 2) * math.sin(dp / 2) + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) * math.sin(dl / 2);
+  return (2 * r * math.asin(math.sqrt(h))).floor();
+}
+
+/// "40 m" / "2.3 km".
+String askodoxDistanceText(int metres) => metres < 1000 ? '$metres m' : '${(metres / 1000).toStringAsFixed(1)} km';
+

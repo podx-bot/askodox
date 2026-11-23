@@ -66,7 +66,7 @@ class GeolocatorLocationGateway extends DeviceLocationGateway {
           timeLimit: Duration(seconds: 20),
         ),
       );
-      final point = GeoPoint(position.latitude, position.longitude);
+      final point = GeoPoint(position.latitude, position.longitude, mocked: position.isMocked, accuracyM: position.accuracy);
       return point.isValid ? point : null;
     } catch (_) {
       return null;

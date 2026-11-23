@@ -1,6 +1,12 @@
 """Staff attendance, salary and tasks (owner 2026-11-18).
 
-How attendance is proven -- honestly:
+How attendance is proven -- honestly (owner 2026-11-23 made it strict):
+- WHERE: the phone's location is compulsory and must be inside the shop's radius around the shop pin (the owner sets
+  the pin + radius once). A fake-GPS app is refused. Outside the radius (field work) = only with "ask the owner": the
+  row is kept with far + a note and the owner is told at once.
+- WHO / LIVE: the new app checks a live face on the phone (random head turn / nod / blink -- a photo of a photo does
+  not move) and sends one still for the owner (``method = face_live``). An older app's phone lock / plain photo is
+  still kept, marked "old app" for the owner, so a shop never stops during an update.
 - A phone's fingerprint / face lock only knows the phone's OWN owner. So each person checks in on their OWN phone
   (the app asks the phone's lock first: ``method = device_lock``) and the phone sends where it is; the distance to the
   shop's map pin is saved with the row. Far away = the row says so (the owner decides).
@@ -79,6 +85,18 @@ def _distance_m(a_lat: float, a_lng: float, b_lat: float, b_lng: float) -> int:
     return int(2 * r * math.asin(math.sqrt(h)))
 
 
+# Owner 2026-11-23: strict attendance settings (all ON by default) + the shop pin kept with them.
+MIGRATIONS = (
+    "ALTER TABLE pos_att_settings ADD COLUMN require_location INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE pos_att_settings ADD COLUMN require_live_face INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE pos_att_settings ADD COLUMN outside_needs_ok INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE pos_att_settings ADD COLUMN pin_lat REAL",
+    "ALTER TABLE pos_att_settings ADD COLUMN pin_lng REAL",
+)
+
+STRICT_KEYS = ("require_location", "require_live_face", "outside_needs_ok")
+
+
 class PosAttendance:
     def __init__(self, store: PosStore, *, notify: Optional[Callable[..., None]] = None,
                  clock: Callable[[], datetime] = _now) -> None:
@@ -88,6 +106,11 @@ class PosAttendance:
         with store._connect() as conn:
             for stmt in SCHEMA:
                 conn.execute(stmt)
+            for stmt in MIGRATIONS:
+                try:
+                    conn.execute(stmt)
+                except Exception:
+                    pass  # the column is already there
 
     # ------------------------------------------------------------------------------------------------ helpers
     def _me(self, conn, business_id: str, user: str) -> Dict[str, Any]:
@@ -115,13 +138,25 @@ class PosAttendance:
     def settings(self, conn, business_id: str) -> Dict[str, Any]:
         row = conn.execute("SELECT * FROM pos_att_settings WHERE business_id = ?", (business_id,)).fetchone()
         base = {"start_time": "09:00", "end_time": "21:00", "grace_min": 15, "radius_m": 150, "own_phone": True,
-                "kiosk": True}
+                "kiosk": True, "require_location": True, "require_live_face": True, "outside_needs_ok": True}
         if row:
+            keys = row.keys()
             base.update({"start_time": row["start_time"], "end_time": row["end_time"], "grace_min": row["grace_min"],
                          "radius_m": row["radius_m"], "own_phone": bool(row["own_phone"]), "kiosk": bool(row["kiosk"])})
+            for k in STRICT_KEYS:
+                if k in keys and row[k] is not None:
+                    base[k] = bool(row[k])
         return base
 
     def _shop_pin(self, conn, business_id: str) -> Optional[tuple]:
+        """The attendance pin the owner set (owner 2026-11-23), else the shop profile's map pin."""
+        try:
+            row = conn.execute("SELECT pin_lat, pin_lng FROM pos_att_settings WHERE business_id = ?",
+                               (business_id,)).fetchone()
+            if row and row["pin_lat"] is not None and row["pin_lng"] is not None:
+                return float(row["pin_lat"]), float(row["pin_lng"])
+        except Exception:
+            pass
         try:
             row = conn.execute("SELECT data FROM shop_profiles WHERE business_id = ?", (business_id,)).fetchone()
             data = json.loads(row["data"]) if row else {}
@@ -138,7 +173,11 @@ class PosAttendance:
         with self.store._connect() as conn:
             self.store._require(conn, business_id, user, "view")
             out = self.settings(conn, business_id)
-            out["shop_pin"] = self._shop_pin(conn, business_id) is not None
+            pin = self._shop_pin(conn, business_id)
+            out["shop_pin"] = pin is not None
+            # Everyone in the shop may see the pin + radius: the phone shows "you are 40 m from the shop" before the
+            # face check, so nobody does the face part only to be refused for the distance.
+            out["pin"] = {"lat": pin[0], "lng": pin[1]} if pin else None
             return out
 
     def set_settings(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -146,16 +185,30 @@ class PosAttendance:
             self.store._require(conn, business_id, user, "members")
             cur = self.settings(conn, business_id)
             cur.update({k: v for k, v in data.items() if k in cur and v is not None})
+            pin = self._shop_pin(conn, business_id)
+            lat, lng = data.get("pin_lat"), data.get("pin_lng")
+            if lat is not None and lng is not None:
+                if not (-90 <= float(lat) <= 90 and -180 <= float(lng) <= 180):
+                    raise PosError(400, "pin", "The shop location is not valid.")
+                pin = (float(lat), float(lng))
             conn.execute(
                 "INSERT INTO pos_att_settings (business_id, start_time, end_time, grace_min, radius_m, own_phone, kiosk,"
-                " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(business_id) DO UPDATE SET"
+                " require_location, require_live_face, outside_needs_ok, pin_lat, pin_lng,"
+                " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(business_id) DO UPDATE SET"
                 " start_time = excluded.start_time, end_time = excluded.end_time, grace_min = excluded.grace_min,"
                 " radius_m = excluded.radius_m, own_phone = excluded.own_phone, kiosk = excluded.kiosk,"
+                " require_location = excluded.require_location, require_live_face = excluded.require_live_face,"
+                " outside_needs_ok = excluded.outside_needs_ok, pin_lat = excluded.pin_lat, pin_lng = excluded.pin_lng,"
                 " updated_at = excluded.updated_at",
                 (business_id, _hhmm(cur["start_time"], "09:00"), _hhmm(cur["end_time"], "21:00"),
                  max(0, min(int(cur["grace_min"]), 180)), max(30, min(int(cur["radius_m"]), 5000)),
-                 int(bool(cur["own_phone"])), int(bool(cur["kiosk"])), self.clock().isoformat()))
-            return self.settings(conn, business_id)
+                 int(bool(cur["own_phone"])), int(bool(cur["kiosk"])), int(bool(cur["require_location"])),
+                 int(bool(cur["require_live_face"])), int(bool(cur["outside_needs_ok"])),
+                 pin[0] if pin else None, pin[1] if pin else None, self.clock().isoformat()))
+            out = self.settings(conn, business_id)
+            out["shop_pin"] = pin is not None
+            out["pin"] = {"lat": pin[0], "lng": pin[1]} if pin else None
+            return out
 
     def set_pay(self, business_id: str, user: str, ref: str, data: Dict[str, Any]) -> Dict[str, Any]:
         kind = str(data.get("salary_kind") or "month")
@@ -174,9 +227,26 @@ class PosAttendance:
         return {"ok": True}
 
     # ------------------------------------------------------------------------------------------------ check in / out
+    def _tell_bosses(self, conn, business_id: str, title: str, body: str, key: str) -> None:
+        """The owner (and managers) hear at once about a check-in that needs their eye."""
+        if not self.notify:
+            return
+        users = []
+        owner = conn.execute("SELECT owner_user_id FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+        if owner:
+            users.append(owner["owner_user_id"])
+        for r in conn.execute("SELECT app_user_id FROM pos_members WHERE business_id = ? AND active = 1 AND role = 'manager'"
+                              " AND app_user_id IS NOT NULL AND app_user_id != ''", (business_id,)):
+            users.append(r["app_user_id"])
+        for u in dict.fromkeys(users):
+            try:
+                self.notify(u, title, body, f"/biz/{business_id}/staff/today", f"{key}:{u}")
+            except Exception:
+                pass  # a push problem never loses the attendance
+
     def check(self, business_id: str, user: str, action: str, *, lat: Optional[float] = None,
               lng: Optional[float] = None, method: str = "device_lock", photo_b64: str = "",
-              for_ref: str = "") -> Dict[str, Any]:
+              for_ref: str = "", mocked: bool = False, outside: bool = False) -> Dict[str, Any]:
         """``action`` in / out / leave. On the person's own phone ``for_ref`` is empty; the shop phone (kiosk, owner /
         manager signed in) passes the staff reference and a photo."""
         if action not in ("in", "out", "leave", "half"):
@@ -187,12 +257,14 @@ class PosAttendance:
             if for_ref:
                 self.store._require(conn, business_id, user, "members")
                 key = self._staff_key(conn, business_id, for_ref)
-                method = "kiosk"
+                # The shop phone does the same live face check now (owner 2026-11-23); an older app's plain photo = kiosk.
+                method = "kiosk_live" if method == "face_live" else "kiosk"
                 if not photo_b64:
                     raise PosError(400, "photo", "Take a photo at the shop phone.")
             else:
-                key = self._me(conn, business_id, user)["key"]
-                if method not in ("device_lock", "photo"):
+                me = self._me(conn, business_id, user)
+                key = me["key"]
+                if method not in ("device_lock", "photo", "face_live"):
                     method = "device_lock"
             st = self.settings(conn, business_id)
             distance, far = None, False
@@ -200,6 +272,33 @@ class PosAttendance:
             if pin and lat is not None and lng is not None:
                 distance = _distance_m(pin[0], pin[1], float(lat), float(lng))
                 far = distance > int(st["radius_m"])
+            note = ""
+            # Owner 2026-11-23: strict rules for a person's OWN phone (the shop phone stays at the shop and needs a photo).
+            if not for_ref and action != "leave":
+                who = me["name"] or (me["key"][-4:] if me["key"] else "")
+                if mocked:
+                    self._tell_bosses(conn, business_id, "⚠️ నకిలీ లొకేషన్", f"{who}: Fake GPS తో హాజరు వేయబోయారు — పడలేదు.",
+                                      f"att_mock:{key}:{today}")
+                    raise PosError(403, "mock_location", "A fake-location app is on. Turn it off -- attendance needs the "
+                                                         "phone's real location.")
+                if st["require_location"]:
+                    if lat is None or lng is None:
+                        raise PosError(400, "location", "Turn on the phone's location -- attendance needs where you are.")
+                    if pin is None:
+                        raise PosError(409, "no_pin", "The shop's location is not set yet. The owner sets it once in "
+                                                      "Attendance setup.")
+                if far and st["outside_needs_ok"] and not outside:
+                    raise PosError(409, "far", f"You are {distance} m from the shop (allowed {st['radius_m']} m).")
+                if far:
+                    note = "outside"
+                    self._tell_bosses(conn, business_id, "📍 బయట నుంచి హాజరు",
+                                      f"{who}: షాప్ కి {distance} m దూరం నుంచి — చూసి ఒప్పుకోండి.", f"att_far:{key}:{today}")
+                if st["require_live_face"] and action in ("in", "half") and not (method == "face_live" and photo_b64):
+                    # An older app (phone lock / plain photo): kept, marked for the owner -- the shop never stops.
+                    note = (note + " old_app").strip()
+                    self._tell_bosses(conn, business_id, "⚠️ పాత యాప్ తో హాజరు",
+                                      f"{who}: ముఖం లైవ్ చెక్ లేకుండా — కొత్త ASKODOX అప్‌డేట్ చేయమనండి.",
+                                      f"att_old:{key}:{today}")
             row = conn.execute("SELECT * FROM pos_attendance WHERE business_id = ? AND phone_key = ? AND local_date = ?",
                                (business_id, key, today)).fetchone()
             if action == "leave":
@@ -230,12 +329,14 @@ class PosAttendance:
             att_id = row["id"] if row else "att_" + uuid.uuid4().hex[:14]
             conn.execute(
                 "INSERT INTO pos_attendance (id, business_id, phone_key, local_date, status, in_at, out_at, late_min, ot_min,"
-                " method, distance_m, far, marked_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                " method, distance_m, far, note, marked_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 " ON CONFLICT(business_id, phone_key, local_date) DO UPDATE SET status = excluded.status,"
                 " in_at = excluded.in_at, out_at = excluded.out_at, late_min = excluded.late_min, ot_min = excluded.ot_min,"
                 " method = excluded.method, distance_m = COALESCE(excluded.distance_m, pos_attendance.distance_m),"
-                " far = MAX(excluded.far, pos_attendance.far), marked_by = excluded.marked_by, updated_at = excluded.updated_at",
-                (att_id, business_id, key, today, status, in_at, out_at, late, ot, method, distance, int(far), user,
+                " far = MAX(excluded.far, pos_attendance.far),"
+                " note = CASE WHEN excluded.note != '' THEN excluded.note ELSE pos_attendance.note END,"
+                " marked_by = excluded.marked_by, updated_at = excluded.updated_at",
+                (att_id, business_id, key, today, status, in_at, out_at, late, ot, method, distance, int(far), note, user,
                  now.isoformat()))
             if photo_b64:
                 try:

@@ -2,23 +2,25 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../business/presentation/biz_staff.dart' show askodoxAttTodayProvider;
 import '../../location/application/location_controller.dart' show deviceLocationGatewayProvider;
-import '../../location/domain/geo_models.dart' show LocationPermissionStatus;
+import '../../location/domain/geo_models.dart' show GeoPoint, LocationPermissionStatus;
 import '../../pos/data/pos_repository.dart';
 import '../../pos/presentation/pos_common.dart';
+import '../domain/step_logic.dart' show askodoxDistanceM, askodoxDistanceText;
+import 'live_face_screen.dart';
 import 'step_kit.dart';
 
 const _purple = Color(0xFF7C3AED);
 
 /// `/biz/:id/staff/checkin` (owner 2026-11-22, "3 steps"; owner AND staff mark their own): ① one big round button
-/// (I'm in / I'm leaving, by today's state) ② the phone's own fingerprint / face / PIN (no lock -> a selfie)
-/// ③ ✓ the time + how far from the shop. Half day / leave are the small words under the button. Old page `?full=1`.
+/// (I'm in / I'm leaving, by today's state) ② WHERE: the phone's real location inside the shop's radius (owner
+/// 2026-11-23: compulsory; fake GPS refused; far = "ask the owner"; the owner sets the shop pin here the first time),
+/// then WHO: a live face check (random head turn / tilt / blink -- a photo of a photo cannot do it) ③ ✓ the time + how
+/// far from the shop. Half day / leave are the small words under the button. Old page `?full=1`.
 class AskodoxCheckInStepsScreen extends ConsumerStatefulWidget {
   const AskodoxCheckInStepsScreen({super.key, required this.businessId});
   final String businessId;
@@ -28,13 +30,20 @@ class AskodoxCheckInStepsScreen extends ConsumerStatefulWidget {
 }
 
 class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsScreen> {
-  static const _hardware = MethodChannel('com.askodox.app/hardware');
   int _step = 1;
   String _action = 'in';
   AskodoxJson? _out;
   String _shopName = '';
   Timer? _clock;
   DateTime _now = DateTime.now();
+
+  /// Step 2's state: place (reading GPS) | no_location | set_pin (owner) | no_pin (staff) | far | face | saving | error
+  String _phase = 'place';
+  String _problem = '';
+  AskodoxJson _settings = const {};
+  GeoPoint? _pos;
+  int? _distance;
+  bool _outside = false;
 
   bool get _te => askodoxPosTe(context);
 
@@ -67,63 +76,113 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
     return t == null ? '' : _hm(t.toLocal(), te);
   }
 
-  Future<String> _lock(bool te) async {
-    try {
-      return await _hardware.invokeMethod<String>('confirmDeviceLock', {
-            'title': te ? 'హాజరు — మీరేనా?' : 'Attendance — is it you?',
-            'subtitle': te ? 'మీ ఫోన్ వేలిముద్ర / ముఖం / PIN' : 'Your phone fingerprint / face / PIN',
-          }) ??
-          'unsupported';
-    } catch (_) {
-      return 'unsupported';
-    }
-  }
-
-  Future<(double?, double?)> _where() async {
+  Future<GeoPoint?> _where() async {
     try {
       final gate = ref.read(deviceLocationGatewayProvider);
-      if (await gate.ensurePermission() != LocationPermissionStatus.granted) return (null, null);
-      final p = await gate.getCurrentPosition();
-      return (p?.latitude, p?.longitude);
+      if (await gate.ensurePermission() != LocationPermissionStatus.granted) return null;
+      return await gate.getCurrentPosition();
     } catch (_) {
-      return (null, null);
+      return null;
     }
   }
 
-  /// Step 2 runs by itself: the phone lock (or a selfie), the place, the record.
+  bool _boss = false;
+
+  /// Step 2 runs by itself: where (location + shop radius), then the live face, then the record.
   Future<void> _go(String action) async {
-    final te = _te;
+    // read now, while step 1 still watches today's list (an owner / manager may set the shop pin)
+    _boss = ref.read(askodoxAttTodayProvider(widget.businessId)).valueOrNull?['boss'] == true;
     setState(() {
       _action = action;
       _step = 2;
+      _phase = 'place';
+      _problem = '';
+      _outside = false;
+      _distance = null;
     });
+    if (action == 'leave') return _submit();
     try {
-      var method = 'device_lock';
-      var photo = '';
-      if (action != 'leave') {
-        final lock = await _lock(te);
-        if (lock == 'cancelled') {
-          if (mounted) setState(() => _step = 1);
-          return;
-        }
-        if (lock == 'no_lock' || lock == 'unsupported') {
-          final shot = await ImagePicker().pickImage(
-              source: ImageSource.camera, preferredCameraDevice: CameraDevice.front, maxWidth: 480, imageQuality: 60);
-          if (shot == null) {
-            if (mounted) setState(() => _step = 1);
-            return;
-          }
-          photo = base64Encode(await shot.readAsBytes());
-          method = 'photo';
-        }
+      _settings = await ref.read(askodoxPosRepositoryProvider).attendanceSettings(widget.businessId);
+    } catch (_) {
+      _settings = const {}; // the server still checks everything
+    }
+    final pos = await _where();
+    if (!mounted) return;
+    _pos = pos;
+    final needPlace = _settings['require_location'] != false;
+    if (pos == null) {
+      if (needPlace) {
+        setState(() => _phase = 'no_location');
+        return;
       }
-      final (lat, lng) = await _where();
+      return _face();
+    }
+    // A fake-GPS fix goes to the server as such: it refuses and tells the owner (the phone shows why).
+    if (pos.mocked) return _submit();
+    final pin = askodoxPosMap(_settings['pin']);
+    if (pin['lat'] is num && pin['lng'] is num) {
+      _distance = askodoxDistanceM((pin['lat'] as num).toDouble(), (pin['lng'] as num).toDouble(), pos.latitude, pos.longitude);
+      final radius = askodoxPosInt(_settings['radius_m']);
+      if (radius > 0 && _distance! > radius && _settings['outside_needs_ok'] != false) {
+        setState(() => _phase = 'far');
+        return;
+      }
+    } else if (needPlace) {
+      setState(() => _phase = _boss ? 'set_pin' : 'no_pin');
+      return;
+    }
+    return _face();
+  }
+
+  /// The owner / manager, standing in the shop: "this is the shop" -- the pin is set once from this phone.
+  Future<void> _setPinHere() async {
+    final pos = _pos;
+    if (pos == null || pos.mocked) return;
+    setState(() => _phase = 'saving');
+    try {
+      _settings = await ref
+          .read(askodoxPosRepositoryProvider)
+          .saveAttendanceSettings(widget.businessId, {'pin_lat': pos.latitude, 'pin_lng': pos.longitude});
+      _distance = 0;
+      if (mounted) await _face();
+    } on AskodoxPosException catch (e) {
+      if (mounted) {
+        setState(() {
+          _phase = 'error';
+          _problem = e.message(_te);
+        });
+      }
+    }
+  }
+
+  Future<void> _face() async {
+    final needFace = _settings['require_live_face'] != false && (_action == 'in' || _action == 'half');
+    List<int>? still;
+    if (needFace) {
+      setState(() => _phase = 'face');
+      still = await askodoxLiveFaceCheck(context, te: _te);
+      if (!mounted) return;
+      if (still == null) {
+        setState(() => _step = 1);
+        return;
+      }
+    }
+    await _submit(still: still);
+  }
+
+  Future<void> _submit({List<int>? still}) async {
+    final te = _te;
+    setState(() => _phase = 'saving');
+    try {
+      final pos = _pos;
       final out = await ref.read(askodoxPosRepositoryProvider).attendanceCheck(widget.businessId, {
-        'action': action,
-        'method': method,
-        if (photo.isNotEmpty) 'photo': photo,
-        if (lat != null) 'lat': lat,
-        if (lng != null) 'lng': lng,
+        'action': _action,
+        'method': still != null ? 'face_live' : 'device_lock',
+        if (still != null) 'photo': base64Encode(still),
+        if (pos != null && _action != 'leave') 'lat': pos.latitude,
+        if (pos != null && _action != 'leave') 'lng': pos.longitude,
+        'mocked': pos?.mocked == true,
+        'outside': _outside,
       });
       if (!mounted) return;
       ref.invalidate(askodoxAttTodayProvider(widget.businessId));
@@ -133,8 +192,10 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
       });
     } on AskodoxPosException catch (e) {
       if (mounted) {
-        setState(() => _step = 1);
-        askodoxPosSnack(context, e.message(te));
+        setState(() {
+          _phase = 'error';
+          _problem = e.message(te);
+        });
       }
     }
   }
@@ -145,7 +206,7 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
     return [
       AskodoxStepMore('askodoxCheckInStepsToday', te ? 'ఈ రోజు హాజరు' : "Today's attendance", Icons.how_to_reg_rounded,
           () => context.push('/biz/$id/staff/today')),
-      AskodoxStepMore('askodoxCheckInStepsFull', te ? 'పాత హాజరు పేజీ' : 'Old check-in page', Icons.fingerprint_rounded,
+      AskodoxStepMore('askodoxCheckInStepsFull', te ? 'పాత హాజరు పేజీ' : 'Old check-in page', Icons.history_rounded,
           () => context.push('/biz/$id/staff/checkin?full=1')),
     ];
   }
@@ -161,20 +222,9 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
           sub: _shopName,
           step: 2,
           color: _purple,
-          question: _action == 'leave' ? (te ? 'రాస్తున్నాం…' : 'Saving…') : (te ? 'మీరేనా? ఫోన్ లాక్ చూపించండి' : 'Is it you? Use your phone lock'),
-          hint: _action == 'leave'
-              ? null
-              : (te ? 'వేలిముద్ర / ముఖం / PIN — లాక్ లేకపోతే సెల్ఫీ అడుగుతుంది' : 'Fingerprint / face / PIN — no lock? It asks for a selfie'),
-          body: const Center(
-            child: SizedBox(
-              width: 170,
-              height: 170,
-              child: Stack(alignment: Alignment.center, children: [
-                SizedBox(width: 170, height: 170, child: CircularProgressIndicator(strokeWidth: 5, color: _purple)),
-                Icon(Icons.fingerprint_rounded, size: 100, color: _purple),
-              ]),
-            ),
-          ),
+          question: _placeQuestion(te),
+          onBack: () => setState(() => _step = 1),
+          body: _placeBody(te),
         ),
       3 => AskodoxStepScaffold(
           key: const Key('askodoxCheckInSteps3'),
@@ -198,6 +248,97 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
           color: _purple,
           more: _more(),
           body: _firstStep(te),
+        ),
+    };
+  }
+
+  String _placeQuestion(bool te) => switch (_phase) {
+        'no_location' => te ? 'లొకేషన్ ఆన్ చేయండి' : 'Turn on location',
+        'set_pin' => te ? 'ఇదే షాప్ లొకేషనా?' : 'Is this the shop?',
+        'no_pin' => te ? 'షాప్ లొకేషన్ ఇంకా లేదు' : 'The shop location is not set',
+        'far' => te ? 'మీరు షాప్ కి దూరంగా ఉన్నారు' : 'You are away from the shop',
+        'face' => te ? 'ముఖం లైవ్ చెక్' : 'Live face check',
+        'saving' => te ? 'రాస్తున్నాం…' : 'Saving…',
+        'error' => te ? 'హాజరు పడలేదు' : 'Not marked',
+        _ => te ? 'షాప్ దగ్గర ఉన్నారా?' : 'Are you at the shop?',
+      };
+
+  Widget _placeBody(bool te) {
+    Widget note(IconData icon, Color color, String text, List<Widget> buttons) =>
+        ListView(padding: const EdgeInsets.fromLTRB(20, 30, 20, 20), children: [
+          Icon(icon, size: 84, color: color),
+          const SizedBox(height: 18),
+          Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: askodoxStepInk)),
+          const SizedBox(height: 22),
+          ...buttons,
+        ]);
+    Widget button(String key, String label, VoidCallback onTap, {bool main = true}) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SizedBox(
+            height: 52,
+            child: main
+                ? FilledButton(key: Key(key), style: FilledButton.styleFrom(backgroundColor: _purple), onPressed: onTap, child: Text(label))
+                : OutlinedButton(key: Key(key), onPressed: onTap, child: Text(label)),
+          ),
+        );
+    final radius = askodoxPosInt(_settings['radius_m']);
+    return switch (_phase) {
+      'no_location' => note(
+          Icons.location_off_rounded,
+          const Color(0xFFB45309),
+          te
+              ? 'హాజరుకి మీరు ఎక్కడ ఉన్నారో కావాలి. ఫోన్ లొకేషన్ ఆన్ చేసి ASKODOX కి అనుమతి ఇవ్వండి.'
+              : 'Attendance needs where you are. Turn on the phone\'s location and allow ASKODOX.',
+          [
+            button('askodoxCheckInOpenLocation', te ? 'లొకేషన్ సెట్టింగ్స్ తెరువు' : 'Open location settings',
+                () => unawaited(ref.read(deviceLocationGatewayProvider).openLocationSettings())),
+            button('askodoxCheckInRetry', te ? 'మళ్ళీ చూడు' : 'Check again', () => _go(_action), main: false),
+          ]),
+      'set_pin' => note(
+          Icons.add_location_alt_rounded,
+          _purple,
+          te
+              ? 'షాప్ లొకేషన్ ఇంకా పెట్టలేదు. మీరు ఇప్పుడు షాప్ లోనే ఉంటే, ఇదే షాప్ లొకేషన్ గా పెడతాం — ఒక్కసారే.'
+              : 'The shop location is not set. If you are in the shop now, this place becomes the shop — once.',
+          [
+            button('askodoxCheckInPinHere', te ? 'అవును, ఇదే షాప్' : 'Yes, this is the shop', _setPinHere),
+            button('askodoxCheckInPinNo', te ? 'కాదు' : 'No', () => setState(() => _step = 1), main: false),
+          ]),
+      'no_pin' => note(
+          Icons.wrong_location_rounded,
+          const Color(0xFFB45309),
+          te ? 'ఓనర్ ఇంకా షాప్ లొకేషన్ పెట్టలేదు. ఓనర్ కి చెప్పండి — హాజరు సెటప్ లో ఒక్కసారి పెడితే చాలు.'
+              : 'The owner has not set the shop location yet. Tell the owner — once in Attendance setup.',
+          [button('askodoxCheckInBack', te ? 'సరే' : 'OK', () => setState(() => _step = 1), main: false)]),
+      'far' => note(
+          Icons.near_me_disabled_rounded,
+          const Color(0xFFB45309),
+          te
+              ? 'షాప్ కి ${askodoxDistanceText(_distance ?? 0)} దూరం (అనుమతి $radius m). బయట పని అయితే ఓనర్ ని అడగండి — ఓనర్ కి వెంటనే తెలుస్తుంది.'
+              : '${askodoxDistanceText(_distance ?? 0)} from the shop (allowed $radius m). Field work? Ask the owner — they are told at once.',
+          [
+            button('askodoxCheckInAskOwner', te ? 'బయట పని — ఓనర్ ని అడుగు' : 'Field work — ask the owner', () {
+              _outside = true;
+              unawaited(_face());
+            }),
+            button('askodoxCheckInBack', te ? 'వెనక్కి' : 'Back', () => setState(() => _step = 1), main: false),
+          ]),
+      'error' => note(Icons.error_outline_rounded, const Color(0xFFB91C1C), _problem, [
+          button('askodoxCheckInRetry', te ? 'మళ్ళీ' : 'Try again', () => _go(_action)),
+          button('askodoxCheckInBack', te ? 'వెనక్కి' : 'Back', () => setState(() => _step = 1), main: false),
+        ]),
+      _ => Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const SizedBox(
+                width: 150, height: 150, child: CircularProgressIndicator(strokeWidth: 5, color: _purple)),
+            const SizedBox(height: 18),
+            Text(
+                _distance != null
+                    ? (te ? 'షాప్ నుంచి ${askodoxDistanceText(_distance!)} ✓' : '${askodoxDistanceText(_distance!)} from the shop ✓')
+                    : (te ? 'GPS తో చూస్తున్నా…' : 'Reading GPS…'),
+                key: const Key('askodoxCheckInPlace'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: askodoxStepInk)),
+          ]),
         ),
     };
   }
@@ -253,7 +394,8 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
                   width: 220,
                   height: 220,
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(action == 'out' ? Icons.logout_rounded : Icons.fingerprint_rounded, size: 76, color: Colors.white),
+                    // owner 2026-11-23: not a fingerprint any more -- the live face + location decide
+                    Icon(action == 'out' ? Icons.logout_rounded : Icons.face_retouching_natural_rounded, size: 76, color: Colors.white),
                     const SizedBox(height: 6),
                     Text(action == 'out' ? (te ? 'వెళ్తున్నా' : "I'm leaving") : (te ? 'వచ్చాను' : "I'm in"),
                         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
@@ -310,10 +452,18 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
         )
       else if (_action != 'leave')
         Center(child: AskodoxStepPill(te ? 'లొకేషన్ దొరకలేదు' : 'No location', kind: 'grey')),
+      if ('${out['note'] ?? ''}'.contains('outside')) ...[
+        const SizedBox(height: 8),
+        Center(child: AskodoxStepPill(te ? 'బయట నుంచి — ఓనర్ ఒప్పుకోవాలి' : 'From outside — the owner decides', kind: 'warn')),
+      ],
+      if (out['method'] == 'face_live') ...[
+        const SizedBox(height: 8),
+        Center(child: AskodoxStepPill(te ? 'ముఖం లైవ్ గా చెక్ అయింది' : 'Live face checked', kind: 'good')),
+      ],
       const SizedBox(height: 18),
       Text(
           te
-              ? 'ఓనర్‌కి: టైం, పద్ధతి, షాప్ నుంచి దూరం. ఫోటోలు ఓనర్‌కి మాత్రమే, 90 రోజుల తర్వాత తీసేస్తాం.'
+              ? 'ఓనర్‌కి: టైం, పద్ధతి, షాప్ నుంచి దూరం, చివరి ఒక్క చిత్రం. ఫోటోలు ఓనర్‌కి మాత్రమే, 90 రోజుల తర్వాత తీసేస్తాం.'
               : 'The owner sees the time, the method and the distance. Photos are for the owner only, deleted after 90 days.',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 12, color: askodoxStepMuted)),
