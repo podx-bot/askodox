@@ -558,6 +558,39 @@ fun main() {
         val later = get(PHONEPE, "upi", null, "Ramesh sent ₹3,000 to you.", 573)
         yes("a real message 9.5 h later is still a new payment", later == "spoken" && spoken == 2)
     }
+    // Owner 2026-11-23 (Jio recharge Rs 448 paid from ICICI: the bank SMS "debited for Rs 448.00 ...; Jio Prepaid Recharge
+    // credited" gave no voice and no row). The payee's NAME ("... Recharge credited", "to jiorecharge@paytm", "OFFER
+    // MART") never decides; the bank's debit wording does. Every bank shape, made-up numbers only.
+    check("icici debit for a recharge", "AD-ICICIT-S", "ICICI Bank Acct XX123 debited for Rs 448.00 on 23-Nov-26; Jio Prepaid Recharge credited. UPI:532012345678. Call 18002662 for dispute. SMS BLOCK 123 to 9215676766.", "OUT 44800 to=Jio Prepaid Recharge acct=123")
+    check("icici debit for an emi", "AD-ICICIT-S", "ICICI Bank Acct XX123 debited for Rs 1,941.00 on 23-Nov-26; HDFC LOAN EMI credited. UPI:532012345678.", "OUT 194100 to=HDFC LOAN EMI acct=123")
+    check("icici debit for a bill pay", "AD-ICICIT-S", "ICICI Bank Acct XX123 debited for Rs 962.00 on 23-Nov-26; APSPDCL BILL PAY credited. UPI:532012345678.", "OUT 96200 to=APSPDCL BILL PAY acct=123")
+    check("icici debit to a shop named offer", "AD-ICICIT-S", "ICICI Bank Acct XX123 debited for Rs 500.00 on 23-Nov-26; OFFER MART credited. UPI:532012345678.", "OUT 50000 to=OFFER MART acct=123")
+    check("hdfc sent to a recharge", "AD-HDFCBK-S", "Sent Rs.448.00 From HDFC Bank A/C *1234 To JIO PREPAID RECHARGE On 23/11/26 Ref 532012345678 Not You? Call 18002586161", "OUT 44800 to=JIO PREPAID RECHARGE acct=1234")
+    check("kotak sent to a recharge id", "AD-KOTAKB-S", "Sent Rs.448.00 from Kotak Bank AC X1234 to jiorecharge@paytm on 23-11-26.UPI Ref 532012345678. Not you, https://kotak.com/KBANKT/Fraud", "OUT 44800 to=jiorecharge acct=1234")
+    check("bob dr / cr debit", "AD-BOBTXN-S", "Rs.100.00 Dr. from A/C XXXXXX1234 and Cr. to ramesh@ybl. Ref:532012345678. AvlBal:Rs5000.00(2026:11:15 10:20:30). Not you? Call 18005700 -BOB", "OUT 10000 to=ramesh acct=1234")
+    check("bob dr / cr debit for a recharge", "AD-BOBTXN-S", "Rs.448.00 Dr. from A/C XXXXXX1234 and Cr. to jiorecharge@paytm. Ref:532012345678. AvlBal:Rs5000.00(2026:11:23 10:20:30). Not you? Call 18005700 -BOB", "OUT 44800 to=jiorecharge acct=1234")
+    check("sbi debit for a recharge", "AD-SBIUPI-S", "Dear UPI user A/C X1234 debited by 448.0 on date 23Nov26 trf to Jio Prepaid Recharge Refno 532012345678. If not u? call 1800111109. -SBI", "OUT 44800 to=Jio Prepaid Recharge acct=1234")
+    // The operator's own "Recharge Successful" goes to the number that was recharged -- it may be somebody else's money.
+    check("jio recharge successful, no rupee sign", "JG-JioPay-S", "Recharge Successful !\nPlan Name : 448.00\nJio Number : 9000000001\nTransaction ID : BR000TEST1\nView plan details - http://tiny.jio.com/dmyjioplans", "IGNORED")
+    check("jio recharge successful, telugu", "JM-JioPay-S", "రీఛార్జ్ విజయవంతమైంది!\nప్లాన్ పేరు : 448.00\nJio నంబర్ : 9000000001\nలావాదేవీ ID : BR000TEST1", "IGNORED")
+    // Still NOT money that went out.
+    check("icici failed for a recharge", "AD-ICICIT-S", "ICICI Bank: Transaction of Rs 448.00 to Jio Prepaid Recharge failed on 23-Nov-26. Amount will be reversed.", "IGNORED")
+    check("collect request from a recharge id", null, "Collect request of Rs 448 from jiorecharge@paytm. Approve in your UPI app.", "IGNORED")
+    check("recharge autopay will be debited", "AD-ICICIT-S", "Rs 448 will be debited from your a/c XX1234 for Jio recharge autopay on 25-Nov-26", "IGNORED")
+    check("loan in, fee out stays ignored", "AD-ICICIT-S", "Loan of Rs 50,000 credited to your a/c XX1234. Processing fee Rs 590 debited.", "IGNORED")
+    // The three messages of one recharge = ONE row, ONE voice, in any order.
+    val icici448 = "ICICI Bank Acct XX123 debited for Rs 448.00 on 23-Nov-26; Jio Prepaid Recharge credited. UPI:532012345678. Call 18002662 for dispute."
+    val jioEn = "Recharge Successful !\nPlan Name : 448.00\nJio Number : 9000000001\nTransaction ID : BR000TEST1"
+    val jioTe = "రీఛార్జ్ విజయవంతమైంది!\nప్లాన్ పేరు : 448.00\nJio నంబర్ : 9000000001\nలావాదేవీ ID : BR000TEST1"
+    Sim().run {
+        val a = any(SMS, "sms", "JM-JioPay-S", jioTe, 0)
+        val b = any(SMS, "sms", "JG-JioPay-S", jioEn, 0)
+        val c = any(SMS, "sms", "AD-ICICIT-S", icici448, 0)
+        yes("jio recharge: one row, one voice, from the bank's SMS", a == "ignored" && b == "ignored" && c == "spoken" &&
+            rows.size == 1 && spoken == 1 && rows[0].direction == "out")
+        val d = any(PHONEPE, "upi", null, "Paid ₹448 to Jio Prepaid", 2)
+        yes("the UPI app's own 'paid' message joins it silently", d == "joined" && rows.size == 1 && spoken == 1)
+    }
     // What the phone SAYS (owner 2026-11-23): an unsure message asks to check, a late one says so, a wrong voice says sorry.
     yes("unsure voice asks to check the bank balance", PaymentAlertParser.noticeParts("unsure", 300000, "te").joinToString(" ").let {
         it.contains("3000 రూపాయలు") && it.contains("బ్యాంక్ బ్యాలెన్స్") && !it.contains("వెళ్ళాయి") })

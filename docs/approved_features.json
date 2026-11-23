@@ -9201,6 +9201,10 @@
         {
           "date": "2026-11-22",
           "change": "new; parser gate (android/parser-tests) covers it; not phone verified"
+        },
+        {
+          "date": "2026-11-23",
+          "change": "owner Jio recharge (Rs 448 from ICICI, no voice, no row): the payee's NAME in a bank debit SMS (\"; Jio Prepaid Recharge credited\", \"To JIO PREPAID RECHARGE\", \"to jiorecharge@paytm\", \"OFFER MART\") never drops the debit; HDFC / Kotak \"Sent Rs.X From ... A/C\" and BoB \"Rs.X Dr. from A/C ... Cr. to\" count as the bank's own debit. The operator's \"Recharge Successful\" SMS stays ignored (it reaches the recharged number, maybe someone else's money). Payment parser gate; not phone verified"
         }
       ]
     },
