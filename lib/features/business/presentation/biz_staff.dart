@@ -1032,11 +1032,11 @@ class _AskodoxBizTasksScreenState extends ConsumerState<AskodoxBizTasksScreen> {
     unawaited(_loadChips());
   }
 
-  Future<void> _add(List<AskodoxJson> people, {String text = '', String ref = ''}) async {
+  Future<void> _add(List<AskodoxJson> people, {String initial = '', String usualRef = ''}) async {
     final te = askodoxPosTe(context);
-    final title = TextEditingController(text: text);
-    final usual = people.where((p) => '${p['ref']}' == ref).firstOrNull;
-    String? who = usual != null ? ref : (people.isEmpty ? null : '${people.first['ref']}');
+    final title = TextEditingController(text: initial);
+    final usual = people.where((p) => '${p['ref']}' == usualRef).firstOrNull;
+    String? who = usual != null ? usualRef : (people.isEmpty ? null : '${people.first['ref']}');
     TimeOfDay? due;
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -1170,7 +1170,7 @@ class _AskodoxBizTasksScreenState extends ConsumerState<AskodoxBizTasksScreen> {
                       key: Key('askodoxTaskChip-${c['chip']}'),
                       avatar: Icon(c['pinned'] == true ? Icons.push_pin : Icons.bolt_rounded, size: 16, color: _purple),
                       label: Text('${c['title']}'),
-                      onPressed: () => _add(people, text: '${c['title']}', ref: '${c['ref'] ?? ''}'),
+                      onPressed: () => _add(people, initial: '${c['title']}', usualRef: '${c['ref'] ?? ''}'),
                     ),
                   ),
                 ),
