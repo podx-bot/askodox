@@ -28,3 +28,10 @@ def test_play_services_downloads_the_face_model_after_install():
     text = re.sub(r"<!--.*?-->", "", MANIFEST.read_text(encoding="utf-8"), flags=re.S)
     match = re.search(r'android:name="com\.google\.mlkit\.vision\.DEPENDENCIES"\s+android:value="([^"]+)"', text)
     assert match and "face" in match.group(1).split(",")
+
+
+def test_the_manifest_is_valid_xml():
+    # "--" inside an XML comment broke the manifest merge (2026-11-23); parse it here so it never reaches CI again.
+    import xml.dom.minidom
+
+    xml.dom.minidom.parse(str(MANIFEST))
