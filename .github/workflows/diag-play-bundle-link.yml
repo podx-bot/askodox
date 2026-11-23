@@ -1,0 +1,23 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1627]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45248778919 -R "$GITHUB_REPOSITORY" -n askodox-android-627 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1627.aab
+          sha256sum askodox-play-1627.aab
+          gh release create play-bundle-1627 askodox-play-1627.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1627" --notes "Play Console upload only (not installable on a phone). PR #415: AI Credits trial meter (Your AI use card), platform update race fix. Includes #411 / #414."
