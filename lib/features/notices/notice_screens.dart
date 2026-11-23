@@ -183,7 +183,7 @@ class _AskodoxNoticeCreateScreenState extends ConsumerState<AskodoxNoticeCreateS
     final people = (count?.data['people'] as num?)?.toInt() ?? 0;
     final cost = (count?.data['cost_paise'] as num?)?.toInt() ?? 0;
     final charging = count?.data['charging'] == true;
-    final chip = (String key, String label, bool on, VoidCallback tap) => ChoiceChip(
+    Widget chip(String key, String label, bool on, VoidCallback tap) => ChoiceChip(
           key: Key('askodoxNoticeAudience-$key'),
           label: Text(label),
           selected: on,
