@@ -115,8 +115,8 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
         _totalPaise = out['total_paise'] is num ? (out['total_paise'] as num).round() : null;
         if (!_read) {
           _error = te
-              ? 'ఫోటో నుంచి బిల్లు చదవలేకపోయాను. వెలుతురులో స్పష్టంగా మళ్ళీ తీయండి.'
-              : 'Could not read the bill from that photo. Take it again, clear and well lit.';
+              ? 'ఫోటో నుంచి బిల్లు చదవలేకపోయాను. వెలుతురులో స్పష్టంగా మళ్ళీ తీయండి, లేదా కింద చేతితో రాయండి.'
+              : 'Could not read the bill from that photo. Take it again, clear and well lit, or write it by hand below.';
         }
       });
     } on AskodoxPosException catch (e) {
@@ -237,15 +237,45 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
             padding: const EdgeInsets.only(top: 10),
             child: Text(_error!, key: const Key('askodoxPosBillPhotoError'), style: const TextStyle(color: Color(0xFFB42318))),
           ),
+        // Owner 2026-11-24: when a photo cannot be read the bill is still entered here -- by hand, any supplier.
+        if (!_read && !_reading)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: TextButton.icon(
+              key: const Key('askodoxPosBillPhotoByHand'),
+              onPressed: _saving
+                  ? null
+                  : () => setState(() {
+                        _read = true;
+                        _error = null;
+                        if (_lines.isEmpty) _lines.add(_BillLine(const {'new': true}));
+                      }),
+              icon: const Icon(Icons.edit_note_rounded),
+              label: Text(te ? 'ఫోటో లేకుండా చేతితో రాయి' : 'Write it by hand instead'),
+            ),
+          ),
         if (_read && !_reading) ...[
           const SizedBox(height: 12),
           TextField(
               key: const Key('askodoxPosBillPhotoSupplier'),
               controller: _supplierName,
               readOnly: _supplierId != null,
+              onChanged: (_) => setState(() {}),
               decoration: _box(
-                  _supplierId != null ? (te ? 'సప్లయర్ (మీ జాబితాలో ఉంది ✓)' : 'Supplier (already in your list ✓)') : (te ? 'సప్లయర్ (కొత్త — చేరుతుంది)' : 'Supplier (new — will be added)'),
-                  warn: _supplierName.text.trim().isEmpty)),
+                  _supplierId != null ? (te ? 'సప్లయర్ (మీ జాబితాలో ఉంది ✓)' : 'Supplier (already in your list ✓)') : (te ? 'సప్లయర్ పేరు (కొత్తది అయితే చేరుతుంది)' : 'Supplier name (a new one is added)'),
+                  warn: _supplierName.text.trim().isEmpty).copyWith(
+                suffixIcon: _supplierId == null
+                    ? null
+                    : IconButton(
+                        key: const Key('askodoxPosBillPhotoSupplierChange'),
+                        tooltip: te ? 'వేరే సప్లయర్' : 'Another supplier',
+                        icon: const Icon(Icons.edit_rounded),
+                        onPressed: () => setState(() {
+                          _supplierId = null;
+                          _supplier = const {};
+                        }),
+                      ),
+              )),
           const SizedBox(height: 8),
           TextField(
               key: const Key('askodoxPosBillPhotoNumber'),
@@ -321,6 +351,15 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
                 ]),
               ),
             ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const Key('askodoxPosBillPhotoAddLine'),
+              onPressed: () => setState(() => _lines.add(_BillLine(const {'new': true}))),
+              icon: const Icon(Icons.add_rounded),
+              label: Text(te ? 'ఐటమ్ జోడించు' : 'Add an item'),
+            ),
+          ),
           const SizedBox(height: 8),
           if (_totalPaise != null)
             Text('${te ? 'బిల్లు మీద మొత్తం' : 'Total printed on the bill'}: ₹${_BillLine._rupees(_totalPaise)}',
