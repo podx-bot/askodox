@@ -10101,6 +10101,52 @@
           "askodoxDistanceM"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Header (Phase 1, where the language chip was; language stays in the ☰ menu) and the sign-in screen carry the guide switch: \"గైడ్ ఆఫ్\" grey / \"గైడ్ ఆన్\" gold, one tap flips it and a 2 s banner says on / off. The first app open shows ONE card that explains the switch (On: lights up what to tap and says it; Off: quiet; change any time) with \"గైడ్ ఆన్ చేయి\" / \"వద్దు, నేనే చేసుకుంటా\"; turned on there, the sign-in walkthrough starts at once. Guide ON + no touch for 5 s on a screen -> that screen's walkthrough starts by itself (sign-in on /onboarding, the 7-stop Home tour on /), each only until it finished once (or was stopped twice). Guide OFF = nothing is said or lit. The sign-in walkthrough runs on the private sign-in screen but never reads what is typed. Tour stops (info steps) move on with \"తర్వాత\".",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: guide ON / OFF switch + one-time intro + 5 s idle walkthroughs (design ASKODOX గైడ్ ఆన్ / ఆఫ్); NOT PHONE VERIFIED",
+          "date": "2026-11-23"
+        }
+      ],
+      "id": "guide_switch_idle_walkthrough",
+      "name": "Guide ON / OFF switch + walkthrough when the person stops",
+      "purpose": "Owner 2026-11-23: new users should be shown step by step what to tap (voice + light), but the app must not talk on every open -- the person's own switch decides.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/guide/guide_switch_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxGuideSwitch",
+          "askodoxGuideIntro",
+          "askodoxGuideIntroOn",
+          "askodoxGuideIntroOff",
+          "askodoxLanguageContinue",
+          "askodoxComposerField"
+        ],
+        "symbols": [
+          "AskodoxGuideChip",
+          "askodoxGuideOnProvider",
+          "askodoxGuideIntroOnce",
+          "askodoxAutoGuides",
+          "askodoxAutoGuideRoutes"
+        ]
+      }
     }
   ]
 }

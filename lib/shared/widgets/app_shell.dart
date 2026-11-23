@@ -20,6 +20,7 @@ import '../../features/pos/presentation/payment_alert_banner.dart';
 import '../../services/in_app_messaging.dart';
 import '../../services/push_registration.dart';
 import 'header_menu.dart';
+import '../../features/guide/guide_switch.dart';
 import '../../features/staff/askodox_staff_access.dart';
 import '../../config/theme/app_theme.dart';
 import 'askodox_inner_theme.dart';
@@ -259,6 +260,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                             softWrap: false,
                             style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
                       ),
+                      // Owner 2026-11-23: the guide ON / OFF switch, inside the same box so a narrow phone shrinks it too.
+                      const SizedBox(width: 6),
+                      const AskodoxGuideChip(),
                     ]),
                   ),
                 ),
@@ -336,7 +340,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               ]),
             ),
           ),
-          PopupMenuButton<String>(
+          // Owner 2026-11-23: the language chip makes room for the guide switch (language is in the ☰ menu).
+          if (askodoxPhase2) PopupMenuButton<String>(
             key: const Key('askodoxLanguageChip'),
             tooltip: isTe ? 'భాష' : 'Language',
             onSelected: (code) => askodoxApplyLanguage(ref, code),

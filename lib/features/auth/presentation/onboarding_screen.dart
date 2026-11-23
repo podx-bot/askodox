@@ -19,6 +19,8 @@ import '../../../core/providers/app_settings_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../../shared/widgets/askodox_logo.dart';
+import '../../guide/guide_switch.dart';
+import '../../guide/in_app_guide.dart' show askodoxGuideById, askodoxGuideProvider;
 import '../../home/domain/active_role.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../../core/startup/startup_hint.dart';
@@ -100,6 +102,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Timer? _resendTimer;
 
   int _step = 0;
+  bool _guideIntroAsked = false;
+
+  /// The first open explains the guide switch once; turned ON there, the sign-in walkthrough starts at once.
+  Future<void> _guideIntro() async {
+    if (!mounted) return;
+    final on = await askodoxGuideIntroOnce(context, ref);
+    final flow = askodoxGuideById('signin');
+    if (!on || !mounted || flow == null || ref.read(askodoxGuideProvider) != null) return;
+    ref.read(askodoxGuideProvider.notifier).start(flow);
+  }
   bool _loading = true;
   bool _storageFailed = false;
   bool _busy = false;
@@ -927,6 +939,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       );
     }
 
+    if (!_guideIntroAsked) {
+      _guideIntroAsked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_guideIntro()));
+    }
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -938,6 +954,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Owner 2026-11-23: the guide ON / OFF switch, explained once on the first open.
+                    const Align(alignment: Alignment.centerRight, child: AskodoxGuideChip()),
                     const Center(child: AskodoxLogo(size: 88)),
                     const SizedBox(height: 16),
                     const Text('ASKODOX', textAlign: TextAlign.center, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
@@ -997,7 +1015,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        FilledButton(onPressed: _useDeviceLanguage, child: Text('${_t('continue')} • ${_languageName(_deviceLanguageCode())}')),
+        FilledButton(key: const Key('askodoxLanguageContinue'), onPressed: _useDeviceLanguage, child: Text('${_t('continue')} • ${_languageName(_deviceLanguageCode())}')),
         const SizedBox(height: 20),
         Text(_t('changeLanguage'), style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
