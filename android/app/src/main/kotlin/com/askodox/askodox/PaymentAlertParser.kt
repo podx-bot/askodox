@@ -154,6 +154,9 @@ object PaymentAlertParser {
     ): Result {
         val joined = withoutBoilerplate(listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim())
         if (joined.isEmpty()) return Result.Ignored
+        // Owner 2026-11-23: a payment app's SUMMARY of several transactions is never ONE payment (the amount of one
+        // line + the name of another was spoken as money sent). The phone reads each line alone -- see [digestLines].
+        if (digestLines(title, text).size >= 2) return Result.Ignored
         val body = text?.let { withoutBoilerplate(it.replace('\n', ' ')) }
         val lower = " ${joined.lowercase()} "
         val shape = template(body)
@@ -656,8 +659,62 @@ object PaymentAlertParser {
         RegexOption.IGNORE_CASE,
     )
 
+    /** A UPI app naming the person's account as "HDFC Bank-1234" / "SBI Bank - XX1234" (never a phone number after it). */
+    private val bankDashRegex = Regex("""\bbank\s?[-–]\s?[xX*]{0,8}(\d{4})\b(?![\s-]*\d)""", RegexOption.IGNORE_CASE)
+
     /** Last 3-4 digits of the account a bank SMS names ("A/c XX1234" -> "1234"); never more than that. */
     fun accountTail(text: String?): String? = accountRegex.find(text ?: "")?.groupValues?.get(1)
+        ?: bankDashRegex.find(text ?: "")?.groupValues?.get(1)
+
+    // ------------------------------------------------------------------ a summary of several transactions
+
+    private const val BULLETS = "·•●▪◦‣∙⁃"
+    private val digestSplit = Regex("""[\n\r]+|\s*[$BULLETS]\s*""")
+    private val digestHeader = Regex(
+        """\b\d{1,3}\s+(?:(?:new|more|recent|completed|successful|other|unread)\s+){0,3}""" +
+            """(?:transactions?|payments?|transfers?|updates?)\b""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Owner 2026-11-23 (PhonePe "2 new completed transaction updates · A has sent ₹3,000 to your bank account ·
+     * ₹3,360 has been sent to B" was read as ONE message: "₹3,000 went to B", spoken hours after the money had come
+     * IN): a payment app's SUMMARY of several transactions is several messages. Returns each transaction's own line
+     * (two or more), or an empty list for an ordinary single message.
+     * A summary = two or more lines / bullet points that EACH carry a payment amount, and either a heading that
+     * counts them ("2 new completed transaction updates", "3 payments") or bullet points. A bank SMS over several
+     * lines, or one sentence with a balance, is never a summary.
+     */
+    fun digestLines(title: String?, text: String?): List<String> {
+        val body = text ?: return emptyList()
+        val pieces = digestSplit.split(body).map { it.trim().trim('-', '*', '–').trim() }.filter { it.isNotEmpty() }
+        if (pieces.size < 2) return emptyList()
+        val money = pieces.filter { paymentAmounts(it).isNotEmpty() }
+        if (money.size < 2) return emptyList()
+        val counted = digestHeader.containsMatchIn(title ?: "") ||
+            pieces.any { paymentAmounts(it).isEmpty() && digestHeader.containsMatchIn(it) }
+        val bulleted = body.count { it in BULLETS } >= 2
+        return if (counted || bulleted) money else emptyList()
+    }
+
+    /**
+     * [digestLines] for a notification given as its separate pieces (text, big text, newest message, every line):
+     * apps fill them with the SAME summary in different layouts, so the fullest single piece is read -- the pieces are
+     * never added together (one line twice would look like two payments). Lines that sit in separate pieces (no
+     * bullets, no line breaks) count as a summary only under a heading that counts them.
+     */
+    fun digestLinesOf(title: String?, parts: List<String?>): List<String> {
+        val clean = parts.mapNotNull { it?.trim()?.takeIf { t -> t.isNotEmpty() } }
+        var best = emptyList<String>()
+        for (piece in clean) {
+            val lines = digestLines(title, piece)
+            if (lines.size > best.size) best = lines
+        }
+        if (best.size >= 2) return best
+        if (!digestHeader.containsMatchIn(title ?: "")) return emptyList()
+        fun norm(x: String) = x.lowercase(Locale.ROOT).replace(spaces, " ").trim()
+        val money = clean.filter { paymentAmounts(it).isNotEmpty() }.distinctBy { norm(it) }
+        val own = money.filter { a -> money.none { b -> b !== a && norm(b).length > norm(a).length && norm(b).contains(norm(a)) } }
+        return if (own.size >= 2) own else emptyList()
+    }
 
     private val balanceBefore = Regex(
         """(?:bal(?:ance)?|avl|avail(?:able)?|a/c\s*bal|closing)\s*(?:bal(?:ance)?)?\s*(?:is|:|-|of)?\s*$""",
@@ -853,6 +910,34 @@ object PaymentAlertParser {
                 hi -> "सावधान: कोई ${money ?: "पैसे"} माँग रहा है। आप मंज़ूर करेंगे तभी पैसे जाएँगे।"
                 else -> "Careful: someone is asking you for ${money ?: "money"}. Money goes only if you approve."
             }
+            // Owner 2026-11-23: a message the phone is NOT SURE about is never said as a fact -- "check once".
+            "unsure" -> when {
+                te -> "$m గురించి ఒక మెసేజ్ వచ్చింది. డబ్బు వెళ్ళిందో లేదో ఖచ్చితంగా తెలియలేదు. ఒకసారి మీ బ్యాంక్ బ్యాలెన్స్ చూసుకోండి."
+                hi -> "$m के बारे में एक मैसेज आया है। पैसे गए या नहीं, पक्का नहीं है। एक बार अपना बैंक बैलेंस देख लें।"
+                else -> "A message" + (if (money != null) " about $money" else "") + " came. It is not sure that the money went out. Please check your bank balance once."
+            }
+            // A payment the phone hears about only LATER (in an app's summary): said once, as an earlier payment.
+            "late_in" -> when {
+                te -> "ఆలస్యంగా తెలిసింది: ${if (who != null) "$who నుండి " else ""}$m ఇంతకుముందే జమ అయ్యాయి."
+                hi -> "देर से पता चला: ${if (who != null) "$who से " else ""}$m पहले ही जमा हुए थे।"
+                else -> "Found out late: ${money ?: "money"} came in earlier" + (if (who != null) " from $who." else ".")
+            }
+            "late_out" -> when {
+                te -> "ఆలస్యంగా తెలిసింది: ${if (who != null) "$who కి " else ""}$m ఇంతకుముందే వెళ్ళాయి."
+                hi -> "देर से पता चला: ${if (who != null) "$who को " else ""}$m पहले ही गए थे।"
+                else -> "Found out late: ${money ?: "money"} went out earlier" + (if (who != null) " to $who." else ".")
+            }
+            // What the phone SAID earlier turned out wrong (the bank's own SMS says the opposite): it says so, once.
+            "sorry_out" -> when {
+                te -> "సారీ, ఇంతకుముందు $m వెళ్ళాయి అని చెప్పింది తప్పు. ఆ డబ్బు వెళ్ళలేదు."
+                hi -> "माफ़ कीजिए, पहले $m गए बताया था, वह गलत था। वे पैसे नहीं गए।"
+                else -> "Sorry, what I said earlier was wrong: ${money ?: "that money"} did not go out."
+            }
+            "sorry_in" -> when {
+                te -> "సారీ, ఇంతకుముందు $m వచ్చాయి అని చెప్పింది తప్పు. ఆ డబ్బు రాలేదు."
+                hi -> "माफ़ कीजिए, पहले $m आए बताया था, वह गलत था। वे पैसे नहीं आए।"
+                else -> "Sorry, what I said earlier was wrong: ${money ?: "that money"} did not come in."
+            }
             "suspect" -> when {
                 te -> "జాగ్రత్త! ఇది నకిలీ మెసేజ్‌లా ఉంది. లింక్ నొక్కకండి. డబ్బు వచ్చిందో బ్యాంక్ యాప్‌లో చూడండి."
                 hi -> "सावधान! यह मैसेज नकली लगता है। कोई लिंक न दबाएँ। पैसे आए या नहीं, बैंक ऐप में देखें।"
@@ -876,6 +961,12 @@ object PaymentAlertParser {
         "autopay", "autopay_off" -> "autopay"
         "request" -> "request"
         "suspect" -> "fake"
+        // Owner 2026-11-23: "check once" for an unsure message and "sorry" for a wrong earlier voice have no switch
+        // yet (on); a payment heard of late follows the switch of its own direction.
+        "unsure" -> "check"
+        "late_in" -> "in"
+        "late_out" -> "out"
+        "sorry_out", "sorry_in" -> "sorry"
         else -> noticeKind
     }
 
@@ -1068,6 +1159,19 @@ object PaymentAlertParser {
         return short.size >= 2 && s.length >= 6 && long.joinToString(" ").startsWith(s)
     }
 
+    /**
+     * Two names that cannot be the same person: both are there and they share no word of three or more letters
+     * ("mahesh" / "MAHESH BABU" do not clash; "RAMESH" / "SURESH KUMAR" do). Used only for a summary line, to keep
+     * another person's payment of the same amount out of a row.
+     */
+    fun namesClash(a: String?, b: String?): Boolean {
+        fun words(s: String?) = s?.uppercase(Locale.ROOT)?.replace(Regex("[^A-Z ]"), " ")?.split(' ')
+            ?.filter { it.length >= 3 && it !in honorifics }?.toSet().orEmpty()
+        val x = words(a)
+        val y = words(b)
+        return x.isNotEmpty() && y.isNotEmpty() && x.intersect(y).isEmpty()
+    }
+
     /** The bank's "Bill Paid" SMS vs the company's receipt: a receipt may come up to an hour after it ... */
     const val NOTE_AFTER_SMS_MS = 60 * 60_000L
     /** ... and the bank's two SMS of one bill (debit + "Bill Paid") come within 10 minutes of each other. */
@@ -1082,6 +1186,10 @@ object PaymentAlertParser {
     const val SAME_PAYER_MS = 6 * 60 * 60_000L
     /** The same UPI reference (RRN) on both: the same money any time within a day. */
     const val SAME_REF_MS = 24 * 60 * 60_000L
+    /** A payment app's SUMMARY line tells a payment made up to two days before it (owner 2026-11-23). */
+    const val SUMMARY_MS = 48 * 60 * 60_000L
+    /** ... and never one made after it (a few minutes of slack for the clocks of two messages). */
+    const val SUMMARY_SLACK_MS = 5 * 60_000L
 
     /** Kinds of message that come through the SMS app NEXT TO the bank's debit SMS for the same money. */
     val SIDE_KINDS = setOf("biller", "billpay")
@@ -1098,6 +1206,8 @@ object PaymentAlertParser {
         val sourceApp: String, val kind: String, val direction: String, val amountPaise: Long, val atMs: Long,
         val account: String? = null, val reference: String? = null, val handle: String? = null,
         val payer: String? = null, val bankSms: Boolean = false,
+        /** One line of a payment app's SUMMARY ([digestLines]): an EARLIER payment, told again. */
+        val summary: Boolean = false,
     )
 
     /**
@@ -1108,15 +1218,19 @@ object PaymentAlertParser {
      *    have yet, with no clue saying "two payments" (different account, different payer UPI id), within
      *    [LATE_PAIR_MS] -- or [SAME_PAYER_MS] when the payer's UPI id or name is the same on both;
      *  - two messages from the same app never join (Rs 1 + Rs 1 = two payments), two SMS never join;
-     *  - a row with a clue beats one without; then the row closest in time wins.
+     *  - a row with a clue beats one without; then the row closest in time wins;
+     *  - a SUMMARY line ([Msg.summary], owner 2026-11-23) is an EARLIER payment told again: it joins the row of the
+     *    same amount + direction up to [SUMMARY_MS] before it, even a row the SAME app made -- unless both carry a
+     *    person's name and the names share no word. [skip] = rows another line of the same summary already took
+     *    (two equal lines = two payments, one row each).
      */
-    fun pickSamePayment(rows: List<Row>, msg: Msg): Int? {
+    fun pickSamePayment(rows: List<Row>, msg: Msg, skip: Set<Int> = emptySet()): Int? {
         var best: Row? = null
         var bestClue = false
         var bestGap = Long.MAX_VALUE
         for (r in rows) {
-            if (r.atMs <= 0L || r.test) continue
-            if (r.sourceApp == msg.sourceApp && msg.kind !in SIDE_KINDS && r.kind !in SIDE_KINDS) continue
+            if (r.atMs <= 0L || r.test || r.index in skip) continue
+            if (!msg.summary && r.sourceApp == msg.sourceApp && msg.kind !in SIDE_KINDS && r.kind !in SIDE_KINDS) continue
             if (r.direction != msg.direction) continue
             // A row set aside (❓) joins only the bank's own SMS that agrees with it (then it counts again).
             if (r.excluded && !msg.bankSms) continue
@@ -1131,7 +1245,10 @@ object PaymentAlertParser {
             val handles = compareHandles(r.handle, msg.handle)
             if (handles == RefMatch.DIFFERENT) continue
             val clue = handles == RefMatch.SAME || samePayer(r.payer, msg.payer)
-            if (!samePaymentWindow(msg.kind, r.kinds, gap, clue)) continue
+            val fits = if (msg.summary) {
+                gap >= -SUMMARY_SLACK_MS && gap <= SUMMARY_MS && (clue || !namesClash(r.payer, msg.payer))
+            } else samePaymentWindow(msg.kind, r.kinds, gap, clue)
+            if (!fits) continue
             val g = kotlin.math.abs(gap)
             if (best == null || (clue && !bestClue) || (clue == bestClue && g < bestGap)) {
                 best = r; bestClue = clue; bestGap = g

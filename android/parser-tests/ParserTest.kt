@@ -40,6 +40,45 @@ class Sim {
         spoken++
         return "spoken"
     }
+
+    /** A message of either direction (a debit SMS, "Paid ₹X to Y"): the same decision as [get]. */
+    fun any(pkg: String, kind: String, title: String?, text: String, atMin: Long): String =
+        put(pkg, kind, title, text, atMin, false, HashSet())
+
+    /**
+     * A payment app's SUMMARY notification, as the phone handles it: every line alone, a row is taken by one line
+     * only. Per line: "joined" (silent) or "late" (a payment the history did not have: written, never said as new).
+     */
+    fun summary(pkg: String, kind: String, title: String?, text: String, atMin: Long): List<String> {
+        val taken = HashSet<Int>()
+        return PaymentAlertParser.digestLines(title, text).map { put(pkg, kind, null, it, atMin, true, taken) }
+    }
+
+    private fun put(pkg: String, kind: String, title: String?, text: String, atMin: Long, summary: Boolean,
+                    taken: MutableSet<Int>): String {
+        val at = base + atMin * 60_000L
+        val msg = when (val r = PaymentAlertParser.parse(title, text)) {
+            is Result.Accepted -> PaymentAlertParser.Msg(pkg, kind, "in", r.amountPaise, at, r.account, r.reference,
+                PaymentAlertParser.upiHandleTail("${title ?: ""} $text"), r.payer, bankSms = kind == "sms", summary = summary)
+            is Result.Outgoing -> PaymentAlertParser.Msg(pkg, kind, "out", r.amountPaise, at, r.account, null, null, r.party,
+                bankSms = kind == "sms", summary = summary)
+            else -> return "ignored"
+        }
+        val hit = PaymentAlertParser.pickSamePayment(rows, msg, taken)
+        if (hit != null) {
+            val o = rows[hit]
+            rows[hit] = o.copy(kinds = (o.kinds + kind).distinct(), reference = o.reference ?: msg.reference,
+                handle = o.handle ?: msg.handle, payer = o.payer ?: msg.payer, account = o.account ?: msg.account)
+            taken.add(hit)
+            return "joined"
+        }
+        rows.add(PaymentAlertParser.Row(rows.size, msg.atMs, pkg, kind, listOf(kind), msg.direction, msg.amountPaise,
+            msg.account, msg.reference, msg.handle, msg.payer))
+        taken.add(rows.size - 1)
+        if (summary) return "late"
+        spoken++
+        return "spoken"
+    }
 }
 
 const val SMS = "com.google.android.apps.messaging"
@@ -187,15 +226,15 @@ fun main() {
     val app = PaymentAlertParser.parse("PhonePe", "Received ₹240 from MOHAMMAD HAFIZ. UPI Ref No. 925142780111. Transaction ID T2511171845123456")
     yes("app notification carries the RRN, not its own id", app is PaymentAlertParser.Result.Accepted && app.reference == "925142780111")
     // Owner 2026-11-21 (Rs 3,000 RECEIVED, shown as minus): money sent / paid / credited TO YOUR account is incoming.
-    check("phonepe to your bank", "Received ₹3,000", "VOODUGULA DURGA sent ₹3,000 to your ICICI Bank account", "IN 300000 payer=VOODUGULA DURGA")
-    check("received sent to your a/c", null, "Received ₹3,000 from VOODUGULA DURGA. Sent to your bank account XX4321", "IN 300000")
-    check("paid to your account", null, "₹3,000 received! DURGA paid to your account", "IN 300000")
-    check("real debit still out", null, "Paid ₹3,000 to VOODUGULA DURGA", "OUT 300000 to=VOODUGULA DURGA")
-    check("icici debit with credited still out", null, "ICICI Bank Acct XX123 debited for Rs 3000.00 on 20-Nov-26; DURGA credited. UPI:532012345678", "OUT 300000")
+    check("phonepe to your bank", "Received ₹3,000", "KOTA SRINIVAS sent ₹3,000 to your ICICI Bank account", "IN 300000 payer=KOTA SRINIVAS")
+    check("received sent to your a/c", null, "Received ₹3,000 from KOTA SRINIVAS. Sent to your bank account XX4321", "IN 300000")
+    check("paid to your account", null, "₹3,000 received! SRINIVAS paid to your account", "IN 300000")
+    check("real debit still out", null, "Paid ₹3,000 to KOTA SRINIVAS", "OUT 300000 to=KOTA SRINIVAS")
+    check("icici debit with credited still out", null, "ICICI Bank Acct XX123 debited for Rs 3000.00 on 20-Nov-26; SRINIVAS credited. UPI:532012345678", "OUT 300000")
     // Incoming + outgoing words, no strong debit word = a doubtful debit (❓ on the phone, never sure).
-    val mixed = PaymentAlertParser.parse(null, "Received ₹3,000 from DURGA, sent to Ramesh")
+    val mixed = PaymentAlertParser.parse(null, "Received ₹3,000 from SRINIVAS, sent to Ramesh")
     yes("mixed wording is doubtful", mixed is Result.Outgoing && mixed.doubtful)
-    val sure = PaymentAlertParser.parse(null, "ICICI Bank Acct XX123 debited for Rs 3000.00; DURGA credited.")
+    val sure = PaymentAlertParser.parse(null, "ICICI Bank Acct XX123 debited for Rs 3000.00; SRINIVAS credited.")
     yes("strong debit not doubtful", sure is Result.Outgoing && !sure.doubtful)
     // Owner 2026-11-21 (Airtel bill paid, voice said "3081 received"): a company thanking you for YOUR payment = money out.
     check("airtel thanks for payment", "AD-AIRTEL-S", "Thank you for the payment of Rs.3081.00 for your Airtel Postpaid number 98XXXXXX21. Txn ID 1234567890", "OUT 308100 to=AIRTEL")
@@ -436,6 +475,99 @@ fun main() {
         val other = get(HDFC_APP, "bank", null, "Rs.300.00 credited to A/c XX7571", 3)
         yes("another account = spoken", other == "spoken")
     }
+    // Owner 2026-11-23 (PhonePe "2 new completed transaction updates": last night's ₹3,000 that CAME IN and
+    // yesterday's ₹3,360 that went to someone were read as ONE message -- "₹3,000 went to <that someone>", spoken
+    // 9 h after the money had come in): a payment app's SUMMARY of several transactions is several messages, each
+    // read alone; it tells EARLIER payments, so it never speaks as new money. (Names and numbers are made up.)
+    val sumTitle = "2 new completed transaction updates"
+    val sumText = "· KOTA SRINIVAS RAO has sent ₹3,000 to your bank account HDFC Bank-4321\n· ₹3,360 has been sent to mahesh"
+    check("summary read whole is never one payment", sumTitle, sumText, "IGNORED")
+    val sumLines = PaymentAlertParser.digestLines(sumTitle, sumText)
+    yes("summary = its two lines", sumLines.size == 2)
+    check("summary line 1 = money in", null, sumLines.getOrElse(0) { "" }, "IN 300000 payer=KOTA SRINIVAS RAO acct=4321")
+    check("summary line 2 = money out", null, sumLines.getOrElse(1) { "" }, "OUT 336000 to=mahesh")
+    yes("heading inside the text", PaymentAlertParser.digestLines(null, "3 new payments\nRamesh sent ₹10 to you\nPaid ₹20 to Ravi\nSuresh sent ₹30 to you").size == 3)
+    yes("bullet points without a heading", PaymentAlertParser.digestLines("PhonePe", "• Ramesh sent ₹10 to you • Paid ₹20 to Ravi").size == 2)
+    yes("one transaction is not a summary", PaymentAlertParser.digestLines("1 new transaction update", "· Ramesh has sent ₹10 to your bank account").isEmpty())
+    yes("bank SMS + balance line is not a summary", PaymentAlertParser.digestLines("JD-HDFCBK-S", "Rs.500.00 credited to HDFC Bank A/c XX1234\nAvl Bal Rs.5,230.00").isEmpty())
+    yes("multi-line debit SMS is not a summary", PaymentAlertParser.digestLines("JD-HDFCBK-S", "Sent Rs.100.00\nFrom HDFC Bank A/C *1234\nTo RAMESH\nOn 15/11/26").isEmpty())
+    yes("amount + balance in one sentence is not a summary", PaymentAlertParser.digestLines(null, "Rs 500 credited to A/c XX1234. Avl Bal Rs 5,230").isEmpty())
+    yes("two lines, no heading, no bullets = one message", PaymentAlertParser.digestLines("Payment update", "Paid ₹500 to Ramesh\nCashback ₹10 earned").isEmpty())
+    check("multi-line debit SMS still read as before", "JD-HDFCBK-S", "Sent Rs.100.00\nFrom HDFC Bank A/C *1234\nTo RAMESH\nOn 15/11/26", "OUT 10000 to=RAMESH acct=1234")
+    yes("account after 'Bank-'", PaymentAlertParser.accountTail("to your bank account HDFC Bank-4321") == "4321")
+    yes("a phone number after 'Bank -' is not an account", PaymentAlertParser.accountTail("Call HDFC Bank - 1800 258 6161") == null)
+    yes("names clash only when no word is shared", PaymentAlertParser.namesClash("RAMESH", "SURESH KUMAR") &&
+        !PaymentAlertParser.namesClash("mahesh", "MAHESH BABU") && !PaymentAlertParser.namesClash(null, "RAMESH"))
+    // The notification's pieces: the same summary in two layouts is read ONCE; lines in separate pieces need a heading.
+    yes("same summary in text + big text = its two lines, not four", PaymentAlertParser.digestLinesOf(sumTitle,
+        listOf(sumText.replace("\n", " "), sumText, sumLines.last())).size == 2)
+    yes("lines in separate pieces under a counting heading", PaymentAlertParser.digestLinesOf(sumTitle,
+        listOf("KOTA SRINIVAS RAO has sent ₹3,000 to your bank account HDFC Bank-4321", "₹3,360 has been sent to mahesh",
+            "₹3,360 has been sent to mahesh")).size == 2)
+    yes("text + longer big text of ONE payment is not a summary", PaymentAlertParser.digestLinesOf("Money received",
+        listOf("Ramesh sent ₹500 to you", "Ramesh sent ₹500 to you. Tap to see details")).isEmpty())
+    yes("one payment told two ways, no counting heading = not a summary", PaymentAlertParser.digestLinesOf("PhonePe",
+        listOf("You received ₹500", "Ramesh sent ₹500 to your bank account")).isEmpty())
+    // The reported morning: debit SMS yesterday, credit SMS last night, the app's summary 9.5 h later.
+    Sim().run {
+        any(SMS, "sms", "JD-HDFCBK-S", "Sent Rs.3360.00 From HDFC Bank A/C *4321 To MAHESH BABU On 22/11/26 Ref 532612340777", 0)
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.3000.00 credited to HDFC Bank A/c XX4321 on 22-11-26 (UPI 532612345111)", 300)
+        val said = spoken
+        val r = summary(PHONEPE, "upi", sumTitle, sumText, 873)
+        yes("summary 9.5 h later: both lines join their rows", r == listOf("joined", "joined"))
+        yes("summary: nothing spoken, no new row", spoken == said && rows.size == 2)
+        yes("summary: the payer's name fills the bank SMS row", rows[1].payer == "KOTA SRINIVAS RAO" && rows[1].direction == "in")
+        val again = summary(PHONEPE, "upi", "3 new completed transaction updates", sumText + "\n· ₹500 has been sent to Ravi", 900)
+        yes("the summary again with one more line: old lines stay silent, the new one is written late",
+            again == listOf("joined", "joined", "late") && spoken == said && rows.size == 3)
+    }
+    // The app told the payment at the time; its own summary later repeats it (same app = still the same money).
+    Sim().run {
+        get(PHONEPE, "upi", "Received ₹3,000", "KOTA SRINIVAS RAO has sent ₹3,000 to your bank account HDFC Bank-4321", 0)
+        val r = summary(PHONEPE, "upi", sumTitle, sumText, 500)
+        yes("summary repeats the app's own earlier message = silent", r.getOrNull(0) == "joined")
+        yes("a line nobody told before = written late, never said as new money", r.getOrNull(1) == "late" && spoken == 1 && rows.size == 2)
+    }
+    // Rs 1 + Rs 1 (owner 2026-11-15) inside a summary: one row each; a second equal line with no row = a missed payment.
+    Sim().run {
+        get(PHONEPE, "upi", null, "Bhagya sent ₹1 to you.", 0)
+        get(PHONEPE, "upi", null, "Bhagya sent ₹1 to you.", 1)
+        val r = summary(PHONEPE, "upi", sumTitle, "· Bhagya has sent ₹1 to your bank account HDFC Bank-4321\n· Bhagya has sent ₹1 to your bank account HDFC Bank-4321", 300)
+        yes("two equal lines take the two rows, one each", r == listOf("joined", "joined") && rows.size == 2 && spoken == 2)
+    }
+    Sim().run {
+        get(PHONEPE, "upi", null, "Bhagya sent ₹1 to you.", 0)
+        val r = summary(PHONEPE, "upi", sumTitle, "· Bhagya has sent ₹1 to your bank account HDFC Bank-4321\n· Bhagya has sent ₹1 to your bank account HDFC Bank-4321", 300)
+        yes("two equal lines, one row: the second is a payment the phone missed", r == listOf("joined", "late") && rows.size == 2 && spoken == 1)
+    }
+    // Another person's payment of the same amount is not swallowed by a summary line; an old row is out of reach.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.500.00 credited to HDFC Bank A/c XX4321 on 22-11-26 from VPA ramesh@ybl (UPI 532612345222)", 0)
+        val r = summary(PHONEPE, "upi", sumTitle, "· SURESH KUMAR has sent ₹500 to your bank account HDFC Bank-4321\n· ₹20 has been sent to Ravi", 600)
+        yes("a different person's same amount = his own (late) row", r.getOrNull(0) == "late" && rows.size == 3)
+    }
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.3000.00 credited to HDFC Bank A/c XX4321 on 20-11-26 (UPI 532612345333)", 0)
+        val r = summary(PHONEPE, "upi", sumTitle, sumText, 49 * 60)
+        yes("a row older than two days is not the summary's payment", r.getOrNull(0) == "late")
+    }
+    // An ordinary (not summary) message hours later is still a new payment, as before.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.3000.00 credited to HDFC Bank A/c XX4321 on 22-11-26 (UPI 532612345111)", 0)
+        val later = get(PHONEPE, "upi", null, "Ramesh sent ₹3,000 to you.", 573)
+        yes("a real message 9.5 h later is still a new payment", later == "spoken" && spoken == 2)
+    }
+    // What the phone SAYS (owner 2026-11-23): an unsure message asks to check, a late one says so, a wrong voice says sorry.
+    yes("unsure voice asks to check the bank balance", PaymentAlertParser.noticeParts("unsure", 300000, "te").joinToString(" ").let {
+        it.contains("3000 రూపాయలు") && it.contains("బ్యాంక్ బ్యాలెన్స్") && !it.contains("వెళ్ళాయి") })
+    yes("late voice says it is an earlier payment", PaymentAlertParser.noticeParts("late_out", 336000, "te", "mahesh").joinToString(" ").let {
+        it.startsWith("ఆలస్యంగా తెలిసింది") && it.contains("mahesh కి 3360 రూపాయలు") })
+    yes("late voice, money in, English", PaymentAlertParser.noticeParts("late_in", 300000, "en", "Ramesh").joinToString(" ") ==
+        "Found out late: 3000 rupees came in earlier from Ramesh.")
+    yes("sorry voice", PaymentAlertParser.noticeParts("sorry_out", 300000, "te").joinToString(" ").let { it.startsWith("సారీ") && it.contains("వెళ్ళలేదు") })
+    yes("voice switches of the new lines", PaymentAlertParser.voiceKindOf("late_in") == "in" &&
+        PaymentAlertParser.voiceKindOf("late_out") == "out" && PaymentAlertParser.voiceKindOf("unsure") == "check" &&
+        PaymentAlertParser.voiceKindOf("sorry_in") == "sorry")
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }
