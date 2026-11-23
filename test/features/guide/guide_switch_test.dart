@@ -47,6 +47,7 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('askodoxGuideSwitchOff')), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('the intro card never shows in tests (only the real app turns it on)', (tester) async {
