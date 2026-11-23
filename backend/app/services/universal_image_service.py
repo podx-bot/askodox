@@ -14,6 +14,43 @@ from google.genai import types
 from app.services.image_normalization_service import ImageNormalizationService
 
 
+
+# Long bills / menus: room for every row (a 27-line bill needs several thousand tokens of JSON).
+PHOTO_MAX_OUTPUT_TOKENS = 32768
+
+
+def _close_cut_json(text: str) -> str:
+    """JSON cut off by the model's length limit -> the same JSON up to the last COMPLETE value inside a list or object,
+    with the open brackets closed. Raises ValueError when nothing complete is left."""
+    stack: list = []
+    in_string = escaped = False
+    cut = -1
+    cut_stack: list = []
+    for i, ch in enumerate(text):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]":
+            if not stack:
+                break
+            stack.pop()
+            if stack:
+                cut, cut_stack = i + 1, list(stack)
+            else:
+                return text[: i + 1]
+    if cut < 0:
+        raise ValueError("cut json")
+    return text[:cut] + "".join(reversed(cut_stack))
+
 class UniversalImageService:
     NEED_WORDS = {
         "need", "want", "buy", "కావాలి", "కొనాలి", "కొంటాను", "వెతుకుతున్నాను",
@@ -343,8 +380,10 @@ class UniversalImageService:
                         model=model,
                         contents=[*(types.Part.from_bytes(data=d, mime_type=m) for d, m in parts), prompt],
                         config=(types.GenerateContentConfig(response_mime_type="application/json",
+                                                            max_output_tokens=PHOTO_MAX_OUTPUT_TOKENS,
                                                             thinking_config=types.ThinkingConfig(thinking_budget=0))
-                                if fast else types.GenerateContentConfig(response_mime_type="application/json")),
+                                if fast else types.GenerateContentConfig(response_mime_type="application/json",
+                                                                         max_output_tokens=PHOTO_MAX_OUTPUT_TOKENS)),
                     )
                     payload = self._parse_json(str(getattr(response, "text", "") or ""))
                     print(f"ASKODOX INSPECT BRAIN: provider=gemini model={model} images={len(parts)} status=success",
@@ -484,7 +523,12 @@ class UniversalImageService:
             start, end = text.find("{"), text.rfind("}")
             if start < 0 or end <= start:
                 raise ValueError("no json")
-            data = json.loads(text[start:end + 1])
+            try:
+                data = json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                # Owner 2026-11-24: a 27-line purchase bill came back cut off mid-row -> "could not read" twice. Keep
+                # every COMPLETE row: cut after the last finished object and close what is still open.
+                data = json.loads(_close_cut_json(text[start:]))
         if not isinstance(data, dict):
             raise ValueError("invalid json")
         return data

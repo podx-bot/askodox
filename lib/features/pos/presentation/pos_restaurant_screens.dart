@@ -545,7 +545,7 @@ class _AskodoxPosKitchenScreenState extends ConsumerState<AskodoxPosKitchenScree
     final te = askodoxPosTe(context);
     final kots = _kots;
     return Scaffold(
-      appBar: AppBar(title: Text(te ? 'వంటగది (KOT)' : 'Kitchen (KOT)')),
+      appBar: AppBar(title: Text(te ? 'వంటగది KOT' : 'Kitchen (KOT)')),
       body: kots == null
           ? (_error == null ? const Center(child: CircularProgressIndicator()) : Center(child: Text(_error!)))
           : kots.isEmpty

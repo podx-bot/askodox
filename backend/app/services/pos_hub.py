@@ -20,14 +20,15 @@ from typing import Any, Callable, Dict, List, Optional
 
 from app.services.pos_store import IST, PosError
 
-# Pages the ASK bar may open: key -> (English, Telugu). The app maps each key to its route.
+# Pages the ASK bar may open: key -> (English, Telugu). The app maps each key to its route. A key that opens a shop page
+# carries that page's ONE name (lib/features/pos/domain/shop_page_names.dart; checked by test_chat_actions.py).
 PAGES: Dict[str, tuple] = {
     "hub": ("My business", "నా బిజినెస్"),
     "orders": ("Orders", "ఆర్డర్లు"),
     "orders.incoming": ("Incoming orders", "వచ్చిన ఆర్డర్లు"),
     "orders.tables": ("Tables", "టేబుల్స్"),
     "orders.calls": ("Table calls", "టేబుల్ పిలుపులు"),
-    "orders.kitchen": ("Kitchen", "వంటగది"),
+    "orders.kitchen": ("Kitchen (KOT)", "వంటగది KOT"),
     "orders.delivery": ("Delivery / parcel", "డెలివరీ / పార్సిల్"),
     "orders.qr": ("Table QR codes", "టేబుల్ QR కోడ్‌లు"),
     "orders.alerts": ("Order alerts & who accepts", "ఆర్డర్ అలర్ట్స్"),
@@ -59,7 +60,7 @@ PAGES: Dict[str, tuple] = {
     "customers.list": ("Customer list", "కస్టమర్ల లిస్ట్"),
     "settings": ("Settings", "సెట్టింగ్స్"),
     "settings.details": ("Business details", "బిజినెస్ వివరాలు"),
-    "settings.gst": ("GST", "GST"),
+    "settings.gst": ("GST report", "GST రిపోర్ట్"),
     "settings.printer": ("Printer", "ప్రింటర్"),
     "reports": ("Reports", "రిపోర్ట్స్"),
     "reports.settings": ("Night report", "రాత్రి రిపోర్ట్"),

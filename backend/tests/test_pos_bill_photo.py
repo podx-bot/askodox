@@ -137,3 +137,19 @@ def test_combo_saving_is_split_over_its_items_and_never_stacks(env):
         assert alone == {oil: 3500}, "no combo -> the item's own offer"
     with pytest.raises(PosError):
         store.set_combos(biz, OWNER, [{"name": "Bad", "items": [oil], "price_paise": 100}])
+
+
+def test_a_long_bill_cut_off_by_the_model_keeps_every_complete_row():
+    """Owner 2026-11-24: a 27-line purchase bill gave "could not read" twice -- the reader's JSON stopped mid-row."""
+    from app.services.universal_image_service import UniversalImageService, _close_cut_json
+
+    rows = ", ".join('{"name": "SOUL ITEM %d", "qty": 30, "cost": 31.64, "gst_percent": 12}' % i for i in range(26))
+    cut = '{"supplier": {"name": "LAXMI ENTERPRISES"}, "bill_no": "G-0000123", "lines": [' + rows + ', {"name": "SOUL TA'
+    data = UniversalImageService._parse_json(cut)
+    assert data["supplier"]["name"] == "LAXMI ENTERPRISES"
+    assert len(data["lines"]) == 26 and data["lines"][-1]["name"] == "SOUL ITEM 25"
+    assert _close_cut_json('{"a": [1, 2]}') == '{"a": [1, 2]}'
+    import pytest
+
+    with pytest.raises(ValueError):
+        UniversalImageService._parse_json('{"lines": [{"name": "SO')

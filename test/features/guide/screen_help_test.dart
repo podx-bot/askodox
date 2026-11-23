@@ -88,7 +88,7 @@ void main() {
     await tester.tap(find.byKey(const Key('askodoxScreenHelpButton')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxScreenHelpSheet')), findsOneWidget);
-    expect(find.text('Items & stock'), findsOneWidget);
+    expect(find.text('Stock & barcodes'), findsOneWidget);
     expect(find.textContaining('POS / Online / Both'), findsOneWidget);
     await tester.ensureVisible(find.text('OK'));
     await tester.pumpAndSettle();

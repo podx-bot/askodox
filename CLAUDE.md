@@ -1008,6 +1008,9 @@ this file, don't trust it blindly.
   amount (`askodoxPosPayQr`, `askodoxDefaultUpi` of `myPaymentMethods`, fetched only when UPI is chosen); way "బాకీ" /
   Due (`askodoxPosPayWay-due`) = the rest is a due: no customer -> name / phone + pay-by day in the sheet
   (`AskodoxPosPayResult`), the screen finds / adds the customer (`_dueCustomer`, walk-in prices kept) + `setDueDate`.
+- ONE name per shop page (owner 2026-11-24, "New bill" + "Counter bill" pins opened one page): `askodoxShopPageNames`
+  (`pos/domain/shop_page_names.dart`) names it everywhere (Money pages, dashboard, `/my-shop/<tool>`, guide, chat buttons,
+  ASK bar); pins are one per page (`askodoxSamePage`). Rule `.claude/rules/shop-page-names.md`.
 - Self-shopping = `pos_selfshop.py` (tables `pos_selfshop_*`) + `/api/pos/selfshop/*` (customer, any signed-in user, join
   rate-limited) + `/api/pos/businesses/{id}/selfshop*` (staff). Daily 6-digit code (QR `ASKODOX-SHOP:<code>`); sessions
   OPEN -> CHECKOUT (4-digit exit code) -> BILLED via `PosStore.create_invoice` (client_txn_id `selfshop-<sid>`); weighed /

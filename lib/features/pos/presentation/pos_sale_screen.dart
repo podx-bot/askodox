@@ -955,7 +955,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
     final preview = business == null ? null : _preview(business);
     return Scaffold(
       appBar: AppBar(
-        title: Text(te ? 'కొత్త బిల్లు' : 'New bill'),
+        title: Text(te ? 'కౌంటర్ బిల్లు' : 'Counter bill'),
         actions: [
           IconButton(
             key: const Key('askodoxPosHold'),
