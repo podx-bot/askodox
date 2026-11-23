@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:podx_ai_connect/features/guide/guide_switch.dart';
-import 'package:podx_ai_connect/features/guide/in_app_guide.dart';
+import 'package:podx/features/guide/guide_switch.dart';
+import 'package:podx/features/guide/in_app_guide.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
