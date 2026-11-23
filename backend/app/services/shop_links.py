@@ -177,6 +177,19 @@ class ShopLinks:
                 **self._settings(row["settings"]), "updated_at": row["updated_at"]}
 
     # ------------------------------------------------------------------ owner side
+    @staticmethod
+    def sms_card(name: str, url: str, upi_id: str = "") -> str:
+        """ASKODOX Lite step 6 (owner 2026-11-23): one plain SMS (<= 160 Latin characters, no app needed) a shop
+        sends to keypad / small phones: shop name, the light page (menu + order) and the owner's own UPI id."""
+        link = url.replace("https://", "")
+        tail = f" UPI: {upi_id}" if upi_id else ""
+        head = " ".join(str(name or "").split())
+        text = f"{head} - menu & order: {link}{tail}"
+        if len(text) > 160:
+            room = max(10, 160 - len(text) + len(head))
+            text = f"{head[:room].rstrip()} - menu & order: {link}{tail}"
+        return text[:160]
+
     def get(self, business_id: str, user: str) -> Dict[str, Any]:
         with closing(self.store._connect()) as conn:
             role = self.store._require(conn, business_id, user, "reports")
@@ -193,7 +206,9 @@ class ShopLinks:
                 "my_role": role, "can_change": role == "owner", "has_upi": bool(upi.get("upi_id")),
                 "upi_id": upi.get("upi_id", ""), "shop": {"name": biz["name"], "phone": biz["phone"],
                                                           "template": biz["template"], "address": biz["address"]},
-                "colors": COLORS, "stats": stats}
+                "colors": COLORS, "stats": stats,
+                "sms_text": self.sms_card(biz["name"], PUBLIC_BASE + (row["slug"] if row else suggested),
+                                          upi.get("upi_id", "")) if row else ""}
 
     def check_slug(self, business_id: str, user: str, slug: str) -> Dict[str, Any]:
         cleaned = clean_slug(slug)

@@ -1258,6 +1258,11 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # key: (minimum, maximum, default)
     "video_study.max_seconds": (10, 600, 180),
     "image_edit.daily_per_user": (0, 50, 5),
+    # Paid notifications (owner 2026-11-24): paise per person reached, limits per sender / per receiver per day.
+    "notices.rate_paise": (0, 100, 5),
+    "notices.max_recipients": (10, 5000, 1000),
+    "notices.per_day_sender": (1, 20, 3),
+    "notices.per_day_receiver": (1, 10, 3),
     "video_ai.daily_max": (0, 500, 40),  # AI product videos per day (all staff); 0 = off
     "studio.voice_line_cost": (0.0, 100.0, 3.0),  # ₹ per NEW Studio voice line (cached lines cost 0)
     "video_upload.max_mb": (1, 200, 60),

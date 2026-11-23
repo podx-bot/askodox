@@ -1168,6 +1168,23 @@ class PosStore:
             out["balance_paise"] = self._balance(conn, business_id, customer_id)
         return out
 
+    def customer_suggestions(self, business_id: str, user: str) -> List[Dict[str, Any]]:
+        """People who ordered / got a bill but are not in the list yet (owner 2026-11-24); saved only on a tap."""
+        from app.services import pos_customer_suggestions
+
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "customers")
+            return pos_customer_suggestions.suggestions(conn, business_id)
+
+    def skip_customer_suggestion(self, business_id: str, user: str, phone: str) -> Dict[str, Any]:
+        from app.services import pos_customer_suggestions
+
+        with self._connect() as conn:
+            self._require(conn, business_id, user, "customers")
+            if not pos_customer_suggestions.skip(conn, business_id, phone, user):
+                raise PosError(400, "phone", "A 10-digit number is needed.")
+        return {"skipped": True}
+
     def customers(self, business_id: str, user: str, query: str = "") -> List[Dict[str, Any]]:
         with self._connect() as conn:
             self._require(conn, business_id, user, "view")

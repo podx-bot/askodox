@@ -54,7 +54,7 @@ def category_labels(category: str, subcategory: str) -> Dict[str, Dict[str, str]
 
 
 PROFILE_PRIVATE = ("reg_number",)  # GST / Udyam number: for ASKODOX's check only, never shown to others
-MAX_IMAGE_BYTES = 900_000
+MAX_IMAGE_BYTES = 2_000_000  # an AI-designed post picture (owner 2026-11-24) fits
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 MAX_CAPTION = 300
 MAX_ANSWER = 300
