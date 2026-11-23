@@ -319,6 +319,39 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> shopCategories() async =>
       askodoxPosList((await _send('GET', '/api/shops/categories'))['categories']);
   Future<AskodoxJson> saveShopProfile(String id, AskodoxJson body) => _send('PUT', '/api/shops/$id/profile', body: body);
+  // ---- Business Kit ways 3-5 (owner 2026-11-24): bookings, job cards, monthly members.
+  Future<List<AskodoxJson>> bookItems(String biz) async =>
+      askodoxPosList((await _send('GET', '${_b(biz)}/book-items'))['items']);
+  Future<AskodoxJson> saveBookItem(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/book-items', body: body);
+  Future<AskodoxJson> shopBookings(String biz, {String day = ''}) =>
+      _send('GET', '${_b(biz)}/bookings', query: {if (day.isNotEmpty) 'day': day});
+  Future<AskodoxJson> addBooking(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/bookings', body: body);
+  Future<AskodoxJson> bookingStatus(String biz, String booking, String status) =>
+      _send('POST', '${_b(biz)}/bookings/$booking/status', body: {'status': status});
+  Future<AskodoxJson> freeToBook(String biz, AskodoxJson query) =>
+      _send('GET', '/api/pos/book/$biz/free', query: query);
+  Future<AskodoxJson> book(String biz, AskodoxJson body) => _send('POST', '/api/pos/book/$biz', body: body);
+  Future<List<AskodoxJson>> myBookings() async => askodoxPosList((await _send('GET', '/api/pos/me/bookings'))['bookings']);
+  Future<AskodoxJson> cancelMyBooking(String id) => _send('POST', '/api/pos/me/bookings/$id/cancel');
+  Future<AskodoxJson> shopJobs(String biz, {String status = 'open'}) =>
+      _send('GET', '${_b(biz)}/jobs', query: {'status': status});
+  Future<AskodoxJson> addJob(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/jobs', body: body);
+  Future<AskodoxJson> updateJob(String biz, String job, AskodoxJson body) =>
+      _send('PATCH', '${_b(biz)}/jobs/$job', body: body);
+  Future<List<AskodoxJson>> myJobs() async => askodoxPosList((await _send('GET', '/api/pos/me/jobs'))['jobs']);
+  Future<List<AskodoxJson>> monthlyPlans(String biz) async =>
+      askodoxPosList((await _send('GET', '${_b(biz)}/monthly/plans'))['plans']);
+  Future<AskodoxJson> saveMonthlyPlan(String biz, AskodoxJson body) =>
+      _send('POST', '${_b(biz)}/monthly/plans', body: body);
+  Future<AskodoxJson> monthly(String biz, {String month = ''}) =>
+      _send('GET', '${_b(biz)}/monthly', query: {if (month.isNotEmpty) 'month': month});
+  Future<AskodoxJson> addMonthlyMember(String biz, AskodoxJson body) =>
+      _send('POST', '${_b(biz)}/monthly/members', body: body);
+  Future<AskodoxJson> payMonthly(String biz, String member, AskodoxJson body) =>
+      _send('POST', '${_b(biz)}/monthly/members/$member/pay', body: body);
+  Future<AskodoxJson> monthlyMemberStatus(String biz, String member, String status) =>
+      _send('POST', '${_b(biz)}/monthly/members/$member/status', body: {'status': status});
+  Future<List<AskodoxJson>> myMonthly() async => askodoxPosList((await _send('GET', '/api/pos/me/monthly'))['plans']);
   /// Business Kit (owner 2026-11-24): what customers ask this shop + the owner's answers (owner only).
   Future<AskodoxJson> shopQuestions(String id) => _send('GET', '/api/shops/$id/questions');
   /// Answers given once ({question key: answer}); customers asking in the chat then get them.

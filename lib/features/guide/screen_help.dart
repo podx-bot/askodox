@@ -1007,6 +1007,49 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'షాప్ అంగీకరించకముందే రద్దు చేయవచ్చు. కింద బిల్లు నుంచి షాప్ UPI కి కట్టండి.',
     'ఇక్కడ తింటుంటే, షాప్ అంగీకరించాక "ఏమైనా కావాలా?" లో నీళ్లు, ఎక్స్‌ట్రా గ్రేవీ, ఆనియన్స్, బిల్ నొక్కండి లేదా మాటతో చెప్పండి.',
   ]),
+  '/shops/:id/book': _H('Book', 'బుక్ చేయండి', [
+    'Choose the day, the time (or how many nights) and how many people, then "Show what is free".',
+    'Tap what you want and give your name: it is booked at once and the shop is told. Pay the shop directly.',
+  ], [
+    'రోజు, సమయం (లేదా ఎన్ని రాత్రులు), ఎంత మంది ఎంచుకుని "ఖాళీ ఉన్నవి చూపించు" నొక్కండి.',
+    'కావలసింది నొక్కి పేరు ఇవ్వండి: వెంటనే బుక్ అవుతుంది, షాప్‌కి తెలుస్తుంది. డబ్బు షాప్‌కే నేరుగా కట్టండి.',
+  ]),
+  '/me/bookings': _H('My bookings', 'నా బుకింగ్స్', [
+    'Every room, chair, slot or hall you booked. Cancel one that has not started yet.',
+  ], [
+    'మీరు బుక్ చేసిన రూమ్‌లు, కుర్చీలు, సమయాలు, హాల్స్. ఇంకా మొదలు కానిది రద్దు చేయొచ్చు.',
+  ]),
+  '/me/jobs': _H('My jobs', 'నా జాబ్స్', [
+    'What you gave a shop to repair, stitch or make: its token, where it is, and what is left to pay.',
+  ], [
+    'రిపేర్ / కుట్టడం / తయారు కోసం షాప్‌కి ఇచ్చినవి: టోకెన్, ఎక్కడి వరకు వచ్చింది, ఇంకా ఎంత కట్టాలి.',
+  ]),
+  '/me/monthly': _H('My monthly plans', 'నా నెలవారీ', [
+    'Plans you pay every month (milk, tuition, gym, PG) and what is left to pay this month.',
+  ], [
+    'ప్రతి నెల కట్టేవి (పాలు, ట్యూషన్, జిమ్, PG), ఈ నెల ఇంకా ఎంత కట్టాలి.',
+  ]),
+  '/biz/:id/bookings': _H('Bookings', 'బుకింగ్స్', [
+    'Swipe the days on top. Each booking: what, when, who. ⋮ moves it on: arrived, done, no show, cancelled.',
+    '"Add a booking" for phone / walk-in customers. ⚙ on top = what can be booked: rooms by day, chairs / OP by time.',
+  ], [
+    'పైన రోజులు పక్కకి జరపండి. ప్రతి బుకింగ్: ఏది, ఎప్పుడు, ఎవరు. ⋮ తో ముందుకు: వచ్చారు, అయిపోయింది, రాలేదు, రద్దు.',
+    'ఫోన్ / నేరుగా వచ్చిన వాళ్ళకి "బుకింగ్ చేయి". పైన ⚙ = బుక్ చేసేవి: రూమ్‌లు రోజుల ప్రకారం, కుర్చీలు / OP సమయం ప్రకారం.',
+  ]),
+  '/biz/:id/jobs': _H('Job cards', 'జాబ్ కార్డ్స్', [
+    '"New job" = what came in, what to do, estimate, advance, ready date; it gets a token number.',
+    'Move it on with the buttons. "Ready" tells the customer in ASKODOX, or gives you a WhatsApp message to send.',
+  ], [
+    '"కొత్త జాబ్" = వచ్చింది ఏమిటి, ఏం చేయాలి, అంచనా, అడ్వాన్స్, రెడీ తేదీ; టోకెన్ నంబర్ వస్తుంది.',
+    'బటన్లతో ముందుకు జరపండి. "రెడీ" నొక్కితే కస్టమర్‌కి ASKODOX లో చెప్తుంది, లేదా WhatsApp మెసేజ్ ఇస్తుంది.',
+  ]),
+  '/biz/:id/monthly': _H('Monthly members', 'నెలవారీ సభ్యులు', [
+    'Plans on top (+ Plan). Each member shows what is left this month; "Paid" marks it, 💬 reminds on WhatsApp.',
+    'Hold a member for a part payment, let a month go, pause or stop.',
+  ], [
+    'పైన ప్లాన్లు (+ ప్లాన్). ప్రతి సభ్యుడికి ఈ నెల ఇంకా ఎంత రావాలో ఉంటుంది; "కట్టారు" తో జమ, 💬 తో WhatsApp గుర్తు.',
+    'కొంచెం కట్టినా, ఈ నెల వదిలేయాలన్నా, ఆపాలన్నా — సభ్యుడిని నొక్కి పట్టుకోండి.',
+  ]),
   '/shops/:id': _H('Shop page', 'షాప్ పేజీ', [
     'Photos, rating, hours, address and the shop\'s own Instagram / Facebook / YouTube links.',
     'Follow to get the shop\'s news in ASKODOX. Following on other apps you tap there yourself.',

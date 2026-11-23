@@ -71,6 +71,13 @@ AskodoxBizKind askodoxBizKindOf(Object? business) {
   return askodoxBizKind(business['template']);
 }
 
+/// The shop's ways of working from its Business Kit picks ('1'..'6'); empty from an older server.
+Set<String> askodoxKitFlows(Object? business) {
+  final kit = business is Map ? business['kit'] : null;
+  final flows = kit is Map ? kit['flows'] : null;
+  return flows is List ? {for (final f in flows) '$f'} : const <String>{};
+}
+
 /// Every page the hub, the ASK bar and the chat may open: page key -> route. Keys match the server's
 /// `pos_hub.PAGES`; a key without a route here falls back to the group page.
 String askodoxBizRoute(String id, String page) => switch (page) {
@@ -81,6 +88,9 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'orders.delivery' => '/desk/$id',
       'orders.qr' => '/desk/$id/qr',
       'orders.alerts' => '/desk/$id/settings',
+      'orders.bookings' => '/biz/$id/bookings',
+      'orders.jobs' => '/biz/$id/jobs',
+      'money.monthly' => '/biz/$id/monthly',
       'money.bill' => '/me/business/$id/bill',
       'money.counter' => '/pos/$id/sale',
       'money.dues' => '/biz/$id/money/dues',
@@ -159,7 +169,7 @@ String _rs(Object? paise) => askodoxPaise(askodoxPosInt(paise));
 String? _n(Object? v) => askodoxPosInt(v) > 0 ? '${askodoxPosInt(v)}' : null;
 
 /// The 6 groups. [kind] only renames a few things (food has tables + kitchen, a service shop calls items "services").
-List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind) {
+List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flows = const <String>{}}) {
   final food = kind == AskodoxBizKind.food;
   final service = kind == AskodoxBizKind.service;
   return [
@@ -181,6 +191,17 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind) {
           AskodoxBizTileSpec('orders.incoming', Icons.receipt_long_outlined, 'Incoming orders', 'వచ్చిన ఆర్డర్లు',
               'Accept / refuse', 'ఒప్పుకో / తిరస్కరించు', tone: 'blue', key: 'askodoxMyBusinessDesk',
               badge: (h) => _n(askodoxPosMap(h['orders'])['new'])),
+          // Business Kit ways 3 + 4 (owner 2026-11-24): bookings and job cards for the shops that work that way.
+          if (flows.contains('3'))
+            const AskodoxBizTileSpec('orders.bookings', Icons.event_available_outlined, 'Bookings', 'బుకింగ్స్',
+                'Rooms, chairs, slots, hall', 'రూమ్‌లు, కుర్చీలు, సమయాలు, హాల్', tone: 'teal', perm: 'customers'),
+          if (flows.contains('4'))
+            const AskodoxBizTileSpec('orders.jobs', Icons.build_circle_outlined, 'Job cards', 'జాబ్ కార్డ్స్',
+                'Received → ready → given', 'తీసుకున్నాం → రెడీ → ఇచ్చేశాం', tone: 'orange', perm: 'customers'),
+          // Way 6 (enquiry -> site visit -> deal) is the Business CRM: up front for the shops that work that way.
+          if (flows.contains('6'))
+            const AskodoxBizTileSpec('customers.crm', Icons.forum_outlined, 'Enquiries', 'ఎంక్వైరీలు',
+                'Enquiry → visit → quote → deal', 'ఎంక్వైరీ → విజిట్ → కొటేషన్ → డీల్', tone: 'blue', perm: 'crm'),
           if (food) ...[
             const AskodoxBizTileSpec('orders.tables', Icons.table_restaurant_outlined, 'Tables', 'టేబుల్స్',
                 'Free / busy', 'ఖాళీ / బిజీ', tone: 'teal', perm: 'tables'),
@@ -219,6 +240,9 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind) {
               'Money in + money out', 'ఆదాయం + ఖర్చు', tone: 'blue', perm: 'reports'),
           AskodoxBizTileSpec('money.dues', Icons.menu_book_outlined, 'Dues', 'బాకీలు', 'Who owes how much',
               'ఎవరు ఎంత ఇవ్వాలి', tone: 'orange', badge: (h) => _n(askodoxPosMap(h['dues'])['people']), perm: 'customers'),
+          if (flows.contains('5'))
+            const AskodoxBizTileSpec('money.monthly', Icons.event_repeat_outlined, 'Monthly members', 'నెలవారీ సభ్యులు',
+                'Milk, tuition, gym, PG', 'పాలు, ట్యూషన్, జిమ్, PG', tone: 'purple', perm: 'customers'),
           AskodoxBizTileSpec('money.sound', Icons.volume_up_outlined, 'Payment sound', 'పేమెంట్ సౌండ్',
               'Says each payment aloud', 'డబ్బు రాగానే చెబుతుంది', tone: 'teal', badge: (h) => _n(h['sounds'])),
           const AskodoxBizTileSpec('money.accounts', Icons.qr_code_2, 'My QR / accounts', 'నా QR / ఖాతాలు',
@@ -759,7 +783,7 @@ class AskodoxBizHubBody extends ConsumerWidget {
       error: (e, _) => AskodoxPosError(error: e, onRetry: () => ref.invalidate(askodoxBizHubProvider(businessId))),
       data: (pair) {
         final (business, hub) = pair;
-        final groups = askodoxBizGroups(askodoxBizKindOf(business))
+        final groups = askodoxBizGroups(askodoxBizKindOf(business), flows: askodoxKitFlows(business))
             .where((g) => askodoxBizAllowed(g.perm, business))
             .toList();
         final sales = askodoxPosMap(hub['sales']);
@@ -897,7 +921,9 @@ class AskodoxBizGroupScreen extends ConsumerWidget {
     final te = askodoxPosTe(context);
     final data = ref.watch(askodoxBizHubProvider(businessId));
     final kind = askodoxBizKindOf(data.valueOrNull?.$1);
-    final group = askodoxBizGroups(kind).firstWhere((g) => g.id == groupId, orElse: () => askodoxBizGroups(kind).first);
+    final flows = askodoxKitFlows(data.valueOrNull?.$1);
+    final group = askodoxBizGroups(kind, flows: flows)
+        .firstWhere((g) => g.id == groupId, orElse: () => askodoxBizGroups(kind, flows: flows).first);
     Future<void> refresh() async => ref.invalidate(askodoxBizHubProvider(businessId));
     return AskodoxBizScaffold(
       key: Key('askodoxBizGroupPage-${group.id}'),

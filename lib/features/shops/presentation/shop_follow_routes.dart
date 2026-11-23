@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../business/presentation/biz_work.dart' show AskodoxShopBookScreen, AskodoxMyWorkScreen;
 import '../../pos/presentation/shop_rating_screens.dart';
 import '../../steps/presentation/bill_steps_screen.dart';
 import 'my_business_screens.dart';
@@ -13,6 +14,11 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(
       path: '/shops/:id',
       builder: (context, state) => AskodoxShopPageScreen(businessId: state.pathParameters['id']!)),
+  // Business Kit (owner 2026-11-24): a customer books; their own bookings, job cards and monthly plans.
+  GoRoute(path: '/shops/:id/book', builder: (context, state) => AskodoxShopBookScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/me/bookings', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'bookings')),
+  GoRoute(path: '/me/jobs', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'jobs')),
+  GoRoute(path: '/me/monthly', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'monthly')),
   GoRoute(
       path: '/shops/:id/post',
       builder: (context, state) => AskodoxShopPostScreen(businessId: state.pathParameters['id']!)),

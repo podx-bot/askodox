@@ -3,6 +3,7 @@
 // an older server still falls back to its kind.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/features/business/presentation/biz_hub.dart';
+import 'package:podx/features/money_home/money_home_pages.dart';
 import 'package:podx/features/pos/presentation/pos_home_screen.dart';
 
 void main() {
@@ -20,5 +21,26 @@ void main() {
     expect(askodoxPosHasTables({'template': 'restaurant', 'kit': {'page_family': 'retail'}}), isFalse);
     expect(askodoxPosHasTables({'template': 'bakery'}), isTrue);
     expect(askodoxPosHasTables({'template': 'kirana'}), isFalse);
+  });
+
+  test('bookings, job cards and monthly pages come only with their way of working', () {
+    Set<String> pages(List<String> flows) => {
+          for (final p in askodoxSellerPages('h1', {
+            'role': 'owner',
+            'template': 'general',
+            'kit': {'flows': flows, 'page_family': 'service'},
+          }))
+            p.id,
+        };
+    expect(pages(['3', '6']), containsAll(['s.bookings', 's.crm']));
+    expect(pages(['3', '6']).contains('s.jobs'), isFalse);
+    expect(pages(['4']), contains('s.jobs'));
+    expect(pages(['1', '5']), contains('s.monthly'));
+    expect(pages([]).intersection({'s.bookings', 's.jobs', 's.monthly'}), isEmpty);
+    final orders = askodoxBizGroups(AskodoxBizKind.service, flows: {'3', '4'}).firstWhere((g) => g.id == 'orders');
+    expect(orders.tiles.map((t) => t.page), containsAll(['orders.bookings', 'orders.jobs']));
+    expect(askodoxBizRoute('h1', 'orders.bookings'), '/biz/h1/bookings');
+    expect(askodoxBizRoute('h1', 'money.monthly'), '/biz/h1/monthly');
+    expect(askodoxKitFlows({'kit': {'flows': ['1', '4']}}), {'1', '4'});
   });
 }
