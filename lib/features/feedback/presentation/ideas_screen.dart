@@ -81,7 +81,7 @@ class _AskodoxIdeasScreenState extends ConsumerState<AskodoxIdeasScreen> {
     return Scaffold(
       key: const Key('askodoxIdeas'),
       backgroundColor: const Color(0xFFF6F7FB),
-      appBar: AppBar(title: Text(te ? 'మీ ఐడియా చెప్పండి' : 'Tell us your idea')),
+      appBar: AppBar(title: Text(te ? 'సలహాలు & సూచనలు' : 'Ideas & suggestions')),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Container(
