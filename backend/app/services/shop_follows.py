@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from app.services import business_kit
 from app.services.pos_store import PosError
 
 SCHEMA = (
@@ -26,97 +27,38 @@ SCHEMA = (
     "CREATE INDEX IF NOT EXISTS shop_posts_business ON shop_posts (business_id, created_at)",
     "CREATE TABLE IF NOT EXISTS shop_profiles (business_id TEXT PRIMARY KEY, data TEXT NOT NULL,"
     " updated_at TEXT NOT NULL, verified_at TEXT)",
+    # What customers ask a shop (Business Kit questions + their own), and the owner's answer given once.
+    "CREATE TABLE IF NOT EXISTS shop_qa (business_id TEXT NOT NULL, qkey TEXT NOT NULL, question TEXT NOT NULL,"
+    " answer TEXT NOT NULL DEFAULT '', source TEXT NOT NULL, asked INTEGER NOT NULL DEFAULT 0, last_asked_at TEXT,"
+    " told_owner_at TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (business_id, qkey))",
 )
 # The shop's own details (owner 2026-11-14): shown before anything from Google. Text only, the owner's own words.
 PROFILE_FIELDS = {  # field -> max length
     "category": 80, "subcategory": 80, "description": 600, "address": 200, "landmark": 120, "hours": 120, "website": 200,
     "facebook": 200, "instagram": 200, "youtube": 200, "whatsapp": 20, "offers": 300, "delivery": 120,
     "extra": 600, "reg_number": 40, "lat": 12, "lng": 12,  # map pin from the app's picker
+    "more": 600,  # Business Kit: the other sub-categories of a mixed shop (keys, comma separated)
 }
 PROFILE_REQUIRED = ("category", "description", "address", "hours")
 
-# Ready-to-pick shop categories (owner 2026-11-14): category -> sub-categories, English + Telugu. The app shows them as
-# two dropdowns; "other" lets the owner type their own. Stored values are the keys below (or "other:<their words>").
-SHOP_CATEGORIES: List[Dict[str, Any]] = [
-    {"key": "meat_fish", "en": "Meat & fish", "te": "మాంసం & చేపలు", "subs": [
-        ("chicken", "Chicken", "చికెన్"), ("mutton", "Mutton", "మటన్"), ("fish", "Fish", "చేపలు"),
-        ("prawns", "Prawns", "రొయ్యలు"), ("eggs", "Eggs", "గుడ్లు")]},
-    {"key": "grocery", "en": "Grocery", "te": "కిరాణా", "subs": [
-        ("kirana", "Kirana store", "కిరాణా షాప్"), ("supermarket", "Supermarket", "సూపర్ మార్కెట్"),
-        ("rice_grains", "Rice & grains", "బియ్యం & ధాన్యాలు"), ("oil_ghee", "Oil & ghee", "నూనె & నెయ్యి"),
-        ("dry_fruits", "Dry fruits", "డ్రై ఫ్రూట్స్")]},
-    {"key": "veg_fruits", "en": "Vegetables & fruits", "te": "కూరగాయలు & పండ్లు", "subs": [
-        ("vegetables", "Vegetables", "కూరగాయలు"), ("fruits", "Fruits", "పండ్లు"), ("flowers", "Flowers", "పూలు")]},
-    {"key": "dairy_bakery", "en": "Dairy, sweets & bakery", "te": "పాలు, స్వీట్లు & బేకరీ", "subs": [
-        ("milk", "Milk & curd", "పాలు & పెరుగు"), ("sweets", "Sweets", "స్వీట్లు"), ("bakery", "Bakery", "బేకరీ"),
-        ("tea_snacks", "Tea & snacks", "టీ & స్నాక్స్")]},
-    {"key": "food", "en": "Restaurant & food", "te": "హోటల్ & ఆహారం", "subs": [
-        ("tiffin", "Tiffin centre", "టిఫిన్ సెంటర్"), ("meals", "Meals / restaurant", "భోజనం / రెస్టారెంట్"),
-        ("biryani", "Biryani", "బిర్యానీ"), ("fast_food", "Fast food", "ఫాస్ట్ ఫుడ్"),
-        ("juice", "Juice & ice cream", "జ్యూస్ & ఐస్ క్రీం"), ("catering", "Catering", "క్యాటరింగ్")]},
-    {"key": "clothing", "en": "Clothes & tailoring", "te": "బట్టలు & టైలరింగ్", "subs": [
-        ("clothes", "Clothes", "బట్టలు"), ("sarees", "Sarees", "చీరలు"), ("readymade", "Readymade", "రెడీమేడ్"),
-        ("footwear", "Footwear", "చెప్పులు"), ("tailor", "Tailor", "టైలర్")]},
-    {"key": "mobile_electronics", "en": "Mobile & electronics", "te": "మొబైల్ & ఎలక్ట్రానిక్స్", "subs": [
-        ("mobile_shop", "Mobile shop", "మొబైల్ షాప్"), ("mobile_repair", "Mobile repair", "మొబైల్ రిపేర్"),
-        ("electronics", "Electronics", "ఎలక్ట్రానిక్స్"), ("computer", "Computer & printing", "కంప్యూటర్ & ప్రింటింగ్")]},
-    {"key": "home_hardware", "en": "Home & hardware", "te": "ఇల్లు & హార్డ్‌వేర్", "subs": [
-        ("hardware", "Hardware", "హార్డ్‌వేర్"), ("paints", "Paints", "పెయింట్స్"),
-        ("electrical", "Electrical items", "ఎలక్ట్రికల్ సామాన్లు"), ("plumbing_items", "Plumbing items", "ప్లంబింగ్ సామాన్లు"),
-        ("furniture", "Furniture", "ఫర్నిచర్")]},
-    {"key": "beauty", "en": "Beauty & personal care", "te": "అందం & వ్యక్తిగత సంరక్షణ", "subs": [
-        ("salon", "Salon", "సెలూన్"), ("beauty_parlour", "Beauty parlour", "బ్యూటీ పార్లర్"),
-        ("cosmetics", "Cosmetics", "కాస్మెటిక్స్")]},
-    {"key": "health", "en": "Health", "te": "ఆరోగ్యం", "subs": [
-        ("medical_shop", "Medical shop", "మెడికల్ షాప్"), ("clinic", "Clinic", "క్లినిక్"),
-        ("lab", "Diagnostic lab", "ల్యాబ్"), ("optical", "Optical", "కళ్ళద్దాలు")]},
-    {"key": "vehicles", "en": "Vehicles", "te": "వాహనాలు", "subs": [
-        ("bike_repair", "Bike repair", "బైక్ రిపేర్"), ("car_repair", "Car repair", "కార్ రిపేర్"),
-        ("spare_parts", "Spare parts", "స్పేర్ పార్ట్స్"), ("tyres", "Tyres", "టైర్లు"),
-        ("wash", "Car / bike wash", "కార్ / బైక్ వాష్")]},
-    {"key": "farming", "en": "Farming", "te": "వ్యవసాయం", "subs": [
-        ("fertilizers", "Fertilizers & seeds", "ఎరువులు & విత్తనాలు"), ("pesticides", "Pesticides", "పురుగు మందులు"),
-        ("farm_tools", "Farm tools", "వ్యవసాయ పనిముట్లు"), ("dairy_farm", "Dairy farm", "డెయిరీ ఫామ్")]},
-    {"key": "services", "en": "Home services", "te": "ఇంటి సేవలు", "subs": [
-        ("electrician", "Electrician", "ఎలక్ట్రీషియన్"), ("plumber", "Plumber", "ప్లంబర్"),
-        ("carpenter", "Carpenter", "కార్పెంటర్"), ("cleaning", "Cleaning", "క్లీనింగ్"),
-        ("laundry", "Laundry", "లాండ్రీ"), ("photography", "Photography", "ఫోటోగ్రఫీ")]},
-    {"key": "education", "en": "Education", "te": "విద్య", "subs": [
-        ("tuition", "Tuition", "ట్యూషన్"), ("coaching", "Coaching", "కోచింగ్"),
-        ("school", "School / college", "స్కూల్ / కాలేజ్"), ("stationery", "Stationery & books", "స్టేషనరీ & పుస్తకాలు")]},
-    {"key": "transport", "en": "Travel & transport", "te": "ప్రయాణం & రవాణా", "subs": [
-        ("cab", "Taxi / cab", "టాక్సీ / క్యాబ్"), ("auto", "Auto", "ఆటో"), ("travels", "Travels", "ట్రావెల్స్"),
-        ("goods", "Goods transport", "సరుకు రవాణా")]},
-    {"key": "events", "en": "Events", "te": "ఈవెంట్లు", "subs": [
-        ("function_hall", "Function hall", "ఫంక్షన్ హాల్"), ("decoration", "Decoration", "డెకరేషన్"),
-        ("tent_house", "Tent house", "టెంట్ హౌస్"), ("sound_light", "Sound & lighting", "సౌండ్ & లైటింగ్")]},
-]
-_CATEGORY_BY_KEY = {c["key"]: c for c in SHOP_CATEGORIES}
-
-
+# Ready-to-pick shop categories (owner 2026-11-14 -> Business Kit 2026-11-24): ONE registry, editable in the Command
+# Center (``business_kit``). Stored values are its keys (or "other:<their words>"); "more" = the extra picks of a
+# mixed shop, comma separated.
 def shop_categories() -> List[Dict[str, Any]]:
-    return [{"key": c["key"], "en": c["en"], "te": c["te"],
-             "subs": [{"key": k, "en": en, "te": te} for k, en, te in c["subs"]]} for c in SHOP_CATEGORIES]
+    return business_kit.picker()
 
 
 def category_labels(category: str, subcategory: str) -> Dict[str, Dict[str, str]]:
     """Readable names for the stored keys ("other:<words>" shows the words as typed)."""
-    out: Dict[str, Dict[str, str]] = {}
-    top = _CATEGORY_BY_KEY.get(category)
-    if top:
-        out["category"] = {"en": top["en"], "te": top["te"]}
-    elif category:
-        words = category.split(":", 1)[1] if category.startswith("other:") else category
-        out["category"] = {"en": words, "te": words}
-    if subcategory:
-        match = next(((en, te) for k, en, te in (top or {}).get("subs", ()) if k == subcategory), None)
-        words = subcategory.split(":", 1)[1] if subcategory.startswith("other:") else subcategory
-        out["subcategory"] = {"en": match[0], "te": match[1]} if match else {"en": words, "te": words}
-    return out
+    return business_kit.labels(category, subcategory)
+
+
 PROFILE_PRIVATE = ("reg_number",)  # GST / Udyam number: for ASKODOX's check only, never shown to others
 MAX_IMAGE_BYTES = 900_000
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 MAX_CAPTION = 300
+MAX_ANSWER = 300
+MAX_QUESTION = 200
 
 
 def _now() -> str:
@@ -160,6 +102,7 @@ class ShopFollows:
             "following": following,
             "is_owner": is_owner,
             "profile": profile,
+            "kit": self.kit(conn, shop["id"], shop["template"]),
         }
 
     def _profile(self, conn: sqlite3.Connection, business_id: str, private: bool) -> Dict[str, Any]:
@@ -177,7 +120,23 @@ class ShopFollows:
             "incomplete" if missing else "submitted")
         shown = fields if private else {k: v for k, v in fields.items() if k not in PROFILE_PRIVATE}
         return {"fields": shown, "missing": missing, "status": status,
-                "labels": category_labels(fields.get("category", ""), fields.get("subcategory", ""))}
+                "labels": category_labels(fields.get("category", ""), fields.get("subcategory", "")),
+                "more": [{"key": n["key"], "en": n["en"], "te": n["te"]} for n in business_kit.shop_kit(
+                    "", "", fields.get("more", ""))["names"]]}
+
+    def kit(self, conn: sqlite3.Connection, business_id: str, template: str = "") -> Dict[str, Any]:
+        """The shop's Business Kit: its picks, ways of working and page family (see ``business_kit.shop_kit``)."""
+        fields = self._fields(conn, business_id)
+        return business_kit.shop_kit(fields.get("category", ""), fields.get("subcategory", ""), fields.get("more", ""),
+                                     template)
+
+    @staticmethod
+    def _fields(conn: sqlite3.Connection, business_id: str) -> Dict[str, str]:
+        try:
+            row = conn.execute("SELECT data FROM shop_profiles WHERE business_id = ?", (business_id,)).fetchone()
+            return {k: str(v) for k, v in json.loads(row["data"]).items() if v} if row else {}
+        except (sqlite3.OperationalError, ValueError, TypeError):
+            return {}
 
     def save_profile(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """The owner's own details. Unknown fields are dropped; a changed profile needs a fresh check."""
@@ -185,16 +144,113 @@ class ShopFollows:
             shop = self._shop(conn, business_id)
             if shop["owner_user_id"] != user:
                 raise PosError(403, "not_owner", "Only the shop owner can change these details.")
+            before = self._fields(conn, business_id)
             fields = {}
             for key, limit in PROFILE_FIELDS.items():
                 value = " ".join(str(data.get(key) or "").split())[:limit]
                 if value:
                     fields[key] = value
+            more = business_kit.parse_more(fields.pop("more", ""), fields.get("subcategory", ""))
+            if more:
+                fields["more"] = ",".join(more)
+            self._follow_main_pick(conn, shop, before.get("subcategory", ""), fields.get("subcategory", ""))
             conn.execute(
                 "INSERT INTO shop_profiles (business_id, data, updated_at, verified_at) VALUES (?, ?, ?, NULL)"
                 " ON CONFLICT(business_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at,"
                 " verified_at = NULL", (business_id, json.dumps(fields, ensure_ascii=False), _now()))
             return self._state(conn, shop, user)
+
+    @staticmethod
+    def _follow_main_pick(conn: sqlite3.Connection, shop: sqlite3.Row, old_main: str, new_main: str) -> None:
+        """Owner rule (2026-11-24): the category is picked ONCE and the setup follows. When the MAIN pick changes (or
+        a 'General' shop picks one), the shop's kind + ready catalogue follow it. Kinds are the POS kinds only."""
+        found = business_kit.sub(new_main)
+        if found is None or (new_main == old_main and shop["template"] != "general"):
+            return
+        from app.services.pos_store import TEMPLATES
+
+        kind = found["kind"] if found["kind"] in TEMPLATES else "general"
+        try:
+            conn.execute("UPDATE pos_businesses SET template = ?, catalogue_template = ?, updated_at = ? WHERE id = ?",
+                         (kind, found["catalogue"] or None, _now(), shop["id"]))
+        except sqlite3.OperationalError:  # an older store without the catalogue column
+            conn.execute("UPDATE pos_businesses SET template = ?, updated_at = ? WHERE id = ?", (kind, _now(), shop["id"]))
+
+    # ---- what customers ask (owner 2026-11-24): Business Kit questions of the shop's picks + customers' own questions.
+
+    def _qa_rows(self, conn: sqlite3.Connection, business_id: str) -> Dict[str, sqlite3.Row]:
+        return {r["qkey"]: r for r in conn.execute("SELECT * FROM shop_qa WHERE business_id = ?", (business_id,))}
+
+    def questions(self, business_id: str, user: str) -> Dict[str, Any]:
+        """The owner's list: customers' own questions waiting for an answer first, then the usual questions of the
+        shop's picks. Each answer is given once; customers then get it."""
+        with self._connect() as conn:
+            shop = self._shop(conn, business_id)
+            if shop["owner_user_id"] != user:
+                raise PosError(403, "not_owner", "Only the shop owner can answer for this shop.")
+            kit = self.kit(conn, business_id, shop["template"])
+            rows = self._qa_rows(conn, business_id)
+        out: List[Dict[str, Any]] = []
+        for key, r in sorted(rows.items(), key=lambda kv: kv[1]["last_asked_at"] or "", reverse=True):
+            if r["source"] == "customer":
+                out.append({"key": key, "question": r["question"], "answer": r["answer"], "source": "customer",
+                            "asked": int(r["asked"] or 0)})
+        for q in business_kit.questions(kit["subs"]):
+            r = rows.get(q["key"])
+            out.append({"key": q["key"], "question": q["question"], "answer": r["answer"] if r else "", "source": "kit",
+                        "asked": int(r["asked"] or 0) if r else 0, "sub_en": q["sub_en"], "sub_te": q["sub_te"]})
+        waiting = sum(1 for q in out if q["asked"] and not q["answer"])
+        return {"questions": out, "waiting": waiting, "kit": kit}
+
+    def save_answers(self, business_id: str, user: str, answers: Dict[str, Any]) -> Dict[str, Any]:
+        with self._connect() as conn:
+            shop = self._shop(conn, business_id)
+            if shop["owner_user_id"] != user:
+                raise PosError(403, "not_owner", "Only the shop owner can answer for this shop.")
+            kit = {q["key"]: q for q in business_kit.questions(self.kit(conn, business_id, shop["template"])["subs"])}
+            rows = self._qa_rows(conn, business_id)
+            now = _now()
+            for key, value in (answers or {}).items():
+                key = str(key)[:40]
+                text = " ".join(str(value or "").split())[:MAX_ANSWER]
+                if key in rows:
+                    conn.execute("UPDATE shop_qa SET answer = ?, updated_at = ? WHERE business_id = ? AND qkey = ?",
+                                 (text, now, business_id, key))
+                elif key in kit and text:
+                    conn.execute("INSERT INTO shop_qa (business_id, qkey, question, answer, source, updated_at)"
+                                 " VALUES (?, ?, ?, ?, 'kit', ?)", (business_id, key, kit[key]["question"], text, now))
+        return self.questions(business_id, user)
+
+    def asked(self, business_id: str, key: str, question: str, source: str) -> bool:
+        """A customer asked (a Business Kit question with no answer yet, or their own). True when the owner should be
+        told now: once per question per day."""
+        now = datetime.now(timezone.utc)
+        with self._connect() as conn:
+            row = conn.execute("SELECT told_owner_at FROM shop_qa WHERE business_id = ? AND qkey = ?",
+                               (business_id, key)).fetchone()
+            if row is None:
+                conn.execute("INSERT INTO shop_qa (business_id, qkey, question, source, asked, last_asked_at,"
+                             " told_owner_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?)",
+                             (business_id, key, question[:MAX_QUESTION], source, now.isoformat(), now.isoformat(),
+                              now.isoformat()))
+                return True
+            tell = not row["told_owner_at"] or row["told_owner_at"][:10] != now.isoformat()[:10]
+            conn.execute("UPDATE shop_qa SET asked = asked + 1, last_asked_at = ?" + (", told_owner_at = ?" if tell else "")
+                         + " WHERE business_id = ? AND qkey = ?",
+                         ((now.isoformat(), now.isoformat()) if tell else (now.isoformat(),)) + (business_id, key))
+            return tell
+
+    def known_answers(self, business_id: str) -> List[Dict[str, Any]]:
+        """Every question this shop can be asked: kit questions of its picks + customers' own, with any answer."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT template FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+            kit = self.kit(conn, business_id, row["template"] if row else "")
+            rows = self._qa_rows(conn, business_id)
+        out = [{"key": q["key"], "question": q["question"], "answer": rows[q["key"]]["answer"] if q["key"] in rows else "",
+                "source": "kit"} for q in business_kit.questions(kit["subs"])]
+        out += [{"key": k, "question": r["question"], "answer": r["answer"], "source": "customer"}
+                for k, r in rows.items() if r["source"] == "customer"]
+        return out
 
     def get(self, business_id: str, user: str) -> Dict[str, Any]:
         with self._connect() as conn:

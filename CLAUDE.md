@@ -1008,6 +1008,16 @@ this file, don't trust it blindly.
   amount (`askodoxPosPayQr`, `askodoxDefaultUpi` of `myPaymentMethods`, fetched only when UPI is chosen); way "బాకీ" /
   Due (`askodoxPosPayWay-due`) = the rest is a due: no customer -> name / phone + pay-by day in the sheet
   (`AskodoxPosPayResult`), the screen finds / adds the customer (`_dueCustomer`, walk-in prices kept) + `setDueDate`.
+- Business Kit (owner 2026-11-24) = `business_kit.py` (23 categories / 200 sub-categories, ways of working 1-6,
+  shop kind + catalogue per sub-category, customer questions, try-on) seeded ONCE into the Command Center resource
+  `business_kit` (parent blank = category) and read back via `set_source` (30 s cache). Shop picks = profile
+  `category` / `subcategory` (main) + `more` (keys, comma separated); the MAIN pick sets `pos_businesses.template` +
+  `catalogue_template` when it changes; `business()` / `my_businesses()` / shop state carry `kit` (`page_family` food /
+  service / retail from the union of flows + the main pick's first flow) -> app `askodoxBizKindOf` /
+  `askodoxPosHasTables` (never decide pages from a category name). Customer questions: `shop_qa` table
+  (`ShopFollows.questions / save_answers / asked / known_answers`), answered in `PosFrontDesk._shop_qa` from the
+  owner's answer only; unanswered -> owner push once a day per question (`/me/business/:id/profile?qa=1`). Old
+  category keys must keep resolving (`tests/test_business_kit.py` OLD_KEYS). Flows 3-6 have no screens yet.
 - ONE name per shop page (owner 2026-11-24, "New bill" + "Counter bill" pins opened one page): `askodoxShopPageNames`
   (`pos/domain/shop_page_names.dart`) names it everywhere (Money pages, dashboard, `/my-shop/<tool>`, guide, chat buttons,
   ASK bar); pins are one per page (`askodoxSamePage`). Rule `.claude/rules/shop-page-names.md`.

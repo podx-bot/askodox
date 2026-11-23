@@ -462,10 +462,22 @@ class PosStore:
             row["permissions"] = sorted(self.permissions_of(conn, business_id, user, role))
             row["tools"] = self._member_tools(conn, business_id, user, role)
         row["name_change"] = self._name_change(row)
+        with self._connect() as conn:
+            row["kit"] = self._kit(conn, business_id, row.get("template") or "")
         row["rules"] = {"version": pos_tax.RULES_VERSION, "einvoice_note": (
             "E-invoicing (IRN) applies above Rs 5 crore aggregate turnover; ASKODOX does not generate IRNs yet."
             if row["turnover_above_5cr"] else "")}
         return row
+
+    @staticmethod
+    def _kit(conn: sqlite3.Connection, business_id: str, template: str) -> Dict[str, Any]:
+        """Business Kit picks of this shop (owner 2026-11-24): its ways of working decide its pages in the app."""
+        from app.services import business_kit
+        from app.services.shop_follows import ShopFollows
+
+        fields = ShopFollows._fields(conn, business_id)
+        return business_kit.shop_kit(fields.get("category", ""), fields.get("subcategory", ""), fields.get("more", ""),
+                                     template)
 
     def _name_change(self, row: Dict[str, Any]) -> Dict[str, Any]:
         state = {"set_at": row.get("name_set_at") or row.get("created_at"), "edits": row.get("name_edits") or 0,
@@ -502,7 +514,7 @@ class PosStore:
                 " JOIN pos_businesses b ON b.id = m.business_id WHERE m.active = 1 AND (m.app_user_id = ?"
                 " OR (length(?) >= 10 AND m.phone_key = ?)) ORDER BY b.created_at",
                 (user, key, key)).fetchall()
-        return [dict(r) for r in rows]
+            return [{**dict(r), "kit": self._kit(conn, r["id"], r["template"] or "")} for r in rows]
 
     def update_settings(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
         allowed = {"address": 240, "phone": 20, "name": 80}

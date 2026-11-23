@@ -310,6 +310,11 @@ class AskodoxPosRepository {
   Future<List<AskodoxJson>> shopCategories() async =>
       askodoxPosList((await _send('GET', '/api/shops/categories'))['categories']);
   Future<AskodoxJson> saveShopProfile(String id, AskodoxJson body) => _send('PUT', '/api/shops/$id/profile', body: body);
+  /// Business Kit (owner 2026-11-24): what customers ask this shop + the owner's answers (owner only).
+  Future<AskodoxJson> shopQuestions(String id) => _send('GET', '/api/shops/$id/questions');
+  /// Answers given once ({question key: answer}); customers asking in the chat then get them.
+  Future<AskodoxJson> saveShopAnswers(String id, Map<String, String> answers) =>
+      _send('PUT', '/api/shops/$id/answers', body: {'answers': answers});
   Future<List<AskodoxJson>> myFeed() async => askodoxPosList((await _send('GET', '/api/me/feed'))['posts']);
   Future<AskodoxJson> checkGstin(String gstin) => _send('GET', '/api/pos/gstin/${Uri.encodeComponent(gstin)}');
   Future<List<AskodoxJson>> products(String id, {String q = ''}) async =>

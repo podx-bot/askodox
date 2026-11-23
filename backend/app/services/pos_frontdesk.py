@@ -20,6 +20,7 @@ Money = integer paise, quantities = milli-units (the POS core's rules).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -544,7 +545,7 @@ class PosFrontDesk:
         words = " " + str(text or "").lower() + " "
         asked = [k for k, cues in self._ASKS.items() if any(c in words for c in cues)]
         if not asked:
-            return ""
+            return self._shop_qa(business_id, text, te)
         profile: Dict[str, Any] = {}
         name = ""
         try:
@@ -587,7 +588,44 @@ class PosFrontDesk:
                 for m in hits[:4]:
                     p = int(m["price_paise"])
                     lines.append(f"• {m['name']}: ₹{p // 100}" if p % 100 == 0 else f"• {m['name']}: ₹{p / 100:.2f}")
-        return "\n".join(dict.fromkeys(lines))
+        return "\n".join(dict.fromkeys(lines)) or self._shop_qa(business_id, text, te)
+
+    def _shop_qa(self, business_id: str, text: str, te: bool) -> str:
+        """Business Kit (owner 2026-11-24): a question this kind of business is usually asked, or the customer's own,
+        answered from the OWNER's answer. Not answered yet -> said so, and the owner is told (once a day per question)
+        to answer it once for everyone. Never a guess."""
+        from app.services import business_kit
+        from app.services.shop_follows import ShopFollows
+
+        try:
+            qa = ShopFollows(self.store.db_path)
+            known = qa.known_answers(business_id)
+            hit = business_kit.match_question(text, known)
+            if hit and hit["answer"]:
+                return f"💬 {hit['answer']}"
+            if hit is None:
+                if not business_kit.looks_like_question(text):
+                    return ""
+                with self.store._connect() as conn:
+                    menu = self._menu(conn, business_id, everything=True)
+                heard = pos_menu_voice.assist(text, menu, te=te, cart=[], last_items=[]) if menu else {}
+                if heard.get("add") or heard.get("suggest") or heard.get("options"):
+                    return ""  # it names an item (any script): the menu card answers that
+                norm = " ".join(business_kit.tokens(text))
+                hit = {"key": "c:" + hashlib.sha1(norm.encode("utf-8")).hexdigest()[:12],
+                       "question": " ".join(str(text).split()), "source": "customer"}
+            with self.store._connect() as conn:
+                row = conn.execute("SELECT name, owner_user_id FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+            if row is None:
+                return ""
+            if qa.asked(business_id, hit["key"], hit["question"], hit["source"]):
+                self.notify(row["owner_user_id"], "కస్టమర్ ప్రశ్న / A customer asked", hit["question"][:120],
+                            f"/me/business/{business_id}/profile?qa=1",
+                            f"shopqa:{business_id}:{hit['key']}:{datetime.now(timezone.utc).date().isoformat()}")
+            return (f"{row['name']} ఈ వివరం ఇంకా ASKODOX లో పెట్టలేదు. షాప్‌కి తెలియజేశాం." if te
+                    else f"{row['name']} has not added this on ASKODOX yet. We have told the shop.")
+        except Exception:
+            return ""
 
     @staticmethod
     def _km(a: tuple, b: tuple) -> float:

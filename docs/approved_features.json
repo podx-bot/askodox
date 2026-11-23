@@ -10244,6 +10244,51 @@
           "askodoxDefaultUpi"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Shop owners pick what their business is from ONE Business Kit list (23 categories, 200 sub-categories incl. real estate, construction, sanitary / taps, motors, geysers, hotel rooms, jewellery, finance, wholesale), editable by staff in the Command Center (resource business_kit: add / change / disable without an app update; keys stay stable). A shop picks a main sub-category and any number more (mixed shops: hotel + sweets + bakery, furniture + taps + motors + geysers). The main pick sets the shop kind + ready catalogue; the shop's pages follow the union of the picks' ways of working (food = tables + kitchen, service = orders & bookings, retail = items & stock). Customers asking about a named shop in the chat get the owner's own answer to the usual questions of that business (and to their own earlier questions); a question with no answer yet is said to be missing and the owner is told once a day per question (push opens the questions page). Never a guessed answer.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: Business Kit registry + multi-pick + kind follows main pick + customer questions (owner 2026-11-24 'start work'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "business_kit",
+      "name": "Business Kit: shop categories, mixed shops, customer questions",
+      "purpose": "Owner 2026-11-24: every kind of business that registers must get a setup fitted to it (not only restaurants); one shop may be several businesses; new categories are added from the Command Center.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_business_kit.py"
+        ],
+        "flutter": [
+          "test/features/business/business_kit_pages_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBusinessMoreAdd",
+          "askodoxBusinessMoreSearch",
+          "askodoxBusinessMoreDone",
+          "askodoxBusinessQuestions",
+          "askodoxShopAnswersSave"
+        ],
+        "symbols": [
+          "askodoxBizKindOf",
+          "askodoxPosHasTables",
+          "AskodoxShopQuestionsScreen"
+        ]
+      }
     }
   ]
 }

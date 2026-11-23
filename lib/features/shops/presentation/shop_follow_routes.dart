@@ -21,7 +21,9 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(path: '/me/business', builder: (context, state) => const AskodoxMyBusinessScreen()),
   GoRoute(
       path: '/me/business/:id/profile',
-      builder: (context, state) => AskodoxBusinessProfileScreen(businessId: state.pathParameters['id']!)),
+      // ?qa=1 (owner push "A customer asked"): the customer questions open at once.
+      builder: (context, state) => AskodoxBusinessProfileScreen(
+          businessId: state.pathParameters['id']!, openQuestions: state.uri.queryParameters['qa'] == '1')),
   GoRoute(
       path: '/me/business/:id/bill',
       // Owner 2026-11-22: the 3-step bill (items -> how paid -> done); the full page (GST, advance, edit) at ?full=1.

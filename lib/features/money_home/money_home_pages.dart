@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/flags/askodox_release_phase.dart';
-import '../business/presentation/biz_hub.dart' show AskodoxBizKind, askodoxBizKind, askodoxBizRoute;
+import '../business/presentation/biz_hub.dart' show AskodoxBizKind, askodoxBizKindOf, askodoxBizRoute;
 import '../pos/data/pos_repository.dart' show AskodoxJson;
 import '../pos/domain/shop_page_names.dart';
 import 'launcher_layout.dart';
@@ -248,7 +248,7 @@ bool _sees(_SellerSpec spec, String role, AskodoxJson business) {
 /// gave them plus their OWN check in, attendance, tasks and month (a person can own a shop AND work in another one;
 /// each shop shows that person's side of it). Phase 2 screens stay out; tables + kitchen only for a hotel.
 List<AskodoxLaunchPage> askodoxSellerPages(String businessId, AskodoxJson business) {
-  final food = askodoxBizKind(business['template']) == AskodoxBizKind.food;
+  final food = askodoxBizKindOf(business) == AskodoxBizKind.food;
   final role = '${business['my_role'] ?? business['role'] ?? ''}';
   final staff = role != 'owner';
   final out = <AskodoxLaunchPage>[];

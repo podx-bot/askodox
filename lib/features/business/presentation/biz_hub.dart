@@ -52,6 +52,25 @@ AskodoxBizKind askodoxBizKind(Object? template) => switch ('${template ?? ''}') 
       _ => AskodoxBizKind.retail,
     };
 
+/// A shop's pages (Business Kit, owner 2026-11-24): the server's `kit.page_family` comes from the ways of working of
+/// EVERYTHING the shop picked (a hotel that also sells sweets gets tables + kitchen whatever its kind); a shop from an
+/// older server falls back to its kind.
+AskodoxBizKind askodoxBizKindOf(Object? business) {
+  if (business is! Map) return AskodoxBizKind.retail;
+  final kit = business['kit'];
+  if (kit is Map) {
+    switch ('${kit['page_family'] ?? ''}') {
+      case 'food':
+        return AskodoxBizKind.food;
+      case 'service':
+        return AskodoxBizKind.service;
+      case 'retail':
+        return AskodoxBizKind.retail;
+    }
+  }
+  return askodoxBizKind(business['template']);
+}
+
 /// Every page the hub, the ASK bar and the chat may open: page key -> route. Keys match the server's
 /// `pos_hub.PAGES`; a key without a route here falls back to the group page.
 String askodoxBizRoute(String id, String page) => switch (page) {
@@ -740,7 +759,7 @@ class AskodoxBizHubBody extends ConsumerWidget {
       error: (e, _) => AskodoxPosError(error: e, onRetry: () => ref.invalidate(askodoxBizHubProvider(businessId))),
       data: (pair) {
         final (business, hub) = pair;
-        final groups = askodoxBizGroups(askodoxBizKind(business['template']))
+        final groups = askodoxBizGroups(askodoxBizKindOf(business))
             .where((g) => askodoxBizAllowed(g.perm, business))
             .toList();
         final sales = askodoxPosMap(hub['sales']);
@@ -877,7 +896,7 @@ class AskodoxBizGroupScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final te = askodoxPosTe(context);
     final data = ref.watch(askodoxBizHubProvider(businessId));
-    final kind = askodoxBizKind(data.valueOrNull?.$1['template']);
+    final kind = askodoxBizKindOf(data.valueOrNull?.$1);
     final group = askodoxBizGroups(kind).firstWhere((g) => g.id == groupId, orElse: () => askodoxBizGroups(kind).first);
     Future<void> refresh() async => ref.invalidate(askodoxBizHubProvider(businessId));
     return AskodoxBizScaffold(
