@@ -260,6 +260,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                             softWrap: false,
                             style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
                       ),
+                      // Owner 2026-11-23: the guide ON / OFF switch, inside the same box so a narrow phone shrinks it too.
+                      const SizedBox(width: 6),
+                      const AskodoxGuideChip(),
                     ]),
                   ),
                 ),
@@ -325,8 +328,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                 }),
                 const SizedBox(width: 2),
                 ConstrainedBox(
-                  // Phase 1: the place name gives 28 dp to the guide switch (owner 2026-11-23) so a 360 dp phone fits.
-                  constraints: const BoxConstraints(maxWidth: askodoxPhase2 ? 84 : 56),
+                  constraints: const BoxConstraints(maxWidth: 84),
                   child: Text(
                     locationLabel,
                     maxLines: 1,
@@ -338,8 +340,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               ]),
             ),
           ),
-          // Owner 2026-11-23: the guide ON / OFF switch sits where the language chip was (language is in the ☰ menu).
-          if (!askodoxPhase2) const Padding(padding: EdgeInsets.symmetric(horizontal: 2), child: AskodoxGuideChip()),
+          // Owner 2026-11-23: the language chip makes room for the guide switch (language is in the ☰ menu).
           if (askodoxPhase2) PopupMenuButton<String>(
             key: const Key('askodoxLanguageChip'),
             tooltip: isTe ? 'భాష' : 'Language',
