@@ -1,0 +1,23 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1611]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45132985124 -R "$GITHUB_REPOSITORY" -n askodox-android-611 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1611.aab
+          sha256sum askodox-play-1611.aab
+          gh release create play-bundle-1611 askodox-play-1611.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1611" --notes "Play Console upload only (not installable on a phone). PR #399: payment voice with no net in the same voice (voice pack), ASKODOX tune / hello / customer line / night count, voice language from location. Also new since 1608: #396 summaries / unsure / late / sorry voices, #397 shop core free, #398 one app voice (Chaitra G)."
