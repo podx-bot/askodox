@@ -325,7 +325,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                 }),
                 const SizedBox(width: 2),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 84),
+                  // Phase 1: the place name gives 28 dp to the guide switch (owner 2026-11-23) so a 360 dp phone fits.
+                  constraints: const BoxConstraints(maxWidth: askodoxPhase2 ? 84 : 56),
                   child: Text(
                     locationLabel,
                     maxLines: 1,

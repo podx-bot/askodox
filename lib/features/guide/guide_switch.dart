@@ -117,7 +117,7 @@ class AskodoxGuideChip extends ConsumerWidget {
         onTap: () => askodoxToggleGuide(context, ref),
         child: Container(
           height: 28,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: on ? askodoxGuideGold : const Color(0xFFE9ECF2),
             borderRadius: BorderRadius.circular(14),
