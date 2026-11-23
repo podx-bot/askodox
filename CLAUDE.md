@@ -1005,7 +1005,9 @@ this file, don't trust it blindly.
   items match in ANY script by sound (`pos_name_sound.dart` = twin of `name_sound.py`), rule `.claude/rules/pos-spoken-orders.md`.
 - Counter pay sheet (`AskodoxPosPaymentSheet`, owner 2026-11-24 "UPI select అవ్వట్లేదు"): picking a way moves a single
   full payment to it (`_choose`), added payments come off (`askodoxPosPayment-<i>`), UPI shows the shop's own QR with the
-  amount (`askodoxPosPayQr`, `askodoxDefaultUpi` of `myPaymentMethods`, fetched only when UPI is chosen).
+  amount (`askodoxPosPayQr`, `askodoxDefaultUpi` of `myPaymentMethods`, fetched only when UPI is chosen); way "బాకీ" /
+  Due (`askodoxPosPayWay-due`) = the rest is a due: no customer -> name / phone + pay-by day in the sheet
+  (`AskodoxPosPayResult`), the screen finds / adds the customer (`_dueCustomer`, walk-in prices kept) + `setDueDate`.
 - Self-shopping = `pos_selfshop.py` (tables `pos_selfshop_*`) + `/api/pos/selfshop/*` (customer, any signed-in user, join
   rate-limited) + `/api/pos/businesses/{id}/selfshop*` (staff). Daily 6-digit code (QR `ASKODOX-SHOP:<code>`); sessions
   OPEN -> CHECKOUT (4-digit exit code) -> BILLED via `PosStore.create_invoice` (client_txn_id `selfshop-<sid>`); weighed /
