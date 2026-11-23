@@ -10381,6 +10381,47 @@
           "AskodoxCustomerSuggestions"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "The guide tab on every page is labelled 'చెప్పు' / 'Tell'. First tap opens the page's guide; at its top the big mic (askodoxCommandMic) takes a command: it stops by itself 2 s after the person stops talking (6 s when nothing is said, 45 s max), shows the heard words and sends them after 3 s unless Stop / Change is tapped (no send button needed). The words go to the ASKODOX chat (AskodoxChatRequest.ask + Home), which opens the page or does the job (risky jobs still ask for a ✓ there).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: guide + command mic on one button with auto-send (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "tell_button_command_mic",
+      "name": "చెప్పు button: guide + command mic",
+      "purpose": "Owner 2026-11-24: one button on top of every page -- first tap guide, second tap a mic that takes a command and sends by itself after a short quiet.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/guide/command_mic_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCommandMic",
+          "askodoxCommandCountdown",
+          "askodoxCommandStop",
+          "askodoxCommandChange"
+        ],
+        "symbols": [
+          "AskodoxCommandMic",
+          "askodoxCommandEndpointer"
+        ]
+      }
     }
   ]
 }

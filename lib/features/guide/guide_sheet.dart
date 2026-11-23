@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_models.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../shared/widgets/askodox_mascot.dart';
+import '../home/application/conversation_archive.dart';
 import '../home/presentation/question_mic.dart';
+import 'command_mic.dart';
 import 'in_app_guide.dart';
 import 'screen_help.dart';
 
@@ -152,6 +155,14 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
 
   void _start(AskodoxGuideFlow flow) => Navigator.pop(context, flow);
 
+  /// A spoken command: the ASKODOX chat takes it (opens the named page, or does the job and asks a ✓ for risky ones).
+  void _command(String words) {
+    ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(words);
+    final router = GoRouter.maybeOf(context);
+    Navigator.pop(context);
+    router?.go('/');
+  }
+
   @override
   Widget build(BuildContext context) {
     final te = _te;
@@ -180,6 +191,10 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                 icon: Icon(_speaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
               ),
             ]),
+            // Owner 2026-11-24: second tap = "చెప్పు" -- say a command; it is sent by itself after a short quiet and
+            // the chat opens the page / does the job.
+            const SizedBox(height: 10),
+            AskodoxCommandMic(lang: te ? 'te' : 'en', onSend: _command),
             if (widget.welcome)
               Container(
                 key: const Key('askodoxWelcomeGuide'),
@@ -188,8 +203,8 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                 decoration: BoxDecoration(color: const Color(0xFFF1F6FF), borderRadius: BorderRadius.circular(10)),
                 child: Text(
                   te
-                      ? 'ASKODOX కి స్వాగతం! ఏ పేజీలోనైనా సందేహం వస్తే ఎడమ వైపు ఉన్న ఈ ASKO "గైడ్" బటన్ నొక్కండి — ఆ పేజీలో ఏం చేయాలో చెబుతుంది, మీరు అడిగితే జవాబు ఇస్తుంది.'
-                      : 'Welcome to ASKODOX! Whenever you are unsure on any page, press the ASKO "Guide" button on the left — it tells you what to do there and answers your questions.',
+                      ? 'ASKODOX కి స్వాగతం! ఏ పేజీలోనైనా సందేహం వస్తే ఎడమ వైపు ఉన్న ఈ "చెప్పు" బటన్ నొక్కండి — ఆ పేజీలో ఏం చేయాలో చెబుతుంది; పైన మైక్ నొక్కి ఏం కావాలో చెబితే అదే చేస్తుంది.'
+                      : 'Welcome to ASKODOX! Whenever you are unsure on any page, press the "Tell" button on the left — it tells you what to do there; tap its mic and say what you want, and it does it.',
                   style: const TextStyle(fontSize: 13.5, height: 1.35),
                 ),
               ),
