@@ -1,0 +1,24 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1625]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45235830781 -R "$GITHUB_REPOSITORY" -n askodox-android-625 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1625.aab
+          ls -l askodox-play-1625.aab
+          sha256sum askodox-play-1625.aab
+          gh release create play-bundle-1625 askodox-play-1625.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1625" --notes "Play Console upload only (not installable on a phone). PR #414: on the Money / Buy / Sell screens a page dropped on another page takes that place (the rest shift), never a folder; folders only from the page menu."
