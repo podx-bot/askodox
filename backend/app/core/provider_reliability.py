@@ -95,9 +95,12 @@ class ProviderReliabilityExecutor(Generic[T]):
 
     def _run_with_timeout(self, operation: Callable[[], T]) -> T:
         executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="askodox-provider")
-        from app.services import ai_usage_meter
-
-        future = executor.submit(ai_usage_meter.carry(operation))
+        try:  # relative: this module is also imported as backend.app.core (docker smoke)
+            from ..services.ai_usage_meter import carry
+        except Exception:  # metering must never block a provider call
+            def carry(fn):  # type: ignore[no-redef]
+                return fn
+        future = executor.submit(carry(operation))
         try:
             return future.result(timeout=self.policy.timeout_seconds)
         finally:
