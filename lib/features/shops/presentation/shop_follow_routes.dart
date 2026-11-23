@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../business/presentation/biz_work.dart' show AskodoxShopBookScreen, AskodoxMyWorkScreen;
 import '../../pos/presentation/shop_rating_screens.dart';
 import '../../steps/presentation/bill_steps_screen.dart';
+import '../../try_on/try_on_screen.dart';
 import 'my_business_screens.dart';
 import 'shop_follow_screens.dart';
 import 'shop_post_screens.dart';
@@ -19,6 +20,13 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(path: '/me/bookings', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'bookings')),
   GoRoute(path: '/me/jobs', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'jobs')),
   GoRoute(path: '/me/monthly', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'monthly')),
+  // Photo try-on: ?image=<item photo url>&name=<item>&mode=on_me|in_home (from a result card, or empty).
+  GoRoute(
+      path: '/try-on',
+      builder: (context, state) => AskodoxTryOnScreen(
+          imageUrl: state.uri.queryParameters['image'] ?? '',
+          itemName: state.uri.queryParameters['name'] ?? '',
+          mode: state.uri.queryParameters['mode'] ?? 'on_me')),
   GoRoute(
       path: '/shops/:id/post',
       builder: (context, state) => AskodoxShopPostScreen(businessId: state.pathParameters['id']!)),

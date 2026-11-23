@@ -163,3 +163,46 @@ def test_zero_setting_still_switches_it_off_when_paid(studio, monkeypatch):
     monkeypatch.setattr(platform_settings, "get", lambda key, default=None: 0)
     assert client.post("/api/images/edit", json=_body(), headers=_bearer(container)).json()["code"] == "off"
     assert provider.calls == []
+
+
+# ---- photo try-on (owner 2026-11-24)
+def _try(mode="on_me", name="Blue cotton kurti", consent=True, **extra):
+    return {"mode": mode, "person_or_place": {"data_base64": JPEG}, "item": {"data_base64": PNG},
+            "item_name": name, "consent": consent, "language": "te", **extra}
+
+
+def test_try_on_keeps_the_person_and_labels_the_picture(studio):
+    client, container, provider, credits = studio
+    body = client.post("/api/images/try-on", json=_try(), headers=_bearer(container)).json()
+    assert body["ok"] is True and body["kind"] == "try_on" and "AI చిత్రం" in body["label"]
+    kind, mimes, prompt = provider.calls[-1]
+    assert kind == "edit" and mimes == ["image/jpeg", "image/png"]
+    assert "SAME person" in prompt and "same face" in prompt and "(Blue cotton kurti)" in prompt
+    assert "more revealing" in prompt and [f for _, f, _ in credits.reserved] == ["image"]
+    room = client.post("/api/images/try-on", json=_try("in_home", "Samsung TV", item_size="55 inch"),
+                       headers=_bearer(container)).json()
+    assert room["ok"] and "SAME place" in provider.calls[-1][2] and "55 inch" in provider.calls[-1][2]
+
+
+def test_try_on_needs_consent_and_never_dresses_down(studio):
+    client, container, provider, _ = studio
+    no_consent = client.post("/api/images/try-on", json=_try(consent=False), headers=_bearer(container)).json()
+    assert no_consent["ok"] is False and no_consent["code"] == "consent"
+    blocked = client.post("/api/images/try-on", json=_try(name="Red bikini set"), headers=_bearer(container)).json()
+    assert blocked["ok"] is False and blocked["code"] == "blocked_item"
+    assert provider.calls == [], "refused before any picture is made"
+    assert client.post("/api/images/try-on", json=_try(), headers={}).status_code == 401
+    room = client.post("/api/images/try-on", json=_try("in_home", "Gas stove", consent=False), headers=_bearer(container))
+    assert room.json()["ok"] is True, "a room photo needs no person's consent"
+
+
+def test_try_on_shares_the_daily_cap_and_failures_give_it_back(studio):
+    client, container, provider, credits = studio
+    provider.fail = True
+    failed = client.post("/api/images/try-on", json=_try(), headers=_bearer(container)).json()
+    assert failed["ok"] is False and failed["code"] == "provider_failed" and credits.released
+    provider.fail = False
+    for _ in range(2):
+        assert client.post("/api/images/try-on", json=_try(), headers=_bearer(container)).json()["ok"]
+    over = client.post("/api/images/try-on", json=_try(), headers=_bearer(container)).json()
+    assert over["code"] == "daily_limit"

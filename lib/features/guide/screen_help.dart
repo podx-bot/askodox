@@ -1014,6 +1014,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రోజు, సమయం (లేదా ఎన్ని రాత్రులు), ఎంత మంది ఎంచుకుని "ఖాళీ ఉన్నవి చూపించు" నొక్కండి.',
     'కావలసింది నొక్కి పేరు ఇవ్వండి: వెంటనే బుక్ అవుతుంది, షాప్‌కి తెలుస్తుంది. డబ్బు షాప్‌కే నేరుగా కట్టండి.',
   ]),
+  '/try-on': _H('Try it', 'ట్రై చేసి చూడు', [
+    'On me: your photo + the item\'s photo (dress, chappal, frame, hairstyle). In my home: a photo of the room / table / wall + the item.',
+    'Tap "Show me": one AI picture in 30-60 seconds, marked as an AI picture. Share it, or Report a bad one.',
+  ], [
+    'నా మీద: మీ ఫోటో + వస్తువు ఫోటో (డ్రెస్, చెప్పులు, ఫ్రేమ్, హెయిర్ స్టైల్). నా ఇంట్లో: గది / టేబుల్ / గోడ ఫోటో + వస్తువు.',
+    '"చూపించు" నొక్కండి: 30-60 సెకన్లలో ఒక AI చిత్రం, AI అని గుర్తుతో. షేర్ చేయండి, బాగోలేకపోతే రిపోర్ట్ చేయండి.',
+  ]),
   '/me/bookings': _H('My bookings', 'నా బుకింగ్స్', [
     'Every room, chair, slot or hall you booked. Cancel one that has not started yet.',
   ], [
