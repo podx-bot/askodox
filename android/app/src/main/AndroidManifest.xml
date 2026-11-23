@@ -86,6 +86,11 @@
         <meta-data
             android:name="firebase_inapp_messaging_auto_data_collection_enabled"
             android:value="false" />
+        <!-- Attendance live face check: Google Play services downloads the face model right after install, so the
+             first check-in does not wait for it (the model is not inside the app -- app size). -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="face" />
         <service
             android:name=".AskodoxFloatingCompanionService"
             android:exported="false"

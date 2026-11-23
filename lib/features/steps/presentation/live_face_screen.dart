@@ -30,6 +30,10 @@ class _AskodoxLiveFaceScreenState extends State<AskodoxLiveFaceScreen> {
   String? _error;
   bool _running = false;
 
+  /// Face reads that failed in a row. The face model lives in Google Play services (app size, owner 2026-11-23); right
+  /// after install it may still be downloading -- then every read fails and the person is told so, not "time is up".
+  int _failedReads = 0;
+
   bool get _te => widget.te;
 
   @override
@@ -76,7 +80,22 @@ class _AskodoxLiveFaceScreenState extends State<AskodoxLiveFaceScreen> {
       XFile? shot;
       try {
         shot = await camera.takePicture();
-        final faces = await _detector.processImage(InputImage.fromFilePath(shot.path));
+        final List<Face> faces;
+        try {
+          faces = await _detector.processImage(InputImage.fromFilePath(shot.path));
+          _failedReads = 0;
+        } catch (_) {
+          if (++_failedReads >= 4) {
+            _running = false;
+            if (mounted) {
+              setState(() => _error = _te
+                  ? 'ముఖం చెక్ ఈ ఫోన్ లో ఇంకా సిద్ధం అవుతోంది (Google Play services). నెట్ ఆన్ చేసి ఒక నిమిషం తర్వాత మళ్ళీ నొక్కండి.'
+                  : 'The face check is still getting ready on this phone (Google Play services). Turn on the internet and try again in a minute.');
+            }
+            return;
+          }
+          continue;
+        }
         final first = faces.isEmpty ? null : faces.first;
         final sample = AskodoxFaceSample(
           faces: faces.length,
@@ -120,6 +139,7 @@ class _AskodoxLiveFaceScreenState extends State<AskodoxLiveFaceScreen> {
   void _again() {
     setState(() {
       _error = null;
+      _failedReads = 0;
       _check = AskodoxLiveCheck(askodoxLiveMoves());
     });
     if (_camera == null) {

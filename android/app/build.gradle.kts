@@ -85,7 +85,18 @@ flutter {
     source = "../.."
 }
 
+// Owner 2026-11-23 (Play Console: "this artifact significantly increases the size"): the live face check of attendance
+// uses Google's face model that lives in Google Play services (~0.8 MB in the app) instead of the copy inside the app
+// (~6.9 MB per phone, +14 MB in the bundle). Same classes, same answers; the plugin's bundled model is excluded here.
+// The model comes down after install (manifest meta-data com.google.mlkit.vision.DEPENDENCIES = face).
+// Guarded by backend/tests/test_android_app_size.py.
+configurations.all {
+    exclude(group = "com.google.mlkit", module = "face-detection")
+}
+
 dependencies {
+    // Live face check (attendance): the Play services face model, see above.
+    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
     // OTP autofill: SMS User Consent API (no READ_SMS permission).
     implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
     // Payment alerts: AskodoxMessagingService overrides onMessageReceived(RemoteMessage) of the Flutter plugin's

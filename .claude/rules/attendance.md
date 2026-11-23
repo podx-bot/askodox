@@ -7,6 +7,8 @@ paths:
   - "lib/features/steps/domain/live_face.dart"
   - "lib/features/business/presentation/biz_staff.dart"
   - "lib/features/location/**"
+  - "android/app/build.gradle.kts"
+  - "pubspec.yaml"
 ---
 
 # Staff attendance: real place + live face (owner 2026-11-23)
@@ -30,3 +32,7 @@ every shop, every staff phone, owner, manager and staff alike.
 - Only the last straight frame leaves the phone (owner only, 90 days). Camera frames are deleted as soon as read.
 - The live check proves a live person, not WHICH person. Face matching (an on-device embedding model) is the owner's
   call -- do not claim identity matching in any wording.
+- App size: the face model comes from Google Play services (`play-services-mlkit-face-detection`, ~0.8 MB), never the
+  copy bundled into the app (`com.google.mlkit:face-detection`, ~6.9 MB per phone; Play Console warned on bundle 1619).
+  The app's Gradle file excludes the bundled one; `backend/tests/test_android_app_size.py` fails if it comes back. A
+  new ML Kit feature picks the Play services variant too.
