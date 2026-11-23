@@ -115,6 +115,15 @@ class AskodoxLaunchLayout {
     return AskodoxLaunchLayout(list, hidden: hidden);
   }
 
+  /// Puts [dragged] in the place where [target] stands; the others shift (owner 2026-11-23: "wherever I drop it, it
+  /// must sit THERE -- not become a group"). Nothing is grouped.
+  AskodoxLaunchLayout placeAt(String dragged, String target) {
+    final t = indexOf(target);
+    if (dragged == target || t < 0 || indexOf(dragged) < 0) return this;
+    return move(dragged, t);
+  }
+
+  /// The person's own choice from a page's menu ("put in a folder"), never a drag:
   /// Drops page [dragged] onto [target] (phone style): onto a folder = into it; onto a page = a new folder of both,
   /// named [name], where the target was. A folder is never put inside another folder (it is moved next to it).
   AskodoxLaunchLayout combine(String dragged, String target, {required String newFolderId, required String name}) {

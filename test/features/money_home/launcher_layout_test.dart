@@ -23,6 +23,24 @@ void main() {
       expect(ids(into), ['a', 'f:f1', 'e']);
     });
 
+    test('owner 2026-11-23: a page dropped on a page takes THAT place, the rest shift -- never a group', () {
+      // From behind to the front: it sits where the target stood, the target moves one on.
+      expect(ids(base.placeAt('e', 'b')), ['a', 'e', 'b', 'f:f1']);
+      // From the front to further on: it still lands exactly in the target's place.
+      expect(ids(base.placeAt('a', 'e')), ['b', 'f:f1', 'e', 'a']);
+      expect(ids(base.placeAt('a', 'b')), ['b', 'a', 'f:f1', 'e']);
+      // A folder moves the same way; nothing is ever grouped and nothing is lost.
+      final l = base.placeAt('f:f1', 'a');
+      expect(ids(l), ['f:f1', 'a', 'b', 'e']);
+      for (final x in [base.placeAt('e', 'a'), base.placeAt('a', 'e'), l]) {
+        expect(x.entries.where((e) => e.isFolder).length, 1);
+        expect(x.placed.toSet(), base.placed.toSet());
+      }
+      expect(ids(base.placeAt('a', 'a')), ids(base));
+      expect(ids(base.placeAt('zz', 'a')), ids(base));
+      expect(ids(base.placeAt('a', 'zz')), ids(base));
+    });
+
     test('a folder is never put inside a folder (it moves next to it)', () {
       final l = base.combine('f:f1', 'a', newFolderId: 'x', name: 'x');
       expect(ids(l), ['f:f1', 'a', 'b', 'e']);

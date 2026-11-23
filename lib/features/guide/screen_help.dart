@@ -494,11 +494,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ]),
   '/money-home': _H('Money', 'మనీ', [
     'Buyer side = your own money (this month in / out); Seller side = the shop\'s money (today, dues, new orders). They never mix.',
-    'Every page is an icon with its name. Press and hold to arrange: drop on another = a folder, beside it = move, to the edge = the next screen.',
+    'Every page is an icon with its name. Press and hold to arrange: it sits wherever you drop it (the others shift), to the edge = the next screen. A folder: press, hold, let go → "Put in a folder".',
     '"−" hides a page (never deleted); "Hidden" brings it back; "Reset" puts the screen back as it came. Payment voice: tap a line to switch what the phone says, ▶ to hear it.',
   ], [
     'కొను వైపు = మీ సొంత డబ్బు (ఈ నెల వచ్చింది / పోయింది); అమ్ము వైపు = షాప్ డబ్బు (ఈ రోజు, బాకీ, కొత్త ఆర్డర్లు). రెండూ కలవవు.',
-    'ప్రతి పేజీ ఒక ఐకాన్, కింద పేరు. పట్టుకుని లాగండి: వేరే దాని మీద వదిలితే ఫోల్డర్, పక్కన వదిలితే అక్కడికి, అంచుకి లాగితే తర్వాతి స్క్రీన్.',
+    'ప్రతి పేజీ ఒక ఐకాన్, కింద పేరు. పట్టుకుని లాగండి: ఎక్కడ వదిలితే అక్కడే కూర్చుంటుంది (మిగతావి జరుగుతాయి), అంచుకి లాగితే తర్వాతి స్క్రీన్. ఫోల్డర్: నొక్కి పట్టి వదలండి → "ఫోల్డర్‌లో పెట్టు".',
     '"−" పేజీని దాచుతుంది (తొలగించదు); "దాచినవి" లో తిరిగి పెట్టండి; "మొదటిలా" మొదట ఉన్నట్టు పెడుతుంది. పేమెంట్ వాయిస్: వరుస నొక్కి ఆన్ / ఆఫ్, ▶ తో వినండి.',
   ]),
   // Owner 2026-11-23: the కొను / అమ్ము page (bottom bar): everything of the side that is not money.
