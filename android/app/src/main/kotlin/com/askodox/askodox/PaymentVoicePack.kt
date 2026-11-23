@@ -184,7 +184,7 @@ object PaymentVoicePack {
 
     private const val NAME_MARK = "QXZ"
     private val NOTICE_KINDS = listOf("refund_started", "pending", "failed", "cancelled", "bill", "autopay", "autopay_off",
-        "request", "unsure", "late_in", "late_out", "sorry_out", "sorry_in", "suspect")
+        "request", "unsure", "unread", "late_in", "late_out", "sorry_out", "sorry_in", "suspect")
 
     // ------------------------------------------------------------------------------------------- ASKODOX lines
 

@@ -370,6 +370,56 @@ object PaymentAlertParser {
         }
     }
 
+    // ------------------------------------------------------------------ a money message the reader could NOT read
+
+    /** Words that say money MOVED (any language the phones see); "Dr. from" / "Cr. to" only with from / to after them. */
+    private val movedWords = Regex(
+        """\b(?:credited|debited|deposited|withdrawn|received|sent|paid|transferred|transfer|spent|debit|credit)\b|""" +
+            """\bdr\.?\s+(?:from|to)\b|\bcr\.?\s+to\b|జమ|అందింది|అందాయి|పంపారు|చెల్లించారు|డెబిట్|క్రెడిట్|""" +
+            """जमा|प्राप्त|डेबिट|क्रेडिट|भेजे|भुगतान""")
+
+    /** A message that only TALKS about money: a code, an advertisement, money not moved yet, asked for, due or reversed. */
+    private val unreadStop = listOf("otp", "one time", "verification", "password", " pin ", "offer", "cashback", "coupon",
+        "scratch", " win ", " won ", "lottery", "prize", "reward", "discount", "% off", "upto", "up to", "get ₹", "eligible",
+        "pre-approved", "preapproved", "apply", "limit", "statement", "minimum", "failed", "declined", "unsuccessful",
+        "pending", "initiated", "processing", "in process", "in progress", "scheduled", "will be", "to be ", "would be",
+        "shall be", "request", "collect", "approve", "reminder", "pay now", "pay by", "payable", "overdue", "last date",
+        "generated", "reversed", "refund", "cancel", "click", "kyc", "blocked")
+
+    /**
+     * Owner 2026-11-23 ("when a payment confirmation comes with NEW words, why does it not read it?"): a message that
+     * clearly says ONE amount of money moved, which [parse] could not decide and [notice] does not explain, is never
+     * dropped in silence any more. The phone keeps it as a ❓ "could not read" row, shows an ASKODOX notification and
+     * asks the person once: came in / went out / not a payment. Their answer teaches this phone ([skeleton] -> learned
+     * kinds), and -- when they allow it -- only the message's SHAPE (the [skeleton] words: never a name, an amount or a
+     * number) goes to ASKODOX, so the same shape from the same sender ([senderId]) is read on every phone.
+     * Never asked: an OTP, an advertisement, money not moved yet (failed / pending / asked for / due), a fake-looking or
+     * link message, an SMS from a person's own number, a summary of several payments, a shape already answered.
+     */
+    fun unread(title: String?, text: String?, learnedKinds: Map<String, String> = emptyMap()): Notice? {
+        if (looksLikePersonNumber(title) || isPromoSender(title)) return null
+        val joined = withoutBoilerplate(listOfNotNull(title, text).joinToString(" ").replace('\n', ' ').trim())
+        if (joined.isEmpty() || digestLines(title, text).size >= 2) return null
+        val body = text?.let { withoutBoilerplate(it.replace('\n', ' ')) }
+        if (learnedKinds.containsKey(skeleton(body ?: joined))) return null
+        val lower = " ${joined.lowercase(Locale.ROOT)} "
+        if (!movedWords.containsMatchIn(lower)) return null
+        if (unreadStop.any { lower.contains(it) } || stillDue.containsMatchIn(lower) || fraudHint.containsMatchIn(joined) ||
+            looksFakeCredit(joined) || shortLink.containsMatchIn(joined) || requestWords.containsMatchIn(joined)) return null
+        val amounts = paymentAmounts(joined)
+        if (amounts.size != 1) return null
+        return Notice("unread", amounts.first())
+    }
+
+    /**
+     * Who sent a message, as ASKODOX may know it for every phone: a registered SMS sender id ("AD-ICICIT-S" -> "ICICIT").
+     * Banks and companies send from these (TRAI DLT); a person's number or a contact name is never a sender here.
+     */
+    fun senderId(title: String?): String? {
+        val m = Regex("""^[A-Za-z]{2}-([A-Za-z0-9]{3,9})(?:-[STGstg])?$""").find(title?.trim() ?: "") ?: return null
+        return m.groupValues[1].uppercase(Locale.ROOT)
+    }
+
     private val requestWords = Regex(
         """(?i)\b(?:collect\s+request|money\s+request|payment\s+request|request\s+to\s+pay|has\s+requested|is\s+requesting|""" +
             """requested\s+(?:money|payment|₹|rs\.?|inr)|requesting\s+(?:money|payment|₹|rs\.?|inr)|""" +
@@ -938,6 +988,12 @@ object PaymentAlertParser {
                 hi -> "$m के बारे में एक मैसेज आया है। पैसे गए या नहीं, पक्का नहीं है। एक बार अपना बैंक बैलेंस देख लें।"
                 else -> "A message" + (if (money != null) " about $money" else "") + " came. It is not sure that the money went out. Please check your bank balance once."
             }
+            // Owner 2026-11-23: a money message in words the phone does not know yet -- asked, never guessed.
+            "unread" -> when {
+                te -> "$m గురించి ఒక మెసేజ్ వచ్చింది. నాకు అర్థం కాలేదు. డబ్బు వచ్చిందా, వెళ్ళిందా ఒకసారి యాప్‌లో చెప్పండి."
+                hi -> "$m के बारे में एक मैसेज आया, मुझे समझ नहीं आया। पैसे आए या गए, एक बार ऐप में बता दीजिए।"
+                else -> "A message" + (if (money != null) " about $money" else "") + " came that I could not read. Please tell me in the app if money came in or went out."
+            }
             // A payment the phone hears about only LATER (in an app's summary): said once, as an earlier payment.
             "late_in" -> when {
                 te -> "ఆలస్యంగా తెలిసింది: ${if (who != null) "$who నుండి " else ""}$m ఇంతకుముందే జమ అయ్యాయి."
@@ -985,7 +1041,7 @@ object PaymentAlertParser {
         "suspect" -> "fake"
         // Owner 2026-11-23: "check once" for an unsure message and "sorry" for a wrong earlier voice have no switch
         // yet (on); a payment heard of late follows the switch of its own direction.
-        "unsure" -> "check"
+        "unsure", "unread" -> "check"
         "late_in" -> "in"
         "late_out" -> "out"
         "sorry_out", "sorry_in" -> "sorry"

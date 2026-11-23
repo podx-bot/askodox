@@ -145,6 +145,39 @@ void main() {
     expect(events.firstWhere((e) => e['local_id'] == 'b2')['direction'], 'in');
   });
 
+  testWidgets('owner 2026-11-23: a message in new words is ASKED about (came in / went out / not a payment), shape share can be stopped',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 4000);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final today = DateTime.now().toUtc().toIso8601String();
+    events
+      ..clear()
+      ..add({'local_id': 'u1', 'direction': 'info', 'info': 'unread', 'excluded': true, 'amount_paise': 44800,
+        'source_label': 'Messages', 'detected_at': today, 'spoken': 'announced', 'raw_title': 'AD-NEWBNK-S',
+        'raw_text': 'INR 448.00 Debit to A/c XX1234 thru UPI ref 532012345678 towards OTHER SHOP', 'sender_key': 'sms:NEWBNK'});
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.textContaining('❓'), findsWidgets, reason: 'a message the phone could not read is marked, never hidden');
+    expect(find.textContaining('అర్థం కాలేదు').evaluate().isNotEmpty || find.textContaining('Could not read').evaluate().isNotEmpty, isTrue);
+    expect(find.textContaining('వెళ్ళింది ₹0').evaluate().isNotEmpty || find.textContaining('పోయింది ₹0').evaluate().isNotEmpty ||
+        find.textContaining('out ₹0').evaluate().isNotEmpty, isTrue, reason: 'an unread message is never counted as money');
+    await tester.tap(find.byKey(const ValueKey('askodoxMineEvent-u1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxMineRowCorrect-in')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxMineRowCorrect-out')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxMineRowCorrect-none')), findsOneWidget, reason: 'all three answers are offered');
+    expect(find.byKey(const Key('askodoxMineShareShapes')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxMineShareShapes')));
+    await tester.pumpAndSettle();
+    expect(lastConfig['share_shapes'], isFalse, reason: 'the person can stop the shape going to ASKODOX');
+    await tester.tap(find.byKey(const Key('askodoxMineRowCorrect-out')));
+    await tester.pumpAndSettle();
+    final call = calls.lastWhere((c) => c.method == 'correctEvent');
+    expect((call.arguments as Map)['localId'], 'u1');
+    expect((call.arguments as Map)['choice'], 'out');
+  });
+
   testWidgets('apps can be removed and added; accounts can be named and deleted; debits switch is saved', (tester) async {
     tester.view.physicalSize = const Size(1080, 7000);
     tester.view.devicePixelRatio = 2.0;

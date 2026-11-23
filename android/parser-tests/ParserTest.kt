@@ -591,6 +591,47 @@ fun main() {
         val d = any(PHONEPE, "upi", null, "Paid ₹448 to Jio Prepaid", 2)
         yes("the UPI app's own 'paid' message joins it silently", d == "joined" && rows.size == 1 && spoken == 1)
     }
+    // Owner 2026-11-23 ("new words -> why not read?"): a money message the reader could not decide is ASKED about (❓),
+    // never dropped in silence; the answer teaches the shape; codes / ads / not-yet / fake / a person's number are not asked.
+    fun asked(title: String?, text: String, learned: Map<String, String> = emptyMap()): Long? {
+        val r = PaymentAlertParser.parse(title, text, learnedKinds = learned)
+        if (r !is Result.Ignored || PaymentAlertParser.notice(title, text) != null) return null
+        return PaymentAlertParser.unread(title, text, learned)?.amountPaise
+    }
+    val newDebit = "INR 448.00 Debit to A/c XX1234 thru UPI ref 532012345678 towards JIO PREPAID RECHARGE"
+    val newCredit = "UPI credit of Rs 500 received in A/c XX1234 for loan repayment from RAMESH"
+    yes("unread: a debit in new words is asked, not dropped", asked("AD-NEWBNK-S", newDebit) == 44800L)
+    yes("unread: a credit in new words is asked, not dropped", asked("AD-NEWBNK-S", newCredit) == 50000L)
+    for ((n, t) in listOf(
+        "otp" to "123456 is the OTP for a debit of Rs 448 from A/c XX1234. Do not share",
+        "ad" to "Get Rs 500 cashback when you pay via UPI. Offer valid till 30 Nov",
+        "failed" to "Debit of Rs 448 from A/c XX1234 failed. Amount will be reversed",
+        "will be" to "Rs 448 will be debited from your A/c XX1234 on 25-Nov-26",
+        "collect" to "Collect request of Rs 448 from jiorecharge@paytm. Approve in your UPI app",
+        "link" to "Rs 5000 credited to your a/c. Click bit.ly/abc to claim",
+        "due" to "Rs 448 is due for your Jio number. Pay before 25-Nov-26",
+        "no amount" to "Recharge Successful ! Plan Name : 448.00 Jio Number : 9000000001",
+        "operator recharge" to "Recharge of Rs 299 successful. Validity 28 days",
+    )) yes("unread: not asked ($n)", asked("AD-NEWBNK-S", t) == null)
+    yes("unread: an SMS from a person's number is not asked", asked("+91 98765 43210", newCredit) == null)
+    yes("unread: a summary is not asked", PaymentAlertParser.unread(null,
+        "2 new completed transaction updates\n· Ramesh has sent ₹500 to your bank account\n· ₹20 has been sent to Ravi") == null)
+    val newCreditShape = PaymentAlertParser.skeleton(newCredit)
+    yes("unread: an answered shape is not asked again", asked("AD-NEWBNK-S", newCredit, mapOf(newCreditShape to "in")) == null)
+    yes("unread: next message of that shape speaks as money in", (PaymentAlertParser.parse("AD-NEWBNK-S",
+        "UPI credit of Rs 750 received in A/c XX9876 for loan repayment from SURESH KUMAR",
+        learnedKinds = mapOf(newCreditShape to "in")) as? Result.Accepted)?.amountPaise == 75000L)
+    yes("unread: the answer 'went out' reads the next one as money out", (PaymentAlertParser.parse("AD-NEWBNK-S",
+        "INR 99.00 Debit to A/c XX5555 thru UPI ref 532012349999 towards OTHER SHOP",
+        learnedKinds = mapOf(PaymentAlertParser.skeleton(newDebit) to "out")) as? Result.Outgoing)?.amountPaise == 9900L)
+    yes("unread: the shape carries no name, amount or number", PaymentAlertParser.skeleton(newCredit).let {
+        !it.contains("ramesh") && it.none(Char::isDigit) && !it.contains("1234") })
+    yes("sender id of a bank SMS", PaymentAlertParser.senderId("AD-ICICIT-S") == "ICICIT" &&
+        PaymentAlertParser.senderId("JM-HDFCBK") == "HDFCBK" && PaymentAlertParser.senderId("+91 98765 43210") == null &&
+        PaymentAlertParser.senderId("Ramesh") == null)
+    yes("unread voice asks, never says received / went", PaymentAlertParser.noticeParts("unread", 44800, "te").joinToString(" ").let {
+        it.contains("448 రూపాయలు") && it.contains("యాప్‌లో చెప్పండి") && !it.contains("జమ అయ్యాయి") } &&
+        PaymentAlertParser.voiceKindOf("unread") == "check")
     // What the phone SAYS (owner 2026-11-23): an unsure message asks to check, a late one says so, a wrong voice says sorry.
     yes("unsure voice asks to check the bank balance", PaymentAlertParser.noticeParts("unsure", 300000, "te").joinToString(" ").let {
         it.contains("3000 రూపాయలు") && it.contains("బ్యాంక్ బ్యాలెన్స్") && !it.contains("వెళ్ళాయి") })

@@ -9770,6 +9770,69 @@
           "approved_by": "owner"
         }
       ]
+    },
+    {
+      "id": "payment_unread_ask_and_shared_shapes",
+      "name": "A payment message in new words is asked about (never dropped); answers teach this phone and, shape only, every phone",
+      "purpose": "Owner 2026-11-23: \"payment confirmations came like this -- when they come with new words, why does it not read and do it?\" (a Jio recharge debit SMS gave no voice and no row). One example = every bank, UPI app and phone: a money message the reader cannot decide must never disappear in silence.",
+      "expected_behavior": "PaymentAlertParser.unread: a message that clearly says ONE amount moved (credited / debited / sent / paid / Dr. from / Cr. to / జమ ...), that parse could not decide and notice() does not explain, is ASKED about -- never an OTP, an advertisement, money not moved yet (failed / pending / asked for / due / will be), a fake-looking or link message, an SMS from a person's own number, a summary, or a shape already answered. Personal phone: a ❓ info row 'unread' (never counted) + an ASKODOX notification at once + the 'check' voice ('could not read, tell me in the app'); a parse Unknown on a personal phone is handled the same way (it used to be kept only in the shop list). Shop phone: the unknown list + notification + voice (it may be a customer's payment). The person answers came in / went out / not a payment: the row becomes that payment (or stays set aside) and the KIND of message is learned by its skeleton (any amount, any name). When they allow it (switch in the answer sheet, on by default), ONLY the shape words (PaymentAlertParser.skeleton -- never a name, amount or number), the sender (registered SMS sender id or the money app's package) and the answer go to POST /api/payment-alerts/shapes; the server keeps a salted voter hash only, checks every word against the phone's own word list, and shares a shape with every phone (GET /api/payment-alerts/shapes, read per sender) once enough different people agree and nobody disagrees (came in 5, went out / not a payment 3). Staff approve / reject in the Command Center view payshapes (payments:view / payments:manage); a staff decision always wins.",
+      "roles": [
+        "any signed-in user",
+        "shop owner",
+        "staff"
+      ],
+      "domains": [
+        "payments"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/payment-alerts/shapes"
+        },
+        {
+          "method": "GET",
+          "path": "/api/payment-alerts/shapes"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/payment-shapes"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/payment-shapes/{shape_id}"
+        }
+      ],
+      "ui": {
+        "keys": [
+          "askodoxMineShareShapes",
+          "askodoxMineRowCorrect-in",
+          "askodoxMineRowCorrect-out",
+          "askodoxMineRowCorrect-none"
+        ],
+        "symbols": [
+          "askodoxNoticeNote"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_payment_alert_shapes.py"
+        ],
+        "flutter": [
+          "test/features/pos/my_phone_payments_test.dart"
+        ]
+      },
+      "dependencies": [
+        "paid_bills_are_payments",
+        "payment_summary_check_late_sorry"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-23",
+          "change": "new (owner \"Start\"); parser gate covers unread() / senderId() / the learned answer reading the next message; not phone verified"
+        }
+      ]
     }
   ]
 }

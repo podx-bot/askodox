@@ -49,6 +49,11 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
     Words in the payee's name (recharge, emi, loan, offer, credited) never drop it (`withoutPayee`). The operator's own
     "Recharge Successful" SMS stays ignored: it reaches the recharged number, maybe paid by someone else (owner
     2026-11-23).
+11. A money message the phone cannot read is ASKED about, never dropped in silence (`PaymentAlertParser.unread`): ❓
+    row "could not read" (never counted) + notification + "check" voice; the answer learns the KIND by `skeleton`, and
+    with the person's leave only the shape words + sender + answer go to `/api/payment-alerts/shapes` (shared with
+    every phone once enough people agree; staff decide in console `payshapes`). Never send a name, amount or number;
+    the server refuses any word outside `SKELETON_WORDS` (owner 2026-11-23, "new words -> why not read?").
 
 ## How a message joins a row (`pickSamePayment`)
 

@@ -718,12 +718,13 @@ object AskodoxPaymentAlerts {
     /** A payment-app message with one amount whose wording we do not know yet: kept ON THIS PHONE (max 20) for
      * the person to answer "did you receive this?". Only the shape (amount as ₹#) + amount + app + time. */
     @Synchronized
-    private fun rememberUnknown(context: Context, pkg: String, u: PaymentAlertParser.Result.Unknown) {
+    private fun rememberUnknown(context: Context, pkg: String, u: PaymentAlertParser.Result.Unknown, skeleton: String = "",
+                                sender: String? = null) {
         val list = unknowns(context)
         for (i in 0 until list.length()) if (list.getJSONObject(i).optString("template") == u.template) return
         val now = System.currentTimeMillis()
         list.put(JSONObject().put("id", "u-$now").put("package", pkg).put("template", u.template)
-            .put("amount_paise", u.amountPaise).put("at", isoUtc(now)))
+            .put("amount_paise", u.amountPaise).put("at", isoUtc(now)).put("skeleton", skeleton).put("sender_key", sender ?: ""))
         val trimmed = JSONArray()
         for (i in maxOf(0, list.length() - 20) until list.length()) trimmed.put(list.getJSONObject(i))
         prefs(context).edit().putString("unknown", trimmed.toString()).apply()
@@ -744,7 +745,133 @@ object AskodoxPaymentAlerts {
         val key = if (received) "learned_in" else "learned_out"
         val learned = learned(context, key).filter { it != template }.takeLast(49) + template
         prefs(context).edit().putString("unknown", keep.toString()).putString(key, JSONArray(learned).toString()).apply()
+        // Owner 2026-11-23: the KIND of message is learned too (any amount, any name), and its shape may teach every phone.
+        var shape = ""
+        var sender = ""
+        for (i in 0 until list.length()) {
+            val item = list.getJSONObject(i)
+            if (item.optString("id") == id) { shape = item.optString("skeleton"); sender = item.optString("sender_key") }
+        }
+        if (shape.split(' ').size >= 3) {
+            rememberKind(context, shape, if (received) "in" else "none")
+            shareShape(context, config(context), shape, sender, if (received) "in" else "none")
+        }
         return mapOf("ok" to true, "template" to template, "received" to received)
+    }
+
+    // ------------------------------------------------------- messages in words the phone does not know yet
+
+    /**
+     * Owner 2026-11-23 ("when a payment confirmation comes with new words, why does it not read it?"): a money message
+     * the phone could not read becomes a ❓ row ("could not read", never counted) + an ASKODOX notification at once +
+     * (when the "check" voice is on) a voice that ASKS -- never "received" / "went". The person's answer on the row
+     * teaches this phone, and with their leave the shape teaches every phone ([shareShape]).
+     */
+    private fun askUnread(context: Context, cfg: JSONObject, pkg: String, amount: Long, title: String?, text: String?,
+                          notificationKey: String, whenMillis: Long, sender: String?): Map<String, Any?> {
+        val out = saveNotice(context, cfg, pkg, PaymentAlertParser.Notice("unread", amount.takeIf { it > 0 }), title, text,
+            notificationKey, whenMillis, sender = sender)
+        if (out["result"] == "notice") notifyUnread(context, cfg, pkg, amount, notificationKey, whenMillis)
+        return out
+    }
+
+    private fun notifyUnread(context: Context, cfg: JSONObject, pkg: String, amount: Long, notificationKey: String, whenMillis: Long) {
+        val key = "$pkg|unread|$amount|$notificationKey|${whenMillis / 60_000L}"
+        if (!firstTime(context, "$key|notify", System.currentTimeMillis())) return
+        val te = cfg.optString("language", "te") == "te"
+        val money = if (amount > 0) "₹${amount / 100}" else (if (te) "డబ్బు" else "Money")
+        showPaymentNotification(context, key, if (te) "❓ ఈ మెసేజ్ అర్థం కాలేదు: $money" else "❓ Could not read this message: $money",
+            if (te) "డబ్బు వచ్చిందా, వెళ్ళిందా? ASKODOX లో ఒక్కసారి చెప్పండి — ఇలాంటిది తర్వాత నేనే చదువుతాను."
+            else "Did money come in or go out? Tell ASKODOX once — I will read messages like this myself after that.")
+        if (cfg.optString("business_id").isNotEmpty()) {
+            speakNotice(context, cfg, PaymentAlertParser.Notice("unread", amount.takeIf { it > 0 }), null, whenMillis)
+        }
+    }
+
+    /** Who sent a message, for shapes every phone may learn: a registered SMS sender id, or the money app itself. */
+    private fun senderKey(cfg: JSONObject, pkg: String, title: String?): String? {
+        PaymentAlertParser.senderId(title)?.let { return "sms:$it" }
+        return if (kindOf(cfg, pkg) == "sms") null else "app:$pkg"
+    }
+
+    private fun rememberKind(context: Context, shape: String, kind: String) {
+        val kinds = try { JSONObject(prefs(context).getString("learned_kinds", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+        kinds.put(shape, kind)
+        while (kinds.length() > 60) kinds.remove(kinds.keys().next())
+        prefs(context).edit().putString("learned_kinds", kinds.toString()).apply()
+    }
+
+    /** This person's own answers, on top of what ASKODOX learned from every phone for this [sender]. */
+    private fun learnedKindsFor(context: Context, sender: String?): Map<String, String> {
+        val mine = learnedKinds(context)
+        if (sender == null) return mine
+        val shared = HashMap<String, String>()
+        try {
+            val a = JSONArray(prefs(context).getString("server_shapes", "[]") ?: "[]")
+            for (i in 0 until a.length()) {
+                val o = a.optJSONObject(i) ?: continue
+                if (o.optString("sender") == sender && o.optString("kind") in setOf("in", "out", "none")) {
+                    shared[o.optString("skeleton")] = o.optString("kind")
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return shared + mine
+    }
+
+    /** The shapes ASKODOX learned from every phone (sender + shape words + kind), fetched at most every 6 hours. */
+    private fun refreshShapes(context: Context, cfg: JSONObject) {
+        val now = System.currentTimeMillis()
+        if (now - prefs(context).getLong("server_shapes_at", 0L) < 6 * 3600 * 1000L) return
+        val base = cfg.optString("base_url").trimEnd('/')
+        val token = cfg.optString("token")
+        if (!base.startsWith("http") || token.isEmpty()) return
+        prefs(context).edit().putLong("server_shapes_at", now).apply()
+        io.execute {
+            try {
+                val conn = URL("$base/api/payment-alerts/shapes").openConnection() as HttpURLConnection
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                if (conn.responseCode == 200) {
+                    val body = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val shapes = JSONObject(body).optJSONArray("shapes") ?: JSONArray()
+                    prefs(context).edit().putString("server_shapes", shapes.toString()).apply()
+                }
+                conn.disconnect()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
+     * The person's answer about a message shape, sent ONLY when they allow it ("share_shapes", on by default with the
+     * line saying so): the shape words ([PaymentAlertParser.skeleton] -- never a name, an amount or a number), the
+     * sender id and the answer. Nothing else leaves the phone.
+     */
+    private fun shareShape(context: Context, cfg: JSONObject, shape: String, sender: String?, answer: String) {
+        if (!cfg.optBoolean("share_shapes", true) || sender.isNullOrEmpty() || shape.split(' ').size < 3) return
+        val base = cfg.optString("base_url").trimEnd('/')
+        val token = cfg.optString("token")
+        if (!base.startsWith("http") || token.isEmpty()) return
+        io.execute {
+            try {
+                val conn = URL("$base/api/payment-alerts/shapes").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.outputStream.use {
+                    it.write(JSONObject().put("skeleton", shape).put("sender", sender).put("answer", answer)
+                        .toString().toByteArray(Charsets.UTF_8))
+                }
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     // -------------------------------------------------------------- pipeline
@@ -800,11 +927,21 @@ object AskodoxPaymentAlerts {
         // TRAI: a sender id ending in -P is an advertisement -- never a payment or a notice.
         if (PaymentAlertParser.isPromoSender(title)) return mapOf("result" to "ignored")
         val phrases = cfg.optJSONObject("phrases")
+        // Owner 2026-11-23: what this person answered about a message shape, on top of what ASKODOX learned from every
+        // phone for the same sender (the person's own answer wins).
+        val sender = senderKey(cfg, pkg, title)
+        val kinds = learnedKindsFor(context, sender)
+        if (!test) refreshShapes(context, cfg)
         val parsed = PaymentAlertParser.parse(title, text, strings(phrases?.optJSONArray("incoming")),
             strings(phrases?.optJSONArray("reject")), learned(context, "learned_in"), learned(context, "learned_out"),
-            learnedKinds(context))
+            kinds)
+        val personalPhone = cfg.optString("business_id").isEmpty()
         if (parsed is PaymentAlertParser.Result.Unknown) {
-            if (!test && !summary) rememberUnknown(context, pkg, parsed)
+            if (test || summary) return mapOf("result" to "unknown", "template" to parsed.template)
+            // Owner 2026-11-23 ("new words -> why not read?"): asked at once, never left in silence.
+            if (personalPhone) return askUnread(context, cfg, pkg, parsed.amountPaise, title, text, notificationKey, whenMillis, sender)
+            rememberUnknown(context, pkg, parsed, PaymentAlertParser.skeleton(text ?: ""), sender)
+            notifyUnread(context, cfg, pkg, parsed.amountPaise, notificationKey, whenMillis)
             return mapOf("result" to "unknown", "template" to parsed.template)
         }
         if (parsed is PaymentAlertParser.Result.Ignored) {
@@ -812,14 +949,27 @@ object AskodoxPaymentAlerts {
             // Owner 2026-11-21: refund started / payment initiated / failed / bill generated / suspicious link -- explained
             // in the person's own history (why it came, what to check), never spoken, never counted.
             // Owner 2026-11-22: each kind is also SAID when the person keeps it on in the Payment voice folder.
-            if (!test && cfg.optString("business_id").isEmpty()) {
+            if (!test && personalPhone) {
                 PaymentAlertParser.notice(title, text)?.let { n -> return saveNotice(context, cfg, pkg, n, title, text, notificationKey, whenMillis) }
+                PaymentAlertParser.unread(title, text, kinds)?.let { n ->
+                    return askUnread(context, cfg, pkg, n.amountPaise ?: 0L, title, text, notificationKey, whenMillis, sender)
+                }
             } else if (!test) {
                 // A shop phone: only the warnings (someone asking the shop to pay, a fake "credited" message) -- said, not kept.
                 PaymentAlertParser.notice(title, text)?.takeIf { it.kind == "request" || it.kind == "suspect" }?.let { n ->
                     val key = "$pkg|shopnotice|${n.kind}|${n.amountPaise ?: 0}|$notificationKey"
                     val said = firstTime(context, key, System.currentTimeMillis()) && speakNotice(context, cfg, n, null, whenMillis)
                     return mapOf("result" to "notice", "kind" to n.kind, "spoken" to said)
+                }
+                // A money message in words nobody taught yet may be a CUSTOMER's payment: the shop is asked, never silent.
+                if (PaymentAlertParser.notice(title, text) == null) {
+                    PaymentAlertParser.unread(title, text, kinds)?.let { n ->
+                        val amount = n.amountPaise ?: 0L
+                        rememberUnknown(context, pkg, PaymentAlertParser.Result.Unknown(amount, PaymentAlertParser.template(text)),
+                            PaymentAlertParser.skeleton(text ?: ""), sender)
+                        notifyUnread(context, cfg, pkg, amount, notificationKey, whenMillis)
+                        return mapOf("result" to "unread")
+                    }
                 }
             }
             return mapOf("result" to "ignored")
@@ -1055,10 +1205,13 @@ object AskodoxPaymentAlerts {
         var row: JSONObject? = null
         for (i in 0 until list.length()) if (list.getJSONObject(i).optString("local_id") == localId) row = list.getJSONObject(i)
         val e = row ?: return mapOf("ok" to false)
+        val wasUnread = e.optString("info") == "unread"
         when (choice) {
             "none" -> e.put("excluded", true).put("doubt", "not_payment")
             else -> {
                 if (e.has("direction")) e.put("direction", choice)
+                // A ❓ "could not read" row the person answered becomes the payment it is.
+                if (wasUnread) e.remove("info")
                 e.remove("excluded"); e.remove("doubt")
             }
         }
@@ -1074,6 +1227,8 @@ object AskodoxPaymentAlerts {
             while (kinds.length() > 60) kinds.remove(kinds.keys().next())
             prefs(context).edit().putString("learned_kinds", kinds.toString()).apply()
             learned = true
+            // Owner 2026-11-23: an answer about a message the phone could not read may teach every phone (shape only).
+            if (wasUnread) shareShape(context, config(context), sk, e.optString("sender_key"), choice)
         }
         main.post { channel?.invokeMethod("paymentEvent", "{}") }
         return mapOf("ok" to true, "learned" to learned)
@@ -1444,7 +1599,7 @@ object AskodoxPaymentAlerts {
     /** A money message that is not a payment: one "info" row (not counted, not spoken). Suspicious ones also notify. */
     private fun saveNotice(context: Context, cfg: JSONObject, pkg: String, n: PaymentAlertParser.Notice, title: String?,
                            text: String?, notificationKey: String, whenMillis: Long, dueDate: String? = null,
-                           label: String? = null): Map<String, Any?> {
+                           label: String? = null, sender: String? = null): Map<String, Any?> {
         val now = System.currentTimeMillis()
         val key = "$pkg|notice|${n.kind}|${n.amountPaise ?: 0}|$notificationKey|${paymentTime(whenMillis, now) / 60_000L}"
         if (!firstTime(context, key, now)) return mapOf("result" to "duplicate")
@@ -1464,6 +1619,7 @@ object AskodoxPaymentAlerts {
             .put("test", false)
         if (n.amountPaise != null) event.put("amount_paise", n.amountPaise)
         if (!dueDate.isNullOrEmpty()) event.put("due_date", dueDate)
+        if (!sender.isNullOrEmpty()) event.put("sender_key", sender)
         val party = label?.takeIf { it.isNotBlank() }
             ?: PaymentAlertParser.billerName(title)?.takeIf { !PaymentAlertParser.looksLikePersonNumber(title) }
         party?.let { event.put("party", it) }

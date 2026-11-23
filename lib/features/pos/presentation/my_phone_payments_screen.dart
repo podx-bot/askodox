@@ -914,6 +914,8 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
     ].where((x) => x.isNotEmpty).join('\n');
     final also = e['raw_also'] is List ? (e['raw_also'] as List).map((x) => '$x').where((x) => x.trim().isNotEmpty).toList() : const <String>[];
     final out = e['direction'] == 'out';
+    // Owner 2026-11-23: a message the phone could not read is ASKED about (came in / went out / not a payment).
+    final unread = e['direction'] == 'info' && e['info'] == 'unread';
     final choice = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -948,25 +950,50 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               ),
             ),
             const SizedBox(height: 4),
-            Text(te ? 'ఇది ఈ ఫోన్‌లోనే ఉంటుంది, ఎక్కడికీ పంపము.' : 'This stays on this phone; it is never sent anywhere.',
+            Text(
+                unread
+                    ? (te
+                        ? 'మెసేజ్ ఈ ఫోన్‌లోనే ఉంటుంది. మీరు జవాబిస్తే దాని ఆకారం మాత్రమే (పదాలు — పేరు, డబ్బు, నంబర్లు కాదు) ASKODOX కి వెళ్తుంది, అందరి ఫోన్లు నేర్చుకోవడానికి.'
+                        : 'The message stays on this phone. When you answer, only its shape (the words — never a name, an amount or a number) goes to ASKODOX so every phone learns it.')
+                    : (te ? 'ఇది ఈ ఫోన్‌లోనే ఉంటుంది, ఎక్కడికీ పంపము.' : 'This stays on this phone; it is never sent anywhere.'),
                 style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+            if (unread)
+              StatefulBuilder(
+                builder: (ctx2, setSheet) => SwitchListTile(
+                  key: const Key('askodoxMineShareShapes'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  value: m.shareShapes,
+                  title: Text(te ? 'ఆకారం పంపు (అందరికీ నేర్పడానికి)' : 'Send the shape (to teach every phone)'),
+                  onChanged: (v) async {
+                    setSheet(() => m.shareShapes = v);
+                    await m.save();
+                    await _configure();
+                  },
+                ),
+              ),
             const SizedBox(height: 14),
-            Text(te ? 'తప్పుగా చదివిందా?' : 'Read wrongly?', style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(unread ? (te ? 'ఈ డబ్బు ఏంటి?' : 'What is this money?') : (te ? 'తప్పుగా చదివిందా?' : 'Read wrongly?'),
+                style: const TextStyle(fontWeight: FontWeight.w700)),
             if (out || e['excluded'] == true)
               ListTile(
                 key: const Key('askodoxMineRowCorrect-in'),
                 leading: const Icon(Icons.call_received_rounded, color: Color(0xFF17784C)),
-                title: Text(te ? 'తప్పు: ఇది వచ్చిన డబ్బు' : 'Wrong: this money came in'),
+                title: Text(unread
+                    ? (te ? 'డబ్బు వచ్చింది' : 'Money came in')
+                    : (te ? 'తప్పు: ఇది వచ్చిన డబ్బు' : 'Wrong: this money came in')),
                 onTap: () => Navigator.pop(ctx, 'in'),
               ),
             if (!out || e['excluded'] == true)
               ListTile(
                 key: const Key('askodoxMineRowCorrect-out'),
                 leading: const Icon(Icons.call_made_rounded, color: Color(0xFFB91C1C)),
-                title: Text(te ? 'తప్పు: ఇది వెళ్ళిన డబ్బు' : 'Wrong: this money went out'),
+                title: Text(unread
+                    ? (te ? 'డబ్బు వెళ్ళింది' : 'Money went out')
+                    : (te ? 'తప్పు: ఇది వెళ్ళిన డబ్బు' : 'Wrong: this money went out')),
                 onTap: () => Navigator.pop(ctx, 'out'),
               ),
-            if (e['excluded'] != true)
+            if (e['excluded'] != true || unread)
               ListTile(
                 key: const Key('askodoxMineRowCorrect-none'),
                 leading: const Icon(Icons.block_rounded),
@@ -1120,7 +1147,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                   fallback: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
                       color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C))),
               title: Text(
-                  '${e['direction'] == 'info' ? (e['info'] == 'suspect' ? '⚠️ ' : 'ℹ️ ') : e['doubt'] != null ? '❓ ' : ''}'
+                  '${e['direction'] == 'info' ? (e['info'] == 'suspect' ? '⚠️ ' : e['info'] == 'unread' ? '❓ ' : 'ℹ️ ') : e['doubt'] != null ? '❓ ' : ''}'
                   '${e['direction'] == 'info' ? '' : e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
                   '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
                   style: TextStyle(

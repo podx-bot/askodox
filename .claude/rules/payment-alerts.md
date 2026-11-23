@@ -27,3 +27,6 @@ Follow the procedure in `.claude/skills/askodox-payment-alerts/SKILL.md`. The sh
   spoken sentence inside `PaymentVoicePack.packTexts` (the gate checks it).
 - **A bank's debit SMS is money out whatever the payee is called** (owner 2026-11-23, ICICI "; Jio Prepaid Recharge
   credited" gave no row): words inside the payee's name or UPI id never drop a debit (`withoutPayee`).
+- **Never drop a money message in silence** (owner 2026-11-23): what the parser cannot read becomes a ❓ question
+  (`PaymentAlertParser.unread`). Shapes sent to ASKODOX carry only `SKELETON_WORDS`; keep
+  `payment_alert_shapes.SHAPE_WORDS` equal to it (a backend test fails otherwise).

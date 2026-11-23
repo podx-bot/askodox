@@ -460,6 +460,10 @@ class AskodoxMyPhoneAlerts {
   /// Say the account's name in the voice ("HDFC current: Rs 240 came").
   bool sayAccount = false;
 
+  /// Owner 2026-11-23: when the person answers about a message the phone could not read, only its SHAPE (the words,
+  /// never a name, an amount or a number) goes to ASKODOX so every phone learns it. On unless they turn it off.
+  bool shareShapes = true;
+
   /// One money history (owner 2026-11-17): payment row id -> the bill it paid ("mybill:TOKEN"), joined by a tap.
   Map<String, String> links = {};
 
@@ -503,6 +507,7 @@ class AskodoxMyPhoneAlerts {
         m.assigned = j['assigned'] is Map ? {for (final e in (j['assigned'] as Map).entries) '${e.key}': '${e.value}'} : {};
         m.dismissedMethods = j['dismissed_methods'] is List ? {for (final x in j['dismissed_methods'] as List) '$x'} : {};
         m.sayAccount = j['say_account'] == true;
+        m.shareShapes = j['share_shapes'] != false;
         Map<String, String> strMap(Object? x) => x is Map ? {for (final e in x.entries) '${e.key}': '${e.value}'} : {};
         m.links = strMap(j['links']);
         m.rowCategory = strMap(j['row_category']);
@@ -534,6 +539,7 @@ class AskodoxMyPhoneAlerts {
           'assigned': Map.fromEntries(assigned.entries.toList().reversed.take(500).toList().reversed),
           'dismissed_methods': dismissedMethods.toList(),
           'say_account': sayAccount,
+          'share_shapes': shareShapes,
           'links': links,
           'row_category': Map.fromEntries(rowCategory.entries.toList().reversed.take(1000).toList().reversed),
           'payee_category': payeeCategory,
@@ -560,6 +566,7 @@ class AskodoxMyPhoneAlerts {
         'kinds': {for (final e in apps.entries) e.key: askodoxMoneyAppKind(e.key, e.value)},
         'destinations': destinations,
         'say_account': sayAccount,
+        'share_shapes': shareShapes,
         'account_names': accounts,
         // the next date of each upcoming payment: the phone says it 2 days before and on the day
         'dues': [
@@ -646,6 +653,11 @@ bool askodoxRowCountsAsMoney(Map<String, Object?> e) =>
       'request' => (
           '⚠️ Someone is asking you to PAY. Money goes only if you approve — never approve to "receive" money.',
           '⚠️ ఎవరో మిమ్మల్ని డబ్బు అడుగుతున్నారు. మీరు ఒప్పుకుంటేనే డబ్బు పోతుంది — "డబ్బు రావడానికి" ఎప్పుడూ ఒప్పుకోవద్దు.'
+        ),
+      // Owner 2026-11-23 ("new words -> why not read?"): asked, never guessed; one answer teaches the phone.
+      'unread' => (
+          '❓ Could not read this message — tap and tell: did money come in or go out? After one answer, messages like this are read by themselves.',
+          '❓ ఈ మెసేజ్ అర్థం కాలేదు — నొక్కి చెప్పండి: డబ్బు వచ్చిందా, వెళ్ళిందా? ఒక్కసారి చెబితే ఇలాంటివి తర్వాత నేనే చదువుతాను.'
         ),
       'suspect' => (
           '⚠️ Suspicious message — do not tap any link. Check your bank app to see if money really came.',
