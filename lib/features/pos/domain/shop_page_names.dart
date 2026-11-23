@@ -57,8 +57,8 @@ final _templates = [
     (t, RegExp('^${t.split('<id>').map(RegExp.escape).join('([^/]+)')}\$')),
 ];
 
-/// Which shop page a route opens, and for which shop: "/pos/A/sale" -> (page "/pos/<id>/sale", shop "A");
-/// "/my-shop/sale" -> (page "/pos/<id>/sale", shop "*" = the person's own shop); anything else -> (its path, shop "").
+/// Which shop page a route opens, and for which shop: `/pos/A/sale` -> (page `/pos/<id>/sale`, shop `A`);
+/// `/my-shop/sale` -> (page `/pos/<id>/sale`, shop `*` = the person's own shop); anything else -> (its path, shop "").
 ({String page, String shop}) askodoxShopPagePlace(String route) {
   final path = route.split('?').first;
   final mine = RegExp(r'^/my-shop/([^/]+)$').firstMatch(path);

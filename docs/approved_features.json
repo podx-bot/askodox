@@ -10180,7 +10180,7 @@
       "status": "approved",
       "tests": {
         "backend": [
-          "backend/tests/test_chat_actions.py"
+          "tests/test_chat_actions.py"
         ],
         "flutter": [
           "test/features/pos/one_page_one_name_test.dart"
