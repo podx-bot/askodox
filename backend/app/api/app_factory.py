@@ -418,6 +418,9 @@ def create_app() -> FastAPI:
 
     app.include_router(ai_credits_router)
     app.include_router(ai_credits_admin_router)
+    from app.api.routes.shop_retention import admin_router as shop_retention_admin_router
+
+    app.include_router(shop_retention_admin_router)
     from app.api.routes.screen_guide import admin_router as screen_guide_admin_router, router as screen_guide_router
 
     app.include_router(screen_guide_router)

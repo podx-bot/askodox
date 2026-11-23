@@ -25,8 +25,13 @@ from contextlib import closing
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.services import shop_free_core
+
 AUDIENCE = "ai_credits"
 FEATURES = ("chat", "reasoning", "voice", "web_search", "image", "radio")
+# Owner 2026-11-23: the shop's everyday tools (payment voice, quick bill, dues, sales reports) are free for ever --
+# they are never a credits feature, never carry a rate, and a reserve for one always answers free.
+assert not set(FEATURES) & set(shop_free_core.keys()), "a free-forever shop tool can never be an AI Credits feature"
 MODES = ("live", "test")
 PACKS = [  # proposed by the owner; price == credits until staff decide a bonus (financial viability first)
     {"code": "ai_credits_100", "name": "AI Credits ₹100", "price": 100.0},
@@ -106,6 +111,8 @@ class AiCredits:
                "rates_paise": dict(current["rates_paise"]), "free_per_day": dict(current["free_per_day"])}
         for key, limit in (("rates_paise", MAX_RATE_PAISE), ("free_per_day", 10_000)):
             for feature, value in (data.get(key) or {}).items():
+                if shop_free_core.is_free(feature):
+                    raise CreditsError("free_forever", 400, {"feature": feature})
                 if feature not in FEATURES:
                     raise CreditsError("unknown_feature", 400, {"feature": feature})
                 number = int(value)
@@ -167,6 +174,8 @@ class AiCredits:
     def reserve(self, user_id: str, feature: str, ref: str) -> Dict[str, Any]:
         """Before one AI use. Returns {charged, paise, mode, free}; raises CreditsError('insufficient', 402).
         Atomic (BEGIN IMMEDIATE): two parallel requests can never both spend the last credits."""
+        if shop_free_core.is_free(feature):  # payment voice / quick bill / dues / sales reports: free for ever
+            return {"charged": False, "reason": "free_forever", "paise": 0}
         if feature not in FEATURES:
             raise CreditsError("unknown_feature", 400)
         settings = self.settings()
