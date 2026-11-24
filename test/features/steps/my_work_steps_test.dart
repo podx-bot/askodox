@@ -46,6 +46,7 @@ Future<void> _pump(WidgetTester tester, _Api api, Widget child) async {
   ));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
+}
 
 void main() {
   testWidgets('my work, no card: pick work -> name + 18+ -> card saved', (tester) async {
