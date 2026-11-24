@@ -188,6 +188,9 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
   }
 
   AskodoxAnswerCard get _card => widget.card;
+
+  /// A short phone (or a big font): fewer lines on top so the card still fits one screen.
+  bool get _compact => widget.maxHeight < 600;
   String _t(String key) => askodoxCardText(key, widget.language);
 
   @override
@@ -265,7 +268,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                 ),
               Text(card.headline,
                   key: const Key('askodoxAnswerCardHeadline'),
-                  maxLines: 3,
+                  maxLines: _compact ? 2 : 3,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 19, height: tall ? 1.45 : 1.3, fontWeight: FontWeight.w800, color: _ink)),
               if (widget.extra.isNotEmpty)
@@ -368,11 +371,11 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                         decorationColor: const Color(0xFFDC2626)),
               ),
           ]),
-          maxLines: 3,
+          maxLines: _compact ? 2 : 3,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 14, height: 1.6, color: Color(0xFF334155)),
         ),
-        if (kinds.isNotEmpty)
+        if (kinds.isNotEmpty && !_compact)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Wrap(spacing: 12, runSpacing: 2, children: [
