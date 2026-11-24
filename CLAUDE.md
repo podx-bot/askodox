@@ -11,8 +11,10 @@ this file, don't trust it blindly.
   `desk_settings_steps_screens.dart` (Desk settings `/desk/:id/settings`), `desk_menu_steps_screens.dart` (Desk menu `/desk/:id/menu`: list, add by text),
   `printer_steps_screens.dart` (`/pos/:id/printer`), `biz_menu_steps_screens.dart` (`/biz/:id/menu*` sections), day report (`/biz/:id/reports/day` ->
   `AskodoxReportsStepsScreen(date)`), `att_setup_steps_screens.dart` (`/biz/:id/staff/setup`), `my_bills_steps_screen.dart` (`/me/bills`); old pages at `?full=1`.
-  NOT converted: kiosk (camera / face), shop advance / terms pages, hubs, CRM leads (= Enquiries), delivery pages, `/me/work`, catalogue, agents. No Play bundle
-  after these (Live Build run 663 on c6e55a9 is older). Nothing phone verified.
+  NOT converted: kiosk (camera / face), shop advance / terms pages, hubs, CRM leads (= Enquiries), `/me/work`, catalogue, `/me/payment-methods`, `/me/payment-alerts`.
+  Then batches 22-24 (PR #459 / #460 / #461): `my_deliveries_steps_screen.dart` (`/me/deliveries`), `branches_steps_screen.dart` (`/me/branches`),
+  `agents_steps_screens.dart` (`/pos/:id/agents`, `/pos/:id/agents/:agent`); the owner's `/pos/:id/deliveries` was ALREADY 3-step (step kit). Old pages at `?full=1`.
+  No Play bundle after batches 15+ (Live Build run 663 on c6e55a9 is older). Nothing phone verified. Flaky: `test_profile_memory` (rerun the registry job).
 - `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1671.aab` = Live Build run 671 on 5e463b9, dispatched from branch `play/bundle-1124` because main merges kept cancelling main builds (concurrency group per ref); owner: one payment
   said twice (second message an hour later / two at once), voice cut before the last word then said again, 9 pm count 4-5 times):
   `pickSamePayment` checks the SAME reference before the same-app rule (same RRN from the same app / SMS app = same money);
