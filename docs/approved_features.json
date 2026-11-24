@@ -10742,6 +10742,64 @@
         ],
         "symbols": []
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/guide/feedback",
+          "response_keys": [
+            "recorded"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/guide-feedback",
+          "response_keys": [
+            "pages",
+            "days"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Every page guide (చెప్పు) is spoken in the ONE ASKODOX voice and recorded once on the server (voice/speak purpose 'guide' kept on the volume whatever its length) -- every phone after the first hears the same recording. Under the guide: 'అర్థమైంది' / 'అర్థం కాలేదు' (also said / typed). Not understood 1st time = the same screen help said again in simpler words with one example (guide/ask mode simpler); 2nd = the page's walkthrough on the screen (tap here, step by step), or straight to the next rung when the page has none; 3rd = 'say what you want, I will do it' with the mic open (command goes to the chat). Each step is counted per page pattern (no person) and the Command Center page 'గైడ్ అర్థమైందా' lists the pages people do not understand first.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: guide recorded once + not-understood ladder + counts (owner 2026-11-24, to need fewer sales executives); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "guide_not_understood_ladder",
+      "name": "Guide: recorded once + 'not understood' ladder",
+      "purpose": "Owner 2026-11-24: ASKODOX has sales executives; to need fewer, the app itself must solve 'I did not understand'.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_guide_not_understood.py"
+        ],
+        "flutter": [
+          "test/features/guide/guide_not_understood_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxGuideUnderstood",
+          "askodoxGuideNotUnderstood",
+          "askodoxGuideTellMe"
+        ],
+        "symbols": [
+          "askodoxSaysNotUnderstood",
+          "askodoxGuideNextRung"
+        ]
+      }
     }
   ]
 }

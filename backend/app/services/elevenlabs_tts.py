@@ -205,7 +205,9 @@ class ElevenLabsTTS:
             pass
 
     def synthesize(self, text: str, voice: str = "automatic", locale: str = "",
-                   timeout_seconds: Optional[float] = None) -> Dict[str, Any]:
+                   timeout_seconds: Optional[float] = None, keep: bool = False) -> Dict[str, Any]:
+        """``keep`` = a fixed line every phone hears (a page guide, owner 2026-11-24 "record once, play to all"):
+        kept on disk whatever its length, so it is made ONCE and then served from the volume."""
         key = self._key if self._key is not None else api_key()
         if not key:
             return {"success": False, "status": "ELEVENLABS_NOT_CONFIGURED"}
@@ -219,7 +221,7 @@ class ElevenLabsTTS:
         model = self.model
         if model != FALLBACK_MODEL and time.monotonic() < self._model_rest_until:
             model = FALLBACK_MODEL
-        result = self._synthesize_with(model, key, spoken, language, voice_id, timeout_seconds)
+        result = self._synthesize_with(model, key, spoken, language, voice_id, timeout_seconds, keep)
         if (model != FALLBACK_MODEL and not result.get("success")
                 and result.get("status_code") in (400, 404, 422)):
             # The account / voice does not take the fast model: say it with the model that always worked.
@@ -227,11 +229,11 @@ class ElevenLabsTTS:
                 self._model_rest_until = time.monotonic() + MODEL_REST_SECONDS
             print(f"ASKODOX VOICE MODEL refused model={model} status={result.get('status_code')} "
                   f"fallback={FALLBACK_MODEL}", flush=True)
-            result = self._synthesize_with(FALLBACK_MODEL, key, spoken, language, voice_id, timeout_seconds)
+            result = self._synthesize_with(FALLBACK_MODEL, key, spoken, language, voice_id, timeout_seconds, keep)
         return result
 
     def _synthesize_with(self, model: str, key: str, spoken: str, language: str, voice_id: str,
-                         timeout_seconds: Optional[float]) -> Dict[str, Any]:
+                         timeout_seconds: Optional[float], keep: bool = False) -> Dict[str, Any]:
         cache_key = f"{voice_id}:{model}:{spoken}"
         with self._lock:
             cached = self._cache.get(cache_key)
@@ -276,7 +278,7 @@ class ElevenLabsTTS:
             self._cache[cache_key] = audio
             while len(self._cache) > CACHE_SIZE:
                 self._cache.popitem(last=False)
-        if len(spoken) <= DISK_MAX_CHARS:  # short lines repeat (payment names / amounts, guides); replies rarely do
+        if keep or len(spoken) <= DISK_MAX_CHARS:  # short lines repeat (payment names / amounts, guides); replies rarely do
             self._disk_put(cache_key, audio)
         return self._ok(audio, language, voice_id, cache_hit=False,
                         elapsed_ms=round((time.perf_counter() - started) * 1000), model=model)

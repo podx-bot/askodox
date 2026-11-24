@@ -30,7 +30,8 @@ class ReplySpeechService {
       {required String locale,
       String voice = 'automatic',
       Duration timeout = const Duration(seconds: 15),
-      String engine = ''}) async {
+      String engine = '',
+      String purpose = ''}) async {
     final clean = text.trim();
     if (clean.isEmpty) return null;
     final client = _client ?? http.Client();
@@ -39,7 +40,14 @@ class ReplySpeechService {
           .post(
             Uri.parse('$_baseUrl/api/in-app/voice/speak'),
             headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({'text': clean, 'locale': locale, 'voice': voice, if (engine.isNotEmpty) 'engine': engine}),
+            body: jsonEncode({
+              'text': clean,
+              'locale': locale,
+              'voice': voice,
+              if (engine.isNotEmpty) 'engine': engine,
+              // 'guide' = a fixed page-guide line: the server records it once and plays it to everyone.
+              if (purpose.isNotEmpty) 'purpose': purpose,
+            }),
           )
           .timeout(timeout);
       final model = response.headers['x-askodox-tts-model'] ?? '';

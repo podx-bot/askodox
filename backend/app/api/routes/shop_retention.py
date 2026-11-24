@@ -24,3 +24,17 @@ def retention(request: Request, fresh: bool = False) -> Dict[str, Any]:
     out = dict(shop_retention(request.app.state.container).report(lists=names, fresh=bool(fresh)))
     out["can_see_shops"] = names
     return out
+
+
+guide_admin_router = APIRouter(prefix="/admin/cc/guide-feedback", tags=["command-center"])
+
+
+@guide_admin_router.get("")
+def guide_pages(request: Request, days: int = 30) -> Dict[str, Any]:
+    """Pages whose guide people did not understand (owner 2026-11-24): fix these guides / pages first."""
+    from app.api.routes.command_center import _require
+    from app.api.routes.in_app_assistant import _guide_feedback
+
+    _require(request, "analytics:view")
+    return {"days": max(1, min(int(days), 90)),
+            "pages": _guide_feedback(request.app.state.container).pages(max(1, min(int(days), 90)))}
