@@ -13,7 +13,7 @@ this file, don't trust it blindly.
   `AskodoxReportsStepsScreen(date)`), `att_setup_steps_screens.dart` (`/biz/:id/staff/setup`), `my_bills_steps_screen.dart` (`/me/bills`); old pages at `?full=1`.
   NOT converted: kiosk (camera / face), shop advance / terms pages, hubs, CRM leads (= Enquiries), delivery pages, `/me/work`, catalogue, agents. No Play bundle
   after these (Live Build run 663 on c6e55a9 is older). Nothing phone verified.
-- `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1667.aab` = Live Build run 667 on 2fb46e9; owner: one payment
+- `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1671.aab` = Live Build run 671 on 5e463b9, dispatched from branch `play/bundle-1124` because main merges kept cancelling main builds (concurrency group per ref); owner: one payment
   said twice (second message an hour later / two at once), voice cut before the last word then said again, 9 pm count 4-5 times):
   `pickSamePayment` checks the SAME reference before the same-app rule (same RRN from the same app / SMS app = same money);
   two apps of ONE kind join only WITH PROOF (same payer id / name or the very same text `messageKey`) within
