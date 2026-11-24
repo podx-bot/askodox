@@ -421,11 +421,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఆలస్యమైన పనులు ఎరుపులో, రాత్రి రిపోర్ట్‌లో కనిపిస్తాయి.',
   ]),
   '/biz/:id/staff/setup': _H('Attendance setup', 'హాజరు సెటప్', [
-    "Choose: each person's own phone, the shop phone, or both.",
-    'Set the start and end time, the minutes of lateness allowed and how near the shop counts.',
+    "Tap a row to change it: the method (each person's phone, the shop phone, or both), work hours, lateness allowed, how near the shop counts, no-cheating switches, shop holidays.",
+    'The big button sets the shop location: stand in the shop and tap it once. A fake-GPS app is never taken as the shop.',
   ], [
-    'ఎంచుకోండి: ప్రతి ఒక్కరి ఫోన్, షాప్ ఫోన్, లేదా రెండూ.',
-    'మొదలు / ముగింపు సమయం, ఎన్ని నిమిషాల ఆలస్యం ఓకే, షాప్‌కి ఎంత దగ్గర — పెట్టండి.',
+    'ఒక వరుస నొక్కి మార్చండి: పద్ధతి (ప్రతి ఒక్కరి ఫోన్, షాప్ ఫోన్, లేదా రెండూ), పని టైం, ఆలస్యం ఓకే, షాప్‌కి ఎంత దగ్గర, మోసం రాకుండా స్విచ్‌లు, షాప్ సెలవులు.',
+    'పెద్ద బటన్ షాప్ లొకేషన్ పెడుతుంది: షాప్ లో నిలబడి ఒక్కసారి నొక్కండి. నకిలీ GPS యాప్ ఉంటే షాప్ గా తీసుకోదు.',
   ]),
   '/biz/:id/menu': _H('Menu & items', 'మెనూ & ఐటమ్స్', [
     'The number on top is how many items you have. Tap a section to see its items; search finds an item by name or number in every section.',

@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../steps/presentation/att_setup_steps_screens.dart';
 import '../../steps/presentation/biz_menu_steps_screens.dart';
 import '../../steps/presentation/checkin_steps_screen.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
@@ -86,7 +87,11 @@ final askodoxBizRoutes = <GoRoute>[
           ? AskodoxBizSalaryScreen(businessId: s.pathParameters['id']!)
           : AskodoxSalaryStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/tasks', builder: (c, s) => AskodoxBizTasksScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/staff/setup', builder: (c, s) => AskodoxBizAttSetupScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/staff/setup',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizAttSetupScreen(businessId: s.pathParameters['id']!)
+          : AskodoxAttSetupStepsScreen(businessId: s.pathParameters['id']!)),
   // Business Kit ways 3-5 (owner 2026-11-24): before the group catch-all below.
   // Owner 2026-11-24: the 3-step versions; the old pages stay at ?full=1 (header ⋮).
   GoRoute(

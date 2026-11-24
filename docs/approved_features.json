@@ -11864,6 +11864,41 @@
           "AskodoxBizSectionStepsScreen"
         ]
       }
+    },
+    {
+      "id": "att_setup_page_three_steps_batch20",
+      "name": "Attendance setup in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 20; old page stays at ?full=1.",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "One question (how is attendance marked), ONE list (method, work hours, lateness allowed, near the shop, no-cheating switches, shop holidays; tap = a sheet with big choices), ONE big button sets the shop location in the shop (a fake-GPS fix is refused).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 20 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/att_setup_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAttSetupSteps",
+          "askodoxAttSetupStepsPin"
+        ],
+        "symbols": [
+          "AskodoxAttSetupStepsScreen"
+        ]
+      }
     }
   ]
 }
