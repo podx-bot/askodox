@@ -38,6 +38,8 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
   final _custom = TextEditingController();
   List<AskodoxJson> _quick = const [];
   String _role = 'cashier';
+  /// Which part shows: alerts / table / staff / welcome (owner 2026-11-24: tabs, not one long page).
+  String _part = 'alerts';
   // Welcome on a QR scan + thanks at the end (owner 2026-11-17); the shop changes the words or turns it off.
   AskodoxJson? _welcome;
   final _hello = TextEditingController();
@@ -269,7 +271,32 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
           ? AskodoxPosError(error: _error!, onRetry: _load)
           : _data == null
               ? const Center(child: CircularProgressIndicator())
-              : ListView(key: const Key('askodoxDeskSettings'), padding: const EdgeInsets.all(14), children: [
+              : Column(children: [
+                  // Owner 2026-11-24: no long page -- the four parts as tabs side by side on top.
+                  SizedBox(
+                    height: 52,
+                    child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(14, 10, 14, 0), children: [
+                      for (final (id, en, tel, icon) in const [
+                        ('alerts', 'Alerts', 'అలర్ట్స్', Icons.notifications_active_outlined),
+                        ('table', 'Table asks', 'టేబుల్ అడిగేవి', Icons.room_service_outlined),
+                        ('staff', 'Staff', 'సిబ్బంది', Icons.people_alt_outlined),
+                        ('welcome', 'Welcome', 'స్వాగతం', Icons.waving_hand_outlined),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            key: Key('askodoxDeskSettingsTab-$id'),
+                            avatar: Icon(icon, size: 16),
+                            label: Text(te ? tel : en),
+                            selected: _part == id,
+                            onSelected: (_) => setState(() => _part = id),
+                          ),
+                        ),
+                    ]),
+                  ),
+                  Expanded(
+                    child: ListView(key: const Key('askodoxDeskSettings'), padding: const EdgeInsets.all(14), children: [
+                  if (_part == 'alerts') ...[
                   // Owner 2026-11-17: no auto-accept. A person accepts every order: the owner, or the people the owner allows.
                   Card(
                     child: ListTile(
@@ -321,7 +348,8 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                       ]),
                     ),
                   ),
-                  const Divider(height: 28),
+                  ],
+                  if (_part == 'table') ...[
                   Text(te ? 'టేబుల్ దగ్గర కస్టమర్ అడిగేవి' : 'What a table can ask for', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   Text(
                       te
@@ -361,7 +389,8 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                       suffixIcon: IconButton(icon: const Icon(Icons.add), onPressed: _addQuick),
                     ),
                   ),
-                  const Divider(height: 28),
+                  ],
+                  if (_part == 'staff') ...[
                   Text(te ? 'సిబ్బంది' : 'Staff', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   for (final p in people.where((p) => p['role'] != 'owner'))
                     ListTile(
@@ -399,7 +428,10 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                       onPressed: _addStaff,
                       icon: const Icon(Icons.person_add_alt_1),
                       label: Text(te ? 'సిబ్బందిని చేర్చు' : 'Add staff')),
-                  _welcomeCard(te),
+                  ],
+                  if (_part == 'welcome') _welcomeCard(te),
+                ]),
+                  ),
                 ]),
     );
   }
