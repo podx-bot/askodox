@@ -33,6 +33,47 @@ final askodoxGuideAnswererProvider = Provider<AskodoxGuideAnswerer>((ref) => (qu
       return '';
     });
 
+/// "I did not understand" (owner 2026-11-24: fewer sales executives -- the app explains itself): the same screen help
+/// said again in simpler words with an example (backend `/api/in-app/guide/ask` mode `simpler`). "" = no answer.
+typedef AskodoxGuideSimpler = Future<String> Function(String screen, List<String> steps, String locale);
+
+final askodoxGuideSimplerProvider = Provider<AskodoxGuideSimpler>((ref) => (screen, steps, locale) async {
+      try {
+        final out = await ref.read(apiClientProvider).post<Map<String, Object?>>('/api/in-app/guide/ask', body: {
+          'question': 'I did not understand this screen.',
+          'screen': screen,
+          'steps': steps,
+          'guides': const <String>[],
+          'locale': locale,
+          'mode': 'simpler',
+        });
+        if (out case ApiSuccess<Map<String, Object?>>(:final data)) return '${data['answer'] ?? ''}'.trim();
+      } catch (_) {}
+      return '';
+    });
+
+/// Counts a guide step per page pattern (no person): understood / not_understood / simpler / shown / told.
+final askodoxGuideFeedbackProvider = Provider<void Function(String path, String step)>((ref) => (path, step) {
+      unawaited(ref
+          .read(apiClientProvider)
+          .post<Map<String, Object?>>('/api/in-app/guide/feedback', body: {'path': path, 'step': step})
+          .then((_) => null, onError: (_) => null));
+    });
+
+/// "అర్థం కాలేదు" / "not understood" typed or said into the guide's ask box.
+bool askodoxSaysNotUnderstood(String text) => RegExp(
+        r'అర్థం\s*కాలేదు|అర్ధం\s*కాలేదు|అర్థం\s*కావట్లేదు|తెలియట్లేదు|ardham\s*kaledu|samajh\s*nahi|समझ\s*नहीं|'
+        r"(did\s*n[o']?t|do\s*n[o']?t|not)\s*(understand|get\s*it)|confus",
+        caseSensitive: false)
+    .hasMatch(text);
+
+/// The ladder after "not understood": 1 = simpler words, 2 = shown on the screen (a walkthrough), 3 = say it, I do it.
+int askodoxGuideNextRung(int notUnderstoodTimes, {required bool hasWalkthrough}) => switch (notUnderstoodTimes) {
+      1 => 1,
+      2 => hasWalkthrough ? 2 : 3,
+      _ => 3,
+    };
+
 /// The guide reads out loud by default (the person may not read); the speaker button turns it off for the session.
 bool askodoxGuideVoiceOn = true;
 
@@ -74,6 +115,9 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
   AskodoxGuideFlow? _answerFlow;
   bool _asking = false;
   bool _speaking = false;
+  int _notUnderstood = 0;
+  bool _understood = false;
+  bool _tellMe = false;
 
   bool get _te => widget.te;
 
@@ -123,9 +167,56 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
     }
   }
 
+  void _feedback(String step) => ref.read(askodoxGuideFeedbackProvider)(widget.path, step);
+
+  void _gotIt() {
+    _feedback('understood');
+    setState(() => _understood = true);
+  }
+
+  /// One more "not understood": simpler words, then shown on the screen, then "say it and I do it".
+  Future<void> _notClear(List<AskodoxGuideFlow> own) async {
+    _feedback('not_understood');
+    _notUnderstood++;
+    switch (askodoxGuideNextRung(_notUnderstood, hasWalkthrough: own.isNotEmpty)) {
+      case 1:
+        setState(() {
+          _asking = true;
+          _answer = null;
+          _answerFlow = null;
+        });
+        final simpler = await ref.read(askodoxGuideSimplerProvider)(
+            widget.help.title(_te), widget.help.steps(_te), _te ? 'te' : 'en');
+        if (!mounted) return;
+        _feedback('simpler');
+        final shown = simpler.isNotEmpty
+            ? simpler
+            : (_te ? 'సరే, ఈ పేజీలో ఏం జరుగుతుందో స్క్రీన్‌పై చూపిస్తాను — ఇంకోసారి "అర్థం కాలేదు" నొక్కండి.' : 'OK, let me show it on the screen — tap "Not clear" once more.');
+        setState(() {
+          _asking = false;
+          _answer = shown;
+        });
+        if (askodoxGuideVoiceOn) unawaited(_say(shown));
+      case 2:
+        _feedback('shown');
+        _start(own.first);
+      default:
+        setState(() => _tellMe = true);
+        final line = _te
+            ? 'ఏం చేయాలనుకుంటున్నారో నోటితో చెప్పండి — నేనే చేసి పెడతాను.'
+            : 'Just say what you want to do — I will do it for you.';
+        if (askodoxGuideVoiceOn) unawaited(_say(line));
+    }
+  }
+
   Future<void> _askNow([String? spoken]) async {
     final question = (spoken ?? _ask.text).trim();
     if (question.isEmpty || _asking) return;
+    if (askodoxSaysNotUnderstood(question) && question.length < 40) {
+      if (spoken != null) _ask.text = spoken;
+      await _notClear(askodoxFlowsOwnedBy(widget.path).where(askodoxGuideAvailable).toList());
+      return;
+    }
     if (spoken != null) _ask.text = spoken;
     setState(() {
       _asking = true;
@@ -157,6 +248,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
 
   /// A spoken command: the ASKODOX chat takes it (opens the named page, or does the job and asks a ✓ for risky ones).
   void _command(String words) {
+    if (_tellMe) _feedback('told');
     ref.read(askodoxChatRequestProvider.notifier).state = AskodoxChatRequest.ask(words);
     final router = GoRouter.maybeOf(context);
     Navigator.pop(context);
@@ -221,6 +313,44 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(child: Text(step, style: const TextStyle(fontSize: 14.5, height: 1.35))),
+                ]),
+              ),
+            // Owner 2026-11-24: after the guide, "Got it" / "Not clear" -- no sales executive needed to explain.
+            if (!_understood)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('askodoxGuideUnderstood'),
+                      onPressed: _gotIt,
+                      icon: const Icon(Icons.check_circle_outline, color: Color(0xFF15803D)),
+                      label: Text(te ? 'అర్థమైంది' : 'Got it'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('askodoxGuideNotUnderstood'),
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB45309)),
+                      onPressed: _asking ? null : () => _notClear(own),
+                      icon: const Icon(Icons.help_outline),
+                      label: Text(te ? 'అర్థం కాలేదు' : 'Not clear'),
+                    ),
+                  ),
+                ]),
+              ),
+            if (_tellMe)
+              Container(
+                key: const Key('askodoxGuideTellMe'),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(10)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(te ? 'ఏం చేయాలనుకుంటున్నారో చెప్పండి — నేనే చేస్తాను.' : 'Say what you want to do — I will do it.',
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  AskodoxCommandMic(lang: te ? 'te' : 'en', onSend: _command, autoStart: true),
                 ]),
               ),
             // Ask the guide: type or speak.

@@ -68,3 +68,34 @@ def test_default_model_is_a_real_openai_id_and_errors_carry_openais_reason():
     result, reason = service.edit([(b"one", "image/jpeg")], "wig")
     assert result is None
     assert reason.startswith("HTTP 400 invalid_value") and "sk-test" not in reason
+
+
+def test_gemini_draws_when_openai_is_out_of_credits():
+    """Owner 2026-11-24: OpenAI 429 credit_balance_exhausted broke every AI picture -- Gemini is the second provider."""
+    import base64 as _b64
+
+    import httpx as _httpx
+
+    from app.services.openai_image_service import OpenAIImageService
+
+    png = b"\x89PNG-gemini"
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        if "openai" in str(request.url):
+            return _httpx.Response(429, json={"error": {"code": "credit_balance_exhausted", "message": "no credits"}})
+        body = request.read().decode()
+        assert '"responseModalities": ["IMAGE"]' in body or '"responseModalities":["IMAGE"]' in body
+        return _httpx.Response(200, json={"candidates": [{"content": {"parts": [
+            {"text": "here"}, {"inlineData": {"mimeType": "image/png", "data": _b64.b64encode(png).decode()}}]}}]})
+
+    service = OpenAIImageService(api_key="sk-x", gemini_api_key="g-x",
+                                 http_client=_httpx.Client(transport=_httpx.MockTransport(handler)))
+    result, reason = service.generate("a festive poster")
+    assert result is not None and result.data == png and result.model == "gemini-3.1-flash-image" and reason == ""
+    assert "openai" in calls[0] and "generativelanguage" in calls[1]
+    edited, _ = service.edit([(b"jpg", "image/jpeg")], "make it brighter")
+    assert edited is not None and edited.data == png
+    only_gemini = OpenAIImageService(gemini_api_key="g-x", http_client=_httpx.Client(transport=_httpx.MockTransport(handler)))
+    assert only_gemini.configured and only_gemini.generate("x")[0] is not None

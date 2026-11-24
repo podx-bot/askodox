@@ -176,7 +176,7 @@ function explainError(e){const st=e&&e.status||0,m=String(e&&e.message||""),t=er
    '<div><b>ఎందుకు?</b> '+t[0]+'</div><div style="margin-top:6px"><b>ఏం చేయాలి?</b> '+t[1]+'</div></div>'}
 async function render(){const p=document.querySelector("#page");renderCrumbs();p.innerHTML='<div class="muted">Load అవుతోంది…</div>';
   try{if(VIEW==="home")return await home();if(VIEW.startsWith("sec:"))return sectionPage(VIEW.slice(4));
-    if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={commissions,wizard,kycqueue,dashboard,analytics,insights,sponsored,benefits,referrals,radioadmin,plansadmin,billingadmin,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,affhub,smartentry,demand,workqueue,assistant,cfgbundle,outcomes,socialdm,workspace,sourcehealth,eadash,resultdiag,mobility,videoreports,apibilling,incidents,aicredits,shopretention}[VIEW];await (f||home)()}
+    if(VIEW.startsWith("r:"))return await resourcePage(VIEW.slice(2));const f={commissions,wizard,kycqueue,dashboard,analytics,insights,sponsored,benefits,referrals,radioadmin,plansadmin,billingadmin,payments,ledger,rewards,transactions,support,accounts,integrations,flags,staff,audit,events,readiness,outbox,discovered,approvals,selfheal,revcmd,screenguide,setup,affproducts,affsources,affhub,smartentry,demand,workqueue,assistant,cfgbundle,outcomes,socialdm,workspace,sourcehealth,eadash,resultdiag,mobility,videoreports,apibilling,incidents,aicredits,shopretention,guidefeedback}[VIEW];await (f||home)()}
   catch(e){p.innerHTML=explainError(e)}}
 function tile(i){return '<div class="tile" data-id="'+esc(i.id)+'" onclick="go(\''+i.id+'\')"><div class="tt"><b>'+esc(i.label)+'</b>'+(pend(i.id)?'<span class="badge b-warn">'+pend(i.id)+' review కావాలి</span>':'')+'</div><div class="muted tw">'+esc(i.what)+'</div></div>'}
 function sectionPage(id){const s=NAV.find(x=>x.id===id);if(!s)return home();
@@ -500,6 +500,9 @@ function abAlert(i){const a=STATE.ab.alerts[i];drawer("Alert",'<p>'+esc(a.messag
   '<button onclick="abAct('+a.id+',\'acknowledge\')">Acknowledge</button> <button class="p" onclick="abAct('+a.id+',\'resolve\')">Resolve</button>')}
 async function abAct(id,a){try{await call("api-billing/alerts/"+id+"/"+a,"POST");closeDrawer();apibilling()}catch(e){document.querySelector("#ferr").textContent=e.message}}
 /* ------------------------------------------------------- shops: do they keep using ASKODOX? -- */
+async function guidefeedback(){const d=await call("guide-feedback?days=30");
+  const C=[["path","పేజీ"],["not_understood","అర్థం కాలేదు"],["understood","అర్థమైంది"],["not_understood_share","అర్థం కాని %",v=>v==null?"—":Math.round(v*100)+"%"],["simpler","సులభంగా చెప్పాక"],["shown","స్క్రీన్‌పై చూపించాక"],["told","చాట్‌కి చెప్పారు"]];
+  document.querySelector("#page").innerHTML=head("గైడ్ అర్థమైందా","గత "+d.days+" రోజుల్లో ఒక్కో పేజీ గైడ్ విని 'అర్థం కాలేదు' అన్నవి. ఎవరి పేరు / ఫోన్ ఇక్కడ ఉండదు.","")+(d.pages.length?grid(d.pages,C):'<div class="card muted">ఇంకా ఎవరూ గైడ్ మీద నొక్కలేదు.</div>')}
 async function shopretention(fresh){const d=await call("shop-retention"+(fresh===true?"?fresh=true":""));const T=d.totals,K=d.kept,U=d.tools_30,L=d.lists;
   const k=(l,v,s)=>'<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+(s||"")+'</div></div>';
   const pc=c=>c.pct==null?'<span class="muted">— ఇంకా తొందర</span>':'<b>'+c.pct+'%</b> <span class="muted">('+c.kept+' / '+c.of+')</span>';

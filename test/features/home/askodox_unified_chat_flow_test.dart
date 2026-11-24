@@ -374,7 +374,8 @@ class _FakeReplySpeech extends ReplySpeechService {
       {required String locale,
       String voice = 'automatic',
       Duration timeout = const Duration(seconds: 15),
-      String engine = ''}) async {
+      String engine = '',
+      String purpose = ''}) async {
     calls.add((text, locale));
     engines.add(engine);
     if (hold != null) await hold!.future;

@@ -560,6 +560,34 @@ class GuideAskIn(BaseModel):
     steps: list[str] = Field(default_factory=list, max_length=12)
     guides: list[str] = Field(default_factory=list, max_length=60)
     locale: str = Field(default="", max_length=10)
+    mode: str = Field(default="", pattern="^(|simpler)$")
+
+
+class GuideFeedbackIn(BaseModel):
+    path: str = Field(min_length=1, max_length=120)
+    step: str = Field(pattern="^(understood|not_understood|simpler|shown|told)$")
+
+
+def _guide_feedback(container: Any):
+    store = getattr(container, "guide_feedback", None)
+    if store is None:
+        from app.services.guide_feedback import GuideFeedback
+
+        store = GuideFeedback(container.settings.database_path)
+        try:
+            container.guide_feedback = store
+        except Exception:
+            pass
+    return store
+
+
+@router.post("/guide/feedback")
+def guide_feedback(payload: GuideFeedbackIn, request: Request) -> dict:
+    """Understood / not understood on a page guide (counted per page + day, no person)."""
+    from app.services import rate_limit
+
+    rate_limit.check(request, "guide_feedback", limit=60)
+    return {"recorded": _guide_feedback(request.app.state.container).record(payload.path, payload.step)}
 
 
 @router.post("/guide/ask")
@@ -572,10 +600,17 @@ def guide_ask(payload: GuideAskIn, request: Request) -> dict:
     container: Any = request.app.state.container
     service = container.universal_ai_assistant_service
     te = payload.locale.lower().startswith("te")
+    # Owner 2026-11-24 ("I did not understand" -- no sales executive should have to explain): say it again in the
+    # simplest words with one everyday example, from the same screen help only.
+    simpler = payload.mode == "simpler"
+    task = ("The person heard this screen's guide and said they DID NOT UNDERSTAND. Explain again what this screen is "
+            "for and the ONE first thing to tap, in 2-3 very short sentences, much simpler words than before, with one "
+            "everyday shop example. Do not repeat the guide word for word." if simpler else
+            "Answer the question about USING THE ASKODOX APP in 2-4 very short, simple sentences, step by step, like "
+            "speaking to them.")
     prompt = (
         "You are the friendly ASKODOX app guide talking to a shop owner or customer in India who may not read well. "
-        "Answer the question about USING THE ASKODOX APP in 2-4 very short, simple sentences, step by step, like "
-        "speaking to them. Use ONLY the screen help and guide list below; if they do not cover it, say you are not "
+        + task + " Use ONLY the screen help and guide list below; if they do not cover it, say you are not "
         "sure and suggest asking in ASKODOX chat. Never invent buttons or features. No markdown, no lists symbols.\n"
         + ("Reply in simple Telugu (Telugu script).\n" if te else "Reply in simple English.\n")
         + f"Current screen: {payload.screen[:120]}\n"
@@ -610,6 +645,8 @@ class SpeakRequest(BaseModel):
     # asks for that SAME engine for the rest. "elevenlabs" = ElevenLabs only (waits longer, never Sarvam); "sarvam" =
     # skip ElevenLabs. Empty = ElevenLabs first, Sarvam when it fails (older apps, the first part).
     engine: str = Field(default="", pattern="^(|elevenlabs|sarvam)$")
+    # "guide" = a fixed page-guide line: recorded once on the server and played to everyone after that.
+    purpose: str = Field(default="", pattern="^(|guide)$")
 
 
 # ElevenLabs eleven_v3 sometimes needs > 8 s for a long Telugu part; a part asked for with engine=elevenlabs is
@@ -640,8 +677,9 @@ def speak_in_app_reply(payload: SpeakRequest, request: Request) -> Response:
             # apps still send Profile / payment-alert choices (male, female2 ...): ignored, the header below echoes them
             # so those apps keep accepting the audio.
             try:
+                extra = {"keep": True} if payload.purpose == "guide" else {}
                 spoken = eleven.synthesize(payload.text, voice="automatic", locale=payload.locale,
-                                           timeout_seconds=LOCKED_ELEVENLABS_TIMEOUT_S if locked else None)
+                                           timeout_seconds=LOCKED_ELEVENLABS_TIMEOUT_S if locked else None, **extra)
             except TypeError:  # a test double without the timeout argument
                 spoken = eleven.synthesize(payload.text, voice="automatic", locale=payload.locale)
             _observe_elevenlabs(spoken)

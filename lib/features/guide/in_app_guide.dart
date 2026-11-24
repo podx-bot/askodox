@@ -372,7 +372,7 @@ final askodoxGuideSpeakerProvider = Provider<AskodoxGuideSpeaker>((ref) => (text
       try {
         if (ref.read(askodoxFlagProvider('voice.sarvam_tts'))) {
           final audio = await const ReplySpeechService()
-              .sarvamAudio(text, locale: language, voice: voice, timeout: askodoxGuideVoiceWait);
+              .sarvamAudio(text, locale: language, voice: voice, timeout: askodoxGuideVoiceWait, purpose: 'guide');
           if (turn != askodoxGuideSpeechTurn) return; // a newer line is on screen now
           if (audio != null &&
               await device.invokeMethod<bool>('playReplyAudio', {'bytes': audio, 'languageCode': language}) == true) {
