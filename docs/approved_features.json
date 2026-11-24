@@ -11463,6 +11463,44 @@
           "AskodoxReportSettingsStepsScreen"
         ]
       }
+    },
+    {
+      "id": "collect_page_three_steps_batch8",
+      "name": "Collect by UPI in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 8; old page stays at ?full=1. Money is only recorded.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Step 1 how much (keypad) -> step 2 the shop's own UPI QR with the waiting / notification status, 'Money received' asks 'did you see it in your bank app' when no notification matched -> step 3 received (undo within 15 min, collect another). Recent requests and the old page in the menu. ASKODOX never holds the money.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 8 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/collect_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCollectSteps",
+          "askodoxCollectStepsShow",
+          "askodoxCollectStepsConfirm"
+        ],
+        "symbols": [
+          "AskodoxCollectStepsScreen"
+        ]
+      }
     }
   ]
 }
