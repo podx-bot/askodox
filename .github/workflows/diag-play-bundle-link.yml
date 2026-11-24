@@ -1,0 +1,23 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1642]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45347213933 -R "$GITHUB_REPOSITORY" -n askodox-android-642 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1642.aab
+          sha256sum askodox-play-1642.aab
+          gh release create play-bundle-1642 askodox-play-1642.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1642" --notes "Play Console upload only (not installable on a phone). One-screen answer card, romanized language, delivery jobs, workforce authorities (#429, #430, #431)."
