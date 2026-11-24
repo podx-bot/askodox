@@ -11721,6 +11721,41 @@
           "AskodoxPosStaffStepsScreen"
         ]
       }
+    },
+    {
+      "id": "desk_settings_page_three_steps_batch15",
+      "name": "Order alerts (desk settings) in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 15; old page stays at ?full=1.",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "One question (who hears each step of an order), ONE list of the four steps (tap = pick people), ONE big button opens Staff. What a table can ask for, the welcome / thank-you words and the old page are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 15 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/desk_settings_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeskSettingsSteps",
+          "askodoxDeskStepsStaff"
+        ],
+        "symbols": [
+          "AskodoxDeskSettingsStepsScreen"
+        ]
+      }
     }
   ]
 }

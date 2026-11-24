@@ -1162,14 +1162,14 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'స్పెషల్‌కి "ఈ రోజు మాత్రమే" అనండి; అయిపోతే ఆ ఐటమ్ OFF చేయండి (రేపు మళ్ళీ వస్తుంది).',
     'లేదా మెనూ ఫోటో తీయండి: ప్రతి ఐటమ్, అందులో ముద్రించిన రేటు చదువుతుంది; ఏదైనా సరిచేసి Save.',
   ]),
-  '/desk/:id/settings': _H('Order alerts & staff', 'ఆర్డర్ అలర్ట్స్ & సిబ్బంది', [
-    'Choose who is told at each step: new order, kitchen, ready, delivery. Nobody chosen = the people of that role.',
-    'Add staff with their phone number and a role (cashier, kitchen, waiter, delivery). Delete anyone with the bin.',
-    'Auto-confirm accepts an order at once while the shop is open, for items on today\'s menu.',
+  '/desk/:id/settings': _H('Order alerts', 'ఆర్డర్ అలర్ట్స్', [
+    'Four steps of an order (new, kitchen, ready, delivery): tap one and choose who is told. Nobody chosen = the people of that role.',
+    'The big button opens Staff, where you add people with a phone number and a role.',
+    'The menu (three dots) has what a table can ask for (water, gravy, the bill), your welcome and thank-you words, and the old page.',
   ], [
-    'ప్రతి స్టెప్ లో ఎవరికి చెప్పాలో ఎంచుకోండి: కొత్త ఆర్డర్, వంటగది, సిద్ధం, డెలివరీ. ఎవరినీ ఎంచుకోకపోతే ఆ పాత్ర ఉన్నవాళ్ళకి.',
-    'సిబ్బందిని ఫోన్ నంబర్, పాత్రతో చేర్చండి (క్యాషియర్, వంటగది, వెయిటర్, డెలివరీ). చెత్తబుట్టతో తీసేయండి.',
-    'ఆటో-కన్ఫర్మ్: షాప్ తెరిచి ఉంటే, ఈరోజు మెనూలోని ఐటెమ్‌ల ఆర్డర్ వెంటనే అంగీకరిస్తుంది.',
+    'ఆర్డర్ నాలుగు స్టెప్స్ (కొత్త, వంటగది, సిద్ధం, డెలివరీ): ఒకటి నొక్కి ఎవరికి చెప్పాలో ఎంచుకోండి. ఎవరినీ ఎంచుకోకపోతే ఆ పాత్ర ఉన్నవాళ్ళకి.',
+    'పెద్ద బటన్ సిబ్బంది పేజీ తెరుస్తుంది; అక్కడ ఫోన్ నంబర్, పాత్రతో మనుషులను చేర్చండి.',
+    'మూడు చుక్కల మెనూలో టేబుల్ దగ్గర అడిగేవి (నీళ్లు, గ్రేవీ, బిల్), స్వాగతం / ధన్యవాదాల మాటలు, పాత పేజీ ఉన్నాయి.',
   ]),
   '/desk/:id/sales': _H('Sales', 'అమ్మకాలు', [
     'The number on top is the sales of today, this week or this month ("Change period"); below: how it was paid and best sellers.',
