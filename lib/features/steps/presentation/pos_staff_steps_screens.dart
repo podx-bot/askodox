@@ -296,12 +296,14 @@ class _StaffState extends ConsumerState<AskodoxPosStaffStepsScreen> {
     final current = [for (final m in rows) if (m['active'] == true) m]..sort((a, b) => (a['role'] == 'owner' ? 0 : 1).compareTo(b['role'] == 'owner' ? 0 : 1));
     final removed = [for (final m in rows) if (m['active'] != true) m];
     final accepting = current.where((m) => m['role'] == 'owner' || (m['accepts_orders'] == true && m['paused'] != true)).length;
+    // Short word on the right (the row has little room); the longer wording sits under the name.
     String status(AskodoxJson m) {
-      if (m['role'] == 'owner') return te ? 'ఎప్పుడూ ఒప్పుకోవచ్చు' : 'Always accepts';
+      if (m['role'] == 'owner') return te ? 'ఎప్పుడూ' : 'Always';
       if (m['active'] != true) return te ? 'తీసేశారు' : 'Removed';
       if (m['paused'] == true) return te ? 'ఆపారు' : 'Paused';
-      return m['accepts_orders'] == true ? (te ? 'ఆర్డర్లు ఒప్పుకోవచ్చు' : 'Accepts orders') : (te ? 'ఆర్డర్లు ఒప్పుకోరు' : 'Does not accept orders');
+      return m['accepts_orders'] == true ? (te ? 'ఆన్' : 'On') : (te ? 'లేదు' : 'No');
     }
+
     return AskodoxStepScaffold(
       key: const Key('askodoxPosStaffSteps'),
       title: title,
@@ -321,7 +323,7 @@ class _StaffState extends ConsumerState<AskodoxPosStaffStepsScreen> {
             AskodoxStepPersonRow(
               key: Key('askodoxPosStaffStepsRow-${m['phone_last4']}'),
               name: _nameOf(m),
-              sub: '${askodoxStaffRoleLabel('${m['role']}', te)} · ••••${m['phone_last4']}',
+              sub: '${askodoxStaffRoleLabel('${m['role']}', te)} · ••${m['phone_last4']}',
               amount: status(m),
               amountColor: m['active'] != true || m['paused'] == true ? askodoxStepMuted : askodoxStepDone,
               onTap: () => _person(m),
