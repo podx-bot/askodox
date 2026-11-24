@@ -33,6 +33,7 @@ import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/items_steps_screens.dart';
 import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
+import '../../steps/presentation/agents_steps_screens.dart';
 import '../../steps/presentation/branches_steps_screen.dart';
 import '../../steps/presentation/my_bills_steps_screen.dart';
 import '../../steps/presentation/my_deliveries_steps_screen.dart';
@@ -181,11 +182,16 @@ final askodoxPosRoutes = <GoRoute>[
       path: '/pos/:id/payment-alerts',
       builder: (context, state) => AskodoxPosPaymentAlertsScreen(businessId: state.pathParameters['id']!)),
   // Role-based AI agents (shop dashboard tile) + the personal buyer agent (Profile -> Personal Finance).
-  GoRoute(path: '/pos/:id/agents', builder: (context, state) => AskodoxPosAgentsScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/agents',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosAgentsScreen(businessId: state.pathParameters['id']!)
+          : AskodoxAgentsStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/agents/:agent',
-      builder: (context, state) =>
-          AskodoxPosAgentScreen(businessId: state.pathParameters['id']!, agent: state.pathParameters['agent']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosAgentScreen(businessId: state.pathParameters['id']!, agent: state.pathParameters['agent']!)
+          : AskodoxAgentStepsScreen(businessId: state.pathParameters['id']!, agent: state.pathParameters['agent']!)),
   GoRoute(path: '/me/agent', builder: (context, state) => const AskodoxBuyerAgentScreen()),
   // Business CRM (My Business -> Business CRM; also a tile on the shop dashboard).
   GoRoute(path: '/crm', builder: (context, state) => const AskodoxCrmEntryScreen()),
