@@ -379,11 +379,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'హాజరు వేయి, పనులు, షాప్ ఫోన్ హాజరు, జీతాలు — పెద్ద బటన్లు.',
   ]),
   '/biz/:id/staff/today': _H("Today's attendance", 'ఈ రోజు హాజరు', [
-    'Everyone today: when they came, how (phone lock / photo / owner), and whether they were at the shop.',
-    'One tap on P, A, OT or Leave changes today for that person.',
+    'The number on top is who is here today. Each row shows when they came and a mark: P, A, OT or leave.',
+    'Tap a person, then one big button: Present, Absent, Overtime (pick the hours) or Leave.',
+    'The big button at the bottom is your own check in / out. Shop phone attendance and setup are in the three-dot menu.',
   ], [
-    'ఈ రోజు అందరూ: ఎప్పుడు వచ్చారు, ఎలా వేశారు (ఫోన్ లాక్ / ఫోటో / ఓనర్), షాప్ దగ్గర ఉన్నారా.',
-    'P, A, OT, సెలవు — ఒక్క నొక్కుతో ఆ వ్యక్తి ఈ రోజు మారుతుంది.',
+    'పైన సంఖ్య ఈ రోజు ఎంతమంది వచ్చారు. ప్రతి వరుసలో ఎప్పుడు వచ్చారు, ఒక గుర్తు: P, A, OT లేదా సెలవు.',
+    'ఒకరిని నొక్కి, ఒక పెద్ద బటన్: వచ్చారు, రాలేదు, ఎక్కువ గంటలు (గంటలు ఎంచుకోండి) లేదా సెలవు.',
+    'కింద పెద్ద బటన్ మీ హాజరు వేయడానికి. షాప్ ఫోన్ హాజరు, సెటప్ మూడు చుక్కల మెనూలో.',
   ]),
   '/biz/:id/staff/checkin': _H('Check in / out', 'హాజరు వేయి', [
     'Three steps. 1: tap the big round button ("I am in", later "I am leaving"). 2: your phone asks for its own fingerprint / face / PIN.',
@@ -407,11 +409,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'కింద జీతం లెక్క: రోజులు × రేటు + OT − అడ్వాన్స్.',
   ]),
   '/biz/:id/staff/salary': _H('Salary', 'జీతాలు', [
-    "Everyone's salary this month, worked out from attendance.",
-    '"Mark given" writes it into the cashbook as salary.',
+    'The number on top is the salaries you still have to give this month, worked out from attendance.',
+    'The big button marks the first person as given and writes it into the cashbook as salary. Tap a person for their month.',
   ], [
-    'హాజరు నుంచి ఈ నెల అందరి జీతం లెక్క.',
-    '"ఇచ్చేశాను" నొక్కితే క్యాష్‌బుక్‌లో జీతంగా పడుతుంది.',
+    'పైన సంఖ్య ఈ నెల ఇంకా ఇవ్వాల్సిన జీతాలు, హాజరు నుంచి లెక్క.',
+    'పెద్ద బటన్ మొదటి వ్యక్తికి ఇచ్చినట్టు గుర్తించి క్యాష్‌బుక్‌లో జీతంగా రాస్తుంది. ఒకరిని నొక్కితే వారి నెల.',
   ]),
   '/biz/:id/staff/tasks': _H('Tasks', 'పనులు', [
     'Give a task to a person — their phone rings. They tick it when done.',

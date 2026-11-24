@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../steps/presentation/checkin_steps_screen.dart';
+import '../../steps/presentation/staff_steps_screens.dart';
 import '../../steps/presentation/work_steps_screens.dart';
 import '../../steps/presentation/dues_steps_screen.dart';
 import 'biz_hub.dart';
@@ -38,7 +39,11 @@ final askodoxBizRoutes = <GoRoute>[
   GoRoute(
       path: '/biz/:id/reports/settings', builder: (c, s) => AskodoxBizReportSettingsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff', builder: (c, s) => AskodoxBizStaffScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/staff/today', builder: (c, s) => AskodoxBizAttTodayScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/staff/today',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizAttTodayScreen(businessId: s.pathParameters['id']!)
+          : AskodoxAttendanceStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/staff/checkin',
       builder: (c, s) => s.uri.queryParameters['full'] == '1'
@@ -48,7 +53,11 @@ final askodoxBizRoutes = <GoRoute>[
   GoRoute(
       path: '/biz/:id/staff/person/:ref',
       builder: (c, s) => AskodoxBizStaffPersonScreen(businessId: s.pathParameters['id']!, staffRef: s.pathParameters['ref']!)),
-  GoRoute(path: '/biz/:id/staff/salary', builder: (c, s) => AskodoxBizSalaryScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/staff/salary',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizSalaryScreen(businessId: s.pathParameters['id']!)
+          : AskodoxSalaryStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/tasks', builder: (c, s) => AskodoxBizTasksScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/setup', builder: (c, s) => AskodoxBizAttSetupScreen(businessId: s.pathParameters['id']!)),
   // Business Kit ways 3-5 (owner 2026-11-24): before the group catch-all below.

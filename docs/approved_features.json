@@ -11267,6 +11267,43 @@
           "AskodoxTeamStepsScreen"
         ]
       }
+    },
+    {
+      "id": "work_pages_three_steps_batch3",
+      "name": "Today's attendance and salary in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule for work pages, batch 3 of 3; old pages stay at ?full=1; Tasks already gives a task with one tap (chips + staff photos).",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Attendance: here-today number, one row per person with a mark, tap = Present / Absent / Overtime (1-4 hours) / Leave, the big button is the caller's own check in / out. Salary: salaries still to give, one row per person, the big button marks the first unpaid person as given (cashbook), tap a person = their month. The old pages open at ?full=1.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: work pages batch 3 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/staff_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAttendanceSteps",
+          "askodoxSalarySteps"
+        ],
+        "symbols": [
+          "AskodoxAttendanceStepsScreen",
+          "AskodoxSalaryStepsScreen"
+        ]
+      }
     }
   ]
 }
