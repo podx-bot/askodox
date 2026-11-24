@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../steps/presentation/checkin_steps_screen.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
+import '../../steps/presentation/person_steps_screens.dart';
 import '../../steps/presentation/report_steps_screens.dart';
 import '../../steps/presentation/staff_steps_screens.dart';
 import '../../steps/presentation/work_steps_screens.dart';
@@ -51,7 +52,10 @@ final askodoxBizRoutes = <GoRoute>[
       builder: (c, s) =>
           AskodoxBizReportsScreen(businessId: s.pathParameters['id']!, date: s.uri.queryParameters['date'] ?? '')),
   GoRoute(
-      path: '/biz/:id/reports/settings', builder: (c, s) => AskodoxBizReportSettingsScreen(businessId: s.pathParameters['id']!)),
+      path: '/biz/:id/reports/settings',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizReportSettingsScreen(businessId: s.pathParameters['id']!)
+          : AskodoxReportSettingsStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff', builder: (c, s) => AskodoxBizStaffScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/staff/today',
@@ -66,7 +70,9 @@ final askodoxBizRoutes = <GoRoute>[
   GoRoute(path: '/biz/:id/staff/kiosk', builder: (c, s) => AskodoxBizKioskScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/staff/person/:ref',
-      builder: (c, s) => AskodoxBizStaffPersonScreen(businessId: s.pathParameters['id']!, staffRef: s.pathParameters['ref']!)),
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizStaffPersonScreen(businessId: s.pathParameters['id']!, staffRef: s.pathParameters['ref']!)
+          : AskodoxStaffPersonStepsScreen(businessId: s.pathParameters['id']!, staffRef: s.pathParameters['ref']!)),
   GoRoute(
       path: '/biz/:id/staff/salary',
       builder: (c, s) => s.uri.queryParameters['full'] == '1'

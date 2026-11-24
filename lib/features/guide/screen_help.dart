@@ -363,10 +363,10 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'వినండి నొక్కండి; సమస్య దగ్గర అక్కడికి వెళ్ళు నొక్కి సరిచేయండి.',
   ]),
   '/biz/:id/reports/settings': _H('Night report', 'రాత్రి రిపోర్ట్', [
-    'Turn the night report on or off and choose the time.',
+    'Two steps. 1: send the report every night? Yes or no. 2: choose the time.',
     'It goes to you and to the manager / accountant who can see reports.',
   ], [
-    'రాత్రి రిపోర్ట్ ఆన్ / ఆఫ్, టైం ఎంచుకోండి.',
+    'రెండు స్టెప్స్. 1: ప్రతి రాత్రి రిపోర్ట్ పంపాలా? అవును / వద్దు. 2: టైం ఎంచుకోండి.',
     'మీకు, రిపోర్ట్స్ చూడగలిగే మేనేజర్ / అకౌంటెంట్‌కి వెళ్తుంది.',
   ]),
   '/biz/:id/staff': _H('Staff & attendance', 'సిబ్బంది & హాజరు', [
@@ -400,11 +400,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఫోటోలు ఓనర్ / మేనేజర్‌కి మాత్రమే; 90 రోజుల తర్వాత తీసేస్తాం.',
   ]),
   '/biz/:id/staff/person/:ref': _H('One staff member', 'ఒక సిబ్బంది', [
-    'The month as rows: one tap on P, A, OT or L changes that day.',
-    'Salary is worked out below: days × rate + overtime − advance.',
+    'The number on top is the salary to give this month. Tap a day to change it: present, absent, overtime or leave.',
+    'The bottom button gives an advance or a bonus (1 how much, 2 saved). Salary settings and other months: ⋮.',
   ], [
-    'నెల వరుసలుగా: P, A, OT, సె ఒక్క నొక్కుతో ఆ రోజు మారుతుంది.',
-    'కింద జీతం లెక్క: రోజులు × రేటు + OT − అడ్వాన్స్.',
+    'పైన నంబర్ ఈ నెల ఇవ్వాల్సిన జీతం. రోజు నొక్కి మార్చండి: వచ్చారు, రాలేదు, OT, సెలవు.',
+    'కింద బటన్‌తో అడ్వాన్స్ లేదా బోనస్ (1 ఎంత, 2 సేవ్). జీతం సెట్టింగ్, ఇతర నెలలు: ⋮.',
   ]),
   '/biz/:id/staff/salary': _H('Salary', 'జీతాలు', [
     'The number on top is the salaries you still have to give this month, worked out from attendance.',
