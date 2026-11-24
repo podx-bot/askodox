@@ -238,7 +238,7 @@ class _AskodoxBizCashbookScreenState extends ConsumerState<AskodoxBizCashbookScr
 }
 
 class AskodoxCashEntrySheet extends ConsumerStatefulWidget {
-  const AskodoxCashEntrySheet({required this.businessId, required this.kind});
+  const AskodoxCashEntrySheet({super.key, required this.businessId, required this.kind});
   final String businessId;
   final String kind;
 
