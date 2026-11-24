@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../steps/presentation/checkin_steps_screen.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
+import '../../steps/presentation/report_steps_screens.dart';
 import '../../steps/presentation/staff_steps_screens.dart';
 import '../../steps/presentation/work_steps_screens.dart';
 import '../../steps/presentation/dues_steps_screen.dart';
@@ -35,7 +36,11 @@ final askodoxBizRoutes = <GoRoute>[
       builder: (c, s) => s.uri.queryParameters['full'] == '1'
           ? AskodoxBizDuesScreen(businessId: s.pathParameters['id']!)
           : AskodoxDuesStepsScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/money/history', builder: (c, s) => AskodoxBizBillHistoryScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/money/history',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizBillHistoryScreen(businessId: s.pathParameters['id']!)
+          : AskodoxBillHistoryStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/reports',
       builder: (c, s) => s.uri.queryParameters['full'] == '1'

@@ -27,6 +27,7 @@ import 'pos_records_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/people_steps_screens.dart';
+import '../../steps/presentation/report_steps_screens.dart';
 import 'branches_screen.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
@@ -91,7 +92,11 @@ final askodoxFrontDeskRoutes = <GoRoute>[
           : AskodoxOrdersStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/desk/:id/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/desk/:id/settings', builder: (context, state) => AskodoxDeskSettingsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/desk/:id/sales', builder: (context, state) => AskodoxDeskSalesScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/desk/:id/sales',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxDeskSalesScreen(businessId: state.pathParameters['id']!)
+          : AskodoxSalesStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/desk/:id/qr', builder: (context, state) => AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)),
 ];
 
@@ -216,7 +221,11 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxDayStepsScreen(businessId: state.pathParameters['id']!)),
   // Owner 2026-11-22: the shop's one free public page askodox.com/s/<name> (3 steps; only the owner makes it).
   GoRoute(path: '/pos/:id/link', builder: (context, state) => AskodoxShopLinkStepsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/pos/:id/gst', builder: (context, state) => AskodoxPosGstScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/gst',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosGstScreen(businessId: state.pathParameters['id']!)
+          : AskodoxGstStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/staff', builder: (context, state) => AskodoxPosStaffScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/tables',
@@ -243,7 +252,10 @@ final askodoxPosRoutes = <GoRoute>[
           AskodoxPosSupplierScreen(businessId: state.pathParameters['id']!, supplierId: state.pathParameters['sid']!)),
   GoRoute(path: '/pos/:id/purchase/new', builder: (context, state) => AskodoxPosPurchaseScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
-      path: '/pos/:id/purchase-orders', builder: (context, state) => AskodoxPosPurchaseOrdersScreen(businessId: state.pathParameters['id']!)),
+      path: '/pos/:id/purchase-orders',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosPurchaseOrdersScreen(businessId: state.pathParameters['id']!)
+          : AskodoxPurchaseOrdersStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/stock-report',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'

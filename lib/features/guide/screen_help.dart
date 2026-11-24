@@ -342,11 +342,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '3: అయింది — డబ్బు పాత బిల్లులకు ముందు జమ; రసీదు WhatsApp కి. గుర్తులు పంపడం: కింద బటన్.',
   ]),
   '/biz/:id/money/history': _H('Bill history', 'బిల్లుల చరిత్ర', [
-    'Search by bill or phone number. Choose the days, then cash / online / baaki / cancelled.',
-    'Bills are grouped by day with the day\'s total.',
+    'The number on top is the total of the bills below. Search by bill or phone number; "Change day" picks the days.',
+    'Cash / online / baaki / cancelled filters are in the old page (⋮).',
   ], [
-    'బిల్ నంబర్ / ఫోన్ నంబర్‌తో వెతకండి. రోజులు ఎంచుకుని, క్యాష్ / ఆన్‌లైన్ / బాకీ / రద్దు ఎంచుకోండి.',
-    'బిల్లులు రోజు వారీగా, ఆ రోజు మొత్తంతో.',
+    'పైన నంబర్ కింద ఉన్న బిల్లుల మొత్తం. బిల్ / ఫోన్ నంబర్‌తో వెతకండి; "రోజు మార్చు" తో రోజులు ఎంచుకోండి.',
+    'క్యాష్ / ఆన్‌లైన్ / బాకీ / రద్దు ఫిల్టర్లు పాత పేజీలో (⋮).',
   ]),
   '/biz/:id/reports': _H('Reports', 'రిపోర్ట్స్', [
     'The number on top is the sales of the day you chose. Problems below say what to do.',
@@ -1045,11 +1045,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'యాప్ లేని కస్టమర్ కూడా పేజీ నుండి (పేరు + ఫోన్) ఆర్డర్ చేస్తారు: ఆర్డర్ మీ Live orders లోకి వస్తుంది; WhatsApp బ్యాకప్. డబ్బు మీ సొంత UPI కే. లింక్ తయారు / మార్చడం ఓనర్ మాత్రమే (⋮).',
   ]),
   '/pos/:id/gst': _H('GST report', 'GST రిపోర్ట్', [
-    'Pick the dates; share the summary or CSV with your accountant.',
-    'It is not a filed return.',
+    'The number on top is the GST of the month; below it is split by rate. "Change month" picks another month.',
+    'It is not a filed return. HSN and B2B / B2C are in the old page (⋮).',
   ], [
-    'తేదీలు ఎంచుకోండి; సారాంశం / CSV మీ అకౌంటెంట్‌కి షేర్ చేయండి.',
-    'ఇది ఫైల్ చేసిన రిటర్న్ కాదు.',
+    'పైన నంబర్ ఈ నెల GST; కింద రేటు వారీగా. "నెల మార్చు" తో వేరే నెల చూడండి.',
+    'ఇది ఫైల్ చేసిన రిటర్న్ కాదు. HSN, B2B / B2C పాత పేజీలో (⋮).',
   ]),
   '/pos/:id/staff': _H('Staff & roles', 'సిబ్బంది & పాత్రలు', [
     'Add staff by phone number and choose their role.',
@@ -1172,10 +1172,10 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఆటో-కన్ఫర్మ్: షాప్ తెరిచి ఉంటే, ఈరోజు మెనూలోని ఐటెమ్‌ల ఆర్డర్ వెంటనే అంగీకరిస్తుంది.',
   ]),
   '/desk/:id/sales': _H('Sales', 'అమ్మకాలు', [
-    'Today, this week or this month: total sales, bills, how it was paid, dues and best sellers.',
+    'The number on top is the sales of today, this week or this month ("Change period"); below: how it was paid and best sellers.',
     'All numbers come from the bills you made. Cancelled bills are not counted.',
   ], [
-    'ఈరోజు, ఈ వారం, ఈ నెల: మొత్తం అమ్మకం, బిల్లులు, ఎలా చెల్లించారు, బాకీ, ఎక్కువ అమ్మినవి.',
+    'పైన నంబర్ ఈరోజు / ఈ వారం / ఈ నెల అమ్మకం ("కాలం మార్చు"); కింద ఎలా చెల్లించారు, ఎక్కువ అమ్మినవి.',
     'అన్ని లెక్కలు మీరు చేసిన బిల్లుల నుంచే. రద్దు చేసిన బిల్లులు లెక్కలో లేవు.',
   ]),
   '/desk/:id/qr': _H('Shop / table QR', 'షాప్ / టేబుల్ QR', [
@@ -1236,9 +1236,9 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మొత్తం ముద్రించిన మొత్తంతో సరిపోవాలి.',
   ]),
   '/pos/:id/purchase-orders': _H('Purchase orders', 'కొనుగోలు ఆర్డర్లు', [
-    'Make an order for a supplier, send it, and receive the goods (in parts if needed).',
+    'The number on top is the orders waiting for goods. Tap "New order" to make one; tap an order to send it or receive the goods (in parts if needed).',
   ], [
-    'సప్లయర్‌కి ఆర్డర్ తయారు చేసి పంపండి, సరుకు వచ్చినప్పుడు (కొంచెం కొంచెం అయినా) తీసుకోండి.',
+    'పైన నంబర్ సరుకు రావాల్సిన ఆర్డర్లు. "కొత్త ఆర్డర్" నొక్కి ఆర్డర్ చేయండి; ఆర్డర్ నొక్కి పంపండి లేదా సరుకు తీసుకోండి (కొంచెం కొంచెం అయినా).',
   ]),
   '/pos/:id/stock-report': _H('Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ', [
     'The number on top is your stock value at cost; below are the batches expiring in 60 days.',
