@@ -58,7 +58,9 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
     never spoken) (owner 2026-11-23).
 
 12. One payment told by TWO apps of the same kind (PhonePe + Paytm both notify a credit; one SMS shown by Messages +
-    Truecaller) is ONE voice: a different app of the same kind joins within `SAME_KIND_APPS_MS` (10 min). The same
+    Truecaller) is ONE voice ONLY WITH PROOF: the same reference, the same payer id / name, or the very same message
+    text (`messageKey`), within `SAME_KIND_APPS_MS` (10 min). The same amount + time alone NEVER joins two apps of one
+    kind -- two customers can pay the same amount at the same moment (owner 2026-11-24). The same
     UPI reference is the same money even from the SAME app / SMS app (checked before the same-app rule). A payer id is
     compared before the '@' (9876543210@ybl = 9876543210@axl) (owner 2026-11-24).
 13. Shop money heard as a PUSH (another phone / the bank) and later as this phone's own message: one local + one

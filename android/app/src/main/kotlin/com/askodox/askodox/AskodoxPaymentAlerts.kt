@@ -933,7 +933,7 @@ object AskodoxPaymentAlerts {
             bankSaysOpposite(context, pkg, "in", amount, posted)
         if (!test && amount != null && !bankDisagrees) {
             mergeSameMoney(context, cfg, pkg, "in", amount, account, reference, payer, posted, bankSms, handle, notificationKey,
-                balance, raw = rawOf(title, text), summary = summary, skipIds = summaryTaken)?.let {
+                balance, raw = rawOf(title, text), summary = summary, skipIds = summaryTaken, text = text)?.let {
                 summaryTaken?.add(it)
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to amount, "spoken" to false)
             }
@@ -1153,7 +1153,8 @@ object AskodoxPaymentAlerts {
                                account: String?, reference: String?, party: String?, now: Long,
                                bankSms: Boolean = false, handle: String? = null, notificationKey: String? = null,
                                balance: Long? = null, emi: Boolean = false, raw: String? = null,
-                               asKind: String? = null, summary: Boolean = false, skipIds: Set<String>? = null): String? {
+                               asKind: String? = null, summary: Boolean = false, skipIds: Set<String>? = null,
+                               text: String? = null): String? {
         // [now] = THIS message's payment time; rows keep theirs in at_ms.
         val kind = asKind ?: kindOf(cfg, pkg)
         val list = events(context)
@@ -1196,11 +1197,15 @@ object AskodoxPaymentAlerts {
                 apps = (listOf(e.optString("source_app")) + (e.optJSONArray("merged_keys")?.let { a ->
                     (0 until a.length()).map { a.optString(it).substringBefore('|') }
                 } ?: emptyList())).filter { it.isNotEmpty() }.distinct(),
+                textKeys = (listOfNotNull(PaymentAlertParser.messageKey(e.optString("raw_text").ifEmpty { null })) +
+                    (e.optJSONArray("text_keys")?.let { a -> (0 until a.length()).map { a.optString(it) } } ?: emptyList()))
+                    .filter { it.isNotEmpty() }.distinct(),
             ))
         }
         val picked = PaymentAlertParser.pickSamePayment(rows, PaymentAlertParser.Msg(
             sourceApp = pkg, kind = kind, direction = direction, amountPaise = amount, atMs = now, account = account,
             reference = reference, handle = handle, payer = party, bankSms = bankSms, summary = summary,
+            textKey = PaymentAlertParser.messageKey(text),
         )) ?: return null
         val e = list.getJSONObject(picked)
         val kinds = (e.optJSONArray("merged_kinds") ?: JSONArray().put(e.optString("kind"))).let { a ->
@@ -1225,6 +1230,11 @@ object AskodoxPaymentAlerts {
             val also = e.optJSONArray("raw_also") ?: JSONArray()
             if (also.length() < 3) also.put(raw)
             e.put("raw_also", also)
+        }
+        PaymentAlertParser.messageKey(text)?.let { k ->
+            val tk = e.optJSONArray("text_keys") ?: JSONArray()
+            if (tk.length() < 4) tk.put(k)
+            e.put("text_keys", tk)
         }
         if (notificationKey != null) {
             val keys = e.optJSONArray("merged_keys") ?: JSONArray()
@@ -1271,7 +1281,7 @@ object AskodoxPaymentAlerts {
         if (!test && !bankDisagrees) {
             mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted, bankSms = bankSms,
                 notificationKey = notificationKey, balance = balance, emi = emi, raw = rawOf(title, text), asKind = kind,
-                summary = summary, skipIds = summaryTaken)?.let {
+                summary = summary, skipIds = summaryTaken, text = text)?.let {
                 summaryTaken?.add(it)
                 return mapOf("result" to "merged", "localId" to it, "amountPaise" to o.amountPaise, "spoken" to false)
             }

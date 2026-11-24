@@ -28,16 +28,17 @@ class Sim {
     fun get(pkg: String, kind: String, title: String?, text: String, atMin: Long): String {
         val r = PaymentAlertParser.parse(title, text) as Result.Accepted
         val msg = PaymentAlertParser.Msg(pkg, kind, "in", r.amountPaise, base + atMin * 60_000L, r.account, r.reference,
-            PaymentAlertParser.upiHandleTail("${title ?: ""} $text"), r.payer, bankSms = kind == "sms")
+            PaymentAlertParser.upiHandleTail("${title ?: ""} $text"), r.payer, bankSms = kind == "sms",
+            textKey = PaymentAlertParser.messageKey(text))
         val hit = PaymentAlertParser.pickSamePayment(rows, msg)
         if (hit != null) {
             val o = rows[hit]
-            rows[hit] = o.copy(kinds = o.kinds + kind, apps = o.apps + pkg, reference = o.reference ?: msg.reference,
+            rows[hit] = o.copy(kinds = o.kinds + kind, apps = o.apps + pkg, textKeys = o.textKeys + listOfNotNull(msg.textKey), reference = o.reference ?: msg.reference,
                 handle = o.handle ?: msg.handle, payer = o.payer ?: msg.payer, account = o.account ?: msg.account)
             return "joined"
         }
         rows.add(PaymentAlertParser.Row(rows.size, msg.atMs, pkg, kind, listOf(kind), "in", msg.amountPaise,
-            msg.account, msg.reference, msg.handle, msg.payer, apps = listOf(pkg)))
+            msg.account, msg.reference, msg.handle, msg.payer, apps = listOf(pkg), textKeys = listOfNotNull(msg.textKey)))
         spoken++
         return "spoken"
     }
@@ -742,6 +743,23 @@ fun oneVoiceChecks() {
         get(PHONEPE, "upi", "Received ₹500", "RAMESH KUMAR sent ₹500 to your bank account HDFC Bank-4321", 0)
         val b = get(PAYTM, "upi", null, "Received ₹500 in your HDFC Bank a/c from Ramesh Kumar", 1)
         ok("owner 2026-11-24: PhonePe + Paytm for one credit = one voice", b == "joined" && spoken == 1)
+    }
+    // Owner 2026-11-24 ("two people can pay the same amount at the same moment"): the same amount from two apps a
+    // minute apart with NOTHING that proves it is one payment = two payments, two voices.
+    Sim().run {
+        get(PHONEPE, "upi", null, "Bhagya sent ₹500 to you.", 0)
+        val b = get(PAYTM, "upi", null, "Received ₹500 from Suresh on Paytm", 1)
+        ok("owner 2026-11-24: two apps, two different people, 1 min apart = two voices", b == "spoken" && spoken == 2)
+    }
+    Sim().run {
+        get(PHONEPE, "upi", "Received ₹500", "You received ₹500 in your bank account", 0)
+        val b = get(PAYTM, "upi", null, "Received ₹500 in your bank account", 1)
+        ok("owner 2026-11-24: same amount, two apps, no id / name / same text = two voices", b == "spoken" && spoken == 2)
+    }
+    Sim().run {
+        get(SMS, "sms", "AX-CANBNK-S", "An amount of INR 500.00 has been CREDITED to your account XXX1234 on 24/11/2026 towards UPI. Total Avail.bal INR 5,000.00 - Canara Bank", 0)
+        val b = get(TRUECALLER, "sms", "AX-CANBNK-S", "An amount of INR 500.00 has been CREDITED to your account XXX1234 on 24/11/2026 towards UPI. Total Avail.bal INR 5,500.00 - Canara Bank", 1)
+        ok("two SMS apps, different balance in the text = two payments", b == "spoken" && spoken == 2)
     }
     // ... but two DIFFERENT customers through two apps, 40 min apart, nothing in common = two payments.
     Sim().run {

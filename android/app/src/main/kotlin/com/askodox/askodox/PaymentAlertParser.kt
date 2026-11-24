@@ -1259,7 +1259,7 @@ object PaymentAlertParser {
         return true
     }
 
-    /** Two different apps of the same kind (two UPI apps, two SMS apps) telling one payment: within 10 minutes. */
+    /** Two different apps of the same kind (two UPI apps, two SMS apps) telling one payment WITH proof: within 10 minutes. */
     const val SAME_KIND_APPS_MS = 10 * 60_000L
     /** The same UPI reference (RRN) on both: the same money any time within a day. */
     const val SAME_REF_MS = 24 * 60 * 60_000L
@@ -1278,6 +1278,8 @@ object PaymentAlertParser {
         val handle: String? = null, val payer: String? = null, val excluded: Boolean = false, val test: Boolean = false,
         /** Every app whose message is in this row ([sourceApp] first). Empty = only [sourceApp]. */
         val apps: List<String> = emptyList(),
+        /** [messageKey] of every message already in this row (the very same SMS / notification text). */
+        val textKeys: List<String> = emptyList(),
     )
 
     /** The message that just arrived. [atMs] = its own payment time. */
@@ -1287,7 +1289,19 @@ object PaymentAlertParser {
         val payer: String? = null, val bankSms: Boolean = false,
         /** One line of a payment app's SUMMARY ([digestLines]): an EARLIER payment, told again. */
         val summary: Boolean = false,
+        /** [messageKey] of this message's text. */
+        val textKey: String? = null,
     )
+
+    /**
+     * Owner 2026-11-24: the SAME message shown by two apps (one bank SMS in Messages AND Truecaller) has the very same
+     * words -- date, balance, reference and all. Two real payments' messages differ (time, balance, reference).
+     * Null when the text is too short to tell anything.
+     */
+    fun messageKey(text: String?): String? {
+        val t = text?.lowercase(Locale.ROOT)?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
+        return if (t.length < 25 || !t.any(Char::isDigit)) null else t
+    }
 
     /**
      * Owner 2026-11-15 / 17 / 22 -- ONE payment = ONE voice, ONE row. Which earlier row (if any) is the SAME money as
@@ -1327,7 +1341,8 @@ object PaymentAlertParser {
             if (accountsDiffer(r.account, msg.account)) continue
             val handles = compareHandles(r.handle, msg.handle)
             if (handles == RefMatch.DIFFERENT) continue
-            val clue = handles == RefMatch.SAME || samePayer(r.payer, msg.payer)
+            val sameText = msg.textKey != null && msg.textKey in r.textKeys
+            val clue = handles == RefMatch.SAME || samePayer(r.payer, msg.payer) || sameText
             val fits = if (msg.summary) {
                 gap >= -SUMMARY_SLACK_MS && gap <= SUMMARY_MS && (clue || !namesClash(r.payer, msg.payer))
             } else samePaymentWindow(msg.kind, r.kinds, gap, clue, otherApp = msg.sourceApp !in rowApps)
@@ -1384,9 +1399,12 @@ object PaymentAlertParser {
 
     fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long, sameClue: Boolean = false,
                           otherApp: Boolean = false): Boolean = when {
-        // Owner 2026-11-24: two DIFFERENT apps of the same kind tell one payment within minutes (PhonePe and Paytm both
-        // notify a credit to the linked bank account; one SMS shown by two SMS apps). The SAME app twice = two payments.
-        kind in rowKinds -> otherApp && kind !in SIDE_KINDS && kotlin.math.abs(deltaMs) <= SAME_KIND_APPS_MS
+        // Owner 2026-11-24: two DIFFERENT apps of the same kind may tell one payment (PhonePe and Paytm both notify a
+        // credit to the linked bank account; one SMS shown by two SMS apps) -- but two customers may also pay the same
+        // amount at the same moment. The same amount + time alone is NEVER enough here: only with proof that it is the
+        // same money ([sameClue]: the same payer id / name or the very same message text; the same reference is
+        // decided before this). The SAME app twice = two payments.
+        kind in rowKinds -> otherApp && sameClue && kind !in SIDE_KINDS && kotlin.math.abs(deltaMs) <= SAME_KIND_APPS_MS
         // "billpay" (owner 2026-11-22) = the bank's own "Bill Paid ... from your account" SMS: as quick and as sure as
         // its debit SMS, and it may be the same money as that debit SMS or the company's thank-you.
         // The bank's two SMS for ONE bill (debit alert + "Bill Paid") come within minutes of each other.
