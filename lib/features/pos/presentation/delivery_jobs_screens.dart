@@ -307,8 +307,10 @@ class _DeliveryJobsState extends ConsumerState<AskodoxDeliveryJobsScreen> {
           child: Row(children: [
             const Icon(Icons.route_rounded, color: Color(0xFF1D4ED8)),
             const SizedBox(width: 8),
-            Text('≈ ${_km!.toStringAsFixed(1)} km${_minutes == null ? '' : ' · $_minutes ${te ? 'ని.' : 'min'}'}',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            Flexible(
+              child: Text('≈ ${_km!.toStringAsFixed(1)} km${_minutes == null ? '' : ' · $_minutes ${te ? 'ని.' : 'min'}'}',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
           ]),
         ),
       if (_today.isNotEmpty) ...[
