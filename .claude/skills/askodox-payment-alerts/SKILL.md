@@ -57,6 +57,22 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
     before. Earlier rows move to the shop only on the person's yes (`moveAccountRows`, server `moved`: owner only,
     never spoken) (owner 2026-11-23).
 
+12. One payment told by TWO apps of the same kind (PhonePe + Paytm both notify a credit; one SMS shown by Messages +
+    Truecaller) is ONE voice ONLY WITH PROOF: the same reference, the same payer id / name, or the very same message
+    text (`messageKey`), within `SAME_KIND_APPS_MS` (10 min). The same amount + time alone NEVER joins two apps of one
+    kind -- two customers can pay the same amount at the same moment (owner 2026-11-24). The same
+    UPI reference is the same money even from the SAME app / SMS app (checked before the same-app rule). A payer id is
+    compared before the '@' (9876543210@ybl = 9876543210@axl) (owner 2026-11-24).
+13. Shop money heard as a PUSH (another phone / the bank) and later as this phone's own message: one local + one
+    remote of the same shop and amount within 2 h pair once (`PaymentAlertParser.claimHeard`) -- the second is
+    silent. Never a 2-minute rule again (owner 2026-11-24: "said again an hour later").
+14. A voice that was already HEARD is never said again by the fallback voice (`PaymentVoicePack.sayAgainAfterFailure`).
+    Parts are joined with `PaymentVoicePack.joinMp3` (sound frames only, no ID3 / "Info" frame in the middle) and the
+    player's time limit is the length counted from the frames (`mp3DurationMs`), never the first part's length --
+    that cut sentences before the last word and then repeated them (owner 2026-11-24).
+15. The night count is ONE voice per phone: the shop and My phone added together (`PaymentVoicePack.nightTotal`),
+    each side's own numbers only in the notification; one `night_said:<day>` mark (owner 2026-11-24).
+
 ## How a message joins a row (`pickSamePayment`)
 
 - Same RRN on both → same payment, any order, within `SAME_REF_MS` (24 h). Two different full RRNs → never.
