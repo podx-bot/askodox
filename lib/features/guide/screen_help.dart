@@ -999,18 +999,18 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పెద్ద బటన్ స్టేజ్‌ని ముందుకు జరుపుతుంది (Won కి అసలు బిల్లు ఎంచుకోవచ్చు). Lost, నోట్స్, ఫాలో-అప్, కొటేషన్, అసైన్, కస్టమర్ ⋮ మెనూలో.',
   ]),
   '/pos/:id/crm/complaint/:cid': _H('Complaint', 'Complaint', [
-    'Change the status as you work on it; Resolved / Closed need how it was solved.',
-    'Reminder sets a follow-up; the bill and the customer history open from here.',
+    'The complaint is on top. The big button moves it to the next status; Resolved / Closed need how it was solved.',
+    'Reminder, the bill and the customer history are in the menu ⋮.',
   ], [
-    'పని జరుగుతున్నట్టు status మార్చండి; Resolved / Closed కి ఎలా పరిష్కరించారో రాయాలి.',
-    'Reminder follow-up పెడుతుంది; bill, customer history ఇక్కడి నుండే తెరవచ్చు.',
+    'పైన ఫిర్యాదు. పెద్ద బటన్ తర్వాతి స్టేటస్‌కి మారుస్తుంది; Resolved / Closed కి ఎలా పరిష్కరించారో రాయాలి.',
+    'రిమైండర్, బిల్లు, కస్టమర్ హిస్టరీ ⋮ మెనూలో.',
   ]),
   '/pos/:id/crm/customer/:cid': _H('Customer history', 'Customer history', [
-    'Everything about this customer: bills, dues, leads, quotations, complaints and notes.',
-    'Add a new lead or complaint for them, or open their account to record money received.',
+    'On top: how much this customer bought. Below: their bills, leads and complaints; tap one to open it.',
+    'The big button opens their account / dues. A new lead or complaint is in the menu ⋮.',
   ], [
-    'ఈ customer గురించి అన్నీ: bills, బాకీ, leads, quotations, complaints, notes.',
-    'వారి కోసం కొత్త lead / complaint చేర్చండి, లేదా డబ్బు జమ కోసం account తెరవండి.',
+    'పైన: ఈ కస్టమర్ ఎంత కొన్నారు. కింద: బిల్లులు, leads, ఫిర్యాదులు; నొక్కితే తెరుచుకుంటుంది.',
+    'పెద్ద బటన్ వారి ఖాతా / బాకీ తెరుస్తుంది. కొత్త lead / ఫిర్యాదు ⋮ మెనూలో.',
   ]),
   '/pos/:id/invoices': _H('Bills', 'బిల్లులు', [
     'The number on top is the total of your bills. Search by number or name; tap one to print, share, or make a credit note.',
@@ -1177,11 +1177,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'అన్ని లెక్కలు మీరు చేసిన బిల్లుల నుంచే. రద్దు చేసిన బిల్లులు లెక్కలో లేవు.',
   ]),
   '/desk/:id/qr': _H('Shop / table QR', 'షాప్ / టేబుల్ QR', [
-    'Print these and stick one on each table and one at the shop door.',
-    'A customer types the code under the QR in "Order code" and the menu opens.',
+    'The shop QR is on top; tap a table to see its own QR. Print them and stick one on each table and one at the shop door.',
+    'The big button sends the order code to your customers on WhatsApp. More tables and Copy are in the menu ⋮.',
   ], [
-    'వీటిని ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
-    'కస్టమర్ QR కింద కోడ్‌ని "ఆర్డర్ కోడ్" లో రాస్తే మెనూ తెరుచుకుంటుంది.',
+    'పైన షాప్ QR; టేబుల్ నొక్కితే దాని QR. ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
+    'పెద్ద బటన్ ఆర్డర్ కోడ్‌ని కస్టమర్లకు WhatsApp లో పంపుతుంది. ఇంకా టేబుల్స్, కాపీ ⋮ మెనూలో.',
   ]),
   '/pos/:id/tables': _H('Tables', 'టేబుల్స్', [
     'The number on top is busy tables. Tap a green (free) table to start an order, an orange one to open its order.',
