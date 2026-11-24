@@ -135,4 +135,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxReportsStepsTop-Tea')), findsOneWidget);
   });
+
+  testWidgets('reports: one given day (night report link) shows that date', (tester) async {
+    final api = _Api((m, path, b) => {
+          'sales': {'paise': 120000, 'bills': 5},
+          'problems': <Object?>[],
+        });
+    await _pump(tester, api, const AskodoxReportsStepsScreen(businessId: 'b1', date: '2026-11-20'));
+    expect(find.text('2026-11-20'), findsOneWidget);
+    expect(find.byKey(const Key('askodoxReportsStepsNone')), findsOneWidget);
+  });
 }

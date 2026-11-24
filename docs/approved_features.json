@@ -11756,6 +11756,114 @@
           "AskodoxDeskSettingsStepsScreen"
         ]
       }
+    },
+    {
+      "id": "desk_menu_page_three_steps_batch16",
+      "name": "Menu (desk) in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 16; old page stays at ?full=1 (photos, AI sections, full edit).",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Item count on top, ONE list (tap = finished for today / back, today only, change name and price, remove with undo), ONE big button adds items in 2 steps (say or type with prices -> check -> save). Photos, shelf photos, AI sections and the full edit are on the old page in the menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 16 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/desk_menu_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeskMenuSteps",
+          "askodoxDeskMenuStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxDeskMenuStepsScreen"
+        ]
+      }
+    },
+    {
+      "id": "printer_page_three_steps_batch17",
+      "name": "Printer in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 17; old page stays at ?full=1.",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The printer in use on top, ONE big button (Test print, or Find a printer when none). Finding = how it connects (Bluetooth search / paired / USB) -> pick from the list -> saved + test print. Another printer, paper size and the old page are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 17 (2026-11-24); NOT PHONE VERIFIED, no printer model tested",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/printer_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxPrinterSteps",
+          "askodoxPrinterStepsStart",
+          "askodoxPrinterStepsTest"
+        ],
+        "symbols": [
+          "AskodoxPrinterStepsScreen"
+        ]
+      }
+    },
+    {
+      "id": "biz_menu_pages_three_steps_batch18",
+      "name": "Menu by sections in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 18 (/biz/:id/menu and one section); old pages stay at ?full=1.",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Item count on top, ONE list of sections (tap = its items; search finds an item in every section), ONE big button adds items. A section shows its items with price and out-today; tap = the item page. Sort with AI, menu photo and the old page are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 18 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/biz_menu_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBizMenuSteps",
+          "askodoxBizMenuStepsAdd",
+          "askodoxBizSectionSteps"
+        ],
+        "symbols": [
+          "AskodoxBizMenuStepsScreen",
+          "AskodoxBizSectionStepsScreen"
+        ]
+      }
     }
   ]
 }

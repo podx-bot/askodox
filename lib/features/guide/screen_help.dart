@@ -356,11 +356,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '"రోజు మార్చు" నొక్కి ఈ రోజు, నిన్న, 7 లేదా 30 రోజులు ఎంచుకోండి. ⋮ లో వినండి, బార్లతో పూర్తి రిపోర్ట్.',
   ]),
   '/biz/:id/reports/day': _H('Day report', 'రోజు రిపోర్ట్', [
-    'The report of the day in the night notification.',
-    "Tap Listen to hear it; tap a problem's Go there to fix it.",
+    'The report of that day (from the night notification): the sales on top, then the problems with what to do.',
+    'The three-dots menu has Listen and the full old report.',
   ], [
-    'రాత్రి నోటిఫికేషన్‌లో వచ్చిన రోజు రిపోర్ట్.',
-    'వినండి నొక్కండి; సమస్య దగ్గర అక్కడికి వెళ్ళు నొక్కి సరిచేయండి.',
+    'ఆ రోజు రిపోర్ట్ (రాత్రి నోటిఫికేషన్ నుంచి): పైన అమ్మకం, తర్వాత సమస్యలు, ఏం చేయాలో.',
+    'మూడు చుక్కల మెనూలో వినండి, పూర్తి పాత రిపోర్ట్ ఉన్నాయి.',
   ]),
   '/biz/:id/reports/settings': _H('Night report', 'రాత్రి రిపోర్ట్', [
     'Two steps. 1: send the report every night? Yes or no. 2: choose the time.',
@@ -428,11 +428,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మొదలు / ముగింపు సమయం, ఎన్ని నిమిషాల ఆలస్యం ఓకే, షాప్‌కి ఎంత దగ్గర — పెట్టండి.',
   ]),
   '/biz/:id/menu': _H('Menu & items', 'మెనూ & ఐటమ్స్', [
-    'Add an item, read a menu photo, sort with AI, or switch off what ran out today.',
-    'Search finds an item by name or number in every section. Tap a section to see its items.',
+    'The number on top is how many items you have. Tap a section to see its items; search finds an item by name or number in every section.',
+    'The big button adds items. Sort with AI, menu photo and the old page are in the three-dots menu.',
   ], [
-    'ఐటమ్ చేర్చండి, మెనూ ఫోటో చదివించండి, AI తో సర్దండి, లేదా అయిపోయినవి ఆఫ్ చేయండి.',
-    'వెతుకుడు అన్ని విభాగాల్లో పేరు / నంబర్‌తో వెతుకుతుంది. విభాగం నొక్కితే దాని ఐటమ్స్.',
+    'పైన ఉన్న సంఖ్య మీ ఐటమ్స్. విభాగం నొక్కితే దాని ఐటమ్స్; వెతుకుడు అన్ని విభాగాల్లో పేరు / నంబర్‌తో వెతుకుతుంది.',
+    'పెద్ద బటన్ ఐటమ్స్ చేరుస్తుంది. AI తో సర్దు, మెనూ ఫోటో, పాత పేజీ మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/biz/:id/menu/sort': _H('Sort with AI', 'AI తో సర్దు', [
     'AI reads the item names in parts at the same time — it can take a minute or two.',
@@ -442,11 +442,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'విభాగం తెరిచి ఐటమ్ మార్చవచ్చు. సేవ్ నొక్కే వరకు ఏదీ మారదు.',
   ]),
   '/biz/:id/menu/section/:name': _H('One section', 'ఒక విభాగం', [
-    'Each item: photo, price, how many sold today, and the switch for today.',
-    'Use the chips to see only veg, non-veg, what is off, or the most sold.',
+    'Each item shows its price and whether it is out today; tap one to open it (price, on / off, details).',
+    'The three-dots menu shows only what is out today, or opens the old page with veg / non-veg and most-sold filters.',
   ], [
-    'ప్రతి ఐటమ్: ఫోటో, ధర, ఈ రోజు ఎన్ని అమ్మాం, ఈ రోజు స్విచ్.',
-    'చిప్స్‌తో వెజ్, నాన్-వెజ్, లేనివి, ఎక్కువ అమ్మినవి మాత్రమే చూడండి.',
+    'ప్రతి ఐటమ్ ధర, ఈ రోజు లేదా అనేది చూపిస్తుంది; నొక్కితే ఆ ఐటమ్ తెరుచుకుంటుంది (ధర, ఆన్ / ఆఫ్, వివరాలు).',
+    'మూడు చుక్కల మెనూలో ఈ రోజు లేనివి మాత్రమే చూడవచ్చు, లేదా వెజ్ / నాన్-వెజ్, ఎక్కువ అమ్మినవి చిప్స్ ఉన్న పాత పేజీ తెరవవచ్చు.',
   ]),
   '/biz/:id/menu/item/:pid': _H('One item', 'ఒక ఐటమ్', [
     'Tap a button to change the price, today\'s switch, the veg mark or the section.',
@@ -1154,13 +1154,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'కొత్త ఆర్డర్ కౌంటర్ బిల్లు తెరుస్తుంది; మెనూ, అమ్మకాలు, QR, అలర్ట్స్ మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/desk/:id/menu': _H('Menu', 'మెనూ', [
-    'Say or type items with prices, tap Preview, check, then Save. Nothing is saved before you confirm.',
-    'Say "today only" for a special; switch an item OFF when it is finished for today (back tomorrow).',
-    'Or photograph the menu: every item and its printed price is read; fix any line, then Save.',
+    'The number on top is how many items are on your menu. Tap an item: finished for today (comes back tomorrow), today only, change name or price, remove.',
+    'The big button adds items: say or type them with prices (Idli 30), check the list, then Save. Nothing is saved before you check.',
+    'Menu photos, shelf photos, AI sections and the full edit are in the old page, in the three-dots menu.',
   ], [
-    'ఐటమ్స్ ధరలతో చెప్పండి లేదా రాయండి, Preview నొక్కి చూసి, తర్వాత Save. నిర్ధారించే వరకు ఏదీ సేవ్ కాదు.',
-    'స్పెషల్‌కి "ఈ రోజు మాత్రమే" అనండి; అయిపోతే ఆ ఐటమ్ OFF చేయండి (రేపు మళ్ళీ వస్తుంది).',
-    'లేదా మెనూ ఫోటో తీయండి: ప్రతి ఐటమ్, అందులో ముద్రించిన రేటు చదువుతుంది; ఏదైనా సరిచేసి Save.',
+    'పైన ఉన్న సంఖ్య మీ మెనూలో ఎన్ని ఐటమ్స్ ఉన్నాయో. ఐటమ్ నొక్కండి: ఈ రోజు అయిపోయింది (రేపు మళ్ళీ వస్తుంది), ఈ రోజు మాత్రమే, పేరు / రేటు మార్చు, తీసేయి.',
+    'పెద్ద బటన్ ఐటమ్స్ చేరుస్తుంది: రేటుతో చెప్పండి లేదా రాయండి (ఇడ్లీ 30), లిస్ట్ చూసి Save. చూసే వరకు ఏదీ సేవ్ కాదు.',
+    'మెనూ ఫోటోలు, షెల్ఫ్ ఫోటోలు, AI తో విభాగాలు, పూర్తి మార్పు పాత పేజీలో, మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/desk/:id/settings': _H('Order alerts', 'ఆర్డర్ అలర్ట్స్', [
     'Four steps of an order (new, kitchen, ready, delivery): tap one and choose who is told. Nobody chosen = the people of that role.',
@@ -1203,11 +1203,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన సంఖ్య కొత్త టికెట్లు. టికెట్ నొక్కి ఐటమ్స్ చూసి, పెద్ద బటన్: రెడీ, తర్వాత వడ్డించాం.',
   ]),
   '/pos/:id/printer': _H('Printer', 'ప్రింటర్', [
-    'Bluetooth LE: Find printer. Classic Bluetooth: pair in phone settings, then Paired. USB: connect with OTG.',
-    'Pick the printer and do a test print.',
+    'The top shows the printer in use. The big button does a test print, or finds a printer when you have none.',
+    'Finding one: choose how it connects (Bluetooth search, Paired in phone settings, or USB with an OTG cable), then tap your printer in the list.',
+    'The menu (three dots) has another printer, the paper size (58 / 80 mm) and the old page.',
   ], [
-    'బ్లూటూత్ LE: "ప్రింటర్ వెతుకు". క్లాసిక్: ఫోన్ సెట్టింగ్స్‌లో జత చేసి "జత చేసినవి". USB: OTG తో కనెక్ట్.',
-    'ప్రింటర్ ఎంచుకుని టెస్ట్ ప్రింట్ చేయండి.',
+    'పైన వాడుతున్న ప్రింటర్ కనిపిస్తుంది. పెద్ద బటన్ టెస్ట్ ప్రింట్ చేస్తుంది; ప్రింటర్ లేకపోతే వెతుకుతుంది.',
+    'వెతకడం: ఎలా కనెక్ట్ అయిందో ఎంచుకోండి (బ్లూటూత్ వెతుకు, ఫోన్ సెట్టింగ్స్‌లో జత చేసినవి, లేదా OTG కేబుల్‌తో USB), తర్వాత లిస్ట్‌లో మీ ప్రింటర్ నొక్కండి.',
+    'మూడు చుక్కల మెనూలో వేరే ప్రింటర్, పేపర్ సైజు (58 / 80 mm), పాత పేజీ ఉన్నాయి.',
   ]),
   '/pos/:id/advance': _H('Shop advance', 'షాప్ అడ్వాన్స్', [
     'Read the terms, tick to accept, set the limit and turn it on.',

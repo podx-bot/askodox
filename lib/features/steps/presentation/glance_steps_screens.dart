@@ -615,15 +615,18 @@ class _CashbookState extends ConsumerState<AskodoxCashbookStepsScreen> {
 
 // ============================================================================ reports
 class AskodoxReportsStepsScreen extends ConsumerStatefulWidget {
-  const AskodoxReportsStepsScreen({super.key, required this.businessId});
+  const AskodoxReportsStepsScreen({super.key, required this.businessId, this.date = ''});
   final String businessId;
+
+  /// `/biz/:id/reports/day?date=YYYY-MM-DD`: that one day (a night report or a day close opens it).
+  final String date;
 
   @override
   ConsumerState<AskodoxReportsStepsScreen> createState() => _ReportsState();
 }
 
 class _ReportsState extends ConsumerState<AskodoxReportsStepsScreen> {
-  String _period = 'today'; // today / yesterday / 7 / 30
+  String _period = 'today'; // today / yesterday / 7 / 30 / day (one given date)
   AskodoxJson? _data;
   Object? _error;
 
@@ -633,6 +636,7 @@ class _ReportsState extends ConsumerState<AskodoxReportsStepsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.date.isNotEmpty) _period = 'day';
     unawaited(_load());
   }
 
@@ -644,7 +648,9 @@ class _ReportsState extends ConsumerState<AskodoxReportsStepsScreen> {
       final d = _range
           ? await repo.reportRange(widget.businessId, days: int.parse(_period))
           : await repo.reportDay(widget.businessId,
-              date: _ymd(_period == 'yesterday' ? DateTime.now().subtract(const Duration(days: 1)) : DateTime.now()));
+              date: _period == 'day'
+                  ? widget.date
+                  : _ymd(_period == 'yesterday' ? DateTime.now().subtract(const Duration(days: 1)) : DateTime.now()));
       if (mounted) {
         setState(() {
           _data = d;
@@ -657,6 +663,7 @@ class _ReportsState extends ConsumerState<AskodoxReportsStepsScreen> {
   }
 
   String _label(String p, bool te) => switch (p) {
+        'day' => widget.date,
         'yesterday' => te ? 'నిన్న' : 'Yesterday',
         '7' => te ? '7 రోజులు' : '7 days',
         '30' => te ? '30 రోజులు' : '30 days',
