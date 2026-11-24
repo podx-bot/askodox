@@ -25,6 +25,7 @@ import 'payments_hub_screen.dart';
 import 'pos_payment_alerts_screen.dart';
 import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
+import '../../steps/presentation/collect_steps_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/people_steps_screens.dart';
@@ -124,7 +125,11 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/my-shop/selfshop', builder: (context, state) => AskodoxShopToolScreen(tool: 'selfshop', query: state.uri.query)),
   GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
   GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/pos/:id/collect', builder: (context, state) => AskodoxPosCollectScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/collect',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosCollectScreen(businessId: state.pathParameters['id']!)
+          : AskodoxCollectStepsScreen(businessId: state.pathParameters['id']!)),
   // Delivery jobs for the shop's own people (owner plan 2026-11-24 step 1) + the person's own delivery work page.
   GoRoute(
       path: '/pos/:id/deliveries',
