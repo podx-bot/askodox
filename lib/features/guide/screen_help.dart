@@ -889,11 +889,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పేరు నొక్కి కొత్త తేదీ పెట్టండి. ASKODOX ఉన్న కస్టమర్లకు యాప్‌లో తానే గుర్తు చేస్తాం.',
   ]),
   '/pos/:id/customers/:cid': _H('Customer account', 'కస్టమర్ ఖాతా', [
-    'Received money? Tap "Received".',
-    'Shop advance: every change waits for the customer\'s approval in their app.',
+    'The number on top is the baaki to collect. Money came? Tap "Money received": 1 how much, 2 how paid, 3 done.',
+    'Shop advance: every change waits for the customer\'s approval in their app. Other months and the old page: ⋮.',
   ], [
-    'డబ్బు వచ్చిందా? "జమ" నొక్కండి.',
-    'షాప్ అడ్వాన్స్: ప్రతి మార్పుకీ కస్టమర్ తమ యాప్‌లో ఆమోదించాలి.',
+    'పైన నంబర్ రావాల్సిన బాకీ. డబ్బు వచ్చిందా? "డబ్బు వచ్చింది" నొక్కండి: 1 ఎంత, 2 ఎలా, 3 అయింది.',
+    'షాప్ అడ్వాన్స్: ప్రతి మార్పుకీ కస్టమర్ తమ యాప్‌లో ఆమోదించాలి. ఇతర నెలలు, పాత పేజీ: ⋮.',
   ]),
   '/crm': _H('Business CRM', 'Business CRM', [
     'Opens the CRM of your shop (pick the shop if you have more than one).',
@@ -1224,9 +1224,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పెద్ద బటన్ కొనుగోలు బిల్లు నమోదు చేస్తుంది. కొత్త సప్లయర్ మూడు చుక్కల మెనూలో (పాత పేజీ).',
   ]),
   '/pos/:id/suppliers/:sid': _H('Supplier', 'సప్లయర్', [
-    'Bills, payments and the monthly statement of this supplier.',
+    'The number on top is what you owe this supplier, with the month\'s lines. Paid them? Tap "Paid": 1 how much, 2 how paid, 3 done.',
+    'Other months and the purchase bills list: ⋮ (old page).',
   ], [
-    'ఈ సప్లయర్ బిల్లులు, చెల్లింపులు, నెలవారీ స్టేట్‌మెంట్.',
+    'పైన నంబర్ ఈ సప్లయర్‌కి ఇవ్వాల్సింది, ఈ నెల వరుసలతో. చెల్లించారా? "చెల్లించాం" నొక్కండి: 1 ఎంత, 2 ఎలా, 3 అయింది.',
+    'ఇతర నెలలు, కొనుగోలు బిల్లుల జాబితా: ⋮ (పాత పేజీ).',
   ]),
   '/pos/:id/purchase/new': _H('Record a purchase bill', 'కొనుగోలు బిల్లు నమోదు', [
     'Enter the supplier\'s bill number, date and each line as printed.',
