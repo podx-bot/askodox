@@ -1,0 +1,23 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1644]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45354639524 -R "$GITHUB_REPOSITORY" -n askodox-android-644 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1644.aab
+          sha256sum askodox-play-1644.aab
+          gh release create play-bundle-1644 askodox-play-1644.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1644" --notes "Play Console upload only (not installable on a phone). Answer card, workforce, delivery jobs, owner UPI QR for job cards / bookings / monthly, branches (#429-#432)."
