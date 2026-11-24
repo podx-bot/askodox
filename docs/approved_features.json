@@ -11686,6 +11686,41 @@
           "AskodoxItemsStepsScreen"
         ]
       }
+    },
+    {
+      "id": "pos_staff_page_three_steps_batch14",
+      "name": "Staff (who accepts orders) in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 14; old page stays at ?full=1.",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "People accepting orders on top, ONE list (tap = pause / accept orders / change job / remove / bring back), ONE big button adds a person (number + name -> job -> done). Order alerts and the old page (per-person ticks) are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 14 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/pos_staff_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxPosStaffSteps",
+          "askodoxPosStaffStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxPosStaffStepsScreen"
+        ]
+      }
     }
   ]
 }

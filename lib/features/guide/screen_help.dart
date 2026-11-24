@@ -1050,9 +1050,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఇది ఫైల్ చేసిన రిటర్న్ కాదు. HSN, B2B / B2C పాత పేజీలో (⋮).',
   ]),
   '/pos/:id/staff': _H('Staff & roles', 'సిబ్బంది & పాత్రలు', [
-    'Add staff by phone number and choose their role.',
+    'The number on top is how many people accept orders. Tap a person to pause, change their job or remove them. The big button adds a person: number, then job.',
+    'What each person may open (ticks) is on the old page in the menu ⋮.',
   ], [
-    'ఫోన్ నంబర్‌తో సిబ్బందిని చేర్చి వారి పాత్ర ఎంచుకోండి.',
+    'పైన నంబర్ ఆర్డర్లు ఒప్పుకునేవారి సంఖ్య. వ్యక్తిని నొక్కితే ఆపడం, పని మార్చడం, తీసేయడం. పెద్ద బటన్ వ్యక్తిని చేరుస్తుంది: నంబర్, తర్వాత పని.',
+    'ఎవరు ఏవి తెరవచ్చు (టిక్స్) ⋮ మెనూలోని పాత పేజీలో ఉంది.',
   ]),
   '/order-desk/enter': _H('Order at a shop / table', 'షాప్ / టేబుల్ ఆర్డర్', [
     'Photograph the QR on the shop or table, or search the shop by its name; the menu opens.',

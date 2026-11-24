@@ -31,6 +31,7 @@ import '../../steps/presentation/crm_steps_screens.dart';
 import '../../steps/presentation/desk_qr_steps_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/items_steps_screens.dart';
+import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/people_steps_screens.dart';
@@ -253,7 +254,11 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
           ? AskodoxPosGstScreen(businessId: state.pathParameters['id']!)
           : AskodoxGstStepsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/pos/:id/staff', builder: (context, state) => AskodoxPosStaffScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/staff',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosStaffScreen(businessId: state.pathParameters['id']!)
+          : AskodoxPosStaffStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/tables',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
