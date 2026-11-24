@@ -11,6 +11,7 @@ const askodoxShopPageNames = <String, (String, String)>{
   '/pos/<id>/payment-alerts': ('Payment alerts', 'పేమెంట్ అలర్ట్స్'),
   '/pos/<id>/collect': ('Collect by UPI', 'UPI తో కట్టించుకోండి'),
   '/pos/<id>/deliveries': ('Send delivery', 'డెలివరీ పంపు'),
+  '/pos/<id>/team': ('Workers & team', 'పని వాళ్ళు & టీమ్'),
   '/desk/<id>': ('Incoming orders', 'వచ్చిన ఆర్డర్లు'),
   '/pos/<id>/tables': ('Tables', 'టేబుల్స్'),
   '/pos/<id>/kitchen': ('Kitchen (KOT)', 'వంటగది KOT'),

@@ -123,6 +123,49 @@ class AskodoxPosRepository {
   Future<AskodoxJson> collectDeliveryJob(String jobId) => _send('POST', '/api/me/delivery-jobs/$jobId/collect');
   Future<AskodoxJson> setWorkStatus(String colour) => _send('PUT', '/api/me/work-status', body: {'colour': colour});
 
+  // ---- Workers under an authority (workforce.py, owner plan 2026-11-24 steps 3-6).
+  Future<AskodoxJson> myWork() => _send('GET', '/api/me/work');
+  Future<AskodoxJson> saveMyWork(AskodoxJson body) => _send('PUT', '/api/me/work', body: body);
+  Future<AskodoxJson> answerWorkInvite(String bizId, bool accept) =>
+      _send('POST', '/api/me/work/links/$bizId', body: {'accept': accept});
+  Future<AskodoxJson> leaveWork(String bizId) => _send('POST', '/api/me/work/links/$bizId/leave');
+  Future<AskodoxJson> workDocCode(String bizId) => _send('POST', '/api/me/work/links/$bizId/doc-code');
+  Future<AskodoxJson> addWorkDoc(String kind, String b64, String mime) =>
+      _send('POST', '/api/me/work/docs', body: {'kind': kind, 'image_base64': b64, 'mime': mime});
+  Future<AskodoxJson> workOrders() => _send('GET', '/api/me/work/orders');
+  Future<AskodoxJson> answerWorkOrder(String id, bool accept) =>
+      _send('POST', '/api/me/work/orders/$id/answer', body: {'accept': accept});
+  Future<AskodoxJson> workOrderDone(String id) => _send('POST', '/api/me/work/orders/$id/done');
+  Future<AskodoxJson> workShareReceived(String id) => _send('POST', '/api/me/work/orders/$id/share-received');
+  Future<AskodoxJson> siteAttendance(String postingId, double? lat, double? lon) => _send(
+      'POST', '/api/me/work/postings/$postingId/attendance', body: {'method': 'face_live', 'lat': lat, 'lon': lon});
+  Future<AskodoxJson> hireTypes() => _send('GET', '/api/hire/work-types');
+  Future<AskodoxJson> hireOptions(String workType) => _send('GET', '/api/hire/options', query: {'work_type': workType});
+  Future<AskodoxJson> hirePlace(AskodoxJson body) => _send('POST', '/api/hire/orders', body: body);
+  Future<AskodoxJson> hireOrders() => _send('GET', '/api/hire/orders');
+  Future<AskodoxJson> hireComplain(String id, String text) =>
+      _send('POST', '/api/hire/orders/$id/complaint', body: {'text': text});
+  Future<AskodoxJson> hireRate(String id, int stars) => _send('POST', '/api/hire/orders/$id/rating', body: {'stars': stars});
+  String _w(String id) => '${_b(id)}/workforce';
+  Future<AskodoxJson> workforce(String id) => _send('GET', _w(id));
+  Future<AskodoxJson> setWorkforce(String id, AskodoxJson body) => _send('PUT', _w(id), body: body);
+  Future<AskodoxJson> workerCards(String id) => _send('GET', '${_w(id)}/cards');
+  Future<AskodoxJson> inviteWorker(String id, String worker, String asks) =>
+      _send('POST', '${_w(id)}/invite', body: {'worker': worker, 'asks': asks});
+  Future<AskodoxJson> removeWorker(String id, String worker) => _send('POST', '${_w(id)}/team/$worker/remove');
+  Future<AskodoxJson> setWorkerChecks(String id, String worker, Map<String, bool> checks) =>
+      _send('PUT', '${_w(id)}/team/$worker/checks', body: {'checks': checks});
+  Future<AskodoxJson> openWorkerDocs(String id, String worker, String code) =>
+      _send('POST', '${_w(id)}/team/$worker/docs', body: {'code': code});
+  Future<AskodoxJson> workerDoc(String id, String worker, String docId) => _send('GET', '${_w(id)}/team/$worker/docs/$docId');
+  Future<AskodoxJson> workforceOrders(String id) => _send('GET', '${_w(id)}/orders');
+  Future<AskodoxJson> assignWorkOrder(String id, String orderId, String worker, {String money = ''}) =>
+      _send('POST', '${_w(id)}/orders/$orderId/assign', body: {'worker': worker, 'money': money});
+  Future<AskodoxJson> recordWorkShare(String id, String orderId, int paise) =>
+      _send('POST', '${_w(id)}/orders/$orderId/share', body: {'paise': paise});
+  Future<AskodoxJson> workforcePostings(String id) => _send('GET', '${_w(id)}/postings');
+  Future<AskodoxJson> addPosting(String id, AskodoxJson body) => _send('POST', '${_w(id)}/postings', body: body);
+
   Future<AskodoxJson> meta() => _send('GET', '/api/pos/meta');
   Future<List<AskodoxJson>> businesses() async => askodoxPosList((await _send('GET', '/api/pos/businesses'))['businesses']);
   Future<AskodoxJson> createBusiness(AskodoxJson body) => _send('POST', '/api/pos/businesses', body: body);

@@ -941,6 +941,37 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పనిలో: "దారి చూపించు" Google Maps తెరుస్తుంది; UPI / QR = షాప్ ఓనర్ QR, డబ్బు రాగానే ఇద్దరికీ తెలుస్తుంది.',
     'అయిపోయాక: డబ్బు ఎలా వచ్చిందో నొక్కండి (క్యాష్ / UPI / ముందే కట్టారు). ఈ రోజు మీ దగ్గర ఉన్న క్యాష్ పైన కనిపిస్తుంది.',
   ]),
+  '/pos/:id/team': _H('Workers & team', 'పని వాళ్ళు & టీమ్', [
+    'Registration: your GST or Udyam number + the address on the certificate. Only then can you find new workers and take customer orders.',
+    'Find: worker cards near you (name, work, town, jobs, rating — no phone). "Invite" — they join only if they accept; then you see their number.',
+    'Team: tick your own checklist (licence, police verification ...). Documents open only with the worker\'s 6-digit code, view only.',
+    'Orders: a worker who takes an order himself goes (cash with him); you are told. You can also assign; money as you chose.',
+  ], [
+    'రిజిస్ట్రేషన్: మీ GST లేదా Udyam నంబర్ + సర్టిఫికేట్ లోని అడ్రస్. అప్పుడే కొత్త పని వాళ్ళను చూడగలరు, కస్టమర్ ఆర్డర్లు వస్తాయి.',
+    'కొత్తవాళ్ళు: దగ్గరి పని వాళ్ళ కార్డులు (పేరు, పని, ఊరు, పనులు, రేటింగ్ – ఫోన్ కాదు). "చేర్చుకోమని అడుగు" – వాళ్ళు ఒప్పుకుంటేనే చేరతారు, అప్పుడే నంబర్.',
+    'టీమ్: మీ checklist టిక్ చేయండి (లైసెన్స్, పోలీస్ వెరిఫికేషన్...). Documents worker చెప్పే 6 అంకెల కోడ్ తోనే, చూడటానికి మాత్రమే.',
+    'ఆర్డర్లు: worker తనే ఒప్పుకుంటే వెళ్తారు (క్యాష్ వాళ్ళ దగ్గర), మీకు తెలుస్తుంది. మీరూ ఇవ్వొచ్చు; డబ్బు మీరు ఎంచుకున్నట్టు.',
+  ]),
+  '/me/work': _H('I want work', 'నేను పని చేస్తా', [
+    'Put up your card: work types, town, how far, day / night / Sundays, 18+. Businesses see your card, never your number.',
+    'A business invites you: join only if you want; you can leave any time. Your documents open only with the code you give.',
+    'Work offered: Take or No. Saying No while green (free) is a minus point — turn OFF when you are not free.',
+    'Independent badge: days under a business + jobs + rating + no complaints + your Udyam number.',
+  ], [
+    'మీ కార్డ్ పెట్టండి: ఏ పని, ఊరు, ఎంత దూరం, పగలు / రాత్రి / ఆదివారాలు, 18+. Businesses కి కార్డ్ మాత్రమే, నంబర్ కాదు.',
+    'ఒక business అడిగితే: మీకు ఇష్టమైతేనే చేరండి; ఎప్పుడైనా వదిలేయొచ్చు. మీ documents మీరు ఇచ్చే కోడ్ తోనే తెరుచుకుంటాయి.',
+    'పని వస్తే: "వెళ్తా" లేదా "కుదరదు". ఆకుపచ్చ (ఖాళీ) గా ఉండి కుదరదంటే మైనస్ పాయింట్ – ఖాళీ లేకపోతే ఆఫ్ చేయండి.',
+    'స్వతంత్రుడు badge: business కింద రోజులు + పనులు + రేటింగ్ + ఫిర్యాదులు లేకపోవడం + మీ Udyam నంబర్.',
+  ]),
+  '/hire': _H('Hire a worker', 'పని వాళ్ళు కావాలి', [
+    'Choose the work, where and when.',
+    'Pick a business (with its price) or an independent worker; tap Book.',
+    'The worker\'s name and number come after booking. Rate after the work; complaints go to the business with the order number.',
+  ], [
+    'ఏ పని, ఎక్కడ, ఎప్పుడు ఎంచుకోండి.',
+    'ఒక business (దాని ధరతో) లేదా స్వతంత్రుడు ని ఎంచుకుని బుక్ నొక్కండి.',
+    'బుక్ అయ్యాక పని వాళ్ళ పేరు, నంబర్ వస్తాయి. పని అయ్యాక రేటింగ్; ఫిర్యాదు order నంబర్ తో business కి వెళ్తుంది.',
+  ]),
   '/pos/:id/crm': _H('Enquiries', 'ఎంక్వైరీలు', [
     'Today: follow-ups due, pipeline by stage, and ASKODOX requests you can save as enquiries.',
     'Tap + Add lead for a new lead or enquiry; set a follow-up and you get a reminder.',

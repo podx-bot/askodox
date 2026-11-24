@@ -1109,6 +1109,27 @@ POS_SHOP_KINDS = ("general", "kirana", "supermarket", "meat_fish", "restaurant",
                   "wholesale", "clothing", "electronics", "jewellery", "bakery", "vegetables", "hardware", "stationery")
 
 _register(Resource(
+    name="work_types", label="Work types (workers)", group="Advisor", prefix="wkt",
+    permission="advisor", name_field="label_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Kinds of work people sign up for (delivery, driver, cook, security ...) and WHICH businesses need them: "
+                "a worker's card goes to every GST / Udyam business of these Business Kit categories in the worker's "
+                "area (manpower / HR agencies see every work type). Needs = the checklist suggested to the business "
+                "(licence, RC, police verification ...). Home entry = the business is asked once before sending a "
+                "person without police verification. Monthly posting = can be posted to a site for a month.",
+    fields=(
+        F("key", "Key (stable id)", required=True, list_column=True, filter=True, help="lower_case_id, e.g. car_driver"),
+        F("label_en", "Name (English)", required=True, list_column=True),
+        F("label_te", "Name (Telugu)", list_column=True),
+        F("categories", "Business Kit categories that need it", "list", list_column=True),
+        F("needs", "Suggested checklist (licence, rc, seats, police_verification ...)", "list"),
+        F("home_entry", "Goes inside a home", "bool"),
+        F("posting", "Monthly posting to a site", "bool"),
+        F("order", "Order", "int"),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
+_register(Resource(
     name="business_kit", label="Business Kit (shop categories)", group="Advisor", prefix="bkt",
     permission="advisor", name_field="label_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
     description="Every kind of business a shop owner can pick, and how ASKODOX sets it up. Parent blank = a "
@@ -1257,6 +1278,13 @@ _register(Resource(
 SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # key: (minimum, maximum, default)
     "video_study.max_seconds": (10, 600, 180),
+    # Workers' independent (స్వతంత్రుడు) badge (owner plan 2026-11-24 rule 9).
+    "workforce.badge_days": (0, 730, 90),
+    "workforce.badge_jobs": (0, 1000, 50),
+    "workforce.badge_min_rating": (1, 5, 4.5),
+    "workforce.badge_lose_below": (1, 5, 4.0),
+    "workforce.first_jobs_capped": (0, 200, 20),
+    "workforce.first_jobs_cap_rupees": (100, 100000, 2000),
     "image_edit.daily_per_user": (0, 50, 5),
     # Paid notifications (owner 2026-11-24): paise per person reached, limits per sender / per receiver per day.
     "notices.rate_paise": (0, 100, 5),

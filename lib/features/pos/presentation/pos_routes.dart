@@ -14,6 +14,7 @@ import 'pos_frontdesk_screens.dart';
 import 'pos_desk_manage_screens.dart';
 import 'pos_dues_screen.dart';
 import 'delivery_jobs_screens.dart';
+import 'workforce_screens.dart';
 import 'pos_frontdesk_staff_screens.dart';
 import 'pos_home_screen.dart';
 import 'my_payment_alerts_screen.dart';
@@ -115,6 +116,11 @@ final askodoxPosRoutes = <GoRoute>[
       path: '/pos/:id/deliveries',
       builder: (context, state) => AskodoxDeliveryJobsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/me/deliveries', builder: (context, state) => const AskodoxMyDeliveriesScreen()),
+  // Workers under an authority (owner plan 2026-11-24 steps 3-6): the worker, the authority's team, a customer.
+  GoRoute(path: '/me/work', builder: (context, state) => const AskodoxMyWorkScreen()),
+  GoRoute(
+      path: '/pos/:id/team', builder: (context, state) => AskodoxAuthorityTeamScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/hire', builder: (context, state) => const AskodoxHireScreen()),
   // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).
   GoRoute(
       path: '/pos/:id/payment-alerts',

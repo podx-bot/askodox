@@ -89,6 +89,10 @@ const askodoxBuyerPages = <AskodoxLaunchPage>[
   // The person's own delivery work for every shop they work for (colour, offers, the job, money).
   AskodoxLaunchPage('b.deliveries', 'My delivery work', 'నా డెలివరీ పని', Icons.delivery_dining_rounded, Color(0xFFEA580C),
       route: '/me/deliveries'),
+  AskodoxLaunchPage('b.work', 'I want work', 'నేను పని చేస్తా', Icons.engineering_rounded, Color(0xFF0D9488),
+      route: '/me/work'),
+  AskodoxLaunchPage('b.hire', 'Hire a worker', 'పని వాళ్ళు కావాలి', Icons.person_search_rounded, Color(0xFF2563EB),
+      route: '/hire'),
   AskodoxLaunchPage('b.monthly', 'My monthly plans', 'నా నెలవారీ', Icons.event_repeat_rounded, Color(0xFF7C3AED),
       route: '/me/monthly'),
   AskodoxLaunchPage('b.tryon', 'Try it on me', 'ట్రై చేసి చూడు', Icons.checkroom_rounded, Color(0xFFDB2777), route: '/try-on'),
@@ -159,6 +163,9 @@ const _sellerSpecs = <_SellerSpec>[
   // Owner plan 2026-11-24 step 1: one line -> job card -> who goes (free first) -> answers -> give.
   _SellerSpec('s.send', 'orders.send', 'Send delivery', 'డెలివరీ పంపు', Icons.delivery_dining_rounded, Color(0xFFEA580C),
       tool: 'desk|sale', perm: 'sell'),
+  // Owner plan 2026-11-24 steps 3-6: workers under this business (GST / Udyam to find new ones), orders, postings.
+  _SellerSpec('s.team', 'orders.team', 'Workers & team', 'పని వాళ్ళు & టీమ్', Icons.groups_rounded, Color(0xFF0D9488),
+      who: 'owner'),
   _SellerSpec('s.bookings', 'orders.bookings', 'Bookings', 'బుకింగ్స్', Icons.event_available_rounded, Color(0xFF0D9488),
       tool: 'customers|sale', perm: 'customers', flow: '3'),
   _SellerSpec('s.jobs', 'orders.jobs', 'Job cards', 'జాబ్ కార్డ్స్', Icons.build_circle_rounded, Color(0xFFEA580C),
@@ -300,6 +307,7 @@ AskodoxLaunchLayout askodoxSellerShippedLayout() => const AskodoxLaunchLayout([
       AskodoxLaunchEntry.page('s.bill'),
       AskodoxLaunchEntry.page('s.orders'),
       AskodoxLaunchEntry.page('s.send'),
+      AskodoxLaunchEntry.page('s.team'),
       AskodoxLaunchEntry.page('s.bookings'),
       AskodoxLaunchEntry.page('s.jobs'),
       AskodoxLaunchEntry.page('s.monthly'),

@@ -91,6 +91,7 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'orders.bookings' => '/biz/$id/bookings',
       'orders.jobs' => '/biz/$id/jobs',
       'orders.send' => '/pos/$id/deliveries',
+      'orders.team' => '/pos/$id/team',
       'money.monthly' => '/biz/$id/monthly',
       'money.bill' => '/me/business/$id/bill',
       'money.counter' => '/pos/$id/sale',

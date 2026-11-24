@@ -10,10 +10,10 @@ gave on 2026-11-24); this file records what is BUILT and the owner's CHANGES sin
 | 0 | 2 missing screens (work types per business, monthly posting + site attendance) | not drawn yet |
 | 1 | Delivery job for the shop's own staff (`pos_delivery_jobs.py`, `/pos/:id/deliveries`, `/me/deliveries`) | PR #430, NOT phone verified |
 | 2 | Owner-UPI collect: one-paise clash rule + both told (`pos_payment_alerts.create_request` / `_tell_both`) | PR #430 for delivery jobs; other Business Kit ways (counter / table / parcel / bookings / job cards / monthly) still show the QR without a collect request |
-| 3 | Worker sign-up card -> authority cards -> invite / accept, GST / Udyam gate, checklist | not built |
-| 4 | Customer order -> authorities -> answers / assign / direct accept, worker share record, complaints | not built |
-| 5 | Work types per business resource + monthly postings with site attendance | not built |
-| 6 | Ratings + స్వతంత్రుడు badge | not built |
+| 3 | Worker sign-up card -> authority cards -> invite / accept, GST / Udyam gate, checklist, OTP view-only documents (`workforce.py`, `/me/work`, `/pos/:id/team`) | built, NOT phone verified |
+| 4 | Customer order -> authorities -> direct accept (cash) / assign, worker share record, complaints, reject minus points (`/hire`) | built, NOT phone verified |
+| 5 | Work types resource `work_types` + monthly postings with site attendance (live face) | built, NOT phone verified |
+| 6 | Ratings + స్వతంత్రుడు badge (settings `workforce.*`) | built, NOT phone verified |
 
 ## Owner changes after the plan (2026-11-24)
 1. **Cash for self-accepted orders (11:17).** An order a worker accepts HIMSELF under an authority is settled in CASH
