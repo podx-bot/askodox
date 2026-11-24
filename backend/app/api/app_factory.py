@@ -406,6 +406,9 @@ def create_app() -> FastAPI:
     from app.api.routes.pos_work import router as pos_work_router
 
     app.include_router(pos_work_router)
+    from app.api.routes.pos_delivery import router as pos_delivery_router
+
+    app.include_router(pos_delivery_router)
     from app.api.routes.pos_frontdesk import bill_page_router as pos_bill_page_router
 
     app.include_router(pos_bill_page_router)

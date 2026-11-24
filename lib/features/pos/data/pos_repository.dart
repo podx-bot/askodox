@@ -104,6 +104,25 @@ class AskodoxPosRepository {
 
   String _b(String id) => '/api/pos/businesses/$id';
 
+  // ---- Delivery jobs for the shop's own people (pos_delivery_jobs.py, owner plan 2026-11-24 step 1).
+  Future<AskodoxJson> deliveryDraft(String id, String text) =>
+      _send('POST', '${_b(id)}/delivery-jobs/draft', body: {'text': text});
+  Future<AskodoxJson> deliveryCreate(String id, AskodoxJson body) => _send('POST', '${_b(id)}/delivery-jobs', body: body);
+  Future<List<AskodoxJson>> deliveryJobs(String id) async =>
+      askodoxPosList((await _send('GET', '${_b(id)}/delivery-jobs'))['jobs']);
+  Future<List<AskodoxJson>> deliveryPeople(String id) async =>
+      askodoxPosList((await _send('GET', '${_b(id)}/delivery-jobs/people'))['people']);
+  Future<AskodoxJson> deliveryDay(String id) => _send('GET', '${_b(id)}/delivery-jobs/day');
+  Future<AskodoxJson> deliveryGive(String id, String jobId, String person) =>
+      _send('POST', '${_b(id)}/delivery-jobs/$jobId/give', body: {'person': person});
+  Future<AskodoxJson> myDeliveryJobs() => _send('GET', '/api/me/delivery-jobs');
+  Future<AskodoxJson> answerDeliveryJob(String jobId, String answer) =>
+      _send('POST', '/api/me/delivery-jobs/$jobId/answer', body: {'answer': answer});
+  Future<AskodoxJson> stepDeliveryJob(String jobId, String step, {String money = ''}) =>
+      _send('POST', '/api/me/delivery-jobs/$jobId/step', body: {'step': step, 'money': money});
+  Future<AskodoxJson> collectDeliveryJob(String jobId) => _send('POST', '/api/me/delivery-jobs/$jobId/collect');
+  Future<AskodoxJson> setWorkStatus(String colour) => _send('PUT', '/api/me/work-status', body: {'colour': colour});
+
   Future<AskodoxJson> meta() => _send('GET', '/api/pos/meta');
   Future<List<AskodoxJson>> businesses() async => askodoxPosList((await _send('GET', '/api/pos/businesses'))['businesses']);
   Future<AskodoxJson> createBusiness(AskodoxJson body) => _send('POST', '/api/pos/businesses', body: body);

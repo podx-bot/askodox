@@ -1107,16 +1107,33 @@ class PosPaymentAlerts:
             return False
         return self._now() - datetime.fromisoformat(row["confirmed_at"]) <= self.REOPEN_WINDOW
 
-    def create_request(self, business_id: str, user: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_request(self, business_id: str, user: str, data: Dict[str, Any], *, any_member: bool = False) -> Dict[str, Any]:
+        """``any_member``: a staff person showing the owner's QR for a job given to them (delivery jobs) -- a member of
+        the shop is enough; they never see the shop's payment history."""
         amount = int(data.get("amount_paise") or 0)
         if amount <= 0 or amount > MAX_AMOUNT_PAISE:
             raise PosError(400, "amount", "Enter the amount to collect.")
         with self.store._tx() as conn:
-            self._member(conn, business_id, user)
+            if any_member:
+                self.store._business_row(conn, business_id)
+                if self.store.role_of(conn, business_id, user) is None:
+                    raise PosError(404, "business", "Business not found.")
+            else:
+                self._member(conn, business_id, user)
             method = self._collect_method(conn, business_id)
             if not method:
                 raise PosError(409, "no_upi", "The shop owner has not added a UPI ID yet (Profile -> Payment methods).")
             shop = self.store._business_row(conn, business_id)["name"]
+            # Owner 2026-11-24 (one-paise rule): bank SMS / app notices carry no order number, so two open QRs of the
+            # SAME amount at the same time could not be told apart -- the later one becomes ₹250.01 by itself (never
+            # asking the owner which). Both amounts arriving = both paid.
+            asked = amount
+            since = (self._now() - self.MATCH_WINDOW).isoformat()
+            taken = {int(r["amount_paise"]) for r in conn.execute(
+                "SELECT amount_paise FROM pos_payment_requests WHERE business_id = ? AND status = 'pending'"
+                " AND created_at >= ? AND amount_paise BETWEEN ? AND ?", (business_id, since, amount, amount + 99))}
+            while amount in taken and amount < asked + 99:
+                amount += 1
             now = self._now().isoformat()
             rid = f"ppr_{uuid.uuid4().hex[:16]}"
             conn.execute("INSERT INTO pos_payment_requests (id, business_id, amount_paise, label, upi_id, payee, status,"
@@ -1124,7 +1141,10 @@ class PosPaymentAlerts:
                          (rid, business_id, amount, str(data.get("label") or "")[:60], method["upi_id"],
                           method.get("payee_name") or shop, "pending", user, now, now))
             row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?", (rid,)).fetchone()
-            return self._request_out(row)
+            out = self._request_out(row)
+            out["asked_paise"] = asked
+            out["paise_added"] = amount - asked
+            return out
 
     def request_public(self, request_id: str) -> Optional[Dict[str, Any]]:
         """For the customer's token-bound pay page only (no membership: the token proves the shop shared it)."""
@@ -1198,6 +1218,27 @@ class PosPaymentAlerts:
         if row:
             conn.execute("UPDATE pos_payment_requests SET status = 'matched', matched_event_id = ?, updated_at = ?"
                          " WHERE id = ?", (event_id, self._now().isoformat(), row["id"]))
+            self._tell_both(conn, business_id, row["id"])
+
+    def _tell_both(self, conn: sqlite3.Connection, business_id: str, request_id: str) -> None:
+        """Owner 2026-11-24: when the owner's phone sees the money of an open QR, BOTH the owner and the person who
+        showed the QR hear "#12 ₹250 వచ్చింది" (a notice the bank / app sent -- the owner still checks the bank)."""
+        req = conn.execute("SELECT label, amount_paise, created_by FROM pos_payment_requests WHERE id = ?",
+                           (request_id,)).fetchone()
+        owner = conn.execute("SELECT owner_user_id FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+        if req is None:
+            return
+        paise = int(req["amount_paise"])
+        amount = f"₹{paise // 100}" if paise % 100 == 0 else f"₹{paise / 100:.2f}"
+        title = f"{req['label'] or ''} {amount} వచ్చింది".strip()
+        for user in dict.fromkeys([req["created_by"], owner["owner_user_id"] if owner else ""]):
+            if not user:
+                continue
+            try:
+                self.notify(user, title, "Payment notice matched · bank లో ఒకసారి చూడండి", "/me/deliveries",
+                            f"collect:{request_id}:matched:{user}")
+            except Exception:
+                pass
 
     @staticmethod
     def _request_for_event(conn: sqlite3.Connection, event_id: str) -> Optional[Dict[str, Any]]:

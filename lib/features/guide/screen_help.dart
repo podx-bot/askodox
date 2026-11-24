@@ -919,6 +919,28 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ], [
     'మీ records మాత్రమే: మీ కోసం ఆగిన shop advances, మీ payment methods. మీ తరఫున pay / approve చేయదు.',
   ]),
+  '/pos/:id/deliveries': _H('Send delivery', 'డెలివరీ పంపు', [
+    'Say it in one line: "Uyyuru to Param, one cake, collect 250" — the job card fills itself (≈ km / minutes too).',
+    'Choose who goes: green = free first, orange = on a job, red = busy / off. Ask everyone free or one person.',
+    'Answers come back: now / 10 / 20 / 30 min / can\'t. Tap "Give" — or switch on "first \'now\' gets it".',
+    'Every job has the shop order number (#12): cash, your UPI QR, the day report and complaints use it.',
+  ], [
+    'ఒక్క లైన్ లో చెప్పండి: "ఉయ్యూరు నుంచి పారం కి కేక్ డెలివరీ, 250 రూపాయలు" — job card దానంతట అదే నిండుతుంది (≈ km / నిమిషాలు కూడా).',
+    'ఎవరు వెళ్ళాలో ఎంచుకోండి: ఆకుపచ్చ = ఖాళీ (ముందు), ఆరెంజ్ = పనిలో, ఎరుపు = బిజీ / ఆఫ్. ఖాళీగా ఉన్న అందరినీ లేదా ఒక్కరిని అడగండి.',
+    'జవాబులు వస్తాయి: వెంటనే / 10 / 20 / 30 ని. / కుదరదు. "ఇవ్వు" నొక్కండి — లేదా "వెంటనే అన్న మొదటివాళ్ళకి" switch ఆన్ చేయండి.',
+    'ప్రతి పనికీ షాప్ ఆర్డర్ నంబర్ (#12): క్యాష్, మీ UPI QR, రోజు రిపోర్ట్, ఫిర్యాదులు అన్నీ దానితోనే.',
+  ]),
+  '/me/deliveries': _H('My delivery work', 'నా డెలివరీ పని', [
+    'Set your colour: green = free, orange = on a job, red = busy / off. Not changed for 3 hours = grey; after 11 PM = red.',
+    'A shop asks you: answer "I\'ll come now", 10 / 20 / 30 min or can\'t.',
+    'On the job: Directions opens Google Maps; UPI / QR shows the SHOP OWNER\'s QR with the amount — both of you are told when it arrives.',
+    'Done: tap how it was paid (cash / UPI / paid before). Your cash for the day is shown on top.',
+  ], [
+    'మీ రంగు పెట్టండి: ఆకుపచ్చ = ఖాళీ, ఆరెంజ్ = పనిలో, ఎరుపు = బిజీ / ఆఫ్. 3 గంటలు మార్చకపోతే బూడిద; రాత్రి 11 తర్వాత ఎరుపు.',
+    'షాప్ అడిగితే: "వెంటనే వస్తా", 10 / 20 / 30 ని. లేదా "కుదరదు" నొక్కండి.',
+    'పనిలో: "దారి చూపించు" Google Maps తెరుస్తుంది; UPI / QR = షాప్ ఓనర్ QR, డబ్బు రాగానే ఇద్దరికీ తెలుస్తుంది.',
+    'అయిపోయాక: డబ్బు ఎలా వచ్చిందో నొక్కండి (క్యాష్ / UPI / ముందే కట్టారు). ఈ రోజు మీ దగ్గర ఉన్న క్యాష్ పైన కనిపిస్తుంది.',
+  ]),
   '/pos/:id/crm': _H('Enquiries', 'ఎంక్వైరీలు', [
     'Today: follow-ups due, pipeline by stage, and ASKODOX requests you can save as enquiries.',
     'Tap + Add lead for a new lead or enquiry; set a follow-up and you get a reminder.',

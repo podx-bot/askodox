@@ -90,6 +90,7 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'orders.alerts' => '/desk/$id/settings',
       'orders.bookings' => '/biz/$id/bookings',
       'orders.jobs' => '/biz/$id/jobs',
+      'orders.send' => '/pos/$id/deliveries',
       'money.monthly' => '/biz/$id/monthly',
       'money.bill' => '/me/business/$id/bill',
       'money.counter' => '/pos/$id/sale',
