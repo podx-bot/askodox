@@ -951,13 +951,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పెద్ద బటన్ కొత్త పని వాళ్ళని వెతుకుతుంది (పాత పేజీ). పత్రాలు, నెలవారీ పోస్టింగ్, రిజిస్ట్రేషన్ కూడా అక్కడే.',
   ]),
   '/me/branches': _H('All my branches', 'నా అన్ని శాఖలు', [
-    'Tick your own shops and tap Link. Delivery people of every linked branch can take a delivery of any branch.',
-    'Below you see today for every branch and the total: bills, sales, deliveries done, dues. Each branch keeps its own bills and GST.',
-    'To take a branch out, tap Remove on it.',
+    'On top: today\'s sales of all your linked branches together.',
+    'The list: each branch with its bills and sales. Tap one to take it out of the link (asks once).',
+    'The big button links your own shops: tick two or more. Delivery people of linked branches work as one pool; each branch keeps its own bills and GST.',
   ], [
-    'మీ సొంత షాపులు టిక్ చేసి "లింక్" నొక్కండి. లింక్ చేసిన అన్ని శాఖల delivery వాళ్ళూ ఏ శాఖ డెలివరీ అయినా తీసుకోవచ్చు.',
-    'కింద ప్రతి శాఖ ఈ రోజు + మొత్తం కనిపిస్తాయి: బిల్లులు, సేల్స్, డెలివరీలు, బాకీలు. ప్రతి శాఖకి దాని బిల్లులు, GST విడివిడిగానే.',
-    'ఒక శాఖని తీసేయాలంటే దాని మీద "తీసేయి" నొక్కండి.',
+    'పైన: లింక్ చేసిన అన్ని శాఖల ఈ రోజు సేల్స్ కలిపి.',
+    'లిస్ట్: ప్రతి శాఖ బిల్లులు, సేల్స్ తో. ఒకటి నొక్కితే లింక్ నుంచి తీసేయొచ్చు (ఒకసారి అడుగుతుంది).',
+    'పెద్ద బటన్ మీ సొంత షాపులను లింక్ చేస్తుంది: రెండు లేదా ఎక్కువ టిక్ చేయండి. లింక్ అయిన శాఖల delivery వాళ్ళు అందరూ కలిసి; ప్రతి శాఖకి దాని బిల్లులు, GST విడివిడిగా.',
   ]),
   '/me/work': _H('I want work', 'నేను పని చేస్తా', [
     'Put up your card: work types, town, how far, day / night / Sundays, 18+. Businesses see your card, never your number.',

@@ -33,6 +33,7 @@ import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/items_steps_screens.dart';
 import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
+import '../../steps/presentation/branches_steps_screen.dart';
 import '../../steps/presentation/my_bills_steps_screen.dart';
 import '../../steps/presentation/my_deliveries_steps_screen.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
@@ -171,7 +172,9 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
           ? AskodoxAuthorityTeamScreen(businessId: state.pathParameters['id']!)
           : AskodoxTeamStepsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/me/branches', builder: (context, state) => const AskodoxBranchesScreen()),
+  GoRoute(
+      path: '/me/branches',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1' ? const AskodoxBranchesScreen() : const AskodoxBranchesStepsScreen()),
   GoRoute(path: '/hire', builder: (context, state) => const AskodoxHireScreen()),
   // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).
   GoRoute(
