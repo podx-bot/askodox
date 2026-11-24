@@ -295,7 +295,7 @@ class PosDeliveryJobs:
         rupees = f" · ₹{fee // 100}" if fee else ""
         for pid in targets:
             self._push(pid, f"#{no} {from_text} → {to_text}{rupees}", f"{shop}: వస్తారా? · Can you go?",
-                       "/me/jobs", f"dlv:{jid}:ask")
+                       "/me/deliveries", f"dlv:{jid}:ask")
         return self.job(business_id, user, jid)
 
     def _push(self, user: str, title: str, body: str, route: str, key: str) -> None:
@@ -338,9 +338,9 @@ class PosDeliveryJobs:
             others = [a["user_id"] for a in conn.execute("SELECT user_id FROM pos_dlv_asks WHERE job_id = ? AND user_id != ?",
                                                           (job_id, person))]
             no, to_text = row["order_no"], row["to_text"]
-        self._push(person, f"#{no} మీకే · It's yours", f"→ {to_text}", "/me/jobs", f"dlv:{job_id}:given")
+        self._push(person, f"#{no} మీకే · It's yours", f"→ {to_text}", "/me/deliveries", f"dlv:{job_id}:given")
         for other in others:
-            self._push(other, f"#{no} వేరే వాళ్ళకి ఇచ్చారు · Given to someone else", "", "/me/jobs", f"dlv:{job_id}:closed")
+            self._push(other, f"#{no} వేరే వాళ్ళకి ఇచ్చారు · Given to someone else", "", "/me/deliveries", f"dlv:{job_id}:closed")
         return self.job(business_id, user if not by_rule else person, job_id)
 
     # ------------------------------------------------------------------ the person's side
@@ -388,10 +388,10 @@ class PosDeliveryJobs:
             label = next((p["label"] for p in self._people(conn, row["business_id"]) if p["id"] == user), "")
             owner = self.store._business_row(conn, row["business_id"])["owner_user_id"]
         words = {"now": "వెంటనే · now", "no": "కుదరదు · can't"}.get(answer, f"{answer} ని. · {answer} min")
-        self._push(row["created_by"], f"#{row['order_no']} {label} – {words}", "", f"/pos/{row['business_id']}/jobs",
+        self._push(row["created_by"], f"#{row['order_no']} {label} – {words}", "", f"/pos/{row['business_id']}/deliveries",
                    f"dlv:{job_id}:ans:{answer}")
         if owner and owner != row["created_by"]:
-            self._push(owner, f"#{row['order_no']} {label} – {words}", "", f"/pos/{row['business_id']}/jobs",
+            self._push(owner, f"#{row['order_no']} {label} – {words}", "", f"/pos/{row['business_id']}/deliveries",
                        f"dlv:{job_id}:ans:{answer}")
         if answer == "now" and row["auto_first"]:
             try:
@@ -433,7 +433,7 @@ class PosDeliveryJobs:
                            "upi": "UPI – మీ phone లో చూడండి", "prepaid": "ముందే కట్టారు"}.get(fields.get("money_mode", ""), "")
             for target in dict.fromkeys([row["created_by"], owner]):
                 self._push(target, f"#{row['order_no']} అయింది · Delivered", money_words,
-                           f"/pos/{row['business_id']}/jobs", f"dlv:{job_id}:done")
+                           f"/pos/{row['business_id']}/deliveries", f"dlv:{job_id}:done")
         with self.store._connect() as conn:
             view = self._view(conn, dict(conn.execute("SELECT * FROM pos_dlv_jobs WHERE id = ?", (job_id,)).fetchone()), user)
         return view

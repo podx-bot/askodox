@@ -299,6 +299,7 @@ List<AskodoxLaunchPage> askodoxSellerPages(String businessId, AskodoxJson busine
 AskodoxLaunchLayout askodoxSellerShippedLayout() => const AskodoxLaunchLayout([
       AskodoxLaunchEntry.page('s.bill'),
       AskodoxLaunchEntry.page('s.orders'),
+      AskodoxLaunchEntry.page('s.send'),
       AskodoxLaunchEntry.page('s.bookings'),
       AskodoxLaunchEntry.page('s.jobs'),
       AskodoxLaunchEntry.page('s.monthly'),

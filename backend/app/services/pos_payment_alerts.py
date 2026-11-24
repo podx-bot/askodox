@@ -1235,7 +1235,7 @@ class PosPaymentAlerts:
             if not user:
                 continue
             try:
-                self.notify(user, title, "Payment notice matched · bank లో ఒకసారి చూడండి", "/me/jobs",
+                self.notify(user, title, "Payment notice matched · bank లో ఒకసారి చూడండి", "/me/deliveries",
                             f"collect:{request_id}:matched:{user}")
             except Exception:
                 pass

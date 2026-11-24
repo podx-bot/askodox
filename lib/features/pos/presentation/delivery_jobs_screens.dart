@@ -261,7 +261,7 @@ class _DeliveryJobsState extends ConsumerState<AskodoxDeliveryJobsScreen> {
   }
 
   Widget _card(bool te) {
-    final box = (TextEditingController c, String label, Key key, {bool money = false}) => Padding(
+    Widget box(TextEditingController c, String label, Key key, {bool money = false}) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: TextField(
             key: key,
@@ -405,19 +405,19 @@ class _DeliveryJobsState extends ConsumerState<AskodoxDeliveryJobsScreen> {
             key: ValueKey('askodoxDeliveryAnswer-${a['user']}'),
             title: Text('${a['label']} – ${_answerWords('${a['answer']}', te)}',
                 style: const TextStyle(fontWeight: FontWeight.w800)),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              if ('${a['phone'] ?? ''}'.isNotEmpty)
-                IconButton(
+            leading: '${a['phone'] ?? ''}'.isEmpty
+                ? null
+                : IconButton(
                     tooltip: te ? 'కాల్' : 'Call',
                     icon: const Icon(Icons.call_rounded),
                     onPressed: () => _dial('${a['phone']}')),
-              if (!given && a['answer'] != 'no')
-                FilledButton(
-                  key: ValueKey('askodoxDeliveryGive-${a['user']}'),
-                  onPressed: () => _give('${a['user']}'),
-                  child: Text(te ? 'ఇవ్వు' : 'Give'),
-                ),
-            ]),
+            trailing: !given && a['answer'] != 'no'
+                ? FilledButton(
+                    key: ValueKey('askodoxDeliveryGive-${a['user']}'),
+                    onPressed: () => _give('${a['user']}'),
+                    child: Text(te ? 'ఇవ్వు' : 'Give'),
+                  )
+                : null,
           ),
         ),
     ]);
