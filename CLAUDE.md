@@ -7,6 +7,26 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #429 + #430 + #431 (2026-11-24, owner "finish 3-6, merge, link after everything"): ONE-SCREEN ANSWER CARD
+  (#429, design WfPV8AhvZsPFqmwzYpfvap) -- capability `answer_card`: the brain writes spoken part + a `[[more]]` line +
+  details (`answer_card.PROMPT_RULES` in routing + `_advise`); route `_answer_card` builds `card` (one fast `write_text`
+  call, `answer_card.clean` validates: helplines / 10-13 digit numbers / https links present in the text only, fixed
+  action kinds; `from_text` fallback); old apps get the reply without the mark. App `AskodoxAnswerCardView`
+  (`answer_card_view.dart`): headline + voice, 4 icon tabs, swipe cards / tiles / checklist / steps, replies with in-card
+  follow-ups, risk meter + coloured SMS + `openUpiApps` (MainActivity, opens apps only) + 3 don'ts + share; `_cardByTurn`,
+  streaming shows / speaks only `askodoxStreamingSpokenPart`. LANGUAGE: `romanized_language.py` == Dart
+  `romanized_language_tables.dart` (generated; drift test) + fixture `test/fixtures/romanized_language_cases.json`;
+  server `reply_locale` overrides the app locale unless capability `lang_lock`; `reply_language` back to the app.
+  Capabilities max 20. Rich reply: a tag after a bullet no longer prints a stray "-". WORKFORCE (#430 steps 1-2):
+  `pos_delivery_jobs.py` (one line -> job card #order number, Google Routes cached per pair, ask free people, answers,
+  give / first "now", colours `pos_work_status` free / busy / off, grey 3 h, red 23:00, cash per person, day report),
+  `/pos/:id/deliveries` + `/me/deliveries`; owner-UPI collect: same open amount -> +1 paise, matched -> `_tell_both`.
+  (#431 steps 3-6) `workforce.py` + `routes/workforce.py`: worker cards (18+, no phone) to every GST / Udyam business of a
+  matching category (resource `work_types`, agency = all), invite / accept (joined = pos_members delivery), documents by
+  the worker's one-time code view-only 10 min, customer `/hire` -> business + its FREE workers, self-taken = CASH (owner),
+  refusing while free = minus point (1 star), share record, complaints, postings + live-face site attendance, ratings
+  (done + paid, once a month per customer) + స్వతంత్రుడు badge (settings `workforce.*`). Plan + owner changes:
+  `docs/WORKFORCE_PLAN.md` (no advice card; multi-branch shared pool NOT built). Backend 1979 pass. Nothing phone verified.
 - `main` PR #425 (2026-11-24, owner "do all 4, merge after" -> "1"; Play bundle `askodox-play-1635.aab` = Live Build run 635
   on f887310): BUSINESS KIT -- 23 categories / 200 sub-categories (`business_kit.py`, Command Center resource `business_kit`,
   staff add rows, no code), one shop = many businesses (profile `more`), pages from the union of the ways of working,
