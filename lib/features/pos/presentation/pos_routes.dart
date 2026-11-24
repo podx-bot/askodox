@@ -33,6 +33,7 @@ import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/items_steps_screens.dart';
 import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
+import '../../steps/presentation/my_bills_steps_screen.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
@@ -53,7 +54,10 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
       path: '/me/payments',
       builder: (context, state) => AskodoxPaymentsHubScreen(mineOnly: state.uri.queryParameters['mine'] == '1')),
   // Bills (owner 2026-11-16): the customer's own bills from shops, and a shop's bill history.
-  GoRoute(path: '/me/bills', builder: (context, state) => const AskodoxMyBillsScreen()),
+  GoRoute(
+      path: '/me/bills',
+      builder: (context, state) =>
+          state.uri.queryParameters['full'] == '1' ? const AskodoxMyBillsScreen() : const AskodoxMyBillsStepsScreen()),
   // Owner 2026-11-22: the Money screen of each side opens only its own money (?owner=me | <shop id>&lock=1).
   GoRoute(
       path: '/money',

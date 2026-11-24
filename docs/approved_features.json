@@ -11899,6 +11899,41 @@
           "AskodoxAttSetupStepsScreen"
         ]
       }
+    },
+    {
+      "id": "my_bills_page_three_steps_batch21",
+      "name": "My bills (customer) in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 21; old page stays at ?full=1.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "What is left to pay on top, ONE list of the bills (tap = the bill with Pay by UPI / Show QR / I have paid / I will pay on a date), ONE big button pays the first bill. Paid bills and the old page are in the header menu. Money goes straight to the shop's own UPI.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 21 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/my_bills_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMyBillsSteps",
+          "askodoxMyBillsStepsPay"
+        ],
+        "symbols": [
+          "AskodoxMyBillsStepsScreen"
+        ]
+      }
     }
   ]
 }

@@ -555,13 +555,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రాబోయే చెల్లింపులు: EMI, కరెంట్ బిల్, అద్దె, రీఛార్జ్ జోడించండి; గడువుకు 2 రోజుల ముందు, ఆ రోజు ఫోన్ చెప్తుంది.',
   ]),
   '/me/bills': _H('My bills', 'నా బిల్లులు', [
-    'Bills that shops sent to your number show here.',
-    'Pay by UPI opens your UPI app with the amount filled in; the money goes straight to the shop.',
-    'After paying, tap "I have paid" so the shop checks and closes the bill.',
+    'The number on top is what is left to pay on the bills shops sent to your number. Tap a bill to see it.',
+    'Pay by UPI opens your UPI app with the amount filled in; the money goes straight to the shop. Not today? Tell the shop the date.',
+    'After paying, tap "I have paid" so the shop checks and closes the bill. Paid bills are in the three-dots menu.',
   ], [
-    'షాపులు మీ నంబర్‌కి పంపిన బిల్లులు ఇక్కడ కనిపిస్తాయి.',
-    '"UPI లో కట్టు" నొక్కితే మొత్తం నిండిన UPI యాప్ తెరుచుకుంటుంది; డబ్బు నేరుగా షాప్‌కి వెళ్తుంది.',
-    'కట్టాక "కట్టేశాను" నొక్కితే షాప్ చూసి బిల్లు ముగిస్తుంది.',
+    'పైన ఉన్న సంఖ్య షాపులు మీ నంబర్‌కి పంపిన బిల్లుల్లో ఇంకా కట్టాల్సింది. బిల్లు నొక్కి చూడండి.',
+    '"UPI లో కట్టు" నొక్కితే మొత్తం నిండిన UPI యాప్ తెరుచుకుంటుంది; డబ్బు నేరుగా షాప్‌కి వెళ్తుంది. ఇవాళ కాదా? షాప్‌కి తేదీ చెప్పండి.',
+    'కట్టాక "కట్టేశాను" నొక్కితే షాప్ చూసి బిల్లు ముగిస్తుంది. కట్టినవి మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/bills/:id': _H('Bill history', 'బిల్లుల హిస్టరీ', [
     'Every bill with how it was paid: cash, PhonePe, Google Pay, Paytm, other UPI or card.',
