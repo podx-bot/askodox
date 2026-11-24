@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "branches_page_three_steps_batch23",
+      "name": "All my branches in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 23; old page stays at ?full=1.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Today's sales of all linked branches on top, ONE list of the branches (tap = take it out of the link, asks once), ONE big button links your own shops (tick two or more). Each branch keeps its own bills and GST.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 23 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/branches_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBranchesSteps",
+          "askodoxBranchesStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxBranchesStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "my_deliveries_page_three_steps_batch22",
       "name": "My delivery work (delivery person) in 3 pieces",
       "purpose": "Owner 2026-11-24: 3-step rule, batch 22; old page stays at ?full=1.",
