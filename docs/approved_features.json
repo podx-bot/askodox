@@ -11187,6 +11187,47 @@
           "AskodoxBookingStepsScreen"
         ]
       }
+    },
+    {
+      "id": "work_pages_three_steps_batch1",
+      "name": "Live orders, kitchen, tables, purchases in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule for work pages, batch 1 of 3 (5 + 5 + 3); old pages stay at ?full=1; delivery was already 3 steps.",
+      "roles": [
+        "owner",
+        "staff"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Live orders: waiting number, new orders first, tap = accept / reject / next stage / bill (cash, UPI, later); Kitchen: new tickets number, tap = preparing / ready / served; Tables: busy count, big table tiles, Takeaway button; Purchases: what you owe suppliers, supplier list, Purchase bill button. The old pages open at ?full=1 from the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: work pages batch 1 (2026-11-24 'split 13 into 5s'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/order_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxOrdersSteps",
+          "askodoxKitchenSteps",
+          "askodoxTablesSteps",
+          "askodoxSuppliersSteps"
+        ],
+        "symbols": [
+          "AskodoxOrdersStepsScreen",
+          "AskodoxKitchenStepsScreen",
+          "AskodoxTablesStepsScreen",
+          "AskodoxSuppliersStepsScreen"
+        ]
+      }
     }
   ]
 }
