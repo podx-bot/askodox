@@ -850,11 +850,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '"పే" నొక్కి కస్టమర్ ఎలా కట్టారో చేర్చి "ఇష్యూ" నొక్కండి.',
   ]),
   '/pos/:id/items': _H('Stock & barcodes', 'స్టాక్ & బార్‌కోడ్', [
-    'Add an item with its price and GST; set where you sell it (POS / Online / Both).',
-    'Tap an item for box / piece units; use the box icon to add stock.',
+    'The number on top is how many items you have. Search the list and tap an item to open it. The big button adds an item.',
+    'Ready list, combo offers, where to sell (POS / Online / Both) and the old page with offer / stock switches are in the menu ⋮.',
   ], [
-    'ధర, GST తో సరుకు చేర్చండి; ఎక్కడ అమ్మాలో ఎంచుకోండి (POS / ఆన్‌లైన్ / రెండూ).',
-    'బాక్స్ / పీస్ యూనిట్లకు సరుకు నొక్కండి; స్టాక్ చేర్చడానికి బాక్స్ ఐకాన్.',
+    'పైన నంబర్ మీ సరుకుల సంఖ్య. లిస్ట్‌లో వెతికి, సరుకు నొక్కితే తెరుచుకుంటుంది. పెద్ద బటన్ సరుకు చేరుస్తుంది.',
+    'రెడీ లిస్ట్, కాంబో ఆఫర్లు, ఎక్కడ అమ్మాలి (POS / ఆన్‌లైన్ / రెండూ), ఆఫర్ / స్టాక్ ఉన్న పాత పేజీ ⋮ మెనూలో.',
   ]),
   '/pos/:id/catalogue': _H('Ready list', 'రెడీ లిస్ట్', [
     'Choose your kind of business at the top.',
