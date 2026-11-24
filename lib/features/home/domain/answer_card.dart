@@ -22,7 +22,7 @@ String askodoxWithoutCardMark(String reply) =>
   final at = soFar.indexOf(askodoxAnswerCardMark);
   if (at >= 0) return (text: soFar.substring(0, at).trim(), complete: true);
   // Never show half of the mark ("[[mo") while it is being written.
-  final partial = RegExp(r'\[(\[(m(o(r(e(\])?)?)?)?)?)?)?$').firstMatch(soFar);
+  final partial = RegExp(r'\[(?:\[(?:m(?:o(?:r(?:e\]?)?)?)?)?)?$').firstMatch(soFar);
   return (text: (partial == null ? soFar : soFar.substring(0, partial.start)).trimRight(), complete: false);
 }
 
