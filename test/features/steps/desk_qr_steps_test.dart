@@ -59,6 +59,7 @@ void main() {
         });
     await _pump(tester, api, const AskodoxDeskQrStepsScreen(businessId: 'b1'));
     expect(find.byKey(const Key('askodoxDeskQrSteps')), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('askodoxDeskQrStepsTable-T1')), 200, scrollable: find.byType(Scrollable).first);
     expect(find.byKey(const Key('askodoxDeskQrStepsTable-T1')), findsOneWidget);
     expect(find.byKey(const Key('askodoxDeskQrStepsSend')), findsOneWidget);
   });

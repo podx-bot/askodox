@@ -57,6 +57,12 @@ class _DeskQrState extends ConsumerState<AskodoxDeskQrStepsScreen> {
         : 'You can now order from $shop on ASKODOX. Open the ASKODOX app, go to Profile → "Order at a shop" and enter this code: ${d['shop']}';
   }
 
+  Future<void> _copy(AskodoxJson d) async {
+    final te = _te;
+    await Clipboard.setData(ClipboardData(text: _shareText(d)));
+    if (mounted) askodoxPosSnack(context, te ? 'కాపీ అయింది' : 'Copied');
+  }
+
   Future<void> _addTables() async {
     final te = _te;
     final count = TextEditingController(text: '5');
@@ -130,10 +136,7 @@ class _DeskQrState extends ConsumerState<AskodoxDeskQrStepsScreen> {
       key: const Key('askodoxDeskQrSteps'),
       title: title,
       more: [
-        AskodoxStepMore('askodoxDeskQrStepsCopy', te ? 'మెసేజ్ కాపీ' : 'Copy the message', Icons.copy, () async {
-          await Clipboard.setData(ClipboardData(text: _shareText(d)));
-          if (mounted) askodoxPosSnack(context, te ? 'కాపీ అయింది' : 'Copied');
-        }),
+        AskodoxStepMore('askodoxDeskQrStepsCopy', te ? 'మెసేజ్ కాపీ' : 'Copy the message', Icons.copy, () => _copy(d)),
         AskodoxStepMore('askodoxDeskQrStepsTables', tables.isEmpty ? (te ? 'టేబుల్ QR లు చేయి' : 'Make table QRs') : (te ? 'ఇంకా టేబుల్స్' : 'More tables'),
             Icons.table_restaurant_outlined, _addTables),
         AskodoxStepMore('askodoxDeskQrStepsFull', te ? 'పాత పేజీ' : 'Old page', Icons.menu_book_rounded,
