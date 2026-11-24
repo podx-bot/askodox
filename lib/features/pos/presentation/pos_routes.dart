@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../money_home/money_route_screens.dart';
+import '../../steps/presentation/account_steps_screens.dart';
 import '../../steps/presentation/day_steps_screen.dart';
 import '../../steps/presentation/shop_link_steps_screen.dart';
 
@@ -199,8 +200,9 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxCustomersStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/customers/:cid',
-      builder: (context, state) =>
-          AskodoxPosCustomerScreen(businessId: state.pathParameters['id']!, customerId: state.pathParameters['cid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosCustomerScreen(businessId: state.pathParameters['id']!, customerId: state.pathParameters['cid']!)
+          : AskodoxCustomerAccountStepsScreen(businessId: state.pathParameters['id']!, customerId: state.pathParameters['cid']!)),
   GoRoute(
       path: '/pos/:id/invoices',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
@@ -248,8 +250,9 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxSuppliersStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/suppliers/:sid',
-      builder: (context, state) =>
-          AskodoxPosSupplierScreen(businessId: state.pathParameters['id']!, supplierId: state.pathParameters['sid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosSupplierScreen(businessId: state.pathParameters['id']!, supplierId: state.pathParameters['sid']!)
+          : AskodoxSupplierAccountStepsScreen(businessId: state.pathParameters['id']!, supplierId: state.pathParameters['sid']!)),
   GoRoute(path: '/pos/:id/purchase/new', builder: (context, state) => AskodoxPosPurchaseScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/purchase-orders',

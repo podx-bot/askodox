@@ -11389,6 +11389,43 @@
           "askodoxCreatePurchaseOrder"
         ]
       }
+    },
+    {
+      "id": "account_pages_three_steps_batch6",
+      "name": "Customer account and Supplier account in 3 steps",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 6; old pages stay at ?full=1. Money is only recorded (ASKODOX never holds it).",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The account: baaki (or what you owe) on top, the month's lines, the customer's advance card (customer account), ONE big button. Money job in 3 steps: how much (keypad, 'All' chip) -> how paid (cash / UPI / bank / cheque) -> done with what is still due. Same idempotent client_txn_id on retry. The old pages open at ?full=1.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 6 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/account_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCustomerAccountSteps",
+          "askodoxSupplierAccountSteps"
+        ],
+        "symbols": [
+          "AskodoxCustomerAccountStepsScreen",
+          "AskodoxSupplierAccountStepsScreen"
+        ]
+      }
     }
   ]
 }
