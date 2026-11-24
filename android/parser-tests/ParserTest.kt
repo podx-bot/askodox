@@ -32,12 +32,12 @@ class Sim {
         val hit = PaymentAlertParser.pickSamePayment(rows, msg)
         if (hit != null) {
             val o = rows[hit]
-            rows[hit] = o.copy(kinds = o.kinds + kind, reference = o.reference ?: msg.reference,
+            rows[hit] = o.copy(kinds = o.kinds + kind, apps = o.apps + pkg, reference = o.reference ?: msg.reference,
                 handle = o.handle ?: msg.handle, payer = o.payer ?: msg.payer, account = o.account ?: msg.account)
             return "joined"
         }
         rows.add(PaymentAlertParser.Row(rows.size, msg.atMs, pkg, kind, listOf(kind), "in", msg.amountPaise,
-            msg.account, msg.reference, msg.handle, msg.payer))
+            msg.account, msg.reference, msg.handle, msg.payer, apps = listOf(pkg)))
         spoken++
         return "spoken"
     }
@@ -68,13 +68,13 @@ class Sim {
         val hit = PaymentAlertParser.pickSamePayment(rows, msg, taken)
         if (hit != null) {
             val o = rows[hit]
-            rows[hit] = o.copy(kinds = (o.kinds + kind).distinct(), reference = o.reference ?: msg.reference,
+            rows[hit] = o.copy(kinds = (o.kinds + kind).distinct(), apps = (o.apps + pkg).distinct(), reference = o.reference ?: msg.reference,
                 handle = o.handle ?: msg.handle, payer = o.payer ?: msg.payer, account = o.account ?: msg.account)
             taken.add(hit)
             return "joined"
         }
         rows.add(PaymentAlertParser.Row(rows.size, msg.atMs, pkg, kind, listOf(kind), msg.direction, msg.amountPaise,
-            msg.account, msg.reference, msg.handle, msg.payer))
+            msg.account, msg.reference, msg.handle, msg.payer, apps = listOf(pkg)))
         taken.add(rows.size - 1)
         if (summary) return "late"
         spoken++
@@ -85,6 +85,8 @@ class Sim {
 const val SMS = "com.google.android.apps.messaging"
 const val PHONEPE = "com.phonepe.app"
 const val HDFC_APP = "com.snapwork.hdfc"
+const val PAYTM = "net.one97.paytm"
+const val TRUECALLER = "com.truecaller"
 
 fun main() {
     // UPI apps
@@ -603,6 +605,7 @@ fun main() {
         PaymentAlertParser.voiceKindOf("late_out") == "out" && PaymentAlertParser.voiceKindOf("unsure") == "check" &&
         PaymentAlertParser.voiceKindOf("sorry_in") == "sorry")
     voicePackChecks()
+    oneVoiceChecks()
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
     if (fails > 0) kotlin.system.exitProcess(1)
 }
@@ -725,4 +728,95 @@ fun voicePackChecks() {
         "Money Received - INR 100.00 in your HDFC Bank A/c xx1234 on 23-11-26 by A/c linked to VPA mrs.manasa@okaxis (UPI Ref No. 532012345678).")
     ok("a real bank SMS shape carries the account the side is read from",
         shopAcct is Result.Accepted && PaymentAlertParser.accountSide(shopAcct.account, SMS, sides, apps) == "shop")
+}
+
+
+/**
+ * Owner 2026-11-24 ("one payment twice; the voice stops before the last word and then says it all again; at 9 pm the
+ * count came 4-5 times"). Names and numbers are made up; the shapes and the gaps are the real ones.
+ */
+fun oneVoiceChecks() {
+    fun ok(name: String, cond: Boolean) { if (!cond) fails++; println((if (cond) "ok   " else "FAIL ") + name) }
+    // 1. TWO UPI apps tell the SAME credit (PhonePe and Paytm both notify money landing in the linked bank account).
+    Sim().run {
+        get(PHONEPE, "upi", "Received ₹500", "RAMESH KUMAR sent ₹500 to your bank account HDFC Bank-4321", 0)
+        val b = get(PAYTM, "upi", null, "Received ₹500 in your HDFC Bank a/c from Ramesh Kumar", 1)
+        ok("owner 2026-11-24: PhonePe + Paytm for one credit = one voice", b == "joined" && spoken == 1)
+    }
+    // ... but two DIFFERENT customers through two apps, 40 min apart, nothing in common = two payments.
+    Sim().run {
+        get(PHONEPE, "upi", null, "Bhagya sent ₹500 to you.", 0)
+        val b = get(PAYTM, "upi", null, "Received ₹500 from Suresh on Paytm", 40)
+        ok("two apps, two people, 40 min apart = two voices", b == "spoken" && spoken == 2)
+    }
+    // 2. ONE bank SMS shown by TWO SMS apps (Messages + Truecaller), no reference on it.
+    Sim().run {
+        get(SMS, "sms", "AX-CANBNK-S", "An amount of INR 500.00 has been CREDITED to your account XXX1234 on 24/11/2026 towards UPI. Total Avail.bal INR 5,000.00 - Canara Bank", 0)
+        val b = get(TRUECALLER, "sms", "AX-CANBNK-S", "An amount of INR 500.00 has been CREDITED to your account XXX1234 on 24/11/2026 towards UPI. Total Avail.bal INR 5,000.00 - Canara Bank", 0)
+        ok("owner 2026-11-24: one SMS in two SMS apps = one voice", b == "joined" && spoken == 1)
+    }
+    // ... while two real SMS-only payments in ONE SMS app stay two (owner 2026-11-15).
+    Sim().run {
+        get(SMS, "sms", "AX-CANBNK-S", "An amount of INR 500.00 has been CREDITED to your account XXX1234 on 24/11/2026 towards UPI. - Canara Bank", 0)
+        val b = get(SMS, "sms", "AX-CANBNK-S", "An amount of INR 500.00 has been CREDITED to your account XXX1234 on 24/11/2026 towards UPI. - Canara Bank", 3)
+        ok("two SMS in one SMS app = two payments", b == "spoken" && spoken == 2)
+    }
+    // 3. The SAME reference twice from the same app (a re-sent / second SMS of one payment) = the same money.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.500.00 credited to HDFC Bank A/c XX6911 on 24-11-26 (UPI 532612345678)", 0)
+        val b = get(SMS, "sms", "JD-HDFCBK-S", "Money Received - INR 500.00 in your HDFC Bank A/c xx6911 on 24-11-26 by A/c linked to VPA ramesh.k@okaxis (UPI Ref No. 532612345678).", 55)
+        ok("owner 2026-11-24: same RRN again from the same app, 55 min later = silent", b == "joined" && spoken == 1)
+    }
+    Sim().run {
+        get(PHONEPE, "upi", null, "Ramesh sent ₹500 to you. UPI Ref 532612345678", 0)
+        val b = get(PHONEPE, "upi", null, "Payment of ₹500 received from Ramesh. Ref No 532612345678", 60)
+        ok("same app shows the same RRN an hour later = silent", b == "joined" && spoken == 1)
+    }
+    // 4. The payer's UPI id written with another bank handle on the SMS (9876543210@ybl in the app, @axl on the SMS).
+    Sim().run {
+        get(PHONEPE, "upi", null, "RAMESH KUMAR (9876543210@ybl) sent you ₹500", 0)
+        val b = get(SMS, "sms", "JD-HDFCBK-S", "Rs.500.00 credited to HDFC Bank A/c XX6911 on 24-11-26 from VPA 9876543210@axl (UPI 532612345678)", 60)
+        ok("owner 2026-11-24: same payer number, other handle, SMS 1 h later = silent", b == "joined" && spoken == 1)
+    }
+    // ... a really different payer id is still a different payment (QR safety stays).
+    Sim().run {
+        get(PHONEPE, "upi", null, "RAMESH KUMAR (9876543210@ybl) sent you ₹500", 0)
+        val b = get(SMS, "sms", "JD-HDFCBK-S", "Rs.500.00 credited to HDFC Bank A/c XX6911 on 24-11-26 from VPA *akar@ibl (UPI 532612349999)", 20)
+        ok("another payer's id = another payment", b == "spoken" && spoken == 2)
+    }
+
+    // 5. A payment heard from ANOTHER phone / the bank (push) and later this phone's own message of the same shop money.
+    val H = PaymentAlertParser
+    val m = 60_000L
+    val heard = ArrayList<PaymentAlertParser.Heard>()
+    fun hear(path: String, scope: String, paise: Long, atMin: Long): Boolean = H.claimHeard(heard, path, scope, paise, atMin * m)
+    ok("push for the shop's ₹500 is said", hear("remote", "shop1", 50000, 0))
+    ok("owner 2026-11-24: this phone's own SMS for it 60 min later = silent", !hear("local", "shop1", 50000, 60))
+    ok("a second real ₹500 of the shop later = said", hear("local", "shop1", 50000, 70))
+    ok("the person's own money never pairs with the shop's push", hear("remote", "shop1", 7000, 100) && hear("local", "", 7000, 101))
+    ok("another shop's push never pairs", hear("remote", "shop2", 9900, 200) && hear("local", "shop1", 9900, 201))
+    ok("older than 2 h = a new payment", hear("remote", "shop1", 12300, 300) && hear("local", "shop1", 12300, 300 + 121))
+
+    // 6. The voice is one MP3 made of parts. Each part's own tags (ID3, the "Info" frame) are dropped when joined, and
+    //    the real length is counted from the frames -- the player stopped a sentence at the FIRST part's length.
+    fun frame(): ByteArray { // MPEG-1 Layer III, 128 kbps, 44.1 kHz, no padding: 417 bytes, 1152 samples
+        val f = ByteArray(417); f[0] = 0xFF.toByte(); f[1] = 0xFB.toByte(); f[2] = 0x90.toByte(); f[3] = 0x64; return f
+    }
+    fun infoFrame(): ByteArray { val f = frame(); "Info".toByteArray().copyInto(f, 4 + 32); return f }
+    val id3 = byteArrayOf('I'.code.toByte(), 'D'.code.toByte(), '3'.code.toByte(), 4, 0, 0, 0, 0, 0, 20) + ByteArray(20)
+    fun part(n: Int) = id3 + infoFrame() + (1..n).map { frame() }.reduce { a, b -> a + b }
+    val V = PaymentVoicePack
+    val joined = V.joinMp3(listOf(part(40), part(25), part(60)))
+    ok("joined voice = only the sound frames", joined.size == 125 * 417)
+    ok("joined voice length counted from its frames (125 x 26.1 ms)", V.mp3DurationMs(joined) in 3260L..3270L)
+    ok("one part keeps its frames", V.mp3DurationMs(V.joinMp3(listOf(part(10)))) in 260L..262L)
+    ok("not an MP3 -> no length", V.mp3DurationMs(ByteArray(100)) == 0L)
+    // 7. A voice that already PLAYED is never said a second time by the fallback voice.
+    ok("cut after the voice played = no second voice", !V.sayAgainAfterFailure(playedMs = 2600, expectedMs = 3000))
+    ok("failed before any sound = the fallback voice says it", V.sayAgainAfterFailure(playedMs = 0, expectedMs = 3000))
+
+    // 8. The night count: ONE voice per phone, whatever sides it listens for.
+    val one = V.nightTotal(listOf(9 to 4_100_000L, 2 to 50_000L))
+    ok("owner 2026-11-24: shop 9 + own 2 = one night line of 11", one == (11 to 4_150_000L))
+    ok("no payment anywhere = nothing", V.nightTotal(listOf(0 to 0L, 0 to 0L)) == (0 to 0L))
 }

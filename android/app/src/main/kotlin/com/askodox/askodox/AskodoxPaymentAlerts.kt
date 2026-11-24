@@ -658,7 +658,7 @@ object AskodoxPaymentAlerts {
             return done("quiet_hours")
         }
         if (!firstTime(context, "remote|$eventId", System.currentTimeMillis())) return done("duplicate")
-        if (!claimVoice(context, amountFromText(text), System.currentTimeMillis(), "remote")) {
+        if (!claimVoice(context, amountFromText(text), System.currentTimeMillis(), "remote", businessId.orEmpty())) {
             // This phone already announced this money from its own notification: stay silent, and say so honestly.
             if (fromPush && businessId != null) ack(context, businessId, eventId, "duplicate_local")
             return done("duplicate")
@@ -674,22 +674,28 @@ object AskodoxPaymentAlerts {
     }
 
     /**
-     * Owner 2026-11-15: ONE payment must not be heard twice. The phone's own notification reading and the
-     * bank / other-device push can both announce the same money (the push often arrives first). Whichever path
-     * speaks first records the amount; the OTHER path stays silent for 2 minutes. Two payments of the same amount
-     * through the same path (two notifications from the phone) are two payments and are both spoken.
-     * Returns true when this path may speak.
+     * Owner 2026-11-15 / 2026-11-24: ONE payment must not be heard twice. The phone's own notification / SMS and the
+     * bank / other-phone push can both announce the same shop money -- the second one sometimes an hour later. One
+     * local + one remote of the same shop and amount within 2 h are paired ([PaymentAlertParser.claimHeard]): the
+     * second stays silent. Two real payments of the same amount each pair once, so both are spoken. [scope] = the shop
+     * (empty = the person's own money, which never pairs with a shop's push). Returns true when this path may speak.
      */
     @Synchronized
-    private fun claimVoice(context: Context, amountPaise: Long?, now: Long, path: String): Boolean {
+    private fun claimVoice(context: Context, amountPaise: Long?, now: Long, path: String, scope: String): Boolean {
         if (amountPaise == null || amountPaise <= 0) return true
         val p = prefs(context)
-        val lastAmount = p.getLong("voice_amount", -1L)
-        val lastAt = p.getLong("voice_at", 0L)
-        val lastPath = p.getString("voice_path", "") ?: ""
-        if (lastAmount == amountPaise && lastPath != path && now - lastAt in 0..120_000L) return false
-        p.edit().putLong("voice_amount", amountPaise).putLong("voice_at", now).putString("voice_path", path).apply()
-        return true
+        val heard = ArrayList<PaymentAlertParser.Heard>()
+        try {
+            val a = JSONArray(p.getString("voice_heard", "[]") ?: "[]")
+            for (i in 0 until a.length()) a.optJSONObject(i)?.let { o ->
+                heard += PaymentAlertParser.Heard(o.optString("p"), o.optString("s"), o.optLong("a"), o.optLong("t"), o.optBoolean("u"))
+            }
+        } catch (_: Exception) {}
+        val may = PaymentAlertParser.claimHeard(heard, path, scope, amountPaise, now)
+        val out = JSONArray()
+        for (h in heard) out.put(JSONObject().put("p", h.path).put("s", h.scope).put("a", h.amountPaise).put("t", h.atMs).put("u", h.used))
+        p.edit().putString("voice_heard", out.toString()).apply()
+        return may
     }
 
     /** The amount a spoken alert text states ("... 640 ..."), in paise; null when it has no number. */
@@ -975,7 +981,7 @@ object AskodoxPaymentAlerts {
         val unclear = (amount == null || bankDisagrees) && !test
         // Owner 2026-11-22 (Payment voice folder): the person may switch a kind off (received / refund / cashback).
         val muted = !test && !voiceOn(context, cfg, if (refund) "refund" else if (bonus != null) "cashback" else "in")
-        val mayVoice = !unclear && !muted && (quiet || test || late || claimVoice(context, amount, now, "local"))
+        val mayVoice = !unclear && !muted && (quiet || test || late || claimVoice(context, amount, now, "local", cfg.optString("business_id")))
         // Owner 2026-11-17: whichever message comes FIRST (SMS or notification) speaks at once -- no waiting for a name.
         event.put("spoken", if (bankDisagrees) "skipped_bank" else if (unclear) "seen" else if (muted) "muted" else if (quiet) "quiet_hours" else if (late) "late" else if (!mayVoice) "announced" else "pending")
         synchronized(this) { val list = events(context); list.put(event); saveEvents(context, list) }
@@ -1186,6 +1192,10 @@ object AskodoxPaymentAlerts {
                 account = e.optString("account").ifEmpty { null }, reference = e.optString("reference").ifEmpty { null },
                 handle = rowHandle.ifEmpty { null }, payer = rowPayer.ifEmpty { null },
                 excluded = e.optBoolean("excluded"), test = false,
+                // every app already in this row (owner 2026-11-24: a second app of the same kind may still join)
+                apps = (listOf(e.optString("source_app")) + (e.optJSONArray("merged_keys")?.let { a ->
+                    (0 until a.length()).map { a.optString(it).substringBefore('|') }
+                } ?: emptyList())).filter { it.isNotEmpty() }.distinct(),
             ))
         }
         val picked = PaymentAlertParser.pickSamePayment(rows, PaymentAlertParser.Msg(
@@ -1460,21 +1470,36 @@ object AskodoxPaymentAlerts {
             if (shop.optBoolean("enabled", false) && shop.optString("business_id").isNotEmpty()) false to shop else null,
             mineConfig(app).takeIf { it.optBoolean("enabled", false) }?.let { true to it },
         )
+        // Owner 2026-11-24 ("at 9 pm: 9 payments once, 2 payments once, 41,000 cut and again -- 4-5 times"): ONE night
+        // voice per phone. The sides it listens for are added together; each side's own numbers are in the notice.
+        val mark = "night_said:$today"
+        val counted = ArrayList<Pair<Boolean, Pair<Int, Long>>>()
+        var voiceCfg: JSONObject? = null
         for ((personal, cfg) in sides) {
             if (!voiceOn(app, cfg, "night")) continue
-            val mark = "night_said:${if (personal) "mine" else "shop"}:$today"
-            if (prefs(app).getBoolean(mark, false)) continue
-            val (count, total) = PaymentVoicePack.dayTotals(nightRows(list, personal), today)
-            if (count == 0) continue // no payment today: nothing at all
+            val t = PaymentVoicePack.dayTotals(nightRows(list, personal), today)
+            if (t.first == 0) continue // no payment today on this side: nothing about it
+            counted += personal to t
+            if (voiceCfg == null || !personal) voiceCfg = cfg // the shop's language / voice first
+        }
+        val cfg = voiceCfg
+        val (count, total) = PaymentVoicePack.nightTotal(counted.map { it.second })
+        if (cfg != null && count > 0 && !prefs(app).getBoolean(mark, false)) {
             prefs(app).edit().putBoolean(mark, true).apply()
             val language = cfg.optString("language", "te").ifEmpty { "te" }
             val parts = PaymentVoicePack.nightParts(count, total, language)
-            showPaymentNotification(app, mark, parts.first().trimEnd(':', ' '), parts.drop(1).joinToString(" "))
+            val te = language == "te"
+            val split = if (counted.size < 2) "" else counted.joinToString("\n", prefix = "\n") { (personal, t) ->
+                (if (personal) (if (te) "నా సొంతం" else "My own") else (if (te) "షాప్" else "Shop")) +
+                    ": ${t.first} · ${PaymentAlertParser.moneyWords(t.second, if (te) "te" else "en")}"
+            }
+            showPaymentNotification(app, mark, parts.first().trimEnd(':', ' '), parts.drop(1).joinToString(" ") + split)
             val cal = Calendar.getInstance()
-            if (PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
-                    cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))) continue
-            waiting.incrementAndGet()
-            CloudVoice.say(app, parts, language, cfg) { finishOne() }
+            if (!PaymentAlertParser.inQuietHours(cfg.optString("quiet_start"), cfg.optString("quiet_end"),
+                    cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE))) {
+                waiting.incrementAndGet()
+                CloudVoice.say(app, parts, language, cfg) { finishOne() }
+            }
         }
         finishOne()
     }
@@ -1919,8 +1944,18 @@ object AskodoxPaymentAlerts {
             try {
                 val dir = java.io.File(app.cacheDir, "payalert").apply { mkdirs() }
                 val out = java.io.File(dir, "pv-${System.nanoTime()}.mp3")
-                out.outputStream().use { o -> files.forEach { f -> f.inputStream().use { it.copyTo(o) } } }
-                Player.enqueue(app, out, cfg) { ok -> if (ok) done(true) else AskodoxPaymentAlerts.main.post { fallback() } }
+                // Owner 2026-11-24 ("stops before the last word, then says it all again"): each part's own tags were
+                // copied into the middle of the file and the player believed the FIRST part's length, so the sentence
+                // was cut and the fallback voice said it again. Sound frames only, the length counted from them.
+                val joined = PaymentVoicePack.joinMp3(files.map { it.readBytes() })
+                out.writeBytes(joined)
+                val expected = PaymentVoicePack.mp3DurationMs(joined)
+                Player.enqueue(app, out, cfg, expected) { ok ->
+                    if (ok) done(true)
+                    // already heard (cut near the end): never a second voice for the same payment
+                    else if (!PaymentVoicePack.sayAgainAfterFailure(Player.lastPlayedMs, expected)) done(true)
+                    else AskodoxPaymentAlerts.main.post { fallback() }
+                }
             } catch (_: Exception) {
                 AskodoxPaymentAlerts.main.post { fallback() }
             }
@@ -2241,7 +2276,8 @@ object AskodoxPaymentAlerts {
      * audio, so a connected Bluetooth speaker plays it.
      */
     object Player {
-        private data class Item(val file: java.io.File, val cfg: JSONObject, val done: ((Boolean) -> Unit)?)
+        private data class Item(val file: java.io.File, val cfg: JSONObject, val done: ((Boolean) -> Unit)?,
+                                val expectedMs: Long = 0L)
         private val queue = ArrayDeque<Item>()
         private var busy = false
         private var busySince = 0L
@@ -2251,12 +2287,19 @@ object AskodoxPaymentAlerts {
         /** What the last finished clip did (for the server trail): volume %, route, ms played. */
         @Volatile var lastDetail: String = ""
 
-        fun enqueue(context: Context, file: java.io.File, cfg: JSONObject, done: ((Boolean) -> Unit)?) {
+        /** How long the last finished clip was actually heard (0 = it never started). */
+        @Volatile var lastPlayedMs: Long = 0L
+
+        fun enqueue(context: Context, file: java.io.File, cfg: JSONObject, done: ((Boolean) -> Unit)?) =
+            enqueue(context, file, cfg, 0L, done)
+
+        /** [expectedMs] = the clip's real length when known (a joined MP3 states only its first part's length). */
+        fun enqueue(context: Context, file: java.io.File, cfg: JSONObject, expectedMs: Long, done: ((Boolean) -> Unit)?) {
             AskodoxPaymentAlerts.main.post {
-                queue.addLast(Item(file, cfg, done))
+                queue.addLast(Item(file, cfg, done, expectedMs))
                 // Owner 2026-11-20 (every payment since 08:08 stuck on "Speaking..."): a clip that never finished kept
                 // the queue busy for ever. A queue busy for more than 40 s is started again.
-                if (busy && System.currentTimeMillis() - busySince > 40_000L) busy = false
+                if (busy && System.currentTimeMillis() - busySince > 70_000L) busy = false
                 if (!busy) next(context.applicationContext)
             }
         }
@@ -2372,6 +2415,7 @@ object AskodoxPaymentAlerts {
                         val played = if (startedAt > 0) System.currentTimeMillis() - startedAt else 0
                         "vol=$vol% out=${AskodoxPaymentAlerts.audioRoute(context)["output"]} played_ms=$played ok=$ok"
                     } catch (_: Exception) { "ok=$ok" }
+                    lastPlayedMs = if (startedAt > 0) System.currentTimeMillis() - startedAt else 0L
                     try { enhancer?.release() } catch (_: Exception) {}
                     try { mp?.release() } catch (_: Exception) {}
                     item.file.delete()
@@ -2402,7 +2446,9 @@ object AskodoxPaymentAlerts {
                 mp.start()
                 // A clip that never reports its end (audio stuck, focus lost) is closed after its length + 4 s, so the
                 // next payment is never held behind it.
-                val limit = (if (mp.duration > 0) mp.duration.toLong() else 12_000L).coerceAtMost(25_000L) + 4_000L
+                // Owner 2026-11-24: the clip's REAL length (counted from its frames) -- never the first part's only.
+                val known = maxOf(if (mp.duration > 0) mp.duration.toLong() else 0L, item.expectedMs)
+                val limit = (if (known > 0) known else 12_000L).coerceAtMost(60_000L) + 4_000L
                 AskodoxPaymentAlerts.main.postDelayed({ if (!finished) finishItem(false, mp) }, limit)
             } catch (_: Exception) {
                 finishItem(false, null)

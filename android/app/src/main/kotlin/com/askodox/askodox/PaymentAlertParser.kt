@@ -1182,7 +1182,9 @@ object PaymentAlertParser {
         val x = a?.trim()?.lowercase(Locale.ROOT).orEmpty()
         val y = b?.trim()?.lowercase(Locale.ROOT).orEmpty()
         if (x.isEmpty() || y.isEmpty()) return RefMatch.UNKNOWN
-        return if (x == y) RefMatch.SAME else RefMatch.DIFFERENT
+        // Owner 2026-11-24: the same payer id written with another bank's handle (9876543210@ybl in the app,
+        // 9876543210@axl on the bank's SMS) is the same person: the id before '@' decides, not the handle after it.
+        return if (x.substringBefore('@') == y.substringBefore('@')) RefMatch.SAME else RefMatch.DIFFERENT
     }
 
     private val honorifics = setOf("MR", "MRS", "MS", "SRI", "SHRI", "SMT", "DR", "M/S")
@@ -1229,6 +1231,36 @@ object PaymentAlertParser {
     const val LATE_PAIR_MS = 2 * 60 * 60_000L
     /** The same payer's UPI id or name on both messages: the late one still joins up to 6 hours later. */
     const val SAME_PAYER_MS = 6 * 60 * 60_000L
+    /**
+     * One payment heard on this phone: from its OWN message ("local") or from a push of another phone / the bank
+     * ("remote"). [scope] = the shop it is for; [used] = already paired with the other path.
+     */
+    data class Heard(val path: String, val scope: String, val amountPaise: Long, val atMs: Long, var used: Boolean = false)
+
+    /**
+     * Owner 2026-11-24 ("said again an hour later"): the shop's money can reach this phone twice -- as a push (another
+     * phone or the bank reported it) and as this phone's own SMS / notification, often far apart. Pairs ONE local with
+     * ONE remote of the same shop and amount within [LATE_PAIR_MS]: the second stays silent. Two real payments of the
+     * same amount stay two (each pairs once). The person's own money (empty [scope]) never pairs with a shop's push.
+     * Returns true when this one may speak; [heard] is updated (and kept small).
+     */
+    fun claimHeard(heard: MutableList<Heard>, path: String, scope: String, amountPaise: Long, atMs: Long): Boolean {
+        heard.removeAll { atMs - it.atMs > SAME_PAYER_MS }
+        while (heard.size > 100) heard.removeAt(0)
+        if (scope.isEmpty() || amountPaise <= 0L) return true
+        val twin = heard.filter { !it.used && it.path != path && it.scope == scope && it.amountPaise == amountPaise &&
+            kotlin.math.abs(atMs - it.atMs) <= LATE_PAIR_MS }.minByOrNull { kotlin.math.abs(atMs - it.atMs) }
+        if (twin != null) {
+            twin.used = true
+            heard.add(Heard(path, scope, amountPaise, atMs, used = true))
+            return false
+        }
+        heard.add(Heard(path, scope, amountPaise, atMs))
+        return true
+    }
+
+    /** Two different apps of the same kind (two UPI apps, two SMS apps) telling one payment: within 10 minutes. */
+    const val SAME_KIND_APPS_MS = 10 * 60_000L
     /** The same UPI reference (RRN) on both: the same money any time within a day. */
     const val SAME_REF_MS = 24 * 60 * 60_000L
     /** A payment app's SUMMARY line tells a payment made up to two days before it (owner 2026-11-23). */
@@ -1244,6 +1276,8 @@ object PaymentAlertParser {
         val index: Int, val atMs: Long, val sourceApp: String, val kind: String, val kinds: List<String>,
         val direction: String, val amountPaise: Long, val account: String? = null, val reference: String? = null,
         val handle: String? = null, val payer: String? = null, val excluded: Boolean = false, val test: Boolean = false,
+        /** Every app whose message is in this row ([sourceApp] first). Empty = only [sourceApp]. */
+        val apps: List<String> = emptyList(),
     )
 
     /** The message that just arrived. [atMs] = its own payment time. */
@@ -1275,16 +1309,20 @@ object PaymentAlertParser {
         var bestGap = Long.MAX_VALUE
         for (r in rows) {
             if (r.atMs <= 0L || r.test || r.index in skip) continue
-            if (!msg.summary && r.sourceApp == msg.sourceApp && msg.kind !in SIDE_KINDS && r.kind !in SIDE_KINDS) continue
             if (r.direction != msg.direction) continue
             // A row set aside (❓) joins only the bank's own SMS that agrees with it (then it counts again).
             if (r.excluded && !msg.bankSms) continue
             val gap = msg.atMs - r.atMs
+            // Owner 2026-11-24 (the same payment said again an hour later): the SAME UPI reference is the same money
+            // whoever tells it -- also the SAME app or SMS app telling it a second time (a re-sent notification, the
+            // bank's second SMS of one credit). Checked before the "same app = two payments" rule below.
             when (compareRefs(r.reference, msg.reference)) {
                 RefMatch.SAME -> if (kotlin.math.abs(gap) <= SAME_REF_MS) return r.index
                 RefMatch.DIFFERENT -> continue
                 RefMatch.UNKNOWN -> {}
             }
+            val rowApps = r.apps.ifEmpty { listOf(r.sourceApp) }
+            if (!msg.summary && msg.sourceApp in rowApps && msg.kind !in SIDE_KINDS && r.kind !in SIDE_KINDS) continue
             if (r.amountPaise != msg.amountPaise) continue
             if (accountsDiffer(r.account, msg.account)) continue
             val handles = compareHandles(r.handle, msg.handle)
@@ -1292,7 +1330,7 @@ object PaymentAlertParser {
             val clue = handles == RefMatch.SAME || samePayer(r.payer, msg.payer)
             val fits = if (msg.summary) {
                 gap >= -SUMMARY_SLACK_MS && gap <= SUMMARY_MS && (clue || !namesClash(r.payer, msg.payer))
-            } else samePaymentWindow(msg.kind, r.kinds, gap, clue)
+            } else samePaymentWindow(msg.kind, r.kinds, gap, clue, otherApp = msg.sourceApp !in rowApps)
             if (!fits) continue
             val g = kotlin.math.abs(gap)
             if (best == null || (clue && !bestClue) || (clue == bestClue && g < bestGap)) {
@@ -1344,8 +1382,11 @@ object PaymentAlertParser {
         return x.takeLast(n) != y.takeLast(n)
     }
 
-    fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long, sameClue: Boolean = false): Boolean = when {
-        kind in rowKinds -> false
+    fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long, sameClue: Boolean = false,
+                          otherApp: Boolean = false): Boolean = when {
+        // Owner 2026-11-24: two DIFFERENT apps of the same kind tell one payment within minutes (PhonePe and Paytm both
+        // notify a credit to the linked bank account; one SMS shown by two SMS apps). The SAME app twice = two payments.
+        kind in rowKinds -> otherApp && kind !in SIDE_KINDS && kotlin.math.abs(deltaMs) <= SAME_KIND_APPS_MS
         // "billpay" (owner 2026-11-22) = the bank's own "Bill Paid ... from your account" SMS: as quick and as sure as
         // its debit SMS, and it may be the same money as that debit SMS or the company's thank-you.
         // The bank's two SMS for ONE bill (debit alert + "Bill Paid") come within minutes of each other.

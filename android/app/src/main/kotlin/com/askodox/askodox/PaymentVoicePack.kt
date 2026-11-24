@@ -194,6 +194,93 @@ object PaymentVoicePack {
     /** "This voice is ASKODOX's. Free for your shop too." (customers at the counter hear it; max 2 a day). */
     fun customerPart(language: String): String = CUSTOMER[language] ?: CUSTOMER.getValue("en")
 
+    /**
+     * Owner 2026-11-24 (at 9 pm "9 payments" once, "2 payments" once, then again): ONE night voice per phone. The sides
+     * this phone listens for (the shop, My phone) are added into one count + total; each side's own numbers are shown
+     * in the notification only.
+     */
+    fun nightTotal(sides: List<Pair<Int, Long>>): Pair<Int, Long> =
+        sides.fold(0 to 0L) { acc, s -> (acc.first + s.first) to (acc.second + s.second) }
+
+    /**
+     * Owner 2026-11-24 ("it stops before the last word, then the same payment is said again"): when the voice file
+     * failed AFTER it was already heard, the fallback voice must NOT say the sentence a second time.
+     */
+    fun sayAgainAfterFailure(playedMs: Long, expectedMs: Long): Boolean = playedMs < 700L
+
+    // ------------------------------------------------------------------ MP3 parts (owner 2026-11-24)
+
+    /** Bytes of one MPEG audio frame header at [i], with its length and samples; null when no valid Layer III frame. */
+    private fun frameAt(b: ByteArray, i: Int): Triple<Int, Int, Int>? {
+        if (i + 4 > b.size) return null
+        val h1 = b[i].toInt() and 0xFF
+        val h2 = b[i + 1].toInt() and 0xFF
+        val h3 = b[i + 2].toInt() and 0xFF
+        if (h1 != 0xFF || (h2 and 0xE0) != 0xE0) return null
+        val version = (h2 shr 3) and 3          // 3 = MPEG-1, 2 = MPEG-2, 0 = MPEG-2.5
+        val layer = (h2 shr 1) and 3            // 1 = Layer III
+        if (version == 1 || layer != 1) return null
+        val brIndex = (h3 shr 4) and 15
+        val srIndex = (h3 shr 2) and 3
+        if (brIndex == 0 || brIndex == 15 || srIndex == 3) return null
+        val pad = (h3 shr 1) and 1
+        val mpeg1 = version == 3
+        val br = (if (mpeg1) intArrayOf(0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320)
+            else intArrayOf(0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160))[brIndex] * 1000
+        val sr = intArrayOf(44100, 48000, 32000)[srIndex] / (if (mpeg1) 1 else if (version == 2) 2 else 4)
+        val len = (if (mpeg1) 144 else 72) * br / sr + pad
+        return Triple(len, if (mpeg1) 1152 else 576, sr)
+    }
+
+    /** Is the frame at [i] the encoder's "Xing" / "Info" / "VBRI" tag frame (no sound; it states ONE part's length)? */
+    private fun isTagFrame(b: ByteArray, i: Int, len: Int): Boolean {
+        val end = minOf(b.size, i + len)
+        for (k in i + 4 until end - 3) {
+            val w = String(byteArrayOf(b[k], b[k + 1], b[k + 2], b[k + 3]), Charsets.ISO_8859_1)
+            if (w == "Xing" || w == "Info" || w == "VBRI") return k <= i + 4 + 36
+        }
+        return false
+    }
+
+    /** The sound frames of one MP3 part: its ID3 tags and its "Info" frame dropped. Unreadable -> the bytes as they are. */
+    fun mp3Frames(b: ByteArray): ByteArray {
+        var i = 0
+        if (b.size >= 10 && b[0] == 'I'.code.toByte() && b[1] == 'D'.code.toByte() && b[2] == '3'.code.toByte()) {
+            val size = ((b[6].toInt() and 0x7F) shl 21) or ((b[7].toInt() and 0x7F) shl 14) or
+                ((b[8].toInt() and 0x7F) shl 7) or (b[9].toInt() and 0x7F)
+            i = 10 + size + (if ((b[5].toInt() and 0x10) != 0) 10 else 0)
+        }
+        var end = b.size
+        if (end - i >= 128 && b[end - 128] == 'T'.code.toByte() && b[end - 127] == 'A'.code.toByte() &&
+            b[end - 126] == 'G'.code.toByte()) end -= 128
+        while (i < end && frameAt(b, i) == null) i++
+        val first = frameAt(b, i) ?: return b
+        if (isTagFrame(b, i, first.first)) i += first.first
+        return if (i >= end) ByteArray(0) else b.copyOfRange(i, end)
+    }
+
+    /** The parts of one sentence joined into ONE MP3: sound frames only, so the player sees the whole length. */
+    fun joinMp3(parts: List<ByteArray>): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        for (p in parts) out.write(mp3Frames(p))
+        return out.toByteArray()
+    }
+
+    /** The real length of an MP3, counted frame by frame (0 when it is not one). */
+    fun mp3DurationMs(b: ByteArray): Long {
+        var i = 0
+        var micros = 0L
+        var frames = 0
+        while (i < b.size) {
+            val f = frameAt(b, i)
+            if (f == null) { i++; continue }
+            micros += f.second * 1_000_000L / f.third
+            frames++
+            i += maxOf(1, f.first)
+        }
+        return if (frames == 0) 0L else micros / 1000
+    }
+
     /** The night count: "ASKODOX count: today 45 payments came, total 12400 rupees. See you tomorrow!" */
     fun nightParts(count: Int, amountPaise: Long, language: String): List<String> {
         val row = NIGHT[language] ?: NIGHT.getValue("en")
