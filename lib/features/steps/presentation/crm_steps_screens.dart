@@ -252,9 +252,10 @@ class _LeadState extends ConsumerState<AskodoxCrmLeadStepsScreen> {
               sub: askodoxCrmWhen(f['due_at']),
               amount: f['status'] == 'open' ? (te ? 'ఫాలో-అప్' : 'Follow-up') : '✓',
               amountColor: f['status'] == 'open' ? askodoxStepWarn : askodoxStepDone,
+              onTap: () {},
             ),
           for (final t in timeline)
-            AskodoxStepPersonRow(name: '${t['text']}', sub: askodoxCrmWhen(t['at']), amount: '${t['kind']}', amountColor: askodoxStepMuted),
+            AskodoxStepPersonRow(name: '${t['text']}', sub: askodoxCrmWhen(t['at']), amount: '${t['kind']}', amountColor: askodoxStepMuted, onTap: () {}),
         ]),
       ),
       bottom: next == null
