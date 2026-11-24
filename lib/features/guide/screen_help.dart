@@ -356,11 +356,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '"రోజు మార్చు" నొక్కి ఈ రోజు, నిన్న, 7 లేదా 30 రోజులు ఎంచుకోండి. ⋮ లో వినండి, బార్లతో పూర్తి రిపోర్ట్.',
   ]),
   '/biz/:id/reports/day': _H('Day report', 'రోజు రిపోర్ట్', [
-    'The report of the day in the night notification.',
-    "Tap Listen to hear it; tap a problem's Go there to fix it.",
+    'The report of that day (from the night notification): the sales on top, then the problems with what to do.',
+    'The three-dots menu has Listen and the full old report.',
   ], [
-    'రాత్రి నోటిఫికేషన్‌లో వచ్చిన రోజు రిపోర్ట్.',
-    'వినండి నొక్కండి; సమస్య దగ్గర అక్కడికి వెళ్ళు నొక్కి సరిచేయండి.',
+    'ఆ రోజు రిపోర్ట్ (రాత్రి నోటిఫికేషన్ నుంచి): పైన అమ్మకం, తర్వాత సమస్యలు, ఏం చేయాలో.',
+    'మూడు చుక్కల మెనూలో వినండి, పూర్తి పాత రిపోర్ట్ ఉన్నాయి.',
   ]),
   '/biz/:id/reports/settings': _H('Night report', 'రాత్రి రిపోర్ట్', [
     'Two steps. 1: send the report every night? Yes or no. 2: choose the time.',

@@ -55,8 +55,9 @@ final askodoxBizRoutes = <GoRoute>[
           : AskodoxReportsStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/reports/day',
-      builder: (c, s) =>
-          AskodoxBizReportsScreen(businessId: s.pathParameters['id']!, date: s.uri.queryParameters['date'] ?? '')),
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizReportsScreen(businessId: s.pathParameters['id']!, date: s.uri.queryParameters['date'] ?? '')
+          : AskodoxReportsStepsScreen(businessId: s.pathParameters['id']!, date: s.uri.queryParameters['date'] ?? '')),
   GoRoute(
       path: '/biz/:id/reports/settings',
       builder: (c, s) => s.uri.queryParameters['full'] == '1'
