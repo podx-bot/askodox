@@ -1020,11 +1020,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన నంబర్ మీ బిల్లుల మొత్తం. నంబర్ / పేరుతో వెతకండి; ఒకటి నొక్కి ప్రింట్, షేర్ లేదా క్రెడిట్ నోట్.',
   ]),
   '/pos/:id/invoice/:iid': _H('Bill', 'బిల్లు', [
-    'Print, share the PDF, return items (credit note) or cancel today\'s bill.',
-    'Issued bills are never edited.',
+    'The total is on top and the bill below. The big button is Next bill (right after billing) or Share PDF.',
+    'Print, return (credit note) and cancel are in the menu ⋮. Issued bills are never edited.',
   ], [
-    'ప్రింట్, PDF షేర్, సరుకు వాపసు (క్రెడిట్ నోట్) లేదా ఈ రోజు బిల్లు రద్దు.',
-    'ఇష్యూ చేసిన బిల్లు ఎప్పుడూ మార్చబడదు.',
+    'పైన మొత్తం, కింద బిల్లు. పెద్ద బటన్: తర్వాతి బిల్లు (బిల్లు చేసిన వెంటనే) లేదా PDF షేర్.',
+    'ప్రింట్, వాపసు (క్రెడిట్ నోట్), రద్దు ⋮ మెనూలో. ఇష్యూ చేసిన బిల్లు ఎప్పుడూ మార్చబడదు.',
   ]),
   '/pos/:id/day': _H('Close the day', 'రోజు ముగింపు', [
     'Three steps. 1: is today\'s online money right? Compare with your bank app (a difference -> today\'s bills).',

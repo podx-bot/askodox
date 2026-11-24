@@ -11501,6 +11501,44 @@
           "AskodoxCollectStepsScreen"
         ]
       }
+    },
+    {
+      "id": "invoice_page_three_steps_batch9",
+      "name": "One bill in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 9; old page stays at ?full=1.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Total on top, the bill in the middle, ONE big button (Next bill right after billing, else Share PDF). Print, PDF, text share, return (credit note), cancel and the old page are in the header menu. Returns and cancels keep the record.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 9 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/invoice_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxInvoiceSteps",
+          "askodoxInvoiceStepsNext",
+          "askodoxInvoiceStepsShare"
+        ],
+        "symbols": [
+          "AskodoxInvoiceStepsScreen"
+        ]
+      }
     }
   ]
 }
