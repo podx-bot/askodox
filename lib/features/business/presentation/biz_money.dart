@@ -76,7 +76,7 @@ class _AskodoxBizCashbookScreenState extends ConsumerState<AskodoxBizCashbookScr
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _CashEntrySheet(businessId: widget.businessId, kind: kind),
+      builder: (_) => AskodoxCashEntrySheet(businessId: widget.businessId, kind: kind),
     );
     if (saved == true) await _load();
   }
@@ -237,16 +237,16 @@ class _AskodoxBizCashbookScreenState extends ConsumerState<AskodoxBizCashbookScr
   }
 }
 
-class _CashEntrySheet extends ConsumerStatefulWidget {
-  const _CashEntrySheet({required this.businessId, required this.kind});
+class AskodoxCashEntrySheet extends ConsumerStatefulWidget {
+  const AskodoxCashEntrySheet({required this.businessId, required this.kind});
   final String businessId;
   final String kind;
 
   @override
-  ConsumerState<_CashEntrySheet> createState() => _CashEntrySheetState();
+  ConsumerState<AskodoxCashEntrySheet> createState() => AskodoxCashEntrySheetState();
 }
 
-class _CashEntrySheetState extends ConsumerState<_CashEntrySheet> {
+class AskodoxCashEntrySheetState extends ConsumerState<AskodoxCashEntrySheet> {
   final _amount = TextEditingController();
   final _note = TextEditingController();
   late String _category = widget.kind == 'expense' ? 'stock' : 'advance';

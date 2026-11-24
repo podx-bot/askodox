@@ -328,11 +328,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ASK బార్‌లో ఏం చేయాలో చెప్పండి — మార్పు ముందు చూపించి, ✓ నొక్కాకే చేస్తుంది.',
   ]),
   '/biz/:id/money/cashbook': _H('Cashbook', 'క్యాష్‌బుక్', [
-    'Money in from bills comes by itself, one line a day. Add other money in or out with the two big buttons.',
-    'Or say it: "gas cylinder 1100 expense". Remove a wrong line with the bin — Undo brings it back.',
+    'The number on top is what is left this month. Tap "Write an entry", choose money in or out, type the amount.',
+    'Tap a line to remove a wrong one — Undo brings it back. Other months and the old page: ⋮ at the top.',
   ], [
-    'బిల్లుల డబ్బు రోజుకు ఒక వరుసగా ఆటోగా వస్తుంది. మిగతా ఆదాయం / ఖర్చు రెండు పెద్ద బటన్లతో రాయండి.',
-    'లేదా చెప్పండి: "గ్యాస్ సిలిండర్ 1100 ఖర్చు". తప్పు వరుస చెత్తబుట్టతో తీసేయండి — "వెనక్కి" తో మళ్ళీ వస్తుంది.',
+    'పైన ఉన్న నంబర్ ఈ నెల మిగిలింది. "ఎంట్రీ రాయి" నొక్కి, ఆదాయం / ఖర్చు ఎంచుకుని, మొత్తం రాయండి.',
+    'తప్పు వరుస నొక్కి తీసేయండి — "వెనక్కి" తో మళ్ళీ వస్తుంది. ఇతర నెలలు, పాత పేజీ: పైన ⋮.',
   ]),
   '/biz/:id/money/dues': _H('Dues', 'బాకీలు', [
     'Three steps. 1: tap who paid (the total owed is on top; say or type a name). 2: type how much — "all" is ready; cash or online.',
@@ -349,13 +349,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'బిల్లులు రోజు వారీగా, ఆ రోజు మొత్తంతో.',
   ]),
   '/biz/:id/reports': _H('Reports', 'రిపోర్ట్స్', [
-    'The face shows how the day went. Tap Listen to hear it.',
-    'Each problem says why it happened and one thing to do; Go there opens the page to fix it.',
-    'Switch to 7 or 30 days for bars of each day, weekdays, busy hours, items, spending and staff.',
+    'The number on top is the sales of the day you chose. Problems below say what to do.',
+    'Tap "Change day" for today, yesterday, 7 or 30 days. ⋮ has Listen and the full report with bars.',
   ], [
-    'ముఖం చూస్తే రోజు ఎలా ఉందో తెలుస్తుంది. వినండి నొక్కితే చదివి చెబుతుంది.',
-    'ప్రతి సమస్యకు కారణం, ఏం చేయాలో ఉంటుంది; అక్కడికి వెళ్ళు నొక్కితే సరిచేసే పేజీ.',
-    '7 / 30 రోజులు నొక్కితే రోజూ అమ్మకం, వారం రోజులు, రద్దీ టైం, ఐటమ్స్, ఖర్చులు, సిబ్బంది బార్లలో.',
+    'పైన నంబర్ మీరు ఎంచుకున్న రోజు అమ్మకం. కింద సమస్యలు, ఏం చేయాలో ఉంటాయి.',
+    '"రోజు మార్చు" నొక్కి ఈ రోజు, నిన్న, 7 లేదా 30 రోజులు ఎంచుకోండి. ⋮ లో వినండి, బార్లతో పూర్తి రిపోర్ట్.',
   ]),
   '/biz/:id/reports/day': _H('Day report', 'రోజు రిపోర్ట్', [
     'The report of the day in the night notification.',
@@ -884,11 +882,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పెద్ద బటన్ 3 స్టెప్స్‌లో కస్టమర్‌ని చేరుస్తుంది: పేరు, ఫోన్, అయింది. లిస్ట్ పైన పేరు వెతకవచ్చు.',
   ]),
   '/pos/:id/dues': _H('Baaki reminders', 'బాకీ గుర్తులు', [
-    'From 3 days before each pay date up to the date: tap WhatsApp next to a name -- the message and pay link are ready.',
-    'A date passed? Tap a new date. Customers on ASKODOX are reminded in the app by themselves.',
+    'The number on top is the baaki to collect. Tap "Remind next" -- WhatsApp opens with the message and pay link ready.',
+    'Tap a name for a new pay date. Customers on ASKODOX are reminded in the app by themselves.',
   ], [
-    'కట్టాల్సిన తేదీకి 3 రోజుల ముందు నుంచి ఆ రోజు వరకు: పేరు పక్కన WhatsApp నొక్కండి — మెసేజ్, పే లింక్ రెడీగా ఉంటాయి.',
-    'తేదీ దాటిందా? కొత్త తేదీ నొక్కండి. ASKODOX ఉన్న కస్టమర్లకు యాప్‌లో తానే గుర్తు చేస్తాం.',
+    'పైన నంబర్ రావాల్సిన బాకీ. "తర్వాతి వారికి గుర్తు చేయి" నొక్కండి — మెసేజ్, పే లింక్‌తో WhatsApp తెరుచుకుంటుంది.',
+    'పేరు నొక్కి కొత్త తేదీ పెట్టండి. ASKODOX ఉన్న కస్టమర్లకు యాప్‌లో తానే గుర్తు చేస్తాం.',
   ]),
   '/pos/:id/customers/:cid': _H('Customer account', 'కస్టమర్ ఖాతా', [
     'Received money? Tap "Received".',
@@ -1017,9 +1015,9 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'వారి కోసం కొత్త lead / complaint చేర్చండి, లేదా డబ్బు జమ కోసం account తెరవండి.',
   ]),
   '/pos/:id/invoices': _H('Bills', 'బిల్లులు', [
-    'All issued bills; tap one to print, share, or make a credit note.',
+    'The number on top is the total of your bills. Search by number or name; tap one to print, share, or make a credit note.',
   ], [
-    'ఇష్యూ చేసిన బిల్లులన్నీ; ఒకటి నొక్కి ప్రింట్, షేర్ లేదా క్రెడిట్ నోట్.',
+    'పైన నంబర్ మీ బిల్లుల మొత్తం. నంబర్ / పేరుతో వెతకండి; ఒకటి నొక్కి ప్రింట్, షేర్ లేదా క్రెడిట్ నోట్.',
   ]),
   '/pos/:id/invoice/:iid': _H('Bill', 'బిల్లు', [
     'Print, share the PDF, return items (credit note) or cancel today\'s bill.',
@@ -1243,11 +1241,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'సప్లయర్‌కి ఆర్డర్ తయారు చేసి పంపండి, సరుకు వచ్చినప్పుడు (కొంచెం కొంచెం అయినా) తీసుకోండి.',
   ]),
   '/pos/:id/stock-report': _H('Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ', [
-    'See what expires soon and what your stock is worth at cost.',
-    'Look up a serial / IMEI from the top bar.',
+    'The number on top is your stock value at cost; below are the batches expiring in 60 days.',
+    'The bottom button finds a serial / IMEI.',
   ], [
-    'త్వరలో ఎక్స్‌పైర్ అయ్యేవి, ఖర్చు ధరలో స్టాక్ విలువ చూడండి.',
-    'పై బార్‌లో సీరియల్ / IMEI వెతకండి.',
+    'పైన నంబర్ ఖర్చు ధరలో స్టాక్ విలువ; కింద 60 రోజుల్లో ఎక్స్‌పైర్ అయ్యే బ్యాచ్‌లు.',
+    'కింద బటన్‌తో సీరియల్ / IMEI వెతకండి.',
   ]),
 };
 
