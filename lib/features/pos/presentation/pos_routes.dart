@@ -30,6 +30,7 @@ import '../../steps/presentation/crm_more_steps_screens.dart';
 import '../../steps/presentation/crm_steps_screens.dart';
 import '../../steps/presentation/desk_qr_steps_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
+import '../../steps/presentation/items_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/people_steps_screens.dart';
@@ -197,7 +198,11 @@ final askodoxPosRoutes = <GoRoute>[
           leadId: state.uri.queryParameters['lead'],
           customerId: state.uri.queryParameters['customer'],
           say: state.uri.queryParameters['say'])),
-  GoRoute(path: '/pos/:id/items', builder: (context, state) => AskodoxPosItemsScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/pos/:id/items',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosItemsScreen(businessId: state.pathParameters['id']!)
+          : AskodoxItemsStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/catalogue', builder: (context, state) => AskodoxPosCatalogueScreen(businessId: state.pathParameters['id']!)),
   GoRoute(

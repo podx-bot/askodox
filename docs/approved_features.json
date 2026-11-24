@@ -11650,6 +11650,42 @@
           "AskodoxDeskQrStepsScreen"
         ]
       }
+    },
+    {
+      "id": "items_page_three_steps_batch13",
+      "name": "Items in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 13; old page stays at ?full=1.",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Item count (and low stock) on top, a search and ONE list (tap = that item's page), ONE big button adds an item. Ready list, combos, where to sell and the old page (per-item offer / stock / online switches) are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 13 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/items_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxItemsSteps",
+          "askodoxItemsStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxItemsStepsScreen"
+        ]
+      }
     }
   ]
 }
