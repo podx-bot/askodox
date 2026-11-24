@@ -10972,6 +10972,108 @@
           "askodoxWorkColours"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "PUT",
+          "path": "/api/me/work",
+          "response_keys": [
+            "worker",
+            "links",
+            "docs",
+            "badge"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/workforce",
+          "response_keys": [
+            "authority",
+            "can_browse",
+            "team",
+            "work_types"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/workforce/cards",
+          "response_keys": [
+            "cards"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/hire/options",
+          "response_keys": [
+            "options"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/hire/orders",
+          "response_keys": [
+            "id",
+            "label",
+            "status"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/work/badge",
+          "response_keys": [
+            "has",
+            "steps",
+            "need"
+          ]
+        }
+      ],
+      "dependencies": [
+        "shop_delivery_jobs"
+      ],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Owner plan 2026-11-24 steps 3-6 + changes: a worker puts up a card (work types, area + km, when, 18+ mandatory). The card reaches every GST / Udyam business of a matching Business Kit category (Command Center resource work_types; manpower / HR = every type) -- never the phone number. Invite -> worker joins only if he accepts -> phone to THAT business only, he becomes its delivery person (step-1 jobs). Small shops without GST / Udyam cannot browse (free Udyam help shown). Documents open only with the worker's one-time 6-digit code, view only, 10 minutes. Customers see businesses with prices (and స్వతంత్రుడు workers), book; the order reaches the business and its FREE workers (home-entry work only to police-verified workers, asked once before assigning otherwise). A worker who takes it himself goes, the business is told, money = CASH with him; assigned orders follow the business's money choice. Refusing while green = a minus point (counts as 1 star); not asked while OFF. Worker share = a record the worker confirms. Complaints go to the business with the order number. Ratings only after done + paid, one per order, a customer counts once a month per worker. Badge = days + jobs + rating + no open complaints + own Udyam (Command Center settings workforce.*); first independent jobs capped; paid to his own UPI. Monthly postings to a site with live-face attendance near the site, seen by the business. No advice card (owner 11:40).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: workers under an authority, customer orders, postings, ratings + badge (plan steps 3-6, owner 2026-11-24 12:13 'finish'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "workforce_authorities",
+      "name": "Workforce: workers under an authority",
+      "purpose": "Owner plan 2026-11-24 (design 73xSUHd4dbqVsLgRfCuX9X): ASKODOX cannot verify people; the authority does.",
+      "roles": [
+        "owner",
+        "worker",
+        "customer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_workforce.py"
+        ],
+        "flutter": [
+          "test/features/pos/workforce_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMyWork",
+          "askodoxWorkSave",
+          "askodoxWorkAdult",
+          "askodoxAuthorityTeam",
+          "askodoxHire"
+        ],
+        "symbols": [
+          "AskodoxMyWorkScreen",
+          "AskodoxAuthorityTeamScreen",
+          "AskodoxHireScreen"
+        ]
+      }
     }
   ]
 }

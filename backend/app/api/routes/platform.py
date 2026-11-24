@@ -354,6 +354,12 @@ def platform(container: Any) -> Platform:
             seed_business_kit(existing.resources)
         except Exception:
             pass
+        try:  # work types for workers under an authority (only into an empty store)
+            from app.services.workforce import seed_defaults as seed_work_types
+
+            seed_work_types(existing.resources)
+        except Exception:
+            pass
         try:  # the real-phone acceptance checklist (CODE READY until a phone test)
             from app.services.owner_os import seed_acceptance_checks
 
@@ -370,6 +376,9 @@ def platform(container: Any) -> Platform:
     from app.services import business_kit
 
     business_kit.set_source(lambda: repo.list("business_kit"), key=repo.db_path)
+    from app.services import workforce
+
+    workforce.set_source(lambda: repo.list("work_types"), key=repo.db_path)
     return existing
 
 
