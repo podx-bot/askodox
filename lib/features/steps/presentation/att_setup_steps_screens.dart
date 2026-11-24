@@ -107,7 +107,7 @@ class _AttSetupState extends ConsumerState<AskodoxAttSetupStepsScreen> {
                 SwitchListTile(
                   key: Key('askodoxAttSetupSteps-$key'),
                   contentPadding: EdgeInsets.zero,
-                  value: key == 'own_phone' || key == 'kiosk' ? _s?[key] == true : _s?[key] != false,
+                  value: _switchOn(key),
                   title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text(sub),
                   onChanged: (v) async {
@@ -120,6 +120,13 @@ class _AttSetupState extends ConsumerState<AskodoxAttSetupStepsScreen> {
         );
       }),
     );
+  }
+
+  /// own_phone / kiosk are off until turned on; the no-cheating switches are on until turned off.
+  bool _switchOn(String key) {
+    final v = _s?[key];
+    if (key == 'own_phone' || key == 'kiosk') return v == true;
+    return v != false;
   }
 
   Future<void> _choosePicker(String title, String key, List<int> values, String unit) async {
