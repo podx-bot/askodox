@@ -932,16 +932,16 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'జవాబులు వస్తాయి: వెంటనే / 10 / 20 / 30 ని. / కుదరదు. "ఇవ్వు" నొక్కండి — లేదా "వెంటనే అన్న మొదటివాళ్ళకి" switch ఆన్ చేయండి.',
     'ప్రతి పనికీ షాప్ ఆర్డర్ నంబర్ (#12): క్యాష్, మీ UPI QR, రోజు రిపోర్ట్, ఫిర్యాదులు అన్నీ దానితోనే.',
   ]),
-  '/me/deliveries': _H('My delivery work', 'నా డెలివరీ పని', [
-    'Set your colour: green = free, orange = on a job, red = busy / off. Not changed for 3 hours = grey; after 11 PM = red.',
-    'A shop asks you: answer "I\'ll come now", 10 / 20 / 30 min or can\'t.',
-    'On the job: Directions opens Google Maps; UPI / QR shows the SHOP OWNER\'s QR with the amount — both of you are told when it arrives.',
-    'Done: tap how it was paid (cash / UPI / paid before). Your cash for the day is shown on top.',
+    '/me/deliveries': _H('My delivery work', 'నా డెలివరీ పని', [
+    'Top: your colour. Tap free / on a job / off. Not changed for 3 hours = grey; after 11 PM = red.',
+    'The list: the job you are on first, then the shops asking you. Tap one to answer "I\'ll come now", 10 / 20 / 30 min or can\'t.',
+    'On a job: Directions opens Google Maps; UPI / QR shows the SHOP OWNER\'s QR with the amount. Tap how it was paid when done.',
+    'The big button opens the first job. The old page is in the menu (three dots).',
   ], [
-    'మీ రంగు పెట్టండి: ఆకుపచ్చ = ఖాళీ, ఆరెంజ్ = పనిలో, ఎరుపు = బిజీ / ఆఫ్. 3 గంటలు మార్చకపోతే బూడిద; రాత్రి 11 తర్వాత ఎరుపు.',
-    'షాప్ అడిగితే: "వెంటనే వస్తా", 10 / 20 / 30 ని. లేదా "కుదరదు" నొక్కండి.',
-    'పనిలో: "దారి చూపించు" Google Maps తెరుస్తుంది; UPI / QR = షాప్ ఓనర్ QR, డబ్బు రాగానే ఇద్దరికీ తెలుస్తుంది.',
-    'అయిపోయాక: డబ్బు ఎలా వచ్చిందో నొక్కండి (క్యాష్ / UPI / ముందే కట్టారు). ఈ రోజు మీ దగ్గర ఉన్న క్యాష్ పైన కనిపిస్తుంది.',
+    'పైన మీ రంగు. ఖాళీ / పనిలో / ఆఫ్ నొక్కండి. 3 గంటలు మార్చకపోతే బూడిద; రాత్రి 11 తర్వాత ఎరుపు.',
+    'లిస్ట్: మీరు ఉన్న పని ముందు, తర్వాత అడుగుతున్న షాపులు. ఒకటి నొక్కి "వెంటనే వస్తా", 10 / 20 / 30 ని. లేదా "కుదరదు" చెప్పండి.',
+    'పనిలో: "దారి చూపించు" Google Maps తెరుస్తుంది; UPI / QR = షాప్ ఓనర్ QR. అయ్యాక డబ్బు ఎలా వచ్చిందో నొక్కండి.',
+    'పెద్ద బటన్ మొదటి పనిని తెరుస్తుంది. పాత పేజీ మెనూ (మూడు చుక్కలు) లో ఉంది.',
   ]),
   '/pos/:id/team': _H('Workers & team', 'పని వాళ్ళు & టీమ్', [
     'The number on top is the people in your team. Tap a person to call them.',
