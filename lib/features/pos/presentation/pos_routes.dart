@@ -27,6 +27,7 @@ import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
 import '../../steps/presentation/collect_steps_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
+import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/people_steps_screens.dart';
 import '../../steps/presentation/report_steps_screens.dart';
@@ -215,8 +216,12 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxInvoicesStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/invoice/:iid',
-      builder: (context, state) =>
-          AskodoxPosInvoiceScreen(
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosInvoiceScreen(
+              businessId: state.pathParameters['id']!,
+              invoiceId: state.pathParameters['iid']!,
+              fresh: state.uri.queryParameters['fresh'] == '1')
+          : AskodoxInvoiceStepsScreen(
               businessId: state.pathParameters['id']!,
               invoiceId: state.pathParameters['iid']!,
               fresh: state.uri.queryParameters['fresh'] == '1')),
