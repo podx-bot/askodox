@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #438-#447 (2026-11-24, owner "remaining pages, all in order"; Play bundles `askodox-play-1650.aab` / `askodox-play-1655.aab` before these): 3-STEP WORK PAGES BATCHES 4-14 --
+  `glance_steps_screens.dart` (Baaki reminders `/pos/:id/dues`, Bills `/pos/:id/invoices`, Stock `stock-report`, Cashbook, Reports),
+  `report_steps_screens.dart` (GST, Purchase orders, Bill history, Sales), `account_steps_screens.dart` (customer / supplier account),
+  `person_steps_screens.dart` (one staff member's month `/biz/:id/staff/person/:ref`, Night report settings), `collect_steps_screens.dart`
+  (Collect by UPI), `invoice_steps_screens.dart` (one bill), `crm_steps_screens.dart` (CRM lead), `crm_more_steps_screens.dart` (complaint,
+  customer history), `desk_qr_steps_screens.dart` (shop / table QR), `items_steps_screens.dart` (Items), `pos_staff_steps_screens.dart` (POS
+  staff); every old page stays at `?full=1`. NOT converted (forms / pairing / settings): Desk menu + settings, Printer, `/biz/:id/menu*`,
+  staff setup / kiosk, reports/day, hubs. Nothing phone verified. CI note: `AskodoxStepPersonRow` needs `onTap` (use `() {}`) and a SHORT
+  `amount` word (the row overflows in the wide test font).
 - `main` PR #434 + #435 + #436 (2026-11-24, owner "13 work pages, split 5 at a time, merge each after CI"; Play bundle `askodox-play-1650.aab` = Live Build run 650 on a51022a): 3-STEP WORK PAGES BATCHES 1-3 --
   `order_steps_screens.dart` (Live orders `/desk/:id`, Kitchen, Tables, Suppliers & purchases), `people_steps_screens.dart`
   (Customers, Enquiries `/pos/:id/crm`, Workers & team), `staff_steps_screens.dart` (Today's attendance, Salary); old pages at
