@@ -7,6 +7,7 @@ import 'biz_menu.dart';
 import 'biz_money.dart';
 import 'biz_reports.dart';
 import 'biz_staff.dart';
+import 'biz_work.dart';
 
 /// The business hub's pages (owner 2026-11-18): `/biz/:id` is the hub, `/biz/:id/:group` a group page.
 final askodoxBizRoutes = <GoRoute>[
@@ -49,6 +50,10 @@ final askodoxBizRoutes = <GoRoute>[
   GoRoute(path: '/biz/:id/staff/salary', builder: (c, s) => AskodoxBizSalaryScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/tasks', builder: (c, s) => AskodoxBizTasksScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/setup', builder: (c, s) => AskodoxBizAttSetupScreen(businessId: s.pathParameters['id']!)),
+  // Business Kit ways 3-5 (owner 2026-11-24): before the group catch-all below.
+  GoRoute(path: '/biz/:id/bookings', builder: (c, s) => AskodoxBizBookingsScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(path: '/biz/:id/jobs', builder: (c, s) => AskodoxBizJobsScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(path: '/biz/:id/monthly', builder: (c, s) => AskodoxBizMonthlyScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/:group',
       builder: (c, s) => AskodoxBizGroupScreen(businessId: s.pathParameters['id']!, groupId: s.pathParameters['group']!)),

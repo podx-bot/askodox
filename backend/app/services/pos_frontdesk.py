@@ -20,6 +20,7 @@ Money = integer paise, quantities = milli-units (the POS core's rules).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -370,11 +371,32 @@ class PosFrontDesk:
                 "SELECT name, price_paise FROM pos_products WHERE business_id = ? AND active = 1", (business_id,))}
         default_unit = "plate" if business["template"] in ("restaurant", "bakery") else "pcs"
         out = pos_menu_photo.read_menu(image_service, images, default_unit)
-        for item in out["items"]:
+        return self._preview(business_id, business, existing, out)
+
+    def parse_shelf_photo(self, business_id: str, user: str, images: List[Any], image_service: Any) -> Dict[str, Any]:
+        """Owner 2026-11-24: a photo of a shelf / counter -> every pack on it as a PREVIEW (nothing saved), each with its
+        own cut-out photo, brand, pack and the MRP when printed; what ASKODOX already knows fills the rest."""
+        from app.services import pos_menu_photo
+
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "products")
+            business = self.store._business_row(conn, business_id)
+            existing = {pos_menu_voice.normalize(r["name"]): r["price_paise"] for r in conn.execute(
+                "SELECT name, price_paise FROM pos_products WHERE business_id = ? AND active = 1", (business_id,))}
+        return self._preview(business_id, business, existing, pos_menu_photo.read_shelf(image_service, images))
+
+    def _preview(self, business_id: str, business: Any, existing: Dict[str, int], out: Dict[str, Any]) -> Dict[str, Any]:
+        from app.services.product_master import ProductMaster
+
+        try:  # brand / pack / MRP / pack photo from what shops on ASKODOX already keep (barcoded packs only)
+            items = ProductMaster(self.store.db_path).enrich(out["items"], business_id=business_id)
+        except Exception:
+            items = out["items"]
+        for item in items:
             key = pos_menu_voice.normalize(item["name"])
             item["exists"] = key in existing
             item["old_price_paise"] = existing.get(key)
-        return {"items": out["items"], "read": out["read"], "gst": business["registration_type"] != "unregistered"}
+        return {"items": items, "read": out["read"], "gst": business["registration_type"] != "unregistered"}
 
     def import_menu(self, business_id: str, user: str, items: List[Dict[str, Any]], rate_bp: int = 0) -> Dict[str, Any]:
         if not items or len(items) > 200:
@@ -405,6 +427,7 @@ class PosFrontDesk:
                 created += 1
             group = _clean(raw.get("menu_group"), 40)
             food = str(raw.get("food_type") or "")
+            self._import_details(business_id, product_id, raw)
             with self.store._tx() as conn:
                 conn.execute("UPDATE pos_products SET only_on = ?, sold_out_on = NULL WHERE id = ? AND business_id = ?",
                              (today if raw.get("today_only") else None, product_id, business_id))
@@ -416,6 +439,58 @@ class PosFrontDesk:
                                                 " AND id != ?", (business_id, printed, product_id)).fetchone():
                     conn.execute("UPDATE pos_products SET item_no = ? WHERE id = ?", (printed, product_id))
         return {"created": created, "updated": updated}
+
+    def _import_details(self, business_id: str, product_id: str, raw: Dict[str, Any]) -> None:
+        """What a photo / ASKODOX knew of an imported item: barcode, brand / pack / MRP (item details) and a pack photo
+        -- each only where the item has none yet (the owner's own entries are never overwritten)."""
+        import base64
+
+        from app.services.product_master import ProductMaster, clean_barcode
+
+        barcode = clean_barcode(raw.get("barcode"))
+        details = {k: str(raw.get(k) or "").strip()[:40] for k in ("brand", "pack") if str(raw.get(k) or "").strip()}
+        mrp = raw.get("mrp_paise")
+        if isinstance(mrp, int) and mrp > 0:
+            details["mrp"] = f"{mrp / 100:g}"
+        image, mime = None, None
+        if raw.get("photo_b64"):
+            try:
+                image = base64.b64decode(str(raw["photo_b64"]), validate=False)
+                mime = "image/jpeg" if image[:3] == b"\xff\xd8\xff" else ("image/png" if image[:8] == b"\x89PNG\r\n\x1a\n" else None)
+            except Exception:
+                image = None
+        elif raw.get("photo"):
+            try:
+                found = ProductMaster(self.store.db_path).photo(str(raw["photo"]))
+                if found:
+                    image, mime = found
+            except Exception:
+                image = None
+        if not (barcode or details or (image and mime)):
+            return
+        now = self._now().isoformat()
+        with self.store._tx() as conn:
+            row = conn.execute("SELECT barcode, attributes FROM pos_products WHERE id = ? AND business_id = ?",
+                               (product_id, business_id)).fetchone()
+            if row is None:
+                return
+            if barcode and not row["barcode"] and not conn.execute(
+                    "SELECT 1 FROM pos_products WHERE business_id = ? AND barcode = ? AND id != ?",
+                    (business_id, barcode, product_id)).fetchone():
+                conn.execute("UPDATE pos_products SET barcode = ? WHERE id = ?", (barcode, product_id))
+            if details:
+                try:
+                    have = json.loads(row["attributes"] or "{}") or {}
+                except ValueError:
+                    have = {}
+                merged = {**details, **{k: v for k, v in have.items() if v not in (None, "")}}
+                conn.execute("UPDATE pos_products SET attributes = ? WHERE id = ?",
+                             (json.dumps(merged, ensure_ascii=False), product_id))
+            if image and mime and len(image) <= 300_000 and not conn.execute(
+                    "SELECT 1 FROM pos_product_photos WHERE product_id = ?", (product_id,)).fetchone():
+                conn.execute("INSERT INTO pos_product_photos (business_id, product_id, image, mime, updated_at)"
+                             " VALUES (?, ?, ?, ?, ?)", (business_id, product_id, sqlite3.Binary(image), mime, now))
+                conn.execute("UPDATE pos_products SET photo_at = ? WHERE id = ?", (now, product_id))
 
     def set_availability(self, business_id: str, user: str, product_id: str, available: bool) -> Dict[str, Any]:
         with self.store._tx() as conn:
@@ -544,7 +619,7 @@ class PosFrontDesk:
         words = " " + str(text or "").lower() + " "
         asked = [k for k, cues in self._ASKS.items() if any(c in words for c in cues)]
         if not asked:
-            return ""
+            return self._shop_qa(business_id, text, te)
         profile: Dict[str, Any] = {}
         name = ""
         try:
@@ -587,7 +662,44 @@ class PosFrontDesk:
                 for m in hits[:4]:
                     p = int(m["price_paise"])
                     lines.append(f"• {m['name']}: ₹{p // 100}" if p % 100 == 0 else f"• {m['name']}: ₹{p / 100:.2f}")
-        return "\n".join(dict.fromkeys(lines))
+        return "\n".join(dict.fromkeys(lines)) or self._shop_qa(business_id, text, te)
+
+    def _shop_qa(self, business_id: str, text: str, te: bool) -> str:
+        """Business Kit (owner 2026-11-24): a question this kind of business is usually asked, or the customer's own,
+        answered from the OWNER's answer. Not answered yet -> said so, and the owner is told (once a day per question)
+        to answer it once for everyone. Never a guess."""
+        from app.services import business_kit
+        from app.services.shop_follows import ShopFollows
+
+        try:
+            qa = ShopFollows(self.store.db_path)
+            known = qa.known_answers(business_id)
+            hit = business_kit.match_question(text, known)
+            if hit and hit["answer"]:
+                return f"💬 {hit['answer']}"
+            if hit is None:
+                if not business_kit.looks_like_question(text):
+                    return ""
+                with self.store._connect() as conn:
+                    menu = self._menu(conn, business_id, everything=True)
+                heard = pos_menu_voice.assist(text, menu, te=te, cart=[], last_items=[]) if menu else {}
+                if heard.get("add") or heard.get("suggest") or heard.get("options"):
+                    return ""  # it names an item (any script): the menu card answers that
+                norm = " ".join(business_kit.tokens(text))
+                hit = {"key": "c:" + hashlib.sha1(norm.encode("utf-8")).hexdigest()[:12],
+                       "question": " ".join(str(text).split()), "source": "customer"}
+            with self.store._connect() as conn:
+                row = conn.execute("SELECT name, owner_user_id FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
+            if row is None:
+                return ""
+            if qa.asked(business_id, hit["key"], hit["question"], hit["source"]):
+                self.notify(row["owner_user_id"], "కస్టమర్ ప్రశ్న / A customer asked", hit["question"][:120],
+                            f"/me/business/{business_id}/profile?qa=1",
+                            f"shopqa:{business_id}:{hit['key']}:{datetime.now(timezone.utc).date().isoformat()}")
+            return (f"{row['name']} ఈ వివరం ఇంకా ASKODOX లో పెట్టలేదు. షాప్‌కి తెలియజేశాం." if te
+                    else f"{row['name']} has not added this on ASKODOX yet. We have told the shop.")
+        except Exception:
+            return ""
 
     @staticmethod
     def _km(a: tuple, b: tuple) -> float:

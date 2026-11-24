@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/flags/askodox_release_phase.dart';
-import '../business/presentation/biz_hub.dart' show AskodoxBizKind, askodoxBizKind, askodoxBizRoute;
+import '../business/presentation/biz_hub.dart' show AskodoxBizKind, askodoxBizKindOf, askodoxBizRoute, askodoxKitFlows;
 import '../pos/data/pos_repository.dart' show AskodoxJson;
 import '../pos/domain/shop_page_names.dart';
 import 'launcher_layout.dart';
@@ -81,6 +81,14 @@ const askodoxBuyerPages = <AskodoxLaunchPage>[
       route: '/order-desk/enter', keyName: 'askodoxShoppingOrderCode'),
   AskodoxLaunchPage('b.updates', 'My orders & updates', 'నా ఆర్డర్లు', Icons.local_shipping_outlined, Color(0xFF7C3AED),
       route: '/updates'),
+  // Business Kit (owner 2026-11-24): what I booked, gave for repair / stitching, pay monthly; and photo try-on.
+  AskodoxLaunchPage('b.bookings', 'My bookings', 'నా బుకింగ్స్', Icons.event_available_rounded, Color(0xFF0D9488),
+      route: '/me/bookings'),
+  AskodoxLaunchPage('b.jobs', 'My repairs & orders', 'నా రిపేర్లు & ఆర్డర్లు', Icons.build_circle_rounded, Color(0xFFEA580C),
+      route: '/me/jobs'),
+  AskodoxLaunchPage('b.monthly', 'My monthly plans', 'నా నెలవారీ', Icons.event_repeat_rounded, Color(0xFF7C3AED),
+      route: '/me/monthly'),
+  AskodoxLaunchPage('b.tryon', 'Try it on me', 'ట్రై చేసి చూడు', Icons.checkroom_rounded, Color(0xFFDB2777), route: '/try-on'),
   AskodoxLaunchPage('b.following', 'Shops I follow', 'ఫాలో షాప్‌లు', Icons.favorite_rounded, Color(0xFFDC2626),
       route: '/me/following', keyName: 'askodoxShoppingFollowing'),
   AskodoxLaunchPage('b.shopfeed', 'Shop updates', 'షాప్ అప్‌డేట్స్', Icons.newspaper_rounded, Color(0xFF0284C7),
@@ -119,7 +127,7 @@ AskodoxLaunchLayout askodoxBuyerShippedLayout() =>
 /// - `staff`: only someone working there (my month's attendance and salary).
 class _SellerSpec {
   const _SellerSpec(this.id, this.page, this.en, this.te, this.icon, this.color,
-      {this.who = 'all', this.tool, this.perm, this.food = false, this.staffEn, this.staffTe});
+      {this.who = 'all', this.tool, this.perm, this.food = false, this.staffEn, this.staffTe, this.flow});
   final String id, page, en, te;
   final IconData icon;
   final Color color;
@@ -134,6 +142,9 @@ class _SellerSpec {
 
   /// The name a staff member sees ("My attendance" instead of "Today's attendance").
   final String? staffEn, staffTe;
+
+  /// Business Kit way of working the shop must have ('3' bookings, '4' job cards, '5' monthly); null = every shop.
+  final String? flow;
 }
 
 const _sellerSpecs = <_SellerSpec>[
@@ -141,6 +152,13 @@ const _sellerSpecs = <_SellerSpec>[
       tool: 'sale', perm: 'sell'),
   _SellerSpec('s.orders', 'orders.incoming', 'Incoming orders', 'వచ్చిన ఆర్డర్లు', Icons.inbox_rounded, Color(0xFF2563EB),
       tool: 'desk', perm: 'tables|kitchen|sell|deliver'),
+  // Business Kit ways 3-5 (owner 2026-11-24): only for shops that work that way.
+  _SellerSpec('s.bookings', 'orders.bookings', 'Bookings', 'బుకింగ్స్', Icons.event_available_rounded, Color(0xFF0D9488),
+      tool: 'customers|sale', perm: 'customers', flow: '3'),
+  _SellerSpec('s.jobs', 'orders.jobs', 'Job cards', 'జాబ్ కార్డ్స్', Icons.build_circle_rounded, Color(0xFFEA580C),
+      tool: 'customers|sale', perm: 'customers', flow: '4'),
+  _SellerSpec('s.monthly', 'money.monthly', 'Monthly members', 'నెలవారీ సభ్యులు', Icons.event_repeat_rounded,
+      Color(0xFF7C3AED), tool: 'customers|sale', perm: 'customers', flow: '5'),
   _SellerSpec('s.dues', 'money.dues', 'Dues', 'బాకీలు', Icons.menu_book_rounded, Color(0xFFEA580C),
       tool: 'dues|customers', perm: 'customers|sell'),
   _SellerSpec('s.qr', 'money.accounts', 'My QR / accounts', 'నా QR / ఖాతాలు', Icons.qr_code_2_rounded, Color(0xFF10204A),
@@ -246,12 +264,14 @@ bool _sees(_SellerSpec spec, String role, AskodoxJson business) {
 /// gave them plus their OWN check in, attendance, tasks and month (a person can own a shop AND work in another one;
 /// each shop shows that person's side of it). Phase 2 screens stay out; tables + kitchen only for a hotel.
 List<AskodoxLaunchPage> askodoxSellerPages(String businessId, AskodoxJson business) {
-  final food = askodoxBizKind(business['template']) == AskodoxBizKind.food;
+  final food = askodoxBizKindOf(business) == AskodoxBizKind.food;
+  final flows = askodoxKitFlows(business);
   final role = '${business['my_role'] ?? business['role'] ?? ''}';
   final staff = role != 'owner';
   final out = <AskodoxLaunchPage>[];
   for (final s in _sellerSpecs) {
     if (s.food && !food) continue;
+    if (s.flow != null && !flows.contains(s.flow)) continue;
     final route = _sellerRoute(businessId, s.page);
     if (!askodoxRouteShownNow(route) || !_sees(s, role, business)) continue;
     // ONE name per shop page (owner 2026-11-24): a shop page is called what `shop_page_names.dart` calls it everywhere.
@@ -273,6 +293,9 @@ List<AskodoxLaunchPage> askodoxSellerPages(String businessId, AskodoxJson busine
 AskodoxLaunchLayout askodoxSellerShippedLayout() => const AskodoxLaunchLayout([
       AskodoxLaunchEntry.page('s.bill'),
       AskodoxLaunchEntry.page('s.orders'),
+      AskodoxLaunchEntry.page('s.bookings'),
+      AskodoxLaunchEntry.page('s.jobs'),
+      AskodoxLaunchEntry.page('s.monthly'),
       AskodoxLaunchEntry.page('s.checkin'),
       AskodoxLaunchEntry.page('s.attendance'),
       AskodoxLaunchEntry.page('s.mymonth'),

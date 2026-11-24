@@ -1,7 +1,9 @@
 import 'package:go_router/go_router.dart';
 
+import '../../business/presentation/biz_work.dart' show AskodoxShopBookScreen, AskodoxMyWorkScreen;
 import '../../pos/presentation/shop_rating_screens.dart';
 import '../../steps/presentation/bill_steps_screen.dart';
+import '../../try_on/try_on_screen.dart';
 import 'my_business_screens.dart';
 import 'shop_follow_screens.dart';
 import 'shop_post_screens.dart';
@@ -13,6 +15,18 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(
       path: '/shops/:id',
       builder: (context, state) => AskodoxShopPageScreen(businessId: state.pathParameters['id']!)),
+  // Business Kit (owner 2026-11-24): a customer books; their own bookings, job cards and monthly plans.
+  GoRoute(path: '/shops/:id/book', builder: (context, state) => AskodoxShopBookScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/me/bookings', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'bookings')),
+  GoRoute(path: '/me/jobs', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'jobs')),
+  GoRoute(path: '/me/monthly', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'monthly')),
+  // Photo try-on: ?image=<item photo url>&name=<item>&mode=on_me|in_home (from a result card, or empty).
+  GoRoute(
+      path: '/try-on',
+      builder: (context, state) => AskodoxTryOnScreen(
+          imageUrl: state.uri.queryParameters['image'] ?? '',
+          itemName: state.uri.queryParameters['name'] ?? '',
+          mode: state.uri.queryParameters['mode'] ?? 'on_me')),
   GoRoute(
       path: '/shops/:id/post',
       builder: (context, state) => AskodoxShopPostScreen(businessId: state.pathParameters['id']!)),
@@ -21,7 +35,9 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(path: '/me/business', builder: (context, state) => const AskodoxMyBusinessScreen()),
   GoRoute(
       path: '/me/business/:id/profile',
-      builder: (context, state) => AskodoxBusinessProfileScreen(businessId: state.pathParameters['id']!)),
+      // ?qa=1 (owner push "A customer asked"): the customer questions open at once.
+      builder: (context, state) => AskodoxBusinessProfileScreen(
+          businessId: state.pathParameters['id']!, openQuestions: state.uri.queryParameters['qa'] == '1')),
   GoRoute(
       path: '/me/business/:id/bill',
       // Owner 2026-11-22: the 3-step bill (items -> how paid -> done); the full page (GST, advance, edit) at ?full=1.

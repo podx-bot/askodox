@@ -1031,6 +1031,27 @@ this file, don't trust it blindly.
   amount (`askodoxPosPayQr`, `askodoxDefaultUpi` of `myPaymentMethods`, fetched only when UPI is chosen); way "బాకీ" /
   Due (`askodoxPosPayWay-due`) = the rest is a due: no customer -> name / phone + pay-by day in the sheet
   (`AskodoxPosPayResult`), the screen finds / adds the customer (`_dueCustomer`, walk-in prices kept) + `setDueDate`.
+- Business Kit (owner 2026-11-24) = `business_kit.py` (23 categories / 200 sub-categories, ways of working 1-6,
+  shop kind + catalogue per sub-category, customer questions, try-on) seeded ONCE into the Command Center resource
+  `business_kit` (parent blank = category) and read back via `set_source` (30 s cache). Shop picks = profile
+  `category` / `subcategory` (main) + `more` (keys, comma separated); the MAIN pick sets `pos_businesses.template` +
+  `catalogue_template` when it changes; `business()` / `my_businesses()` / shop state carry `kit` (`page_family` food /
+  service / retail from the union of flows + the main pick's first flow) -> app `askodoxBizKindOf` /
+  `askodoxPosHasTables` (never decide pages from a category name). Customer questions: `shop_qa` table
+  (`ShopFollows.questions / save_answers / asked / known_answers`), answered in `PosFrontDesk._shop_qa` from the
+  owner's answer only; unanswered -> owner push once a day per question (`/me/business/:id/profile?qa=1`). Old
+  category keys must keep resolving (`tests/test_business_kit.py` OLD_KEYS). Flows 3-6 have no screens yet.
+- Items come in by themselves (owner 2026-11-24): `product_master.py` = barcoded packs only (name / brand / pack / MRP /
+  photo shared across shops; never a selling price, never a dish photo); barcode -> Open Food Facts once (ODbL, a miss
+  remembered, network errors not), MRP fills the price only when empty. Shelf / packet photo = `pos_menu_photo.read_shelf`
+  (Gemini boxes 0-1000 -> Pillow crops). Shop route `/barcode-lookup` (NOT `products/lookup`: pos.py `products/{id}` wins).
+- Ways 3-5 = `pos_work.py` (`PosBookings` slot-by-minutes or day = noon in / 11 AM out IST, never two on one thing;
+  `PosJobs` token -> received / working / ready / delivered, ready -> `app-phone-<10>` push or WhatsApp text;
+  `PosMonthly` dues made lazily per month) + `routes/pos_work.py`; perms settings (setup) / customers (work) / collect
+  (pay). Money is only recorded. Tiles appear only for shops whose kit flows hold 3 / 4 / 5 (`askodoxKitFlows`).
+- Photo try-on = `POST /api/images/try-on` (image_studio.py; on_me needs consent, revealing wear refused BEFORE the
+  provider, same daily cap + AI Credits as edits, labelled AI picture, nothing stored) + app `/try-on`
+  (`try_on_screen.dart`); result cards with an https photo carry `askodoxTryOn-<id>`.
 - ONE name per shop page (owner 2026-11-24, "New bill" + "Counter bill" pins opened one page): `askodoxShopPageNames`
   (`pos/domain/shop_page_names.dart`) names it everywhere (Money pages, dashboard, `/my-shop/<tool>`, guide, chat buttons,
   ASK bar); pins are one per page (`askodoxSamePage`). Rule `.claude/rules/shop-page-names.md`.

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.api.routes.pos import _store, _user
 from app.services.pos_store import PosError
+from app.services import business_kit
 from app.services.shop_follows import ShopFollows, shop_categories
 
 router = APIRouter(tags=["Shop follows"])
@@ -32,7 +33,18 @@ def _call(fn, *args) -> Dict[str, Any]:
 def categories(request: Request) -> Dict[str, Any]:
     """Ready-to-pick shop categories + sub-categories (registered BEFORE /api/shops/{business_id})."""
     _user(request, bucket="shop_follow", limit=240)
-    return {"categories": shop_categories()}
+    _kit_source(request)
+    return {"categories": shop_categories(), "flows": business_kit.flows_info()}
+
+
+def _kit_source(request: Request) -> None:
+    """Make sure the Command Center's Business Kit edits are read (platform() sets the source)."""
+    try:
+        from app.api.routes.platform import platform
+
+        platform(request.app.state.container)
+    except Exception:
+        pass
 
 
 @router.get("/api/shops/{business_id}")
@@ -112,9 +124,32 @@ class ShopProfileIn(BaseModel):
     reg_number: str = Field(default="", max_length=120)
     lat: str = Field(default="", max_length=20, pattern=r"^(-?\d{1,2}(\.\d{1,8})?)?$")
     lng: str = Field(default="", max_length=20, pattern=r"^(-?\d{1,3}(\.\d{1,8})?)?$")
+    more: str = Field(default="", max_length=1200)  # Business Kit: the other sub-categories (keys, comma separated)
 
 
 @router.put("/api/shops/{business_id}/profile")
 def save_shop_profile(business_id: str, body: ShopProfileIn, request: Request) -> Dict[str, Any]:
     user = _user(request, bucket="shop_profile", limit=60)
     return _call(_service(request).save_profile, business_id, user, body.model_dump())
+
+
+class ShopAnswersIn(BaseModel):
+    answers: Dict[str, str] = Field(default_factory=dict)
+
+
+@router.get("/api/shops/{business_id}/questions")
+def shop_questions(business_id: str, request: Request) -> Dict[str, Any]:
+    """Owner: what customers ask this shop (its picks' usual questions + customers' own), with the answers given."""
+    user = _user(request, bucket="shop_profile", limit=120)
+    _kit_source(request)
+    return _call(_service(request).questions, business_id, user)
+
+
+@router.put("/api/shops/{business_id}/answers")
+def save_shop_answers(business_id: str, body: ShopAnswersIn, request: Request) -> Dict[str, Any]:
+    """Owner: answers given once; customers asking in the chat then get them."""
+    if len(body.answers) > 200:
+        raise HTTPException(status_code=400, detail={"code": "too_many", "message": "At most 200 answers at a time."})
+    user = _user(request, bucket="shop_profile", limit=60)
+    _kit_source(request)
+    return _call(_service(request).save_answers, business_id, user, body.answers)

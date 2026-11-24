@@ -27,6 +27,9 @@ const askodoxShopPageNames = <String, (String, String)>{
   '/pos/<id>/advance': ('Shop advance', 'షాప్ అడ్వాన్స్'),
   '/pos/<id>/selfshop': ('Self-shopping', 'సెల్ఫ్ షాపింగ్'),
   '/pos/<id>/crm': ('Enquiries', 'ఎంక్వైరీలు'),
+  '/biz/<id>/bookings': ('Bookings', 'బుకింగ్స్'),
+  '/biz/<id>/jobs': ('Job cards', 'జాబ్ కార్డ్స్'),
+  '/biz/<id>/monthly': ('Monthly members', 'నెలవారీ సభ్యులు'),
 };
 
 /// `/my-shop/<tool>` (chat + pins, "the person's own shop") -> the shop page it opens.

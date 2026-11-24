@@ -348,6 +348,12 @@ def platform(container: Any) -> Platform:
             seed_catalogue(existing.resources)
         except Exception:
             pass
+        try:  # the Business Kit: shop categories -> sub-categories and how each works (only into an empty store)
+            from app.services.business_kit import seed_defaults as seed_business_kit
+
+            seed_business_kit(existing.resources)
+        except Exception:
+            pass
         try:  # the real-phone acceptance checklist (CODE READY until a phone test)
             from app.services.owner_os import seed_acceptance_checks
 
@@ -361,6 +367,9 @@ def platform(container: Any) -> Platform:
     from app.services import catalogue_templates
 
     catalogue_templates.set_source(lambda: repo.list("catalog_templates"))
+    from app.services import business_kit
+
+    business_kit.set_source(lambda: repo.list("business_kit"), key=repo.db_path)
     return existing
 
 

@@ -220,6 +220,11 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
     }
   }
 
+  Set<String> _kitFlows(AskodoxJson page) {
+    final flows = askodoxPosMap(page['kit'])['flows'];
+    return flows is List ? {for (final f in flows) '$f'} : const <String>{};
+  }
+
   String _category(AskodoxJson prof, bool te) {
     final labels = askodoxPosMap(prof['labels']);
     String pick(String key) => '${askodoxPosMap(labels[key])[te ? 'te' : 'en'] ?? ''}';
@@ -315,8 +320,13 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
             else
               action('askodoxShopFollow', following ? Icons.check : Icons.add,
                   following ? (te ? 'ఫాలో ✓' : 'Following') : (te ? 'ఫాలో' : 'Follow'), () => _follow(following), 0),
-            action('askodoxShopMenu', Icons.restaurant_menu, te ? 'మెనూ' : 'Menu',
-                () => context.push('/order-desk?code=${Uri.encodeQueryComponent('${p['code']}')}'), 1),
+            // Business Kit (owner 2026-11-24): a shop that takes bookings shows Book; one that sells shows Menu.
+            if (_kitFlows(p).contains('3'))
+              action('askodoxShopBook', Icons.event_available_outlined, te ? 'బుక్' : 'Book',
+                  () => context.push('/shops/${widget.businessId}/book'), 1),
+            if (!_kitFlows(p).contains('3') || _kitFlows(p).contains('1') || _kitFlows(p).contains('2'))
+              action('askodoxShopMenu', Icons.restaurant_menu, te ? 'మెనూ' : 'Menu',
+                  () => context.push('/order-desk?code=${Uri.encodeQueryComponent('${p['code']}')}'), 1),
             action('askodoxShopDirections', Icons.directions_outlined, te ? 'దారి' : 'Directions', () {
               final lat = '${prof['lat'] ?? ''}', lng = '${prof['lng'] ?? ''}';
               unawaited(_open(lat.isNotEmpty && lng.isNotEmpty
