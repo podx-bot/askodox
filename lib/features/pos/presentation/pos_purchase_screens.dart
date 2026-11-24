@@ -555,6 +555,91 @@ class AskodoxPosStockReportScreen extends ConsumerWidget {
 }
 
 
+/// New purchase order dialog (shared by the old page and the 3-step page). True when an order was saved.
+Future<bool> askodoxCreatePurchaseOrder(BuildContext context, WidgetRef ref, String businessId) async {
+  final te = askodoxPosTe(context);
+  final repo = ref.read(askodoxPosRepositoryProvider);
+  List<AskodoxJson> suppliers;
+  List<AskodoxJson> products;
+  try {
+    suppliers = await repo.suppliers(businessId);
+    products = await repo.products(businessId);
+  } on AskodoxPosException catch (e) {
+    if (context.mounted) askodoxPosSnack(context, e.message(te));
+    return false;
+  }
+  if (!context.mounted) return false;
+  if (suppliers.isEmpty || products.isEmpty) {
+    askodoxPosSnack(context, te ? 'ముందు సప్లయర్, సరుకులు జోడించండి.' : 'Add a supplier and items first.');
+    return false;
+  }
+  String supplierId = '${suppliers.first['id']}';
+  final lines = <(AskodoxJson, TextEditingController, String?)>[];
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setLocal) => AlertDialog(
+        title: Text(te ? 'కొత్త కొనుగోలు ఆర్డర్' : 'New purchase order'),
+        content: SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              DropdownButtonFormField<String>(
+                initialValue: supplierId,
+                isExpanded: true,
+                items: [for (final s in suppliers) DropdownMenuItem(value: '${s['id']}', child: Text('${s['name']}'))],
+                onChanged: (v) => setLocal(() => supplierId = v ?? supplierId),
+              ),
+              for (var i = 0; i < lines.length; i++)
+                Row(children: [
+                  Expanded(child: Text('${lines[i].$1['name']}')),
+                  SizedBox(width: 90, child: AskodoxPosField(controller: lines[i].$2, number: true, label: lines[i].$3 ?? '${lines[i].$1['unit']}')),
+                ]),
+              DropdownButton<String>(
+                key: const Key('askodoxPosPoAddItem'),
+                hint: Text(te ? 'సరుకు జోడించు' : 'Add item'),
+                isExpanded: true,
+                items: [
+                  for (final p in products) ...[
+                    DropdownMenuItem(value: '${p['id']}|', child: Text('${p['name']} (${p['unit']})')),
+                    for (final k in askodoxPosList(p['packs']))
+                      DropdownMenuItem(value: '${p['id']}|${k['name']}', child: Text('${p['name']} (${k['name']})')),
+                  ],
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  final parts = v.split('|');
+                  final product = products.firstWhere((p) => p['id'] == parts[0]);
+                  setLocal(() => lines.add((product, TextEditingController(text: '1'), parts[1].isEmpty ? null : parts[1])));
+                },
+              ),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'రద్దు' : 'Cancel')),
+          FilledButton(key: const Key('askodoxPosPoSave'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
+        ],
+      ),
+    ),
+  );
+  if (ok != true || lines.isEmpty || !context.mounted) return false;
+  try {
+    await repo.createPurchaseOrder(businessId, {
+      'supplier_id': supplierId,
+      'lines': [
+        for (final l in lines)
+          if ((askodoxParseMilli(l.$2.text) ?? 0) > 0)
+            {'product_id': l.$1['id'], 'qty_milli': askodoxParseMilli(l.$2.text), if (l.$3 != null) 'pack': l.$3},
+      ],
+    });
+    return true;
+  } on AskodoxPosException catch (e) {
+    if (context.mounted) askodoxPosSnack(context, e.message(te));
+    return false;
+  }
+}
+
 /// Purchase orders: what the shop asks a supplier for. Not stock and not money owed
 /// until the supplier's bill is recorded against the order.
 class AskodoxPosPurchaseOrdersScreen extends ConsumerStatefulWidget {
@@ -579,86 +664,7 @@ class _AskodoxPosPurchaseOrdersScreenState extends ConsumerState<AskodoxPosPurch
   });
 
   Future<void> _create() async {
-    final te = askodoxPosTe(context);
-    final repo = ref.read(askodoxPosRepositoryProvider);
-    List<AskodoxJson> suppliers;
-    List<AskodoxJson> products;
-    try {
-      suppliers = await repo.suppliers(widget.businessId);
-      products = await repo.products(widget.businessId);
-    } on AskodoxPosException catch (e) {
-      if (mounted) askodoxPosSnack(context, e.message(te));
-      return;
-    }
-    if (!mounted) return;
-    if (suppliers.isEmpty || products.isEmpty) {
-      askodoxPosSnack(context, te ? 'ముందు సప్లయర్, సరుకులు జోడించండి.' : 'Add a supplier and items first.');
-      return;
-    }
-    String supplierId = '${suppliers.first['id']}';
-    final lines = <(AskodoxJson, TextEditingController, String?)>[];
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text(te ? 'కొత్త కొనుగోలు ఆర్డర్' : 'New purchase order'),
-          content: SizedBox(
-            width: 380,
-            child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                DropdownButtonFormField<String>(
-                  initialValue: supplierId,
-                  isExpanded: true,
-                  items: [for (final s in suppliers) DropdownMenuItem(value: '${s['id']}', child: Text('${s['name']}'))],
-                  onChanged: (v) => setLocal(() => supplierId = v ?? supplierId),
-                ),
-                for (var i = 0; i < lines.length; i++)
-                  Row(children: [
-                    Expanded(child: Text('${lines[i].$1['name']}')),
-                    SizedBox(width: 90, child: AskodoxPosField(controller: lines[i].$2, number: true, label: lines[i].$3 ?? '${lines[i].$1['unit']}')),
-                  ]),
-                DropdownButton<String>(
-                  key: const Key('askodoxPosPoAddItem'),
-                  hint: Text(te ? 'సరుకు జోడించు' : 'Add item'),
-                  isExpanded: true,
-                  items: [
-                    for (final p in products) ...[
-                      DropdownMenuItem(value: '${p['id']}|', child: Text('${p['name']} (${p['unit']})')),
-                      for (final k in askodoxPosList(p['packs']))
-                        DropdownMenuItem(value: '${p['id']}|${k['name']}', child: Text('${p['name']} (${k['name']})')),
-                    ],
-                  ],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    final parts = v.split('|');
-                    final product = products.firstWhere((p) => p['id'] == parts[0]);
-                    setLocal(() => lines.add((product, TextEditingController(text: '1'), parts[1].isEmpty ? null : parts[1])));
-                  },
-                ),
-              ]),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(te ? 'రద్దు' : 'Cancel')),
-            FilledButton(key: const Key('askodoxPosPoSave'), onPressed: () => Navigator.pop(ctx, true), child: Text(te ? 'సేవ్' : 'Save')),
-          ],
-        ),
-      ),
-    );
-    if (ok != true || lines.isEmpty || !mounted) return;
-    try {
-      await repo.createPurchaseOrder(widget.businessId, {
-        'supplier_id': supplierId,
-        'lines': [
-          for (final l in lines)
-            if ((askodoxParseMilli(l.$2.text) ?? 0) > 0)
-              {'product_id': l.$1['id'], 'qty_milli': askodoxParseMilli(l.$2.text), if (l.$3 != null) 'pack': l.$3},
-        ],
-      });
-      _reload();
-    } on AskodoxPosException catch (e) {
-      if (mounted) askodoxPosSnack(context, e.message(te));
-    }
+    if (await askodoxCreatePurchaseOrder(context, ref, widget.businessId)) _reload();
   }
 
   @override

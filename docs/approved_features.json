@@ -11347,6 +11347,48 @@
           "AskodoxReportsStepsScreen"
         ]
       }
+    },
+    {
+      "id": "glance_pages_three_steps_batch5",
+      "name": "GST summary, Purchase orders, Bill history and Sales in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule for the remaining pages, batch 5; old pages stay at ?full=1.",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "GST: GST of the month on top, one row per rate, big button = change month. Purchase orders: orders waiting for goods on top, one row per order (tap = the order), big button = new order. Bill history: total on top, search, one row per bill, big button = change day. Sales: sales on top, how it was paid and best sellers, big button = change period. The old pages open at ?full=1.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 5 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/report_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxGstSteps",
+          "askodoxPurchaseOrdersSteps",
+          "askodoxBillHistorySteps",
+          "askodoxSalesSteps"
+        ],
+        "symbols": [
+          "AskodoxGstStepsScreen",
+          "AskodoxPurchaseOrdersStepsScreen",
+          "AskodoxBillHistoryStepsScreen",
+          "AskodoxSalesStepsScreen",
+          "askodoxCreatePurchaseOrder"
+        ]
+      }
     }
   ]
 }
