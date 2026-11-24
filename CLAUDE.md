@@ -7,6 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1667.aab` = Live Build run 667 on 2fb46e9; owner: one payment
+  said twice (second message an hour later / two at once), voice cut before the last word then said again, 9 pm count 4-5 times):
+  `pickSamePayment` checks the SAME reference before the same-app rule (same RRN from the same app / SMS app = same money);
+  two apps of ONE kind join only WITH PROOF (same payer id / name or the very same text `messageKey`) within
+  `SAME_KIND_APPS_MS` 10 min -- never on amount + time (owner: two customers can pay the same amount at once); payer id
+  compared before '@'; `Row.apps` / `Row.textKeys` (event `merged_keys` / `text_keys`). Shop push vs this phone's own
+  message: `claimHeard` pairs one local + one remote per shop + amount within 2 h (prefs `voice_heard`, was 2 min). Voice:
+  `PaymentVoicePack.joinMp3` (frames only, no ID3 / Info frame mid-file) + `mp3DurationMs` -> `Player` limit; a voice already
+  heard is never repeated (`sayAgainAfterFailure`). Night = ONE voice per phone (`nightTotal`, mark `night_said:<day>`).
+  Skill rules 12-15. Bank SMS vs app notification amount-only 2 h join kept (owner asked whether to change it -- open).
+  Nothing phone verified.
 - `main` PR #438-#447 (2026-11-24, owner "remaining pages, all in order"; Play bundles `askodox-play-1650.aab` / `askodox-play-1655.aab` before these): 3-STEP WORK PAGES BATCHES 4-14 --
   `glance_steps_screens.dart` (Baaki reminders `/pos/:id/dues`, Bills `/pos/:id/invoices`, Stock `stock-report`, Cashbook, Reports),
   `report_steps_screens.dart` (GST, Purchase orders, Bill history, Sales), `account_steps_screens.dart` (customer / supplier account),
