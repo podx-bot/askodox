@@ -24,6 +24,7 @@ import 'payments_hub_screen.dart';
 import 'pos_payment_alerts_screen.dart';
 import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
+import 'branches_screen.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
 import 'pos_selfshop_screens.dart';
@@ -120,6 +121,7 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/me/work', builder: (context, state) => const AskodoxMyWorkScreen()),
   GoRoute(
       path: '/pos/:id/team', builder: (context, state) => AskodoxAuthorityTeamScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/me/branches', builder: (context, state) => const AskodoxBranchesScreen()),
   GoRoute(path: '/hire', builder: (context, state) => const AskodoxHireScreen()),
   // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).
   GoRoute(

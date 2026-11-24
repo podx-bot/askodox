@@ -952,6 +952,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'టీమ్: మీ checklist టిక్ చేయండి (లైసెన్స్, పోలీస్ వెరిఫికేషన్...). Documents worker చెప్పే 6 అంకెల కోడ్ తోనే, చూడటానికి మాత్రమే.',
     'ఆర్డర్లు: worker తనే ఒప్పుకుంటే వెళ్తారు (క్యాష్ వాళ్ళ దగ్గర), మీకు తెలుస్తుంది. మీరూ ఇవ్వొచ్చు; డబ్బు మీరు ఎంచుకున్నట్టు.',
   ]),
+  '/me/branches': _H('All my branches', 'నా అన్ని శాఖలు', [
+    'Tick your own shops and tap Link. Delivery people of every linked branch can take a delivery of any branch.',
+    'Below you see today for every branch and the total: bills, sales, deliveries done, dues. Each branch keeps its own bills and GST.',
+    'To take a branch out, tap Remove on it.',
+  ], [
+    'మీ సొంత షాపులు టిక్ చేసి "లింక్" నొక్కండి. లింక్ చేసిన అన్ని శాఖల delivery వాళ్ళూ ఏ శాఖ డెలివరీ అయినా తీసుకోవచ్చు.',
+    'కింద ప్రతి శాఖ ఈ రోజు + మొత్తం కనిపిస్తాయి: బిల్లులు, సేల్స్, డెలివరీలు, బాకీలు. ప్రతి శాఖకి దాని బిల్లులు, GST విడివిడిగానే.',
+    'ఒక శాఖని తీసేయాలంటే దాని మీద "తీసేయి" నొక్కండి.',
+  ]),
   '/me/work': _H('I want work', 'నేను పని చేస్తా', [
     'Put up your card: work types, town, how far, day / night / Sundays, 18+. Businesses see your card, never your number.',
     'A business invites you: join only if you want; you can leave any time. Your documents open only with the code you give.',

@@ -11074,6 +11074,62 @@
           "AskodoxHireScreen"
         ]
       }
+    },
+    {
+      "id": "collect_qr_every_way",
+      "name": "Owner UPI QR for job cards, bookings, monthly dues",
+      "purpose": "Owner 2026-11-24: every way of working collects to the owner's own UPI QR; owner and the person who showed it are told; owner confirmation records the money.",
+      "roles": [
+        "owner",
+        "staff"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_collect_refs.py"
+        ],
+        "flutter": [
+          "test/features/pos/branches_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCollectQr",
+          "askodoxCollectQrConfirm",
+          "askodoxJobQr",
+          "askodoxMemberQr",
+          "askodoxBookingQr"
+        ],
+        "symbols": [
+          "askodoxShowCollectQr"
+        ]
+      }
+    },
+    {
+      "id": "multi_branch_owner",
+      "name": "Branches: shared delivery pool and all-branches view",
+      "purpose": "Owner 2026-11-24: an owner links his own shops; delivery people of a group are one pool; today for every branch together.",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_branches.py"
+        ],
+        "flutter": [
+          "test/features/pos/branches_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBranchLink",
+          "askodoxBranchRemove"
+        ],
+        "symbols": [
+          "AskodoxBranchesScreen"
+        ]
+      }
     }
   ]
 }

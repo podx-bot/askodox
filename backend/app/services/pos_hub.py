@@ -36,6 +36,7 @@ PAGES: Dict[str, tuple] = {
     "orders.jobs": ("Job cards", "జాబ్ కార్డ్స్"),
     "orders.send": ("Send delivery", "డెలివరీ పంపు"),
     "orders.team": ("Workers & team", "పని వాళ్ళు & టీమ్"),
+    "orders.branches": ("All my branches", "నా అన్ని శాఖలు"),
     "money.monthly": ("Monthly members", "నెలవారీ సభ్యులు"),
     "money": ("Bills & money", "బిల్లులు & డబ్బు"),
     "money.bill": ("Make a bill", "బిల్లు చేయి"),

@@ -214,3 +214,55 @@ def monthly_member_status(business_id: str, member_id: str, body: StatusIn, requ
 @router.get("/me/monthly")
 def my_monthly(request: Request) -> Dict[str, Any]:
     return {"plans": _call(_monthly(request).mine, _user(request, "monthly-me", 120))}
+
+
+class CollectForIn(BaseModel):
+    kind: str = Field(pattern="^(job|booking|member)$")
+    ref_id: str = Field(max_length=60)
+    month: str = Field(default="", max_length=7)
+
+
+@router.post("/businesses/{business_id}/collect/for")
+def collect_for(business_id: str, body: CollectForIn, request: Request) -> dict:
+    """The OWNER's own UPI QR for a job card balance / booking price / monthly due; both sides hear when the money's
+    notice arrives, and the owner's confirmation records it on the card (money never touches ASKODOX)."""
+    from app.api.routes.pos import _payment_alerts, _with_share
+    from app.services import pos_collect_refs
+
+    return _with_share(request, _call(pos_collect_refs.ask, _store(request), _payment_alerts(request), business_id,
+                                      _user(request), body.kind, body.ref_id, body.month))
+
+
+class BranchesIn(BaseModel):
+    name: str = Field(default="", max_length=60)
+    business_ids: list = Field(min_length=2, max_length=30)
+
+
+def _branches(request: Request):
+    from app.services.pos_branches import PosBranches
+
+    return PosBranches(_store(request))
+
+
+@router.get("/me/branches")
+def my_branches(request: Request) -> dict:
+    """The owner's own shops + the groups he linked (shared delivery pool + all-branches view)."""
+    return _call(_branches(request).mine, _user(request))
+
+
+@router.put("/me/branches")
+def save_branches(body: BranchesIn, request: Request) -> dict:
+    return _call(_branches(request).save, _user(request), body.name, [str(b) for b in body.business_ids])
+
+
+@router.delete("/me/branches/{business_id}")
+def leave_branches(business_id: str, request: Request) -> dict:
+    return _call(_branches(request).leave, _user(request), business_id)
+
+
+@router.get("/me/branches/{group_id}/overview")
+def branches_overview(group_id: str, request: Request, local_date: str = "") -> dict:
+    from datetime import datetime, timedelta, timezone
+
+    day = local_date or (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+    return _call(_branches(request).overview, _user(request), group_id, day)
