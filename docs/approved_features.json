@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "my_deliveries_page_three_steps_batch22",
+      "name": "My delivery work (delivery person) in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 22; old page stays at ?full=1.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "My colour (free / on a job / off) on top, ONE list (the job I am on, then the ones I am asked), ONE big button opens the first. Tap a row = directions / picked up / owner's UPI QR / done by cash, UPI or prepaid, or my answer (now / 10 / 20 / 30 / can't). Money is only recorded.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 22 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/my_deliveries_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMyDeliveriesSteps",
+          "askodoxMyDeliveriesStepsOpen"
+        ],
+        "symbols": [
+          "AskodoxMyDeliveriesStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "my_bills_page_three_steps_batch21",
       "name": "My bills (customer) in 3 pieces",
       "purpose": "Owner 2026-11-24: 3-step rule, batch 21; old page stays at ?full=1.",

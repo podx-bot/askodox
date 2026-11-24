@@ -34,6 +34,7 @@ import '../../steps/presentation/items_steps_screens.dart';
 import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
 import '../../steps/presentation/my_bills_steps_screen.dart';
+import '../../steps/presentation/my_deliveries_steps_screen.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
@@ -159,7 +160,10 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(
       path: '/pos/:id/deliveries',
       builder: (context, state) => AskodoxDeliveryJobsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/me/deliveries', builder: (context, state) => const AskodoxMyDeliveriesScreen()),
+  GoRoute(
+      path: '/me/deliveries',
+      builder: (context, state) =>
+          state.uri.queryParameters['full'] == '1' ? const AskodoxMyDeliveriesScreen() : const AskodoxMyDeliveriesStepsScreen()),
   // Workers under an authority (owner plan 2026-11-24 steps 3-6): the worker, the authority's team, a customer.
   GoRoute(path: '/me/work', builder: (context, state) => const AskodoxMyWorkScreen()),
   GoRoute(
