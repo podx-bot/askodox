@@ -10706,6 +10706,42 @@
           "askodoxTryOnProblem"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "No long pages: the shop Menu page (/desk/:id/menu) has two tabs side by side on top -- 'Today (n)' (opens when the menu has items: one section at a time picked from side-scrolling section chips plus an 'Out today n' chip, each item with its on / off switch) and 'Add / change' (say / type / paste rows, menu photo, preview, Sort with AI); saving a preview jumps back to Today. The Order alerts page (/desk/:id/settings) shows its four parts as side-by-side chips: Alerts (who accepts + who hears each step), Table asks, Staff, Welcome -- one part on screen at a time.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: menu + order-alert pages as side-by-side tabs (owner 'Menu', 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "side_tabs_menu_alerts",
+      "name": "Menu + order alerts as side-by-side tabs",
+      "purpose": "Owner 2026-11-24: pages must not scroll down for ever -- tabs and buttons side by side on top, fit on one screen.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeskMenuTabs",
+          "askodoxDeskMenuTab-today",
+          "askodoxDeskMenuTab-add",
+          "askodoxDeskMenuAdd"
+        ],
+        "symbols": []
+      }
     }
   ]
 }

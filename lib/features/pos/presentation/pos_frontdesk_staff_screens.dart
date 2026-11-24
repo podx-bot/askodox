@@ -494,6 +494,8 @@ class AskodoxDeskMenuScreen extends ConsumerStatefulWidget {
 class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
   final _text = TextEditingController();
   bool _sorting = false;
+  String? _tab;
+  String? _section;
   AskodoxJson? _menu;
   List<AskodoxJson> _preview = const [];
   bool _reading = false;
@@ -990,6 +992,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
         setState(() {
           _preview = const [];
           _text.clear();
+          _tab = 'today';
         });
         askodoxPosSnack(context, te ? 'సేవ్ అయింది: ${out['created']} కొత్త, ${out['updated']} మార్పు' : 'Saved: ${out['created']} new, ${out['updated']} updated');
         await _load();
@@ -1009,7 +1012,78 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
       ),
       body: _error != null
           ? AskodoxPosError(error: _error!, onRetry: _load)
-          : ListView(key: const Key('askodoxDeskMenu'), padding: const EdgeInsets.all(14), children: [
+          : Column(children: [
+              // Owner 2026-11-24: no long page -- two tabs side by side on top, one section at a time below.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+                child: SegmentedButton<String>(
+                  key: const Key('askodoxDeskMenuTabs'),
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(
+                        value: 'today',
+                        icon: const Icon(Icons.toggle_on_outlined),
+                        label: Text(te ? 'ఈ రోజు ఉన్నవి (${items.length})' : 'Today (${items.length})',
+                            key: const Key('askodoxDeskMenuTab-today'))),
+                    ButtonSegment(
+                        value: 'add',
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: Text(te ? 'చేర్చు / మార్చు' : 'Add / change', key: const Key('askodoxDeskMenuTab-add'))),
+                  ],
+                  selected: {_tabOf(items)},
+                  onSelectionChanged: (v) => setState(() => _tab = v.first),
+                ),
+              ),
+              Expanded(child: _tabOf(items) == 'today' ? _todayTab(items, te) : _addTab(items, te)),
+            ]),
+    );
+  }
+
+  /// Which tab shows: the person's pick, else "today" when the menu has items, else "add".
+  String _tabOf(List<AskodoxJson> items) => _tab ?? (items.isEmpty ? 'add' : 'today');
+
+  Widget _todayTab(List<AskodoxJson> items, bool te) {
+    final sections = _sections(items);
+    final chosen = sections.contains(_section) ? _section! : (sections.isEmpty ? '' : sections.first);
+    final off = items.where((m) => m['available'] != true).length;
+    final shown = _section == '__off__'
+        ? items.where((m) => m['available'] != true).toList()
+        : items.where((m) => '${m['menu_group'] ?? ''}'.trim() == chosen).toList();
+    Widget chip(String key, String label, bool on, VoidCallback tap) => Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: ChoiceChip(key: Key('askodoxDeskSection-$key'), label: Text(label), selected: on, onSelected: (_) => tap()),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+        child: Text(
+            te
+                ? 'అయిపోతే స్విచ్ ఆఫ్ — కస్టమర్ కి కనపడదు, రేపు ఉదయం ఆటోగా ఆన్.'
+                : 'Ran out? Switch it off — hidden from customers, back on tomorrow morning.',
+            key: const Key('askodoxDeskAvailableHelp'),
+            style: const TextStyle(fontSize: 12.5)),
+      ),
+      SizedBox(
+        height: 46,
+        child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(14, 6, 14, 0), children: [
+          for (final g in sections)
+            chip(g.isEmpty ? '-' : g, '${g.isEmpty ? (te ? 'విభాగం లేనివి' : 'No section') : g} ${items.where((m) => '${m['menu_group'] ?? ''}'.trim() == g).length}',
+                _section != '__off__' && g == chosen, () => setState(() => _section = g)),
+          if (off > 0) chip('off', te ? 'లేనివి $off' : 'Out today $off', _section == '__off__', () => setState(() => _section = '__off__')),
+        ]),
+      ),
+      Expanded(
+        child: items.isEmpty
+            ? Center(child: Text(te ? 'ఇంకా ఐటమ్స్ లేవు — "చేర్చు" నొక్కండి.' : 'No items yet — tap "Add".'))
+            : ListView(key: const Key('askodoxDeskMenu'), padding: const EdgeInsets.fromLTRB(14, 6, 14, 14), children: [
+                for (final m in shown) _itemRow(m, te),
+              ]),
+      ),
+    ]);
+  }
+
+  Widget _addTab(List<AskodoxJson> items, bool te) {
+    return ListView(key: const Key('askodoxDeskMenuAdd'), padding: const EdgeInsets.all(14), children: [
               Text(te ? 'చెప్పండి లేదా రాయండి: "మటన్ బిర్యానీ 250 ఈ రోజు మాత్రమే, చికెన్ బిర్యానీ 170, టీ 10"' : 'Say or type: "mutton biryani 250 today only, chicken biryani 170, tea 10"'),
               // Owner 2026-11-19: bulk upload -- rows copied from Excel / Google Sheets / a CSV file are read as a table.
               Text(
@@ -1131,31 +1205,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 12),
-              Text(te ? 'ఈ రోజు ఏవి ఉన్నాయి?' : 'What is available today?', style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text(
-                  te
-                      ? 'ఏదైనా అయిపోతే దాని స్విచ్ ఆఫ్ చేయండి — కస్టమర్ కి కనపడదు, రేపు ఉదయం ఆటోగా మళ్ళీ ఆన్ అవుతుంది.'
-                      : 'When something runs out, switch it off — customers will not see it, and it comes back on by itself tomorrow.',
-                  key: const Key('askodoxDeskAvailableHelp'),
-                  style: const TextStyle(fontSize: 12.5)),
-              for (final g in _sections(items)) ...[
-                Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(10)),
-                  child: Row(children: [
-                    Expanded(
-                        child: Text(g.isEmpty ? (te ? 'విభాగం లేనివి' : 'No section') : g,
-                            style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3FA0)))),
-                    Text('${items.where((m) => '${m['menu_group'] ?? ''}'.trim() == g).length}',
-                        style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1E3FA0))),
-                  ]),
-                ),
-                for (final m in items.where((m) => '${m['menu_group'] ?? ''}'.trim() == g)) _itemRow(m, te),
-              ],
-            ]),
-    );
+            ]);
   }
 }
 
