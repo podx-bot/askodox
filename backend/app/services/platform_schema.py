@@ -1104,6 +1104,41 @@ _register(Resource(
     actions=ENABLE_DISABLE,
 ))
 
+# Keep equal to pos_store.TEMPLATES (tests/test_business_kit.py checks it).
+POS_SHOP_KINDS = ("general", "kirana", "supermarket", "meat_fish", "restaurant", "pharmacy", "salon", "repair",
+                  "wholesale", "clothing", "electronics", "jewellery", "bakery", "vegetables", "hardware", "stationery")
+
+_register(Resource(
+    name="business_kit", label="Business Kit (shop categories)", group="Advisor", prefix="bkt",
+    permission="advisor", name_field="label_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),
+    description="Every kind of business a shop owner can pick, and how ASKODOX sets it up. Parent blank = a "
+                "CATEGORY (Grocery, Real estate ...); with a parent = a SUB-CATEGORY under it. A shop picks one main "
+                "sub-category and any number more (mixed shops); its pages follow the union of their ways of "
+                "working: 1 counter sale, 2 menu + table + kitchen, 3 booking / rental by date & time, 4 job card / "
+                "order ahead, 5 monthly, 6 enquiry -> visit -> deal. Shop kind + catalogue template come from the "
+                "MAIN pick. Customer questions: one per line; shop owners answer them once and customers get those "
+                "answers. Keys are stable: never reuse a key for another business. Disable = hidden from new picks.",
+    fields=(
+        F("key", "Key (stable id)", required=True, list_column=True, filter=True,
+          help="lower_case_id, e.g. motors_pumps. Shops store this key."),
+        F("parent", "Category key (blank = this row IS a category)", list_column=True, filter=True),
+        F("label_en", "Name (English)", required=True, list_column=True),
+        F("label_te", "Name (Telugu)", list_column=True),
+        F("label_hi", "Name (Hindi)"),
+        F("flows", "Ways of working (1-6)", "list", options=("1", "2", "3", "4", "5", "6"), list_column=True),
+        F("shop_kind", "Shop kind (POS type) for a shop whose MAIN pick is this", "enum", options=POS_SHOP_KINDS),
+        F("catalogue_template", "Catalogue template key (ready items + item details)"),
+        F("details", "Item / service details (what each item carries)", "longtext"),
+        F("customer_questions", "What customers usually ask (one per line)", "list"),
+        F("try_on", "Photo try-on", "enum", options=("", "on_me", "in_home")),
+        F("try_on_note", "Try-on note (shown)"),
+        F("aliases", "Other names people use (any language)", "list"),
+        F("high_stakes", "High-stakes (answers only from the shop's own data, no advice)", "bool"),
+        F("order", "Order (smaller first)", "int", min=0, max=100000),
+    ),
+    actions=ENABLE_DISABLE,
+))
+
 _register(Resource(
     name="advisor_questions", label="Advisor questions", group="Advisor", prefix="adq",
     permission="advisor", name_field="question_en", initial_status="ACTIVE", statuses=("ACTIVE", "DISABLED"),

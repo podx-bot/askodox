@@ -116,6 +116,13 @@ class MenuItemIn(BaseModel):
     today_only: bool = False
     menu_group: str = Field(default="", max_length=40)
     food_type: str = Field(default="", pattern="^(|veg|nonveg|egg)$")
+    # Items that came by themselves (owner 2026-11-24): what the photo / ASKODOX knew of the pack.
+    barcode: str = Field(default="", max_length=20)
+    brand: str = Field(default="", max_length=60)
+    pack: str = Field(default="", max_length=30)
+    mrp_paise: Optional[int] = Field(default=None, ge=1, le=10_00_00_000_00)
+    photo: str = Field(default="", max_length=40)  # a shared pack photo ref ("p:<id>" / "m:<barcode>")
+    photo_b64: str = Field(default="", max_length=200_000)  # the pack cut out of the shelf photo
 
 
 class MenuImportIn(BaseModel):
@@ -331,6 +338,67 @@ def desk_menu_photo(business_id: str, body: MenuPhotoIn, request: Request) -> di
     container = getattr(request.app.state, "container", None)
     service = getattr(container, "universal_image_service", None)
     return _call(_desk(request).parse_menu_photo, business_id, _user(request, "desk-photo", 20), photos, service)
+
+
+@router.post("/businesses/{business_id}/desk/menu/shelf")
+def desk_menu_shelf(business_id: str, body: MenuPhotoIn, request: Request) -> dict:
+    """A photo of a shelf / counter -> every pack on it (own photo, brand, pack, printed MRP) as a preview."""
+    photos = _photos(body)
+    container = getattr(request.app.state, "container", None)
+    service = getattr(container, "universal_image_service", None)
+    return _call(_desk(request).parse_shelf_photo, business_id, _user(request, "desk-photo", 20), photos, service)
+
+
+def _photos(body: "MenuPhotoIn") -> list:
+    import base64
+
+    photos = []
+    for entry in body.images:
+        raw = str(entry.get("data") or "")
+        if len(raw) > 6_000_000:
+            raise HTTPException(status_code=413, detail="Photo too large. Use a smaller picture.")
+        try:
+            data = base64.b64decode(raw, validate=False)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Photo could not be read.")
+        mime = str(entry.get("mime") or "image/jpeg").lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp"):
+            raise HTTPException(status_code=400, detail="Send a JPEG or PNG photo.")
+        photos.append((data, mime))
+    return photos
+
+
+@router.get("/businesses/{business_id}/barcode-lookup")
+def product_lookup(business_id: str, request: Request, barcode: str = "") -> dict:
+    """A scanned barcode -> the pack's name / brand / pack / MRP / photo from shops on ASKODOX, else Open Food Facts.
+    Never another shop's selling price."""
+    from app.services.product_master import ProductMaster
+
+    user = _user(request, "product-lookup", 120)
+    store = _store(request)
+
+    def lookup() -> dict:
+        with store._connect() as conn:
+            store._require(conn, business_id, user, "products")
+        found = ProductMaster(store.db_path).lookup(barcode)
+        return {"found": bool(found), "item": found or None}
+
+    return _call(lookup)
+
+
+@router.get("/product-master/photo")
+def product_master_photo(request: Request, ref: str = "") -> dict:
+    """A shared PACK photo (barcoded items only) for the item previews of any signed-in shop person. JSON (the app's
+    API client speaks JSON): base64 image + its type."""
+    import base64
+
+    from app.services.product_master import ProductMaster
+
+    _user(request, "product-photo", 600)
+    found = ProductMaster(_store(request).db_path).photo(ref)
+    if not found:
+        raise HTTPException(status_code=404, detail="No photo.")
+    return {"image_base64": base64.b64encode(found[0]).decode("ascii"), "mime": found[1]}
 
 
 @router.post("/businesses/{business_id}/desk/menu/import")

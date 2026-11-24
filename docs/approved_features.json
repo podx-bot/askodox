@@ -10529,6 +10529,191 @@
         "any"
       ],
       "flags": {},
+      "expected_behavior": "Shop owners pick what their business is from ONE Business Kit list (23 categories, 200 sub-categories incl. real estate, construction, sanitary / taps, motors, geysers, hotel rooms, jewellery, finance, wholesale), editable by staff in the Command Center (resource business_kit: add / change / disable without an app update; keys stay stable). A shop picks a main sub-category and any number more (mixed shops: hotel + sweets + bakery, furniture + taps + motors + geysers). The main pick sets the shop kind + ready catalogue; the shop's pages follow the union of the picks' ways of working (food = tables + kitchen, service = orders & bookings, retail = items & stock). Customers asking about a named shop in the chat get the owner's own answer to the usual questions of that business (and to their own earlier questions); a question with no answer yet is said to be missing and the owner is told once a day per question (push opens the questions page). Never a guessed answer.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: Business Kit registry + multi-pick + kind follows main pick + customer questions (owner 2026-11-24 'start work'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "business_kit",
+      "name": "Business Kit: shop categories, mixed shops, customer questions",
+      "purpose": "Owner 2026-11-24: every kind of business that registers must get a setup fitted to it (not only restaurants); one shop may be several businesses; new categories are added from the Command Center.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_business_kit.py"
+        ],
+        "flutter": [
+          "test/features/business/business_kit_pages_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBusinessMoreAdd",
+          "askodoxBusinessMoreSearch",
+          "askodoxBusinessMoreDone",
+          "askodoxBusinessQuestions",
+          "askodoxShopAnswersSave"
+        ],
+        "symbols": [
+          "askodoxBizKindOf",
+          "askodoxPosHasTables",
+          "AskodoxShopQuestionsScreen"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "business_kit"
+      ],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Items come in by themselves: a shelf / counter photo gives every pack on it as a preview with its own cut-out photo, brand, pack and the MRP printed on it; a menu / list / note photo's items are filled from barcoded packs other shops already keep on ASKODOX (brand, pack, MRP, pack photo -- never another shop's selling price; a shop's own dish photo is never shared); a scanned barcode fills the new-item form from ASKODOX first, then Open Food Facts (credited, kept once found, a miss remembered). A price is only ever the owner's or the MRP printed on the pack (marked 'price = MRP on the pack'); import keeps barcode / brand / pack / MRP / photo without overwriting the owner's own entries.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: product master + shelf photo + barcode fill (owner 2026-11-24 'do all 4'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "items_come_in_by_themselves",
+      "name": "Items automatically: shelf photo, barcode fill, ASKODOX product master",
+      "purpose": "Owner 2026-11-24: a new shop must not type items one by one -- paper, note or photo prepares them with brand photos and details.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_product_master.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeskMenuShelf",
+          "askodoxPosItemBarcodeFill",
+          "askodoxPosItemBarcodeNote"
+        ],
+        "symbols": [
+          "AskodoxMasterThumb",
+          "deskMenuShelf",
+          "barcodeLookup",
+          "masterPhoto"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "business_kit"
+      ],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Shops whose Business Kit picks work by booking (way 3) get Bookings: things to book by time slot (chairs, OP, wash bay) or by day (rooms, hall, rentals: noon check-in, 11 AM check-out), free ones for a time, customers book from the shop page (Book button) and see My bookings, the shop adds phone / walk-in bookings, never two bookings of one thing at once, booked -> arrived -> done / no show / cancelled. Way 4 shops get Job cards: token number, item, what to do, estimate, advance, ready date; received -> working -> ready -> delivered; Ready tells an ASKODOX customer in the app, others through a WhatsApp text the shop sends; customers see My repairs & orders. Way 5 shops get Monthly members: plans, members, one due per month (made when looked at), paid in full / part / let go, late after the due day, WhatsApp reminder; customers see My monthly plans. Way 6 shops get Enquiries up front (the CRM). Money is only recorded; customers pay the shop.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: bookings / job cards / monthly (owner 2026-11-24 'do all 4'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "kit_bookings_jobs_monthly",
+      "name": "Bookings, job cards, monthly members (Business Kit ways 3-6)",
+      "purpose": "Owner 2026-11-24: hotels, salons, clinics, repairs, tailors, milk, tuition and every business that works these ways get their own setup, not only restaurants.",
+      "roles": [
+        "seller",
+        "buyer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_work.py"
+        ],
+        "flutter": [
+          "test/features/business/business_kit_pages_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBookAdd",
+          "askodoxBookItems",
+          "askodoxJobAdd",
+          "askodoxMemberAdd",
+          "askodoxPlanAdd",
+          "askodoxShopBookFind",
+          "askodoxShopBook"
+        ],
+        "symbols": [
+          "AskodoxBizBookingsScreen",
+          "AskodoxBizJobsScreen",
+          "AskodoxBizMonthlyScreen",
+          "AskodoxShopBookScreen",
+          "AskodoxMyWorkScreen",
+          "askodoxKitFlows"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Try it: on me (my photo + a dress / chappal / frame / jewellery / hairstyle photo) or in my home (a room / table / wall photo + a TV / stove / tile / paint / furniture photo, with its size) -> one AI picture keeping the same person / place, labelled 'AI picture -- the real fit, size and colour may differ', never stored on the server, share or report. On-me needs 'my photo or the person agreed'; innerwear / swimwear / revealing items are refused before any picture; same daily free count and AI Credits as photo edits; result cards with a photo carry the Try it button.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: photo try-on (owner 2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "photo_try_on",
+      "name": "Photo try-on: on me / in my home",
+      "purpose": "Owner 2026-11-24: customers want to see a dress, belt, hairstyle on themselves and a stove / TV on their own table / wall before buying; charged like any AI picture.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_image_studio.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxTryOnMode",
+          "askodoxTryOnMine",
+          "askodoxTryOnItem",
+          "askodoxTryOnConsent",
+          "askodoxTryOnMake",
+          "askodoxTryOnReport"
+        ],
+        "symbols": [
+          "AskodoxTryOnScreen",
+          "askodoxTryOnProblem"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
       "expected_behavior": "No long pages: the shop Menu page (/desk/:id/menu) has two tabs side by side on top -- 'Today (n)' (opens when the menu has items: one section at a time picked from side-scrolling section chips plus an 'Out today n' chip, each item with its on / off switch) and 'Add / change' (say / type / paste rows, menu photo, preview, Sort with AI); saving a preview jumps back to Today. The Order alerts page (/desk/:id/settings) shows its four parts as side-by-side chips: Alerts (who accepts + who hears each step), Table asks, Staff, Welcome -- one part on screen at a time.",
       "history": [
         {

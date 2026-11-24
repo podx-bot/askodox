@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.services import business_kit
 from app.services.shop_follows import PROFILE_PRIVATE, category_labels
 from app.services.pos_store import PosError, PosStore, phone_key
 
@@ -291,6 +292,9 @@ class PosRatings:
                 "photos": photos, "reviews": self._reviews(conn, business_id, user),
                 "can_review": self._bought(conn, business_id, user) and b["owner_user_id"] != user,
                 "code": f"ASKODOX-ORDER:{b['id']}",
+                # Business Kit (owner 2026-11-24): how this shop works decides its buttons (Book, Menu ...).
+                "kit": business_kit.shop_kit(profile.get("category", ""), profile.get("subcategory", ""),
+                                             profile.get("more", ""), b["template"]),
             }
 
     # ------------------------------------------------------------------ welcome / thank you

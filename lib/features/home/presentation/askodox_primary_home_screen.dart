@@ -8118,6 +8118,19 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               icon: const Icon(Icons.share_outlined, size: 20),
               onPressed: _share,
             ),
+            // Photo try-on (owner 2026-11-24): an item with a photo -> see it on me / in my home.
+            if (action != ChatResultAction.watchVideo && !match.isJob &&
+                (match.imageUrl ?? '').trim().startsWith('https://'))
+              IconButton(
+                key: ValueKey('askodoxTryOn-${match.id}'),
+                tooltip: _l('try_on', 'ట్రై చేసి చూడు', 'Try it'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.checkroom_rounded, size: 20),
+                onPressed: () => context.push(Uri(path: '/try-on', queryParameters: {
+                  'image': match.imageUrl!.trim(),
+                  'name': match.title,
+                }).toString()),
+              ),
             if (compact)
               IconButton(
                 key: ValueKey('askodoxDetails-${match.id}'),

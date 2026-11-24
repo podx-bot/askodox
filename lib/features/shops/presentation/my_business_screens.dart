@@ -432,8 +432,11 @@ const _profileFields = <_ProfileField>[
 
 /// The shop's own details: four required boxes first, the rest optional. Nothing here comes from Google.
 class AskodoxBusinessProfileScreen extends ConsumerStatefulWidget {
-  const AskodoxBusinessProfileScreen({super.key, required this.businessId});
+  const AskodoxBusinessProfileScreen({super.key, required this.businessId, this.openQuestions = false});
   final String businessId;
+
+  /// Opened from the owner's "A customer asked" notification: the customer questions open at once.
+  final bool openQuestions;
 
   @override
   ConsumerState<AskodoxBusinessProfileScreen> createState() => _AskodoxBusinessProfileScreenState();
@@ -452,6 +455,9 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
   List<AskodoxJson> _cats = const [];
   String? _cat;
   String? _sub;
+  // Business Kit (owner 2026-11-24): a shop may do many things -- the other sub-categories it picked (keys).
+  List<String> _more = [];
+  int _waiting = 0;
   bool _loaded = false;
   bool _busy = false;
   String? _message;
@@ -514,8 +520,145 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
           _choice('${fields['subcategory'] ?? ''}', [for (final x in _subsOf(cat)) '${x['key']}']);
       _sub = sub;
       _subOther.text = subWords;
+      _more = [
+        for (final k in '${fields['more'] ?? ''}'.split(','))
+          if (k.trim().isNotEmpty) k.trim()
+      ];
+    } catch (_) {}
+    try {
+      _waiting = askodoxPosInt((await repo.shopQuestions(widget.businessId))['waiting']);
     } catch (_) {}
     if (mounted) setState(() => _loaded = true);
+    if (widget.openQuestions && mounted) unawaited(_openQuestions(saveFirst: false));
+  }
+
+  AskodoxJson? _subByKey(String key) {
+    for (final c in _cats) {
+      for (final x in askodoxPosList(c['subs'])) {
+        if (x['key'] == key) return x;
+      }
+    }
+    return null;
+  }
+
+  /// Everything else the shop sells / does: chips side by side, picked in one sheet with a search box.
+  Future<void> _pickMore(bool te) async {
+    final chosen = <String>{..._more};
+    final search = TextEditingController();
+    final picked = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheet) => StatefulBuilder(builder: (sheet, set) {
+        final q = search.text.trim().toLowerCase();
+        final rows = <Widget>[];
+        for (final c in _cats) {
+          final subs = [
+            for (final x in askodoxPosList(c['subs']))
+              if (x['key'] != _sub &&
+                  (q.isEmpty || '${x['en']} ${x['te']} ${c['en']} ${c['te']}'.toLowerCase().contains(q)))
+                x
+          ];
+          if (subs.isEmpty) continue;
+          rows.add(Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+              child: Text(te ? '${c['te']}' : '${c['en']}', style: const TextStyle(fontWeight: FontWeight.w800))));
+          rows.add(Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final x in subs)
+                FilterChip(
+                  key: Key('askodoxBusinessMorePick-${x['key']}'),
+                  label: Text(te ? '${x['te']}' : '${x['en']}'),
+                  selected: chosen.contains('${x['key']}'),
+                  onSelected: (on) => set(() {
+                    if (!on) {
+                      chosen.remove('${x['key']}');
+                    } else if (chosen.length < 12) {
+                      chosen.add('${x['key']}');
+                    }
+                  }),
+                ),
+            ]),
+          ));
+        }
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(sheet).size.height * 0.85,
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: TextField(
+                  key: const Key('askodoxBusinessMoreSearch'),
+                  controller: search,
+                  onChanged: (_) => set(() {}),
+                  decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search),
+                      hintText: te ? 'వెతకండి (ఉదా: మోటార్లు, కేక్స్)' : 'Search (e.g. motors, cakes)',
+                      border: const OutlineInputBorder()),
+                ),
+              ),
+              Expanded(child: ListView(children: rows)),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const Key('askodoxBusinessMoreDone'),
+                    onPressed: () => Navigator.of(sheet).pop(chosen),
+                    child: Text(te ? 'సరే (${chosen.length})' : 'Done (${chosen.length})'),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        );
+      }),
+    );
+    search.dispose();
+    if (picked != null && mounted) setState(() => _more = picked.toList());
+  }
+
+  Widget _moreRow(bool te) {
+    String name(String key) {
+      final x = _subByKey(key);
+      return x == null ? key : (te ? '${x['te']}' : '${x['en']}');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InputDecorator(
+        decoration: InputDecoration(
+            labelText: te ? 'ఇంకా ఏమేమి అమ్ముతారు / చేస్తారు' : 'What else you sell / do',
+            helperText: te ? 'ఒకే షాప్‌లో చాలా ఉంటే అన్నీ ఎంచుకోండి' : 'Pick them all if your shop does many things',
+            border: const OutlineInputBorder()),
+        child: Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final k in _more)
+            InputChip(
+                key: Key('askodoxBusinessMore-$k'),
+                label: Text(name(k)),
+                onDeleted: () => setState(() => _more = [..._more]..remove(k))),
+          ActionChip(
+              key: const Key('askodoxBusinessMoreAdd'),
+              avatar: const Icon(Icons.add, size: 18),
+              label: Text(te ? 'చేర్చు' : 'Add'),
+              onPressed: () => _pickMore(te)),
+        ]),
+      ),
+    );
+  }
+
+  /// What customers ask this shop: saved first (the picks decide the questions), then one page of answers.
+  Future<void> _openQuestions({bool saveFirst = true}) async {
+    if (saveFirst) {
+      await _save();
+      if (!mounted) return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => AskodoxShopQuestionsScreen(businessId: widget.businessId)));
+    try {
+      final waiting = askodoxPosInt((await ref.read(askodoxPosRepositoryProvider).shopQuestions(widget.businessId))['waiting']);
+      if (mounted) setState(() => _waiting = waiting);
+    } catch (_) {}
   }
 
   String _stored(String? choice, TextEditingController words) {
@@ -552,6 +695,7 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
             'lng': _lng,
             'category': _stored(_cat, _catOther),
             'subcategory': _cat == null ? '' : _stored(_cat == 'other' ? 'other' : _sub, _subOther),
+            'more': _more.join(','),
           });
       final missing = askodoxPosMap(saved['profile'])['missing'];
       final left = missing is List ? missing.length : 0;
@@ -724,6 +868,18 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                 ),
                 const SizedBox(height: 10),
                 ..._categoryPickers(te),
+                _moreRow(te),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: OutlinedButton.icon(
+                    key: const Key('askodoxBusinessQuestions'),
+                    onPressed: _busy ? null : () => _openQuestions(),
+                    icon: const Icon(Icons.forum_outlined),
+                    label: Text(_waiting > 0
+                        ? (te ? 'కస్టమర్లు అడిగేవి · $_waiting జవాబు కావాలి' : 'What customers ask · $_waiting need an answer')
+                        : (te ? 'కస్టమర్లు అడిగేవి · ఒక్కసారి జవాబు రాయండి' : 'What customers ask · answer once')),
+                  ),
+                ),
                 for (final f in _profileFields)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -751,6 +907,143 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
                   Text(_message!),
                 ],
               ],
+            ),
+    );
+  }
+}
+
+/// What customers ask a shop (Business Kit, owner 2026-11-24): the usual questions of the businesses it picked and
+/// customers' own ones (asked first). The owner answers once; customers asking in the chat then get that answer.
+class AskodoxShopQuestionsScreen extends ConsumerStatefulWidget {
+  const AskodoxShopQuestionsScreen({super.key, required this.businessId});
+  final String businessId;
+
+  @override
+  ConsumerState<AskodoxShopQuestionsScreen> createState() => _AskodoxShopQuestionsScreenState();
+}
+
+class _AskodoxShopQuestionsScreenState extends ConsumerState<AskodoxShopQuestionsScreen> {
+  List<AskodoxJson> _questions = const [];
+  final _boxes = <String, TextEditingController>{};
+  final _saved = <String, String>{};
+  bool _loaded = false;
+  bool _busy = false;
+  String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    for (final box in _boxes.values) {
+      box.dispose();
+    }
+    super.dispose();
+  }
+
+  void _take(AskodoxJson data) {
+    _questions = askodoxPosList(data['questions']);
+    for (final q in _questions) {
+      final key = '${q['key']}';
+      final answer = '${q['answer'] ?? ''}';
+      _saved[key] = answer;
+      (_boxes[key] ??= TextEditingController()).text = answer;
+    }
+  }
+
+  Future<void> _load() async {
+    var failed = false;
+    try {
+      _take(await ref.read(askodoxPosRepositoryProvider).shopQuestions(widget.businessId));
+    } catch (_) {
+      failed = true;
+    }
+    if (!mounted) return;
+    setState(() {
+      _loaded = true;
+      if (failed) _message = _bizTe(context) ? 'లోడ్ కాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'Could not load. Try again.';
+    });
+  }
+
+  Future<void> _save() async {
+    final te = _bizTe(context);
+    final changed = <String, String>{
+      for (final e in _boxes.entries)
+        if (e.value.text.trim() != (_saved[e.key] ?? '')) e.key: e.value.text.trim()
+    };
+    if (changed.isEmpty || _busy) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      final data = await ref.read(askodoxPosRepositoryProvider).saveShopAnswers(widget.businessId, changed);
+      _take(data);
+      if (mounted) {
+        setState(() => _message =
+            te ? 'సేవ్ అయింది. చాట్‌లో అడిగిన వాళ్ళకి ఇదే జవాబు వెళ్తుంది.' : 'Saved. Customers asking in the chat get these.');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _message = te ? 'సేవ్ కాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'Could not save. Try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = _bizTe(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(te ? 'కస్టమర్లు అడిగేవి' : 'What customers ask')),
+      body: !_loaded
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+              children: [
+                Text(te
+                    ? 'ఒక్కసారి జవాబు రాయండి. చాట్‌లో మీ షాప్ గురించి అడిగిన ప్రతి ఒక్కరికీ ASKODOX ఇదే చెప్తుంది. తెలియనివి ఖాళీగా వదిలేయండి.'
+                    : 'Answer once. ASKODOX tells everyone who asks about your shop in the chat. Leave blank what you do not know.'),
+                const SizedBox(height: 12),
+                if (_questions.isEmpty)
+                  Text(te
+                      ? 'ముందు "ఏం అమ్ముతారు / చేస్తారు" ఎంచుకుని సేవ్ చేయండి.'
+                      : 'First pick what you sell / do and save.'),
+                for (final q in _questions)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: TextField(
+                      key: Key('askodoxShopAnswer-${q['key']}'),
+                      controller: _boxes['${q['key']}'],
+                      maxLength: 300,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: '${q['question']}',
+                        helperText: askodoxPosInt(q['asked']) > 0
+                            ? (te ? '${askodoxPosInt(q['asked'])} సార్లు అడిగారు' : 'Asked ${askodoxPosInt(q['asked'])} times')
+                            : null,
+                        border: const OutlineInputBorder(),
+                        suffixIcon: askodoxBoxMic(context, _boxes['${q['key']}']!),
+                      ),
+                    ),
+                  ),
+                if (_message != null) Text(_message!),
+              ],
+            ),
+      bottomNavigationBar: !_loaded || _questions.isEmpty
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: FilledButton(
+                  key: const Key('askodoxShopAnswersSave'),
+                  onPressed: _busy ? null : _save,
+                  child: Text(te ? 'సేవ్ చేయండి' : 'Save'),
+                ),
+              ),
             ),
     );
   }

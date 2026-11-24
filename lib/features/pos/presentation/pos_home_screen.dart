@@ -32,6 +32,13 @@ const askodoxPosTemplates = <String, (String, String)>{
 /// Business types that work with tables + kitchen tickets (configuration, not separate code).
 const askodoxPosTableTemplates = {'restaurant', 'bakery'};
 
+/// Tables + kitchen tickets: a food shop by its Business Kit picks (server `kit.page_family`), else by its kind.
+bool askodoxPosHasTables(Map<dynamic, dynamic> business) {
+  final kit = business['kit'];
+  if (kit is Map && kit['page_family'] != null) return '${kit['page_family']}' == 'food';
+  return askodoxPosTableTemplates.contains(business['template']);
+}
+
 final _businessesProvider = FutureProvider.autoDispose<List<AskodoxJson>>(
     (ref) => ref.watch(askodoxPosRepositoryProvider).businesses());
 
@@ -302,9 +309,9 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
             // Front desk: one orders desk for table / shop-QR / counter orders (owner 2026-11-15).
             if (askodoxPosCan(b, 'kitchen') || askodoxPosCan(b, 'tables') || askodoxPosCan(b, 'sell'))
               _tile('desk', Icons.receipt_long_outlined, '/desk/$id'),
-            if (askodoxPosCan(b, 'tables') && askodoxPosTableTemplates.contains(b['template']))
+            if (askodoxPosCan(b, 'tables') && askodoxPosHasTables(b))
               _tile('tables', Icons.table_restaurant_outlined, '/pos/$id/tables'),
-            if (askodoxPosCan(b, 'kitchen') && askodoxPosTableTemplates.contains(b['template']))
+            if (askodoxPosCan(b, 'kitchen') && askodoxPosHasTables(b))
               _tile('kitchen', Icons.soup_kitchen_outlined, '/pos/$id/kitchen'),
             _tile('items', Icons.inventory_2_outlined, '/pos/$id/items'),
             if (askodoxPosCan(b, 'purchases'))

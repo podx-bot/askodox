@@ -530,6 +530,38 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
     }
   }
 
+  // Owner 2026-11-24: a scanned barcode fills the item -- from a shop on ASKODOX that sells the same pack (never its
+  // selling price), else open data. The MRP printed on the pack becomes the price only when the box is empty.
+  String _masterPhotoRef = '';
+  String _barcodeNote = '';
+
+  Future<void> _fillFromBarcode(bool te) async {
+    final code = _barcode.text.trim();
+    if (code.length < 8) return;
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).barcodeLookup(widget.businessId, code);
+      if (!mounted) return;
+      final item = askodoxPosMap(out['item']);
+      if (out['found'] != true || item.isEmpty) {
+        setState(() => _barcodeNote = te ? 'ఈ బార్‌కోడ్ ఇంకా ఎక్కడా లేదు. పేరు రాయండి.' : 'This barcode is new. Type the name.');
+        return;
+      }
+      setState(() {
+        if (_name.text.trim().isEmpty) _name.text = '${item['name'] ?? ''}';
+        if (_nameTe.text.trim().isEmpty) _nameTe.text = '${item['name_te'] ?? ''}';
+        final mrp = item['mrp_paise'];
+        if (_price.text.trim().isEmpty && mrp is num && mrp > 0) {
+          _price.text = mrp % 100 == 0 ? '${mrp ~/ 100}' : (mrp / 100).toStringAsFixed(2);
+        }
+        _masterPhotoRef = '${item['photo'] ?? ''}';
+        final credit = '${item['credit'] ?? ''}';
+        _barcodeNote = te
+            ? 'బార్‌కోడ్‌తో నింపాను${credit.isEmpty ? '' : ' ($credit)'}. ఒకసారి చూడండి.'
+            : 'Filled from the barcode${credit.isEmpty ? '' : ' ($credit)'}. Check once.';
+      });
+    } catch (_) {}
+  }
+
   Future<void> _save() async {
     final te = askodoxPosTe(context);
     final price = askodoxParsePaise(_price.text);
@@ -542,7 +574,7 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
       _error = null;
     });
     try {
-      await ref.read(askodoxPosRepositoryProvider).addProduct(widget.businessId, {
+      final created = await ref.read(askodoxPosRepositoryProvider).addProduct(widget.businessId, {
         'name': _name.text.trim(),
         'name_te': _nameTe.text.trim(),
         'unit': _unit,
@@ -558,6 +590,15 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
         if (_serials) 'serial_kind': _imei ? 'imei' : '',
         if (_track && !_batches && !_serials) 'opening_stock_milli': askodoxParseMilli(_opening.text) ?? 0,
       });
+      final made = '${created['id'] ?? ''}';
+      if (_masterPhotoRef.isNotEmpty && made.isNotEmpty) {
+        try {  // the pack photo comes along (best effort; the item is already saved)
+          final repo = ref.read(askodoxPosRepositoryProvider);
+          final photo = await repo.masterPhoto(_masterPhotoRef);
+          final data = '${photo['image_base64'] ?? ''}';
+          if (data.isNotEmpty) await repo.setPhoto(widget.businessId, made, data);
+        } catch (_) {}
+      }
       if (mounted) Navigator.of(context).pop(true);
     } on AskodoxPosException catch (e) {
       if (mounted) setState(() => _error = e.message(te));
@@ -678,14 +719,28 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
             onPressed: () async {
               try {
                 final code = await ref.read(askodoxBarcodeScannerProvider).scan(context);
-                if (code != null && mounted) setState(() => _barcode.text = askodoxCleanBarcode(code));
+                if (code != null && mounted) {
+                  setState(() => _barcode.text = askodoxCleanBarcode(code));
+                  unawaited(_fillFromBarcode(te));
+                }
               } on AskodoxScanException catch (e) {
                 if (context.mounted) askodoxPosSnack(context, e.message(te));
               }
             },
             icon: const Icon(Icons.qr_code_scanner),
           ),
+          IconButton(
+            key: const Key('askodoxPosItemBarcodeFill'),
+            tooltip: te ? 'బార్‌కోడ్‌తో నింపు' : 'Fill from the barcode',
+            onPressed: () => _fillFromBarcode(te),
+            icon: const Icon(Icons.auto_fix_high_outlined),
+          ),
         ]),
+        if (_barcodeNote.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(_barcodeNote, key: const Key('askodoxPosItemBarcodeNote'), style: const TextStyle(fontSize: 12.5)),
+          ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: _track,
