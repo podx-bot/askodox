@@ -7,6 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #433 (2026-11-24, owner "finish the 2; Lite steps 4-5 = HOLD, do not build"): 3-STEP WORK PAGES -- `work_steps_screens.dart`
+  (`AskodoxJobStepsScreen` job cards: one number + list, tap = next status / owner UPI QR, New job = what -> estimate -> token;
+  `AskodoxMonthlyStepsScreen` who paid -> how much -> done; `AskodoxBookingStepsScreen` today's list, tap = status / QR); routes
+  `/biz/:id/jobs|monthly|bookings` open the old pages at `?full=1`. Table / parcel / delivery bill pay sheet now passes `shopUpi`
+  (owner's QR). ASKODOX Lite steps 4-5 are ON HOLD by the owner. Still not 3-step: the other ~60 pages (13 work, 31 glance,
+  21 settings). Nothing phone verified.
 - `main` PR #432 (2026-11-24, owner "finish the pending work, then bundle + link"): OWNER QR IN EVERY WAY -- `pos_collect_refs.py` + POST
   `/api/pos/businesses/{id}/collect/for` (job card balance / booking price / monthly due -> the OWNER's own UPI QR, one open QR per
   thing via `pos_payment_requests.ref_key`, +1 paise rule kept; `_tell_both` -> owner + the person who showed it, route

@@ -9,7 +9,7 @@ import '../domain/pos_money.dart';
 import '../domain/pos_tax.dart';
 import 'pos_common.dart';
 import 'pos_reservation_sheets.dart';
-import 'pos_sale_screen.dart' show AskodoxPosPaymentSheet;
+import 'pos_sale_screen.dart' show AskodoxPosPaymentSheet, askodoxDefaultUpi;
 
 /// Floor view: tables with their open orders; takeaway / delivery orders below.
 class AskodoxPosTablesScreen extends ConsumerStatefulWidget {
@@ -326,7 +326,13 @@ class _AskodoxPosOrderScreenState extends ConsumerState<AskodoxPosOrderScreen> {
     final payments = await showModalBottomSheet<List<AskodoxJson>>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => AskodoxPosPaymentSheet(total: estimate, allowCredit: false, te: te),
+      builder: (ctx) => AskodoxPosPaymentSheet(
+        total: estimate,
+        allowCredit: false,
+        te: te,
+        // Owner 2026-11-24: table / parcel / delivery bills show the OWNER's own UPI QR too (same as the counter).
+        shopUpi: () => ref.read(askodoxPosRepositoryProvider).myPaymentMethods().then(askodoxDefaultUpi, onError: (_) => null),
+      ),
     );
     if (payments == null || !mounted) return;
     setState(() => _busy = true);

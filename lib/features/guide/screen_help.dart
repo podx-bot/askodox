@@ -1119,25 +1119,25 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ప్రతి నెల కట్టేవి (పాలు, ట్యూషన్, జిమ్, PG), ఈ నెల ఇంకా ఎంత కట్టాలి.',
   ]),
   '/biz/:id/bookings': _H('Bookings', 'బుకింగ్స్', [
-    'Swipe the days on top. Each booking: what, when, who. ⋮ moves it on: arrived, done, no show, cancelled.',
-    '"Add a booking" for phone / walk-in customers. ⚙ on top = what can be booked: rooms by day, chairs / OP by time.',
+    'The big number is today\'s bookings. Tap a booking: arrived, done, no show, cancelled, or UPI QR to collect.',
+    'New bookings and what can be booked (rooms by day, chairs / OP by time) are on the old page in the top ⋮.',
   ], [
-    'పైన రోజులు పక్కకి జరపండి. ప్రతి బుకింగ్: ఏది, ఎప్పుడు, ఎవరు. ⋮ తో ముందుకు: వచ్చారు, అయిపోయింది, రాలేదు, రద్దు.',
-    'ఫోన్ / నేరుగా వచ్చిన వాళ్ళకి "బుకింగ్ చేయి". పైన ⚙ = బుక్ చేసేవి: రూమ్‌లు రోజుల ప్రకారం, కుర్చీలు / OP సమయం ప్రకారం.',
+    'పెద్ద నంబర్ = ఈ రోజు బుకింగ్స్. బుకింగ్ నొక్కండి: వచ్చారు, అయిపోయింది, రాలేదు, రద్దు, లేదా డబ్బు కోసం UPI QR.',
+    'కొత్త బుకింగ్, బుక్ చేసేవి (రూమ్‌లు రోజుల ప్రకారం, కుర్చీలు / OP సమయం ప్రకారం) పైన ⋮ లోని పాత పేజీలో.',
   ]),
   '/biz/:id/jobs': _H('Job cards', 'జాబ్ కార్డ్స్', [
-    '"New job" = what came in, what to do, estimate, advance, ready date; it gets a token number.',
-    'Move it on with the buttons. "Ready" tells the customer in ASKODOX, or gives you a WhatsApp message to send.',
+    '"New job" = 3 steps: what came in, the estimate, done (you get a token number).',
+    'Tap a job: Working / Ready / Delivered, or UPI QR to take the balance or an advance (money goes to the owner\'s UPI).',
   ], [
-    '"కొత్త జాబ్" = వచ్చింది ఏమిటి, ఏం చేయాలి, అంచనా, అడ్వాన్స్, రెడీ తేదీ; టోకెన్ నంబర్ వస్తుంది.',
-    'బటన్లతో ముందుకు జరపండి. "రెడీ" నొక్కితే కస్టమర్‌కి ASKODOX లో చెప్తుంది, లేదా WhatsApp మెసేజ్ ఇస్తుంది.',
+    '"కొత్త జాబ్" = 3 స్టెప్స్: ఏం వచ్చింది, అంచనా, అయింది (టోకెన్ నంబర్ వస్తుంది).',
+    'జాబ్ నొక్కండి: పని జరుగుతోంది / రెడీ / ఇచ్చేశాం, లేదా మిగతా డబ్బు, అడ్వాన్స్ కోసం UPI QR (డబ్బు ఓనర్ UPI కే).',
   ]),
   '/biz/:id/monthly': _H('Monthly members', 'నెలవారీ సభ్యులు', [
-    'Plans on top (+ Plan). Each member shows what is left this month; "Paid" marks it, 💬 reminds on WhatsApp.',
-    'Hold a member for a part payment, let a month go, pause or stop.',
+    'The big number is what is still to come this month. Tap who paid, type how much, done.',
+    'New members, plans, pause or stop are on the old page in the top ⋮. UPI QR is in ⋮ on the amount step.',
   ], [
-    'పైన ప్లాన్లు (+ ప్లాన్). ప్రతి సభ్యుడికి ఈ నెల ఇంకా ఎంత రావాలో ఉంటుంది; "కట్టారు" తో జమ, 💬 తో WhatsApp గుర్తు.',
-    'కొంచెం కట్టినా, ఈ నెల వదిలేయాలన్నా, ఆపాలన్నా — సభ్యుడిని నొక్కి పట్టుకోండి.',
+    'పెద్ద నంబర్ = ఈ నెల ఇంకా రావాల్సింది. ఎవరు కట్టారో నొక్కండి, ఎంతో రాయండి, అయింది.',
+    'కొత్త సభ్యులు, ప్లాన్లు, ఆపడం పైన ⋮ లోని పాత పేజీలో. UPI QR మొత్తం స్టెప్ లో ⋮ లో.',
   ]),
   '/shops/:id': _H('Shop page', 'షాప్ పేజీ', [
     'Photos, rating, hours, address and the shop\'s own Instagram / Facebook / YouTube links.',

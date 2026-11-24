@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../steps/presentation/checkin_steps_screen.dart';
+import '../../steps/presentation/work_steps_screens.dart';
 import '../../steps/presentation/dues_steps_screen.dart';
 import 'biz_hub.dart';
 import 'biz_menu.dart';
@@ -51,9 +52,22 @@ final askodoxBizRoutes = <GoRoute>[
   GoRoute(path: '/biz/:id/staff/tasks', builder: (c, s) => AskodoxBizTasksScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/staff/setup', builder: (c, s) => AskodoxBizAttSetupScreen(businessId: s.pathParameters['id']!)),
   // Business Kit ways 3-5 (owner 2026-11-24): before the group catch-all below.
-  GoRoute(path: '/biz/:id/bookings', builder: (c, s) => AskodoxBizBookingsScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/jobs', builder: (c, s) => AskodoxBizJobsScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/monthly', builder: (c, s) => AskodoxBizMonthlyScreen(businessId: s.pathParameters['id']!)),
+  // Owner 2026-11-24: the 3-step versions; the old pages stay at ?full=1 (header ⋮).
+  GoRoute(
+      path: '/biz/:id/bookings',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizBookingsScreen(businessId: s.pathParameters['id']!)
+          : AskodoxBookingStepsScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/jobs',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizJobsScreen(businessId: s.pathParameters['id']!)
+          : AskodoxJobStepsScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/monthly',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizMonthlyScreen(businessId: s.pathParameters['id']!)
+          : AskodoxMonthlyStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/:group',
       builder: (c, s) => AskodoxBizGroupScreen(businessId: s.pathParameters['id']!, groupId: s.pathParameters['group']!)),

@@ -11148,6 +11148,45 @@
           "date": "2026-11-24"
         }
       ]
+    },
+    {
+      "id": "work_pages_three_steps",
+      "name": "Job cards, monthly, bookings in 3 pieces",
+      "purpose": "Owner 2026-11-22 3-step rule applied to the Business Kit work pages; old pages stay at ?full=1.",
+      "roles": [
+        "owner",
+        "staff"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Job cards: one number + list, tap = next status or owner UPI QR, New job = what came in -> estimate -> token. Monthly: who paid -> how much -> done (QR in the header menu). Bookings: today's number + list, tap = arrived / done / no show / cancel or QR. The old pages open at ?full=1 from the header menu. Table / parcel / delivery bills show the owner's UPI QR in the pay sheet.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: 3-step work pages (2026-11-24 'finish the 2'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/work_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxJobStepsNew",
+          "askodoxJobStepsSave",
+          "askodoxMonthlyStepsGot"
+        ],
+        "symbols": [
+          "AskodoxJobStepsScreen",
+          "AskodoxMonthlyStepsScreen",
+          "AskodoxBookingStepsScreen"
+        ]
+      }
     }
   ]
 }
