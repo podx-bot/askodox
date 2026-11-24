@@ -992,13 +992,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'Stage లేదా "నావి" తో filter చేయండి; lead నొక్కి పని చేయండి.',
   ]),
   '/pos/:id/crm/lead/:lid': _H('Lead', 'Lead వివరాలు', [
-    'Move the stage as the talk goes on; Lost needs a reason, Won can point to the real bill.',
-    'Call note / Note keep the history; Follow-up sets a reminder; Make quotation opens the bill screen for this lead.',
-    'Save as customer adds the person to your shop customers (one customer list).',
+    'The number on top is what it is worth; below are follow-ups and what happened.',
+    'The big button moves the stage forward (Won can point to the real bill). Lost, notes, follow-up, quotation, assign and customer are in the menu ⋮.',
   ], [
-    'మాట్లాడినట్టు stage మార్చండి; Lost కి కారణం కావాలి, Won కి అసలు bill ఎంచుకోవచ్చు.',
-    'Call note / Note history లో ఉంటాయి; Follow-up reminder పెడుతుంది; Quotation తయారు చేయండి ఈ lead కోసం bill screen తెరుస్తుంది.',
-    'Customer గా save చేస్తే మీ shop customers list లో చేరతారు (ఒకే customer list).',
+    'పైన నంబర్ దీని విలువ; కింద ఫాలో-అప్‌లు, జరిగినవి.',
+    'పెద్ద బటన్ స్టేజ్‌ని ముందుకు జరుపుతుంది (Won కి అసలు బిల్లు ఎంచుకోవచ్చు). Lost, నోట్స్, ఫాలో-అప్, కొటేషన్, అసైన్, కస్టమర్ ⋮ మెనూలో.',
   ]),
   '/pos/:id/crm/complaint/:cid': _H('Complaint', 'Complaint', [
     'Change the status as you work on it; Resolved / Closed need how it was solved.',
