@@ -11228,6 +11228,45 @@
           "AskodoxSuppliersStepsScreen"
         ]
       }
+    },
+    {
+      "id": "work_pages_three_steps_batch2",
+      "name": "Customers, enquiries, team in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule for work pages, batch 2 of 3; old pages stay at ?full=1; Today's post and Add an item were already one-subject pages.",
+      "roles": [
+        "owner",
+        "staff"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Customers: what they owe, search, list, New customer = name -> phone -> done. Enquiries: open enquiries number + list, New enquiry button; quotations, complaints and reports in the header menu (old page; links with ?tab= still open the old page). Team: team number + people (tap = call), Find workers opens the old page. The old pages open at ?full=1.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: work pages batch 2 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/people_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCustomersSteps0",
+          "askodoxEnquiriesSteps",
+          "askodoxTeamSteps"
+        ],
+        "symbols": [
+          "AskodoxCustomersStepsScreen",
+          "AskodoxEnquiriesStepsScreen",
+          "AskodoxTeamStepsScreen"
+        ]
+      }
     }
   ]
 }

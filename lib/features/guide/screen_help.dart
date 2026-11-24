@@ -875,9 +875,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఆన్‌లైన్ ధర వేరుగా కావాలంటే పెట్టి, సేవ్ నొక్కండి.',
   ]),
   '/pos/:id/customers': _H('Customer list', 'కస్టమర్ల లిస్ట్', [
-    'Add customers; tap one to see dues, statement and shop advance.',
+    'The number on top is what customers owe you. Tap a customer for bills and payments.',
+    'The big button adds a customer in 3 steps: name, phone, done. Search a name above the list.',
   ], [
-    'కస్టమర్లను చేర్చండి; ఒకరిని నొక్కితే బాకీ, స్టేట్‌మెంట్, షాప్ అడ్వాన్స్ కనిపిస్తాయి.',
+    'పైన సంఖ్య కస్టమర్ల నుంచి మీకు రావాల్సింది. కస్టమర్ నొక్కితే బిల్లులు, చెల్లింపులు.',
+    'పెద్ద బటన్ 3 స్టెప్స్‌లో కస్టమర్‌ని చేరుస్తుంది: పేరు, ఫోన్, అయింది. లిస్ట్ పైన పేరు వెతకవచ్చు.',
   ]),
   '/pos/:id/dues': _H('Baaki reminders', 'బాకీ గుర్తులు', [
     'From 3 days before each pay date up to the date: tap WhatsApp next to a name -- the message and pay link are ready.',
@@ -942,15 +944,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'అయిపోయాక: డబ్బు ఎలా వచ్చిందో నొక్కండి (క్యాష్ / UPI / ముందే కట్టారు). ఈ రోజు మీ దగ్గర ఉన్న క్యాష్ పైన కనిపిస్తుంది.',
   ]),
   '/pos/:id/team': _H('Workers & team', 'పని వాళ్ళు & టీమ్', [
-    'Registration: your GST or Udyam number + the address on the certificate. Only then can you find new workers and take customer orders.',
-    'Find: worker cards near you (name, work, town, jobs, rating — no phone). "Invite" — they join only if they accept; then you see their number.',
-    'Team: tick your own checklist (licence, police verification ...). Documents open only with the worker\'s 6-digit code, view only.',
-    'Orders: a worker who takes an order himself goes (cash with him); you are told. You can also assign; money as you chose.',
+    'The number on top is the people in your team. Tap a person to call them.',
+    'The big button finds new workers (old page). Documents, monthly posting and registration are there too.',
   ], [
-    'రిజిస్ట్రేషన్: మీ GST లేదా Udyam నంబర్ + సర్టిఫికేట్ లోని అడ్రస్. అప్పుడే కొత్త పని వాళ్ళను చూడగలరు, కస్టమర్ ఆర్డర్లు వస్తాయి.',
-    'కొత్తవాళ్ళు: దగ్గరి పని వాళ్ళ కార్డులు (పేరు, పని, ఊరు, పనులు, రేటింగ్ – ఫోన్ కాదు). "చేర్చుకోమని అడుగు" – వాళ్ళు ఒప్పుకుంటేనే చేరతారు, అప్పుడే నంబర్.',
-    'టీమ్: మీ checklist టిక్ చేయండి (లైసెన్స్, పోలీస్ వెరిఫికేషన్...). Documents worker చెప్పే 6 అంకెల కోడ్ తోనే, చూడటానికి మాత్రమే.',
-    'ఆర్డర్లు: worker తనే ఒప్పుకుంటే వెళ్తారు (క్యాష్ వాళ్ళ దగ్గర), మీకు తెలుస్తుంది. మీరూ ఇవ్వొచ్చు; డబ్బు మీరు ఎంచుకున్నట్టు.',
+    'పైన సంఖ్య మీ టీమ్‌లో ఉన్నవాళ్ళు. ఒకరిని నొక్కితే కాల్ చేయవచ్చు.',
+    'పెద్ద బటన్ కొత్త పని వాళ్ళని వెతుకుతుంది (పాత పేజీ). పత్రాలు, నెలవారీ పోస్టింగ్, రిజిస్ట్రేషన్ కూడా అక్కడే.',
   ]),
   '/me/branches': _H('All my branches', 'నా అన్ని శాఖలు', [
     'Tick your own shops and tap Link. Delivery people of every linked branch can take a delivery of any branch.',
@@ -982,15 +980,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'బుక్ అయ్యాక పని వాళ్ళ పేరు, నంబర్ వస్తాయి. పని అయ్యాక రేటింగ్; ఫిర్యాదు order నంబర్ తో business కి వెళ్తుంది.',
   ]),
   '/pos/:id/crm': _H('Enquiries', 'ఎంక్వైరీలు', [
-    'Today: follow-ups due, pipeline by stage, and ASKODOX requests you can save as enquiries.',
-    'Tap + Add lead for a new lead or enquiry; set a follow-up and you get a reminder.',
-    'Quotations are made on the bill screen ("Quotation"); here you mark them sent / accepted / rejected.',
-    'Complaints: write the problem, then solve it with a note. Reports show conversion, sources and dues.',
+    'The number on top is open enquiries. Tap one to follow up, quote or turn it into a customer.',
+    'The big button adds a new enquiry. Quotations, complaints and reports are in the three-dot menu (old page).',
   ], [
-    'ఈరోజు: చేయాల్సిన follow-ups, stage వారీగా pipeline, ASKODOX requests ని enquiry గా save చేయవచ్చు.',
-    '+ Lead చేర్చండి నొక్కి కొత్త lead / enquiry చేర్చండి; follow-up పెడితే reminder వస్తుంది.',
-    'Quotation bill screen లో ("Quotation") తయారవుతుంది; ఇక్కడ పంపాం / ఒప్పుకున్నారు / వద్దన్నారు అని పెట్టండి.',
-    'Complaints: సమస్య రాసి, పరిష్కారం note తో close చేయండి. Reports లో conversion, sources, బాకీలు కనిపిస్తాయి.',
+    'పైన సంఖ్య తెరిచి ఉన్న ఎంక్వైరీలు. ఒకటి నొక్కి ఫాలోఅప్, కొటేషన్ లేదా కస్టమర్‌గా మార్చండి.',
+    'పెద్ద బటన్ కొత్త ఎంక్వైరీ చేరుస్తుంది. కొటేషన్లు, ఫిర్యాదులు, రిపోర్ట్స్ మూడు చుక్కల మెనూలో (పాత పేజీ).',
   ]),
   '/pos/:id/crm/leads': _H('Leads & enquiries', 'Leads & Enquiries', [
     'Filter by stage or "Mine"; tap a lead to work on it.',

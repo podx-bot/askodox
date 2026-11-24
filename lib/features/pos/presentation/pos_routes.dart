@@ -25,6 +25,7 @@ import 'pos_payment_alerts_screen.dart';
 import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
+import '../../steps/presentation/people_steps_screens.dart';
 import 'branches_screen.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
@@ -125,7 +126,10 @@ final askodoxPosRoutes = <GoRoute>[
   // Workers under an authority (owner plan 2026-11-24 steps 3-6): the worker, the authority's team, a customer.
   GoRoute(path: '/me/work', builder: (context, state) => const AskodoxMyWorkScreen()),
   GoRoute(
-      path: '/pos/:id/team', builder: (context, state) => AskodoxAuthorityTeamScreen(businessId: state.pathParameters['id']!)),
+      path: '/pos/:id/team',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxAuthorityTeamScreen(businessId: state.pathParameters['id']!)
+          : AskodoxTeamStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/me/branches', builder: (context, state) => const AskodoxBranchesScreen()),
   GoRoute(path: '/hire', builder: (context, state) => const AskodoxHireScreen()),
   // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).
@@ -143,8 +147,10 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/crm', builder: (context, state) => const AskodoxCrmEntryScreen()),
   GoRoute(
       path: '/pos/:id/crm',
-      builder: (context, state) => AskodoxPosCrmScreen(
-          businessId: state.pathParameters['id']!, initialTab: state.uri.queryParameters['tab'] ?? '')),
+      // A link with ?tab= (complaints, quotations ...) still opens the old tabbed page.
+      builder: (context, state) => state.uri.queryParameters['full'] == '1' || (state.uri.queryParameters['tab'] ?? '').isNotEmpty
+          ? AskodoxPosCrmScreen(businessId: state.pathParameters['id']!, initialTab: state.uri.queryParameters['tab'] ?? '')
+          : AskodoxEnquiriesStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/crm/leads',
       builder: (context, state) => AskodoxPosCrmLeadsScreen(
@@ -178,7 +184,9 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/pos/:id/dues', builder: (context, state) => AskodoxPosDuesScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/customers',
-      builder: (context, state) => AskodoxPosCustomersScreen(businessId: state.pathParameters['id']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosCustomersScreen(businessId: state.pathParameters['id']!)
+          : AskodoxCustomersStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/customers/:cid',
       builder: (context, state) =>
