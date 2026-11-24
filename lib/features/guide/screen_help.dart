@@ -1149,17 +1149,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఐటమ్స్‌కి నక్షత్రాలు మాత్రమే. ఇక్కడ కొన్న తర్వాత షాప్ గురించి ఒక రివ్యూ (3 ఫోటోల వరకు) రాయవచ్చు; ఓనర్ జవాబు ఇవ్వవచ్చు.',
   ]),
   '/desk/:id': _H('Incoming orders', 'వచ్చిన ఆర్డర్లు', [
-    'All table, shop-QR, counter and reception orders in one place: New, Kitchen, Ready, Delivery, Done.',
-    'Accept an order and switch OFF what is finished; the customer is told. Then move it step by step.',
-    'Bill when it is ready (GST only if your shop has GST). Delivery orders open the map pin.',
-    'An order not accepted in a minute alerts the owner.',
-    'Table requests (water, extra gravy, onions, bill) show in a banner on top; tap Done when served.',
+    'The number on top is new orders waiting for you; new ones come first in the list.',
+    'Tap an order: Accept or Reject, then the big button moves it one step (the customer is told).',
+    'Bill it with cash, UPI or later. Delivery orders ask who takes it.',
+    'New order opens the counter bill; Menu, Sales, QR and alerts are in the three-dot menu.',
   ], [
-    'టేబుల్, షాప్ QR, కౌంటర్, రిసెప్షన్ ఆర్డర్లన్నీ ఒకే చోట: కొత్త, వంటగది, సిద్ధం, డెలివరీ, పూర్తి.',
-    'ఆర్డర్ అంగీకరించి అయిపోయినవాటిని OFF చేయండి; కస్టమర్‌కి తెలుస్తుంది. తర్వాత ఒక్కో దశ ముందుకు.',
-    'సిద్ధమయ్యాక బిల్లు చేయండి (మీ షాప్‌కి GST ఉంటేనే GST). డెలివరీ ఆర్డర్లకు మ్యాప్ పిన్ తెరుచుకుంటుంది.',
-    'నిమిషంలో అంగీకరించని ఆర్డర్ గురించి ఓనర్‌కి అలర్ట్ వెళ్తుంది.',
-    'టేబుల్ అభ్యర్థనలు (నీళ్లు, గ్రేవీ, ఆనియన్స్, బిల్) పైన బ్యానర్‌లో కనిపిస్తాయి; ఇచ్చాక "అయింది" నొక్కండి.',
+    'పైన ఉన్న సంఖ్య మీ కోసం వేచి ఉన్న కొత్త ఆర్డర్లు; కొత్తవి లిస్ట్‌లో ముందు ఉంటాయి.',
+    'ఆర్డర్ నొక్కండి: అంగీకరించు లేదా వద్దు, తర్వాత పెద్ద బటన్ ఒక్క స్టెప్ ముందుకు తీసుకెళ్తుంది (కస్టమర్‌కి తెలుస్తుంది).',
+    'క్యాష్, UPI లేదా తర్వాత అని బిల్లు చేయండి. డెలివరీ ఆర్డర్‌కి ఎవరు తీసుకెళ్తారో అడుగుతుంది.',
+    'కొత్త ఆర్డర్ కౌంటర్ బిల్లు తెరుస్తుంది; మెనూ, అమ్మకాలు, QR, అలర్ట్స్ మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/desk/:id/menu': _H('Menu', 'మెనూ', [
     'Say or type items with prices, tap Preview, check, then Save. Nothing is saved before you confirm.',
@@ -1194,9 +1192,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'కస్టమర్ QR కింద కోడ్‌ని "ఆర్డర్ కోడ్" లో రాస్తే మెనూ తెరుచుకుంటుంది.',
   ]),
   '/pos/:id/tables': _H('Tables', 'టేబుల్స్', [
-    'Tap a table to open an order, add items, send the KOT, then bill.',
+    'The number on top is busy tables. Tap a green (free) table to start an order, an orange one to open its order.',
+    'The big button is Takeaway. Add a table and reservations are in the three-dot menu.',
   ], [
-    'టేబుల్ నొక్కి ఆర్డర్ తెరవండి, సరుకులు చేర్చండి, KOT పంపండి, తర్వాత బిల్లు.',
+    'పైన సంఖ్య నిండిన టేబుల్స్. ఆకుపచ్చ (ఖాళీ) టేబుల్ నొక్కితే ఆర్డర్ మొదలవుతుంది, నారింజ నొక్కితే ఆ ఆర్డర్ తెరుచుకుంటుంది.',
+    'పెద్ద బటన్ పార్సెల్. టేబుల్ చేర్చడం, రిజర్వేషన్లు మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/pos/:id/order/:oid': _H('Table order', 'టేబుల్ ఆర్డర్', [
     'Add items with notes, send the KOT to the kitchen, then bill the table.',
@@ -1204,9 +1204,9 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'నోట్స్‌తో సరుకులు చేర్చండి, KOT వంటగదికి పంపండి, తర్వాత టేబుల్ బిల్లు.',
   ]),
   '/pos/:id/kitchen': _H('Kitchen (KOT)', 'వంటగది KOT', [
-    'New orders appear here; move each to Preparing, Ready and Served.',
+    'The number on top is new tickets. Tap a ticket to see the items, then the big button: Ready, then Served.',
   ], [
-    'కొత్త ఆర్డర్లు ఇక్కడ వస్తాయి; ఒక్కోదాన్ని తయారవుతోంది, సిద్ధం, అందించాం అని మార్చండి.',
+    'పైన సంఖ్య కొత్త టికెట్లు. టికెట్ నొక్కి ఐటమ్స్ చూసి, పెద్ద బటన్: రెడీ, తర్వాత వడ్డించాం.',
   ]),
   '/pos/:id/printer': _H('Printer', 'ప్రింటర్', [
     'Bluetooth LE: Find printer. Classic Bluetooth: pair in phone settings, then Paired. USB: connect with OTG.',
@@ -1223,9 +1223,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ASKODOX రికార్డు మాత్రమే ఉంచుతుంది; డబ్బు మీ దగ్గరే ఉంటుంది.',
   ]),
   '/pos/:id/suppliers': _H('Purchases', 'కొనుగోళ్లు', [
-    'Add suppliers; record their bills; pay them; see what you owe.',
+    'The number on top is what you owe suppliers. Tap a supplier for bills and payments.',
+    'The big button records a purchase bill. New supplier is in the three-dot menu (old page).',
   ], [
-    'సప్లయర్లను చేర్చండి; వారి బిల్లులు నమోదు చేయండి; చెల్లించండి; బాకీ చూడండి.',
+    'పైన సంఖ్య సప్లయర్లకు మీరు ఇవ్వాల్సింది. సప్లయర్ నొక్కితే బిల్లులు, చెల్లింపులు.',
+    'పెద్ద బటన్ కొనుగోలు బిల్లు నమోదు చేస్తుంది. కొత్త సప్లయర్ మూడు చుక్కల మెనూలో (పాత పేజీ).',
   ]),
   '/pos/:id/suppliers/:sid': _H('Supplier', 'సప్లయర్', [
     'Bills, payments and the monthly statement of this supplier.',
