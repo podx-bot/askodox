@@ -99,6 +99,8 @@ import '../application/chat_shop_cart.dart';
 import '../application/voice_mode.dart';
 import '../../../core/diagnostics/test_mode.dart';
 import '../data/availability_watch_repository.dart';
+import '../domain/answer_card.dart';
+import 'answer_card_view.dart';
 
 const _ink = Color(0xFF10204A);
 /// ON in the real app (main.dart): typed turns are answered with voice too. Widget tests keep it OFF.
@@ -1221,6 +1223,12 @@ class _AskodoxPrimaryHomeScreenState
   /// Smart Answer chips (backend reply_suggestions.py) keyed by the USER turn;
   /// drawn under the next assistant turn only while it is the latest turn.
   final Map<int, List<String>> _suggestionsByTurn = {};
+  /// One-screen answer cards (backend answer_card.py, owner 2026-11-24) keyed by the ASSISTANT turn, and the text
+  /// the app added after the brain's answer (drawn small under the headline).
+  final Map<int, AskodoxAnswerCard> _cardByTurn = {};
+  AskodoxAnswerCard? _pendingCard;
+  String _pendingCardReply = '';
+  final Map<int, String> _cardExtraByTurn = {};
 
   void _clearConversationState() {
     _adviceLedger = const [];
@@ -1234,6 +1242,8 @@ class _AskodoxPrimaryHomeScreenState
     _chatBillByTurn.clear();
     _shopMenuByTurn.clear();
     _suggestionsByTurn.clear();
+    _cardByTurn.clear();
+    _cardExtraByTurn.clear();
     _turns.clear();
     _resultsByTurn.clear();
     _resultsHiddenFor = null;
@@ -2558,6 +2568,7 @@ class _AskodoxPrimaryHomeScreenState
     _earlyAudio.clear();
     _liveReset(userText: text);
     askodoxTalkBrief = _talkMode;
+    askodoxLanguageLocked = (ref.read(askodoxLanguageLockProvider) ?? '').isNotEmpty;
     final decision = await ref.read(askodoxAssistantServiceProvider).decideStreaming(
       message: aiMessage,
       locale: _lang,
@@ -2586,6 +2597,14 @@ class _AskodoxPrimaryHomeScreenState
     // concern already explained is not repeated (an older backend returns
     // none -- keep what we have).
     if (aiUsable && decision!.adviceLedger != null) _adviceLedger = decision.adviceLedger!;
+    // The server answered in the language the person wrote in (romanized Telugu included): the chat follows it
+    // from this first reply on, unless the person chose a language themselves.
+    if (decision != null && decision.replyLanguage.isNotEmpty && !askodoxLanguageLocked &&
+        decision.replyLanguage != ref.read(askodoxObservedLanguageProvider)) {
+      ref.read(askodoxObservedLanguageProvider.notifier).state = decision.replyLanguage;
+    }
+    _pendingCard = aiUsable ? decision!.card : null;
+    _pendingCardReply = aiUsable ? decision!.reply.trim() : '';
     if (decision?.intelligence case final intel?) _intelByTurn[userTurnIndex] = intel;
     if (aiUsable && decision!.switchMode != null) _switchModeByTurn[userTurnIndex] = decision.switchMode!;
     // A screen hidden in this release phase gets no button (the server is told too: "phase1_only").
@@ -3200,6 +3219,14 @@ class _AskodoxPrimaryHomeScreenState
       _listingBannerIsError = listingBannerIsError;
       _turns.add(ConversationTurnRecord(text: reply, isUser: false));
       final assistantIndex = _turns.length - 1;
+      // The card is the answer only while the reply still IS the brain's answer (the app may add its own next
+      // question after it -- that line shows small under the headline).
+      if (_pendingCard case final card? when _pendingCardReply.isNotEmpty && reply.trim().startsWith(_pendingCardReply)) {
+        _cardByTurn[assistantIndex] = card;
+        final extra = reply.trim().substring(_pendingCardReply.length).trim();
+        if (extra.isNotEmpty) _cardExtraByTurn[assistantIndex] = askodoxPlainReply(extra);
+      }
+      _pendingCard = null;
       if (results != null && !results.isEmpty) {
         // One no-results notice per request: an earlier empty notice for the
         // SAME request id is folded into this one (APK 1292 showed "#47"
@@ -3250,7 +3277,7 @@ class _AskodoxPrimaryHomeScreenState
     await _store.save(_turns);
     await _saveSnapshot();
     _scrollBottom();
-    if (speakResponse) await _speakReply(reply, userText: text);
+    if (speakResponse) await _speakReply(askodoxCardSpokenReply(reply), userText: text);
   }
 
   void _parkDeal(UniversalDeal deal) {
@@ -4388,6 +4415,17 @@ class _AskodoxPrimaryHomeScreenState
 
   void _showStreamingReply(String textSoFar) {
     if (!mounted || !_sending) return;
+    // One-screen answers: only the part before [[more]] is shown big and spoken while it is written; the details
+    // arrive as the card. The mark = the spoken part is complete.
+    final spoken = askodoxStreamingSpokenPart(textSoFar);
+    if (spoken.complete || textSoFar.contains('[[')) {
+      textSoFar = spoken.text;
+      if (spoken.complete && askodoxSpeakTypedReplies && _streamSpeaks) {
+        _liveFeed(textSoFar);
+        _liveOnTextDone();
+        return;
+      }
+    }
     if (askodoxSpeakTypedReplies && _streamSpeaks) {
       // A spoken turn in the real app: each finished part is spoken (and shown) while the rest is written.
       _liveFeed(textSoFar);
@@ -5578,7 +5616,41 @@ class _AskodoxPrimaryHomeScreenState
   }
 
   /// A turn's message bubble and its notices.
+  /// An assistant turn drawn as the one-screen answer card (fits the chat area; nothing scrolls down).
+  Widget _answerCardTurn(int index, ConversationTurnRecord turn, AskodoxAnswerCard card, bool te) {
+    final screen = MediaQuery.sizeOf(context).height;
+    final speaking = _voicePhase == _VoicePhase.speaking;
+    return Padding(
+      key: ValueKey('askodoxAnswerCardTurn-$index'),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onLongPress: () => _messageActions(turn, te, index: index),
+        child: AskodoxAnswerCardView(
+          card: card,
+          language: _lang,
+          // The chat area below the header and above the composer.
+          maxHeight: (screen - 230).clamp(380.0, 760.0),
+          extra: _cardExtraByTurn[index] ?? '',
+          speaking: speaking,
+          onSpeak: () => speaking
+              ? unawaited(_stopSpeaking())
+              : unawaited(_replayReply(askodoxCardSpokenReply(turn.text))),
+          onMic: _sending ? null : () => unawaited(_startVoice()),
+          onAsk: (say) {
+            if (!_sending) unawaited(_send(say));
+          },
+          onFeedback: (useful) {
+            if (!useful) unawaited(_reportWrongAnswer(turn, te, index: index));
+          },
+        ),
+      ),
+    );
+  }
+
   List<Widget> _turnHead(int index, ConversationTurnRecord turn, bool te) => [
+            if (_cardByTurn[index] case final card? when !turn.isUser)
+              _answerCardTurn(index, turn, card, te)
+            else
             Align(
               alignment:
                   turn.isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -5842,7 +5914,8 @@ class _AskodoxPrimaryHomeScreenState
                 onOpen: (route) => context.push(route),
               ),
             if (_suggestionsByTurn[index - 1] case final chips?
-                when !turn.isUser && index == _turns.length - 1 && _clarificationByTurn[index] == null)
+                when !turn.isUser && index == _turns.length - 1 && _clarificationByTurn[index] == null &&
+                    (_cardByTurn[index]?.replies.isEmpty ?? true))
               Padding(
                 key: const Key('askodoxSuggestionChips'),
                 padding: const EdgeInsets.only(bottom: 10),

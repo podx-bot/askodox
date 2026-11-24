@@ -1,0 +1,137 @@
+{
+ "_doc": "Shared by backend/tests/test_romanized_language.py and test/features/home/romanized_language_test.dart: both detectors must give these answers (null = no language signal -> keep the app's locale).",
+ "cases": [
+  [
+   "e sms akadi unchi vachidhi",
+   "te"
+  ],
+  [
+   "mudra loan gurinchi motham cheppandi",
+   "te"
+  ],
+  [
+   "naku TV kavali",
+   "te"
+  ],
+  [
+   "money vachindhi kani sms raledu",
+   "te"
+  ],
+  [
+   "ee message nijamena",
+   "te"
+  ],
+  [
+   "mujhe AC chahiye",
+   "hi"
+  ],
+  [
+   "kitna hai bhai",
+   "hi"
+  ],
+  [
+   "paisa kat gaya kya",
+   "hi"
+  ],
+  [
+   "enakku phone venum",
+   "ta"
+  ],
+  [
+   "nanage loan beku",
+   "kn"
+  ],
+  [
+   "enikku phone venam evide kittum",
+   "ml"
+  ],
+  [
+   "amar taka lagbe",
+   "bn"
+  ],
+  [
+   "mala paise pahije",
+   "mr"
+  ],
+  [
+   "mane loan joie che",
+   "gu"
+  ],
+  [
+   "mainu ki chahida",
+   "pa"
+  ],
+  [
+   "mote loan darkar",
+   "or"
+  ],
+  [
+   "what is the price of this phone",
+   null
+  ],
+  [
+   "I want a loan for my shop",
+   null
+  ],
+  [
+   "hello how are you",
+   null
+  ],
+  [
+   "Is this SMS fake?",
+   null
+  ],
+  [
+   "ok",
+   null
+  ],
+  [
+   "yes show me",
+   null
+  ],
+  [
+   "43 inch",
+   null
+  ],
+  [
+   "Samsung Galaxy",
+   null
+  ],
+  [
+   "ఈ SMS ఎక్కడి నుంచి వచ్చింది",
+   "te"
+  ],
+  [
+   "मुझे लोन चाहिए",
+   "hi"
+  ],
+  [
+   "payment ledu",
+   null
+  ],
+  [
+   "kya",
+   null
+  ],
+  [
+   "order it",
+   null
+  ],
+  [
+   "Tata",
+   null
+  ],
+  [
+   "I would like to see cheaper options please",
+   null
+  ],
+  [
+   "naku 43 inch TV kavali ekkada dorukutundi",
+   "te"
+  ],
+  [
+   "mujhe AC service chahiye kahan milega",
+   "hi"
+  ]
+ ]
+}

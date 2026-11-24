@@ -62,11 +62,17 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   '/': _H('Home — ask ASKODOX', 'హోమ్ — ASKODOX ని అడగండి', [
     'Type or speak what you need (buy, sell, a service, a job, a ride).',
     'Answer the one question ASKODOX asks, or say "show me".',
+    'Each answer is one card: the big line on top is the answer (🔊 reads it); tap the big tabs for more, swipe the cards sideways.',
+    'Tap a button under the answer (e.g. "Money is gone") — its next step opens inside the same card.',
+    'Sent a photo of an SMS? The colour bar shows the risk; money / sender / link are coloured, and one button opens your own bank / UPI app.',
     'Results appear above the chat: tap a card to send a request or open it.',
     'Examples: "Sona masoori rice 25 kg under 1500 near me" · "AC repair at home tomorrow" · "I want to sell my old scooter".',
   ], [
     'మీకు ఏం కావాలో టైప్ చేయండి లేదా మాట్లాడండి (కొనడం, అమ్మడం, సర్వీస్, ఉద్యోగం, రైడ్).',
     'ASKODOX అడిగే ఒక్క ప్రశ్నకు జవాబు ఇవ్వండి, లేదా "చూపించు" అనండి.',
+    'ప్రతి జవాబు ఒకే కార్డ్: పైన పెద్ద లైన్ = జవాబు (🔊 నొక్కితే వినిపిస్తుంది); పెద్ద tabs నొక్కి ఇంకా చూడండి, కార్డ్‌లను పక్కకి జరపండి.',
+    'జవాబు కింద button నొక్కండి (ఉదా: "డబ్బు పోయింది") — తర్వాత ఏం చేయాలో అదే కార్డ్‌లో వస్తుంది.',
+    'SMS ఫోటో పంపారా? రంగుల గీత ప్రమాదం చెబుతుంది; డబ్బు / పంపినవారు / link రంగుల్లో, ఒక్క button తో మీ bank / UPI app తెరుచుకుంటుంది.',
     'ఫలితాలు చాట్ పైన వస్తాయి: కార్డ్ నొక్కి రిక్వెస్ట్ పంపండి లేదా తెరవండి.',
     'ఉదాహరణలు: "దగ్గరలో 1500 లోపు సోనా మసూరి బియ్యం 25 కిలో" · "రేపు ఇంటికి AC రిపేర్" · "నా పాత స్కూటర్ అమ్మాలి".',
   ]),

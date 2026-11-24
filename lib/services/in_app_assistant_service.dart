@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/flags/askodox_release_phase.dart';
+import '../features/home/domain/answer_card.dart';
 
 /// Live voice conversation (talk mode): the brain keeps answers to a couple of short spoken sentences.
 bool askodoxTalkBrief = false;
@@ -17,6 +18,10 @@ bool askodoxShoppingMode = false;
 
 /// The buy / sell switch (owner 2026-11-21): true while the person is on the Seller side of the app.
 bool askodoxSellerMode = false;
+
+/// The person chose a reply language themselves (header / "reply in English"): the server then never switches the
+/// reply language from how the message is written. Set by the chat before each question.
+bool askodoxLanguageLocked = false;
 
 class InAppAssistantTurn {
   const InAppAssistantTurn({required this.role, required this.text});
@@ -112,7 +117,15 @@ class InAppAssistantDecision {
     this.switchMode,
     this.shopMenu,
     this.suggestions = const <String>[],
+    this.card,
+    this.replyLanguage = '',
   });
+
+  /// One-screen answer card (backend answer_card.py, owner 2026-11-24); null for older backends / no card.
+  final AskodoxAnswerCard? card;
+
+  /// The language the server answered in ('' = older backend).
+  final String replyLanguage;
 
   /// A shop on ASKODOX the person named (backend `shop_menu`): its menu as a card inside the chat, with the order
   /// already prepared when their own words named items. Null for other turns / older backends.
@@ -275,6 +288,8 @@ class InAppAssistantDecision {
       switchMode: switch (json['switch_mode']) { 'seller' => 'seller', 'buyer' => 'buyer', _ => null },
       shopMenu: json['shop_menu'] is Map ? Map<String, Object?>.unmodifiable(Map<String, Object?>.from(json['shop_menu'] as Map)) : null,
       suggestions: names(json['suggestions']).take(5).toList(growable: false),
+      card: AskodoxAnswerCard.fromJson(json['card']),
+      replyLanguage: json['reply_language'] is String ? (json['reply_language'] as String).trim() : '',
     );
   }
 
@@ -370,7 +385,7 @@ class InAppAssistantService {
         // shows a chat-action button (app_action) under a reply. A Phase 1
         // build opens only Phase 1 screens, so the brain offers only those.
         // 'suggestions' = this build draws tap chips under the reply.
-        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief', if (askodoxAutoOpenAppActions) 'auto_open', if (askodoxShoppingMode) 'shopping_mode', if (!askodoxPhase2 && (askodoxShoppingMode || askodoxSellerMode)) 'shopping_tools', askodoxSellerMode ? 'seller_mode' : 'buyer_mode'],
+        'capabilities': ['meaning_tags', 'app_actions', 'shop_menu', 'suggestions', if (!askodoxPhase2) 'phase1_only', if (askodoxTalkBrief) 'talk_brief', if (askodoxAutoOpenAppActions) 'auto_open', if (askodoxShoppingMode) 'shopping_mode', if (!askodoxPhase2 && (askodoxShoppingMode || askodoxSellerMode)) 'shopping_tools', askodoxSellerMode ? 'seller_mode' : 'buyer_mode', 'answer_card', if (askodoxLanguageLocked) 'lang_lock'],
       };
 
   /// The same decision as [decide], but a long answer (how-to guide / advice) is shown
