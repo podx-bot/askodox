@@ -11095,15 +11095,23 @@
       "ui": {
         "keys": [
           "askodoxCollectQr",
-          "askodoxCollectQrConfirm",
-          "askodoxJobQr",
-          "askodoxMemberQr",
-          "askodoxBookingQr"
+          "askodoxCollectQrConfirm"
         ],
         "symbols": [
           "askodoxShowCollectQr"
         ]
-      }
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Job card balance, booking price and monthly due each get an UPI QR to the OWNER's own UPI (one open QR per thing; the same amount open at once -> +1 paise). Owner and the person who showed it both hear when the money's notice matches; the owner's 'money received' records the money on the card / due. ASKODOX never holds money.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: owner QR in job cards, bookings, monthly (2026-11-24 'finish all'); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ]
     },
     {
       "id": "multi_branch_owner",
@@ -11123,13 +11131,23 @@
       },
       "ui": {
         "keys": [
-          "askodoxBranchLink",
-          "askodoxBranchRemove"
+          "askodoxBranchLink"
         ],
         "symbols": [
           "AskodoxBranchesScreen"
         ]
-      }
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "An owner links two or more of his OWN shops. Delivery people of every branch in the group can be asked / given a delivery job of any branch; each stays a member of his own branch. The owner sees today for every branch and the total (bills, sales, deliveries, dues). Bills and GST stay per branch.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: multi-branch shared pool + all-branches view (2026-11-24 12:03 / 13:15); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ]
     }
   ]
 }
