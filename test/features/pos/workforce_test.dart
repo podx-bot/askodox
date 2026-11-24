@@ -87,7 +87,8 @@ void main() {
     await tester.pump();
     final save = tester.widget<FilledButton>(find.byKey(const Key('askodoxWorkSave')));
     expect(save.onPressed, isNull, reason: '18+ is mandatory');
-    await tester.scrollUntilVisible(find.byKey(const Key('askodoxWorkAdult')), 100);
+    await tester.ensureVisible(find.byKey(const Key('askodoxWorkAdult')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('askodoxWorkAdult')));
     await tester.pump();
     await tester.ensureVisible(find.byKey(const Key('askodoxWorkSave')));
@@ -97,7 +98,8 @@ void main() {
     expect(sent['adult'], isTrue);
     expect(sent['work_types'], ['delivery']);
     expect(find.byKey(const Key('askodoxWorkCard')), findsOneWidget);
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxWorkJoin-b1')), 100);
+    await tester.ensureVisible(find.byKey(const ValueKey('askodoxWorkJoin-b1')));
+    await tester.pump();
     await tester.tap(find.byKey(const ValueKey('askodoxWorkJoin-b1')));
     await tester.pump(const Duration(milliseconds: 50));
     expect(api.calls['POST /api/me/work/links/b1'], {'accept': true});

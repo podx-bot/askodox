@@ -934,7 +934,7 @@ class _HireState extends ConsumerState<AskodoxHireScreen> {
                         'at': _when.text.trim(),
                       });
                       await _load();
-                      if (mounted) askodoxPosSnack(context, te ? 'బుక్ అయింది – పేరు, నంబర్ వస్తాయి' : 'Booked – name and number will come');
+                      if (mounted) askodoxPosSnack(this.context, te ? 'బుక్ అయింది – పేరు, నంబర్ వస్తాయి' : 'Booked – name and number will come');
                     }),
                     child: Text(te ? 'బుక్' : 'Book'),
                   ),
