@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "my_work_page_three_steps_batch25",
+      "name": "I want work page in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 25; old page stays at ?full=1.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "No card yet: 3 steps (what work -> name, town, 18+ -> card up). With a card: things waiting for my answer on top, ONE list (work offered, my jobs, site duty, businesses), ONE big button opens the first waiting thing. Card + badge, documents and the old page in the menu. My number never goes to a business before I join.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 25 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/my_work_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMyWorkSteps",
+          "askodoxMyWorkStepsOpen"
+        ],
+        "symbols": [
+          "AskodoxMyWorkStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "agents_pages_three_steps_batch24",
       "name": "AI agents pages in 3 pieces",
       "purpose": "Owner 2026-11-24: 3-step rule, batch 24; old pages stay at ?full=1.",
