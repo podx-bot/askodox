@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../steps/presentation/biz_menu_steps_screens.dart';
 import '../../steps/presentation/checkin_steps_screen.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/person_steps_screens.dart';
@@ -17,12 +18,17 @@ import 'biz_work.dart';
 /// The business hub's pages (owner 2026-11-18): `/biz/:id` is the hub, `/biz/:id/:group` a group page.
 final askodoxBizRoutes = <GoRoute>[
   GoRoute(path: '/biz/:id', builder: (c, s) => AskodoxBizHubScreen(businessId: s.pathParameters['id']!)),
-  GoRoute(path: '/biz/:id/menu', builder: (c, s) => AskodoxBizMenuScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/menu',
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizMenuScreen(businessId: s.pathParameters['id']!)
+          : AskodoxBizMenuStepsScreen(businessId: s.pathParameters['id']!)),
   GoRoute(path: '/biz/:id/menu/sort', builder: (c, s) => AskodoxBizMenuSortScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/menu/section/:name',
-      builder: (c, s) =>
-          AskodoxBizSectionScreen(businessId: s.pathParameters['id']!, section: s.pathParameters['name']!)),
+      builder: (c, s) => s.uri.queryParameters['full'] == '1'
+          ? AskodoxBizSectionScreen(businessId: s.pathParameters['id']!, section: s.pathParameters['name']!)
+          : AskodoxBizSectionStepsScreen(businessId: s.pathParameters['id']!, section: s.pathParameters['name']!)),
   GoRoute(
       path: '/biz/:id/menu/item/:pid',
       builder: (c, s) => AskodoxBizItemScreen(businessId: s.pathParameters['id']!, productId: s.pathParameters['pid']!)),

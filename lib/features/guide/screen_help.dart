@@ -428,11 +428,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మొదలు / ముగింపు సమయం, ఎన్ని నిమిషాల ఆలస్యం ఓకే, షాప్‌కి ఎంత దగ్గర — పెట్టండి.',
   ]),
   '/biz/:id/menu': _H('Menu & items', 'మెనూ & ఐటమ్స్', [
-    'Add an item, read a menu photo, sort with AI, or switch off what ran out today.',
-    'Search finds an item by name or number in every section. Tap a section to see its items.',
+    'The number on top is how many items you have. Tap a section to see its items; search finds an item by name or number in every section.',
+    'The big button adds items. Sort with AI, menu photo and the old page are in the three-dots menu.',
   ], [
-    'ఐటమ్ చేర్చండి, మెనూ ఫోటో చదివించండి, AI తో సర్దండి, లేదా అయిపోయినవి ఆఫ్ చేయండి.',
-    'వెతుకుడు అన్ని విభాగాల్లో పేరు / నంబర్‌తో వెతుకుతుంది. విభాగం నొక్కితే దాని ఐటమ్స్.',
+    'పైన ఉన్న సంఖ్య మీ ఐటమ్స్. విభాగం నొక్కితే దాని ఐటమ్స్; వెతుకుడు అన్ని విభాగాల్లో పేరు / నంబర్‌తో వెతుకుతుంది.',
+    'పెద్ద బటన్ ఐటమ్స్ చేరుస్తుంది. AI తో సర్దు, మెనూ ఫోటో, పాత పేజీ మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/biz/:id/menu/sort': _H('Sort with AI', 'AI తో సర్దు', [
     'AI reads the item names in parts at the same time — it can take a minute or two.',
@@ -442,11 +442,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'విభాగం తెరిచి ఐటమ్ మార్చవచ్చు. సేవ్ నొక్కే వరకు ఏదీ మారదు.',
   ]),
   '/biz/:id/menu/section/:name': _H('One section', 'ఒక విభాగం', [
-    'Each item: photo, price, how many sold today, and the switch for today.',
-    'Use the chips to see only veg, non-veg, what is off, or the most sold.',
+    'Each item shows its price and whether it is out today; tap one to open it (price, on / off, details).',
+    'The three-dots menu shows only what is out today, or opens the old page with veg / non-veg and most-sold filters.',
   ], [
-    'ప్రతి ఐటమ్: ఫోటో, ధర, ఈ రోజు ఎన్ని అమ్మాం, ఈ రోజు స్విచ్.',
-    'చిప్స్‌తో వెజ్, నాన్-వెజ్, లేనివి, ఎక్కువ అమ్మినవి మాత్రమే చూడండి.',
+    'ప్రతి ఐటమ్ ధర, ఈ రోజు లేదా అనేది చూపిస్తుంది; నొక్కితే ఆ ఐటమ్ తెరుచుకుంటుంది (ధర, ఆన్ / ఆఫ్, వివరాలు).',
+    'మూడు చుక్కల మెనూలో ఈ రోజు లేనివి మాత్రమే చూడవచ్చు, లేదా వెజ్ / నాన్-వెజ్, ఎక్కువ అమ్మినవి చిప్స్ ఉన్న పాత పేజీ తెరవవచ్చు.',
   ]),
   '/biz/:id/menu/item/:pid': _H('One item', 'ఒక ఐటమ్', [
     'Tap a button to change the price, today\'s switch, the veg mark or the section.',

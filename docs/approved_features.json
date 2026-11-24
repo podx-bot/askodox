@@ -11827,6 +11827,43 @@
           "AskodoxPrinterStepsScreen"
         ]
       }
+    },
+    {
+      "id": "biz_menu_pages_three_steps_batch18",
+      "name": "Menu by sections in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 18 (/biz/:id/menu and one section); old pages stay at ?full=1.",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Item count on top, ONE list of sections (tap = its items; search finds an item in every section), ONE big button adds items. A section shows its items with price and out-today; tap = the item page. Sort with AI, menu photo and the old page are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 18 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/biz_menu_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBizMenuSteps",
+          "askodoxBizMenuStepsAdd",
+          "askodoxBizSectionSteps"
+        ],
+        "symbols": [
+          "AskodoxBizMenuStepsScreen",
+          "AskodoxBizSectionStepsScreen"
+        ]
+      }
     }
   ]
 }
