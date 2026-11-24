@@ -1203,11 +1203,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన సంఖ్య కొత్త టికెట్లు. టికెట్ నొక్కి ఐటమ్స్ చూసి, పెద్ద బటన్: రెడీ, తర్వాత వడ్డించాం.',
   ]),
   '/pos/:id/printer': _H('Printer', 'ప్రింటర్', [
-    'Bluetooth LE: Find printer. Classic Bluetooth: pair in phone settings, then Paired. USB: connect with OTG.',
-    'Pick the printer and do a test print.',
+    'The top shows the printer in use. The big button does a test print, or finds a printer when you have none.',
+    'Finding one: choose how it connects (Bluetooth search, Paired in phone settings, or USB with an OTG cable), then tap your printer in the list.',
+    'The menu (three dots) has another printer, the paper size (58 / 80 mm) and the old page.',
   ], [
-    'బ్లూటూత్ LE: "ప్రింటర్ వెతుకు". క్లాసిక్: ఫోన్ సెట్టింగ్స్‌లో జత చేసి "జత చేసినవి". USB: OTG తో కనెక్ట్.',
-    'ప్రింటర్ ఎంచుకుని టెస్ట్ ప్రింట్ చేయండి.',
+    'పైన వాడుతున్న ప్రింటర్ కనిపిస్తుంది. పెద్ద బటన్ టెస్ట్ ప్రింట్ చేస్తుంది; ప్రింటర్ లేకపోతే వెతుకుతుంది.',
+    'వెతకడం: ఎలా కనెక్ట్ అయిందో ఎంచుకోండి (బ్లూటూత్ వెతుకు, ఫోన్ సెట్టింగ్స్‌లో జత చేసినవి, లేదా OTG కేబుల్‌తో USB), తర్వాత లిస్ట్‌లో మీ ప్రింటర్ నొక్కండి.',
+    'మూడు చుక్కల మెనూలో వేరే ప్రింటర్, పేపర్ సైజు (58 / 80 mm), పాత పేజీ ఉన్నాయి.',
   ]),
   '/pos/:id/advance': _H('Shop advance', 'షాప్ అడ్వాన్స్', [
     'Read the terms, tick to accept, set the limit and turn it on.',

@@ -34,6 +34,7 @@ import '../../steps/presentation/items_steps_screens.dart';
 import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
+import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/people_steps_screens.dart';
@@ -304,7 +305,11 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
           ? AskodoxPosStockReportScreen(businessId: state.pathParameters['id']!)
           : AskodoxStockStepsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/pos/:id/printer', builder: (context, state) => const AskodoxPosPrinterScreen()),
+  GoRoute(
+      path: '/pos/:id/printer',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? const AskodoxPosPrinterScreen()
+          : AskodoxPrinterStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/advance', builder: (context, state) => AskodoxPosAdvanceSettingsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
