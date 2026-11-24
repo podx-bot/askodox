@@ -219,6 +219,10 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         }
                     }
+                    // Chat answer card (owner 2026-11-24): "money cut? check your bank" opens the person's OWN
+                    // UPI / bank app -- every app that handles upi:// is offered, the app is only OPENED (its
+                    // launcher screen), never asked to pay. false = no such app (the chat says so).
+                    "openUpiApps" -> result.success(openUpiApps(call.argument<String>("title") ?: "Open"))
                     // Share a file the app wrote to its OWN cache (e.g. an invoice PDF);
                     // anything outside the cache folder is refused.
                     "shareFile" -> {
@@ -1017,6 +1021,29 @@ class MainActivity : FlutterActivity() {
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
         }
         startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    private fun openUpiApps(title: String): Boolean {
+        return try {
+            val probe = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay"))
+            val launches = packageManager.queryIntentActivities(probe, 0)
+                .mapNotNull { it.activityInfo?.packageName }
+                .distinct()
+                .filter { it != packageName }
+                .mapNotNull { packageManager.getLaunchIntentForPackage(it) }
+            when {
+                launches.isEmpty() -> false
+                launches.size == 1 -> { startActivity(launches[0]); true }
+                else -> {
+                    val chooser = Intent.createChooser(launches[0], title)
+                    chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, launches.drop(1).toTypedArray())
+                    startActivity(chooser)
+                    true
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun openAppSettings() {

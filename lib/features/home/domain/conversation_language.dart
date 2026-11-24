@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/app_settings_provider.dart';
+import 'romanized_language_tables.dart';
 
 /// Unicode block -> language (the catalog's languages; a shared script maps
 /// to its most common language unless the user picks another explicitly).
@@ -71,39 +72,45 @@ final _explicitSwitch = <RegExp, String>{
   RegExp(r'\b(in|reply in|speak in|switch to)\s+odia\b|ଓଡ଼ିଆରେ', caseSensitive: false): 'or',
 };
 
-/// Very common function words of Indian languages typed in English letters
-/// ("naku TV kavali", "mujhe AC chahiye"). Two or more distinct markers of
-/// one language (and more than any other) mean the customer is using that
-/// language -- universal table, not a per-language special case.
-const _romanizedMarkers = <String, Set<String>>{
-  'te': {'naku', 'nenu', 'kavali', 'kaavali', 'ekkada', 'enti', 'emiti', 'undi', 'ledu', 'cheppu', 'cheppandi',
-         'kosam', 'entha', 'ela', 'ivvandi', 'chupinchu', 'dorukutundi', 'ikkada', 'meeru', 'manchi', 'unnaya',
-         'kavalante', 'ayindi', 'chesi', 'cheyali', 'emaina'},
-  'hi': {'mujhe', 'chahiye', 'kahan', 'kya', 'nahi', 'kitna', 'kitne', 'kaise', 'batao', 'dikhao', 'mera', 'meri',
-         'aap', 'karo', 'hain', 'wala', 'wali', 'sasta', 'accha', 'kaha', 'milega', 'chahie'},
-  'ta': {'enakku', 'venum', 'venam', 'enga', 'enna', 'irukku', 'illa', 'sollunga', 'evvalavu', 'kidaikkum'},
-  'kn': {'nanage', 'beku', 'elli', 'yenu', 'ide', 'illa', 'heli', 'eshtu', 'sigutte'},
-  'ml': {'enikku', 'venam', 'evide', 'entha', 'undo', 'illa', 'parayu', 'ethra', 'kittum'},
-  'bn': {'amar', 'lagbe', 'kothay', 'ki', 'ache', 'nei', 'bolo', 'koto', 'pabo'},
-};
+/// Indian languages typed in English letters ("naku TV kavali", "mujhe AC chahiye", "e sms akadi unchi vachidhi").
+/// The SAME table and scoring as the backend (`romanized_language.py`): a table word = 2 points, a typical ending
+/// on a 4+ letter non-English word = 1 point; 3+ points (one word alone is not enough) and more than any other wins; a real English
+/// sentence with one Indian-looking word stays English. Universal, never a per-language special case.
+Map<String, int> askodoxRomanizedScores(String message) {
+  final words = RegExp(r'[a-z]+').allMatches(message.toLowerCase()).map((m) => m.group(0)!).toList();
+  final out = <String, int>{};
+  for (final entry in askodoxRomanizedWords.entries) {
+    final endings = askodoxRomanizedEndings[entry.key] ?? const <String>[];
+    var total = 0;
+    for (final word in words) {
+      if (entry.value.contains(word)) {
+        total += 2;
+      } else if (word.length >= 4 && !askodoxRomanizedEnglish.contains(word) && endings.any(word.endsWith)) {
+        total += 1;
+      }
+    }
+    if (total > 0) out[entry.key] = total;
+  }
+  return out;
+}
 
 String? askodoxRomanizedLanguage(String message) {
-  final words = message.toLowerCase().split(RegExp(r'[^a-z]+')).where((w) => w.isNotEmpty).toSet();
-  String? best;
-  var bestHits = 0;
-  var tie = false;
-  for (final entry in _romanizedMarkers.entries) {
-    final hits = words.where(entry.value.contains).length;
-    if (hits > bestHits) {
-      best = entry.key;
-      bestHits = hits;
-      tie = false;
-    } else if (hits == bestHits && hits > 0) {
-      tie = true;
-    }
-  }
-  return bestHits >= 2 && !tie ? best : null;
+  final found = askodoxRomanizedScores(message);
+  if (found.isEmpty) return null;
+  // Same order as the backend's table when points are equal.
+  final ranked = found.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  final best = ranked.first;
+  if (best.value < 3 || (ranked.length > 1 && ranked[1].value == best.value)) return null;
+  final english = RegExp(r'[a-z]+')
+      .allMatches(message.toLowerCase())
+      .where((m) => askodoxRomanizedEnglish.contains(m.group(0)))
+      .length;
+  if (english >= 4 && english * 2 > best.value * 3) return null;
+  return best.key;
 }
+
+/// Native script first, then romanized; null when the message gives no language signal.
+String? askodoxDetectLanguage(String message) => askodoxScriptLanguage(message) ?? askodoxRomanizedLanguage(message);
 
 /// The conversation language after [message], given the [current] one.
 String askodoxNextConversationLanguage({required String current, required String message}) {

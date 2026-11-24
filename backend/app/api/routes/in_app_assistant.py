@@ -38,7 +38,7 @@ class AssistantRequest(BaseModel):
     advice_given: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
     # What this app build can render (e.g. "meaning_tags"); older builds send
     # nothing and get replies without the new markers.
-    capabilities: list[str] = Field(default_factory=list, max_length=10)
+    capabilities: list[str] = Field(default_factory=list, max_length=20)
 
 
 class AssistantDecision(BaseModel):
@@ -106,6 +106,11 @@ class AssistantDecision(BaseModel):
     # Smart Answer chips (reply_suggestions.py): 2-5 short things the user can tap to say next.
     # Only for apps that send the ``suggestions`` capability; [] otherwise.
     suggestions: list[str] = Field(default_factory=list)
+    # One-screen answer card (answer_card.py, owner 2026-11-24): headline + voice, tabs, quick replies with their
+    # follow-ups, risk meter for photo / SMS checks. Only for apps that send the ``answer_card`` capability.
+    card: dict[str, Any] | None = None
+    # The language this answer was written in (the person's own: script or romanized, else the app's locale).
+    reply_language: str = ""
 
 
 @router.post("/assistant", response_model=AssistantDecision)
@@ -176,6 +181,14 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
     # app keeps working through its deterministic flow (same as model-down).
     decision = None
     metered = None
+    from app.services import answer_card, romanized_language
+
+    capabilities = [str(c)[:30] for c in payload.capabilities]
+    user_words = _user_words(service, payload.message)
+    # Owner 2026-11-24: Telugu typed in English letters ("e sms akadi unchi vachidhi") is answered in Telugu from the
+    # FIRST reply -- the person's own writing wins over the app's locale (a bare "ok" / number keeps it).
+    # A language the person CHOSE (header / "reply in English") stays: the app says so with "lang_lock".
+    locale = payload.locale if "lang_lock" in capabilities else romanized_language.reply_locale(payload.locale, user_words)
     if _feature_enabled(container, "ai.assistant"):
         metered = _reserve_credits(request, payload.locale)
         if metered and metered.get("blocked"):
@@ -186,8 +199,8 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
         extra = {"searched_for": payload.searched_for} if payload.searched_for else {}
         if payload.advice_given:
             extra["advice_given"] = payload.advice_given
-        if payload.capabilities:
-            extra["capabilities"] = [str(c)[:30] for c in payload.capabilities]
+        if capabilities:
+            extra["capabilities"] = capabilities
         memory = _user_memory(request)
         if memory and _accepts(service.decide, "user_memory"):
             extra["user_memory"] = memory
@@ -200,7 +213,7 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
         decision = service.decide(
             payload.message,
             history=history,
-            locale=payload.locale,
+            locale=locale,
             location=payload.location,
             **extra,
         )
@@ -241,18 +254,52 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
             subject, guide_context
         )
 
-    intelligence = _intelligence(payload.message, payload.locale)
+    intelligence = _intelligence(payload.message, locale)
     override = None
     if intelligence is not None:
         from app.services.intelligence_gate import override_reply
 
-        override = override_reply(intelligence, payload.locale)
+        override = override_reply(intelligence, locale)
     if override:
         decision = {**decision, "reply": override, "mode": "advice", "transactional": False, "search_ready": False}
     decision = _own_shop_order(request, payload, decision)
     _record_knowledge_gap(container, decision, payload)
+    card = None
+    if answer_card.wanted(capabilities):
+        card = _answer_card(service, decision, payload.message, user_words)
+    else:
+        # An app that cannot draw the card never sees the [[more]] mark.
+        decision = {**decision, "reply": answer_card.without_mark(decision.get("reply", ""))}
+    decision.pop("card", None)
+    decision.pop("reply_language", None)
     return AssistantDecision(**decision, source="universal_ai", buying_guide=buying_guide, intelligence=intelligence,
-                             credits=(metered or {}).get("credits"))
+                             credits=(metered or {}).get("credits"), card=card, reply_language=locale)
+
+
+def _user_words(service: Any, message: str) -> str:
+    """The person's own words of this turn (the app's "options already shown" context removed)."""
+    try:
+        return str(service.split_app_context(message)[0] or message)
+    except Exception:
+        return str(message or "")
+
+
+def _answer_card(service: Any, decision: dict, message: str, user_words: str) -> dict | None:
+    """The one-screen card for this answer (never fails the answer: no card -> the app shows the text)."""
+    from app.services import answer_card
+
+    try:
+        facts = ""
+        if hasattr(service, "attachment_facts_of"):
+            facts = str(service.attachment_facts_of(message) or "")
+        writer = None
+        if hasattr(service, "write_text") and getattr(service, "any_model", False):
+            writer = lambda prompt: service.write_text(prompt, max_tokens=1600)  # noqa: E731
+        return answer_card.build(writer, reply=str(decision.get("reply") or ""), user_text=user_words,
+                                 facts=facts, suggestions=list(decision.get("suggestions") or []))
+    except Exception:
+        logger.exception("in_app_assistant: answer card failed")
+        return None
 
 
 def _shop_in_conversation(request: Request, payload: "AssistantRequest", decision: dict, user_words: str) -> list:

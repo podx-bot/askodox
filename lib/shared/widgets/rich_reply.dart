@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../features/home/domain/answer_card.dart';
+
 /// Assistant replies with light structure (APK 1312: raw "**" showed in
 /// Telugu answers). One dependency-free renderer for every reply in any
 /// language: headings, paragraphs, bullet / numbered points, **bold**,
@@ -30,14 +32,21 @@ final _severityTag = RegExp(
     'caution' || 'warning' || '⚠️' || '⚠' => AskodoxSeverity.caution,
     _ => AskodoxSeverity.risk,
   };
-  return (severity, line.substring(m.end));
+  // "[caution] • Don't ..." -> the box already marks the point; no second bullet inside it.
+  return (severity, line.substring(m.end).replaceFirst(RegExp(r'^[-*•][ \t]+'), ''));
 }
 
 /// The model sometimes runs several tagged points on one line ("... - [ok] ... [caution] ..."). Each tag that is not
 /// at the start of a line starts a new bullet, so no "[ok]" / "[caution]" is ever shown as text (phone 2026-11-14).
+/// A tag right after the line's own bullet ("- [caution] ...") is already at the start of its point: it stays as it
+/// is (owner 2026-11-24: that case printed a stray "-" line between the coloured boxes).
 String askodoxSplitInlineTags(String text) => text.replaceAllMapped(
-    RegExp(r'(\S)[ \t]+(?:[-*•][ \t]+)?(\[(?:ok|good|caution|warning|risk|danger)\])', caseSensitive: false),
-    (m) => '${m.group(1)}\n- ${m.group(2)}');
+    RegExp(r'(\S)[ \t]+(?:[-*•][ \t]+)?(\[(?:ok|good|caution|warning|risk|danger)\])', caseSensitive: false), (m) {
+  final lineStart = text.lastIndexOf('\n', m.start) + 1;
+  final before = text.substring(lineStart, m.start + 1);
+  if (RegExp(r'^\s*(?:[-*•]|\d{1,2}[.)])$').hasMatch(before)) return m.group(0)!;
+  return '${m.group(1)}\n- ${m.group(2)}';
+});
 
 bool _hasSeverity(String text) => text.split('\n').any((l) => _severityTag.hasMatch(l.replaceFirst(
     RegExp(r'^\s*([-*•]|\d{1,2}[.)])\s+'), '')));
@@ -85,7 +94,7 @@ String askodoxWithoutSources(String text) => text
     .replaceAll(RegExp(r'\s*(?:\[S\d+\])+'), '')
     .trimRight();
 
-String askodoxPlainReply(String text) => askodoxSplitInlineTags(text)
+String askodoxPlainReply(String text) => askodoxSplitInlineTags(askodoxWithoutCardMark(text))
     .replaceAll(RegExp(r'^(\s*(?:[-*•]|\d{1,2}[.)])?\s*)(?:\[(?:ok|good|caution|warning|risk|danger)\]|✅|✔️|✔|⚠️|⚠|❌|🚫|⛔)\s*',
         multiLine: true, caseSensitive: false), r'$1')
     .replaceAllMapped(RegExp(r'\[([^\]]+)\]\((https?://[^)\s]+)\)'), (m) => m.group(1)!)
@@ -154,6 +163,11 @@ List<AskodoxReplyBlock> askodoxParseReply(String text) {
   for (final raw in askodoxSplitInlineTags(text).split('\n')) {
     final line = raw.trimRight();
     if (line.trim().isEmpty) {
+      flush();
+      continue;
+    }
+    // A bullet with nothing after it ("-" alone on a line) is never drawn.
+    if (RegExp(r'^\s*[-*•]\s*$').hasMatch(line)) {
       flush();
       continue;
     }
@@ -258,7 +272,7 @@ class AskodoxRichReply extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = _withoutEvidenceNumbers(this.text);
+    final text = askodoxWithoutCardMark(_withoutEvidenceNumbers(this.text));
     final tall = askodoxNeedsTallLines(text);
     final style = tall && (this.style.height ?? 1.0) < 1.5 ? this.style.copyWith(height: 1.5) : this.style;
     if (!askodoxHasMarkup(text)) return Text(text, style: style);

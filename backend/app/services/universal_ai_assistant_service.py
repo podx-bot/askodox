@@ -22,7 +22,7 @@ from google.genai import types
 from app.services import answer_corrections, live_lookup
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
-from app.services import advice_memory, reply_suggestions
+from app.services import advice_memory, answer_card, reply_suggestions
 from app.services import askodox_self, chat_actions
 
 logger = logging.getLogger(__name__)
@@ -1070,6 +1070,7 @@ class UniversalAIAssistantService:
             + advice_memory.prompt_block(advice_ledger or [])
             + (MEANING_TAG_RULES if "meaning_tags" in (capabilities or ()) else "")
             + (TALK_BRIEF_RULES if "talk_brief" in (capabilities or ()) else "")
+            + answer_card.prompt_block(capabilities)
             + askodox_self.prompt_block()
             + "After the answer, end with ONE last line exactly like ADVICE_META: {\"key\": ..., \"summary\": ..., "
             "\"severity\": ..., \"repeat_reason\": ...} (or ADVICE_META: null). It is removed before display.\n"
@@ -1493,6 +1494,7 @@ class UniversalAIAssistantService:
                                          chat_actions.AUTO_OPEN_CAPABILITY in (capabilities or ()))
                if chat_actions.CAPABILITY in (capabilities or ()) else "")
             + reply_suggestions.prompt_block(capabilities)
+            + answer_card.prompt_block(capabilities)
             + askodox_self.prompt_block()
             + "Known user location rule: if a known location is given below, treat the location "
             "requirement as already satisfied for this request. Do NOT ask the user for their "

@@ -10800,6 +10800,74 @@
           "askodoxGuideNextRung"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant",
+          "response_keys": [
+            "reply",
+            "card",
+            "reply_language",
+            "suggestions"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/in-app/assistant/stream",
+          "response_keys": []
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Every chat answer fits ONE phone screen (360 px+, every language): big short answer line + voice button on top, up to 4 big icon tabs whose content changes inside the same card (sideways swipe cards with dots, tiles, a tick checklist, steps), quick replies as big buttons whose follow-up shows inside the card (e.g. 'money gone' -> 1930 call + bank help), one big action button + mic at the bottom, feedback. Photo / SMS checks add a green / orange / red risk meter, 'what I saw in the SMS' with money / sender / link coloured, one button that opens the person's own UPI / bank apps (opened, never paid), 3 don't tiles and 'send to family'. The brain writes the spoken part, a [[more]] line, then the details; the server turns them into the card (fast model, every action checked: helplines / full numbers / https links that are in the answer only; text card when the model fails); old apps get the plain reply without the mark. Reply language = how the person writes (native script or romanized Telugu / Hindi / Tamil / Kannada / Malayalam / Bengali / Marathi / Gujarati / Punjabi / Odia, same table in app + server) from the first reply, unless they chose a language (lang_lock). A lone '-' line between warning boxes is never drawn.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: one-screen answer card + SMS check card + romanized language + '-' line fix (owner 2026-11-24, design WfPV8AhvZsPFqmwzYpfvap); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "one_screen_answer_card",
+      "name": "Chat: one-screen answer card",
+      "purpose": "Owner 2026-11-24: answers were long text, English for Telugu typed in English letters, '(a)(b)(c) type' choices and stray '-' lines.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_answer_card.py",
+          "tests/test_romanized_language.py"
+        ],
+        "flutter": [
+          "test/features/home/answer_card_view_test.dart",
+          "test/features/home/domain/answer_card_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAnswerCard",
+          "askodoxAnswerCardHeadline",
+          "askodoxAnswerCardVoice",
+          "askodoxAnswerCardMic",
+          "askodoxAnswerCardPrimary",
+          "askodoxAnswerCardSeen",
+          "askodoxAnswerCardShare",
+          "askodoxAnswerCardFollowUp"
+        ],
+        "symbols": [
+          "AskodoxAnswerCardView",
+          "AskodoxAnswerCard",
+          "askodoxSpokenPart",
+          "askodoxRomanizedLanguage",
+          "askodoxDetectLanguage"
+        ]
+      }
     }
   ]
 }
