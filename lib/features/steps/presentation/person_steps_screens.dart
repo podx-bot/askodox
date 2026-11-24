@@ -495,7 +495,7 @@ class _NightState extends ConsumerState<AskodoxReportSettingsStepsScreen> {
               icon: Icons.nightlight_round,
               color: askodoxStepGreen,
               title: te ? 'అవును, పంపండి' : 'Yes, send it',
-              sub: on ? '$time' : '',
+              sub: on ? time : '',
               selected: on,
               onTap: _busy
                   ? null
