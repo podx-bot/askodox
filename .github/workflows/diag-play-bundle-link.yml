@@ -1,0 +1,24 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1635]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45304517579 -R "$GITHUB_REPOSITORY" -n askodox-android-635 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1635.aab
+          ls -l askodox-play-1635.aab
+          sha256sum askodox-play-1635.aab
+          gh release create play-bundle-1635 askodox-play-1635.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1635" --notes "Play Console upload only (not installable on a phone). PR #425: Business Kit (200 sub-categories, mixed shops, customer questions), items by shelf photo / barcode, bookings / job cards / monthly members, photo try-on."
