@@ -11539,6 +11539,43 @@
           "AskodoxInvoiceStepsScreen"
         ]
       }
+    },
+    {
+      "id": "crm_lead_page_three_steps_batch10",
+      "name": "One enquiry / lead in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 10; old page stays at ?full=1.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Estimated value on top with the stage, follow-ups and timeline below, ONE big button moves to the next stage (Won can pick the real bill, Lost asks a reason in the menu). Notes, follow-up, quotation, assign, save as customer and the old page are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 10 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/crm_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCrmLeadSteps",
+          "askodoxCrmStepsNext"
+        ],
+        "symbols": [
+          "AskodoxCrmLeadStepsScreen"
+        ]
+      }
     }
   ]
 }

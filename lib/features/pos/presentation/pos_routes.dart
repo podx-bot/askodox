@@ -26,6 +26,7 @@ import 'pos_payment_alerts_screen.dart';
 import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
 import '../../steps/presentation/collect_steps_screens.dart';
+import '../../steps/presentation/crm_steps_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
@@ -170,8 +171,9 @@ final askodoxPosRoutes = <GoRoute>[
           businessId: state.pathParameters['id']!, stage: state.uri.queryParameters['stage'] ?? '')),
   GoRoute(
       path: '/pos/:id/crm/lead/:lid',
-      builder: (context, state) =>
-          AskodoxPosCrmLeadScreen(businessId: state.pathParameters['id']!, leadId: state.pathParameters['lid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosCrmLeadScreen(businessId: state.pathParameters['id']!, leadId: state.pathParameters['lid']!)
+          : AskodoxCrmLeadStepsScreen(businessId: state.pathParameters['id']!, leadId: state.pathParameters['lid']!)),
   GoRoute(
       path: '/pos/:id/crm/complaint/:cid',
       builder: (context, state) =>
