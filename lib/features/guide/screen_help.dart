@@ -1154,13 +1154,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'కొత్త ఆర్డర్ కౌంటర్ బిల్లు తెరుస్తుంది; మెనూ, అమ్మకాలు, QR, అలర్ట్స్ మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/desk/:id/menu': _H('Menu', 'మెనూ', [
-    'Say or type items with prices, tap Preview, check, then Save. Nothing is saved before you confirm.',
-    'Say "today only" for a special; switch an item OFF when it is finished for today (back tomorrow).',
-    'Or photograph the menu: every item and its printed price is read; fix any line, then Save.',
+    'The number on top is how many items are on your menu. Tap an item: finished for today (comes back tomorrow), today only, change name or price, remove.',
+    'The big button adds items: say or type them with prices (Idli 30), check the list, then Save. Nothing is saved before you check.',
+    'Menu photos, shelf photos, AI sections and the full edit are in the old page, in the three-dots menu.',
   ], [
-    'ఐటమ్స్ ధరలతో చెప్పండి లేదా రాయండి, Preview నొక్కి చూసి, తర్వాత Save. నిర్ధారించే వరకు ఏదీ సేవ్ కాదు.',
-    'స్పెషల్‌కి "ఈ రోజు మాత్రమే" అనండి; అయిపోతే ఆ ఐటమ్ OFF చేయండి (రేపు మళ్ళీ వస్తుంది).',
-    'లేదా మెనూ ఫోటో తీయండి: ప్రతి ఐటమ్, అందులో ముద్రించిన రేటు చదువుతుంది; ఏదైనా సరిచేసి Save.',
+    'పైన ఉన్న సంఖ్య మీ మెనూలో ఎన్ని ఐటమ్స్ ఉన్నాయో. ఐటమ్ నొక్కండి: ఈ రోజు అయిపోయింది (రేపు మళ్ళీ వస్తుంది), ఈ రోజు మాత్రమే, పేరు / రేటు మార్చు, తీసేయి.',
+    'పెద్ద బటన్ ఐటమ్స్ చేరుస్తుంది: రేటుతో చెప్పండి లేదా రాయండి (ఇడ్లీ 30), లిస్ట్ చూసి Save. చూసే వరకు ఏదీ సేవ్ కాదు.',
+    'మెనూ ఫోటోలు, షెల్ఫ్ ఫోటోలు, AI తో విభాగాలు, పూర్తి మార్పు పాత పేజీలో, మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/desk/:id/settings': _H('Order alerts', 'ఆర్డర్ అలర్ట్స్', [
     'Four steps of an order (new, kitchen, ready, delivery): tap one and choose who is told. Nobody chosen = the people of that role.',

@@ -31,6 +31,7 @@ import '../../steps/presentation/crm_steps_screens.dart';
 import '../../steps/presentation/desk_qr_steps_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/items_steps_screens.dart';
+import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
@@ -99,7 +100,11 @@ final askodoxFrontDeskRoutes = <GoRoute>[
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
           ? AskodoxDeskOrdersScreen(businessId: state.pathParameters['id']!)
           : AskodoxOrdersStepsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/desk/:id/menu', builder: (context, state) => AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/desk/:id/menu',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxDeskMenuScreen(businessId: state.pathParameters['id']!)
+          : AskodoxDeskMenuStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/desk/:id/settings',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
