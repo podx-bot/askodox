@@ -7,6 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #449 + #454 + #455 + #456 (2026-11-24, owner "don't stop, finish the remaining pages; no link needed now"): 3-STEP WORK PAGES BATCHES 15-21 --
+  `desk_settings_steps_screens.dart` (Desk settings `/desk/:id/settings`), `desk_menu_steps_screens.dart` (Desk menu `/desk/:id/menu`: list, add by text),
+  `printer_steps_screens.dart` (`/pos/:id/printer`), `biz_menu_steps_screens.dart` (`/biz/:id/menu*` sections), day report (`/biz/:id/reports/day` ->
+  `AskodoxReportsStepsScreen(date)`), `att_setup_steps_screens.dart` (`/biz/:id/staff/setup`), `my_bills_steps_screen.dart` (`/me/bills`); old pages at `?full=1`.
+  NOT converted: kiosk (camera / face), shop advance / terms pages, hubs, CRM leads (= Enquiries), delivery pages, `/me/work`, catalogue, agents. No Play bundle
+  after these (Live Build run 663 on c6e55a9 is older). Nothing phone verified.
 - `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1667.aab` = Live Build run 667 on 2fb46e9; owner: one payment
   said twice (second message an hour later / two at once), voice cut before the last word then said again, 9 pm count 4-5 times):
   `pickSamePayment` checks the SAME reference before the same-app rule (same RRN from the same app / SMS app = same money);
