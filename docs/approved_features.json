@@ -11756,6 +11756,41 @@
           "AskodoxDeskSettingsStepsScreen"
         ]
       }
+    },
+    {
+      "id": "desk_menu_page_three_steps_batch16",
+      "name": "Menu (desk) in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 16; old page stays at ?full=1 (photos, AI sections, full edit).",
+      "roles": [
+        "owner"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Item count on top, ONE list (tap = finished for today / back, today only, change name and price, remove with undo), ONE big button adds items in 2 steps (say or type with prices -> check -> save). Photos, shelf photos, AI sections and the full edit are on the old page in the menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 16 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/desk_menu_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeskMenuSteps",
+          "askodoxDeskMenuStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxDeskMenuStepsScreen"
+        ]
+      }
     }
   ]
 }
