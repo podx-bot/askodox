@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #432 (2026-11-24, owner "finish the pending work, then bundle + link"): OWNER QR IN EVERY WAY -- `pos_collect_refs.py` + POST
+  `/api/pos/businesses/{id}/collect/for` (job card balance / booking price / monthly due -> the OWNER's own UPI QR, one open QR per
+  thing via `pos_payment_requests.ref_key`, +1 paise rule kept; `_tell_both` -> owner + the person who showed it, route
+  `/pos/:id/payment-alerts`; owner confirm -> `settle` records it on the card / due); app `askodoxShowCollectQr`
+  (`collect_qr_sheet.dart`) + buttons `askodoxJobQr-` / `askodoxMemberQr-` / `askodoxBookingQr-`. BRANCHES: `pos_branches.py`
+  (`pos_branch_groups` / `pos_branch_members`, owner links his OWN shops; `sibling_ids` -> `pos_delivery_jobs._people` = one
+  delivery pool; GET/PUT `/api/pos/me/branches`, `.../{group}/overview` today per branch + total); app `/me/branches`
+  (`AskodoxBranchesScreen`, Seller page `s.branches` owner-only). Not built: Lite steps 4-5 (native), the 3-step design for the
+  remaining pages; table / parcel bills use the counter pay sheet QR. Nothing phone verified.
 - `main` PR #429 + #430 + #431 (2026-11-24, owner "finish 3-6, merge, link after everything"): ONE-SCREEN ANSWER CARD
   (#429, design WfPV8AhvZsPFqmwzYpfvap) -- capability `answer_card`: the brain writes spoken part + a `[[more]]` line +
   details (`answer_card.PROMPT_RULES` in routing + `_advise`); route `_answer_card` builds `card` (one fast `write_text`

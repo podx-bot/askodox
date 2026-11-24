@@ -298,7 +298,7 @@ class PosPaymentAlerts:
                     conn.execute(f"ALTER TABLE pos_alert_devices ADD COLUMN {column}")
                 except sqlite3.OperationalError:
                     pass
-            for column in ("confirm_basis TEXT", "confirmed_at TEXT"):  # added 2026-10-27 (ALTER, never recreate)
+            for column in ("confirm_basis TEXT", "confirmed_at TEXT", "ref_key TEXT"):  # added 2026-10-27 (ALTER, never recreate)
                 try:
                     conn.execute(f"ALTER TABLE pos_payment_requests ADD COLUMN {column}")
                 except sqlite3.OperationalError:
@@ -1137,9 +1137,9 @@ class PosPaymentAlerts:
             now = self._now().isoformat()
             rid = f"ppr_{uuid.uuid4().hex[:16]}"
             conn.execute("INSERT INTO pos_payment_requests (id, business_id, amount_paise, label, upi_id, payee, status,"
-                         " created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                         " created_by, created_at, updated_at, ref_key) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                          (rid, business_id, amount, str(data.get("label") or "")[:60], method["upi_id"],
-                          method.get("payee_name") or shop, "pending", user, now, now))
+                          method.get("payee_name") or shop, "pending", user, now, now, str(data.get("ref_key") or "")[:80]))
             row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?", (rid,)).fetchone()
             out = self._request_out(row)
             out["asked_paise"] = asked
@@ -1164,6 +1164,23 @@ class PosPaymentAlerts:
 
     def decide_request(self, business_id: str, user: str, request_id: str, action: str, *,
                        checked_bank: bool = False) -> Dict[str, Any]:
+        was = None
+        with self.store._connect() as conn:
+            was = conn.execute("SELECT status FROM pos_payment_requests WHERE id = ?", (request_id,)).fetchone()
+        out = self._decide_request(business_id, user, request_id, action, checked_bank=checked_bank)
+        if action == "confirm" and out.get("status") == "confirmed" and was is not None and was["status"] != "confirmed":
+            try:  # record the money on the job card / monthly due (never fails the confirmation)
+                from app.services import pos_collect_refs
+
+                with self.store._connect() as conn:
+                    row = conn.execute("SELECT * FROM pos_payment_requests WHERE id = ?", (request_id,)).fetchone()
+                pos_collect_refs.settle(self.store, business_id, row)
+            except Exception:
+                pass
+        return out
+
+    def _decide_request(self, business_id: str, user: str, request_id: str, action: str, *,
+                        checked_bank: bool = False) -> Dict[str, Any]:
         """confirm / cancel / reopen. Confirming a request NO payment notification matched needs ``checked_bank``
         (the cashier says they saw the money in the UPI / bank app) and is recorded as such. A confirmation pressed
         by mistake can be reopened within 15 minutes (audited)."""
@@ -1223,7 +1240,7 @@ class PosPaymentAlerts:
     def _tell_both(self, conn: sqlite3.Connection, business_id: str, request_id: str) -> None:
         """Owner 2026-11-24: when the owner's phone sees the money of an open QR, BOTH the owner and the person who
         showed the QR hear "#12 ₹250 వచ్చింది" (a notice the bank / app sent -- the owner still checks the bank)."""
-        req = conn.execute("SELECT label, amount_paise, created_by FROM pos_payment_requests WHERE id = ?",
+        req = conn.execute("SELECT label, amount_paise, created_by, ref_key FROM pos_payment_requests WHERE id = ?",
                            (request_id,)).fetchone()
         owner = conn.execute("SELECT owner_user_id FROM pos_businesses WHERE id = ?", (business_id,)).fetchone()
         if req is None:
@@ -1235,7 +1252,8 @@ class PosPaymentAlerts:
             if not user:
                 continue
             try:
-                self.notify(user, title, "Payment notice matched · bank లో ఒకసారి చూడండి", "/me/deliveries",
+                self.notify(user, title, "Payment notice matched · bank లో ఒకసారి చూడండి",
+                            f"/pos/{business_id}/payment-alerts" if req["ref_key"] else "/me/deliveries",
                             f"collect:{request_id}:matched:{user}")
             except Exception:
                 pass

@@ -166,6 +166,9 @@ const _sellerSpecs = <_SellerSpec>[
   // Owner plan 2026-11-24 steps 3-6: workers under this business (GST / Udyam to find new ones), orders, postings.
   _SellerSpec('s.team', 'orders.team', 'Workers & team', 'పని వాళ్ళు & టీమ్', Icons.groups_rounded, Color(0xFF0D9488),
       who: 'owner'),
+  // Owner 2026-11-24: owners with more than one branch link them -- shared delivery pool + all-branches today.
+  _SellerSpec('s.branches', 'orders.branches', 'All my branches', 'నా అన్ని శాఖలు', Icons.account_tree_rounded,
+      Color(0xFF7C3AED), who: 'owner'),
   _SellerSpec('s.bookings', 'orders.bookings', 'Bookings', 'బుకింగ్స్', Icons.event_available_rounded, Color(0xFF0D9488),
       tool: 'customers|sale', perm: 'customers', flow: '3'),
   _SellerSpec('s.jobs', 'orders.jobs', 'Job cards', 'జాబ్ కార్డ్స్', Icons.build_circle_rounded, Color(0xFFEA580C),
@@ -308,6 +311,7 @@ AskodoxLaunchLayout askodoxSellerShippedLayout() => const AskodoxLaunchLayout([
       AskodoxLaunchEntry.page('s.orders'),
       AskodoxLaunchEntry.page('s.send'),
       AskodoxLaunchEntry.page('s.team'),
+      AskodoxLaunchEntry.page('s.branches'),
       AskodoxLaunchEntry.page('s.bookings'),
       AskodoxLaunchEntry.page('s.jobs'),
       AskodoxLaunchEntry.page('s.monthly'),

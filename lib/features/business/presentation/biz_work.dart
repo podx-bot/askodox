@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../pos/data/pos_repository.dart';
 import '../../pos/domain/pos_money.dart' show askodoxPaise, askodoxParsePaise;
+import '../../pos/presentation/collect_qr_sheet.dart';
 import '../../pos/presentation/pos_common.dart';
 
 /// Business Kit ways of working 3-5 (owner 2026-11-24, "do all of it"): ONE set of pages for every business that
@@ -364,9 +365,15 @@ class _AskodoxBizBookingsScreenState extends ConsumerState<AskodoxBizBookingsScr
                         if (b['from_app'] == true) 'ASKODOX',
                         _statusName('${b['status']}', te),
                       ].join(' · ')),
-                      trailing: (next['${b['status']}'] ?? const []).isEmpty
-                          ? null
-                          : PopupMenuButton<String>(
+                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                        IconButton(
+                            key: Key('askodoxBookingQr-${b['id']}'),
+                            tooltip: 'UPI QR',
+                            onPressed: () => askodoxShowCollectQr(context, ref,
+                                businessId: widget.businessId, kind: 'booking', refId: '${b['id']}'),
+                            icon: const Icon(Icons.qr_code_2_rounded)),
+                        if ((next['${b['status']}'] ?? const []).isNotEmpty)
+                          PopupMenuButton<String>(
                               key: Key('askodoxBookingMenu-${b['id']}'),
                               onSelected: (s) => _run(() =>
                                   ref.read(askodoxPosRepositoryProvider).bookingStatus(widget.businessId, '${b['id']}', s)),
@@ -374,6 +381,7 @@ class _AskodoxBizBookingsScreenState extends ConsumerState<AskodoxBizBookingsScr
                                 for (final s in next['${b['status']}']!) PopupMenuItem(value: s, child: Text(_statusName(s, te))),
                               ],
                             ),
+                      ]),
                     ),
                   ),
                 if (askodoxPosInt(_data?['upcoming']) > 0)
@@ -598,10 +606,18 @@ class _AskodoxBizJobsScreenState extends ConsumerState<AskodoxBizJobsScreen> {
                           if (askodoxPosInt(j['advance_paise']) > 0) '${te ? 'అడ్వాన్స్' : 'Adv.'} ${askodoxPaise(askodoxPosInt(j['advance_paise']))}',
                           if (askodoxPosInt(j['balance_paise']) > 0) '${te ? 'మిగతా' : 'Balance'} ${askodoxPaise(askodoxPosInt(j['balance_paise']))}',
                         ].join(' · '), style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
-                        if ((next['${j['status']}'] ?? const []).isNotEmpty) ...[
+                        if ((next['${j['status']}'] ?? const []).isNotEmpty || askodoxPosInt(j['balance_paise']) > 0) ...[
                           const SizedBox(height: 8),
                           Wrap(spacing: 8, children: [
-                            for (final s in next['${j['status']}']!)
+                            if (askodoxPosInt(j['balance_paise']) > 0)
+                              OutlinedButton.icon(
+                                key: Key('askodoxJobQr-${j['id']}'),
+                                icon: const Icon(Icons.qr_code_2_rounded),
+                                label: const Text('UPI QR'),
+                                onPressed: () => askodoxShowCollectQr(context, ref,
+                                    businessId: widget.businessId, kind: 'job', refId: '${j['id']}').then((_) => _load()),
+                              ),
+                            for (final s in next['${j['status']}'] ?? const <String>[])
                               FilledButton.tonal(
                                 key: Key('askodoxJobMove-${j['id']}-$s'),
                                 onPressed: () => _move(j, s),
@@ -869,6 +885,15 @@ class _AskodoxBizMonthlyScreenState extends ConsumerState<AskodoxBizMonthlyScree
                                     tooltip: te ? 'WhatsApp లో గుర్తు చేయి' : 'Remind on WhatsApp',
                                     onPressed: () => _openUrl('${m['whatsapp_url']}'),
                                     icon: const Icon(Icons.chat_outlined)),
+                              IconButton(
+                                  key: Key('askodoxMemberQr-${m['id']}'),
+                                  tooltip: 'UPI QR',
+                                  onPressed: () => askodoxShowCollectQr(context, ref,
+                                      businessId: widget.businessId,
+                                      kind: 'member',
+                                      refId: '${m['id']}',
+                                      month: '${_month?['month'] ?? ''}').then((_) => _load()),
+                                  icon: const Icon(Icons.qr_code_2_rounded)),
                               FilledButton.tonal(
                                 key: Key('askodoxMemberPaid-${m['id']}'),
                                 onPressed: () => _run(() => ref

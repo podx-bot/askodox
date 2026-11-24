@@ -734,6 +734,13 @@ class AskodoxPosRepository {
       _send('POST', '${_b(id)}/collect/requests', body: {'amount_paise': amountPaise, 'label': label});
   Future<List<AskodoxJson>> collectRequests(String id) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/collect/requests'))['requests']);
+  Future<AskodoxJson> myBranches() => _send('GET', '/api/pos/me/branches');
+  Future<AskodoxJson> saveBranches(String name, List<String> ids) =>
+      _send('PUT', '/api/pos/me/branches', body: {'name': name, 'business_ids': ids});
+  Future<AskodoxJson> leaveBranches(String biz) => _send('DELETE', '/api/pos/me/branches/$biz');
+  Future<AskodoxJson> branchesOverview(String group) => _send('GET', '/api/pos/me/branches/$group/overview');
+  Future<AskodoxJson> collectFor(String biz, String kind, String refId, {String month = ''}) =>
+      _send('POST', '${_b(biz)}/collect/for', body: {'kind': kind, 'ref_id': refId, if (month.isNotEmpty) 'month': month});
   Future<AskodoxJson> decideCollectRequest(String id, String requestId, String action, {bool checkedBank = false}) =>
       _send('POST', '${_b(id)}/collect/requests/$requestId', body: {'action': action, 'checked_bank': checkedBank});
   Future<AskodoxJson> paymentProvider(String id) => _send('GET', '${_pa(id)}/provider');

@@ -181,6 +181,20 @@ class PosDeliveryJobs:
                 continue
             people.append({"id": pid, "role": r["role"], "phone": phone,
                            "label": r["label"] or (f"••{phone[-4:]}" if phone else r["role"])})
+        # Owner 2026-11-24 (branches): the delivery people of the owner's OTHER branches in the same group are one pool.
+        from app.services.pos_branches import sibling_ids
+
+        seen = {p["id"] for p in people}
+        for other in sibling_ids(conn, business_id):
+            shop = conn.execute("SELECT name FROM pos_businesses WHERE id = ?", (other,)).fetchone()
+            for r in conn.execute("SELECT app_user_id, label, phone_key FROM pos_members WHERE business_id = ? AND active = 1"
+                                  " AND role = 'delivery'", (other,)):
+                phone = re.sub(r"\D", "", str(r["phone_key"] or ""))[-10:]
+                pid = r["app_user_id"] or (f"app-phone-{phone}" if len(phone) == 10 else "")
+                if pid and pid not in seen:
+                    seen.add(pid)
+                    people.append({"id": pid, "role": "delivery", "phone": phone,
+                                   "label": f"{r['label'] or phone[-4:] or 'delivery'} · {shop['name'] if shop else ''}"[:60]})
         return people
 
     def people(self, business_id: str, user: str) -> Dict[str, Any]:
