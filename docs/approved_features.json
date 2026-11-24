@@ -10868,6 +10868,110 @@
           "askodoxDetectLanguage"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/delivery-jobs/draft",
+          "response_keys": [
+            "from",
+            "to",
+            "item",
+            "fee_paise",
+            "collect_paise",
+            "km",
+            "minutes",
+            "missing"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/delivery-jobs",
+          "response_keys": [
+            "id",
+            "order_no",
+            "label",
+            "status",
+            "asks"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/delivery-jobs/people",
+          "response_keys": [
+            "people"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/delivery-jobs/day",
+          "response_keys": [
+            "day",
+            "people"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/me/delivery-jobs",
+          "response_keys": [
+            "offers",
+            "running",
+            "status",
+            "cash_today"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/me/work-status",
+          "response_keys": [
+            "colour"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "flags": {},
+      "expected_behavior": "Owner plan 2026-11-24 steps 1-2: the owner says ONE line ('ఉయ్యూరు నుంచి పారం కి కేక్ డెలివరీ, 250 రూపాయలు') -> job card with the shop order number (#12), from (empty = the shop), to, item, ₹ to the rider, amount to collect, ≈ km / minutes (Google Routes, cached per pair). Who goes: the shop's people by their OWN colour (free first, then on a job, grey after 3 h, red after 23:00), ask all free or chosen people (free FCM push), answers now / 10 / 20 / 30 / can't (others' answers never shown to a person), the owner taps Give or 'first now gets it' gives by itself; accepting = orange, done = green. Person page: colour buttons, offers, directions (phone's Google Maps), money cash / UPI (the OWNER's own UPI QR with the amount and #number; ASKODOX never holds money) / paid before; cash per person per day. UPI collect: two open QRs of the same amount -> the later one is +1 paise by itself; a matched notice tells BOTH the person and the owner.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: delivery jobs for the shop's own people + owner-UPI one-paise rule + both told (plan 2026-11-24 steps 1-2); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "id": "shop_delivery_jobs",
+      "name": "Workforce: delivery jobs for the shop's own people",
+      "purpose": "Owner plan 2026-11-24 (design 5wns7Bm9FEEnr4ug3E9PQv): one order, one number; zero ASKODOX cost; money to the owner's own UPI.",
+      "roles": [
+        "owner",
+        "staff"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_delivery_jobs.py"
+        ],
+        "flutter": [
+          "test/features/pos/delivery_jobs_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeliveryJobs",
+          "askodoxDeliveryLine",
+          "askodoxDeliverySend",
+          "askodoxMyDeliveries",
+          "askodoxMyCashToday"
+        ],
+        "symbols": [
+          "AskodoxDeliveryJobsScreen",
+          "AskodoxMyDeliveriesScreen",
+          "askodoxWorkColours"
+        ]
+      }
     }
   ]
 }
