@@ -11901,6 +11901,42 @@
       }
     },
     {
+      "id": "agents_pages_three_steps_batch24",
+      "name": "AI agents pages in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 24; old pages stay at ?full=1.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Agents list: approvals waiting on top, ONE list of the agents my role may use, ONE big button reviews approvals (owner / manager). One agent: the question on top, the answer + what it can do in the middle, Ask (mic fills it) at the bottom. Sensitive actions still wait for an owner / manager.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 24 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/agents_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAgentsSteps",
+          "askodoxAgentSteps"
+        ],
+        "symbols": [
+          "AskodoxAgentsStepsScreen",
+          "AskodoxAgentStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "branches_page_three_steps_batch23",
       "name": "All my branches in 3 pieces",
       "purpose": "Owner 2026-11-24: 3-step rule, batch 23; old page stays at ?full=1.",
