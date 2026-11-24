@@ -30,3 +30,8 @@ gave on 2026-11-24); this file records what is BUILT and the owner's CHANGES sin
    - A worker who is green (free) and keeps REJECTING orders gets negative points (counted like a low rating); this
      blocks the స్వతంత్రుడు badge. Not free = turn OFF (red); ignored / rejected offers while OFF never count.
      The app tells the worker this once in their own language.
+4. **Multi-branch businesses (12:03).** Everything must work for an authority with many branches: workers join the
+   authority ONCE and can be sent to any of its branches; each branch sees its own jobs, money and day report; the
+   owner sees all branches together (one list, branch name on every job). Today (step 1) each branch is its own shop
+   (`pos_businesses`) and the owner opens Send delivery per branch; the shared worker pool + all-branches view are
+   part of step 3.
