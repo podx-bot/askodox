@@ -11304,6 +11304,49 @@
           "AskodoxSalaryStepsScreen"
         ]
       }
+    },
+    {
+      "id": "glance_pages_three_steps_batch4",
+      "name": "Baaki reminders, Bills, Expiry & stock, Cashbook and Reports in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule for the remaining pages, batch 4 (glance pages); old pages stay at ?full=1.",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Baaki reminders: baaki to collect on top, one row per bill, tap = WhatsApp / new pay date, big button = remind the next person. Bills: total on top, search, tap = the bill, big button = new bill. Expiry & stock: stock value on top, batches expiring in 60 days, big button = find serial / IMEI. Cashbook: left this month on top, one row per entry (tap = remove with undo), big button = write money in / out. Reports: sales of the chosen day on top, problems below, big button = change day (today / yesterday / 7 / 30). The old pages open at ?full=1.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: glance pages batch 4 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/glance_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxDuesRemindersSteps",
+          "askodoxInvoicesSteps",
+          "askodoxStockSteps",
+          "askodoxCashbookSteps",
+          "askodoxReportsSteps"
+        ],
+        "symbols": [
+          "AskodoxDuesRemindersStepsScreen",
+          "AskodoxInvoicesStepsScreen",
+          "AskodoxStockStepsScreen",
+          "AskodoxCashbookStepsScreen",
+          "AskodoxReportsStepsScreen"
+        ]
+      }
     }
   ]
 }
