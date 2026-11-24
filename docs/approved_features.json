@@ -11426,6 +11426,43 @@
           "AskodoxSupplierAccountStepsScreen"
         ]
       }
+    },
+    {
+      "id": "person_report_pages_three_steps_batch7",
+      "name": "One staff member's month and the Night report in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 7; old pages stay at ?full=1. Money is only recorded.",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Staff month: salary to give on top (days present when no salary is set), one row per day (tap = present / absent / overtime hours / leave, not on a person's own read-only month), big button = advance or bonus (how much -> saved). Night report: step 1 send every night yes / no, step 2 the time (9, 10, 11 PM, midnight, other), then done. The old pages open at ?full=1.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 7 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/person_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxStaffPersonSteps",
+          "askodoxNightSteps"
+        ],
+        "symbols": [
+          "AskodoxStaffPersonStepsScreen",
+          "AskodoxReportSettingsStepsScreen"
+        ]
+      }
     }
   ]
 }
