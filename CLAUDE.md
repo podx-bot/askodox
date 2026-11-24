@@ -7,6 +7,11 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #434 + #435 + #436 (2026-11-24, owner "13 work pages, split 5 at a time, merge each after CI"; Play bundle `askodox-play-1650.aab` = Live Build run 650 on a51022a): 3-STEP WORK PAGES BATCHES 1-3 --
+  `order_steps_screens.dart` (Live orders `/desk/:id`, Kitchen, Tables, Suppliers & purchases), `people_steps_screens.dart`
+  (Customers, Enquiries `/pos/:id/crm`, Workers & team), `staff_steps_screens.dart` (Today's attendance, Salary); old pages at
+  `?full=1` (CRM `?tab=` still opens the old page). Already 3-step, not rebuilt: Delivery, Today's post, Add an item (desk menu),
+  Tasks. Still not 3-step: ~47 pages (31 glance, 21 settings, minus these). ASKODOX Lite steps 4-5 ON HOLD. Nothing phone verified.
 - `main` PR #433 (2026-11-24, owner "finish the 2; Lite steps 4-5 = HOLD, do not build"): 3-STEP WORK PAGES -- `work_steps_screens.dart`
   (`AskodoxJobStepsScreen` job cards: one number + list, tap = next status / owner UPI QR, New job = what -> estimate -> token;
   `AskodoxMonthlyStepsScreen` who paid -> how much -> done; `AskodoxBookingStepsScreen` today's list, tap = status / QR); routes
