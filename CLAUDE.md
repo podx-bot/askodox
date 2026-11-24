@@ -7,6 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #425 (2026-11-24, owner "do all 4, merge after" -> "1"; Play bundle `askodox-play-1635.aab` = Live Build run 635
+  on f887310): BUSINESS KIT -- 23 categories / 200 sub-categories (`business_kit.py`, Command Center resource `business_kit`,
+  staff add rows, no code), one shop = many businesses (profile `more`), pages from the union of the ways of working,
+  customer questions answered from the owner's answer only (`shop_qa`). ITEMS BY THEMSELVES: shelf / packet photo -> each item
+  cut out with its photo (`read_shelf`), barcode -> name / brand / pack / MRP / photo (`product_master.py`, Open Food Facts).
+  WAYS 3-6: bookings (slot or day), job cards (token, ready -> push / WhatsApp), monthly members (`pos_work.py`), enquiries
+  = CRM up front; Buyer pages My bookings / My repairs & orders / My monthly. PHOTO TRY-ON: `POST /api/images/try-on` + `/try-on`
+  + "Try it" on result cards. Backend 1943 pass, CI green. Nothing phone verified.
 - `main` PR #423 + #424 (2026-11-24, owner "no more designs, merge and finish everything"): (#423) ☰ menu: Feedback + "Your
   idea" = ONE "సలహాలు & సూచనలు" / Ideas & suggestions (`askodoxMenu-ideas` -> `/me/ideas`); Customer care (`askodoxMenu-care`,
   `askodoxCareMenuValue`) opens the Home chat with `askodoxCareOpening` (AI-first care in `app_care.dart`, unsolved -> ticket
@@ -1040,7 +1048,7 @@ this file, don't trust it blindly.
   `askodoxPosHasTables` (never decide pages from a category name). Customer questions: `shop_qa` table
   (`ShopFollows.questions / save_answers / asked / known_answers`), answered in `PosFrontDesk._shop_qa` from the
   owner's answer only; unanswered -> owner push once a day per question (`/me/business/:id/profile?qa=1`). Old
-  category keys must keep resolving (`tests/test_business_kit.py` OLD_KEYS). Flows 3-6 have no screens yet.
+  category keys must keep resolving (`tests/test_business_kit.py` OLD_KEYS). Flows 3-5 = `pos_work.py`, 6 = the CRM.
 - Items come in by themselves (owner 2026-11-24): `product_master.py` = barcoded packs only (name / brand / pack / MRP /
   photo shared across shops; never a selling price, never a dish photo); barcode -> Open Food Facts once (ODbL, a miss
   remembered, network errors not), MRP fills the price only when empty. Shelf / packet photo = `pos_menu_photo.read_shelf`
