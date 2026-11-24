@@ -11576,6 +11576,80 @@
           "AskodoxCrmLeadStepsScreen"
         ]
       }
+    },
+    {
+      "id": "crm_complaint_customer_three_steps_batch11",
+      "name": "One complaint and one customer's history in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 11; old pages stay at ?full=1.",
+      "roles": [
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Complaint: subject + status on top, detail and timeline below, ONE big button moves to the next status (Resolved / Closed ask how it was solved); reminder, bill, customer history in the menu. Customer history: total bought on top, bills / leads / complaints as rows, big button = account / dues; new lead and complaint in the menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 11 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/crm_more_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxComplaintSteps",
+          "askodoxCrmCustomerSteps"
+        ],
+        "symbols": [
+          "AskodoxCrmComplaintStepsScreen",
+          "AskodoxCrmCustomerStepsScreen"
+        ]
+      }
+    },
+    {
+      "id": "desk_qr_page_three_steps_batch12",
+      "name": "Shop / table QR in 3 pieces",
+      "purpose": "Owner 2026-11-24: 3-step rule, batch 12; old page stays at ?full=1.",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The shop QR on top, one row per table (tap = that table's QR), ONE big button sends the order code on WhatsApp. Copy, more tables and the old page are in the header menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 12 (2026-11-24); NOT PHONE VERIFIED",
+          "date": "2026-11-24"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/desk_qr_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxDeskQrSteps",
+          "askodoxDeskQrStepsSend"
+        ],
+        "symbols": [
+          "AskodoxDeskQrStepsScreen"
+        ]
+      }
     }
   ]
 }

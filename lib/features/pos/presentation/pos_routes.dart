@@ -26,7 +26,9 @@ import 'pos_payment_alerts_screen.dart';
 import 'pos_purchase_screens.dart';
 import 'pos_records_screens.dart';
 import '../../steps/presentation/collect_steps_screens.dart';
+import '../../steps/presentation/crm_more_steps_screens.dart';
 import '../../steps/presentation/crm_steps_screens.dart';
+import '../../steps/presentation/desk_qr_steps_screens.dart';
 import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
@@ -101,7 +103,11 @@ final askodoxFrontDeskRoutes = <GoRoute>[
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
           ? AskodoxDeskSalesScreen(businessId: state.pathParameters['id']!)
           : AskodoxSalesStepsScreen(businessId: state.pathParameters['id']!)),
-  GoRoute(path: '/desk/:id/qr', builder: (context, state) => AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/desk/:id/qr',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxDeskQrScreen(businessId: state.pathParameters['id']!)
+          : AskodoxDeskQrStepsScreen(businessId: state.pathParameters['id']!)),
 ];
 
 final askodoxPosRoutes = <GoRoute>[
@@ -176,12 +182,14 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxCrmLeadStepsScreen(businessId: state.pathParameters['id']!, leadId: state.pathParameters['lid']!)),
   GoRoute(
       path: '/pos/:id/crm/complaint/:cid',
-      builder: (context, state) =>
-          AskodoxPosCrmComplaintScreen(businessId: state.pathParameters['id']!, complaintId: state.pathParameters['cid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosCrmComplaintScreen(businessId: state.pathParameters['id']!, complaintId: state.pathParameters['cid']!)
+          : AskodoxCrmComplaintStepsScreen(businessId: state.pathParameters['id']!, complaintId: state.pathParameters['cid']!)),
   GoRoute(
       path: '/pos/:id/crm/customer/:cid',
-      builder: (context, state) =>
-          AskodoxPosCrmCustomerScreen(businessId: state.pathParameters['id']!, customerId: state.pathParameters['cid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosCrmCustomerScreen(businessId: state.pathParameters['id']!, customerId: state.pathParameters['cid']!)
+          : AskodoxCrmCustomerStepsScreen(businessId: state.pathParameters['id']!, customerId: state.pathParameters['cid']!)),
   GoRoute(
       path: '/pos/:id/sale',
       builder: (context, state) => AskodoxPosSaleScreen(
