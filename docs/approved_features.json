@@ -12575,6 +12575,45 @@
           "AskodoxMyBillsStepsScreen"
         ]
       }
+    },
+    {
+      "id": "one_touch_buy_sell_strip",
+      "name": "One touch strip on the Buy / Sell pages",
+      "purpose": "Owner 2026-11-25 (design 'ASKODOX ఒక్క టచ్'): every-day jobs of each side in one tap.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Buy page: 'Same again' opens the order desk with the last finished order's items (dine-in -> takeaway, unavailable items left out) at the total + Send step; Need it now / Compare price / Report a problem ask the Home chat. Sell page: owner shop open <-> break switch with Undo, hear today's sales / dues / new orders in the app voice, out of stock (desk menu), baaki reminders, flash offer (paid notification), share shop link; staff see only what their permissions allow. Nothing is paid or sent by the strip itself.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/money_home/one_touch_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxOneTouch",
+          "askodoxOneTouch-again",
+          "askodoxOneTouch-open"
+        ],
+        "symbols": [
+          "AskodoxBuyerOneTouch",
+          "AskodoxSellerOneTouch",
+          "askodoxReorderOf"
+        ]
+      }
     }
   ]
 }
