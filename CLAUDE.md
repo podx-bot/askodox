@@ -25,7 +25,9 @@ this file, don't trust it blindly.
   `order_desk_steps_screen.dart` (`/order-desk`: items -> way -> total + Send order; tap = one more, hold = less / note; a chat cart opens the later step).
   STILL old pages (left on purpose): payment alerts / payment voice settings, kiosk (camera / face), shop advance + terms (consent), and the four big
   owner-shaped screens `/pos/:id` dashboard (a hub), `/pos/:id/sale` counter bill (owner layout 2026-11-23), `/me/payments` (four tiles), `/money`.
-  No Play bundle after batches 15+ (Live Build run 663 on c6e55a9 is older). Nothing phone verified. Flaky: `test_profile_memory` (rerun the registry job);
+  Play bundle `askodox-play-1688.aab` = Live Build run 688 on 58dfc93 (branch `play/bundle-1125`) holds batches 1-38. Owner 2026-11-25: the three big-page
+  designs (dashboard / payments / Money, artifact N7YST95Zv6eTpGzJzyPAsw) are KEPT AS A PLAN, not built -- decide after his test. Then the Money row sheet
+  shows the row's own message for my-phone rows (`askodoxMoneyDetailMessage`, after bundle 1688). Nothing phone verified. Flaky: `test_profile_memory` (rerun the registry job);
   build-apk can fail on a Maven Central 429 while Gradle downloads (not our code -- rerun the job).
 - `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1671.aab` = Live Build run 671 on 5e463b9, dispatched from branch `play/bundle-1124` because main merges kept cancelling main builds (concurrency group per ref); owner: one payment
   said twice (second message an hour later / two at once), voice cut before the last word then said again, 9 pm count 4-5 times):
@@ -140,11 +142,10 @@ this file, don't trust it blindly.
   Worker threads carry the user only via `ai_usage_meter.carry(fn)` (a global threading patch broke a video test).
   `PlatformRepository.update` now runs under BEGIN IMMEDIATE (lost-update race behind the flaky native-video DM test,
   `tests/test_platform_update_lock.py`). Real charging stays OFF (ON with no balance answers chat with a Recharge notice -- `test_ai_credits`). Not phone verified.
-- BRANCH `claude/launcher-place-not-group` (2026-11-23, NOT merged, NOT run -- no Flutter in the container; owner: "I drop
-  Report settings on Sales and it becomes a group; it must sit in THAT place, Buyer and Seller alike"): a page dropped on
-  a page = `AskodoxLaunchLayout.placeAt` (takes the target's place, the rest shift), never a folder. Folders only from
-  the page menu "Put in a folder" (`_folderSheet`: an own folder or another page); a drop on the middle of a folder the
-  person already made still goes into it. Tests: `launcher_layout_test.dart`, `money_home_screen_test.dart` (+2).
+- `main` PR #414 (2026-11-23, in Play bundle 1625; owner: "I drop Report settings on Sales and it becomes a group; it must sit in
+  THAT place, Buyer and Seller alike"): a page dropped on a page = `AskodoxLaunchLayout.placeAt` (takes the target's place, the rest
+  shift), never a folder. Folders only from the page menu "Put in a folder" (`_folderSheet`: an own folder or another page); a drop on
+  the middle of a folder the person already made still goes into it. Tests: `launcher_layout_test.dart`, `money_home_screen_test.dart` (+2).
 - `main` PR #406 + #407 + #408 (2026-11-23, owner "1"; server deploy 8b5a5b3 SUCCESS; Play bundle `askodox-play-1619.aab`, Live Build run 45216267983): (#406) SORT WITH AI
   = `pos_menu_sort.sort_menu` numbers items once, 25 per part in parallel, missing items asked again, `_parse` skips a cut
   last line; `MenuSortJobs` (one running job per shop, 30 min) + `POST .../desk/menu/sort?background=1` / `GET` -> push
@@ -226,7 +227,7 @@ this file, don't trust it blindly.
   10 min) on a row already SPOKEN -> `saySorry` (`sorry_out` / `sorry_in` voice + notification, once). Voice kinds
   `check` / `sorry` have no switch yet (on). `recheckSummaries` sets aside rows an older build made from a summary (once).
   `accountTail` reads "HDFC Bank-1234". Parser gate 349 checks (made-up names; a real payer name was removed from the
-  tests). Money sheet still does not show the row's message (owner has not said go). Nothing phone verified.
+  tests). Nothing phone verified.
 - Branch `claude/free-shop-core-retention` (2026-11-23, owner "1+4 do" on the ProfitWell idea): (1) SHOP CORE FREE
   FOR EVER -- ONE list `shop_free_core.py` `FREE_FOREVER` (payment_voice, quick_bill, dues, sales_reports + the route
   patterns that ARE each tool, incl. `/api/in-app/voice/speak` where the phone fetches payment voice): `AiCredits`
