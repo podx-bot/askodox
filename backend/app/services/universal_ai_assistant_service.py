@@ -749,6 +749,11 @@ class UniversalAIAssistantService:
         plain call; each text delta goes to ``on_text`` as it arrives."""
         parts: list[str] = []
         stop_reason = ""
+        # Owner 2026-11-25 (speed): one line per streamed call -- model, time to the first word, tokens read / cached --
+        # so the deploy log shows which step is slow (no user text).
+        call_started = time.monotonic()
+        first_token_ms = -1
+        usage: dict[str, Any] = {}
         try:
             with self.http.stream(
                 "POST", "https://api.anthropic.com/v1/messages",
@@ -769,9 +774,13 @@ class UniversalAIAssistantService:
                     except ValueError:
                         continue
                     kind = event.get("type")
+                    if kind == "message_start":
+                        usage = dict(((event.get("message") or {}).get("usage")) or {})
                     if kind == "content_block_delta":
                         delta = event.get("delta") or {}
                         if delta.get("type") == "text_delta" and delta.get("text"):
+                            if first_token_ms < 0:
+                                first_token_ms = int((time.monotonic() - call_started) * 1000)
                             parts.append(str(delta["text"]))
                             on_text(str(delta["text"]))
                     elif kind == "message_delta":
@@ -782,6 +791,10 @@ class UniversalAIAssistantService:
             text = "".join(parts).strip()
             if stop_reason == "max_tokens":
                 logger.warning("universal_ai_assistant: claude answer cut at max_tokens (model=%s)", chosen)
+            print(f"ASKODOX CLAUDE STREAM model={chosen} first_token_ms={first_token_ms} "
+                  f"total_ms={int((time.monotonic() - call_started) * 1000)} out_chars={len(text)} "
+                  f"in_tokens={usage.get('input_tokens', '-')} cache_read={usage.get('cache_read_input_tokens', '-')} "
+                  f"cache_write={usage.get('cache_creation_input_tokens', '-')}", flush=True)
             _observe_ai("anthropic", ok=bool(text))
             return text
         except Exception as exc:
@@ -1540,7 +1553,9 @@ class UniversalAIAssistantService:
         if self.anthropic_api_key and not guide_early and not self._needs_lookup(clean):
             early_prompt, early_cache = routing_prompt("")
             early = _EarlyRoute(self, early_prompt, clean, clean_location, early_cache, streaming=on_text is not None)
+        plan_started = time.monotonic()
         plan = self._plan(clean, compact_history)
+        plan_ms = int((time.monotonic() - plan_started) * 1000)
         _REQUEST.level = plan.get("level", "")
         if early is not None and (plan.get("search") or plan.get("level") == "hard"):
             early.drop()
@@ -1782,7 +1797,8 @@ class UniversalAIAssistantService:
                            else reply_suggestions.clean(suggestions_raw, reply=reply))
             # Where the time goes (no user text, no keys): one line per answer.
             # print, like "ASKODOX IMAGE BRAIN": the app logger's INFO lines never reach Railway.
-            print(f"ASKODOX BRAIN TIMING: path={path} action={action} grounding_ms={grounding_ms} "
+            print(f"ASKODOX BRAIN TIMING: path={path} action={action} level={plan.get('level', '') or '-'} "
+                  f"search={int(bool(plan.get('search')))} plan_ms={plan_ms} grounding_ms={grounding_ms} "
                   f"route_ms={route_ms} answer_ms={answer_ms} first_ms={first_ms} "
                   f"total_ms={int((time.monotonic() - started) * 1000)}", flush=True)
             return {
@@ -1825,13 +1841,17 @@ class UniversalAIAssistantService:
         are cached; with ``on_text`` the JSON's "reply" is shown word by word while the rest is written."""
         data: dict[str, Any] | None = None
         level = getattr(_REQUEST, "level", "")
-        brain = self.anthropic_hard_model if level == "hard" else self.anthropic_model
+        # Owner 2026-11-25 ("chat speed chala important"; deploy log: loan / money questions = planner "hard" -> the
+        # routing JSON on the strongest model took ~10 s, first words ~8 s): the routing decision (and the reply it
+        # carries) uses the reasoning model for hard questions; the strongest model stays for the long written answers
+        # (guide / advice, ``_model_for(answer=True)``).
+        brain = self.anthropic_reasoning_model if level == "hard" else self.anthropic_model
         # "reply" FIRST (owner 2026-11-22: first words came ~5 s into this call): the app speaks it while the rest of
         # the JSON is still being written.
         claude_text = self._call_claude(prompt + "\nReturn ONLY the JSON object, no markdown. Write the \"reply\" key "
                                         "FIRST, before every other key.", model=brain,
                                         max_tokens=4096, temperature=0.15,
-                                        timeout=25.0 if brain == self.anthropic_model else 60.0,
+                                        timeout=25.0 if brain == self.anthropic_model else 40.0,
                                         on_text=on_text, cache_upto=cache_upto)
         if claude_text:
             try:

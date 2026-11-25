@@ -65,8 +65,9 @@ def test_the_planner_searches_the_real_subject_not_the_users_words():
 
 
 def test_level_picks_the_model():
-    # Owner 2026-11-18 (answers in 1-2 s): the routing decision is the fast model unless the question is hard.
-    for level, model in (("simple", "claude-haiku-5-5"), ("medium", "claude-haiku-5-5"), ("hard", "claude-opus-5-5")):
+    # Owner 2026-11-18 (answers in 1-2 s): the routing decision is the fast model unless the question is hard;
+    # 2026-11-25 (speed): a hard question routes on the reasoning model, not the strongest (~10 s in the deploy log).
+    for level, model in (("simple", "claude-haiku-5-5"), ("medium", "claude-haiku-5-5"), ("hard", "claude-sonnet-5-5")):
         brain, _ = _brain({"search": False, "query": "", "level": level})
         brain.decide("razorpay ఎందుకు ఓపెన్ అవ్వట్లేదు", locale="te")
         answer_models = [m for m, kind in brain.http.models if kind == "answer"]

@@ -310,6 +310,6 @@ def test_a_hard_turn_never_shows_the_early_reply_and_routes_with_the_strong_mode
     out = brain.decide("should my shop register as a company or stay a proprietorship for GST?", locale="en",
                        on_text=pieces.append)
     routing = [c["model"] for c in http.calls if "Return ONLY the JSON object" in c["prompt"]]
-    assert "claude-opus-5-5" in routing, routing
+    assert "claude-sonnet-5-5" in routing, routing  # owner 2026-11-25: reasoning model routes hard turns (speed)
     assert out["reply"]
     assert None not in pieces[:1]  # the dropped early reply was never shown, so nothing had to be withdrawn first

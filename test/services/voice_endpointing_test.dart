@@ -134,6 +134,26 @@ void main() {
     expect(askodoxSpeechChunks(''), isEmpty);
   });
 
+  test('a long first sentence starts the voice at a comma, and a streaming reply keeps the same first part', () {
+    // Owner 2026-11-25: chat speed -- a 100-140 character first clip took 2-3 s to voice.
+    const text = 'మీకు లోన్ ఇస్తామని ఫోన్ చేసినవాళ్ళు నిజమైనవాళ్ళో కాదో తెలుసుకోవాలంటే, ముందుగా ఆ కంపెనీ పేరు RBI లిస్ట్‌లో '
+        'ఉందో లేదో చూడండి, ఎవరికీ OTP చెప్పకండి. రెండో విషయం.';
+    final max = askodoxFirstSpeechMax(talk: false);
+    final chunks = askodoxSpeechChunks(text, firstMax: max);
+    final first = text.substring(chunks.first.start, chunks.first.end);
+    expect(first.trim().endsWith(','), isTrue, reason: first);
+    expect(chunks.first.end, lessThanOrEqualTo(max));
+    expect(chunks.first.end, greaterThanOrEqualTo(askodoxFirstChunkMin));
+    expect(chunks.last.end, text.length);
+    // While streaming: as soon as the text runs past the limit, the same first part is ready.
+    final partial = text.substring(0, max + 5);
+    final early = askodoxSpeechChunks(partial, firstMax: max);
+    expect(early.length, greaterThan(1));
+    expect(early.first.end, chunks.first.end);
+    // A short first sentence is untouched.
+    expect(askodoxSpeechChunks('OK, done. Next step here.', firstMax: max).first.end, 'OK, done. Next step here.'.length);
+  });
+
   test('revealed text cuts at a word end and never shows a raw **', () {
     const markup = 'Intro. **Cockroach Party** is a protest.';
     expect(askodoxRevealPrefix(markup, 10), 'Intro. **Cockroach**');
