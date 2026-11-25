@@ -7,6 +7,16 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #488 (2026-11-25, owner "5 start" on design B9qtmKXMoH1pdzuvsJKk5u; Play bundle `askodox-play-1698.aab` = Live Build run 698 on fbad2b3,
+  branch `play/bundle-1125d`): FINANCE ITEMS -- `finance_items.py` (tables `fin_meta` / `fin_docs` / `fin_qa` / `fin_callbacks` / `fin_misses`; an item is a
+  `financial_offer` row of the item store) + `routes/finance_items.py`: staff upload the company's PDFs (pypdf) / photos (vision reader), text kept page by
+  page (file not kept); `study` = AI points + Q&A, each kept only when its quote stands on the named page (`_quote_on_page`); `confirm` = staff checked ->
+  only then customers see / ask (a new document un-checks); `ask` = answer from the pages with the page, or an executive's saved answer (labelled), else
+  "not in the document" + call-back offer (misses counted in `fin_misses`, no person). Call back = sign-in + `consent` true, own `app-phone-` number only,
+  staff list masked, `reveal` audited, number wiped on close, deleted with the account; staff task `finance_callback:<item>`. Staff Workspace tab
+  "💼 Finance" (shown when `item_types` holds `financial_offer`). App `/finance/:id` (`finance_item_screen.dart`, 3 steps) + result card button
+  `askodoxFinanceAskCard-<id>` (`UniversalMatch.itemType`). Log lines `ASKODOX FINANCE DOC|STUDY|ASK|CALLBACK`. Registry
+  `finance_items_document_answers_callback`. Limits: scanned PDFs need page photos; ~28k characters of document per question. Nothing phone verified.
 - `main` PR #485 (2026-11-25, owner "1"; Play bundle `askodox-play-1696.aab` = Live Build run 696 on 64b2026, branch `play/bundle-1125c`,
   holds #481-#485; design canvas 1uCjwAqSveuZsREavyp7bm "ఒక్క టచ్"): ONE TOUCH STRIP on the కొను / అమ్ము side pages (`money_home/one_touch.dart`,
   key `askodoxOneTouch`): Buy = `askodoxReorderOf` (last finished desk order -> `/order-desk?code=&kind=&cart=`, dine-in -> takeaway, ends on
@@ -26,8 +36,7 @@ this file, don't trust it blindly.
   (#483) GUIDE TOURS -- `live_work_tour`, `money_tour`, `bill_tour`, `dues_tour` (all info stops), auto-start by exact route or `:id` pattern
   (`askodoxAutoGuideIdFor`). (#484) ASK-NET -- `PaymentAlertParser.unreadBankMoney` + `askAbout`: a registered bank's SMS (own account + amount) the
   phone cannot read = ONE ❓ row + notification, answered in the row (in / out / not a payment), learned by `skeleton`; max 3 a day; skill rule 16; the
-  consented shape upload is NOT built. Item 5 (finance items: documents + AI answers from the document only + consented callback) is a DESIGN only
-  (artifact B9qtmKXMoH1pdzuvsJKk5u), awaiting the owner. Nothing phone verified.
+  consented shape upload is NOT built. Item 5 (finance items) was built in #488. Nothing phone verified.
 - `main` PR #449 + #454 + #455 + #456 (2026-11-24, owner "don't stop, finish the remaining pages; no link needed now"): 3-STEP WORK PAGES BATCHES 15-21 --
   `desk_settings_steps_screens.dart` (Desk settings `/desk/:id/settings`), `desk_menu_steps_screens.dart` (Desk menu `/desk/:id/menu`: list, add by text),
   `printer_steps_screens.dart` (`/pos/:id/printer`), `biz_menu_steps_screens.dart` (`/biz/:id/menu*` sections), day report (`/biz/:id/reports/day` ->
@@ -1218,6 +1227,8 @@ this file, don't trust it blindly.
   permission), facts via the same store methods, the model only re-words (`_phraser`, AI Credits reserve when charging ON).
   SAFE actions run as the caller; SENSITIVE ones PENDING_APPROVAL -> owner / manager approves -> run AS THE APPROVER (four
   eyes for managers, staff roles owner-only). Never add an agent action that moves money, messages customers or deletes.
+- Finance items (owner 2026-11-25) = `finance_items.py`: never loosen the quote-on-page check, never show AI points / answers before a staff
+  `confirm`, never put a customer's number in a list (only `reveal`, audited), never take a call back without `consent` true. No advice wording.
 - ASKODOX NEVER holds buyer / seller money (owner rule 2026-10-27). Own ways to be paid = `payment_methods.py`
   (`user_payment_methods`, any app's UPI QR via `parse_upi_qr`, bank number encrypted) + `/api/me/payment-methods`; POS
   collect to the owner's own UPI = `pos_payment_alerts` collect requests (a notification only MATCHES, the shop confirms);
