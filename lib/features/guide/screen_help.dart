@@ -1239,11 +1239,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఇతర నెలలు, కొనుగోలు బిల్లుల జాబితా: ⋮ (పాత పేజీ).',
   ]),
   '/pos/:id/purchase/new': _H('Record a purchase bill', 'కొనుగోలు బిల్లు నమోదు', [
-    'Enter the supplier\'s bill number, date and each line as printed.',
-    'The total must match the printed total.',
+    '1 Pick the supplier (or photograph the bill — everything fills by itself). 2 The bill number, and the printed total to check.',
+    '3 Add each item that came: tap a line for quantity, cost before GST, GST %, pack, batch / expiry or serials. The number on top checks against the printed total.',
   ], [
-    'సప్లయర్ బిల్లు నంబర్, తేదీ, ప్రతి లైన్ ముద్రించినట్టే నమోదు చేయండి.',
-    'మొత్తం ముద్రించిన మొత్తంతో సరిపోవాలి.',
+    '1 సప్లయర్ ఎంచుకోండి (లేదా బిల్లు ఫోటో — అన్నీ దానంతట అదే నిండుతాయి). 2 బిల్లు నంబర్, సరిచూడటానికి బిల్లుపై మొత్తం.',
+    '3 వచ్చిన ప్రతి సరుకు చేర్చండి: లైన్ నొక్కి పరిమాణం, GST ముందు ధర, GST %, ప్యాక్, బ్యాచ్ / ఎక్స్‌పైరీ, సీరియల్స్. పైన నంబర్ బిల్లు మొత్తంతో సరిచూస్తుంది.',
   ]),
   '/pos/:id/purchase-orders': _H('Purchase orders', 'కొనుగోలు ఆర్డర్లు', [
     'The number on top is the orders waiting for goods. Tap "New order" to make one; tap an order to send it or receive the goods (in parts if needed).',
