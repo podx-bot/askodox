@@ -73,7 +73,7 @@ jobs:
             --dart-define=FIREBASE_SENDER_ID="${FIREBASE_SENDER_ID}" \
             --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}"
           cp build/app/outputs/flutter-apk/app-debug.apk app.apk
-          printf '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n    <string name="flutter.askodox.locale">en</string>\n</map>\n' > prefs.xml
+          printf '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n<map>\n    <string name="flutter.askodox.locale">en</string>\n    <boolean name="flutter.askodox.guide.intro_seen.v1" value="true" />\n</map>\n' > prefs.xml
       - name: Write the scenario
         run: |
           cat > e2e.sh <<'SH'
