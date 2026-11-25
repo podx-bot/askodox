@@ -49,6 +49,7 @@ import '../../steps/presentation/selfshop_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/item_details_steps_screen.dart';
 import '../../steps/presentation/order_code_steps_screen.dart';
+import '../../steps/presentation/order_desk_steps_screen.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/order_track_steps_screen.dart';
 import '../../steps/presentation/people_steps_screens.dart';
@@ -117,10 +118,15 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
 final askodoxFrontDeskRoutes = <GoRoute>[
   GoRoute(
       path: '/order-desk',
-      builder: (context, state) => AskodoxOrderDeskScreen(
-          code: state.uri.queryParameters['code'] ?? '',
-          kind: state.uri.queryParameters['kind'] ?? '',
-          cart: state.uri.queryParameters['cart'] ?? '')),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxOrderDeskScreen(
+              code: state.uri.queryParameters['code'] ?? '',
+              kind: state.uri.queryParameters['kind'] ?? '',
+              cart: state.uri.queryParameters['cart'] ?? '')
+          : AskodoxOrderDeskStepsScreen(
+              code: state.uri.queryParameters['code'] ?? '',
+              kind: state.uri.queryParameters['kind'] ?? '',
+              cart: state.uri.queryParameters['cart'] ?? '')),
   GoRoute(
       path: '/order-desk/enter',
       builder: (context, state) =>
