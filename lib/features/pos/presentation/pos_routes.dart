@@ -35,6 +35,7 @@ import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
 import '../../steps/presentation/agents_steps_screens.dart';
 import '../../steps/presentation/branches_steps_screen.dart';
+import '../../steps/presentation/buyer_agent_steps_screen.dart';
 import '../../steps/presentation/catalogue_steps_screen.dart';
 import '../../steps/presentation/hire_steps_screen.dart';
 import '../../steps/presentation/my_bills_steps_screen.dart';
@@ -70,7 +71,12 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
       path: '/money',
       builder: (context, state) => AskodoxMoneyScreen(
           owner: state.uri.queryParameters['owner'], lockOwner: state.uri.queryParameters['lock'] == '1')),
-  GoRoute(path: '/bills/:id', builder: (context, state) => AskodoxBillHistoryScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(
+      path: '/bills/:id',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxBillHistoryScreen(businessId: state.pathParameters['id']!)
+          : AskodoxBillHistoryStepsScreen(
+              businessId: state.pathParameters['id']!, fullRoute: '/bills/${state.pathParameters['id']}?full=1')),
   // Owner 2026-11-22: pages a Home chat shortcut can open (they live on the Money screen).
   GoRoute(
       path: '/payment-voice',
@@ -206,7 +212,10 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
           ? AskodoxPosAgentScreen(businessId: state.pathParameters['id']!, agent: state.pathParameters['agent']!)
           : AskodoxAgentStepsScreen(businessId: state.pathParameters['id']!, agent: state.pathParameters['agent']!)),
-  GoRoute(path: '/me/agent', builder: (context, state) => const AskodoxBuyerAgentScreen()),
+  GoRoute(
+      path: '/me/agent',
+      builder: (context, state) =>
+          state.uri.queryParameters['full'] == '1' ? const AskodoxBuyerAgentScreen() : const AskodoxBuyerAgentStepsScreen()),
   // Business CRM (My Business -> Business CRM; also a tile on the shop dashboard).
   GoRoute(path: '/crm', builder: (context, state) => const AskodoxCrmEntryScreen()),
   GoRoute(

@@ -564,13 +564,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'కట్టాక "కట్టేశాను" నొక్కితే షాప్ చూసి బిల్లు ముగిస్తుంది. కట్టినవి మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/bills/:id': _H('Bill history', 'బిల్లుల హిస్టరీ', [
-    'Every bill with how it was paid: cash, PhonePe, Google Pay, Paytm, other UPI or card.',
-    'Pending only shows bills with money still to come; Paid closes one when the money arrives.',
-    'Remind / send puts the bill in the customer\'s ASKODOX app, or opens WhatsApp on their number.',
+    'The number on top is the total of the bills below. Search by bill or phone number; the big button changes the days.',
+    'Pending only, Paid and Remind / send (customer\'s ASKODOX app or WhatsApp) are in the old page (⋮).',
   ], [
-    'ప్రతి బిల్లు ఎలా కట్టారో కనిపిస్తుంది: క్యాష్, PhonePe, Google Pay, Paytm, ఇతర UPI, కార్డ్.',
-    '"బాకీ మాత్రమే" లో డబ్బు రావాల్సిన బిల్లులు ఉంటాయి; డబ్బు వచ్చాక "కట్టారు" నొక్కండి.',
-    '"గుర్తు చేయి / పంపు" బిల్లును కస్టమర్ ASKODOX యాప్‌లోకి, లేదా వాళ్ళ నంబర్ WhatsApp కి పంపుతుంది.',
+    'పైన నంబర్ కింద ఉన్న బిల్లుల మొత్తం. బిల్ / ఫోన్ నంబర్‌తో వెతకండి; పెద్ద బటన్ రోజులు మారుస్తుంది.',
+    '"బాకీ మాత్రమే", "కట్టారు", "గుర్తు చేయి / పంపు" (కస్టమర్ ASKODOX యాప్ / WhatsApp) పాత పేజీలో (⋮).',
   ]),
   '/me/payments/phone': _H('My phone payments', 'నా ఫోన్ పేమెంట్లు', [
     'Switch it on, then allow notification access for ASKODOX once.',
@@ -916,10 +914,12 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ప్రశ్న అడగండి లేదా ఈరోజు summary చదవండి; "వాడిన facts" లో AI ఏం చదివిందో కనిపిస్తుంది.',
     'Suggestion నొక్కితే చేస్తుంది; sensitive వాటికి ముందు approval కావాలి.',
   ]),
-  '/me/agent': _H('Buyer agent', 'Buyer agent', [
-    'Your own records only: shop advances waiting for you and your saved ways to be paid. It never pays or approves for you.',
+  '/me/agent': _H('My helper', 'నా సహాయకుడు', [
+    'Ask in your words or with the mic: what you owe, shop advances waiting for you, your saved ways to be paid.',
+    'It answers from your own records only and never pays, approves or messages anyone. Shop advances are in ⋮.',
   ], [
-    'మీ records మాత్రమే: మీ కోసం ఆగిన shop advances, మీ payment methods. మీ తరఫున pay / approve చేయదు.',
+    'మీ మాటల్లో లేదా మైక్‌తో అడగండి: ఎవరికి ఎంత బాకీ, మీ కోసం ఆగిన shop advances, మీ payment methods.',
+    'మీ records నుండి మాత్రమే చెబుతుంది; మీ తరఫున pay / approve చేయదు, ఎవరికీ పంపదు. Shop advances ⋮ లో.',
   ]),
   '/pos/:id/deliveries': _H('Send delivery', 'డెలివరీ పంపు', [
     'Say it in one line: "Uyyuru to Param, one cake, collect 250" — the job card fills itself (≈ km / minutes too).',
