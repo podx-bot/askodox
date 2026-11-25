@@ -841,6 +841,11 @@ object AskodoxPaymentAlerts {
             strings(phrases?.optJSONArray("reject")), learned(context, "learned_in"), learned(context, "learned_out"),
             learnedKinds(context))
         if (parsed is PaymentAlertParser.Result.Unknown) {
+            // Owner 2026-11-25 (the ❓ net): a registered bank's SMS is asked about in the history itself, with its
+            // amount and time (came in / went out / not a payment), instead of the small "new wording" card.
+            if (!test && !summary && cfg.optString("business_id").isEmpty()) {
+                askAbout(context, cfg, pkg, title, text, notificationKey, whenMillis)?.let { return it }
+            }
             if (!test && !summary) rememberUnknown(context, pkg, parsed)
             return mapOf("result" to "unknown", "template" to parsed.template)
         }
@@ -851,6 +856,7 @@ object AskodoxPaymentAlerts {
             // Owner 2026-11-22: each kind is also SAID when the person keeps it on in the Payment voice folder.
             if (!test && cfg.optString("business_id").isEmpty()) {
                 PaymentAlertParser.notice(title, text)?.let { n -> return saveNotice(context, cfg, pkg, n, title, text, notificationKey, whenMillis) }
+                askAbout(context, cfg, pkg, title, text, notificationKey, whenMillis)?.let { return it }
             } else if (!test) {
                 // A shop phone: only the warnings (someone asking the shop to pay, a fake "credited" message) -- said, not kept.
                 PaymentAlertParser.notice(title, text)?.takeIf { it.kind == "request" || it.kind == "suspect" }?.let { n ->
@@ -1004,6 +1010,8 @@ object AskodoxPaymentAlerts {
 
     /** A message whose own payment time is older than this (phone was off / asleep) is written, never spoken. */
     private const val LATE_MS = 60 * 60_000L
+    /** Owner 2026-11-25: "not understood" questions about bank SMS, at most this many a day. */
+    private const val ASK_PER_DAY = 3
 
     /** How long a debit from an APP notification waits for the bank's SMS before it is spoken (owner 2026-11-21). */
     private const val DEBIT_WAIT_MS = 60_000L
@@ -1106,6 +1114,8 @@ object AskodoxPaymentAlerts {
         var row: JSONObject? = null
         for (i in 0 until list.length()) if (list.getJSONObject(i).optString("local_id") == localId) row = list.getJSONObject(i)
         val e = row ?: return mapOf("ok" to false)
+        // Owner 2026-11-25: a ❓ "not understood" row becomes a real payment row on "came in" / "went out".
+        val asked = e.optString("info") == "ask"
         when (choice) {
             "none" -> e.put("excluded", true).put("doubt", "not_payment")
             else -> {
@@ -1113,6 +1123,7 @@ object AskodoxPaymentAlerts {
                 e.remove("excluded"); e.remove("doubt")
             }
         }
+        if (asked) e.remove("info")
         e.put("corrected", choice)
         if (e.optString("spoken") == "waiting") e.put("spoken", "skipped_bank")
         saveEvents(context, list)
@@ -1519,6 +1530,32 @@ object AskodoxPaymentAlerts {
         val c = cal.clone() as Calendar
         val offset = c.get(Calendar.ZONE_OFFSET) + c.get(Calendar.DST_OFFSET)
         return (c.timeInMillis + offset) / 86_400_000L
+    }
+
+    /**
+     * Owner 2026-11-25 (the ❓ net): a registered bank's money SMS the phone could not read -> ONE ❓ row (not counted,
+     * never spoken) and one notification asking "came in / went out / not a payment". The answer (row -> "Read
+     * wrongly?") is learned for every later message of that kind. At most [ASK_PER_DAY] a day; a kind already
+     * answered is never asked again. Nothing leaves the phone.
+     */
+    private fun askAbout(context: Context, cfg: JSONObject, pkg: String, title: String?, text: String?,
+                         notificationKey: String, whenMillis: Long): Map<String, Any?>? {
+        val amount = PaymentAlertParser.unreadBankMoney(title, text, learnedKinds(context)) ?: return null
+        val now = System.currentTimeMillis()
+        val day = dayNumber(Calendar.getInstance())
+        val p = prefs(context)
+        val asked = if (p.getLong("ask_day", -1L) == day) p.getInt("ask_count", 0) else 0
+        if (asked >= ASK_PER_DAY) return null
+        val out = saveNotice(context, cfg, pkg, PaymentAlertParser.Notice("ask", amount), title, text, notificationKey, whenMillis)
+        if (out["result"] != "notice") return out
+        p.edit().putLong("ask_day", day).putInt("ask_count", asked + 1).apply()
+        val te = cfg.optString("language", "te") == "te"
+        val rupees = amount / 100
+        showPaymentNotification(context, "ask|${out["localId"]}",
+            if (te) "❓ ఒక బ్యాంక్ మెసేజ్ అర్థం కాలేదు (₹$rupees)" else "❓ A bank message was not understood (₹$rupees)",
+            if (te) "డబ్బు వచ్చిందా, వెళ్ళిందా? ASKODOX లో ఆ వరుస నొక్కి ఒకసారి చెప్పండి — తర్వాత నుంచి అదే చదువుతుంది."
+            else "Did money come in or go out? Tap the row in ASKODOX and say it once — it reads that kind by itself after that.")
+        return out
     }
 
     /** A money message that is not a payment: one "info" row (not counted, not spoken). Suspicious ones also notify. */

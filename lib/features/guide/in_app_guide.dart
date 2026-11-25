@@ -135,7 +135,33 @@ const askodoxGuideFlows = <AskodoxGuideFlow>[
 
 /// Owner 2026-11-23: walkthroughs the guide starts BY ITSELF when it is ON and the person stops for
 /// [askodoxGuideIdle] on that screen (each only until it finished once). Keyed by the screen they run on.
-const askodoxAutoGuideRoutes = <String, String>{'/onboarding': 'signin', '/': 'home_tour'};
+/// A key with `:name` parts is a route pattern (`/biz/:id/money/dues`); see [askodoxAutoGuideIdFor].
+/// Owner 2026-11-25: Live Work, Money, the 3-step bill and the baaki (dues) page have their own short tours.
+const askodoxAutoGuideRoutes = <String, String>{
+  '/onboarding': 'signin',
+  '/': 'home_tour',
+  '/work': 'live_work_tour',
+  '/money-home': 'money_tour',
+  '/me/business/:id/bill': 'bill_tour',
+  '/biz/:id/money/dues': 'dues_tour',
+};
+
+/// The walkthrough that belongs to this screen path (exact first, then a `:name` pattern), or null.
+String? askodoxAutoGuideIdFor(String path) {
+  final exact = askodoxAutoGuideRoutes[path];
+  if (exact != null) return exact;
+  final parts = path.split('/');
+  for (final entry in askodoxAutoGuideRoutes.entries) {
+    final want = entry.key.split('/');
+    if (!entry.key.contains(':') || want.length != parts.length) continue;
+    var same = true;
+    for (var i = 0; i < want.length && same; i++) {
+      same = want[i].startsWith(':') ? parts[i].isNotEmpty : want[i] == parts[i];
+    }
+    if (same) return entry.value;
+  }
+  return null;
+}
 
 const askodoxAutoGuides = <AskodoxGuideFlow>[
   AskodoxGuideFlow('signin', 'Sign in', 'సైన్ ఇన్', ['how to sign in', 'how to register', 'సైన్ ఇన్ ఎలా', 'రిజిస్టర్ ఎలా'], [
@@ -169,6 +195,39 @@ const askodoxAutoGuides = <AskodoxGuideFlow>[
         '☰ మెనూ — భాష, లొకేషన్, సెట్టింగ్స్, సహాయం ఇక్కడ.', route: '/', info: true),
     AskodoxGuideStep('askodoxGuideSwitch', 'I stay here. Do not want the guide? Tap this to turn it off.',
         'నేను ఇక్కడే ఉంటా. గైడ్ వద్దనుకుంటే ఈ బటన్ నొక్కి ఆఫ్ చేయండి.', route: '/', info: true),
+  ], listed: false),
+  // Owner 2026-11-25: short tours of the pages people open most. Every stop only explains (the person taps "Next");
+  // a stop that is not on screen right now is skipped.
+  AskodoxGuideFlow('live_work_tour', 'Live Work tour', 'లైవ్ వర్క్ పరిచయం', ['how to play live work', 'లైవ్ వర్క్ ఎలా'], [
+    AskodoxGuideStep('askodoxWorkModeScreen', 'This is Live Work. Pick a job; every step you walk builds it. No points, no money: only the joy of the work.',
+        'ఇది లైవ్ వర్క్. ఒక పని ఎంచుకోండి; మీరు నడిచే ప్రతి అడుగుతో ఆ పని ముందుకు సాగుతుంది. పాయింట్లు, డబ్బు లేవు — పని ఆనందం మాత్రమే.',
+        route: '/work', info: true),
+    AskodoxGuideStep('askodoxWorkHowToPlay', 'Forgot how it works? Tap this any time.',
+        'ఎలా ఆడాలో మర్చిపోతే ఇది ఎప్పుడైనా నొక్కండి.', route: '/work', info: true),
+    AskodoxGuideStep('askodoxNavLiveWork', 'This dot blinks green while your work is running, even from other pages.',
+        'మీ పని నడుస్తుంటే ఈ చుక్క పచ్చగా మెరుస్తుంది — వేరే పేజీల్లో ఉన్నా.', route: '/work', info: true),
+  ], listed: false),
+  AskodoxGuideFlow('money_tour', 'Money tour', 'మనీ పరిచయం', ['how to see my money', 'మనీ పేజీ ఎలా'], [
+    AskodoxGuideStep('askodoxMoneyHomeCard', 'On top: the money that came to this phone (or your shop\'s sales today). Tap it for every payment.',
+        'పైన: ఈ ఫోన్‌కి వచ్చిన డబ్బు (లేదా మీ షాప్ ఈ రోజు అమ్మకాలు). నొక్కితే ప్రతి పేమెంట్ కనిపిస్తుంది.', route: '/money-home', info: true),
+    AskodoxGuideStep('askodoxMoneyHomePages', 'These are your money pages. Tap one to open it. Press and hold to move it or pin it above the chat.',
+        'ఇవి మీ మనీ పేజీలు. నొక్కితే తెరుచుకుంటుంది. నొక్కి పట్టుకుంటే జరపొచ్చు, చాట్ పైన పిన్ చేయొచ్చు.', route: '/money-home', info: true),
+    AskodoxGuideStep('askodoxNavHistory', 'Buy / Sell: "Buy" shows your own money, "Sell" shows your shop\'s money. They never mix.',
+        'కొను / అమ్ము: "కొను" లో మీ సొంత డబ్బు, "అమ్ము" లో మీ షాప్ డబ్బు. రెండూ కలవవు.', route: '/money-home', info: true),
+  ], listed: false),
+  AskodoxGuideFlow('bill_tour', 'Make a bill', 'బిల్ వేయడం', [], [
+    AskodoxGuideStep('askodoxBillStepsSearch', 'Tap an item once for 1, again for more. Many items? Search by name or number here.',
+        'ఐటమ్ ఒకసారి నొక్కితే 1, మళ్ళీ నొక్కితే ఇంకొకటి. ఐటమ్స్ ఎక్కువైతే ఇక్కడ పేరు / నంబర్ తో వెతకండి.', info: true),
+    AskodoxGuideStep('askodoxStepMic', 'Or tap the mic and just say it: "2 tea, 1 dosa".',
+        'లేదా మైక్ నొక్కి చెప్పండి: "రెండు టీ, ఒక దోశ".', info: true),
+    AskodoxGuideStep('askodoxBillStepsNext', 'Then tap this big button and choose cash, online or baaki. The bill goes to WhatsApp in one tap.',
+        'తర్వాత ఈ పెద్ద బటన్ నొక్కి క్యాష్, ఆన్‌లైన్ లేదా బాకీ ఎంచుకోండి. బిల్ ఒక్క నొక్కుతో WhatsApp కి వెళ్తుంది.', info: true),
+  ], listed: false),
+  AskodoxGuideFlow('dues_tour', 'Collect baaki', 'బాకీ వసూలు', [], [
+    AskodoxGuideStep('askodoxDuesStepsSearch', 'Someone paid their baaki? Find the name here and tap it, then type how much came.',
+        'ఎవరైనా బాకీ కట్టారా? ఇక్కడ పేరు వెతికి నొక్కండి, ఎంత వచ్చిందో రాయండి.', info: true),
+    AskodoxGuideStep('askodoxDuesStepsRemindAll', 'To remind people, tap this: the WhatsApp message is ready for each one.',
+        'గుర్తు చేయాలంటే ఇది నొక్కండి: ప్రతి ఒక్కరికి WhatsApp మెసేజ్ సిద్ధంగా ఉంటుంది.', info: true),
   ], listed: false),
 ];
 
@@ -529,7 +588,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
   Future<void> _autoStart() async {
     if (!mounted || !ref.read(askodoxGuideOnProvider) || ref.read(askodoxGuideProvider) != null) return;
     final path = _location.split('?').first;
-    final id = askodoxAutoGuideRoutes[path];
+    final id = askodoxAutoGuideIdFor(path);
     final flow = id == null ? null : askodoxGuideById(id);
     if (flow == null || !askodoxGuideAvailable(flow)) return;
     if ((await askodoxGuideDoneFlows()).contains(flow.id)) return;

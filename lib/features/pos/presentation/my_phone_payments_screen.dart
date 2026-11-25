@@ -1091,7 +1091,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                 title: Text(te ? 'తప్పు: ఇది వెళ్ళిన డబ్బు' : 'Wrong: this money went out'),
                 onTap: () => Navigator.pop(ctx, 'out'),
               ),
-            if (e['excluded'] != true)
+            if (e['excluded'] != true || e['info'] == 'ask')
               ListTile(
                 key: const Key('askodoxMineRowCorrect-none'),
                 leading: const Icon(Icons.block_rounded),
@@ -1245,7 +1245,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                   fallback: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
                       color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C))),
               title: Text(
-                  '${e['direction'] == 'info' ? (e['info'] == 'suspect' ? '⚠️ ' : 'ℹ️ ') : e['doubt'] != null ? '❓ ' : ''}'
+                  '${e['direction'] == 'info' ? (e['info'] == 'suspect' ? '⚠️ ' : e['info'] == 'ask' ? '❓ ' : 'ℹ️ ') : e['doubt'] != null ? '❓ ' : ''}'
                   '${e['direction'] == 'info' ? '' : e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
                   '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
                   style: TextStyle(
