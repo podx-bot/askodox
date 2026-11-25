@@ -960,15 +960,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పెద్ద బటన్ మీ సొంత షాపులను లింక్ చేస్తుంది: రెండు లేదా ఎక్కువ టిక్ చేయండి. లింక్ అయిన శాఖల delivery వాళ్ళు అందరూ కలిసి; ప్రతి శాఖకి దాని బిల్లులు, GST విడివిడిగా.',
   ]),
   '/me/work': _H('I want work', 'నేను పని చేస్తా', [
-    'Put up your card: work types, town, how far, day / night / Sundays, 18+. Businesses see your card, never your number.',
-    'A business invites you: join only if you want; you can leave any time. Your documents open only with the code you give.',
-    'Work offered: Take or No. Saying No while green (free) is a minus point — turn OFF when you are not free.',
-    'Independent badge: days under a business + jobs + rating + no complaints + your Udyam number.',
+    'No card yet: pick the work you do, then your name, town and 18+. Businesses see your card, never your number.',
+    'The big number = things waiting for your answer: work offered, your jobs, invites. The big button opens the first one.',
+    'Tap a row: Take / No, Job done, Money received, Join / No, documents code or Leave. Saying No while free is a minus point.',
+    'Your card + independent badge, your documents and the old page are in ⋮.',
   ], [
-    'మీ కార్డ్ పెట్టండి: ఏ పని, ఊరు, ఎంత దూరం, పగలు / రాత్రి / ఆదివారాలు, 18+. Businesses కి కార్డ్ మాత్రమే, నంబర్ కాదు.',
-    'ఒక business అడిగితే: మీకు ఇష్టమైతేనే చేరండి; ఎప్పుడైనా వదిలేయొచ్చు. మీ documents మీరు ఇచ్చే కోడ్ తోనే తెరుచుకుంటాయి.',
-    'పని వస్తే: "వెళ్తా" లేదా "కుదరదు". ఆకుపచ్చ (ఖాళీ) గా ఉండి కుదరదంటే మైనస్ పాయింట్ – ఖాళీ లేకపోతే ఆఫ్ చేయండి.',
-    'స్వతంత్రుడు badge: business కింద రోజులు + పనులు + రేటింగ్ + ఫిర్యాదులు లేకపోవడం + మీ Udyam నంబర్.',
+    'కార్డ్ లేకపోతే: మీరు చేసే పని ఎంచుకోండి, తర్వాత పేరు, ఊరు, 18+. Businesses కి కార్డ్ మాత్రమే, నంబర్ కాదు.',
+    'పెద్ద నంబర్ = మీ జవాబు కోసం ఎదురుచూస్తున్నవి: పని, మీ పనులు, ఆహ్వానాలు. పెద్ద బటన్ మొదటిది తెరుస్తుంది.',
+    'వరుస నొక్కండి: వెళ్తా / కుదరదు, పని అయింది, డబ్బు అందింది, చేరుతా / వద్దు, documents కోడ్ లేదా వదిలేయి. ఖాళీగా ఉండి కుదరదంటే మైనస్ పాయింట్.',
+    'మీ కార్డ్ + స్వతంత్రుడు badge, documents, పాత పేజీ ⋮ లో ఉన్నాయి.',
   ]),
   '/hire': _H('Hire a worker', 'పని వాళ్ళు కావాలి', [
     'Choose the work, where and when.',
