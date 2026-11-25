@@ -7,7 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('owner 2026-11-23: each auto walkthrough exists, is hidden from the list and its tour stops move on with Next', () {
-    expect(askodoxAutoGuideRoutes, {'/onboarding': 'signin', '/': 'home_tour'});
+    expect(askodoxAutoGuideRoutes['/onboarding'], 'signin');
+    expect(askodoxAutoGuideRoutes['/'], 'home_tour');
+    // Owner 2026-11-25: tours of Live Work, Money, the 3-step bill and the baaki page (route patterns with an id).
+    expect(askodoxAutoGuideIdFor('/work'), 'live_work_tour');
+    expect(askodoxAutoGuideIdFor('/money-home'), 'money_tour');
+    expect(askodoxAutoGuideIdFor('/me/business/b1/bill'), 'bill_tour');
+    expect(askodoxAutoGuideIdFor('/biz/b1/money/dues'), 'dues_tour');
+    expect(askodoxAutoGuideIdFor('/biz/b1/money'), isNull);
+    expect(askodoxAutoGuideIdFor('/me/business//bill'), isNull);
     for (final id in askodoxAutoGuideRoutes.values) {
       final flow = askodoxGuideById(id);
       expect(flow, isNotNull, reason: id);
