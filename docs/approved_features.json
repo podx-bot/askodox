@@ -11901,6 +11901,38 @@
       }
     },
     {
+      "id": "payment_alert_ask_net_unread_bank_sms",
+      "name": "Payment alerts: a bank SMS the phone cannot read is asked about, never guessed",
+      "purpose": "Owner 2026-11-25 (offered 2026-11-23): no bank's money message is silently lost; the phone learns it from one answer.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "My phone only: a registered bank sender's SMS that names the person's own account and an amount, which the parser ignored or did not know, makes ONE question row (not counted, never spoken) and one notification. In the row the person says came in / went out / not a payment; the answer is learned by the message's skeleton so the next message of that kind is read by itself. Never asked: OTP, limit, offer, due, statement, mandate, failed or future payments, fake-looking messages, a kind already answered; at most 3 questions a day. Nothing is uploaded.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); the shape-only upload with consent is NOT built; NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxMineRowCorrect-none"
+        ],
+        "symbols": [
+          "askodoxNoticeNote"
+        ]
+      }
+    },
+    {
       "id": "order_desk_page_three_steps_batch38",
       "name": "Menu & order (customer) in 3 steps",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 38; old page stays at ?full=1.",

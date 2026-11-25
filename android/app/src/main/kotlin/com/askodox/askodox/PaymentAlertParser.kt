@@ -370,6 +370,32 @@ object PaymentAlertParser {
         }
     }
 
+    /**
+     * Owner 2026-11-25 (the ❓ net: "a bank SMS with an amount that we cannot read -- ask, do not guess"): a REGISTERED
+     * bank sender's SMS that names the person's own account and an amount, which [parse] ignored and [notice] did not
+     * explain. Returns the amount to ASK about ("came in / went out / not a payment"); the answer is learned under
+     * [skeleton], so the next message of that kind is read by itself. Never a guess: null whenever the message is
+     * about something else (OTP, limit, offer, a due / statement, a mandate, a failed or future payment), looks fake,
+     * has too few telling words to learn from, or its kind was already answered ([learnedKinds]).
+     */
+    fun unreadBankMoney(title: String?, text: String?, learnedKinds: Map<String, String> = emptyMap()): Long? {
+        if (!isBankSender(title) || isPromoSender(title)) return null
+        val body = text?.replace('\n', ' ')?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (askNever.containsMatchIn(body) || !ownAccountHint.containsMatchIn(body)) return null
+        if (fakeSigns(body).isNotEmpty()) return null
+        val kind = skeleton(body)
+        if (kind.split(' ').size < 3 || learnedKinds.containsKey(kind)) return null
+        return paymentAmounts(withoutBoilerplate(body)).firstOrNull()
+    }
+
+    private val askNever = Regex(
+        """(?i)\botp\b|one[\s-]?time|password|\bpin\b|do\s+not\s+share|never\s+share|log(?:ged)?\s*in|\blimit\b|statement|""" +
+            """\bdue\b|overdue|minimum|\boffer|pre-?approved|eligible|\bapply\b|\bloan\b|\bemi\b|reward|points|cashback|""" +
+            """\bkyc\b|will\s+be|scheduled|request|mandate|auto\s*-?\s*pay|declined|failed|unsuccessful|reversed|blocked|""" +
+            """che?que|locker|interest\s+rate|\bfd\b|fixed\s+deposit|insurance|premium|invest""")
+    private val ownAccountHint = Regex(
+        """(?i)\b(?:a/?c|acct|account|card)\b[^0-9]{0,14}\d{3,6}\b""")
+
     private val requestWords = Regex(
         """(?i)\b(?:collect\s+request|money\s+request|payment\s+request|request\s+to\s+pay|has\s+requested|is\s+requesting|""" +
             """requested\s+(?:money|payment|₹|rs\.?|inr)|requesting\s+(?:money|payment|₹|rs\.?|inr)|""" +
