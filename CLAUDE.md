@@ -7,6 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #493 (2026-11-26, owner "1"; Play bundle `askodox-play-1703.aab` = Live Build run 703 on 8c64a7a): PAYMENT VOICE -- (1) a late
+  app notification of money the person SENT joins the bank's message up to 24 h, any order, unless names clash (`PaymentAlertParser.
+  ownMoneyLate`, `OWN_OUT_LATE_MS`; owner: Rs 6,500 SMS 14:03, PhonePe 22:10 spoken again). (2) BANK ALERT E-MAIL = 3rd source: mail
+  apps kind `email` (`isMailApp`; catalogue Gmail / Outlook / Samsung Email / Yahoo / Zoho), read only when `bankMail(sender)` AND the
+  mail names the person's own account; `BANK_KINDS` sms + email = bank-confirmed; debits carry `rrn(text)` as reference; app hint
+  `askodoxBankMailHint` (Gmail Notifications "All"). (3) wording: `A/C 1234XXXX1234` tails, card purchases (`cardSpent`, card's last 4 =
+  account, shop after "at"), ATM "withdrawn", "refunded to your account". Account Aggregator NOT built (FIU needs a regulated entity;
+  owner chose e-mail). Skill rules 17-18. Nothing phone verified.
 - `main` PR #490 + #491 (2026-11-25, owner "finish this" + "1"; Play bundle `askodox-play-1701.aab` = Live Build run 701 on cb4ce24): (#490) FAMILY
   SHOPPING LIST `/me/family-list` (`family_lists.py` + `/api/me/family-lists`: one list per home made on first open, members by 10-digit number,
   invited numbers join on sign-in via `auth_accounts`, numbers shown as last 4 + `member_ref` hash, item open / done / paused, pushes to the others,
