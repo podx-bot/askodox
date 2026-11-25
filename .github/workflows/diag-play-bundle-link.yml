@@ -1,0 +1,23 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1703]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45681716879 -R "$GITHUB_REPOSITORY" -n askodox-android-703 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1703.aab
+          sha256sum askodox-play-1703.aab
+          gh release create play-bundle-1703 askodox-play-1703.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1703" --notes "Play Console upload only (not installable on a phone). PR #493: bank alert e-mail as a 3rd payment source (notification + SMS + e-mail = one voice), late own-debit app notification joins the bank SMS (24 h), card purchase / ATM / refund / masked-account wording."
