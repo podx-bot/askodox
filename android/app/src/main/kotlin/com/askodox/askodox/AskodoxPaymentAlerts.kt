@@ -296,11 +296,19 @@ object AskodoxPaymentAlerts {
     /** Kinds of message that come through the SMS app NEXT TO the bank's debit SMS for the same money. */
     private val SIDE_KINDS = PaymentAlertParser.SIDE_KINDS
 
-    /** upi | bank | sms | other: the person's list says it; otherwise guessed from the package name. */
+    /** Gmail, Outlook, Samsung Email, Yahoo Mail, Zoho Mail ... (owner 2026-11-25: the bank's alert e-mail). */
+    fun isMailApp(pkg: String): Boolean {
+        val p = pkg.lowercase(Locale.ROOT)
+        return p == "com.google.android.gm" || p.endsWith(".gm") || p.contains("outlook") || p.contains(".email") ||
+            p.contains("mail")
+    }
+
+    /** upi | bank | sms | email | other: the person's list says it; otherwise guessed from the package name. */
     fun kindOf(cfg: JSONObject, pkg: String): String {
         cfg.optJSONObject("kinds")?.optString(pkg)?.takeIf { it.isNotEmpty() }?.let { return it }
         val p = pkg.lowercase(Locale.ROOT)
         return when {
+            isMailApp(p) -> "email"
             p.contains("messag") || p.contains("mms") || p.contains("sms") -> "sms"
             p.contains("phonepe") || p.contains("paisa") || p.contains("paytm") || p.contains("npci") ||
                 p.contains("super.payments") || p.contains("mobikwik") || p.contains("freecharge") || p.contains("cred") -> "upi"
@@ -792,6 +800,10 @@ object AskodoxPaymentAlerts {
                parts: List<String>? = null, routed: Boolean = false): Map<String, Any?> {
         val cfg = cfgIn ?: config(context)
         if (!test && !cfg.optBoolean("enabled", false)) return mapOf("result" to "disabled")
+        // Owner 2026-11-25: a mail app is read ONLY for a BANK's alert e-mail (sender names a bank). A shop's / app's
+        // receipt mail ("payment of Rs 499 successful") is never money.
+        val mail = kindOf(cfg, pkg) == "email"
+        if (mail && !PaymentAlertParser.bankMail(title)) return mapOf("result" to "ignored")
         // Owner 2026-11-23 (PhonePe "2 new completed transaction updates · A has sent ₹3,000 to your bank account ·
         // ₹3,360 has been sent to B" was read as ONE message and said as "₹3,000 went to B", 9 h after that money
         // had come IN): a payment app's SUMMARY is several EARLIER transactions. Each line is read alone
@@ -867,6 +879,16 @@ object AskodoxPaymentAlerts {
             }
             return mapOf("result" to "ignored")
         }
+        // A bank alert e-mail always names the person's own account ("account **1234", "A/c XX1234"). One that does not
+        // (a display name copied by a fake mail, an insurer's receipt) is never money (owner 2026-11-25).
+        if (mail) {
+            val mailAcct = when (parsed) {
+                is PaymentAlertParser.Result.Accepted -> parsed.account
+                is PaymentAlertParser.Result.Outgoing -> parsed.account
+                else -> null
+            }
+            if (mailAcct == null) return mapOf("result" to "ignored")
+        }
         // Owner 2026-11-23: the money's ACCOUNT decides the side (ON for "My own", ON for the shop, or OFF), not the app
         // it came through. Summary lines only join rows already made, so they are never re-routed.
         if (!routed && !test && !summary) {
@@ -906,9 +928,10 @@ object AskodoxPaymentAlerts {
         // payment's own time (the notification's `when`) decides whether two messages are one payment, not the arrival time.
         val posted = paymentTime(whenMillis, now)
         // Owner 2026-11-17: a bank SMS from a REGISTERED sender (XX-HDFCBK-S / -T / -G) = the bank says the money landed.
-        val bankSms = kindOf(cfg, pkg) == "sms" && PaymentAlertParser.isBankSender(title)
+        // Owner 2026-11-25: the bank's alert e-mail is the bank's word too (checked above: the sender names a bank).
+        val bankSms = (kindOf(cfg, pkg) == "sms" && PaymentAlertParser.isBankSender(title)) || mail
         val handle = PaymentAlertParser.upiHandleTail("${title ?: ""} ${text ?: ""}")
-        val balance = if (kindOf(cfg, pkg) == "sms") PaymentAlertParser.availableBalance(text) else null
+        val balance = if (kindOf(cfg, pkg) in PaymentAlertParser.BANK_KINDS) PaymentAlertParser.availableBalance(text) else null
         // Owner 2026-11-19: "money received" SMS from a PERSON's mobile number = a likely fake. Written with a warning,
         // never spoken, never joined to a real payment, never sent to the shop's other phones.
         if (!test && amount != null && kindOf(cfg, pkg) == "sms" && PaymentAlertParser.looksLikePersonNumber(title)) {
@@ -1263,8 +1286,11 @@ object AskodoxPaymentAlerts {
                                text: String? = null, title: String? = null, summaryKey: String? = null,
                                summaryTaken: MutableSet<String>? = null): Map<String, Any?> {
         val summary = summaryKey != null
-        val balance = if (kindOf(cfg, pkg) == "sms") PaymentAlertParser.availableBalance(text) else null
+        val balance = if (kindOf(cfg, pkg) in PaymentAlertParser.BANK_KINDS) PaymentAlertParser.availableBalance(text) else null
         val emi = PaymentAlertParser.isEmi(text)
+        // Owner 2026-11-25: the UPI reference (RRN) of a debit -- the bank's SMS, its e-mail and the app's message carry
+        // the same one, so the three are matched exactly, however late one comes.
+        val outRef = PaymentAlertParser.rrn(text)
         val now = System.currentTimeMillis()
         val key = if (summaryKey != null) "$summaryKey|out|${if (test) whenMillis else 0L}"
             else "$pkg|out|$notificationKey|${o.amountPaise}|${if (messageTime > 0) messageTime else whenMillis}"
@@ -1285,12 +1311,13 @@ object AskodoxPaymentAlerts {
             o.bill && source == "sms" -> "biller"
             else -> source
         }
-        val bankSms = source == "sms" && (kind == "sms" || kind == "billpay") && PaymentAlertParser.isBankSender(title)
+        val bankSms = (source == "sms" && (kind == "sms" || kind == "billpay") && PaymentAlertParser.isBankSender(title)) ||
+            (source == "email" && kind == "email")
         // Bank SMS wins (owner 2026-11-21): see the incoming side in [handle].
         if (!test && bankSms) setAsideOpposite(context, cfg, pkg, "out", o.amountPaise, posted)
         val bankDisagrees = !test && !summary && !bankSms && bankSaysOpposite(context, pkg, "out", o.amountPaise, posted)
         if (!test && !bankDisagrees) {
-            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, null, o.party, posted, bankSms = bankSms,
+            mergeSameMoney(context, cfg, pkg, "out", o.amountPaise, o.account, outRef, o.party, posted, bankSms = bankSms,
                 notificationKey = notificationKey, balance = balance, emi = emi, raw = rawOf(title, text), asKind = kind,
                 summary = summary, skipIds = summaryTaken, text = text)?.let {
                 summaryTaken?.add(it)
@@ -1313,6 +1340,7 @@ object AskodoxPaymentAlerts {
             .put("amount_paise", o.amountPaise)
             .put("test", test)
         if (o.account != null) event.put("account", o.account)
+        if (outRef != null) event.put("reference", outRef)
         if (!o.party.isNullOrEmpty()) event.put("party", o.party)
         if (balance != null) event.put("balance_paise", balance)
         if (emi) event.put("emi", true)

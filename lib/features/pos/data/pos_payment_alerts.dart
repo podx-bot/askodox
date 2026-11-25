@@ -236,7 +236,7 @@ final askodoxKnownMoneyApps = <String, Object?>{
     if (!askodoxDefaultPaymentApps.containsKey(e.key) && !askodoxSmsApps.containsKey(e.key)) e.key: e.value.$1,
 };
 
-/// Every money app ASKODOX knows by name: package -> (label, kind). kind = upi | bank | sms.
+/// Every money app ASKODOX knows by name: package -> (label, kind). kind = upi | bank | sms | email.
 /// Not a fixed allow-list (owner 2026-11-15: "no fixed list, any app / bank"): an app missing here is still found
 /// on the phone by [askodoxLooksLikeMoneyApp] and can always be added by hand.
 const askodoxMoneyAppCatalog = <String, (String, String)>{
@@ -277,13 +277,21 @@ const askodoxMoneyAppCatalog = <String, (String, String)>{
   'com.samsung.android.messaging': ('Messages (Samsung)', 'sms'),
   'com.android.mms': ('Messages', 'sms'),
   'com.truecaller': ('Truecaller (SMS)', 'sms'),
+  // Mail apps (owner 2026-11-25): only a BANK's alert e-mail is read (the sender names a bank, the mail names the
+  // person's own account); a shop's / app's receipt mail is never money. Same payment as its SMS / app message = one voice.
+  'com.google.android.gm': ('Gmail', 'email'),
+  'com.microsoft.office.outlook': ('Outlook', 'email'),
+  'com.samsung.android.email.provider': ('Samsung Email', 'email'),
+  'com.yahoo.mobile.client.android.mail': ('Yahoo Mail', 'email'),
+  'com.zoho.mail': ('Zoho Mail', 'email'),
 };
 
-/// upi | bank | sms for any package (catalogue first, then the app's own name / package words).
+/// upi | bank | sms | email for any package (catalogue first, then the app's own name / package words).
 String askodoxMoneyAppKind(String package, [String label = '']) {
   final known = askodoxMoneyAppCatalog[package];
   if (known != null) return known.$2;
   final t = '${package.toLowerCase()} ${label.toLowerCase()}';
+  if (t.contains('mail') || t.contains('outlook')) return 'email';
   if (t.contains('messag') || t.contains('mms') || t.contains('sms')) return 'sms';
   if (t.contains('bank') || t.contains('yono') || t.contains('imobile')) return 'bank';
   return 'upi';
@@ -701,3 +709,18 @@ bool askodoxRowCountsAsMoney(Map<String, Object?> e) =>
       'wording' => ('❓ Not sure it went out — check and correct if wrong', '❓ వెళ్ళిందో లేదో ఖచ్చితంగా లేదు — తప్పైతే సరిచేయండి'),
       _ => null,
     };
+
+/// Owner 2026-11-25: what to set so the bank's alert e-mail reaches ASKODOX. Gmail notifies only the Primary tab by
+/// default and bank alerts often land in Updates, so no notification comes -- the phone can read only what is notified.
+String askodoxBankMailHint(String package, bool te) {
+  if (package == 'com.google.android.gm') {
+    return te
+        ? 'Gmail → Settings → మీ account → Notifications "All" పెట్టండి (లేదా Inbox notifications లో Updates ఆన్). '
+            'Bank alert mail notification రాకపోతే ASKODOX చదవలేదు. Bank పంపిన mail మాత్రమే చదువుతుంది, మీ account నంబర్ ఉన్నదే.'
+        : 'Gmail → Settings → your account → Notifications: "All" (or turn on Updates in Inbox notifications). '
+            'ASKODOX can read a bank alert mail only when it is notified. Only mails from a bank that name your account are read.';
+  }
+  return te
+      ? 'ఈ app లో bank alert mail కి notification ఆన్ చేయండి. Bank పంపిన mail మాత్రమే చదువుతుంది, మీ account నంబర్ ఉన్నదే.'
+      : 'Turn on notifications for bank alert mail in this app. Only mails from a bank that name your account are read.';
+}

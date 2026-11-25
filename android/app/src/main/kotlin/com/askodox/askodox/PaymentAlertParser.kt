@@ -93,6 +93,8 @@ object PaymentAlertParser {
         "cashback", "reward", "offer", "coupon", "scratch", "failed", "declined", "unsuccessful", "pending",
         "refund", "reversed", "due", "reminder", "recharge", "bill pay", " won", "win ", "loan", "emi",
         "verification code", "password", "pin ",
+        // Owner 2026-11-26 (bank e-mail shapes): "INR 2,000 withdrawn from A/c at ATM", "Rs 799 spent on your card".
+        "withdrawn", "spent",
         // Owner 2026-11-21: "initiated" / "processing" = NOT done yet (no money moved); shown as a notice, never spoken.
         "initiated", "processing", "in process", "under process", "in progress", "scheduled", "will be credited",
         "will be debited", "will be deducted", "will reflect",
@@ -217,6 +219,7 @@ object PaymentAlertParser {
         // "Payment of ₹962 to APCPDCL successful" / "payment of Rs 950 for Indane is successful" is the PAYER's message
         // (it was read as money received because of the words "payment of").
         if (!learned) paidOut(joined, lower, body, title)?.let { return it }
+        if (!learned) cardSpent(joined, lower, body)?.let { return it }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
             if (rejected) return outgoingOrIgnored(joined, view, body, title)
             val only = paymentAmounts(joined).toSet()
@@ -263,6 +266,7 @@ object PaymentAlertParser {
     }
 
     private val refundLanded = Regex(
+        """\brefunded\s+(?:back\s+)?(?:to|in|into)\s+(?:your|a/?c|acc|account|bank)|""" +
         """\brefund\b.{0,80}?\b(?:credited|added|deposited|reversed)\s+(?:to|in|into|back\s+to)\s+(?:your|a/?c|acc|account|bank|wallet)|""" +
             """\b(?:credited|added)\b.{0,60}?\brefund\b""",
         RegexOption.IGNORE_CASE,
@@ -669,6 +673,36 @@ object PaymentAlertParser {
         Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
     )
 
+    /**
+     * Owner 2026-11-26 (every e-mail / SMS a bank sends): a CARD purchase -- "Thank you for using your Credit Card ending
+     * 4321 for Rs 1,250.00 at AMAZON", "Rs.799 spent on your SBI Credit Card ending with 4321 at SWIGGY" -- is money the
+     * person spent. The card's last digits are its account; the shop after "at" is the payee. A card BILL paid / received,
+     * a declined / failed / OTP / limit / statement / offer message is never a purchase.
+     */
+    private fun cardSpent(joined: String, lower: String, body: String?): Result.Outgoing? {
+        if (!cardUse.containsMatchIn(joined)) return null
+        if (cardNotSpend.any { lower.contains(it) }) return null
+        val tail = cardTail.find(joined)?.groupValues?.get(1) ?: return null
+        val amounts = paymentAmounts(joined)
+        if (amounts.isEmpty()) return null
+        val shop = cardShop.find(body ?: joined)?.groupValues?.get(1)?.trim()?.takeIf { s ->
+            s.length in 2..40 && s.lowercase().split(' ').none { it in notAName }
+        }
+        return Result.Outgoing(amounts.first(), shop, tail)
+    }
+
+    private val cardUse = Regex(
+        """\b(?:spent|used|using|purchase|purchased)\b.{0,80}?\bcard\b|\bcard\b.{0,80}?\b(?:spent|used|purchase)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val cardTail = Regex("""\bcard\b[^0-9]{0,30}?(?:ending|end|no\.?|x{2,}|\*{2,})\s*(?:with\s+)?[xX*]*(\d{4})\b""",
+        RegexOption.IGNORE_CASE)
+    private val cardShop = Regex("""\bat\s+([A-Za-z][A-Za-z0-9 &.'-]{1,40}?)(?=\s+(?:on|via|for|ref|avl|bal)\b|[,!;(]|\.(?=\s|$)|$)""",
+        RegexOption.IGNORE_CASE)
+    private val cardNotSpend = listOf("declined", "failed", "unsuccessful", "otp", "one time", "limit", "statement",
+        "due", "payment of", "received", "credited", "refund", "reversed", "offer", "cashback", "reward", "apply",
+        "pre-approved", "eligible", "blocked", "will be")
+
     /** Who the money went to (spoken only on this phone, letters only, never stored in the upload). */
     fun payeeName(text: String?): String? = nameFrom(payeePatterns, text)
 
@@ -735,7 +769,14 @@ object PaymentAlertParser {
     }
 
     fun accountTail(text: String?): String? = accountRegex.find(text ?: "")?.groupValues?.get(1)
+        ?: maskedMiddleRegex.find(text ?: "")?.groupValues?.get(1)
         ?: bankDashRegex.find(text ?: "")?.groupValues?.get(1)
+
+    /** IndusInd and others mask the MIDDLE: "A/C 1234XXXX1234" -> the last digits (owner 2026-11-26, e-mail shapes). */
+    private val maskedMiddleRegex = Regex(
+        """(?:a/c|acct?|account)\s*(?:no\.?|number)?\s*[:.\-]?\s*\d{1,6}[xX*]{2,}(\d{3,4})\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // ------------------------------------------------------------------ a summary of several transactions
 
@@ -1173,6 +1214,38 @@ object PaymentAlertParser {
     }
 
     /**
+     * Owner 2026-11-25 (Rs 30,000 paid: no app notification, no SMS for a long time): banks also send an E-MAIL alert for
+     * every UPI / card / account debit and credit, often before the SMS. A mail app's notification shows the SENDER's
+     * name as its title ("HDFC Bank InstaAlerts", "alerts@hdfcbank.net", "State Bank of India", "Axis Bank Alerts").
+     * Only a sender that names a BANK is read -- a shop's / app's receipt ("Amazon.in: payment of Rs 499 successful",
+     * "Swiggy: Rs 350 paid") is never money (the same words would be read the wrong way round). No fixed bank list: the
+     * word "bank" or a bank's short name in the sender. Loan / card marketplaces (BankBazaar, Paisabazaar) are not banks.
+     */
+    fun bankMail(sender: String?): Boolean {
+        val s = sender?.lowercase(Locale.ROOT)?.trim().orEmpty()
+        if (s.isEmpty() || s.contains("bazaar")) return false
+        val words = Regex("""[a-z0-9]+""").findAll(s).map { it.value }.toSet()
+        // A bank group's insurer / fund house / broker ("HDFC Life", "ICICI Prudential", "Kotak Securities") is not the bank.
+        if (words.any { it in notBankWords }) return false
+        if (s.contains("bank")) return true
+        return words.any { it in bankShortNames }
+    }
+
+    private val notBankWords = setOf("life", "prudential", "lombard", "securities", "ergo", "insurance", "mutual", "mf",
+        "amc", "sec", "general", "health", "capital", "credila", "housing", "home")
+
+    /** Short names banks send alert mail under (sender names / mail domains such as alerts.sbi.co.in, kotak.com). */
+    private val bankShortNames = setOf(
+        "sbi", "hdfc", "hdfcbank", "icici", "icicibank", "axis", "axisbank", "kotak", "kotak811", "pnb", "bob", "idfc",
+        "idfcfirst", "idfcfirstbank", "indusind", "aubank", "rbl", "idbi", "uco", "iob", "unionbank", "dbs", "hsbc",
+        "equitas", "ujjivan", "kvb", "tmb", "dcb", "jkbank", "southindian", "bandhan", "apgvb", "tsgb", "paytmbank",
+        "ippb", "canarabank", "federalbank", "yesbank", "bankofbaroda", "sbicard",
+    )
+
+    /** Kinds of message that are the BANK's own word about the money (its SMS, its alert e-mail). */
+    val BANK_KINDS = setOf("sms", "email")
+
+    /**
      * Owner 2026-11-19 (fake SMS): a "money received" SMS from a PERSON's number ("+91 98765 43210", "9876543210") is
      * how fraudsters fake a payment -- banks send from registered sender ids, never a mobile number. Such an SMS is
      * written in the history with a warning and is never spoken as received. A name the phone shows (a contact, or a
@@ -1371,7 +1444,8 @@ object PaymentAlertParser {
             val clue = handles == RefMatch.SAME || samePayer(r.payer, msg.payer) || sameText
             val fits = if (msg.summary) {
                 gap >= -SUMMARY_SLACK_MS && gap <= SUMMARY_MS && (clue || !namesClash(r.payer, msg.payer))
-            } else samePaymentWindow(msg.kind, r.kinds, gap, clue, otherApp = msg.sourceApp !in rowApps)
+            } else samePaymentWindow(msg.kind, r.kinds, gap, clue, otherApp = msg.sourceApp !in rowApps) ||
+                ownMoneyLate(r, msg, gap)
             if (!fits) continue
             val g = kotlin.math.abs(gap)
             if (best == null || (clue && !bestClue) || (clue == bestClue && g < bestGap)) {
@@ -1421,6 +1495,26 @@ object PaymentAlertParser {
         if (x.length < 3 || y.length < 3) return false
         val n = minOf(x.length, y.length)
         return x.takeLast(n) != y.takeLast(n)
+    }
+
+    /**
+     * Owner 2026-11-25 (own Rs 6,500 paid at 14:03: the bank's debit SMS came at once, PhonePe's notification of the
+     * SAME payment came at 22:10 and was said + written again): money the person SENT is told by the bank's debit SMS
+     * and by a UPI / bank app's message that may come many hours late (a payment app's push stuck on its server).
+     * One of them = the bank SMS, the other = an app, the same amount, any order, up to [OWN_OUT_LATE_MS] apart, and
+     * the two names (when both have one) share a word or one has none. Money RECEIVED never uses this (two customers
+     * may pay the same amount the same day -- the 2 h / 6 h windows stay).
+     */
+    const val OWN_OUT_LATE_MS = 24 * 60 * 60_000L
+
+    fun ownMoneyLate(r: Row, msg: Msg, gapMs: Long): Boolean {
+        if (msg.direction != "out" || r.direction != "out" || msg.summary) return false
+        if (msg.kind in SIDE_KINDS || r.kinds.any { it in SIDE_KINDS }) return false
+        if (msg.kind in r.kinds) return false
+        // Owner 2026-11-25 ("notification, SMS, e-mail: if the 3 are one, say it once, however late"): at least one of
+        // the two is the BANK's own word (its SMS or its alert e-mail); two apps alone keep the normal windows.
+        if (msg.kind !in BANK_KINDS && r.kinds.none { it in BANK_KINDS }) return false
+        return kotlin.math.abs(gapMs) <= OWN_OUT_LATE_MS && !namesClash(r.payer, msg.payer)
     }
 
     fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long, sameClue: Boolean = false,
