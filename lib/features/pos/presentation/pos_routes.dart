@@ -46,6 +46,7 @@ import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/order_steps_screens.dart';
+import '../../steps/presentation/order_track_steps_screen.dart';
 import '../../steps/presentation/people_steps_screens.dart';
 import '../../steps/presentation/report_steps_screens.dart';
 import 'branches_screen.dart';
@@ -115,7 +116,11 @@ final askodoxFrontDeskRoutes = <GoRoute>[
           kind: state.uri.queryParameters['kind'] ?? '',
           cart: state.uri.queryParameters['cart'] ?? '')),
   GoRoute(path: '/order-desk/enter', builder: (context, state) => const AskodoxOrderCodeScreen()),
-  GoRoute(path: '/order-desk/track/:oid', builder: (context, state) => AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)),
+  GoRoute(
+      path: '/order-desk/track/:oid',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxOrderTrackScreen(orderId: state.pathParameters['oid']!)
+          : AskodoxOrderTrackStepsScreen(orderId: state.pathParameters['oid']!)),
   // Owner 2026-11-18: order notifications sent before the fix point here ("Page not found").
   GoRoute(path: '/order/track/:oid', redirect: (context, state) => '/order-desk/track/${state.pathParameters['oid']}'),
   GoRoute(path: '/pos/:id/orders', redirect: (context, state) => '/desk/${state.pathParameters['id']}'),
