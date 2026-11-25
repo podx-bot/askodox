@@ -45,6 +45,7 @@ import '../../steps/presentation/payment_methods_steps_screen.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/purchase_steps_screen.dart';
+import '../../steps/presentation/selfshop_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
 import '../../steps/presentation/item_details_steps_screen.dart';
 import '../../steps/presentation/order_code_steps_screen.dart';
@@ -393,13 +394,20 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(
       path: '/pos/:id/advance', builder: (context, state) => AskodoxPosAdvanceSettingsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
-      path: '/pos/:id/selfshop', builder: (context, state) => AskodoxPosSelfShopScreen(businessId: state.pathParameters['id']!)),
+      path: '/pos/:id/selfshop',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosSelfShopScreen(businessId: state.pathParameters['id']!)
+          : AskodoxSelfShopOwnerStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/selfshop/:sid',
-      builder: (context, state) =>
-          AskodoxPosSelfShopCheckScreen(businessId: state.pathParameters['id']!, sessionId: state.pathParameters['sid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosSelfShopCheckScreen(businessId: state.pathParameters['id']!, sessionId: state.pathParameters['sid']!)
+          : AskodoxSelfShopCheckStepsScreen(businessId: state.pathParameters['id']!, sessionId: state.pathParameters['sid']!)),
   // Customer side: scan & shop in a store that turned self-shopping on.
-  GoRoute(path: '/shop-scan', builder: (context, state) => const AskodoxSelfShopScreen()),
+  GoRoute(
+      path: '/shop-scan',
+      builder: (context, state) =>
+          state.uri.queryParameters['full'] == '1' ? const AskodoxSelfShopScreen() : const AskodoxShopScanStepsScreen()),
   // Customer side: approve / reject what shops recorded against your number.
   GoRoute(path: '/me/shop-advances', builder: (context, state) => const AskodoxMyShopAdvancesScreen()),
 ];
