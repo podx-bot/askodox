@@ -286,6 +286,8 @@ class AskodoxPosRepository {
   /// "I will pay on (date)" for a pending bill: the shop is told, reminders wait until then.
   // ---- Baaki reminders (pos_dues_followup.py): 3 days before the pay date .. the date, WhatsApp text ready.
   Future<AskodoxJson> dueReminders(String id) => _send('GET', '${_b(id)}/dues/reminders');
+  /// The shop owner's switch: ASKODOX sends the day's baaki reminders on WhatsApp by itself (owner 2026-11-25).
+  Future<AskodoxJson> setDueAuto(String id, bool on) => _send('PUT', '${_b(id)}/dues/auto', body: {'on': on});
   Future<AskodoxJson> setDueDate(String id, String invoiceId, String date) =>
       _send('PUT', '${_b(id)}/dues/$invoiceId/date', body: {'date': date});
   Future<AskodoxJson> markDueReminded(String id, String invoiceId) => _send('POST', '${_b(id)}/dues/$invoiceId/sent');
