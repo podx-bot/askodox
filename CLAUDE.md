@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #490 + #491 (2026-11-25, owner "finish this" + "1"; Play bundle `askodox-play-1701.aab` = Live Build run 701 on cb4ce24): (#490) FAMILY
+  SHOPPING LIST `/me/family-list` (`family_lists.py` + `/api/me/family-lists`: one list per home made on first open, members by 10-digit number,
+  invited numbers join on sign-in via `auth_accounts`, numbers shown as last 4 + `member_ref` hash, item open / done / paused, pushes to the others,
+  "find nearby" -> chat, account deletion = leave) + BULK PRICE CHANGE `/pos/:id/prices` (`pos_bulk_price.py`, POST
+  `/api/pos/businesses/{id}/prices/bulk` preview / apply in one tx with history + audit, `new_price` == Dart `askodoxBulkNewPrice`, never < ₹1,
+  tiers / packs / online price untouched); one-touch chips `askodoxOneTouch-family` / `askodoxOneTouch-prices`. (#491) CHAT SPEED: hard turns route on
+  the REASONING model (strongest model only for written guide / advice); logs `BRAIN TIMING ... level= search= plan_ms=` + `ASKODOX CLAUDE STREAM`
+  (first_token_ms, cache_read); app first spoken part `askodoxFirstSpeechMax` 90 / talk 80 with a comma cut (`askodoxFirstChunkMin` 24);
+  answer card `shownReplyIndexes` (no reply = primary label), grid tiles 3 lines shrink-to-fit. Nothing phone verified.
 - `main` PR #488 (2026-11-25, owner "5 start" on design B9qtmKXMoH1pdzuvsJKk5u; Play bundle `askodox-play-1698.aab` = Live Build run 698 on fbad2b3,
   branch `play/bundle-1125d`): FINANCE ITEMS -- `finance_items.py` (tables `fin_meta` / `fin_docs` / `fin_qa` / `fin_callbacks` / `fin_misses`; an item is a
   `financial_offer` row of the item store) + `routes/finance_items.py`: staff upload the company's PDFs (pypdf) / photos (vision reader), text kept page by
@@ -22,7 +31,7 @@ this file, don't trust it blindly.
   key `askodoxOneTouch`): Buy = `askodoxReorderOf` (last finished desk order -> `/order-desk?code=&kind=&cart=`, dine-in -> takeaway, ends on
   total + Send), need it now / compare / problem via `AskodoxChatRequest.ask`; Sell = owner open <-> paused switch (`setBusinessStatus`, Undo),
   `askodoxTodaySpoken` via the guide speaker, stock (desk menu), dues, flash offer (`/notices/new`), shop link; staff by permission.
-  Registry `one_touch_buy_sell_strip`. Not built: family list, bulk price change. Nothing phone verified.
+  Registry `one_touch_buy_sell_strip`. Family list + bulk price change built in #490. Nothing phone verified.
 - `main` PR #481-#484 (2026-11-25, owner "do 1-4, show a design for 5"; Play bundle `askodox-play-1694.aab` = Live Build run 694 on 873feb8, branch
   `play/bundle-1125b`): (#481) BAAKI AUTO WHATSAPP -- `pos_dues_followup.py` sends the day's reminder to customers NOT on ASKODOX from ASKODOX's own
   WhatsApp number only when staff set `dues.auto_whatsapp` = 1, the approved UTILITY template is configured (`whatsapp_cloud` `dues_template_name`, five
