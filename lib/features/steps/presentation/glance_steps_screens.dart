@@ -83,6 +83,23 @@ class _DuesRemindersState extends ConsumerState<AskodoxDuesRemindersStepsScreen>
     await _load();
   }
 
+  /// Owner 2026-11-25: the shop owner's own switch -- reminders for people who are not on ASKODOX go by themselves.
+  Future<void> _setAuto(bool on) async {
+    final te = _te;
+    try {
+      await _repo.setDueAuto(widget.businessId, on);
+      if (!mounted) return;
+      askodoxPosSnack(
+          context,
+          on
+              ? (te ? 'ఆన్: ఇక గుర్తులు WhatsApp లో వాటంతట అవే వెళ్తాయి (రోజుకి ఒకసారి).' : 'On: reminders now go on WhatsApp by themselves (once a day).')
+              : (te ? 'ఆఫ్: ఒక్కొక్కరికి మీరే నొక్కి పంపాలి.' : 'Off: you send each one with a tap.'));
+      await _load();
+    } on AskodoxPosException catch (e) {
+      if (mounted) askodoxPosSnack(context, e.message(te));
+    }
+  }
+
   Future<void> _setDate(AskodoxJson r, DateTime date) async {
     try {
       await _repo.setDueDate(widget.businessId, '${r['invoice_id']}', askodoxIsoDay(date));
@@ -155,10 +172,19 @@ class _DuesRemindersState extends ConsumerState<AskodoxDuesRemindersStepsScreen>
     final sorted = [...items]..sort((a, b) => (order['${a['state']}'] ?? 3).compareTo(order['${b['state']}'] ?? 3));
     final total = items.fold<int>(0, (s, r) => s + askodoxPosInt(r['due_paise']));
     final next = sorted.where(_canSend).firstOrNull;
+    final auto = askodoxPosMap(data?['auto']);
     return AskodoxStepScaffold(
       key: const Key('askodoxDuesRemindersSteps'),
       title: te ? 'బాకీ గుర్తులు' : 'Baaki reminders',
       more: [
+        if (auto['available'] == true && auto['owner'] == true)
+          AskodoxStepMore(
+              'askodoxDuesStepsAuto',
+              auto['on'] == true
+                  ? (te ? 'ఆటోమేటిక్ WhatsApp ఆఫ్ చేయి' : 'Turn automatic WhatsApp off')
+                  : (te ? 'ఆటోమేటిక్ WhatsApp ఆన్ చేయి' : 'Turn automatic WhatsApp on'),
+              Icons.auto_mode_rounded,
+              () => _setAuto(auto['on'] != true)),
         AskodoxStepMore('askodoxDuesStepsFull', te ? 'పాత బాకీ గుర్తుల పేజీ' : 'Old reminders page', Icons.menu_book_rounded,
             () => context.push('/pos/${widget.businessId}/dues?full=1')),
       ],
@@ -171,6 +197,13 @@ class _DuesRemindersState extends ConsumerState<AskodoxDuesRemindersStepsScreen>
                   child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
                     AskodoxStepBigNumber(askodoxStepRupees(total), label: te ? 'రావాల్సిన బాకీ' : 'Baaki to collect', size: 40),
                     const SizedBox(height: 10),
+                    if (auto['on'] == true && auto['available'] == true)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: AskodoxStepPill(
+                            te ? 'ఆటోమేటిక్ WhatsApp ఆన్ · రోజుకి ఒకసారి వాటంతట అవే వెళ్తాయి' : 'Automatic WhatsApp on · sent by itself once a day',
+                            key: const Key('askodoxDuesStepsAutoOn')),
+                      ),
                     if (items.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(24),
@@ -181,7 +214,11 @@ class _DuesRemindersState extends ConsumerState<AskodoxDuesRemindersStepsScreen>
                       AskodoxStepPersonRow(
                         key: Key('askodoxDuesStepsRow-${r['invoice_id']}'),
                         name: '${'${r['customer'] ?? ''}'.isEmpty ? (te ? 'కస్టమర్' : 'Customer') : r['customer']}',
-                        sub: r['sent_today'] == true ? (te ? '✓ పంపాం · ${_when(r)}' : '✓ Sent · ${_when(r)}') : _when(r),
+                        sub: r['sent_auto'] == true
+                            ? (te ? '✓ WhatsApp దానంతట అదే వెళ్ళింది · ${_when(r)}' : '✓ WhatsApp sent by itself · ${_when(r)}')
+                            : r['sent_today'] == true
+                                ? (te ? '✓ పంపాం · ${_when(r)}' : '✓ Sent · ${_when(r)}')
+                                : _when(r),
                         amount: askodoxStepRupees(askodoxPosInt(r['due_paise'])),
                         amountColor: r['state'] == 'overdue' ? askodoxStepBad : askodoxStepWarn,
                         onTap: () => _open(r),
