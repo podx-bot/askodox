@@ -1694,13 +1694,13 @@ class _UpcomingStepsState extends ConsumerState<AskodoxUpcomingStepsScreen> {
     final m = _mine;
     if (m == null) return;
     edit(m);
+    if (mounted) setState(() {}); // show the change at once; the phone's reminder sync follows
     await m.save();
     try {
       final bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
       await bridge.configurePersonal(_nativeOf(ref, m));
       unawaited(bridge.checkDues());
     } catch (_) {}
-    if (mounted) setState(() {});
   }
 
   Future<void> _edit({AskodoxDue? due, String name = '', int amount = 0, DateTime? date, String category = '', String dismiss = ''}) async {
