@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "hire_page_three_steps_batch26",
+      "name": "Hire a worker page in 3 steps",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 26; old page stays at ?full=1.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "My bookings in ONE list with ONE big button. A new booking in 3 steps: what work -> where and when -> through whom (business with price or independent worker), booking asks once. A booking opens who is coming, stars after the work (once) and a complaint.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 26 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/hire_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxHireSteps",
+          "askodoxHireStepsNew"
+        ],
+        "symbols": [
+          "AskodoxHireStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "my_work_page_three_steps_batch25",
       "name": "I want work page in 3 pieces",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 25; old page stays at ?full=1.",

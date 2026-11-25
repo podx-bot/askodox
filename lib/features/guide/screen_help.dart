@@ -971,13 +971,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ కార్డ్ + స్వతంత్రుడు badge, documents, పాత పేజీ ⋮ లో ఉన్నాయి.',
   ]),
   '/hire': _H('Hire a worker', 'పని వాళ్ళు కావాలి', [
-    'Choose the work, where and when.',
-    'Pick a business (with its price) or an independent worker; tap Book.',
-    'The worker\'s name and number come after booking. Rate after the work; complaints go to the business with the order number.',
+    'Your bookings are in one list; the big button "I need a worker" starts a new one.',
+    '3 steps: what work -> where and when -> through whom (a business with its price, or an independent worker). Tap one to book.',
+    'The worker\'s name and number come after booking. Tap a booking to rate it after the work (once) or to send a complaint.',
   ], [
-    'ఏ పని, ఎక్కడ, ఎప్పుడు ఎంచుకోండి.',
-    'ఒక business (దాని ధరతో) లేదా స్వతంత్రుడు ని ఎంచుకుని బుక్ నొక్కండి.',
-    'బుక్ అయ్యాక పని వాళ్ళ పేరు, నంబర్ వస్తాయి. పని అయ్యాక రేటింగ్; ఫిర్యాదు order నంబర్ తో business కి వెళ్తుంది.',
+    'మీ బుకింగ్స్ ఒకే list లో; పెద్ద బటన్ "పని వాళ్ళు కావాలి" కొత్తది మొదలుపెడుతుంది.',
+    '3 స్టెప్స్: ఏ పని -> ఎక్కడ, ఎప్పుడు -> ఎవరి ద్వారా (ధరతో business, లేదా స్వతంత్రుడు). నొక్కితే బుక్.',
+    'బుక్ అయ్యాక పని వాళ్ళ పేరు, నంబర్ వస్తాయి. పని అయ్యాక బుకింగ్ నొక్కి రేటింగ్ (ఒక్కసారే) లేదా ఫిర్యాదు.',
   ]),
   '/pos/:id/crm': _H('Enquiries', 'ఎంక్వైరీలు', [
     'The number on top is open enquiries. Tap one to follow up, quote or turn it into a customer.',
