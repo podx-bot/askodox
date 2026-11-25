@@ -11,10 +11,19 @@ this file, don't trust it blindly.
   `desk_settings_steps_screens.dart` (Desk settings `/desk/:id/settings`), `desk_menu_steps_screens.dart` (Desk menu `/desk/:id/menu`: list, add by text),
   `printer_steps_screens.dart` (`/pos/:id/printer`), `biz_menu_steps_screens.dart` (`/biz/:id/menu*` sections), day report (`/biz/:id/reports/day` ->
   `AskodoxReportsStepsScreen(date)`), `att_setup_steps_screens.dart` (`/biz/:id/staff/setup`), `my_bills_steps_screen.dart` (`/me/bills`); old pages at `?full=1`.
-  NOT converted: kiosk (camera / face), shop advance / terms pages, hubs, CRM leads (= Enquiries), `/me/work`, catalogue, `/me/payment-methods`, `/me/payment-alerts`.
+  NOT converted then (several done in batches 25-36 below): kiosk (camera / face), shop advance / terms pages, hubs, `/me/payment-alerts`.
   Then batches 22-24 (PR #459 / #460 / #461): `my_deliveries_steps_screen.dart` (`/me/deliveries`), `branches_steps_screen.dart` (`/me/branches`),
   `agents_steps_screens.dart` (`/pos/:id/agents`, `/pos/:id/agents/:agent`); the owner's `/pos/:id/deliveries` was ALREADY 3-step (step kit). Old pages at `?full=1`.
-  No Play bundle after batches 15+ (Live Build run 663 on c6e55a9 is older). Nothing phone verified. Flaky: `test_profile_memory` (rerun the registry job).
+  Then batches 25-36 (PR #464-#475, 2026-11-25, owner "Ok good go"), all in `lib/features/steps/presentation/`, old pages at `?full=1`:
+  `my_work_steps_screen.dart` (`/me/work`), `hire_steps_screen.dart` (`/hire`), `catalogue_steps_screen.dart` (`/pos/:id/catalogue`),
+  `payment_methods_steps_screen.dart` (`/me/payment-methods`), `buyer_agent_steps_screen.dart` (`/me/agent`; `/bills/:id` = `AskodoxBillHistoryStepsScreen(fullRoute:)`),
+  Coming up `/me/dues` (`AskodoxUpcomingStepsScreen` in `money_screens.dart`), `order_track_steps_screen.dart` (`/order-desk/track/:oid`),
+  `order_code_steps_screen.dart` (`/order-desk/enter`), `table_order_steps_screen.dart` (`/pos/:id/order/:oid`), `shop_chooser_steps_screen.dart` (`/pos`, `/crm`;
+  `/pos/:id/crm/leads` without `?stage=` = Enquiries), `purchase_steps_screen.dart` (`/pos/:id/purchase/new`), `item_details_steps_screen.dart` (`/pos/:id/item/:pid`).
+  STILL old pages: payment alerts / payment voice settings, kiosk (camera / face), shop advance + terms (consent), self-shopping (`/pos/:id/selfshop*`, `/shop-scan`),
+  `/order-desk` menu, `/pos/:id` dashboard, `/pos/:id/sale` counter bill, `/me/payments`, `/money`.
+  No Play bundle after batches 15+ (Live Build run 663 on c6e55a9 is older). Nothing phone verified. Flaky: `test_profile_memory` (rerun the registry job);
+  build-apk can fail on a Maven Central 429 while Gradle downloads (not our code -- rerun the job).
 - `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1671.aab` = Live Build run 671 on 5e463b9, dispatched from branch `play/bundle-1124` because main merges kept cancelling main builds (concurrency group per ref); owner: one payment
   said twice (second message an hour later / two at once), voice cut before the last word then said again, 9 pm count 4-5 times):
   `pickSamePayment` checks the SAME reference before the same-app rule (same RRN from the same app / SMS app = same money);
