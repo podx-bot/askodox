@@ -4984,7 +4984,8 @@ void main() {
       await runFor(tester, const Duration(seconds: 2));
       await _stopVoice(tester);
       final spokenAfterVoice = methods().where((m) => m == 'speakReply').length;
-      expect(spokenAfterVoice, 1, reason: 'the voice turn is answered in voice');
+      // Owner 2026-11-25 (speed): the first spoken part is short (<= 90 chars), so one reply may be spoken in parts.
+      expect(spokenAfterVoice, greaterThanOrEqualTo(1), reason: 'the voice turn is answered in voice');
       await h.send(tester, 'and what about tomorrow');
       expect(methods().where((m) => m == 'speakReply').length, spokenAfterVoice,
           reason: 'speaking once must not switch later typed turns to voice');

@@ -4058,7 +4058,7 @@ class _AskodoxPrimaryHomeScreenState
     if (_speechMuted && !force) return; // muted: the text reply stays
     reply = askodoxWithoutSources(reply); // source links are read, not spoken
     final markup = reply;
-    final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160); // talk: the first words start sooner
+    final chunks = askodoxSpeechChunks(markup, firstMax: askodoxFirstSpeechMax(talk: _talkMode)); // talk: the first words start sooner
     // Owner 2026-11-19: the words appear WITH the voice, not before it -- a short (one-chunk) reply takes the same
     // reveal path as a long one in the real app.
     if (chunks.length > 1 || (askodoxSpeakTypedReplies && chunks.length == 1 && !force && !deviceOnly)) {
@@ -4450,7 +4450,7 @@ class _AskodoxPrimaryHomeScreenState
     if (!_streamSpeaks || _earlyAudioAsked || _speechMuted) return;
     if (!ref.read(askodoxFlagProvider('voice.sarvam_tts'))) return;
     final markup = askodoxWithoutSources(textSoFar);
-    final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160);
+    final chunks = askodoxSpeechChunks(markup, firstMax: askodoxFirstSpeechMax(talk: _talkMode));
     if (chunks.length < 2) return;
     final first = askodoxPlainReply(markup.substring(chunks.first.start, chunks.first.end)).trim();
     if (first.isEmpty) return;
@@ -4517,7 +4517,7 @@ class _AskodoxPrimaryHomeScreenState
     if (_liveFailed || _liveHalt || _speechMuted || _liveText.isEmpty) return;
     if (!ref.read(askodoxFlagProvider('voice.sarvam_tts'))) return;
     final markup = askodoxWithoutSources(_liveText);
-    final chunks = askodoxSpeechChunks(markup, firstMax: _talkMode ? 90 : 160);
+    final chunks = askodoxSpeechChunks(markup, firstMax: askodoxFirstSpeechMax(talk: _talkMode));
     final ready = _liveTextDone ? chunks.length : chunks.length - 1;
     var added = false;
     for (var i = _liveChunksSeen; i < ready; i++) {

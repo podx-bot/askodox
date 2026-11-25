@@ -117,16 +117,36 @@ String askodoxMergeVoiceDraft(String typed, String transcript) {
   return '$t $v';
 }
 
+/// How long the FIRST spoken part of a reply may be (owner 2026-11-25: was 160 for typed turns -- the voice waited
+/// for ~160 written characters and a long first clip; now the same short first part as talk mode).
+int askodoxFirstSpeechMax({required bool talk}) => talk ? 80 : 90;
+
+/// The shortest first spoken part made by a comma cut ([askodoxSpeechChunks]).
+const askodoxFirstChunkMin = 24;
+
 /// A reply spoken in sentence-sized chunks (cut on line / sentence ends):
 /// the first words play almost at once instead of after the WHOLE reply is
 /// synthesised (production: 10 s before a long reply started), and each
 /// chunk's text is revealed while it is spoken. Offsets index [text].
+///
+/// Owner 2026-11-25 ("chat speed chala important"; deploy log: a 100-140 character first part took 2-3 s to voice):
+/// when the FIRST sentence is longer than [firstMax], the first part ends at the last comma between
+/// [askodoxFirstChunkMin] and [firstMax] characters, so the voice starts on a short phrase. The cut is taken only once
+/// the text has run past [firstMax] with no sentence end, so a reply that is still streaming keeps the same first part.
 List<({int start, int end})> askodoxSpeechChunks(String text, {int firstMax = 160, int maxChars = 320}) {
   final cuts = <int>[0];
   for (final m in RegExp(r'\n+|(?<=[.!?।])\s+').allMatches(text)) {
     if (m.end > cuts.last) cuts.add(m.end);
   }
   if (cuts.last != text.length) cuts.add(text.length);
+  final firstEnd = cuts.length > 1 ? cuts[1] : 0;
+  if (firstEnd > firstMax) {
+    var comma = -1;
+    for (final m in RegExp(r'[,،;:]\s+|\s[-–—]\s').allMatches(text.substring(0, firstMax))) {
+      if (m.end >= askodoxFirstChunkMin) comma = m.end;
+    }
+    if (comma > 0) cuts.insert(1, comma);
+  }
   final out = <({int start, int end})>[];
   var start = 0;
   for (var i = 1; i < cuts.length; i++) {

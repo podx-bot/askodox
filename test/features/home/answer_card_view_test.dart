@@ -108,6 +108,19 @@ Future<void> _pump(WidgetTester tester, AskodoxAnswerCard card,
 }
 
 void main() {
+  test('a reply that says the same as the big button is not drawn twice', () {
+    // Owner phone 2026-11-25: "Is it right for me?" was a reply button AND the big bottom button.
+    const card = AskodoxAnswerCard(
+      headline: 'Sector funds investing in roads, power, ports and railways.',
+      replies: [AskodoxCardReply(label: 'Compare with index fund'), AskodoxCardReply(label: 'Is it right for me?')],
+      primary: AskodoxCardAction(kind: 'ask', label: 'Is it right for me ?'),
+    );
+    expect(card.shownReplyIndexes, [0]);
+    const noMain = AskodoxAnswerCard(headline: 'x', replies: [AskodoxCardReply(label: 'A'), AskodoxCardReply(label: 'B')]);
+    expect(noMain.shownReplyIndexes, [0, 1]);
+  });
+
+
   testWidgets('Mudra answer: one screen, 4 tabs change the content inside the same card', (tester) async {
     final asked = <String>[];
     await _pump(tester, _mudra(), asked: asked);
