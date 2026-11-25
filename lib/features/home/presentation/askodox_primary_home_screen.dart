@@ -1,3 +1,4 @@
+import '../../finance/finance_item_screen.dart';
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/net/net_quality.dart';
 import '../../notifications/application/askodox_notifications.dart' show askodoxDeviceNotificationsProvider;
@@ -8191,6 +8192,15 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
               icon: const Icon(Icons.share_outlined, size: 20),
               onPressed: _share,
             ),
+            // Finance item (owner 2026-11-25): doubts answered from the company's own document.
+            if (askodoxFinanceItemIdOf(match.id, match.itemType) case final financeId?)
+              IconButton(
+                key: ValueKey('askodoxFinanceAskCard-${match.id}'),
+                tooltip: _l('finance_ask', 'సందేహం అడుగు', 'Ask a doubt'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.quiz_outlined, size: 20),
+                onPressed: () => context.push('/finance/$financeId'),
+              ),
             // Photo try-on (owner 2026-11-24): an item with a photo -> see it on me / in my home.
             if (action != ChatResultAction.watchVideo && !match.isJob &&
                 (match.imageUrl ?? '').trim().startsWith('https://'))

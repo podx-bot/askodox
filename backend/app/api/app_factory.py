@@ -511,6 +511,9 @@ def create_app() -> FastAPI:
     app.include_router(availability_router)
     app.include_router(staff_workspace_page_router)
     app.include_router(product_pages_router)
+    from app.api.routes.finance_items import router as finance_items_router
+
+    app.include_router(finance_items_router)
     from app.api.routes.admin_console import router as admin_console_router
 
     app.include_router(admin_console_router)

@@ -81,3 +81,51 @@ def test_affiliate_four_step_form_names_the_missing_box():
         assert tab.is_visible("#a_fill") and tab.is_visible("#a_price") and tab.is_visible("#a_aivid")
 
     _run(check)
+
+
+def test_finance_tab_opens_an_item_and_the_call_back_list():
+    view = {"item_id": "7", "title": "Suraksha Health Plan", "kind": "insurance", "checked": False, "checked_at": "",
+            "documents": [{"id": "fd_1", "name": "brochure.pdf", "pages": 3, "mime": "application/pdf"}],
+            "points": ["Entry age 18 to 65 years"], "not_answered": [{"question": "is maternity covered?", "times": 2}],
+            "qa": [{"id": "fq_1", "question": "When are old diseases covered?", "answer": "After 36 months.", "page": 2,
+                    "document": "brochure.pdf", "source": "document"}]}
+    calls = {"callbacks": [{"id": "fc_1", "item_id": "7", "title": "Suraksha Health Plan", "customer": "••321",
+                            "question": "Is maternity covered?", "when": "evening", "status": "new", "outcome": ""}]}
+    with playwright.sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except Exception as error:  # noqa: BLE001
+            pytest.skip(f"no browser: {error}")
+        tab = browser.new_page()
+        errors = []
+        tab.on("pageerror", lambda e: errors.append(str(e)))
+
+        def handle(route):
+            url = route.request.url
+            if url.endswith("/staff"):
+                return route.fulfill(body=page.PAGE, content_type="text/html")
+            for part, body in (("/workspace/me", {**ME, "item_types": ["product", "financial_offer"]}),
+                               ("/finance-callbacks/fc_1/reveal", {"id": "fc_1", "phone": "9000000321"}),
+                               ("/finance-callbacks", calls), ("/workspace/finance/7", view),
+                               ("/workspace/items", {"items": [{"id": 7, "title": "Suraksha Health Plan",
+                                                                "review_status": "DRAFT"}]})):
+                if part in url:
+                    return route.fulfill(body=json.dumps(body), content_type="application/json")
+            return route.fulfill(status=404, body="{}")
+
+        tab.route("**/*", handle)
+        tab.goto("http://staff.test/staff")
+        tab.evaluate("sessionStorage.setItem('askodox_staff', JSON.stringify({token: 'stf_test'}))")
+        tab.goto("http://staff.test/staff")
+        tab.click("#nav button[data-t=finance]")
+        tab.click("button[data-fopen='7']")
+        tab.wait_for_selector("#fok_7", timeout=5000)
+        assert "brochure.pdf" in tab.inner_text("#fbox_7") and "36 months" in tab.inner_text("#fbox_7")
+        tab.click("#fn_calls")
+        tab.wait_for_selector("button[data-fnum='fc_1']", timeout=5000)
+        assert "9000000321" not in tab.inner_text("main") and "••321" in tab.inner_text("main")
+        tab.click("button[data-fnum='fc_1']")
+        tab.wait_for_selector("#fnum_fc_1 a", timeout=5000)
+        assert tab.inner_text("#fnum_fc_1") == "9000000321"
+        browser.close()
+        assert errors == [], errors

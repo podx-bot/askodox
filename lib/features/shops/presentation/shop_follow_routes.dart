@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../business/presentation/biz_work.dart' show AskodoxShopBookScreen, AskodoxMyWorkScreen;
+import '../../finance/finance_item_screen.dart';
 import '../../pos/presentation/shop_rating_screens.dart';
 import '../../steps/presentation/bill_steps_screen.dart';
 import '../../try_on/try_on_screen.dart';
@@ -20,6 +21,8 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(path: '/me/bookings', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'bookings')),
   GoRoute(path: '/me/jobs', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'jobs')),
   GoRoute(path: '/me/monthly', builder: (context, state) => const AskodoxMyWorkScreen(kind: 'monthly')),
+  // Finance item: answers from the company's document + a call back on the customer's yes.
+  GoRoute(path: '/finance/:id', builder: (context, state) => AskodoxFinanceItemScreen(itemId: state.pathParameters['id']!)),
   // Photo try-on: ?image=<item photo url>&name=<item>&mode=on_me|in_home (from a result card, or empty).
   GoRoute(
       path: '/try-on',

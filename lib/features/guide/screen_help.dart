@@ -1094,6 +1094,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రోజు, సమయం (లేదా ఎన్ని రాత్రులు), ఎంత మంది ఎంచుకుని "ఖాళీ ఉన్నవి చూపించు" నొక్కండి.',
     'కావలసింది నొక్కి పేరు ఇవ్వండి: వెంటనే బుక్ అవుతుంది, షాప్‌కి తెలుస్తుంది. డబ్బు షాప్‌కే నేరుగా కట్టండి.',
   ]),
+  '/finance/:id': _H('Finance offer', 'ఫైనాన్స్ ఆఫర్', [
+    'Type or say your doubt, or tap a ready question. The answer comes only from the company\'s own document, with the page number.',
+    'If it is not in the document, we say so. Tap "Yes, call me" only if you want our executive to call; you can cancel it.',
+  ], [
+    'మీ సందేహం రాయండి లేదా చెప్పండి, లేదా సిద్ధంగా ఉన్న ప్రశ్న నొక్కండి. జవాబు కంపెనీ document నుంచి మాత్రమే, పేజీ నంబర్‌తో వస్తుంది.',
+    'Document లో లేకపోతే లేదని చెప్తాం. మా ఎగ్జిక్యూటివ్ కాల్ చేయాలంటేనే "అవును, కాల్ చేయండి" నొక్కండి; రద్దు కూడా చేయవచ్చు.',
+  ]),
   '/try-on': _H('Try it', 'ట్రై చేసి చూడు', [
     'On me: your photo + the item\'s photo (dress, chappal, frame, hairstyle). In my home: a photo of the room / table / wall + the item.',
     'Tap "Show me": one AI picture in 30-60 seconds, marked as an AI picture. Share it, or Report a bad one.',

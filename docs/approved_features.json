@@ -12718,6 +12718,102 @@
           "askodoxReorderOf"
         ]
       }
+    },
+    {
+      "id": "finance_items_document_answers_callback",
+      "name": "Finance items: answers from the company's document + consented call back",
+      "purpose": "Owner 2026-11-25 (design B9qtmKXMoH1pdzuvsJKk5u): insurance / loan / card items sold through commission links; a customer's doubts are answered from the company's own document first, an executive calls only on the customer's yes.",
+      "roles": [
+        "buyer",
+        "staff"
+      ],
+      "status": "approved",
+      "domains": [
+        "finance"
+      ],
+      "expected_behavior": "Staff add a financial_offer item, upload the company's PDFs / photos (text kept page by page), let the AI read them into key points + question / answers that each carry a page and a quote found on that page, and must check them before customers see anything. A customer question is answered only from those pages (with the page) or from an executive's saved answer (labelled); otherwise the app says it is not in the document and offers a call back. A call back needs sign-in + consent true; staff see the number masked, reveal is audited, the number is wiped when the request is closed; the customer can cancel. No advice, no invented figure, no money moves.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/finance/items/{item_id}",
+          "response_keys": [
+            "title",
+            "kind",
+            "points",
+            "questions",
+            "can_ask"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/finance/items/{item_id}/ask",
+          "response_keys": [
+            "found",
+            "answer",
+            "page",
+            "document",
+            "source",
+            "offer_callback",
+            "not_advice"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/finance/items/{item_id}/callback",
+          "response_keys": [
+            "id",
+            "status",
+            "again"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/finance/{item_id}",
+          "response_keys": [
+            "documents",
+            "points",
+            "qa",
+            "checked",
+            "not_answered"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/finance-callbacks",
+          "response_keys": [
+            "callbacks"
+          ]
+        }
+      ],
+      "tests": {
+        "backend": [
+          "tests/test_finance_items.py"
+        ],
+        "flutter": [
+          "test/features/finance/finance_item_screen_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxFinanceItem",
+          "askodoxFinanceAsk",
+          "askodoxFinanceCallCard",
+          "askodoxFinanceCallYes",
+          "askodoxFinanceCallCancel"
+        ],
+        "symbols": [
+          "AskodoxFinanceItemScreen",
+          "askodoxFinanceItemIdOf",
+          "askodoxFinanceSourceLabel"
+        ]
+      }
     }
   ]
 }
