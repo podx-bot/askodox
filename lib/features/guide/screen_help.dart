@@ -1077,13 +1077,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'డెలివరీకి అడ్రస్ లేదా మ్యాప్ పిన్ కావాలి. డబ్బు నేరుగా షాప్‌కే; ASKODOX డబ్బు పట్టుకోదు.',
   ]),
   '/order-desk/track/:oid': _H('My order', 'నా ఆర్డర్', [
-    'See each step live: accepted, preparing, ready, on the way.',
-    'You can cancel only before the shop accepts. Pay the shop\'s UPI from the bill below.',
-    'Eating here? After the shop accepts, tap "Need something?" for water, extra gravy, onions, the bill, or say it in words.',
+    'On top: where your order is now. Below: each step with its time, then your items and the bill.',
+    'The big button: how you will pay (cash, or the shop\'s UPI once billed) — or Rate it when it is done.',
+    'Cancel (only before the shop accepts), Call the shop and the shop page are in ⋮. Eating here? "Need something?" is under the bill.',
   ], [
-    'ప్రతి దశ లైవ్‌గా కనిపిస్తుంది: అంగీకరించారు, తయారవుతోంది, సిద్ధం, దారిలో.',
-    'షాప్ అంగీకరించకముందే రద్దు చేయవచ్చు. కింద బిల్లు నుంచి షాప్ UPI కి కట్టండి.',
-    'ఇక్కడ తింటుంటే, షాప్ అంగీకరించాక "ఏమైనా కావాలా?" లో నీళ్లు, ఎక్స్‌ట్రా గ్రేవీ, ఆనియన్స్, బిల్ నొక్కండి లేదా మాటతో చెప్పండి.',
+    'పైన: మీ ఆర్డర్ ఇప్పుడు ఎక్కడుందో. కింద: ప్రతి దశ సమయంతో, తర్వాత మీ ఐటమ్స్, బిల్లు.',
+    'పెద్ద బటన్: ఎలా కడతారు (క్యాష్, లేదా బిల్లు రాగానే షాప్ UPI) — అయిపోయాక రేటింగ్.',
+    'రద్దు (షాప్ ఒప్పుకోకముందే), షాప్‌కి కాల్, షాప్ పేజీ ⋮ లో. ఇక్కడ తింటుంటే "ఏమైనా కావాలా?" బిల్లు కింద ఉంది.',
   ]),
   '/shops/:id/book': _H('Book', 'బుక్ చేయండి', [
     'Choose the day, the time (or how many nights) and how many people, then "Show what is free".',

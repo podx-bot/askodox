@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "order_track_page_three_steps_batch31",
+      "name": "My order (tracking) page in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 31; old page stays at ?full=1.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Where the order is now on top, ONE list (steps with times, items, bill, table requests when eating in), ONE big button (cash / online choice, or rate it when done, or call the shop). Cancel asks once and only shows while the shop has not accepted; refreshes every 8 s; the rating sheet still opens by itself.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 31 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/order_track_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxOrderTrackSteps",
+          "askodoxOrderTrackStepsPay"
+        ],
+        "symbols": [
+          "AskodoxOrderTrackStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "coming_up_page_three_steps_batch30",
       "name": "Coming up (EMI / bills / rent) in 3 pieces",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 30; old page stays at ?full=1 and in the menu.",
