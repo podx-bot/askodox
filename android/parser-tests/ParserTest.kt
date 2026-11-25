@@ -555,6 +555,40 @@ fun main() {
         val r = summary(PHONEPE, "upi", sumTitle, sumText, 49 * 60)
         yes("a row older than two days is not the summary's payment", r.getOrNull(0) == "late")
     }
+    // Owner 2026-11-25 (own ₹6,500 paid at 14:03: the bank's debit SMS came at once, PhonePe's notification of the SAME
+    // payment came at 22:10 -- 8 hours late -- and was said + written again as new money going out). Money the person
+    // SENT: the bank's debit SMS and a UPI / bank app's message of the same amount join silently up to a day apart, in
+    // any order, unless the two names clash. Money RECEIVED keeps the 2 h / 6 h windows (two customers, same amount).
+    Sim().run {
+        any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912345678", 0)
+        val late = any(PHONEPE, "upi", "Paid ₹6,500", "Payment of ₹6,500 to RAVI TEJA is successful", 8 * 60 + 7)
+        yes("own debit: app notification 8 h after the bank SMS = silent (owner 2026-11-25)", late == "joined" && spoken == 1 && rows.size == 1)
+    }
+    Sim().run {
+        any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912345678", 0)
+        val late = any(PHONEPE, "upi", null, "Your payment of ₹6,500 was successful", 8 * 60 + 7)
+        yes("own debit: late app message with no name = silent", late == "joined" && spoken == 1)
+    }
+    Sim().run {
+        any(PHONEPE, "upi", "Paid ₹6,500", "Payment of ₹6,500 to RAVI TEJA is successful", 0)
+        val late = any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912345678", 5 * 60)
+        yes("own debit: bank SMS 5 h after the app = silent", late == "joined" && spoken == 1)
+    }
+    Sim().run {
+        any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912345678", 0)
+        val other = any(PHONEPE, "upi", "Paid ₹6,500", "Payment of ₹6,500 to SURESH KUMAR is successful", 3 * 60)
+        yes("own debit: another person's name 3 h later = a second payment", other == "spoken" && spoken == 2)
+    }
+    Sim().run {
+        any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912345678", 0)
+        val nextDay = any(PHONEPE, "upi", "Paid ₹6,500", "Payment of ₹6,500 to RAVI TEJA is successful", 25 * 60)
+        yes("own debit: more than a day later = a new payment", nextDay == "spoken" && spoken == 2)
+    }
+    Sim().run {
+        any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912345678", 0)
+        val second = any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912349999", 3 * 60)
+        yes("own debit: a second bank SMS = a second payment", second == "spoken" && spoken == 2)
+    }
     // An ordinary (not summary) message hours later is still a new payment, as before.
     Sim().run {
         get(SMS, "sms", "JD-HDFCBK-S", "Rs.3000.00 credited to HDFC Bank A/c XX4321 on 22-11-26 (UPI 532612345111)", 0)

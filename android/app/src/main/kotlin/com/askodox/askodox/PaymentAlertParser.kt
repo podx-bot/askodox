@@ -1371,7 +1371,8 @@ object PaymentAlertParser {
             val clue = handles == RefMatch.SAME || samePayer(r.payer, msg.payer) || sameText
             val fits = if (msg.summary) {
                 gap >= -SUMMARY_SLACK_MS && gap <= SUMMARY_MS && (clue || !namesClash(r.payer, msg.payer))
-            } else samePaymentWindow(msg.kind, r.kinds, gap, clue, otherApp = msg.sourceApp !in rowApps)
+            } else samePaymentWindow(msg.kind, r.kinds, gap, clue, otherApp = msg.sourceApp !in rowApps) ||
+                ownMoneyLate(r, msg, gap)
             if (!fits) continue
             val g = kotlin.math.abs(gap)
             if (best == null || (clue && !bestClue) || (clue == bestClue && g < bestGap)) {
@@ -1421,6 +1422,26 @@ object PaymentAlertParser {
         if (x.length < 3 || y.length < 3) return false
         val n = minOf(x.length, y.length)
         return x.takeLast(n) != y.takeLast(n)
+    }
+
+    /**
+     * Owner 2026-11-25 (own Rs 6,500 paid at 14:03: the bank's debit SMS came at once, PhonePe's notification of the
+     * SAME payment came at 22:10 and was said + written again): money the person SENT is told by the bank's debit SMS
+     * and by a UPI / bank app's message that may come many hours late (a payment app's push stuck on its server).
+     * One of them = the bank SMS, the other = an app, the same amount, any order, up to [OWN_OUT_LATE_MS] apart, and
+     * the two names (when both have one) share a word or one has none. Money RECEIVED never uses this (two customers
+     * may pay the same amount the same day -- the 2 h / 6 h windows stay).
+     */
+    const val OWN_OUT_LATE_MS = 24 * 60 * 60_000L
+
+    fun ownMoneyLate(r: Row, msg: Msg, gapMs: Long): Boolean {
+        if (msg.direction != "out" || r.direction != "out" || msg.summary) return false
+        if (msg.kind in SIDE_KINDS || r.kinds.any { it in SIDE_KINDS }) return false
+        if (msg.kind in r.kinds) return false
+        val rowHasSms = "sms" in r.kinds
+        val msgIsSms = msg.kind == "sms"
+        if (rowHasSms == msgIsSms) return false
+        return kotlin.math.abs(gapMs) <= OWN_OUT_LATE_MS && !namesClash(r.payer, msg.payer)
     }
 
     fun samePaymentWindow(kind: String, rowKinds: List<String>, deltaMs: Long, sameClue: Boolean = false,
