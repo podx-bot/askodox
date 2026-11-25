@@ -20,8 +20,11 @@ this file, don't trust it blindly.
   Coming up `/me/dues` (`AskodoxUpcomingStepsScreen` in `money_screens.dart`), `order_track_steps_screen.dart` (`/order-desk/track/:oid`),
   `order_code_steps_screen.dart` (`/order-desk/enter`), `table_order_steps_screen.dart` (`/pos/:id/order/:oid`), `shop_chooser_steps_screen.dart` (`/pos`, `/crm`;
   `/pos/:id/crm/leads` without `?stage=` = Enquiries), `purchase_steps_screen.dart` (`/pos/:id/purchase/new`), `item_details_steps_screen.dart` (`/pos/:id/item/:pid`).
-  STILL old pages: payment alerts / payment voice settings, kiosk (camera / face), shop advance + terms (consent), self-shopping (`/pos/:id/selfshop*`, `/shop-scan`),
-  `/order-desk` menu, `/pos/:id` dashboard, `/pos/:id/sale` counter bill, `/me/payments`, `/money`.
+  Then batches 37-38 (PR #477 / #478, owner "Ok go"): `selfshop_steps_screens.dart` (`/pos/:id/selfshop` = `AskodoxSelfShopOwnerStepsScreen`,
+  `/pos/:id/selfshop/:sid` = `AskodoxSelfShopCheckStepsScreen`: photo first, then the button becomes Bill; `/shop-scan` = `AskodoxShopScanStepsScreen`),
+  `order_desk_steps_screen.dart` (`/order-desk`: items -> way -> total + Send order; tap = one more, hold = less / note; a chat cart opens the later step).
+  STILL old pages (left on purpose): payment alerts / payment voice settings, kiosk (camera / face), shop advance + terms (consent), and the four big
+  owner-shaped screens `/pos/:id` dashboard (a hub), `/pos/:id/sale` counter bill (owner layout 2026-11-23), `/me/payments` (four tiles), `/money`.
   No Play bundle after batches 15+ (Live Build run 663 on c6e55a9 is older). Nothing phone verified. Flaky: `test_profile_memory` (rerun the registry job);
   build-apk can fail on a Maven Central 429 while Gradle downloads (not our code -- rerun the job).
 - `main` PR #452 (2026-11-24, owner "1"; Play bundle `askodox-play-1671.aab` = Live Build run 671 on 5e463b9, dispatched from branch `play/bundle-1124` because main merges kept cancelling main builds (concurrency group per ref); owner: one payment
