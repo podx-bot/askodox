@@ -139,6 +139,17 @@ class AskodoxAnswerCard {
 
   bool get isCheck => kind == 'check';
 
+  /// The reply buttons to draw (indexes into [replies]): a reply that says the same as the big bottom button is left
+  /// out (owner phone 2026-11-25: "Is it right for me?" showed twice on one card).
+  List<int> get shownReplyIndexes {
+    String norm(String s) => s.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), '');
+    final main = primary == null ? '' : norm(primary!.label);
+    return [
+      for (final (i, r) in replies.indexed)
+        if (main.isEmpty || norm(r.label) != main) i,
+    ];
+  }
+
   /// What the voice says for this card.
   String get spokenText => speak.isNotEmpty ? speak : headline;
 

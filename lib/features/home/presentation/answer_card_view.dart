@@ -239,7 +239,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
               if (card.seenText.isNotEmpty) _seen(),
               if (card.tabs.length >= 2 && picked == null) _tabBar(),
               Flexible(child: _body(picked)),
-              if (card.replies.isNotEmpty) _replies(),
+              if (card.shownReplyIndexes.isNotEmpty) _replies(),
               _bottom(),
               _footer(),
             ],
@@ -557,11 +557,21 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(14)),
-                  child: Text(item.title.isNotEmpty ? item.title : item.value,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _ink)),
+                  // Owner phone 2026-11-25: "Roads, bridges and …" -- tile words were cut at two lines; three lines and
+                  // a size that shrinks to fit keep the whole tile text.
+                  child: LayoutBuilder(
+                    builder: (context, box) => FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: box.maxWidth.isFinite ? box.maxWidth : 140),
+                        child: Text(item.title.isNotEmpty ? item.title : item.value,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _ink, height: 1.15)),
+                      ),
+                    ),
+                  ),
                 );
               }),
             ),
@@ -823,9 +833,9 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
           ),
         // One row of equal big buttons (never a wrap of small chips): the card keeps one height in every language.
         Row(children: [
-          for (final (i, reply) in card.replies.indexed) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(child: _replyButton(i, reply)),
+          for (final (n, i) in card.shownReplyIndexes.indexed) ...[
+            if (n > 0) const SizedBox(width: 8),
+            Expanded(child: _replyButton(i, card.replies[i])),
           ],
         ]),
       ]),
