@@ -80,13 +80,13 @@ function signin(note){$("#nav").style.display="none";$("#out").style.display="no
  $("#verify").onclick=async()=>{try{const v=await api("/onboarding/otp/verify","POST",{mobile:$("#mob").value,otp:$("#otp").value});
   setCred({bearer:v.token});const s=await api("/api/staff/session","POST");setCred({session:s.session});start()}catch(e){setCred(null);toast(e.message)}};
  $("#usetok").onclick=()=>{setCred({token:$("#tok").value.trim()});start()}}
-const TABS=[["add","Add"],["studio","🎥 Studio"],["review","Review"],["items","My items"],["reels","🎬 Videos"],["tasks","Tasks"],["support","Support"],["feedback","Feedback"],["demand","Demand"],["sources","Sources"],["analytics","Stats"]];
+const TABS=[["add","Add"],["studio","🎥 Studio"],["finance","💼 Finance"],["review","Review"],["items","My items"],["reels","🎬 Videos"],["tasks","Tasks"],["support","Support"],["feedback","Feedback"],["demand","Demand"],["sources","Sources"],["analytics","Stats"]];
 async function start(){try{ME=await api("/admin/cc/workspace/me")}catch(e){if(e.message!=="signed out")signin(e.message);return}
  $("#who").textContent=ME.name+" · "+ME.role;$("#out").style.display="inline-block";
- const tabs=TABS.filter(([k])=>ME.sections[(k==="reels"||k==="studio")?"items":k]);if(!tabs.find(t=>t[0]===TAB))TAB=(tabs[0]||["add"])[0];
+ const tabs=TABS.filter(([k])=>k==="finance"?(ME.item_types||[]).includes("financial_offer"):ME.sections[(k==="reels"||k==="studio")?"items":k]);if(!tabs.find(t=>t[0]===TAB))TAB=(tabs[0]||["add"])[0];
  $("#nav").innerHTML=tabs.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?"on":""}">${l}${ME.counts[k]?` (${ME.counts[k]})`:""}</button>`).join("");
  $("#nav").style.display="flex";$("#nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;start()});
- try{await ({add,studio,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
+ try{await ({add,studio,finance,review,items,reels,tasks,support,feedback,demand,sources,analytics})[TAB]()}catch(e){if(e.message!=="signed out")M.innerHTML=`<div class="card bad">${esc(e.message)}</div>`}}
 $("#out").onclick=()=>{setCred(null);signin()};
 const FIELDS=[["title","Title"],["price","Current price (₹)"],["mrp","Original price / MRP (₹)"],["brand","Brand"],["seller","Seller / merchant"],["category","Category"],["image_url","Main image URL"],["description","Description","ta"],["location","Location / city"],["coverage","Coverage (cities / pincodes)"],["offer_text","Offer / coupon text"],["expires_at","Offer ends (YYYY-MM-DD)"],["affiliate_url","Commission link (affiliate / deep link)"],["verified_commission_rate","Commission % (partner agreed)"],["canonical_url","Canonical URL"],["product_id","Product id (ASIN / pid)"]];
 async function add(){const types=ME.item_types;M.innerHTML=`<div class="card"><div class="row"><button class="p" id="m_link">🔗 For your reference (Meesho / Amazon / Flipkart / Wishlink…)</button><button class="s" id="m_own">🏷️ Own / Brand product</button></div>
@@ -479,6 +479,51 @@ function buyForm(d){let store="Meesho",opt="return";const box=$("#st_form");
    if(!body.title){$("#bf_err").textContent="⚠️ ప్రోడక్ట్ పేరు పెట్టండి";return}
    try{await api("/admin/cc/workspace/studio/purchases","POST",body);toast("Saved ✓");SF="all";studio()}catch(e){$("#bf_err").textContent="⚠️ "+e.message}}};
  draw();box.scrollIntoView&&box.scrollIntoView({block:"start"})}
+// Finance items (owner 2026-11-25): the company's own PDF / photos -> AI points + answers with page numbers -> staff
+// check -> customers ask; "not in the document" -> the customer may ask for a call (their yes first).
+const FKINDS=[["insurance","🛡️ Insurance"],["loan","🏦 Loan"],["credit_card","💳 Credit card"],["other","Other"]];let FVIEW="items";
+async function finance(){const top=`<div class="card"><div class="row"><button class="${FVIEW==="items"?"p":"s"}" id="fn_items">📄 Items</button><button class="${FVIEW==="calls"?"p":"s"}" id="fn_calls">📞 Call backs</button></div></div>`;
+ if(FVIEW==="calls"){const d=await api("/admin/cc/workspace/finance-callbacks");const done=await api("/admin/cc/workspace/finance-callbacks?status=done");
+  const when={now:"ఇప్పుడే",evening:"సాయంత్రం",tomorrow:"రేపు"};
+  M.innerHTML=top+`<div class="card"><h3 style="margin-top:0">📞 కాల్ చేయాల్సినవి (${d.callbacks.length})</h3><p class="mut">Customer "అవును, కాల్ చేయండి" అన్నవే ఇక్కడ ఉంటాయి. నంబర్ "నంబర్ చూపించు" నొక్కినప్పుడే కనిపిస్తుంది (ఎవరు చూశారో record అవుతుంది). సలహా ఇవ్వకండి -- కంపెనీ చెప్పిందే చెప్పండి.</p>
+  ${d.callbacks.map(c=>`<div class="item"><div class="grow"><b>${esc(c.title)}</b><div class="mut">${esc(c.customer)} · ${esc(when[c.when]||c.when)}</div><div>❓ ${esc(c.question||"(ప్రశ్న రాయలేదు)")}</div>
+   <div class="row"><button class="s" data-fnum="${c.id}">📱 నంబర్ చూపించు</button><span id="fnum_${c.id}"></span></div>
+   <label>కాల్‌లో చెప్పిన జవాబు (రాస్తే తర్వాతి customer కి యాప్‌లోనే వస్తుంది)</label><textarea id="fans_${c.id}" rows="2"></textarea>
+   <div class="row"><select id="fout_${c.id}"><option value="answered">జవాబు చెప్పాం</option><option value="deal">తీసుకుంటానన్నారు</option><option value="not_interested">వద్దన్నారు</option><option value="no_answer">ఫోన్ ఎత్తలేదు</option></select><button class="p" data-fclose="${c.id}">✓ అయిపోయింది</button></div></div></div>`).join("")||'<p class="mut">ఇప్పుడు ఎవరూ లేరు.</p>'}</div>
+  <div class="card"><h3 style="margin-top:0">అయిపోయినవి</h3>${done.callbacks.slice(-20).reverse().map(c=>`<div class="mut">${esc(c.title)} · ${esc(c.customer)} · ${esc(c.outcome)}</div>`).join("")||'<p class="mut">--</p>'}</div>`;
+  M.querySelectorAll("button[data-fnum]").forEach(b=>b.onclick=async()=>{try{const r=await api(`/admin/cc/workspace/finance-callbacks/${b.dataset.fnum}/reveal`,"POST");$("#fnum_"+b.dataset.fnum).innerHTML=`<a href="tel:+91${esc(r.phone)}"><b>${esc(r.phone)}</b></a>`}catch(e){toast(e.message)}});
+  M.querySelectorAll("button[data-fclose]").forEach(b=>b.onclick=async()=>{const id=b.dataset.fclose;try{await api(`/admin/cc/workspace/finance-callbacks/${id}/close`,"POST",{outcome:$("#fout_"+id).value,answer:$("#fans_"+id).value});toast("✓");finance()}catch(e){toast(e.message)}});
+ }else{const d=await api("/admin/cc/workspace/items?item_type=financial_offer");
+  M.innerHTML=top+`<div class="card"><h3 style="margin-top:0">➕ కొత్త Finance item</h3>
+  <label>రకం</label><select id="fn_kind">${FKINDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select>
+  <label>పేరు * (ఉదా: కంపెనీ + plan పేరు)</label><input id="fn_title">
+  <label>Commission / affiliate link * (మేం ఓపెన్ చేయం)</label><input id="fn_link" type="url" placeholder="https://...">
+  <label>చిన్న వివరణ</label><textarea id="fn_desc" rows="2"></textarea>
+  <button class="p" id="fn_save">Save → documents పెట్టండి</button><div class="bad" id="fn_err"></div></div>
+  <div class="card"><h3 style="margin-top:0">Finance items</h3>${d.items.map(i=>`<div class="item"><div class="grow"><b>${esc(i.title)}</b><div class="mut">${esc(i.review_status)}</div><div class="row"><button class="s" data-fopen="${i.id}">📄 Documents / జవాబులు</button>${i.review_status==="DRAFT"?`<button class="s" data-fpub="${i.id}">${ME.can_publish?"🚀 Publish":"Submit"}</button>`:""}</div><div id="fbox_${i.id}"></div></div></div>`).join("")||'<p class="mut">ఇంకా ఏమీ లేవు.</p>'}</div>`;
+  $("#fn_save").onclick=async()=>{const t=$("#fn_title").value.trim(),l=firstLink($("#fn_link").value);if(!t||!l.startsWith("https://")){$("#fn_err").textContent="⚠️ పేరు, https లింక్ రెండూ కావాలి";return}
+   try{const r=await api("/admin/cc/workspace/items","POST",{item_type:"financial_offer",action:"draft",fields:{title:t,platform:"other",original_product_url:l,affiliate_url:l,description:$("#fn_desc").value.trim()}});
+    await api(`/admin/cc/workspace/finance/${r.item.id}/kind`,"PUT",{kind:$("#fn_kind").value});toast("Saved ✓");await finance();financeItem(r.item.id)}catch(e){$("#fn_err").textContent="⚠️ "+e.message}};
+  M.querySelectorAll("button[data-fopen]").forEach(b=>b.onclick=()=>{const box=$("#fbox_"+b.dataset.fopen);if(box.innerHTML){box.innerHTML="";return}financeItem(b.dataset.fopen)});
+  M.querySelectorAll("button[data-fpub]").forEach(b=>b.onclick=async()=>{try{const v=await api(`/admin/cc/workspace/finance/${b.dataset.fpub}`);if(!v.checked){toast("ముందు documents పెట్టి, AI జవాబులు చూసి ✓ చేయండి");financeItem(b.dataset.fpub);return}
+   await api(`/admin/cc/workspace/items/${b.dataset.fpub}/review`,"POST",{action:"submit"});toast("✓");finance()}catch(e){toast(e.message)}})}
+ $("#fn_items").onclick=()=>{FVIEW="items";finance()};$("#fn_calls").onclick=()=>{FVIEW="calls";finance()}}
+async function financeItem(id,v){const box=$("#fbox_"+id);if(!box)return;try{v=v||await api(`/admin/cc/workspace/finance/${id}`)}catch(e){box.innerHTML=`<div class="bad">${esc(e.message)}</div>`;return}
+ box.innerHTML=`<div class="card"><b>1. కంపెనీ documents</b> <span class="mut">(brochure / policy wording / premium chart -- PDF లేదా ఫోటో, 8 వరకు)</span>
+ ${v.documents.map(d=>`<div class="row"><span class="grow">📄 ${esc(d.name)} <span class="mut">· ${d.pages} పేజీలు</span></span><button class="s" data-fdel="${d.id}" style="flex:0 0 70px">తీసేయ్</button></div>`).join("")||'<p class="mut">ఇంకా పెట్టలేదు.</p>'}
+ <div class="row"><label class="s btn">📎 PDF / ఫోటో పెట్టు<input id="fdoc_${id}" type="file" accept="application/pdf,image/*" hidden></label><span class="mut" id="fdn_${id}"></span></div>
+ <b>2. AI చదివింది</b> ${v.checked?'<span class="badge">✓ చూశారు -- customers కి కనిపిస్తుంది</span>':'<span class="warn">ఇంకా మీరు చూడలేదు -- customers కి కనిపించదు</span>'}
+ <div class="row"><button class="s" id="fst_${id}">✨ Documents చదువు (ముఖ్య points + జవాబులు)</button></div>
+ <label>ముఖ్య points (ఒక్కో లైన్ ఒక point; తప్పు ఉంటే సరిచేయండి)</label><textarea id="fpt_${id}" rows="5">${esc(v.points.join("\n"))}</textarea>
+ ${v.qa.map(q=>`<div class="item"><div class="grow"><b>❓ ${esc(q.question)}</b><div>${esc(q.answer)}</div><div class="mut">${q.source==="executive"?"📞 executive చెప్పింది":`📄 ${esc(q.document)} · పేజీ ${q.page}`}</div></div><label class="mut" style="flex:0 0 70px"><input type="checkbox" data-fqa="${q.id}"> తప్పు</label></div>`).join("")}
+ <div class="row"><button class="p" id="fok_${id}">✓ 3. నేను చూశాను -- సరిగ్గా ఉంది</button></div>
+ ${v.not_answered.length?`<b>Customers అడిగి, document లో దొరకనివి</b>${v.not_answered.map(m=>`<div class="mut">❓ ${esc(m.question)} · ${m.times}×</div>`).join("")}`:""}</div>`;
+ $("#fdoc_"+id).onchange=async e=>{const f=e.target.files[0];if(!f)return;$("#fdn_"+id).textContent="చదువుతోంది…";const fd=new FormData();fd.append("file",f,f.name);
+  try{financeItem(id,await api(`/admin/cc/workspace/finance/${id}/documents`,"POST",fd,true));toast("Document వచ్చింది ✓")}catch(e2){$("#fdn_"+id).textContent="⚠️ "+e2.message}};
+ box.querySelectorAll("button[data-fdel]").forEach(b=>b.onclick=async()=>{try{financeItem(id,await api(`/admin/cc/workspace/finance/${id}/documents/${b.dataset.fdel}`,"DELETE"))}catch(e){toast(e.message)}});
+ $("#fst_"+id).onclick=async()=>{$("#fst_"+id).textContent="చదువుతోంది… (ఒక నిమిషం వరకు)";try{financeItem(id,await api(`/admin/cc/workspace/finance/${id}/study`,"POST"));toast("చదివింది ✓ -- ఒకసారి చూడండి")}catch(e){toast(e.message);financeItem(id)}};
+ $("#fok_"+id).onclick=async()=>{const bad=[...box.querySelectorAll("input[data-fqa]:checked")].map(x=>x.dataset.fqa);
+  try{financeItem(id,await api(`/admin/cc/workspace/finance/${id}/confirm`,"POST",{points:$("#fpt_"+id).value.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,6),remove_qa:bad}));toast("✓ customers కి కనిపిస్తుంది")}catch(e){toast(e.message)}}}
 async function review(){const d=await api("/admin/cc/workspace/items?status=NEEDS_REVIEW");
  M.innerHTML=`<div class="card"><h3 style="margin-top:0">Waiting for review (${d.items.length})</h3>${d.items.map(i=>itemRow(i,[["approve","Approve & publish"],["reject","Send back"]])).join("")||'<p class="mut">Nothing waiting.</p>'}</div>`;bindReview()}
 async function items(){const d=await api("/admin/cc/workspace/items?mine=true");ITEMS={};d.items.forEach(i=>ITEMS[i.id]=i);

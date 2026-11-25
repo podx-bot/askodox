@@ -151,6 +151,8 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
         if "pos_members" in tables:  # POS staff access ends; the shop's issued invoices stay (tax records)
             done["pos_memberships_ended"] = conn.execute(
                 "UPDATE pos_members SET active=0, app_user_id=NULL WHERE app_user_id=?", (user_id,)).rowcount
+        if "fin_callbacks" in tables:  # finance call-back requests (they hold the number) go with the account
+            conn.execute("DELETE FROM fin_callbacks WHERE user_id=?", (user_id,))
         if "conversation_backups" in tables:  # chat history backup goes with the account
             conn.execute("DELETE FROM conversation_backups WHERE user_id=?", (user_id,))
         for memory_table in ("profile_memory_items", "profile_memory_history", "profile_memory_settings"):

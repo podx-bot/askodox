@@ -110,6 +110,7 @@ class UniversalMatch {
     this.videoPlatform,
     this.videoFormat,
     this.relationship,
+    this.itemType,
     this.videoAnalyzed = false,
     this.relatedProducts = const [],
     this.relatedServices = const [],
@@ -240,6 +241,9 @@ class UniversalMatch {
   /// 'short' for a confidently identified YouTube Short, else 'video'.
   final String? videoFormat;
   final String? relationship;
+
+  /// The staff item's kind on a catalog row (`financial_offer` opens the document answers); null elsewhere.
+  final String? itemType;
   final bool videoAnalyzed;
   final List<String> relatedProducts;
   final List<String> relatedServices;
@@ -333,6 +337,7 @@ class UniversalMatch {
           videoPlatform: json['platform']?.toString(),
           videoFormat: json['video_format']?.toString(),
           relationship: json['relationship']?.toString(),
+          itemType: json['item_type']?.toString(),
           videoAnalyzed: json['analyzed'] == true,
           relatedProducts: _strings(json['products']),
           relatedServices: _strings(json['services']),
@@ -416,6 +421,7 @@ class UniversalMatch {
         if (videoPlatform != null) 'platform': videoPlatform,
         if (videoFormat != null) 'video_format': videoFormat,
         if (relationship != null) 'relationship': relationship,
+        if (itemType != null) 'item_type': itemType,
         if (videoAnalyzed) 'analyzed': true,
         if (relatedProducts.isNotEmpty) 'products': relatedProducts,
         if (relatedServices.isNotEmpty) 'services': relatedServices,
