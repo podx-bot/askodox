@@ -423,6 +423,9 @@ def create_app() -> FastAPI:
     from app.api.routes.shop_follows import router as shop_follows_router
 
     app.include_router(shop_follows_router)
+    from app.api.routes.family_lists import router as family_lists_router
+
+    app.include_router(family_lists_router)
     from app.api.routes.notices import router as notices_router
 
     app.include_router(notices_router)
