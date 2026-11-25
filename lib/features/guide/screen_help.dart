@@ -584,13 +584,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీరు కట్టిన బిల్, రీఛార్జ్, EMI, ప్రీమియం ఒకే "వెళ్ళిన" పేమెంట్‌గా కనిపిస్తుంది (బ్యాంక్ "Bill Paid" SMS, యాప్ message, కంపెనీ రసీదు ఒకటిగా కలుస్తాయి); బిల్ వచ్చింది మాత్రమే అయితే అది నోట్ లేదా రాబోయే పేమెంట్ — కట్టిన డబ్బు కాదు.',
   ]),
   '/me/payment-methods': _H('My payment methods', 'నా పేమెంట్ పద్ధతులు', [
-    'Add your UPI QR from ANY app or bank — pick its photo or photograph it — or type the UPI ID.',
-    'Buyers see these only after you accept their request; they pay you directly.',
-    'Bank account numbers are stored encrypted. Make one method the default.',
+    'On top: the QR customers scan (your default UPI). Share or copy it from ⋮.',
+    'The big button adds a UPI QR from ANY app or bank — pick its photo or photograph it — or type the UPI ID, or a bank account.',
+    'Tap a saved one to make it the default or remove it (asks once). Bank numbers are stored encrypted; money goes straight to you.',
   ], [
-    'ఏ యాప్ / బ్యాంక్ UPI QR అయినా జోడించండి — ఫోటో ఎంచుకోండి లేదా తీయండి — లేదా UPI ID టైప్ చేయండి.',
-    'మీరు అభ్యర్థనను అంగీకరించాకే కొనేవారికి ఇవి కనిపిస్తాయి; వాళ్ళు నేరుగా మీకే కడతారు.',
-    'బ్యాంక్ ఖాతా నంబర్లు ఎన్‌క్రిప్ట్ చేసి దాస్తాం. ఒకదాన్ని డిఫాల్ట్ చేయండి.',
+    'పైన: కస్టమర్ స్కాన్ చేసే QR (మీ ముఖ్యమైన UPI). ⋮ లో షేర్ / కాపీ.',
+    'పెద్ద బటన్: ఏ యాప్ / బ్యాంక్ UPI QR అయినా — ఫోటో ఎంచుకోండి లేదా తీయండి — లేదా UPI ID టైప్, లేదా బ్యాంక్ ఖాతా.',
+    'సేవ్ చేసినదాన్ని నొక్కితే ముఖ్యమైనదిగా చేయొచ్చు లేదా తీసేయొచ్చు (ఒకసారి అడుగుతుంది). బ్యాంక్ నంబర్ ఎన్‌క్రిప్ట్; డబ్బు నేరుగా మీకే.',
   ]),
   '/me/payment-alerts': _H('Payment sound alerts', 'పేమెంట్ సౌండ్ అలర్ట్', [
     'Give your shop / business name and state once, then press "Start".',
