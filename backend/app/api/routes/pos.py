@@ -1921,3 +1921,27 @@ def upi_pay_page(request_id: str, request: Request, t: str = ""):
             '</style></head><body><div class="c"><div>' + payee + '</div><h1>' + amount + '</h1><div class="m">'
             + _html.escape(row["label"] or "") + '</div>' + body + '</div></body></html>')
     return HTMLResponse(page, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+class BulkPriceIn(BaseModel):
+    """Bulk price change (pos_bulk_price.py): which items + how; ``apply`` false = preview only."""
+    scope: str = Field(default="all", pattern="^(all|groups|items)$")
+    groups: List[str] = Field(default_factory=list, max_length=60)
+    product_ids: List[str] = Field(default_factory=list, max_length=500)
+    mode: str = Field(pattern="^(up_percent|down_percent|up_rupees|down_rupees|set)$")
+    value: float = Field(gt=0, le=1_000_000)
+    round_paise: int = Field(default=100)
+    apply: bool = False
+
+
+@router.post("/businesses/{business_id}/prices/bulk")
+def bulk_price(business_id: str, body: BulkPriceIn, request: Request) -> dict:
+    from app.services import pos_bulk_price
+
+    store = _store(request)
+    data = _dump(body)
+    if not body.apply:
+        return _call(pos_bulk_price.preview, store, business_id, _user(request), data)
+    out = _call(pos_bulk_price.apply, store, business_id, _user(request), data)
+    _online_sync(request, business_id, out.get("product_ids") or [])
+    return out

@@ -12814,6 +12814,116 @@
           "askodoxFinanceSourceLabel"
         ]
       }
+    },
+    {
+      "id": "family_shopping_list",
+      "name": "Family shopping list",
+      "purpose": "Owner 2026-11-25 ('ఒక్క టచ్' buyer list, left over from #485): one shopping list the whole home shares.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Buy page one-touch 'Family list' opens /me/family-list: a list made by itself on first open; add by typing or speaking (comma / 'and' split), tap = bought, each row edit / not now / delete; add family by 10-digit number (a number not on ASKODOX joins on sign-in), numbers shown only as the last 4 digits; others get a push on add and when the whole list is done; find the open items nearby via the Home chat; leaving / account deletion removes only that person; the last person out deletes the list. No money, no shop.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/family-lists",
+          "response_keys": [
+            "lists"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/me/family-lists/{list_id}/items",
+          "response_keys": [
+            "id",
+            "items",
+            "members",
+            "open"
+          ]
+        }
+      ],
+      "tests": {
+        "backend": [
+          "tests/test_family_lists_and_bulk_price.py"
+        ],
+        "flutter": [
+          "test/features/steps/one_touch_leftovers_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxOneTouch-family",
+          "askodoxFamilyList",
+          "askodoxFamilyAdd",
+          "askodoxFamilyAddPerson"
+        ],
+        "symbols": [
+          "AskodoxFamilyListScreen",
+          "askodoxFamilyItemsFrom",
+          "askodoxFamilyNearbyAsk"
+        ]
+      }
+    },
+    {
+      "id": "bulk_price_change",
+      "name": "Change many prices at once",
+      "purpose": "Owner 2026-11-25 ('ఒక్క టచ్' seller list, left over from #485): change prices of all items / sections / picked items in 3 steps.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Sell page one-touch 'Change prices' (products permission) opens /pos/:id/prices: 1 which items (all / sections from the shop's own menu groups / ticked), 2 how (% up / down, ₹ up / down, one price; round to ₹1 / ₹5 / ₹10 / none), 3 every old -> new price (server preview, nothing written) then ✓ writes all in one transaction with product history + audit; never below ₹1; old bills keep their prices; quantity rates, pack prices and a separate online price are not changed and are counted on step 3.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/prices/bulk",
+          "response_keys": [
+            "items",
+            "not_changed"
+          ]
+        }
+      ],
+      "tests": {
+        "backend": [
+          "tests/test_family_lists_and_bulk_price.py"
+        ],
+        "flutter": [
+          "test/features/steps/one_touch_leftovers_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxOneTouch-prices",
+          "askodoxBulkPriceSteps",
+          "askodoxBulkPriceApply"
+        ],
+        "symbols": [
+          "AskodoxBulkPriceStepsScreen",
+          "askodoxBulkNewPrice",
+          "askodoxBulkValueOk"
+        ]
+      }
     }
   ]
 }

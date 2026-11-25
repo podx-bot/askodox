@@ -133,7 +133,7 @@ final askodoxReorderProvider = FutureProvider.autoDispose((ref) async {
   }
 });
 
-/// కొను page: again the same, need it now, compare price, report a problem.
+/// కొను page: again the same, the family list, need it now, compare price, report a problem.
 class AskodoxBuyerOneTouch extends ConsumerWidget {
   const AskodoxBuyerOneTouch({super.key, required this.signedIn});
   final bool signedIn;
@@ -146,6 +146,9 @@ class AskodoxBuyerOneTouch extends ConsumerWidget {
       if (again != null)
         _Touch('askodoxOneTouch-again', te ? 'మళ్ళీ అదే · ${again.shop}' : 'Same again · ${again.shop}', Icons.replay_rounded,
             const Color(0xFF0B6B52), () => context.push(again.route)),
+      if (signedIn)
+        _Touch('askodoxOneTouch-family', te ? 'ఇంటి లిస్ట్' : 'Family list', Icons.checklist_rounded, const Color(0xFF7C3AED),
+            () => context.push('/me/family-list')),
       _Touch('askodoxOneTouch-now', te ? 'ఇప్పుడే కావాలి' : 'Need it now', Icons.bolt_rounded, const Color(0xFFC2410C),
           () => _ask(ref, context, te ? 'దగ్గర్లో ఇప్పుడు తెరిచి ఉన్న షాప్‌లు చూపించు' : 'Show shops near me that are open now')),
       _Touch('askodoxOneTouch-compare', te ? 'ధర పోల్చు' : 'Compare price', Icons.bar_chart_rounded, const Color(0xFF2563EB),
@@ -225,6 +228,9 @@ class _AskodoxSellerOneTouchState extends ConsumerState<AskodoxSellerOneTouch> {
       if (may('products') || may('stock'))
         _Touch('askodoxOneTouch-stock', te ? 'స్టాక్ లేదు' : 'Out of stock', Icons.remove_shopping_cart_rounded, const Color(0xFFB42318),
             () => go('/desk/$_id/menu')),
+      if (may('products'))
+        _Touch('askodoxOneTouch-prices', te ? 'ధరలు మార్చు' : 'Change prices', Icons.price_change_rounded, const Color(0xFF7C3AED),
+            () => go('/pos/$_id/prices')),
       if (may('collect') || may('customers'))
         _Touch('askodoxOneTouch-dues', te ? 'బాకీ గుర్తు' : 'Baaki reminders', Icons.notifications_active_rounded, const Color(0xFFB45309),
             () => go('/pos/$_id/dues')),
@@ -245,6 +251,7 @@ class _AskodoxSellerOneTouchState extends ConsumerState<AskodoxSellerOneTouch> {
   String _routeOf(String id) => switch (id) {
         'askodoxOneTouch-stock' => '/desk/$_id/menu',
         'askodoxOneTouch-dues' => '/pos/$_id/dues',
+        'askodoxOneTouch-prices' => '/pos/$_id/prices',
         'askodoxOneTouch-offer' => '/notices/new',
         'askodoxOneTouch-share' => '/pos/$_id/link',
         _ => '/',

@@ -954,6 +954,24 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన సంఖ్య మీ టీమ్‌లో ఉన్నవాళ్ళు. ఒకరిని నొక్కితే కాల్ చేయవచ్చు.',
     'పెద్ద బటన్ కొత్త పని వాళ్ళని వెతుకుతుంది (పాత పేజీ). పత్రాలు, నెలవారీ పోస్టింగ్, రిజిస్ట్రేషన్ కూడా అక్కడే.',
   ]),
+  '/me/family-list': _H('Family shopping list', 'ఇంటి షాపింగ్ లిస్ట్', [
+    'One list for the whole home. The big number = things still needed.',
+    'Tap the mic and say "sugar, milk, soap" or tap Add. Tap a thing when it is bought; ⋮ on a row = edit, not now, delete.',
+    'Add family by their mobile number; they see the same list and get a notification when something is added. ⋮ on top finds the things nearby.',
+  ], [
+    'ఇంటి మొత్తానికి ఒకే లిస్ట్. పెద్ద సంఖ్య = ఇంకా కావాల్సినవి.',
+    'మైక్ నొక్కి "చక్కెర, పాలు, సబ్బు" అని చెప్పండి లేదా చేర్చు నొక్కండి. కొన్నాక ఆ వస్తువుని నొక్కండి; వరుసలో ⋮ = మార్చు, ఇప్పుడు వద్దు, తీసేయి.',
+    'ఇంట్లో వాళ్ళని మొబైల్ నంబర్‌తో చేర్చండి; వాళ్ళకీ అదే లిస్ట్ కనిపిస్తుంది, ఏదైనా చేర్చితే నోటిఫికేషన్ వస్తుంది. పైన ⋮ దగ్గర్లో ఎక్కడ దొరుకుతాయో చూపిస్తుంది.',
+  ]),
+  '/pos/:id/prices': _H('Change prices at once', 'ధరలు ఒకేసారి మార్చు', [
+    'Step 1: all items, some sections, or tick the items.',
+    'Step 2: up or down by % or ₹, or one price for all; choose rounding.',
+    'Step 3: see every old → new price, then tap ✓. Old bills keep their prices; quantity rates, pack prices and a separate online price are not changed.',
+  ], [
+    'స్టెప్ 1: అన్ని ఐటమ్స్, కొన్ని విభాగాలు, లేదా టిక్ చేసినవి.',
+    'స్టెప్ 2: % లేదా ₹ పెంచు / తగ్గించు, లేదా అన్నిటికీ ఒకే ధర; రౌండ్ ఎంచుకోండి.',
+    'స్టెప్ 3: ప్రతి పాత → కొత్త ధర చూసి ✓ నొక్కండి. పాత బిల్లులు మారవు; క్వాంటిటీ రేట్లు, ప్యాక్ ధరలు, వేరే ఆన్‌లైన్ ధర మారవు.',
+  ]),
   '/me/branches': _H('All my branches', 'నా అన్ని శాఖలు', [
     'On top: today\'s sales of all your linked branches together.',
     'The list: each branch with its bills and sales. Tap one to take it out of the link (asks once).',
