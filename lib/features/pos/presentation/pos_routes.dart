@@ -45,6 +45,7 @@ import '../../steps/presentation/payment_methods_steps_screen.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
+import '../../steps/presentation/order_code_steps_screen.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/order_track_steps_screen.dart';
 import '../../steps/presentation/people_steps_screens.dart';
@@ -115,7 +116,10 @@ final askodoxFrontDeskRoutes = <GoRoute>[
           code: state.uri.queryParameters['code'] ?? '',
           kind: state.uri.queryParameters['kind'] ?? '',
           cart: state.uri.queryParameters['cart'] ?? '')),
-  GoRoute(path: '/order-desk/enter', builder: (context, state) => const AskodoxOrderCodeScreen()),
+  GoRoute(
+      path: '/order-desk/enter',
+      builder: (context, state) =>
+          state.uri.queryParameters['full'] == '1' ? const AskodoxOrderCodeScreen() : const AskodoxOrderCodeStepsScreen()),
   GoRoute(
       path: '/order-desk/track/:oid',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
