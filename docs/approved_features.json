@@ -11901,6 +11901,40 @@
       }
     },
     {
+      "id": "guide_page_tours_live_money_bill_dues",
+      "name": "Guide tours of Live Work, Money, the 3-step bill and the baaki page",
+      "purpose": "Owner 2026-11-25: the guide (when ON) explains the pages people open most, by itself.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Guide ON + no touch for the idle time on /work, /money-home, /me/business/<id>/bill or /biz/<id>/money/dues starts that page's short tour once (until finished once): every stop only explains and moves on with Next; a stop that is not on screen is skipped. Route patterns with an id are matched by askodoxAutoGuideIdFor.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); guide voice is still te / en only; NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/guide/guide_switch_test.dart",
+          "test/features/guide/in_app_guide_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "askodoxAutoGuideIdFor"
+        ]
+      }
+    },
+    {
       "id": "order_desk_page_three_steps_batch38",
       "name": "Menu & order (customer) in 3 steps",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 38; old page stays at ?full=1.",
