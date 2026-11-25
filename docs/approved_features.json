@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "item_details_page_three_steps_batch36",
+      "name": "Item details in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 36; old page stays at ?full=1.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "/pos/:id/item/:pid: how many required details are missing on top, ONE list of detail rows (tap = one box or choice chips in a sheet, filled from the item name when empty), ONE big Save details button. Online price, rates, photos and units stay on the old page in the menu. Same setAttributes call as before.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 36 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/item_details_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxItemDetailsSteps",
+          "askodoxItemDetailsStepsSave"
+        ],
+        "symbols": [
+          "AskodoxItemDetailsStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "purchase_bill_page_three_steps_batch35",
       "name": "Record a purchase bill in 3 steps",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 35; old page stays at ?full=1.",

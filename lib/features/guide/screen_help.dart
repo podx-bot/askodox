@@ -866,13 +866,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'వ్యాపార రకం (ఏ రెడీ లిస్ట్ రావాలి) ⋮ లో ఉంది. బ్రాండ్‌లు, ధరలు మేము పెట్టము.',
   ]),
   '/pos/:id/item/:pid': _H('Item details', 'సరుకు వివరాలు', [
-    'Fill the details customers look for (size, colour, brand …). Ones marked "Needed" are required.',
-    'Tap ? next to any field to see what to write, with an example.',
-    'Set an online price if it differs from the shop price, then Save.',
+    'The number on top = required details still missing. Tap a detail (size, colour, brand …) to pick or type it; the sheet says what to write.',
+    'What the item name already says is filled for you — check those, then tap Save.',
+    '"Fill from my words", the online price, rates by quantity, photo and units are in ⋮.',
   ], [
-    'కస్టమర్లు చూసే వివరాలు నింపండి (సైజు, రంగు, బ్రాండ్ …). "కావాలి" అని ఉన్నవి తప్పనిసరి.',
-    'ఏ ఫీల్డ్ పక్కనైనా ? నొక్కితే ఏం రాయాలో ఉదాహరణతో చెబుతుంది.',
-    'ఆన్‌లైన్ ధర వేరుగా కావాలంటే పెట్టి, సేవ్ నొక్కండి.',
+    'పైన నంబర్ = ఇంకా కావాల్సిన తప్పనిసరి వివరాలు. వివరం (సైజు, రంగు, బ్రాండ్ …) నొక్కి ఎంచుకోండి / రాయండి; ఏం రాయాలో అక్కడే చెబుతుంది.',
+    'సరుకు పేరులో ఉన్నవి ఆటోగా నిండుతాయి — సరిచూసి "సేవ్" నొక్కండి.',
+    '"నా మాటలతో నింపు", ఆన్‌లైన్ ధర, రేట్లు, ఫోటో, యూనిట్లు ⋮ లో ఉన్నాయి.',
   ]),
   '/pos/:id/customers': _H('Customer list', 'కస్టమర్ల లిస్ట్', [
     'The number on top is what customers owe you. Tap a customer for bills and payments.',
