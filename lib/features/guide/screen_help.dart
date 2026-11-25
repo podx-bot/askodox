@@ -857,13 +857,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'రెడీ లిస్ట్, కాంబో ఆఫర్లు, ఎక్కడ అమ్మాలి (POS / ఆన్‌లైన్ / రెండూ), ఆఫర్ / స్టాక్ ఉన్న పాత పేజీ ⋮ మెనూలో.',
   ]),
   '/pos/:id/catalogue': _H('Ready list', 'రెడీ లిస్ట్', [
-    'Choose your kind of business at the top.',
-    'Tick the items you sell, pick the size and type YOUR price (and GST % if registered).',
-    'Tap "Add" — items already in your shop are skipped.',
+    '1 Pick a group of items. 2 Tap the items you sell (a tick stays when you go back for another group).',
+    '3 Type YOUR price for each (size, and GST % if registered) and tap Add — items already in your shop are skipped.',
+    'Kind of business (which ready list you get) is in ⋮. We never add brands or prices.',
   ], [
-    'పైన మీ వ్యాపార రకం ఎంచుకోండి.',
-    'మీరు అమ్మే సరుకులను టిక్ చేసి, సైజు ఎంచుకుని, మీ ధర రాయండి (GST ఉంటే GST % కూడా).',
-    '"చేర్చు" నొక్కండి — మీ షాప్‌లో ఇప్పటికే ఉన్నవి వదిలేస్తాం.',
+    '1 సరుకుల రకం ఎంచుకోండి. 2 మీరు అమ్మేవి నొక్కండి (వేరే రకం కోసం వెనక్కి వెళ్ళినా టిక్ ఉంటుంది).',
+    '3 ప్రతి దానికీ మీ ధర రాయండి (సైజు, GST ఉంటే GST %), "చేర్చు" నొక్కండి — షాప్‌లో ఇప్పటికే ఉన్నవి వదిలేస్తాం.',
+    'వ్యాపార రకం (ఏ రెడీ లిస్ట్ రావాలి) ⋮ లో ఉంది. బ్రాండ్‌లు, ధరలు మేము పెట్టము.',
   ]),
   '/pos/:id/item/:pid': _H('Item details', 'సరుకు వివరాలు', [
     'Fill the details customers look for (size, colour, brand …). Ones marked "Needed" are required.',
