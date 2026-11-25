@@ -1195,9 +1195,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పెద్ద బటన్ పార్సెల్. టేబుల్ చేర్చడం, రిజర్వేషన్లు మూడు చుక్కల మెనూలో ఉన్నాయి.',
   ]),
   '/pos/:id/order/:oid': _H('Table order', 'టేబుల్ ఆర్డర్', [
-    'Add items with notes, send the KOT to the kitchen, then bill the table.',
+    '3 steps: 1 Add items (search the menu, quantity + note) -> 2 Send to kitchen -> 3 Bill. The big button is always the next step.',
+    'Tap an item to take it out; an item already in the kitchen needs a reason (manager).',
+    'Move table, Close without a bill and billing only some items (old page) are in ⋮.',
   ], [
-    'నోట్స్‌తో సరుకులు చేర్చండి, KOT వంటగదికి పంపండి, తర్వాత టేబుల్ బిల్లు.',
+    '3 స్టెప్స్: 1 ఐటమ్స్ జోడించు (మెనూలో వెతికి, సంఖ్య + నోట్) -> 2 వంటగదికి పంపు -> 3 బిల్లు. పెద్ద బటన్ ఎప్పుడూ తర్వాతి స్టెప్.',
+    'ఐటమ్ నొక్కితే తీసేయొచ్చు; వంటగదికి వెళ్ళినదానికి కారణం కావాలి (మేనేజర్).',
+    'టేబుల్ మార్చు, బిల్లు లేకుండా మూసేయి, కొన్ని ఐటమ్స్ మాత్రమే బిల్లు (పాత పేజీ) ⋮ లో.',
   ]),
   '/pos/:id/kitchen': _H('Kitchen (KOT)', 'వంటగది KOT', [
     'The number on top is new tickets. Tap a ticket to see the items, then the big button: Ready, then Served.',
