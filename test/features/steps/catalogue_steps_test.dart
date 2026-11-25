@@ -102,6 +102,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('5%').last);
     await tester.pumpAndSettle();
+    ScaffoldMessenger.of(tester.element(find.byKey(const Key('askodoxCatalogueSteps')))).removeCurrentSnackBar();
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('askodoxCatalogueStepsAdd')));
     await tester.pumpAndSettle();
     final items = (api.calls['POST /api/pos/businesses/b1/catalogue/import'] as Map)['items'] as List;
