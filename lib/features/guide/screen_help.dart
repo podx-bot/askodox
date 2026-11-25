@@ -539,11 +539,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '▶ నొక్కితే అవే మాటలు వినిపిస్తాయి. "ఫేక్‌లా ఉంది" హెచ్చరిక ఎప్పుడూ ఆన్ — ఫేక్ మెసేజ్ డబ్బుగా లెక్కలోకి రాదు.',
   ]),
   '/me/dues': _H('Coming up', 'కట్టాల్సినవి', [
-    'Add EMI, current bill, rent, recharge with the date; the phone says them 2 days before and on the day.',
-    'Bills that came by SMS are offered here — tap one to add it; a bill already paid is not offered.',
+    'The number on top is what is due this week. The big button adds EMI, current bill, rent, recharge with the date; the phone says them 2 days before and on the day.',
+    'Bills that came by SMS and payments that look like an EMI are at the top of the list — tap one to add it or say "Not this".',
+    'Tap a due: Paid, Edit or Delete (asks once). The old page is in ⋮.',
   ], [
-    'EMI, కరెంట్ బిల్, అద్దె, రీఛార్జ్ తేదీతో జోడించండి; గడువుకు 2 రోజుల ముందు, ఆ రోజు ఫోన్ చెప్తుంది.',
-    'SMS లో వచ్చిన బిల్లులు ఇక్కడ సూచనగా వస్తాయి — నొక్కితే జోడిస్తుంది; కట్టేసినవి రావు.',
+    'పైన నంబర్ = ఈ వారం కట్టాల్సింది. పెద్ద బటన్ EMI, కరెంట్ బిల్, అద్దె, రీఛార్జ్ తేదీతో జోడిస్తుంది; గడువుకు 2 రోజుల ముందు, ఆ రోజు ఫోన్ చెప్తుంది.',
+    'SMS లో వచ్చిన బిల్లులు, EMI లా ఉన్న పేమెంట్లు list పైన ఉంటాయి — నొక్కి జోడించండి లేదా "ఇది కాదు" అనండి.',
+    'ఒకదాన్ని నొక్కితే: కట్టాను, మార్చు, తొలగించు (ఒకసారి అడుగుతుంది). పాత పేజీ ⋮ లో.',
   ]),
   '/money': _H('My money', 'నా డబ్బు', [
     'Every payment, bill and account in one list: switch between your own money and each shop at the top.',
