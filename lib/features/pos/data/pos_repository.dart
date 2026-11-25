@@ -104,6 +104,25 @@ class AskodoxPosRepository {
 
   String _b(String id) => '/api/pos/businesses/$id';
 
+  // ---- Bulk price change (pos_bulk_price.py, owner 2026-11-25): apply false = preview only.
+  Future<AskodoxJson> bulkPrice(String id, AskodoxJson body, {bool apply = false}) =>
+      _send('POST', '${_b(id)}/prices/bulk', body: {...body, 'apply': apply});
+
+  // ---- Family shopping list (family_lists.py, owner 2026-11-25): the caller's own lists only.
+  static const _fam = '/api/me/family-lists';
+  Future<List<AskodoxJson>> familyLists() async => askodoxPosList((await _send('GET', _fam))['lists']);
+  Future<AskodoxJson> familyNew(String name) => _send('POST', _fam, body: {'name': name});
+  Future<AskodoxJson> familyRename(String list, String name) => _send('PATCH', '$_fam/$list', body: {'name': name});
+  Future<AskodoxJson> familyAdd(String list, List<String> texts) =>
+      _send('POST', '$_fam/$list/items', body: {'texts': texts});
+  Future<AskodoxJson> familyItem(String list, String item, AskodoxJson patch) =>
+      _send('PATCH', '$_fam/$list/items/$item', body: patch);
+  Future<AskodoxJson> familyItemDelete(String list, String item) => _send('DELETE', '$_fam/$list/items/$item');
+  Future<AskodoxJson> familyClearDone(String list) => _send('POST', '$_fam/$list/items/clear-done');
+  Future<AskodoxJson> familyAddPerson(String list, String phone, String label) =>
+      _send('POST', '$_fam/$list/members', body: {'phone': phone, 'label': label});
+  Future<AskodoxJson> familyRemovePerson(String list, String ref) => _send('DELETE', '$_fam/$list/members/$ref');
+
   // ---- Delivery jobs for the shop's own people (pos_delivery_jobs.py, owner plan 2026-11-24 step 1).
   Future<AskodoxJson> deliveryDraft(String id, String text) =>
       _send('POST', '${_b(id)}/delivery-jobs/draft', body: {'text': text});
