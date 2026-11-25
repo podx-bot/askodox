@@ -1068,13 +1068,13 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ పాత ఆర్డర్లు ఇక్కడ కనిపిస్తాయి: నొక్కి ఫాలో చేయండి, లేదా "మళ్ళీ" నొక్కి అదే ఆర్డర్ చేయండి.',
   ]),
   '/order-desk': _H('Menu & order', 'మెనూ & ఆర్డర్', [
-    'Choose dine in, takeaway or delivery. Add items with + or just say it (2 chicken biryani).',
-    'Say "same as last time" to repeat your last order; say "that\'s all" to send it.',
-    'Delivery needs an address or a map pin. You pay the shop directly; ASKODOX never holds the money.',
+    'Tap an item to add one (tap again for more; press and hold for one less or a note) — or tap the mic and say it (2 chicken biryani).',
+    'The big button moves on: choose dine in, takeaway or delivery. Delivery needs an address or a map pin.',
+    'Check the total and tap Send order. You pay the shop directly; ASKODOX never holds the money.',
   ], [
-    'ఇక్కడే తింటారా, పార్సిల్ లేదా డెలివరీనా ఎంచుకోండి. + నొక్కండి లేదా చెప్పండి (2 చికెన్ బిర్యానీ).',
-    '"మునుపటిలాగే" అంటే గత ఆర్డర్ మళ్ళీ; "అంతే" అంటే ఆర్డర్ వెళ్తుంది.',
-    'డెలివరీకి అడ్రస్ లేదా మ్యాప్ పిన్ కావాలి. డబ్బు నేరుగా షాప్‌కే; ASKODOX డబ్బు పట్టుకోదు.',
+    'ఐటమ్ నొక్కితే ఒకటి చేరుతుంది (మళ్ళీ నొక్కితే ఇంకొకటి; నొక్కి పట్టుకుంటే తగ్గించు / నోట్) — లేదా మైక్ నొక్కి చెప్పండి (2 చికెన్ బిర్యానీ).',
+    'పెద్ద బటన్ ముందుకు తీసుకెళ్తుంది: ఇక్కడే తింటారా, పార్సిల్ లేదా డెలివరీనా ఎంచుకోండి. డెలివరీకి అడ్రస్ లేదా మ్యాప్ పిన్ కావాలి.',
+    'మొత్తం చూసి "ఆర్డర్ పంపు" నొక్కండి. డబ్బు నేరుగా షాప్‌కే; ASKODOX డబ్బు పట్టుకోదు.',
   ]),
   '/order-desk/track/:oid': _H('My order', 'నా ఆర్డర్', [
     'On top: where your order is now. Below: each step with its time, then your items and the bill.',
