@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "purchase_bill_page_three_steps_batch35",
+      "name": "Record a purchase bill in 3 steps",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 35; old page stays at ?full=1.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "1 which supplier (or the bill photo that fills everything) -> 2 bill number + printed total to check -> 3 ONE list of lines (tap = quantity, cost before GST, GST %, pack, batch / expiry, serials), computed total on top checked against the printed one, ONE big Record bill. Same arithmetic and call as before.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 35 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/purchase_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxPurchaseSteps",
+          "askodoxPurchaseStepsSave"
+        ],
+        "symbols": [
+          "AskodoxPurchaseStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "shop_chooser_pages_three_steps_batch34",
       "name": "Which shop? pages (/pos, /crm) and plain leads in 3 pieces",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 34; old pages stay at ?full=1.",
