@@ -93,6 +93,8 @@ object PaymentAlertParser {
         "cashback", "reward", "offer", "coupon", "scratch", "failed", "declined", "unsuccessful", "pending",
         "refund", "reversed", "due", "reminder", "recharge", "bill pay", " won", "win ", "loan", "emi",
         "verification code", "password", "pin ",
+        // Owner 2026-11-26 (bank e-mail shapes): "INR 2,000 withdrawn from A/c at ATM", "Rs 799 spent on your card".
+        "withdrawn", "spent",
         // Owner 2026-11-21: "initiated" / "processing" = NOT done yet (no money moved); shown as a notice, never spoken.
         "initiated", "processing", "in process", "under process", "in progress", "scheduled", "will be credited",
         "will be debited", "will be deducted", "will reflect",
@@ -217,6 +219,7 @@ object PaymentAlertParser {
         // "Payment of ₹962 to APCPDCL successful" / "payment of Rs 950 for Indane is successful" is the PAYER's message
         // (it was read as money received because of the words "payment of").
         if (!learned) paidOut(joined, lower, body, title)?.let { return it }
+        if (!learned) cardSpent(joined, lower, body)?.let { return it }
         if (!learned && (incoming + moreIncoming).none { it.isNotEmpty() && lower.contains(it.lowercase()) }) {
             if (rejected) return outgoingOrIgnored(joined, view, body, title)
             val only = paymentAmounts(joined).toSet()
@@ -263,6 +266,7 @@ object PaymentAlertParser {
     }
 
     private val refundLanded = Regex(
+        """\brefunded\s+(?:back\s+)?(?:to|in|into)\s+(?:your|a/?c|acc|account|bank)|""" +
         """\brefund\b.{0,80}?\b(?:credited|added|deposited|reversed)\s+(?:to|in|into|back\s+to)\s+(?:your|a/?c|acc|account|bank|wallet)|""" +
             """\b(?:credited|added)\b.{0,60}?\brefund\b""",
         RegexOption.IGNORE_CASE,
@@ -669,6 +673,36 @@ object PaymentAlertParser {
         Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
     )
 
+    /**
+     * Owner 2026-11-26 (every e-mail / SMS a bank sends): a CARD purchase -- "Thank you for using your Credit Card ending
+     * 4321 for Rs 1,250.00 at AMAZON", "Rs.799 spent on your SBI Credit Card ending with 4321 at SWIGGY" -- is money the
+     * person spent. The card's last digits are its account; the shop after "at" is the payee. A card BILL paid / received,
+     * a declined / failed / OTP / limit / statement / offer message is never a purchase.
+     */
+    private fun cardSpent(joined: String, lower: String, body: String?): Result.Outgoing? {
+        if (!cardUse.containsMatchIn(joined)) return null
+        if (cardNotSpend.any { lower.contains(it) }) return null
+        val tail = cardTail.find(joined)?.groupValues?.get(1) ?: return null
+        val amounts = paymentAmounts(joined)
+        if (amounts.isEmpty()) return null
+        val shop = cardShop.find(body ?: joined)?.groupValues?.get(1)?.trim()?.takeIf { s ->
+            s.length in 2..40 && s.lowercase().split(' ').none { it in notAName }
+        }
+        return Result.Outgoing(amounts.first(), shop, tail)
+    }
+
+    private val cardUse = Regex(
+        """\b(?:spent|used|using|purchase|purchased)\b.{0,80}?\bcard\b|\bcard\b.{0,80}?\b(?:spent|used|purchase)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val cardTail = Regex("""\bcard\b[^0-9]{0,30}?(?:ending|end|no\.?|x{2,}|\*{2,})\s*(?:with\s+)?[xX*]*(\d{4})\b""",
+        RegexOption.IGNORE_CASE)
+    private val cardShop = Regex("""\bat\s+([A-Za-z][A-Za-z0-9 &.'-]{1,40}?)(?=\s+(?:on|via|for|ref|avl|bal)\b|[,!;(]|\.(?=\s|$)|$)""",
+        RegexOption.IGNORE_CASE)
+    private val cardNotSpend = listOf("declined", "failed", "unsuccessful", "otp", "one time", "limit", "statement",
+        "due", "payment of", "received", "credited", "refund", "reversed", "offer", "cashback", "reward", "apply",
+        "pre-approved", "eligible", "blocked", "will be")
+
     /** Who the money went to (spoken only on this phone, letters only, never stored in the upload). */
     fun payeeName(text: String?): String? = nameFrom(payeePatterns, text)
 
@@ -735,7 +769,14 @@ object PaymentAlertParser {
     }
 
     fun accountTail(text: String?): String? = accountRegex.find(text ?: "")?.groupValues?.get(1)
+        ?: maskedMiddleRegex.find(text ?: "")?.groupValues?.get(1)
         ?: bankDashRegex.find(text ?: "")?.groupValues?.get(1)
+
+    /** IndusInd and others mask the MIDDLE: "A/C 1234XXXX1234" -> the last digits (owner 2026-11-26, e-mail shapes). */
+    private val maskedMiddleRegex = Regex(
+        """(?:a/c|acct?|account)\s*(?:no\.?|number)?\s*[:.\-]?\s*\d{1,6}[xX*]{2,}(\d{3,4})\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // ------------------------------------------------------------------ a summary of several transactions
 
