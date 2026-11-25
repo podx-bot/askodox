@@ -436,12 +436,14 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
 
   IconData _kindIcon(String kind) => switch (kind) {
         'sms' => Icons.sms_outlined,
+        'email' => Icons.mail_outline_rounded,
         'bank' => Icons.account_balance_outlined,
         _ => Icons.qr_code_2_rounded,
       };
 
   String _kindLabel(String kind, bool te) => switch (kind) {
         'sms' => te ? 'బ్యాంక్ SMS' : 'Bank SMS',
+        'email' => te ? 'బ్యాంక్ ఈమెయిల్' : 'Bank e-mail',
         'bank' => te ? 'బ్యాంక్ యాప్' : 'Bank app',
         _ => te ? 'UPI యాప్' : 'UPI app',
       };
@@ -712,6 +714,12 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${_kindLabel(askodoxMoneyAppKind(e.key, e.value), te)} · ${_appLine(e.key, te)}',
                     style: const TextStyle(fontSize: 11.5)),
+                if (askodoxMoneyAppKind(e.key, e.value) == 'email')
+                  Padding(
+                    key: ValueKey('askodoxMineMailHint-${e.key}'),
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(askodoxBankMailHint(e.key, te), style: const TextStyle(fontSize: 11.5)),
+                  ),
                 if (_shopListening)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),

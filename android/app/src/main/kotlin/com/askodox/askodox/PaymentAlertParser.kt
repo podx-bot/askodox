@@ -1173,6 +1173,38 @@ object PaymentAlertParser {
     }
 
     /**
+     * Owner 2026-11-25 (Rs 30,000 paid: no app notification, no SMS for a long time): banks also send an E-MAIL alert for
+     * every UPI / card / account debit and credit, often before the SMS. A mail app's notification shows the SENDER's
+     * name as its title ("HDFC Bank InstaAlerts", "alerts@hdfcbank.net", "State Bank of India", "Axis Bank Alerts").
+     * Only a sender that names a BANK is read -- a shop's / app's receipt ("Amazon.in: payment of Rs 499 successful",
+     * "Swiggy: Rs 350 paid") is never money (the same words would be read the wrong way round). No fixed bank list: the
+     * word "bank" or a bank's short name in the sender. Loan / card marketplaces (BankBazaar, Paisabazaar) are not banks.
+     */
+    fun bankMail(sender: String?): Boolean {
+        val s = sender?.lowercase(Locale.ROOT)?.trim().orEmpty()
+        if (s.isEmpty() || s.contains("bazaar")) return false
+        val words = Regex("""[a-z0-9]+""").findAll(s).map { it.value }.toSet()
+        // A bank group's insurer / fund house / broker ("HDFC Life", "ICICI Prudential", "Kotak Securities") is not the bank.
+        if (words.any { it in notBankWords }) return false
+        if (s.contains("bank")) return true
+        return words.any { it in bankShortNames }
+    }
+
+    private val notBankWords = setOf("life", "prudential", "lombard", "securities", "ergo", "insurance", "mutual", "mf",
+        "amc", "sec", "general", "health", "capital", "credila", "housing", "home")
+
+    /** Short names banks send alert mail under (sender names / mail domains such as alerts.sbi.co.in, kotak.com). */
+    private val bankShortNames = setOf(
+        "sbi", "hdfc", "hdfcbank", "icici", "icicibank", "axis", "axisbank", "kotak", "kotak811", "pnb", "bob", "idfc",
+        "idfcfirst", "idfcfirstbank", "indusind", "aubank", "rbl", "idbi", "uco", "iob", "unionbank", "dbs", "hsbc",
+        "equitas", "ujjivan", "kvb", "tmb", "dcb", "jkbank", "southindian", "bandhan", "apgvb", "tsgb", "paytmbank",
+        "ippb", "canarabank", "federalbank", "yesbank", "bankofbaroda", "sbicard",
+    )
+
+    /** Kinds of message that are the BANK's own word about the money (its SMS, its alert e-mail). */
+    val BANK_KINDS = setOf("sms", "email")
+
+    /**
      * Owner 2026-11-19 (fake SMS): a "money received" SMS from a PERSON's number ("+91 98765 43210", "9876543210") is
      * how fraudsters fake a payment -- banks send from registered sender ids, never a mobile number. Such an SMS is
      * written in the history with a warning and is never spoken as received. A name the phone shows (a contact, or a
@@ -1438,9 +1470,9 @@ object PaymentAlertParser {
         if (msg.direction != "out" || r.direction != "out" || msg.summary) return false
         if (msg.kind in SIDE_KINDS || r.kinds.any { it in SIDE_KINDS }) return false
         if (msg.kind in r.kinds) return false
-        val rowHasSms = "sms" in r.kinds
-        val msgIsSms = msg.kind == "sms"
-        if (rowHasSms == msgIsSms) return false
+        // Owner 2026-11-25 ("notification, SMS, e-mail: if the 3 are one, say it once, however late"): at least one of
+        // the two is the BANK's own word (its SMS or its alert e-mail); two apps alone keep the normal windows.
+        if (msg.kind !in BANK_KINDS && r.kinds.none { it in BANK_KINDS }) return false
         return kotlin.math.abs(gapMs) <= OWN_OUT_LATE_MS && !namesClash(r.payer, msg.payer)
     }
 

@@ -61,21 +61,24 @@ class Sim {
         val at = base + atMin * 60_000L
         val msg = when (val r = PaymentAlertParser.parse(title, text)) {
             is Result.Accepted -> PaymentAlertParser.Msg(pkg, kind, "in", r.amountPaise, at, r.account, r.reference,
-                PaymentAlertParser.upiHandleTail("${title ?: ""} $text"), r.payer, bankSms = kind == "sms", summary = summary)
-            is Result.Outgoing -> PaymentAlertParser.Msg(pkg, kind, "out", r.amountPaise, at, r.account, null, null, r.party,
-                bankSms = kind == "sms", summary = summary)
+                PaymentAlertParser.upiHandleTail("${title ?: ""} $text"), r.payer, bankSms = kind in PaymentAlertParser.BANK_KINDS,
+                summary = summary, textKey = PaymentAlertParser.messageKey(text))
+            is Result.Outgoing -> PaymentAlertParser.Msg(pkg, kind, "out", r.amountPaise, at, r.account,
+                PaymentAlertParser.rrn(text), null, r.party, bankSms = kind in PaymentAlertParser.BANK_KINDS, summary = summary,
+                textKey = PaymentAlertParser.messageKey(text))
             else -> return "ignored"
         }
         val hit = PaymentAlertParser.pickSamePayment(rows, msg, taken)
         if (hit != null) {
             val o = rows[hit]
-            rows[hit] = o.copy(kinds = (o.kinds + kind).distinct(), apps = (o.apps + pkg).distinct(), reference = o.reference ?: msg.reference,
+            rows[hit] = o.copy(kinds = (o.kinds + kind).distinct(), apps = (o.apps + pkg).distinct(),
+                textKeys = o.textKeys + listOfNotNull(msg.textKey), reference = o.reference ?: msg.reference,
                 handle = o.handle ?: msg.handle, payer = o.payer ?: msg.payer, account = o.account ?: msg.account)
             taken.add(hit)
             return "joined"
         }
         rows.add(PaymentAlertParser.Row(rows.size, msg.atMs, pkg, kind, listOf(kind), msg.direction, msg.amountPaise,
-            msg.account, msg.reference, msg.handle, msg.payer, apps = listOf(pkg)))
+            msg.account, msg.reference, msg.handle, msg.payer, apps = listOf(pkg), textKeys = listOfNotNull(msg.textKey)))
         taken.add(rows.size - 1)
         if (summary) return "late"
         spoken++
@@ -88,6 +91,8 @@ const val PHONEPE = "com.phonepe.app"
 const val HDFC_APP = "com.snapwork.hdfc"
 const val PAYTM = "net.one97.paytm"
 const val TRUECALLER = "com.truecaller"
+const val GMAIL = "com.google.android.gm"
+const val OUTLOOK = "com.microsoft.office.outlook"
 
 fun main() {
     // UPI apps
@@ -588,6 +593,80 @@ fun main() {
         any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912345678", 0)
         val second = any(SMS, "sms", "AX-HDFCBK-S", "Sent Rs.6500.00 From HDFC Bank A/C *1234 To RAVI TEJA On 25/11/26 Ref 532912349999", 3 * 60)
         yes("own debit: a second bank SMS = a second payment", second == "spoken" && spoken == 2)
+    }
+    // ---------------------------------------------------------------- the bank's alert E-MAIL (owner 2026-11-25)
+    // Owner 2026-11-25 (Rs 30,000 paid: no app notification, no SMS): the bank's alert e-mail is read too. Only a sender
+    // that names a bank; the mail must name the person's own account. Notification + SMS + e-mail of ONE payment = ONE
+    // voice, ONE row, whatever the order and however late one of them comes.
+    yes("mail from HDFC InstaAlerts = bank", PaymentAlertParser.bankMail("HDFC Bank InstaAlerts"))
+    yes("mail from alerts@hdfcbank.net = bank", PaymentAlertParser.bankMail("alerts@hdfcbank.net"))
+    yes("mail from State Bank of India = bank", PaymentAlertParser.bankMail("State Bank of India"))
+    yes("mail from SBI = bank", PaymentAlertParser.bankMail("SBI"))
+    yes("mail from Axis Bank Alerts = bank", PaymentAlertParser.bankMail("Axis Bank Alerts"))
+    yes("mail from ICICI Bank = bank", PaymentAlertParser.bankMail("ICICI Bank"))
+    yes("mail from Kotak = bank", PaymentAlertParser.bankMail("Kotak Mahindra Bank"))
+    yes("mail from Amazon is not a bank", !PaymentAlertParser.bankMail("Amazon.in"))
+    yes("mail from Swiggy is not a bank", !PaymentAlertParser.bankMail("Swiggy"))
+    yes("mail from BankBazaar is not a bank", !PaymentAlertParser.bankMail("BankBazaar"))
+    yes("mail from HDFC Life is not the bank", !PaymentAlertParser.bankMail("HDFC Life"))
+    yes("mail from ICICI Prudential is not the bank", !PaymentAlertParser.bankMail("ICICI Prudential Life"))
+    yes("mail with no sender is not a bank", !PaymentAlertParser.bankMail(null))
+    check("hdfc mail: UPI debit", "HDFC Bank InstaAlerts", "❗ You have done a UPI txn. Check details! Dear Customer, Rs.30000.00 has been debited from account **1234 to VPA shop.x@okaxis SHOP X on 25-11-26. Your UPI transaction reference number is 532912345678.", "OUT 3000000")
+    check("hdfc mail: UPI debit account", "HDFC Bank InstaAlerts", "Dear Customer, Rs.30000.00 has been debited from account **1234 to VPA shop.x@okaxis SHOP X on 25-11-26. Your UPI transaction reference number is 532912345678.", "OUT 3000000 to=null acct=1234")
+    check("hdfc mail: UPI credit", "HDFC Bank InstaAlerts", "You have received a credit in your Bank Account Dear Customer, Rs. 500.00 is successfully credited to your account **1234 by VPA ravi.teja@ybl RAVI TEJA on 25-11-26. Your UPI transaction reference number is 532912345111.", "IN 50000 payer=ravi teja acct=1234 ref=532912345111")
+    check("icici mail: debit", "ICICI Bank", "Transaction alert for your ICICI Bank Account Dear Customer, Your ICICI Bank Account XX123 has been debited with INR 6,500.00 on 25-Nov-26. Info: UPI-532912345678-RAVI TEJA. The Available Balance is INR 1,000.00.", "OUT 650000")
+    check("sbi mail: debit", "SBI", "Transaction Alert Dear Customer, Your A/C XXXXX1234 has a debit by transfer of Rs 500.00 on 25/11/26 transfer to RAVI Ref No 532912345222. Avl Bal Rs 1000.00", "OUT 50000")
+    check("axis mail: debit", "Axis Bank Alerts", "Debit transaction alert for Axis Bank A/c Dear Customer, INR 750.00 was debited from your A/c no. XX1234 on 25-11-2026 at 14:03:11 IST. Transaction Info: UPI/P2A/532912345333/RAVI TEJA", "OUT 75000")
+    check("kotak mail: credit", "Kotak Bank", "Kotak Bank Alert: Rs.200.00 credited to your account xx1234 on 25-11-26 by UPI from ravi@okhdfc. UPI Ref 532912345444", "IN 20000")
+    check("bank offer mail = not money", "HDFC Bank", "Exclusive offer! Get cashback up to Rs.500 on your HDFC Bank Credit Card. Apply now", "IGNORED")
+    check("card statement mail = not money", "HDFC Bank", "Your HDFC Bank Credit Card statement for Nov 2026: Total amount due Rs.12,000.00, payment due date 05-Dec-2026", "IGNORED")
+    val hdfcDebitSms = "Sent Rs.30000.00 From HDFC Bank A/C *1234 To SHOP X On 25/11/26 Ref 532912345678 Not You? Call 18002586161"
+    val hdfcDebitMail = "❗ You have done a UPI txn. Check details! Dear Customer, Rs.30000.00 has been debited from account **1234 to VPA shop.x@okaxis SHOP X on 25-11-26. Your UPI transaction reference number is 532912345678."
+    // Money SENT: e-mail first (no SMS, no notification yet) = spoken at once; the SMS 3 h later and the app 8 h later join.
+    Sim().run {
+        val first = any(GMAIL, "email", "HDFC Bank InstaAlerts", hdfcDebitMail, 0)
+        val sms = any(SMS, "sms", "AX-HDFCBK-S", hdfcDebitSms, 3 * 60)
+        val app = any(PHONEPE, "upi", "Paid ₹30,000", "Payment of ₹30,000 to SHOP X is successful", 8 * 60)
+        yes("e-mail first = the one voice (owner 2026-11-25)", first == "spoken")
+        yes("SMS 3 h later + app 8 h later = silent, ONE row", sms == "joined" && app == "joined" && spoken == 1 && rows.size == 1)
+        yes("the row holds e-mail + SMS + app", rows[0].kinds.containsAll(listOf("email", "sms", "upi")))
+    }
+    // Money SENT: SMS, app, e-mail in the usual order, minutes apart = one voice.
+    Sim().run {
+        any(SMS, "sms", "AX-HDFCBK-S", hdfcDebitSms, 0)
+        val app = any(PHONEPE, "upi", "Paid ₹30,000", "Payment of ₹30,000 to SHOP X is successful", 1)
+        val mail = any(GMAIL, "email", "HDFC Bank InstaAlerts", hdfcDebitMail, 4)
+        yes("SMS + app + e-mail = one voice", app == "joined" && mail == "joined" && spoken == 1 && rows.size == 1)
+    }
+    // Money RECEIVED: notification, SMS, then the e-mail 90 min later with the same RRN = one voice.
+    Sim().run {
+        get(PHONEPE, "upi", null, "RAVI TEJA (9000000001@ybl) sent you ₹500", 0)
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.500.00 credited to HDFC Bank A/c XX1234 on 25-11-26 from VPA 9000000001@ybl (UPI 532912345111)", 1)
+        val mail = any(GMAIL, "email", "HDFC Bank InstaAlerts", "You have received a credit in your Bank Account Dear Customer, Rs. 500.00 is successfully credited to your account **1234 by VPA 9000000001@ybl RAVI TEJA on 25-11-26. Your UPI transaction reference number is 532912345111.", 90)
+        yes("received: notification + SMS + e-mail 90 min later = one voice", mail == "joined" && spoken == 1 && rows.size == 1)
+    }
+    // Money RECEIVED: the e-mail 5 h after the SMS -- the same RRN = the same money.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.500.00 credited to HDFC Bank A/c XX1234 on 25-11-26 from VPA 9000000001@ybl (UPI 532912345111)", 0)
+        val mail = any(GMAIL, "email", "HDFC Bank InstaAlerts", "Dear Customer, Rs. 500.00 is successfully credited to your account **1234 by VPA 9000000001@ybl RAVI TEJA on 25-11-26. Your UPI transaction reference number is 532912345111.", 5 * 60)
+        yes("received: e-mail 5 h after the SMS, same RRN = silent", mail == "joined" && spoken == 1)
+    }
+    // Two customers, same amount: the e-mail with ANOTHER RRN is another payment.
+    Sim().run {
+        get(SMS, "sms", "JD-HDFCBK-S", "Rs.100.00 credited to HDFC Bank A/c XX1234 on 25-11-26 (UPI 532912340001)", 0)
+        val mail = any(GMAIL, "email", "HDFC Bank InstaAlerts", "Dear Customer, Rs. 100.00 is successfully credited to your account **1234 by VPA 9000000002@ybl SURESH on 25-11-26. Your UPI transaction reference number is 532912340002.", 2)
+        yes("received: e-mail with another RRN = a second payment", mail == "spoken" && spoken == 2)
+    }
+    // Two e-mails of the same amount (two payments) = two voices; the same mail in Gmail AND Outlook = one.
+    Sim().run {
+        any(GMAIL, "email", "HDFC Bank InstaAlerts", "Dear Customer, Rs.500.00 has been debited from account **1234 to VPA a@ybl A on 25-11-26. Your UPI transaction reference number is 532912340011.", 0)
+        val second = any(GMAIL, "email", "HDFC Bank InstaAlerts", "Dear Customer, Rs.500.00 has been debited from account **1234 to VPA a@ybl A on 25-11-26. Your UPI transaction reference number is 532912340012.", 3)
+        yes("two bank e-mails, two RRNs = two payments", second == "spoken" && spoken == 2)
+    }
+    Sim().run {
+        any(GMAIL, "email", "HDFC Bank InstaAlerts", hdfcDebitMail, 0)
+        val again = any(OUTLOOK, "email", "HDFC Bank InstaAlerts", hdfcDebitMail, 1)
+        yes("the same mail in Gmail and Outlook = one", again == "joined" && spoken == 1)
     }
     // An ordinary (not summary) message hours later is still a new payment, as before.
     Sim().run {

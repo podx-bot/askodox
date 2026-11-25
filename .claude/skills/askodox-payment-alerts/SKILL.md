@@ -86,6 +86,14 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
     (`PaymentAlertParser.ownMoneyLate`). Money RECEIVED never uses it (two customers, same amount).
     A payment that sends NO notification and NO SMS cannot be heard by any phone app -- never guess one.
 
+18. The bank's alert E-MAIL is a third source (owner 2026-11-25: "notification, SMS, e-mail -- if the 3 are one, say it
+    once, however late"). Mail apps = kind `email` (`isMailApp`, catalogue Gmail / Outlook / Samsung Email / Yahoo /
+    Zoho). Read ONLY when the sender names a bank (`PaymentAlertParser.bankMail`: "bank" or a bank's short name; not
+    BankBazaar, not a bank group's insurer / fund / broker) AND the mail names the person's own account -- a shop's
+    receipt mail ("payment of Rs 499 successful") would be read the wrong way round. `BANK_KINDS` = sms + email: the
+    e-mail is bank-confirmed like the SMS; debits carry `rrn(text)` as their reference so SMS + e-mail + app match
+    exactly. Gmail notifies only Primary by default: the app shows `askodoxBankMailHint` (Notifications "All").
+
 ## How a message joins a row (`pickSamePayment`)
 
 - Same RRN on both → same payment, any order, within `SAME_REF_MS` (24 h). Two different full RRNs → never.
