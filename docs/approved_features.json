@@ -11901,6 +11901,42 @@
       }
     },
     {
+      "id": "buyer_agent_and_bills_pages_three_steps_batch29",
+      "name": "My helper and bill history (/bills/:id) in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 29; old pages stay at ?full=1.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "My helper: ONE question box on top, the answer from the person's own records in the middle, ONE Ask button with the mic; it never pays, approves or messages. /bills/:id opens the same 3-piece bill history as the business page (total on top, one list, one button for the days); its old page (pending / paid / remind) stays in the menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 29 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/buyer_agent_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBuyerAgentSteps",
+          "askodoxBuyerAgentStepsAsk"
+        ],
+        "symbols": [
+          "AskodoxBuyerAgentStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "payment_methods_page_three_steps_batch28",
       "name": "My accounts (payment methods) page in 3 pieces",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 28; old page stays at ?full=1.",

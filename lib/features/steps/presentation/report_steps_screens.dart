@@ -260,8 +260,11 @@ class _PoState extends ConsumerState<AskodoxPurchaseOrdersStepsScreen> {
 
 // ============================================================================ bill history
 class AskodoxBillHistoryStepsScreen extends ConsumerStatefulWidget {
-  const AskodoxBillHistoryStepsScreen({super.key, required this.businessId});
+  const AskodoxBillHistoryStepsScreen({super.key, required this.businessId, this.fullRoute});
   final String businessId;
+
+  /// The old page ⋮ opens (default: the business history page). `/bills/:id` passes its own (pending / remind).
+  final String? fullRoute;
 
   @override
   ConsumerState<AskodoxBillHistoryStepsScreen> createState() => _BillHistoryState();
@@ -346,7 +349,7 @@ class _BillHistoryState extends ConsumerState<AskodoxBillHistoryStepsScreen> {
       sub: _label(_range, te),
       more: [
         AskodoxStepMore('askodoxBillHistoryStepsFull', te ? 'పాత చరిత్ర పేజీ (క్యాష్ / ఆన్‌లైన్ / బాకీ ఫిల్టర్)' : 'Old history page (cash / online / baaki filters)',
-            Icons.menu_book_rounded, () => context.push('/biz/${widget.businessId}/money/history?full=1')),
+            Icons.menu_book_rounded, () => context.push(widget.fullRoute ?? '/biz/${widget.businessId}/money/history?full=1')),
       ],
       body: _error != null && d == null
           ? AskodoxPosError(error: _error!, onRetry: _load)
