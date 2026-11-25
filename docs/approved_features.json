@@ -11901,6 +11901,42 @@
       }
     },
     {
+      "id": "payment_methods_page_three_steps_batch28",
+      "name": "My accounts (payment methods) page in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 28; old page stays at ?full=1.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The QR customers scan (default UPI) on top, ONE list of my UPI IDs / bank accounts (tap = make default / remove, remove asks once), ONE big button adds a QR photo, a photographed QR, a typed UPI ID or a bank account. Share / copy, payment sound alerts and the old page in the menu. Money goes straight to the person; ASKODOX never holds it.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 28 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/payment_methods_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxPayMethodsSteps",
+          "askodoxPayMethodsStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxPaymentMethodsStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "catalogue_page_three_steps_batch27",
       "name": "Ready list page in 3 steps",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 27; old page stays at ?full=1.",

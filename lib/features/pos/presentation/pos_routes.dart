@@ -40,6 +40,7 @@ import '../../steps/presentation/hire_steps_screen.dart';
 import '../../steps/presentation/my_bills_steps_screen.dart';
 import '../../steps/presentation/my_deliveries_steps_screen.dart';
 import '../../steps/presentation/my_work_steps_screen.dart';
+import '../../steps/presentation/payment_methods_steps_screen.dart';
 import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
@@ -79,7 +80,11 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
       path: '/me/payments/phone',
       builder: (context, state) => AskodoxMyPhonePaymentsScreen(
           open: state.uri.queryParameters['open'] ?? '', shop: state.uri.queryParameters['shop'] ?? '')),
-  GoRoute(path: '/me/payment-methods', builder: (context, state) => const AskodoxMyPaymentMethodsScreen()),
+  GoRoute(
+      path: '/me/payment-methods',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? const AskodoxMyPaymentMethodsScreen()
+          : const AskodoxPaymentMethodsStepsScreen()),
   // Payment sound alerts without the POS (owner 2026-11-10): the shop, its staff and who hears the sound.
   GoRoute(path: '/me/payment-alerts', builder: (context, state) => const AskodoxMyPaymentAlertsScreen()),
   GoRoute(
