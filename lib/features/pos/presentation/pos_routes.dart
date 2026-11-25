@@ -35,6 +35,7 @@ import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
 import '../../steps/presentation/agents_steps_screens.dart';
 import '../../steps/presentation/branches_steps_screen.dart';
+import '../../steps/presentation/catalogue_steps_screen.dart';
 import '../../steps/presentation/hire_steps_screen.dart';
 import '../../steps/presentation/my_bills_steps_screen.dart';
 import '../../steps/presentation/my_deliveries_steps_screen.dart';
@@ -241,7 +242,10 @@ final askodoxPosRoutes = <GoRoute>[
           ? AskodoxPosItemsScreen(businessId: state.pathParameters['id']!)
           : AskodoxItemsStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
-      path: '/pos/:id/catalogue', builder: (context, state) => AskodoxPosCatalogueScreen(businessId: state.pathParameters['id']!)),
+      path: '/pos/:id/catalogue',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosCatalogueScreen(businessId: state.pathParameters['id']!)
+          : AskodoxCatalogueStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/item/:pid',
       builder: (context, state) =>

@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "catalogue_page_three_steps_batch27",
+      "name": "Ready list page in 3 steps",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 27; old page stays at ?full=1.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "1 pick a group (tiles with counts and ticks) -> 2 tick the items you sell (items already in the shop cannot be ticked) -> 3 your own price per item (size, GST % when registered) -> Add; nothing is added without a price. Kind of business in the menu (settings permission). Returns to the items page after adding.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 27 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/catalogue_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxCatalogueSteps",
+          "askodoxCatalogueStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxCatalogueStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "hire_page_three_steps_batch26",
       "name": "Hire a worker page in 3 steps",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 26; old page stays at ?full=1.",
