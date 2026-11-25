@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "shop_chooser_pages_three_steps_batch34",
+      "name": "Which shop? pages (/pos, /crm) and plain leads in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 34; old pages stay at ?full=1.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "/pos and /crm: Which shop? on top, ONE list of my shops (tap = open; CRM opens the only shop at once), ONE big button adds a shop (the same setup form). /pos/:id/crm/leads without a stage filter opens the 3-piece Enquiries page; with ?stage= the old filtered list.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 34 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/shop_chooser_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxShopChooserSteps",
+          "askodoxShopChooserStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxShopChooserStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "table_order_page_three_steps_batch33",
       "name": "Table / parcel order page in 3 steps",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 33; old page stays at ?full=1.",

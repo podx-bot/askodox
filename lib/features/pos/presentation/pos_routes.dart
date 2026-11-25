@@ -50,6 +50,7 @@ import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/order_track_steps_screen.dart';
 import '../../steps/presentation/people_steps_screens.dart';
 import '../../steps/presentation/report_steps_screens.dart';
+import '../../steps/presentation/shop_chooser_steps_screen.dart';
 import '../../steps/presentation/table_order_steps_screen.dart';
 import 'branches_screen.dart';
 import 'pos_restaurant_screens.dart';
@@ -177,7 +178,12 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(path: '/my-shop/printer', builder: (context, state) => AskodoxShopToolScreen(tool: 'printer', query: state.uri.query)),
   GoRoute(path: '/my-shop/advance', builder: (context, state) => AskodoxShopToolScreen(tool: 'advance', query: state.uri.query)),
   GoRoute(path: '/my-shop/selfshop', builder: (context, state) => AskodoxShopToolScreen(tool: 'selfshop', query: state.uri.query)),
-  GoRoute(path: '/pos', builder: (context, state) => const AskodoxPosHomeScreen()),
+  GoRoute(
+      path: '/pos',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? const AskodoxPosHomeScreen()
+          : AskodoxShopChooserStepsScreen(
+              titleEn: 'Shop billing (POS)', titleTe: 'షాప్ బిల్లింగ్ (POS)', openRoute: (id) => '/pos/$id', fullRoute: '/pos?full=1')),
   GoRoute(path: '/pos/:id', builder: (context, state) => AskodoxPosDashboardScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/collect',
@@ -229,7 +235,16 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) =>
           state.uri.queryParameters['full'] == '1' ? const AskodoxBuyerAgentScreen() : const AskodoxBuyerAgentStepsScreen()),
   // Business CRM (My Business -> Business CRM; also a tile on the shop dashboard).
-  GoRoute(path: '/crm', builder: (context, state) => const AskodoxCrmEntryScreen()),
+  GoRoute(
+      path: '/crm',
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? const AskodoxCrmEntryScreen()
+          : AskodoxShopChooserStepsScreen(
+              titleEn: 'Business CRM',
+              titleTe: 'Business CRM',
+              openRoute: (id) => '/pos/$id/crm',
+              fullRoute: '/crm?full=1',
+              jumpIfOne: true)),
   GoRoute(
       path: '/pos/:id/crm',
       // A link with ?tab= (complaints, quotations ...) still opens the old tabbed page.
@@ -238,8 +253,10 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxEnquiriesStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/crm/leads',
-      builder: (context, state) => AskodoxPosCrmLeadsScreen(
-          businessId: state.pathParameters['id']!, stage: state.uri.queryParameters['stage'] ?? '')),
+      // A stage filter (?stage=) or ?full=1 keeps the old filtered list; plain = the 3-piece Enquiries page.
+      builder: (context, state) => state.uri.queryParameters['full'] == '1' || (state.uri.queryParameters['stage'] ?? '').isNotEmpty
+          ? AskodoxPosCrmLeadsScreen(businessId: state.pathParameters['id']!, stage: state.uri.queryParameters['stage'] ?? '')
+          : AskodoxEnquiriesStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/crm/lead/:lid',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'

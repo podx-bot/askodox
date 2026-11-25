@@ -831,9 +831,9 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ]),
   // ------------------------------------------------------------------- POS
   '/pos': _H('Shop billing', 'షాప్ బిల్లింగ్', [
-    'Open your shop, or create one (name, GST type, State).',
+    'Which shop? Tap your shop to open it. The big button adds a shop (name, GST type, State).',
   ], [
-    'మీ షాప్ తెరవండి, లేదా కొత్తది తయారు చేయండి (పేరు, GST రకం, రాష్ట్రం).',
+    'ఏ షాపు? మీ షాపు నొక్కి తెరవండి. పెద్ద బటన్ కొత్త షాపు చేరుస్తుంది (పేరు, GST రకం, రాష్ట్రం).',
   ]),
   '/pos/:id': _H('Shop dashboard', 'షాప్ డ్యాష్‌బోర్డ్', [
     'Counter bill to sell; Stock & barcodes to add what you sell.',
@@ -896,11 +896,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'షాప్ అడ్వాన్స్: ప్రతి మార్పుకీ కస్టమర్ తమ యాప్‌లో ఆమోదించాలి. ఇతర నెలలు, పాత పేజీ: ⋮.',
   ]),
   '/crm': _H('Business CRM', 'Business CRM', [
-    'Opens the CRM of your shop (pick the shop if you have more than one).',
-    'No shop yet? Add it in Shop billing first: the CRM works on your shop customers, bills and staff.',
+    'Opens the CRM of your shop (with more than one shop, tap the shop).',
+    'No shop yet? The big button adds it: the CRM works on your shop customers, bills and staff.',
   ], [
-    'మీ shop CRM తెరుస్తుంది (ఒకటి కంటే ఎక్కువ shops ఉంటే shop ఎంచుకోండి).',
-    'Shop ఇంకా లేదా? ముందు Shop billing లో చేర్చండి: CRM మీ shop customers, bills, staff మీదే పని చేస్తుంది.',
+    'మీ shop CRM తెరుస్తుంది (ఒకటి కంటే ఎక్కువ shops ఉంటే shop నొక్కండి).',
+    'Shop ఇంకా లేదా? పెద్ద బటన్ చేరుస్తుంది: CRM మీ shop customers, bills, staff మీదే పని చేస్తుంది.',
   ]),
   '/pos/:id/agents': _H('AI agents', 'AI Agents', [
     'Only the agents your role allows: owner, sales, support, finance, inventory, HR, tax.',
@@ -989,9 +989,9 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పెద్ద బటన్ కొత్త ఎంక్వైరీ చేరుస్తుంది. కొటేషన్లు, ఫిర్యాదులు, రిపోర్ట్స్ మూడు చుక్కల మెనూలో (పాత పేజీ).',
   ]),
   '/pos/:id/crm/leads': _H('Leads & enquiries', 'Leads & Enquiries', [
-    'Filter by stage or "Mine"; tap a lead to work on it.',
+    'Open enquiries on top, one list; tap a lead to work on it. A link with a stage filter opens the old filtered list.',
   ], [
-    'Stage లేదా "నావి" తో filter చేయండి; lead నొక్కి పని చేయండి.',
+    'పైన open enquiries, ఒకే list; lead నొక్కి పని చేయండి. Stage filter ఉన్న link పాత list తెరుస్తుంది.',
   ]),
   '/pos/:id/crm/lead/:lid': _H('Lead', 'Lead వివరాలు', [
     'The number on top is what it is worth; below are follow-ups and what happened.',
