@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "table_order_page_three_steps_batch33",
+      "name": "Table / parcel order page in 3 steps",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 33; old page stays at ?full=1.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Estimate on top, ONE list of the order's items (tap = take out; an item already in the kitchen needs a reason), ONE big button that is always the next step: Add items (menu sheet with search, quantity + note) -> Send to kitchen (n) -> Bill (same bill arithmetic and payment sheet with the owner's UPI QR). Move table, close without a bill and billing only some items (old page) in the menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 33 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/table_order_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxTableOrderSteps",
+          "askodoxTableOrderStepsKot"
+        ],
+        "symbols": [
+          "AskodoxTableOrderStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "order_code_page_three_steps_batch32",
       "name": "Order at a shop / table page in 3 pieces",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 32; old page stays at ?full=1.",

@@ -50,6 +50,7 @@ import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/order_track_steps_screen.dart';
 import '../../steps/presentation/people_steps_screens.dart';
 import '../../steps/presentation/report_steps_screens.dart';
+import '../../steps/presentation/table_order_steps_screen.dart';
 import 'branches_screen.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
@@ -331,8 +332,9 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxTablesStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/order/:oid',
-      builder: (context, state) =>
-          AskodoxPosOrderScreen(businessId: state.pathParameters['id']!, orderId: state.pathParameters['oid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosOrderScreen(businessId: state.pathParameters['id']!, orderId: state.pathParameters['oid']!)
+          : AskodoxTableOrderStepsScreen(businessId: state.pathParameters['id']!, orderId: state.pathParameters['oid']!)),
   GoRoute(
       path: '/pos/:id/kitchen',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
