@@ -291,6 +291,20 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
               _kv(te ? 'రిఫరెన్స్' : 'Reference', '${i.raw['reference'] ?? '••${i.raw['reference_tail']}'}'),
             if (i.sub.isNotEmpty) _kv(te ? 'ఎక్కడ నుంచి' : 'From', i.sub),
             if (i.raw['balance_paise'] is num) _kv(te ? 'బ్యాలెన్స్ (SMS)' : 'Balance (SMS)', _rs((i.raw['balance_paise'] as num).toInt())),
+            // Owner 2026-11-25: the message this row was read from (kept on this phone only, never uploaded).
+            if (_owner == 'me' && _rowMessage(i).isNotEmpty)
+              Container(
+                key: const Key('askodoxMoneyDetailMessage'),
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(te ? 'వచ్చిన మెసేజ్ (ఈ ఫోన్‌లోనే ఉంటుంది)' : 'The message (stays on this phone)',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5B6475))),
+                  const SizedBox(height: 4),
+                  SelectableText(_rowMessage(i), style: const TextStyle(fontSize: 13)),
+                ]),
+              ),
             if (i.direction == 'out' && _owner == 'me')
               _kv(te ? 'దేనికి' : 'For', cat.isEmpty ? (te ? 'వర్గం లేదు' : 'Not set') : (te ? askodoxCategoryLabel(cat).$2 : askodoxCategoryLabel(cat).$1)),
             if (linked != null) ...[
@@ -346,6 +360,11 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
       ),
     );
   }
+
+  String _rowMessage(AskodoxMoneyItem i) => [
+        '${i.raw['raw_title'] ?? ''}'.trim(),
+        '${i.raw['raw_text'] ?? ''}'.trim(),
+      ].where((x) => x.isNotEmpty).join('\n');
 
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
