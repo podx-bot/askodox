@@ -12,6 +12,7 @@ import '../domain/money_ledger.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
 import 'pay_alert_disclaimer.dart';
+import '../../steps/presentation/step_kit.dart';
 
 /// ONE money history (owner 2026-11-17, design "ASKODOX డబ్బు హిస్టరీ — అన్నీ ఒకే చోట"): the phone's payments, the bills
 /// the person got, a shop's bills and Razorpay alerts, upcoming dues -- one list, with "which bill did this pay", "what
@@ -621,7 +622,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                   key: const Key('askodoxMoneyDues'),
                   onPressed: () async {
                     await Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => AskodoxDuesScreen(phoneEvents: _data.phoneEvents, items: all)));
+                        builder: (_) => AskodoxUpcomingStepsScreen(phoneEvents: _data.phoneEvents, items: all)));
                     await _load(quiet: true);
                   },
                   child: Text(upcoming.isEmpty ? (te ? '+ చేర్చు' : '+ Add') : (te ? 'అన్నీ ›' : 'All ›')),
@@ -992,7 +993,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
         trailing: const Icon(Icons.chevron_right),
         onTap: () async {
           await Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => AskodoxDuesScreen(phoneEvents: _data.phoneEvents, items: _items())));
+              builder: (_) => AskodoxUpcomingStepsScreen(phoneEvents: _data.phoneEvents, items: _items())));
           await _load(quiet: true);
         },
       ),
@@ -1660,6 +1661,254 @@ class _DueSheetState extends State<_DueSheet> {
           const SizedBox(height: 12),
           FilledButton(key: const Key('askodoxDueSave'), onPressed: _save, child: Text(te ? 'సేవ్' : 'Save')),
         ]),
+      ),
+    );
+  }
+}
+
+/// Owner 2026-11-25 (3-step design, batch 30): "Coming up" (EMI, current bill, rent ...) in 3 pieces.
+/// Top = ONE number (due this week), middle = ONE list (what SMS found, then my dues by date; tap = Paid / Edit /
+/// Delete, delete asks once), bottom = ONE big "Add EMI / bill / rent". The same phone-only data and voice reminders as
+/// [AskodoxDuesScreen], which stays in ⋮ (and at `/me/dues?full=1`).
+class AskodoxUpcomingStepsScreen extends ConsumerStatefulWidget {
+  const AskodoxUpcomingStepsScreen({super.key, this.phoneEvents = const [], this.items = const []});
+  final List<AskodoxJson> phoneEvents;
+  final List<AskodoxMoneyItem> items;
+
+  @override
+  ConsumerState<AskodoxUpcomingStepsScreen> createState() => _UpcomingStepsState();
+}
+
+class _UpcomingStepsState extends ConsumerState<AskodoxUpcomingStepsScreen> {
+  AskodoxMyPhoneAlerts? _mine;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(AskodoxMyPhoneAlerts.load().then((m) {
+      if (mounted) setState(() => _mine = m);
+    }));
+  }
+
+  Future<void> _save(void Function(AskodoxMyPhoneAlerts m) edit) async {
+    final m = _mine;
+    if (m == null) return;
+    edit(m);
+    await m.save();
+    try {
+      final bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
+      await bridge.configurePersonal(_nativeOf(ref, m));
+      unawaited(bridge.checkDues());
+    } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _edit({AskodoxDue? due, String name = '', int amount = 0, DateTime? date, String category = '', String dismiss = ''}) async {
+    final out = await showModalBottomSheet<AskodoxDue>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _DueSheet(due: due, name: name, amount: amount, date: date, category: category),
+    );
+    if (out == null) return;
+    await _save((m) {
+      m.dues = [for (final d in m.dues) if (d.id != out.id) d, out];
+      if (dismiss.isNotEmpty) m.dismissed = {...m.dismissed, dismiss};
+    });
+  }
+
+  Future<void> _suggestion(String title, String sub, VoidCallback add, VoidCallback no, String key) async {
+    final te = askodoxPosTe(context);
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+            if (sub.isNotEmpty) Text(sub, style: const TextStyle(color: askodoxStepMuted)),
+            const SizedBox(height: 12),
+            FilledButton(
+                key: ValueKey('$key-add'),
+                style: FilledButton.styleFrom(backgroundColor: askodoxStepGreen, minimumSize: const Size.fromHeight(54)),
+                onPressed: () => Navigator.pop(ctx, 'add'),
+                child: Text(te ? 'జోడించు' : 'Add')),
+            const SizedBox(height: 8),
+            OutlinedButton(
+                key: ValueKey('$key-no'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                onPressed: () => Navigator.pop(ctx, 'no'),
+                child: Text(te ? 'ఇది కాదు' : 'Not this')),
+          ]),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (v == 'add') add();
+    if (v == 'no') no();
+  }
+
+  Future<void> _due(AskodoxDue d, DateTime? next) async {
+    final te = askodoxPosTe(context);
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('${d.name} · ${_rs(d.amountPaise)}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+            if (next != null) Text('${next.day}/${next.month}/${next.year}', style: const TextStyle(color: askodoxStepMuted)),
+            const SizedBox(height: 12),
+            if (next != null) ...[
+              FilledButton(
+                  key: ValueKey('askodoxUpcomingStepsPaid-${d.id}'),
+                  style: FilledButton.styleFrom(backgroundColor: askodoxStepGreen, minimumSize: const Size.fromHeight(54)),
+                  onPressed: () => Navigator.pop(ctx, 'paid'),
+                  child: Text(te ? 'కట్టాను' : 'Paid')),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton(
+                key: ValueKey('askodoxUpcomingStepsEdit-${d.id}'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                onPressed: () => Navigator.pop(ctx, 'edit'),
+                child: Text(te ? 'మార్చు' : 'Edit')),
+            const SizedBox(height: 8),
+            OutlinedButton(
+                key: ValueKey('askodoxUpcomingStepsDelete-${d.id}'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), foregroundColor: askodoxStepBad),
+                onPressed: () => Navigator.pop(ctx, 'delete'),
+                child: Text(te ? 'తొలగించు' : 'Delete')),
+          ]),
+        ),
+      ),
+    );
+    if (v == null || !mounted) return;
+    if (v == 'paid' && next != null) {
+      await _save((m) => m.dues = [
+            for (final x in m.dues) x.id == d.id ? x.copyWith(paidDates: [...x.paidDates, askodoxDay(next)]) : x,
+          ]);
+    } else if (v == 'edit') {
+      await _edit(due: d);
+    } else if (v == 'delete') {
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(te ? '${d.name} తొలగించాలా?' : 'Delete ${d.name}?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(te ? 'వద్దు' : 'No')),
+            FilledButton(
+                key: const Key('askodoxUpcomingStepsDeleteYes'),
+                onPressed: () => Navigator.pop(dialog, true),
+                child: Text(te ? 'తొలగించు' : 'Delete')),
+          ],
+        ),
+      );
+      if (sure == true && mounted) await _save((m) => m.dues = [for (final x in m.dues) if (x.id != d.id) x]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final te = askodoxPosTe(context);
+    final m = _mine;
+    final title = te ? 'కట్టాల్సినవి' : 'Coming up';
+    final more = [
+      AskodoxStepMore('askodoxUpcomingStepsFull', te ? 'పాత పేజీ' : 'Old page', Icons.menu_book_rounded,
+          () => Navigator.of(context)
+              .push(MaterialPageRoute<void>(builder: (_) => AskodoxDuesScreen(phoneEvents: widget.phoneEvents, items: widget.items)))
+              .then((_) => AskodoxMyPhoneAlerts.load().then((x) {
+                    if (mounted) setState(() => _mine = x);
+                  }))),
+    ];
+    if (m == null) return AskodoxStepScaffold(title: title, more: more, body: const Center(child: CircularProgressIndicator()));
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final rows = <(AskodoxDue, DateTime?)>[for (final d in m.dues) (d, askodoxNextDue(d, now))]
+      ..sort((a, b) => (a.$2 ?? DateTime(2100)).compareTo(b.$2 ?? DateTime(2100)));
+    final week = rows.where((r) => r.$2 != null && r.$2!.difference(today).inDays <= 7).fold<int>(0, (a, r) => a + r.$1.amountPaise);
+    final found = askodoxDueSuggestions(widget.phoneEvents, m.dues, m.dismissed, now);
+    final emis = askodoxEmiSuggestions(widget.items, m.dues, m.dismissed);
+    return AskodoxStepScaffold(
+      key: const Key('askodoxUpcomingSteps'),
+      title: title,
+      more: more,
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
+        AskodoxStepBigNumber(_rs(week),
+            key: const Key('askodoxUpcomingStepsWeek'), label: te ? 'ఈ వారం కట్టాల్సింది' : 'Due this week', color: week > 0 ? _amber : _green),
+        const SizedBox(height: 8),
+        for (final e in found)
+          AskodoxStepPersonRow(
+            key: ValueKey('askodoxUpcomingStepsFound-${e['local_id']}'),
+            name: te ? 'కొత్తది: ${e['party']}' : 'Found: ${e['party']}',
+            sub: '${e['due_date'] ?? ''} · ${e['source_label'] ?? ''}',
+            amount: _rs(askodoxPosInt(e['amount_paise'])),
+            amountColor: askodoxStepWarn,
+            onTap: () => _suggestion(
+              '${e['party']} ${_rs(askodoxPosInt(e['amount_paise']))}',
+              '${e['due_date'] ?? ''}',
+              () => _edit(
+                  name: '${e['party'] ?? ''}',
+                  amount: askodoxPosInt(e['amount_paise']),
+                  date: DateTime.tryParse('${e['due_date']}'),
+                  category: askodoxCategoryOf(
+                      AskodoxMoneyItem(id: '', kind: 'due', direction: 'out', amountPaise: 0, at: now, title: '${e['party'] ?? ''}')),
+                  dismiss: '${e['local_id']}'),
+              () => _save((x) => x.dismissed = {...x.dismissed, '${e['local_id']}'}),
+              'askodoxUpcomingStepsFound-${e['local_id']}',
+            ),
+          ),
+        for (final e in emis)
+          AskodoxStepPersonRow(
+            key: ValueKey('askodoxUpcomingStepsEmi-${e.id}'),
+            name: te ? 'EMI లా ఉంది: ${e.title}' : 'Looks like an EMI: ${e.title}',
+            sub: '${e.at.day}/${e.at.month}',
+            amount: _rs(e.amountPaise),
+            amountColor: askodoxStepWarn,
+            onTap: () => _suggestion(
+              te ? '${e.title} — ప్రతి నెల అదే రోజు?' : '${e.title} — monthly on the same day?',
+              _rs(e.amountPaise),
+              () => _edit(
+                  name: e.title.isEmpty ? 'EMI' : '${e.title} EMI',
+                  amount: e.amountPaise,
+                  date: DateTime(e.at.year, e.at.month + 1, e.at.day),
+                  category: 'emi',
+                  dismiss: e.id),
+              () => _save((x) => x.dismissed = {...x.dismissed, e.id}),
+              'askodoxUpcomingStepsEmi-${e.id}',
+            ),
+          ),
+        if (rows.isEmpty && found.isEmpty && emis.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+                te
+                    ? 'EMI, కరెంట్ బిల్, అద్దె, రీఛార్జ్, LIC… జోడించండి. గడువుకు 2 రోజుల ముందు, ఆ రోజు వాయిస్‌తో చెప్తుంది.'
+                    : 'Add EMI, current bill, rent, recharge, insurance… It is said aloud 2 days before and on the day.',
+                textAlign: TextAlign.center),
+          ),
+        for (final (d, next) in rows)
+          AskodoxStepPersonRow(
+            key: ValueKey('askodoxUpcomingStepsDue-${d.id}'),
+            name: d.name,
+            sub: () {
+              if (next == null) return te ? 'అన్నీ కట్టారు ✓' : 'All paid ✓';
+              final left = next.difference(today).inDays;
+              if (left < 0) return te ? '${next.day}/${next.month} · ${-left} రోజులు దాటింది' : '${next.day}/${next.month} · ${-left} days late';
+              if (left == 0) return te ? 'ఈ రోజు' : 'Today';
+              return te ? '${next.day}/${next.month} · $left రోజుల్లో' : '${next.day}/${next.month} · in $left days';
+            }(),
+            amount: _rs(d.amountPaise),
+            amountColor: next == null ? _green : (next.difference(today).inDays <= 2 ? _amber : askodoxStepInk),
+            onTap: () => _due(d, next),
+          ),
+      ]),
+      bottom: AskodoxStepBottom(
+        buttonKey: const Key('askodoxUpcomingStepsAdd'),
+        label: te ? 'EMI / బిల్ / అద్దె జోడించు' : 'Add EMI / bill / rent',
+        icon: Icons.add_rounded,
+        onPressed: () => _edit(),
       ),
     );
   }

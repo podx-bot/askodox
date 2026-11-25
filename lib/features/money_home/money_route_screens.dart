@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../pos/data/pos_payment_alerts.dart';
 import '../pos/data/pos_repository.dart' show AskodoxJson;
 import '../pos/domain/money_ledger.dart';
-import '../pos/presentation/money_screens.dart' show AskodoxDuesScreen;
+import '../pos/presentation/money_screens.dart' show AskodoxDuesScreen, AskodoxUpcomingStepsScreen;
 import 'payment_voice_sheet.dart';
 
 /// `/payment-voice[?shop=<id>]`: the Payment voice folder as its own page, so a Home chat shortcut can open it
@@ -30,7 +30,10 @@ class AskodoxPaymentVoiceScreen extends StatelessWidget {
 
 /// `/me/dues`: "Coming up" (EMI, current bill, rent ...) with this phone's own payments for the suggestions.
 class AskodoxMyDuesRouteScreen extends ConsumerStatefulWidget {
-  const AskodoxMyDuesRouteScreen({super.key});
+  const AskodoxMyDuesRouteScreen({super.key, this.full = false});
+
+  /// `?full=1`: the old list page instead of the 3-piece one (owner 2026-11-25, batch 30).
+  final bool full;
 
   @override
   ConsumerState<AskodoxMyDuesRouteScreen> createState() => _AskodoxMyDuesRouteScreenState();
@@ -63,5 +66,7 @@ class _AskodoxMyDuesRouteScreenState extends ConsumerState<AskodoxMyDuesRouteScr
   }
 
   @override
-  Widget build(BuildContext context) => AskodoxDuesScreen(phoneEvents: _events, items: _items);
+  Widget build(BuildContext context) => widget.full
+      ? AskodoxDuesScreen(phoneEvents: _events, items: _items)
+      : AskodoxUpcomingStepsScreen(phoneEvents: _events, items: _items);
 }

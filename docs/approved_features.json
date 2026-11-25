@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "coming_up_page_three_steps_batch30",
+      "name": "Coming up (EMI / bills / rent) in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 30; old page stays at ?full=1 and in the menu.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Due this week on top, ONE list (bills found in SMS, EMI-like payments, then my dues by date; tap = Paid / Edit / Delete, delete asks once), ONE big button adds EMI / bill / rent. Same phone-only data and voice reminders as before; the Money screen opens it too.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 30 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/upcoming_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxUpcomingSteps",
+          "askodoxUpcomingStepsAdd"
+        ],
+        "symbols": [
+          "AskodoxUpcomingStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "buyer_agent_and_bills_pages_three_steps_batch29",
       "name": "My helper and bill history (/bills/:id) in 3 pieces",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 29; old pages stay at ?full=1.",

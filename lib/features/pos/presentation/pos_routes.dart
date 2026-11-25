@@ -81,7 +81,9 @@ final askodoxPaymentMethodRoutes = <GoRoute>[
   GoRoute(
       path: '/payment-voice',
       builder: (context, state) => AskodoxPaymentVoiceScreen(shop: state.uri.queryParameters['shop'])),
-  GoRoute(path: '/me/dues', builder: (context, state) => const AskodoxMyDuesRouteScreen()),
+  GoRoute(
+      path: '/me/dues',
+      builder: (context, state) => AskodoxMyDuesRouteScreen(full: state.uri.queryParameters['full'] == '1')),
   GoRoute(
       path: '/me/payments/phone',
       builder: (context, state) => AskodoxMyPhonePaymentsScreen(
