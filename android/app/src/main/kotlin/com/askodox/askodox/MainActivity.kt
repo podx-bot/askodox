@@ -223,6 +223,8 @@ class MainActivity : FlutterActivity() {
                     // UPI / bank app -- every app that handles upi:// is offered, the app is only OPENED (its
                     // launcher screen), never asked to pay. false = no such app (the chat says so).
                     "openUpiApps" -> result.success(openUpiApps(call.argument<String>("title") ?: "Open"))
+                    // Shop link phase 2 (owner 2026-11-25): the Play install referrer text ("" when none / not Play).
+                    "installReferrer" -> readInstallReferrer(result)
                     // Share a file the app wrote to its OWN cache (e.g. an invoice PDF);
                     // anything outside the cache folder is refused.
                     "shareFile" -> {
@@ -1021,6 +1023,42 @@ class MainActivity : FlutterActivity() {
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
         }
         startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /** The Play install referrer ("utm_source=shop_link&utm_campaign=<slug>"); "" when Play has none. Read-only. */
+    private fun readInstallReferrer(result: MethodChannel.Result) {
+        try {
+            val client = com.android.installreferrer.api.InstallReferrerClient.newBuilder(this).build()
+            var answered = false
+            client.startConnection(object : com.android.installreferrer.api.InstallReferrerStateListener {
+                override fun onInstallReferrerSetupFinished(code: Int) {
+                    if (answered) return
+                    answered = true
+                    val text = try {
+                        if (code == com.android.installreferrer.api.InstallReferrerClient.InstallReferrerResponse.OK) {
+                            client.installReferrer.installReferrer ?: ""
+                        } else {
+                            ""
+                        }
+                    } catch (_: Exception) {
+                        ""
+                    }
+                    try {
+                        client.endConnection()
+                    } catch (_: Exception) {
+                    }
+                    runOnUiThread { result.success(text) }
+                }
+
+                override fun onInstallReferrerServiceDisconnected() {
+                    if (answered) return
+                    answered = true
+                    runOnUiThread { result.success("") }
+                }
+            })
+        } catch (_: Exception) {
+            result.success("")
+        }
     }
 
     private fun openUpiApps(title: String): Boolean {

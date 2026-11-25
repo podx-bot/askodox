@@ -441,7 +441,8 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
     final stats = askodoxPosMap(_data?['stats']);
     final enabled = _link['enabled'] != false;
     final views = askodoxLinkCount(stats, 'week', const ['view']);
-    final orders = askodoxLinkCount(stats, 'week', const ['order_wa', 'order_app']);
+    final orders = askodoxLinkCount(stats, 'week', const ['order_shop', 'order_wa', 'order_app']);
+    final installs = askodoxLinkCount(stats, 'month', const ['install']);
     final today = askodoxLinkCount(stats, 'today', const ['view']);
     return ListView(padding: const EdgeInsets.fromLTRB(16, 22, 16, 16), children: [
       Center(child: enabled ? const AskodoxStepDoneMark(size: 96) : const Icon(Icons.link_off_rounded, size: 80, color: askodoxStepBad)),
@@ -489,6 +490,13 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
         (te ? '7 రోజుల్లో' : 'Last 7 days', '$views', askodoxStepInk),
         (te ? 'ఆర్డర్లు (7 రో.)' : 'Orders (7 d)', '$orders', const Color(0xFF15803D)),
       ]),
+      const SizedBox(height: 10),
+      // Phase 2 (owner 2026-11-25): how many people installed ASKODOX from this shop's link (a number only).
+      Text(
+          te ? 'మీ లింక్ నుంచి ASKODOX యాప్ వేసుకున్నవాళ్లు (30 రోజులు): $installs' : 'People who installed ASKODOX from your link (30 days): $installs',
+          key: const Key('askodoxShopLinkInstalls'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: askodoxStepInk)),
     ]);
   }
 }

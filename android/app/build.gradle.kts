@@ -104,6 +104,8 @@ dependencies {
     // (Gradle resolves one version: the higher of this BoM and the plugin's).
     implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
     implementation("com.google.firebase:firebase-messaging")
+    // Shop link phase 2: which shop's link brought this install (Play Install Referrer; no permission, no person).
+    implementation("com.android.installreferrer:installreferrer:2.2")
 }
 
 // Fail closed: a release APK/bundle without the ASKODOX release key is never built.
