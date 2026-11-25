@@ -7,6 +7,21 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #481-#484 (2026-11-25, owner "do 1-4, show a design for 5"; Play bundle `askodox-play-1694.aab` = Live Build run 694 on 873feb8, branch
+  `play/bundle-1125b`): (#481) BAAKI AUTO WHATSAPP -- `pos_dues_followup.py` sends the day's reminder to customers NOT on ASKODOX from ASKODOX's own
+  WhatsApp number only when staff set `dues.auto_whatsapp` = 1, the approved UTILITY template is configured (`whatsapp_cloud` `dues_template_name`, five
+  body values: customer, shop, amount, pay date, bill link; `comms.send_whatsapp_named_template`) AND the shop OWNER switched it on (`PUT
+  .../dues/auto`, `pos_due_settings`); cap `dues.auto_whatsapp_daily_per_shop` (30, `pos_due_auto_days`); a failed / over-cap send stays in the owner's
+  one-tap list; no credits (free for ever). NOT usable until the Meta template is approved. (#482) SHOP LINK PHASE 2 -- public menu shows the shop's
+  own item photos (`GET /s/{slug}/p/{product_id}`), installs from the link counted once (`POST /api/pos/shop-links/installed`, count kind `install`,
+  a number only) via the Play Install Referrer (`MainActivity.readInstallReferrer`, gradle `com.android.installreferrer:installreferrer`,
+  `shops/domain/shop_link_install.dart`), the shop opens once after sign-in; owner page shows installs (30 days). `otp-autofill-e2e` now seeds the
+  guide intro as seen (the card covered the number field since #411); its "no Android consent prompt" failures stay the known flaky ones.
+  (#483) GUIDE TOURS -- `live_work_tour`, `money_tour`, `bill_tour`, `dues_tour` (all info stops), auto-start by exact route or `:id` pattern
+  (`askodoxAutoGuideIdFor`). (#484) ASK-NET -- `PaymentAlertParser.unreadBankMoney` + `askAbout`: a registered bank's SMS (own account + amount) the
+  phone cannot read = ONE ❓ row + notification, answered in the row (in / out / not a payment), learned by `skeleton`; max 3 a day; skill rule 16; the
+  consented shape upload is NOT built. Item 5 (finance items: documents + AI answers from the document only + consented callback) is a DESIGN only
+  (artifact B9qtmKXMoH1pdzuvsJKk5u), awaiting the owner. Nothing phone verified.
 - `main` PR #449 + #454 + #455 + #456 (2026-11-24, owner "don't stop, finish the remaining pages; no link needed now"): 3-STEP WORK PAGES BATCHES 15-21 --
   `desk_settings_steps_screens.dart` (Desk settings `/desk/:id/settings`), `desk_menu_steps_screens.dart` (Desk menu `/desk/:id/menu`: list, add by text),
   `printer_steps_screens.dart` (`/pos/:id/printer`), `biz_menu_steps_screens.dart` (`/biz/:id/menu*` sections), day report (`/biz/:id/reports/day` ->
