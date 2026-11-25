@@ -592,6 +592,18 @@ def dues_followup(container: Any, store: Any, bills: Any):
     return existing
 
 
+def _dues_with_auto(request: Request):
+    """The follow-up with today's automatic-WhatsApp state (staff setting + template may change at any time)."""
+    from app.services.pos_dues_followup import auto_whatsapp
+
+    followup = dues_followup(request.app.state.container, _store(request), _bills(request))
+    try:
+        followup.whatsapp, followup.auto, followup.base_url = auto_whatsapp(request.app.state.container)
+    except Exception:
+        pass  # the list still works; automatic sending just shows as not available
+    return followup
+
+
 @router.post("/me/bills/{token}/promise")
 def my_bill_promise(token: str, body: PromiseIn, request: Request) -> dict:
     """The customer's own answer to a baaki reminder: the date they will pay (the shop is told; reminders wait)."""
@@ -609,8 +621,18 @@ def dues_reminders(business_id: str, request: Request) -> dict:
     """Owner 2026-11-20: today's baaki reminders (3 days before the pay date .. the date) with the WhatsApp text ready."""
     from app.api.routes.partners import _public_base
 
-    return _call(dues_followup(request.app.state.container, _store(request), _bills(request)).reminders, business_id,
-                 _user(request, "dues", 120), base_url=_public_base(request))
+    return _call(_dues_with_auto(request).reminders, business_id, _user(request, "dues", 120),
+                 base_url=_public_base(request))
+
+
+class DueAutoIn(BaseModel):
+    on: bool
+
+
+@router.put("/businesses/{business_id}/dues/auto")
+def dues_set_auto(business_id: str, body: DueAutoIn, request: Request) -> dict:
+    """Owner 2026-11-25: the shop OWNER's switch -- ASKODOX may send the day's baaki reminders on WhatsApp by itself."""
+    return _call(_dues_with_auto(request).set_auto, business_id, _user(request, "dues-auto", 30), body.on)
 
 
 @router.put("/businesses/{business_id}/dues/{invoice_id}/date")

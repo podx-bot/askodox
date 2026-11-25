@@ -68,6 +68,31 @@ void main() {
     expect(api.calls.keys.any((k) => k.contains('i2') || k.contains('due')), isTrue);
   });
 
+  testWidgets('baaki reminders: the owner turns automatic WhatsApp on from the menu', (tester) async {
+    var on = false;
+    final api = _Api((m, path, b) {
+      if (m == 'PUT' && path.endsWith('/dues/auto')) {
+        on = true;
+        return {'available': true, 'on': true};
+      }
+      return {
+        'auto': {'available': true, 'on': on, 'owner': true},
+        'items': [
+          {'invoice_id': 'i1', 'customer': 'Ravi', 'due_paise': 150000, 'state': 'remind', 'days_left': 1, 'number': 'A1', 'pay_date': '2026-11-25', 'whatsapp_to': '919999999999', 'text': 'hi', 'sent_today': on, 'sent_auto': on},
+        ],
+      };
+    });
+    await _pump(tester, api, const AskodoxDuesRemindersStepsScreen(businessId: 'b1'));
+    expect(find.byKey(const Key('askodoxDuesStepsAutoOn')), findsNothing);
+    await tester.tap(find.byKey(const Key('askodoxStepMore')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxDuesStepsAuto')));
+    await tester.pumpAndSettle();
+    expect(api.calls['PUT /api/pos/businesses/b1/dues/auto'], {'on': true});
+    expect(find.byKey(const Key('askodoxDuesStepsAutoOn')), findsOneWidget);
+    expect(find.textContaining('sent by itself'), findsWidgets);
+  });
+
   testWidgets('bills: total, rows and search', (tester) async {
     final api = _Api((m, path, b) => {
           'invoices': [
