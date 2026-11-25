@@ -7,6 +7,12 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #485 (2026-11-25, owner "1"; Play bundle `askodox-play-1696.aab` = Live Build run 696 on 64b2026, branch `play/bundle-1125c`,
+  holds #481-#485; design canvas 1uCjwAqSveuZsREavyp7bm "ఒక్క టచ్"): ONE TOUCH STRIP on the కొను / అమ్ము side pages (`money_home/one_touch.dart`,
+  key `askodoxOneTouch`): Buy = `askodoxReorderOf` (last finished desk order -> `/order-desk?code=&kind=&cart=`, dine-in -> takeaway, ends on
+  total + Send), need it now / compare / problem via `AskodoxChatRequest.ask`; Sell = owner open <-> paused switch (`setBusinessStatus`, Undo),
+  `askodoxTodaySpoken` via the guide speaker, stock (desk menu), dues, flash offer (`/notices/new`), shop link; staff by permission.
+  Registry `one_touch_buy_sell_strip`. Not built: family list, bulk price change. Nothing phone verified.
 - `main` PR #481-#484 (2026-11-25, owner "do 1-4, show a design for 5"; Play bundle `askodox-play-1694.aab` = Live Build run 694 on 873feb8, branch
   `play/bundle-1125b`): (#481) BAAKI AUTO WHATSAPP -- `pos_dues_followup.py` sends the day's reminder to customers NOT on ASKODOX from ASKODOX's own
   WhatsApp number only when staff set `dues.auto_whatsapp` = 1, the approved UTILITY template is configured (`whatsapp_cloud` `dues_template_name`, five
