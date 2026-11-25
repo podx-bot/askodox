@@ -1288,6 +1288,9 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     "image_edit.daily_per_user": (0, 50, 5),
     # Paid notifications (owner 2026-11-24): paise per person reached, limits per sender / per receiver per day.
     "notices.rate_paise": (0, 100, 5),
+    # Baaki reminders sent by ASKODOX's own WhatsApp number (owner 2026-11-25): 0 = off (the owner taps each one).
+    "dues.auto_whatsapp": (0, 1, 0),
+    "dues.auto_whatsapp_daily_per_shop": (0, 200, 30),
     "notices.max_recipients": (10, 5000, 1000),
     "notices.per_day_sender": (1, 20, 3),
     "notices.per_day_receiver": (1, 10, 3),

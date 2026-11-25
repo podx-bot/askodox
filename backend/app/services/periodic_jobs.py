@@ -143,7 +143,10 @@ def _dues_followup(container: Any) -> Any:
     def notify(user_id: str, title: str, body: str, route: str, event_key: str) -> None:
         push.notify(user_id, title=title, body=body, route=route, event_key=event_key)
 
-    return PosDuesFollowup(store, PosBills(store), notify=notify).run()
+    from app.services.pos_dues_followup import auto_whatsapp
+
+    send, state, base = auto_whatsapp(container)
+    return PosDuesFollowup(store, PosBills(store), notify=notify, whatsapp=send, auto=state, base_url=base).run()
 
 
 def _expiry_alerts(container: Any) -> Any:

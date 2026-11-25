@@ -17,7 +17,14 @@ date the customer is not reminded any more; the owner sees the bill as overdue w
 - a paid / cancelled bill stops by itself (the due is read from the same ledger the bill screen uses).
 
 Only people on ASKODOX get a push (the bill was already sent to others by WhatsApp link when it was made). No call is
-placed and no message is sent outside ASKODOX from here. Nothing here moves money.
+placed. Nothing here moves money.
+
+AUTOMATIC WHATSAPP (owner 2026-11-25, "the reminder should go by itself"): a customer who is NOT on ASKODOX can get the
+same once-a-day reminder from ASKODOX's own WhatsApp number, without the owner tapping -- only when ALL of these hold:
+staff turned it on (setting ``dues.auto_whatsapp``), an approved UTILITY template is configured (``whatsapp_cloud``
+``dues_template_name``, five body values: customer, shop, amount, pay date, bill link), and the SHOP OWNER switched it
+on for his shop. At most ``dues.auto_whatsapp_daily_per_shop`` a day per shop; a failed send leaves the bill in the
+owner's one-tap list (never lost, never sent twice). Baaki is free for ever (shop_free_core): no credits here.
 """
 from __future__ import annotations
 
@@ -25,7 +32,7 @@ import json
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.pos_store import IST, PosError
 
@@ -43,10 +50,15 @@ SCHEMA = [
     " reminders INTEGER NOT NULL DEFAULT 0, promise_day_told TEXT NOT NULL DEFAULT '')",
     "CREATE TABLE IF NOT EXISTS pos_due_owner_days (business_id TEXT NOT NULL, day TEXT NOT NULL,"
     " PRIMARY KEY (business_id, day))",
+    "CREATE TABLE IF NOT EXISTS pos_due_settings (business_id TEXT PRIMARY KEY, auto_whatsapp INTEGER NOT NULL DEFAULT 0,"
+    " updated_by TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')",
+    "CREATE TABLE IF NOT EXISTS pos_due_auto_days (business_id TEXT NOT NULL, day TEXT NOT NULL,"
+    " sent INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (business_id, day))",
 ]
 MIGRATIONS = [
     ("pos_due_followups", "set_by", "TEXT NOT NULL DEFAULT ''"),
     ("pos_due_followups", "owner_sent_day", "TEXT NOT NULL DEFAULT ''"),
+    ("pos_due_followups", "auto_sent_day", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 
@@ -56,10 +68,16 @@ def _rupees(paise: int) -> str:
 
 class PosDuesFollowup:
     def __init__(self, store: Any, bills: Any, *, notify: Optional[Callable[[str, str, str, str, str], Any]] = None,
-                 clock: Optional[Callable[[], datetime]] = None) -> None:
+                 clock: Optional[Callable[[], datetime]] = None,
+                 whatsapp: Optional[Callable[[str, List[str]], Tuple[bool, str]]] = None,
+                 auto: Optional[Callable[[], Dict[str, Any]]] = None, base_url: str = "") -> None:
         self.store = store
         self.bills = bills
         self.notify = notify or (lambda user, title, body, route, key: None)
+        # whatsapp(phone, [customer, shop, amount, date, link]) -> (ok, error); auto() -> {"enabled", "daily"}.
+        self.whatsapp = whatsapp
+        self.auto = auto or (lambda: {"enabled": False, "daily": 0})
+        self.base_url = base_url
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         with store._connect() as conn:
             for statement in SCHEMA:
@@ -151,6 +169,32 @@ class PosDuesFollowup:
                          (date, self.clock().isoformat(), invoice_id))
         return {"ok": True, "invoice_id": invoice_id, "pay_date": date, "days_left": self._days_left(date)}
 
+    # ------------------------------------------------------------------ automatic WhatsApp (the shop's own switch)
+    def _auto_available(self) -> bool:
+        try:
+            return self.whatsapp is not None and bool(self.auto().get("enabled"))
+        except Exception:
+            return False
+
+    def _auto_on(self, conn: sqlite3.Connection, business_id: str) -> bool:
+        row = conn.execute("SELECT auto_whatsapp FROM pos_due_settings WHERE business_id = ?", (business_id,)).fetchone()
+        return bool(row is not None and row["auto_whatsapp"])
+
+    def set_auto(self, business_id: str, user: str, on: bool) -> Dict[str, Any]:
+        """Only the shop's OWNER decides that ASKODOX may message his customers by itself."""
+        with self.store._tx() as conn:
+            self.store._require(conn, business_id, user, "sell")
+            if self.store._business_row(conn, business_id)["owner_user_id"] != user:
+                raise PosError(403, "owner_only", "Only the shop owner can change this.")
+            if on and not self._auto_available():
+                raise PosError(409, "auto_unavailable", "Automatic WhatsApp reminders are not available yet.")
+            conn.execute(
+                "INSERT INTO pos_due_settings (business_id, auto_whatsapp, updated_by, updated_at) VALUES (?, ?, ?, ?)"
+                " ON CONFLICT(business_id) DO UPDATE SET auto_whatsapp = excluded.auto_whatsapp,"
+                " updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+                (business_id, 1 if on else 0, user, self.clock().isoformat()))
+        return {"available": self._auto_available(), "on": bool(on)}
+
     def _phone_of(self, conn: sqlite3.Connection, inv: sqlite3.Row) -> str:
         if inv["customer_id"]:
             c = conn.execute("SELECT phone FROM pos_customers WHERE id = ?", (inv["customer_id"],)).fetchone()
@@ -187,6 +231,8 @@ class PosDuesFollowup:
         with self.store._tx() as conn:
             self.store._require(conn, business_id, user, "sell")
             biz = self.store._business_row(conn, business_id)
+            auto = {"available": self._auto_available(), "on": self._auto_on(conn, business_id),
+                    "owner": biz["owner_user_id"] == user}
             invoices = conn.execute(
                 "SELECT * FROM pos_invoices WHERE business_id = ? AND status = 'issued' AND balance_paise > 0"
                 " ORDER BY issued_at DESC LIMIT 600", (business_id,)).fetchall()
@@ -208,6 +254,7 @@ class PosDuesFollowup:
                     "due_paise": due, "pay_date": date, "days_left": left, "state": state,
                     "date_by": (row["set_by"] if row is not None and row["promised_date"] else "") or "auto",
                     "sent_today": bool(row is not None and row["owner_sent_day"] == today),
+                    "sent_auto": bool(row is not None and row["auto_sent_day"] == today),
                     "whatsapp_to": whatsapp_number(phone) if phone else "",
                 }
                 if state == "remind" and phone:
@@ -220,7 +267,7 @@ class PosDuesFollowup:
         order = {"remind": 0, "overdue": 1, "later": 2}
         rows.sort(key=lambda r: (order[r["state"]], r["pay_date"]))
         rows = rows[:LIST_LIMIT]
-        return {"today": today, "remind_days_before": REMIND_DAYS_BEFORE, "items": rows,
+        return {"today": today, "remind_days_before": REMIND_DAYS_BEFORE, "items": rows, "auto": auto,
                 "to_send": sum(1 for r in rows if r["state"] == "remind" and not r["sent_today"])}
 
     def mark_sent(self, business_id: str, user: str, invoice_id: str) -> Dict[str, Any]:
@@ -238,7 +285,10 @@ class PosDuesFollowup:
         """Once a day is enough (it may run more often: every send is once per bill per day)."""
         today = self._today()
         now = self.clock()
-        reminded = told = owners = 0
+        reminded = told = owners = auto_sent = 0
+        auto_ok = self._auto_available()
+        daily = int(self.auto().get("daily") or 0) if auto_ok else 0
+        waiting: List[Dict[str, Any]] = []
         with self.store._connect() as conn:
             invoices = conn.execute(
                 "SELECT * FROM pos_invoices WHERE status = 'issued' AND balance_paise > 0 ORDER BY issued_at DESC LIMIT 5000").fetchall()
@@ -262,7 +312,15 @@ class PosDuesFollowup:
                 if left < 0 or left > REMIND_DAYS_BEFORE:
                     continue  # reminders run only from REMIND_DAYS_BEFORE days before up to the pay date
                 if row["owner_sent_day"] != today and phone:
-                    to_send[inv["business_id"]] = to_send.get(inv["business_id"], 0) + 1
+                    item: Dict[str, Any] = {"business_id": inv["business_id"], "invoice_id": inv["id"], "phone": phone}
+                    if auto_ok and not customer and self._auto_on(conn, inv["business_id"]):
+                        try:
+                            name = json.loads(inv["customer_snapshot"] or "{}").get("name") or ""
+                        except (TypeError, ValueError):
+                            name = ""
+                        item["values"] = [name or "కస్టమర్", str(biz["name"]), _rupees(due), date,
+                                          self._pay_link(conn, inv, phone, "auto", self.base_url)]
+                    waiting.append(item)
                 if left == 0 and row["promised_date"] and row["promise_day_told"] != today:
                     conn.execute("UPDATE pos_due_followups SET promise_day_told = ? WHERE invoice_id = ?", (today, inv["id"]))
                     told += 1
@@ -275,6 +333,13 @@ class PosDuesFollowup:
                             f"Pay by {when}. Tap to pay, or tell the shop another date. / {when} కట్టాలి. ఇప్పుడు కట్టండి, లేదా వేరే తేదీ చెప్పండి.",
                             "/me/bills", f"due_reminder:{inv['id']}:{today}")
                 reminded += 1
+        # Outside any transaction: a slow provider never holds the shop's database.
+        for item in waiting:
+            business_id = item["business_id"]
+            if "values" in item and self._auto_send(business_id, item, today, daily):
+                auto_sent += 1
+                continue
+            to_send[business_id] = to_send.get(business_id, 0) + 1
         for business_id, count in to_send.items():
             with self.store._tx() as conn:
                 if conn.execute("SELECT 1 FROM pos_due_owner_days WHERE business_id = ? AND day = ?",
@@ -286,4 +351,57 @@ class PosDuesFollowup:
                         "ఒక్కో పేరు పక్కన WhatsApp నొక్కండి — మెసేజ్ రెడీగా ఉంది. / One tap each on WhatsApp — the message is ready.",
                         f"/pos/{business_id}/dues", f"due_owner:{business_id}:{today}")
             owners += 1
-        return {"bills": len(invoices), "reminded": reminded, "owner_told": told, "owners": owners}
+        return {"bills": len(invoices), "reminded": reminded, "owner_told": told, "owners": owners,
+                "auto_whatsapp": auto_sent}
+
+    def _auto_send(self, business_id: str, item: Dict[str, Any], today: str, daily: int) -> bool:
+        """One automatic WhatsApp reminder; True only when the provider took it (then the bill leaves today's list)."""
+        with self.store._tx() as conn:
+            row = conn.execute("SELECT sent FROM pos_due_auto_days WHERE business_id = ? AND day = ?",
+                               (business_id, today)).fetchone()
+            if daily <= 0 or (row is not None and row["sent"] >= daily):
+                return False
+        try:
+            ok, error = self.whatsapp(item["phone"], item["values"])  # type: ignore[misc]
+        except Exception as problem:  # a provider fault leaves the bill with the owner
+            ok, error = False, type(problem).__name__
+        if not ok:
+            print(f"ASKODOX DUES AUTO failed shop={business_id} bill={item['invoice_id']} error={str(error)[:120]}", flush=True)
+            return False
+        with self.store._tx() as conn:
+            conn.execute("UPDATE pos_due_followups SET owner_sent_day = ?, auto_sent_day = ? WHERE invoice_id = ?",
+                         (today, today, item["invoice_id"]))
+            conn.execute("INSERT INTO pos_due_auto_days (business_id, day, sent) VALUES (?, ?, 1)"
+                         " ON CONFLICT(business_id, day) DO UPDATE SET sent = sent + 1", (business_id, today))
+        return True
+
+
+def auto_whatsapp(container: Any) -> Tuple[Optional[Callable[[str, List[str]], Tuple[bool, str]]], Callable[[], Dict[str, Any]], str]:
+    """(sender, state, public base url) for the automatic WhatsApp reminder; the sender is None until the
+    WhatsApp Cloud credentials AND the approved baaki template are configured."""
+    from app.services import comms, platform_settings
+    from app.services.otp_delivery import _registry
+
+    def state() -> Dict[str, Any]:
+        return {"enabled": platform_settings.get("dues.auto_whatsapp") >= 1,
+                "daily": int(platform_settings.get("dues.auto_whatsapp_daily_per_shop"))}
+
+    base = str(getattr(getattr(container, "settings", None), "public_base_url", "") or "").rstrip("/")
+    reg = _registry(container)
+    try:
+        template = reg.config_value("whatsapp_cloud", "dues_template_name") if reg is not None else ""
+        ready = bool(template and reg.config_value("whatsapp_cloud", "phone_number_id")
+                     and reg.secret("whatsapp_cloud", "access_token"))
+    except Exception:
+        template, ready = "", False
+    if not ready:
+        return None, state, base
+    http = getattr(container, "comms_http", None) or comms.default_http
+
+    def send(phone: str, values: List[str]) -> Tuple[bool, str]:
+        from app.services.pos_bills import whatsapp_number
+
+        ok, _mid, error = comms.send_whatsapp_named_template(reg, http, whatsapp_number(phone), template, values)
+        return ok, error
+
+    return send, state, base

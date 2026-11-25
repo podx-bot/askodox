@@ -212,6 +212,25 @@ def send_whatsapp(reg: IntegrationRegistry, http: Http, to: str, title: str, bod
     return False, "", f"HTTP {status}: {_error_text(data)}"
 
 
+def send_whatsapp_named_template(reg: IntegrationRegistry, http: Http, to: str, template: str,
+                                 params: List[str]) -> Tuple[bool, str, str]:
+    """One approved UTILITY template with its body parameters in order (business-initiated, e.g. a baaki reminder).
+    The template text lives with Meta; only the values travel. Returns (ok, provider_message_id, error)."""
+    version = reg.config_value("whatsapp_cloud", "api_version") or DEFAULT_WHATSAPP_VERSION
+    phone_id = reg.config_value("whatsapp_cloud", "phone_number_id")
+    payload = {"messaging_product": "whatsapp", "to": phone_digits(to), "type": "template",
+               "template": {"name": template,
+                            "language": {"code": reg.config_value("whatsapp_cloud", "template_language") or "en"},
+                            "components": [{"type": "body", "parameters": [
+                                {"type": "text", "text": " ".join(str(p).split())[:200] or "-"} for p in params]}]}}
+    status, data = http("POST", f"https://graph.facebook.com/{version}/{phone_id}/messages",
+                        headers={"Authorization": f"Bearer {reg.secret('whatsapp_cloud', 'access_token')}"},
+                        json=payload)
+    if status == 200 and isinstance(data, dict) and data.get("messages"):
+        return True, str(data["messages"][0].get("id") or ""), ""
+    return False, "", f"HTTP {status}: {_error_text(data)}"
+
+
 def send_sms(reg: IntegrationRegistry, http: Http, to: str, title: str, body: str) -> Tuple[bool, str, str]:
     vendor = (reg.config_value("sms", "vendor") or "msg91").lower()
     key, sender = reg.secret("sms", "api_key"), reg.config_value("sms", "sender_id")

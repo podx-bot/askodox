@@ -884,9 +884,11 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   '/pos/:id/dues': _H('Baaki reminders', 'బాకీ గుర్తులు', [
     'The number on top is the baaki to collect. Tap "Remind next" -- WhatsApp opens with the message and pay link ready.',
     'Tap a name for a new pay date. Customers on ASKODOX are reminded in the app by themselves.',
+    'Where it is offered, the owner can turn on "Automatic WhatsApp" in the ⋮ menu: the others get the reminder by itself, once a day.',
   ], [
     'పైన నంబర్ రావాల్సిన బాకీ. "తర్వాతి వారికి గుర్తు చేయి" నొక్కండి — మెసేజ్, పే లింక్‌తో WhatsApp తెరుచుకుంటుంది.',
     'పేరు నొక్కి కొత్త తేదీ పెట్టండి. ASKODOX ఉన్న కస్టమర్లకు యాప్‌లో తానే గుర్తు చేస్తాం.',
+    'అందుబాటులో ఉన్నచోట ఓనర్ ⋮ మెనూలో "ఆటోమేటిక్ WhatsApp" ఆన్ చేయొచ్చు: మిగతావారికి రోజుకి ఒకసారి గుర్తు దానంతట అదే వెళ్తుంది.',
   ]),
   '/pos/:id/customers/:cid': _H('Customer account', 'కస్టమర్ ఖాతా', [
     'The number on top is the baaki to collect. Money came? Tap "Money received": 1 how much, 2 how paid, 3 done.',
