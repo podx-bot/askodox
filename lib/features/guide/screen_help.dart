@@ -1059,12 +1059,12 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఎవరు ఏవి తెరవచ్చు (టిక్స్) ⋮ మెనూలోని పాత పేజీలో ఉంది.',
   ]),
   '/order-desk/enter': _H('Order at a shop / table', 'షాప్ / టేబుల్ ఆర్డర్', [
-    'Photograph the QR on the shop or table, or search the shop by its name; the menu opens.',
-    'The code printed under the QR can still be typed.',
+    'The big button photographs the QR on the shop or table; or search the shop by its name. The menu opens.',
+    'A QR from the gallery and typing the code printed under the QR are in ⋮.',
     'Your earlier orders are listed here: tap one to follow it, or "Again" to order the same.',
   ], [
-    'షాప్ లేదా టేబుల్ మీది QR ఫోటో తీయండి, లేదా షాప్ పేరు వెతకండి; మెనూ తెరుచుకుంటుంది.',
-    'QR కింద ఉన్న కోడ్ కూడా రాయవచ్చు.',
+    'పెద్ద బటన్ షాప్ లేదా టేబుల్ మీది QR ఫోటో తీస్తుంది; లేదా షాప్ పేరు వెతకండి. మెనూ తెరుచుకుంటుంది.',
+    'గ్యాలరీ నుంచి QR, QR కింద ఉన్న కోడ్ టైప్ చేయడం ⋮ లో ఉన్నాయి.',
     'మీ పాత ఆర్డర్లు ఇక్కడ కనిపిస్తాయి: నొక్కి ఫాలో చేయండి, లేదా "మళ్ళీ" నొక్కి అదే ఆర్డర్ చేయండి.',
   ]),
   '/order-desk': _H('Menu & order', 'మెనూ & ఆర్డర్', [

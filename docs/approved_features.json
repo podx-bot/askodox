@@ -11901,6 +11901,41 @@
       }
     },
     {
+      "id": "order_code_page_three_steps_batch32",
+      "name": "Order at a shop / table page in 3 pieces",
+      "purpose": "Owner 2026-11-25: 3-step rule, batch 32; old page stays at ?full=1.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Which shop? with ONE search box on top, ONE list (shops found, else my orders: running = follow, finished = order again), ONE big button photographs the shop / table QR. Gallery QR and typing the code in the menu.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: batch 32 (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/order_code_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxOrderCodeSteps",
+          "askodoxOrderCodeStepsScan"
+        ],
+        "symbols": [
+          "AskodoxOrderCodeStepsScreen"
+        ]
+      }
+    },
+    {
       "id": "order_track_page_three_steps_batch31",
       "name": "My order (tracking) page in 3 pieces",
       "purpose": "Owner 2026-11-25: 3-step rule, batch 31; old page stays at ?full=1.",
