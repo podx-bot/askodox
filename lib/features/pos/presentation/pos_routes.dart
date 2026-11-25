@@ -46,6 +46,7 @@ import '../../steps/presentation/pos_staff_steps_screens.dart';
 import '../../steps/presentation/printer_steps_screens.dart';
 import '../../steps/presentation/purchase_steps_screen.dart';
 import '../../steps/presentation/invoice_steps_screens.dart';
+import '../../steps/presentation/item_details_steps_screen.dart';
 import '../../steps/presentation/order_code_steps_screen.dart';
 import '../../steps/presentation/order_steps_screens.dart';
 import '../../steps/presentation/order_track_steps_screen.dart';
@@ -292,8 +293,9 @@ final askodoxPosRoutes = <GoRoute>[
           : AskodoxCatalogueStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/item/:pid',
-      builder: (context, state) =>
-          AskodoxPosItemDetailsScreen(businessId: state.pathParameters['id']!, productId: state.pathParameters['pid']!)),
+      builder: (context, state) => state.uri.queryParameters['full'] == '1'
+          ? AskodoxPosItemDetailsScreen(businessId: state.pathParameters['id']!, productId: state.pathParameters['pid']!)
+          : AskodoxItemDetailsStepsScreen(businessId: state.pathParameters['id']!, productId: state.pathParameters['pid']!)),
   GoRoute(
       path: '/pos/:id/dues',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
