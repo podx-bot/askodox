@@ -17,6 +17,7 @@ import '../../shared/widgets/chat_pins.dart' show AskodoxChatPin, askodoxChatPin
 import 'launcher_layout.dart';
 import 'money_home_pages.dart';
 import 'money_home_store.dart';
+import 'one_touch.dart';
 import 'payment_voice_sheet.dart';
 import 'shop_setup_card.dart';
 
@@ -149,6 +150,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         allPages: askodoxBuyerPages,
         card: _side ? _buyerSideCard(te) : _buyerCard(te),
         canEdit: true,
+        oneTouch: _side ? AskodoxBuyerOneTouch(signedIn: ref.watch(authSessionProvider).user != null) : null,
       );
     }
     final signedIn = ref.watch(authSessionProvider).user != null;
@@ -179,6 +181,11 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           card: _sellerCard(te, list, shop, hub.valueOrNull?.$2),
           // A staff member's pages are known once the shop answers: arranging before that could lose hidden ones.
           canEdit: hub.hasValue && _shops.containsKey(id),
+          oneTouch: _side
+              ? AskodoxSellerOneTouch(
+                  key: ValueKey('askodoxSellerOneTouch-$id'),
+                  shop: {...business, 'role': shop['role'], 'status': business['status'] ?? shop['status']})
+              : null,
         );
       },
     );
@@ -408,6 +415,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     required Widget card,
     required bool canEdit,
     List<AskodoxLaunchPage> allPages = const [],
+    Widget? oneTouch,
   }) {
     if (_side && _query.trim().isNotEmpty) return _searchResults(te, shop, allPages, color);
     final byId = {for (final p in pages) p.id: p};
@@ -419,6 +427,8 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     final editPanel = _editing ? _editBar(te, shop, layout, byId, color) : null;
     return Column(key: Key(_side ? 'askodoxSidePage' : 'askodoxMoneyHome'), children: [
       if (_side && !_editing) _searchBox(te),
+      // ONE TOUCH (owner 2026-11-25): the side's everyday jobs on one strip, above the pages.
+      if (_side && !_editing && oneTouch != null) oneTouch,
       Expanded(
         child: LayoutBuilder(builder: (context, box) {
           final h = box.maxHeight.isFinite ? box.maxHeight : 600.0;
