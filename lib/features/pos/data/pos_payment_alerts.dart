@@ -647,6 +647,11 @@ bool askodoxRowCountsAsMoney(Map<String, Object?> e) =>
           'ℹ️ Payment failed. If money was cut, it usually comes back; if not in a few days, ask your bank.',
           'ℹ️ పేమెంట్ ఫెయిల్ అయింది. డబ్బు కట్ అయితే సాధారణంగా తిరిగి వస్తుంది; కొన్ని రోజుల్లో రాకపోతే బ్యాంక్‌ను అడగండి.'
         ),
+      // Owner 2026-11-25 (the ❓ net): a bank SMS with an amount the phone could not read -- asked, never guessed.
+      'ask' => (
+          '❓ Not understood — did this money come in or go out? Tap and say it once; the phone reads this kind by itself after that.',
+          '❓ ఈ బ్యాంక్ మెసేజ్ అర్థం కాలేదు — డబ్బు వచ్చిందా, వెళ్ళిందా? నొక్కి ఒకసారి చెప్పండి; తర్వాత నుంచి ఫోనే చదువుతుంది.'
+        ),
       'bill' => askodoxBillNote(e),
       // Owner 2026-11-22 ("cancel, autopay, someone asking for money ... read those too")
       'cancelled' => (

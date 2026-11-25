@@ -73,6 +73,13 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
 15. The night count is ONE voice per phone: the shop and My phone added together (`PaymentVoicePack.nightTotal`),
     each side's own numbers only in the notification; one `night_said:<day>` mark (owner 2026-11-24).
 
+16. The ❓ net (owner 2026-11-25): a REGISTERED bank's SMS with the person's own account and an amount that the phone
+    could not read is ASKED about, never guessed: one ❓ row (not counted, never spoken) + one notification; the answer
+    (came in / went out / not a payment, in the row's "Read wrongly?") is learned by `skeleton` for every later
+    message of that kind. `PaymentAlertParser.unreadBankMoney` stays conservative (OTP, limit, offer, due, statement,
+    mandate, failed / future payments, fake signs = never asked); at most 3 questions a day (`ASK_PER_DAY`); a kind
+    already answered is never asked again. Nothing is uploaded.
+
 ## How a message joins a row (`pickSamePayment`)
 
 - Same RRN on both → same payment, any order, within `SAME_REF_MS` (24 h). Two different full RRNs → never.

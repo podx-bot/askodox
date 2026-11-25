@@ -605,6 +605,32 @@ fun main() {
     yes("voice switches of the new lines", PaymentAlertParser.voiceKindOf("late_in") == "in" &&
         PaymentAlertParser.voiceKindOf("late_out") == "out" && PaymentAlertParser.voiceKindOf("unsure") == "check" &&
         PaymentAlertParser.voiceKindOf("sorry_in") == "sorry")
+    // Owner 2026-11-25 (the ❓ net): a registered bank's money SMS that the phone could not read is ASKED about once
+    // (came in / went out / not a payment), never guessed. Made-up shapes and numbers.
+    val odd = "INR 1,250.00 moved in your A/c XX4417 on 25-11-26 through NEFT-ABCD0001234. Ref 998877665544"
+    yes("ask-net: the odd shape is not read as a payment today", PaymentAlertParser.parse("JD-NEWBNK-S", odd).let {
+        it is Result.Ignored || it is Result.Unknown })
+    yes("ask-net: a registered bank's money SMS with my account + an amount is asked about",
+        PaymentAlertParser.unreadBankMoney("JD-NEWBNK-S", odd) == 125000L)
+    yes("ask-net: never from a person's number or a promo sender",
+        PaymentAlertParser.unreadBankMoney("+91 98765 43210", odd) == null && PaymentAlertParser.unreadBankMoney("JD-NEWBNK-P", odd) == null)
+    yes("ask-net: OTP / limit / offer / due / statement messages are never asked about", listOf(
+        "Your OTP for txn of INR 1,250.00 on A/c XX4417 is 482913. Do not share it.",
+        "Credit limit on your card XX4417 is now Rs 50,000.",
+        "Pre-approved loan offer of Rs 2,00,000 on your A/c XX4417. Apply now.",
+        "Total amount due Rs 4,200 on card XX4417 by 05-12-26.",
+        "Statement for A/c XX4417 is ready. Closing balance Rs 9,100.",
+    ).all { PaymentAlertParser.unreadBankMoney("JD-NEWBNK-S", it) == null })
+    yes("ask-net: no account of mine in the message -> not asked",
+        PaymentAlertParser.unreadBankMoney("JD-NEWBNK-S", "INR 1,250.00 moved through NEFT today.") == null)
+    yes("ask-net: a fake-looking message is never asked about (it is a warning)",
+        PaymentAlertParser.unreadBankMoney("JD-NEWBNK-S", "INR 1,250.00 moved in your A/c 123456789012. Open bit.ly/x") == null)
+    val oddKey = PaymentAlertParser.skeleton(odd)
+    yes("ask-net: once answered, the same kind of message is not asked again",
+        PaymentAlertParser.unreadBankMoney("JD-NEWBNK-S", odd, mapOf(oddKey to "none")) == null)
+    yes("ask-net: the answer is learned -- the next one of this kind is read as money in",
+        (PaymentAlertParser.parse("JD-NEWBNK-S", "INR 300.00 moved in your A/c XX4417 on 26-11-26 through NEFT-ABCD0009999. Ref 112233445566",
+            learnedKinds = mapOf(oddKey to "in")) as? Result.Accepted)?.amountPaise == 30000L)
     voicePackChecks()
     oneVoiceChecks()
     println(if (fails == 0) "ALL PASS" else "$fails FAILED")
