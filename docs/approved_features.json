@@ -11901,35 +11901,38 @@
       }
     },
     {
-      "id": "payment_alert_ask_net_unread_bank_sms",
-      "name": "Payment alerts: a bank SMS the phone cannot read is asked about, never guessed",
-      "purpose": "Owner 2026-11-25 (offered 2026-11-23): no bank's money message is silently lost; the phone learns it from one answer.",
+      "id": "baaki_auto_whatsapp_reminder",
+      "name": "Baaki reminders go on WhatsApp by themselves (owner's switch)",
+      "purpose": "Owner 2026-11-25: the reminder should go by itself for customers who are not on ASKODOX.",
       "roles": [
-        "buyer"
+        "seller"
       ],
       "status": "approved",
       "domains": [
         "any"
       ],
-      "expected_behavior": "My phone only: a registered bank sender's SMS that names the person's own account and an amount, which the parser ignored or did not know, makes ONE question row (not counted, never spoken) and one notification. In the row the person says came in / went out / not a payment; the answer is learned by the message's skeleton so the next message of that kind is read by itself. Never asked: OTP, limit, offer, due, statement, mandate, failed or future payments, fake-looking messages, a kind already answered; at most 3 questions a day. Nothing is uploaded.",
+      "expected_behavior": "Only when staff turned on dues.auto_whatsapp, an approved WhatsApp UTILITY template is configured (whatsapp_cloud dues_template_name: customer, shop, amount, pay date, bill link) AND the shop OWNER switched it on: the daily baaki job sends the reminder to customers who are not on ASKODOX, once per bill per day, at most dues.auto_whatsapp_daily_per_shop a day per shop. A failed or over-cap send stays in the owner's one-tap list. No credits (baaki is free for ever).",
       "history": [
         {
           "approved_by": "owner",
-          "change": "new (2026-11-25); the shape-only upload with consent is NOT built; NOT PHONE VERIFIED",
+          "change": "new (2026-11-25); needs the Meta template before it can be turned on; NOT PHONE VERIFIED",
           "date": "2026-11-25"
         }
       ],
       "tests": {
-        "backend": [],
-        "flutter": []
+        "backend": [
+          "tests/test_pos_dues_auto_whatsapp.py"
+        ],
+        "flutter": [
+          "test/features/steps/glance_steps_test.dart"
+        ]
       },
       "ui": {
         "keys": [
-          "askodoxMineRowCorrect-none"
+          "askodoxDuesStepsAuto",
+          "askodoxDuesStepsAutoOn"
         ],
-        "symbols": [
-          "askodoxNoticeNote"
-        ]
+        "symbols": []
       }
     },
     {
@@ -12042,6 +12045,38 @@
         ],
         "symbols": [
           "AskodoxItemDetailsStepsScreen"
+        ]
+      }
+    },
+    {
+      "id": "payment_alert_ask_net_unread_bank_sms",
+      "name": "Payment alerts: a bank SMS the phone cannot read is asked about, never guessed",
+      "purpose": "Owner 2026-11-25 (offered 2026-11-23): no bank's money message is silently lost; the phone learns it from one answer.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "My phone only: a registered bank sender's SMS that names the person's own account and an amount, which the parser ignored or did not know, makes ONE question row (not counted, never spoken) and one notification. In the row the person says came in / went out / not a payment; the answer is learned by the message's skeleton so the next message of that kind is read by itself. Never asked: OTP, limit, offer, due, statement, mandate, failed or future payments, fake-looking messages, a kind already answered; at most 3 questions a day. Nothing is uploaded.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); the shape-only upload with consent is NOT built; NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxMineRowCorrect-none"
+        ],
+        "symbols": [
+          "askodoxNoticeNote"
         ]
       }
     },
