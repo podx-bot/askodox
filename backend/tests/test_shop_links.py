@@ -228,3 +228,44 @@ def test_sms_card_fits_one_sms_and_carries_link_and_upi():
     assert text == "Sri Lakshmi Tiffins - menu & order: askodox.com/s/lakshmi-tiffins UPI: lakshmi@okaxis"
     long = ShopLinks.sms_card("A" * 200, "https://askodox.com/s/x", "y@upi")
     assert len(long) <= 160 and long.endswith("askodox.com/s/x UPI: y@upi")
+
+
+def test_phase2_item_photos_and_install_count(monkeypatch):
+    """Owner 2026-11-25: the shop's own item photos on its public menu; installs from the link counted (no person)."""
+    from fastapi.testclient import TestClient
+
+    from app.services import rate_limit
+    from app.services.session_tokens import issue_token
+    from server import app, container
+
+    rate_limit.reset_for_tests()
+    for name in ("pos_store", "pos_frontdesk", "pos_bills", "shop_links"):
+        monkeypatch.setattr(container, name, None, raising=False)
+    client = TestClient(app)
+    h = {"Authorization": f"Bearer {issue_token('app-phone-9411100091', container.settings.session_token_secret)}"}
+    bid = client.post("/api/pos/businesses", headers=h, json={
+        "name": "Sita Sweets", "template": "bakery", "invoice_prefix": "SS", "state_code": "37",
+        "registration_type": "unregistered", "phone": "9411100091", "address": "Main road"}).json()["id"]
+    pid = client.post(f"/api/pos/businesses/{bid}/products", headers=h,
+                      json={"name": "Laddu", "unit": "kg", "price_paise": 40000}).json()["id"]
+    assert client.put(f"/api/pos/businesses/{bid}/link", headers=h, json={"slug": "sita-sweets"}).status_code == 200
+    assert 'class="ph"' not in client.get("/s/sita-sweets").text, "no photo yet -> no picture box"
+    assert client.get(f"/s/sita-sweets/p/{pid}").status_code == 404
+
+    from app.services.pos_store import PosStore
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    with store._tx() as conn:
+        conn.execute("INSERT INTO pos_product_photos (business_id, product_id, image, mime, updated_at) VALUES (?, ?, ?, ?, ?)",
+                     (bid, pid, b"\x89PNG-made-up", "image/png", "2026-11-25T00:00:00+00:00"))
+    page = client.get("/s/sita-sweets")
+    assert f'src="/s/sita-sweets/p/{pid}"' in page.text
+    photo = client.get(f"/s/sita-sweets/p/{pid}")
+    assert photo.status_code == 200 and photo.headers["content-type"] == "image/png" and photo.content == b"\x89PNG-made-up"
+    assert client.get("/s/other-shop/p/" + pid).status_code == 404, "never through another link"
+
+    came = client.post("/api/pos/shop-links/installed", json={"slug": "sita-sweets"})
+    assert came.status_code == 200 and came.json() == {"business_id": bid, "slug": "sita-sweets", "name": "Sita Sweets"}
+    assert client.post("/api/pos/shop-links/installed", json={"slug": "no-such-shop"}).json() == {}
+    stats = client.get(f"/api/pos/businesses/{bid}/link/stats", headers=h).json()
+    assert stats["today"].get("install") == 1

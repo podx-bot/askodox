@@ -23,6 +23,8 @@ import 'services/in_app_assistant_service.dart' show askodoxAutoOpenAppActions;
 import 'features/location/application/location_controller.dart' show LocationController;
 import 'features/pos/data/pos_payment_alerts.dart' show askodoxAutoJoinStaffVoices;
 import 'features/guide/guide_switch.dart' show askodoxGuideIntroEnabled;
+import 'config/router/app_router.dart' show appRouterProvider;
+import 'features/shops/domain/shop_link_install.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +52,7 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
   // Once per app process (a sign-out restart does not ask again).
   static bool _updateChecked = false;
   bool _sessionChecked = false;
+  static bool _linkedShopOpened = false;
 
   @override
   void initState() {
@@ -67,6 +70,8 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
       // Command Center flags for this app: defaults until they arrive; a
       // failed fetch keeps the cached / default values.
       ref.read(askodoxRemoteFlagsProvider);
+      // Shop link phase 2 (owner 2026-11-25): installed from a shop's link -> counted once, that shop opens.
+      unawaited(_shopLinkInstall());
     });
 
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
@@ -88,8 +93,31 @@ class _AnalyticsBootstrapState extends ConsumerState<_AnalyticsBootstrap> {
     return session.user != null && token.isNotEmpty && token != 'OTP_VERIFIED';
   }
 
+  Future<void> _shopLinkInstall() async {
+    try {
+      final prefs = await askodoxStartupPrefs();
+      await askodoxReportShopLinkInstall(ref.read(apiClientProvider), prefs);
+      await _openLinkedShop();
+    } catch (_) {
+      // a count never blocks start-up
+    }
+  }
+
+  /// Opens the shop whose link brought this install: once, and only for a signed-in person.
+  Future<void> _openLinkedShop() async {
+    if (_linkedShopOpened || !_hasUsableSession()) return;
+    try {
+      final id = await askodoxTakeShopLinkToOpen(await askodoxStartupPrefs());
+      if (id == null || !mounted) return;
+      _linkedShopOpened = true;
+      await Future<void>.delayed(const Duration(milliseconds: 1500)); // Home settles first
+      if (mounted) unawaited(ref.read(appRouterProvider).push('/shops/$id'));
+    } catch (_) {}
+  }
+
   Future<void> _restoreOnboardingIdentity() async {
     if (_hasUsableSession()) {
+      unawaited(_openLinkedShop());
       await _verifySession(ref.read(authSessionProvider).tokenPlaceholder);
       return;
     }

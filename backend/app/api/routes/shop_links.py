@@ -94,6 +94,19 @@ def save_link(business_id: str, body: LinkIn, request: Request) -> dict:
     return _call(links(request).save, business_id, _user(request, "shoplink-save", 30), data)
 
 
+class InstalledIn(BaseModel):
+    slug: str = Field(max_length=40)
+
+
+@router.post("/shop-links/installed")
+def link_installed(body: InstalledIn, request: Request) -> dict:
+    """Phase 2 (owner 2026-11-25): the app tells, ONCE per install, that it came from a shop's link (Play install
+    referrer ``utm_source=shop_link&utm_campaign=<slug>``): the shop's install count goes up and the app opens that
+    shop. No person is stored -- only the number."""
+    rate_limit.check(request, "shoplink-installed", limit=6)
+    return links(request).installed(body.slug)
+
+
 # ---------------------------------------------------------------------- public pages
 def _page_or_redirect(request: Request, slug: str, suffix: str = ""):
     service = links(request)
@@ -196,6 +209,18 @@ def shop_order_cancel(slug: str, token: str, request: Request):
     except PosError:
         pass  # already accepted: the status page says so
     return RedirectResponse(f"/s/{page['slug']}/o/{token}", status_code=303, headers={"Cache-Control": "no-store"})
+
+
+@page_router.get("/s/{slug}/p/{product_id}")
+def shop_item_photo(slug: str, product_id: str, request: Request) -> Response:
+    """One menu item's own photo for the public page (phase 2); the shop's menu must be shown on its link."""
+    rate_limit.check(request, "shoplink-photo", limit=600)
+    found = links(request).photo(slug, product_id[:80])
+    if found is None:
+        return Response(status_code=404)
+    image, mime = found
+    return Response(content=image, media_type=mime if mime in ("image/png", "image/jpeg") else "image/jpeg",
+                    headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"})
 
 
 @page_router.get("/s/{slug}/go/{kind}")

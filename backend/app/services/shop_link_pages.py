@@ -41,6 +41,7 @@ def _head(title: str, color: str) -> str:
         '.it{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f0f1f4}'
         '.it .n{flex:1;font-size:15px;font-weight:650}.it .n small{display:block;color:#6b7280;font-weight:500;font-size:12.5px}'
         '.it .p{font-weight:800;font-size:15px;white-space:nowrap}'
+        '.it .ph{width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#F1F5F9}'
         '.it input{width:58px;font-size:16px;padding:8px 6px;border:1.5px solid #d1d5db;border-radius:10px;text-align:center}'
         '.out{color:#9ca3af;font-size:12.5px;font-weight:700}'
         '.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:1px}'
@@ -118,7 +119,9 @@ def _menu_rows(page: Dict[str, Any], values: Dict[str, Any] | None = None) -> st
                          f'aria-label="{esc(str(item.get("name")), quote=True)}">')
             else:
                 right = ""
-            out.append(f'<div class="it"><div class="n">{_food_dot(str(item.get("food_type") or ""))}'
+            photo = (f'<img class="ph" loading="lazy" alt="" src="/s/{esc(page["slug"])}/p/{esc(str(item.get("id")), quote=True)}">'
+                     if item.get("photo") else "")
+            out.append(f'<div class="it">{photo}<div class="n">{_food_dot(str(item.get("food_type") or ""))}'
                        f'{esc(str(item.get("name")))}{tag}{sub}</div>{price}{right}</div>')
     return "".join(out)
 

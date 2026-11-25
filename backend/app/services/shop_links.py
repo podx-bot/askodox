@@ -47,7 +47,9 @@ WEB_CUSTOMER_PREFIX = "weblink-"
 
 # What the page counts (no person, only how many): a page view, the two order ways, call / map / pay taps,
 # a WhatsApp chat, the app banner, follow (opens the app page) and "a free link for my shop too".
-COUNT_KINDS = ("view", "order_shop", "order_wa", "order_app", "call", "chat", "map", "pay", "app", "follow", "join")
+# "install" (owner 2026-11-25, phase 2): the app was installed from this shop's link (Play install referrer).
+COUNT_KINDS = ("view", "order_shop", "order_wa", "order_app", "call", "chat", "map", "pay", "app", "follow", "join",
+               "install")
 
 COLORS: Dict[str, str] = {"green": "#0B7A4B", "blue": "#1D4ED8", "maroon": "#9D1D5A", "orange": "#C2410C",
                           "purple": "#6D28D9", "dark": "#1E293B"}
@@ -303,6 +305,30 @@ class ShopLinks:
             return {"off": True}
         return {"business_id": row["business_id"], "slug": row["slug"]}
 
+    def photo(self, slug: str, product_id: str) -> Optional[tuple]:
+        """(bytes, mime) of one menu item's photo on a live link whose menu is shown; None otherwise."""
+        found = self.resolve(slug)
+        if not found.get("business_id"):
+            return None
+        with closing(self.store._connect()) as conn:
+            if not self._settings(self._link_row(conn, found["business_id"])["settings"])["show_menu"]:
+                return None
+            row = conn.execute("SELECT image, mime FROM pos_product_photos WHERE product_id = ? AND business_id = ?",
+                               (product_id, found["business_id"])).fetchone()
+        return (bytes(row["image"]), str(row["mime"] or "image/jpeg")) if row is not None else None
+
+    def installed(self, slug: str) -> Dict[str, Any]:
+        """The app was installed from this shop's link: counted (a number only), and the shop to open is returned."""
+        found = self.resolve(slug)
+        if found.get("moved"):
+            found = self.resolve(found["moved"])
+        if not found.get("business_id"):
+            return {}
+        self.count(found["business_id"], "install")
+        with closing(self.store._connect()) as conn:
+            name = self.store._business_row(conn, found["business_id"])["name"]
+        return {"business_id": found["business_id"], "slug": found["slug"], "name": name}
+
     def count(self, business_id: str, kind: str) -> None:
         if kind not in COUNT_KINDS:
             return
@@ -329,6 +355,14 @@ class ShopLinks:
                     items = [i for i in self.menu(conn, business_id) if i.get("name")]
                 except Exception:
                     items = []
+            # Phase 2 (owner 2026-11-25): the shop's own item photos on its public menu (never another shop's).
+            try:
+                with_photo = {r[0] for r in conn.execute(
+                    "SELECT product_id FROM pos_product_photos WHERE business_id = ?", (business_id,))}
+            except sqlite3.Error:
+                with_photo = set()
+            for item in items:
+                item["photo"] = str(item.get("id")) in with_photo
             rating: Dict[str, Any] = {"average": None, "count": 0}
             try:
                 from app.services.pos_ratings import PosRatings
