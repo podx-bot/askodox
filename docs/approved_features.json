@@ -11901,41 +11901,38 @@
       }
     },
     {
-      "id": "shop_link_phase2_photos_installs",
-      "name": "Shop link phase 2: item photos on the public menu, installs from the link counted, the shop opens",
-      "purpose": "Owner 2026-11-25: finish the shop link (users grow through Play installs from the shop's own link).",
+      "id": "baaki_auto_whatsapp_reminder",
+      "name": "Baaki reminders go on WhatsApp by themselves (owner's switch)",
+      "purpose": "Owner 2026-11-25: the reminder should go by itself for customers who are not on ASKODOX.",
       "roles": [
-        "seller",
-        "buyer"
+        "seller"
       ],
       "status": "approved",
       "domains": [
         "any"
       ],
-      "expected_behavior": "The public page /s/<slug> shows the shop's OWN item photo beside a menu item that has one (GET /s/<slug>/p/<product id>, only while the menu is shown, never through another link). An install that came from the link (Play install referrer utm_source=shop_link&utm_campaign=<slug>) is told to the server once (POST /api/pos/shop-links/installed): the shop's install count goes up (a number only, no person) and after sign-in the app opens that shop once. The owner's link page shows installs of the last 30 days; orders of 7 days include orders into the app.",
+      "expected_behavior": "Only when staff turned on dues.auto_whatsapp, an approved WhatsApp UTILITY template is configured (whatsapp_cloud dues_template_name: customer, shop, amount, pay date, bill link) AND the shop OWNER switched it on: the daily baaki job sends the reminder to customers who are not on ASKODOX, once per bill per day, at most dues.auto_whatsapp_daily_per_shop a day per shop. A failed or over-cap send stays in the owner's one-tap list. No credits (baaki is free for ever).",
       "history": [
         {
           "approved_by": "owner",
-          "change": "new (2026-11-25); NOT PHONE VERIFIED",
+          "change": "new (2026-11-25); needs the Meta template before it can be turned on; NOT PHONE VERIFIED",
           "date": "2026-11-25"
         }
       ],
       "tests": {
         "backend": [
-          "tests/test_shop_links.py"
+          "tests/test_pos_dues_auto_whatsapp.py"
         ],
         "flutter": [
-          "test/features/shops/shop_link_install_test.dart"
+          "test/features/steps/glance_steps_test.dart"
         ]
       },
       "ui": {
         "keys": [
-          "askodoxShopLinkInstalls"
+          "askodoxDuesStepsAuto",
+          "askodoxDuesStepsAutoOn"
         ],
-        "symbols": [
-          "askodoxShopLinkSlugFromReferrer",
-          "askodoxReportShopLinkInstall"
-        ]
+        "symbols": []
       }
     },
     {
@@ -11971,6 +11968,44 @@
         ],
         "symbols": [
           "AskodoxOrderDeskStepsScreen"
+        ]
+      }
+    },
+    {
+      "id": "shop_link_phase2_photos_installs",
+      "name": "Shop link phase 2: item photos on the public menu, installs from the link counted, the shop opens",
+      "purpose": "Owner 2026-11-25: finish the shop link (users grow through Play installs from the shop's own link).",
+      "roles": [
+        "seller",
+        "buyer"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The public page /s/<slug> shows the shop's OWN item photo beside a menu item that has one (GET /s/<slug>/p/<product id>, only while the menu is shown, never through another link). An install that came from the link (Play install referrer utm_source=shop_link&utm_campaign=<slug>) is told to the server once (POST /api/pos/shop-links/installed): the shop's install count goes up (a number only, no person) and after sign-in the app opens that shop once. The owner's link page shows installs of the last 30 days; orders of 7 days include orders into the app.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-25); NOT PHONE VERIFIED",
+          "date": "2026-11-25"
+        }
+      ],
+      "tests": {
+        "backend": [
+          "tests/test_shop_links.py"
+        ],
+        "flutter": [
+          "test/features/shops/shop_link_install_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxShopLinkInstalls"
+        ],
+        "symbols": [
+          "askodoxShopLinkSlugFromReferrer",
+          "askodoxReportShopLinkInstall"
         ]
       }
     },
