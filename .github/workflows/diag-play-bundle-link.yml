@@ -1,0 +1,23 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1701]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45620735998 -R "$GITHUB_REPOSITORY" -n askodox-android-701 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1701.aab
+          sha256sum askodox-play-1701.aab
+          gh release create play-bundle-1701 askodox-play-1701.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1701" --notes "Play Console upload only (not installable on a phone). Main cb4ce24: #490 family shopping list + bulk price change, #491 chat speed round 3 + answer card fixes."
