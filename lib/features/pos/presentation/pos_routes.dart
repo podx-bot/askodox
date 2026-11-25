@@ -35,6 +35,7 @@ import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
 import '../../steps/presentation/agents_steps_screens.dart';
 import '../../steps/presentation/branches_steps_screen.dart';
+import '../../steps/presentation/hire_steps_screen.dart';
 import '../../steps/presentation/my_bills_steps_screen.dart';
 import '../../steps/presentation/my_deliveries_steps_screen.dart';
 import '../../steps/presentation/my_work_steps_screen.dart';
@@ -180,7 +181,10 @@ final askodoxPosRoutes = <GoRoute>[
   GoRoute(
       path: '/me/branches',
       builder: (context, state) => state.uri.queryParameters['full'] == '1' ? const AskodoxBranchesScreen() : const AskodoxBranchesStepsScreen()),
-  GoRoute(path: '/hire', builder: (context, state) => const AskodoxHireScreen()),
+  GoRoute(
+      path: '/hire',
+      builder: (context, state) =>
+          state.uri.queryParameters['full'] == '1' ? const AskodoxHireScreen() : const AskodoxHireStepsScreen()),
   // The person's OWN ways to be paid (any app's / bank's UPI QR, bank account).
   GoRoute(
       path: '/pos/:id/payment-alerts',
