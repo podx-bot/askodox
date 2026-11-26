@@ -852,3 +852,22 @@ def test_chat_place_filter_uses_only_a_town_the_person_named(env, monkeypatch):
     assert "app_action" not in ask("biryani in Hyderabad", "Hyderabad")
     assert "app_action" not in ask("విజయవాడలో మంచి biryani", "Vijayawada")
     assert ask("biryani in Vuyyuru", "Vuyyuru")["reply"].startswith("On ASKODOX")
+
+
+def test_customer_menu_has_photo_and_try_on_kind_from_the_shop_kit(env, monkeypatch):
+    """Owner 2026-11-26: the customer's menu shows the item photos first and "Try it" follows the shop's Business Kit."""
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    code = f"{QR_PREFIX}{biz}:{table}"
+    seen = desk.resolve(code, CUSTOMER)
+    assert seen["try_on"] == ""  # a hotel's kit offers no try-on
+    assert all(m["has_photo"] is False for m in seen["menu"])
+    with store._connect() as conn:
+        conn.execute("INSERT INTO pos_product_photos (business_id, product_id, image, mime, updated_at) VALUES (?,?,?,?,?)",
+                     (biz, biryani, b"\x89PNG", "image/png", T0.isoformat()))
+    seen = desk.resolve(code, CUSTOMER)
+    assert {m["id"]: m["has_photo"] for m in seen["menu"]} == {biryani: True, fry: False}
+    for kinds, want in ((["on_me"], "on_me"), (["in_home"], "in_home"), (["in_home", "on_me"], "on_me"), ([], "")):
+        monkeypatch.setattr(PosStore, "_kit", staticmethod(lambda conn, business_id, template, k=kinds: {"try_on": k}))
+        assert desk.resolve(code, CUSTOMER)["try_on"] == want
+    monkeypatch.setattr(PosStore, "_kit", staticmethod(lambda conn, business_id, template: 1 / 0))
+    assert desk.resolve(code, CUSTOMER)["try_on"] == ""  # a failure is "not offered", never a guess

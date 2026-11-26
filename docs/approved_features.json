@@ -13239,6 +13239,42 @@
           "date": "2026-11-26"
         }
       ]
+    },
+    {
+      "id": "order_desk_photos_try_it",
+      "name": "Item photos first + Try it on the customer's menu",
+      "purpose": "Owner 2026-11-26: the customer's menu shows each item's own photo first; 'Try it' (photo try-on) appears only on items with a photo in a shop whose Business Kit offers try-on (on_me / in_home).",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_frontdesk.py"
+        ],
+        "flutter": [
+          "test/features/steps/order_desk_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxStepRowPhoto"
+        ],
+        "symbols": [
+          "AskodoxStepPersonRow"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The customer's menu (order desk) shows each item's own photo first. A 'Try it' button (existing photo try-on screen) appears only on items that have a photo, in a shop whose Business Kit offers try-on (on_me or in_home); other shops show photos but no button. A failed kit lookup means not offered.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ]
     }
   ]
 }

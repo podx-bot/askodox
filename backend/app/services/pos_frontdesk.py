@@ -299,10 +299,13 @@ class PosFrontDesk:
         out = []
         photos: set = set()
         sold: Dict[str, int] = {}
-        if everything:  # the owner's menu pages show the photo and how many sold today (owner 2026-11-18)
+        try:  # the customer's menu shows the item photos FIRST too (owner 2026-11-26), so "has a photo" is for everyone
+            photos = {r[0] for r in conn.execute("SELECT product_id FROM pos_product_photos WHERE business_id = ?",
+                                                 (business_id,))}
+        except Exception:
+            photos = set()
+        if everything:  # the owner's menu pages show how many sold today (owner 2026-11-18)
             try:
-                photos = {r[0] for r in conn.execute("SELECT product_id FROM pos_product_photos WHERE business_id = ?",
-                                                     (business_id,))}
                 for r in conn.execute(
                         "SELECT l.product_id AS pid, SUM(l.qty_milli) AS q FROM pos_invoice_lines l JOIN pos_invoices i"
                         " ON i.id = l.invoice_id WHERE i.business_id = ? AND i.local_date = ? AND i.status != 'cancelled'"
@@ -326,7 +329,8 @@ class PosFrontDesk:
                     "price_includes_tax": bool(r["price_includes_tax"]),
                     "item_no": r["item_no"] if "item_no" in r.keys() else None,
                     "menu_group": (r["menu_group"] if "menu_group" in r.keys() else "") or "",
-                    "food_type": (r["food_type"] if "food_type" in r.keys() else "") or ""}
+                    "food_type": (r["food_type"] if "food_type" in r.keys() else "") or "",
+                    "has_photo": r["id"] in photos}
             try:  # the shop's own offer on this item (shown to the customer; applied when the order is billed)
                 item["offer"] = json.loads(r["offer"]) if "offer" in r.keys() and r["offer"] else None
             except (TypeError, ValueError):
@@ -335,7 +339,6 @@ class PosFrontDesk:
                 item["buy_only"] = buy_only
                 item["today_only_flag"] = bool(only_on)
                 item["sold_out"] = sold_out
-                item["has_photo"] = r["id"] in photos
                 item["sold_today"] = sold.get(r["id"], 0)
             out.append(item)
         return out
@@ -861,12 +864,28 @@ class PosFrontDesk:
                     m["rating"] = items_rated[m["id"]]
             shop_rating = ratings.summary(conn, row["id"])
             welcome = ratings.welcome(conn, row["id"], user)
+            try_on = self._try_on_kind(conn, row)
         modes = (["dine_in"] if table else []) + ["takeaway", "delivery"]
         return {"business": {"id": row["id"], "name": row["name"], "address": row["address"], "phone": row["phone"],
                              "status": status, "gst": row["registration_type"] != "unregistered", "rating": shop_rating},
-                "welcome": welcome,
+                "try_on": try_on, "welcome": welcome,
                 "table": table, "modes": modes, "menu": menu, "open": status == "open", "last_items": last,
                 "message": "" if status == "open" else "ఈ షాప్ ఇప్పుడు తెరిచి లేదు (This shop is closed right now)."}
+
+    @staticmethod
+    def _try_on_kind(conn: sqlite3.Connection, row: Any) -> str:
+        """Owner 2026-11-26: "Try it" on a shop's own items. The shop's Business Kit decides whether (and how) its
+        items can be shown: "on_me" (worn / held), "in_home" (a thing in the customer's room), or "" (not offered).
+        A shop that holds both kinds gets "on_me"; any failure reads as "not offered", never a guess."""
+        try:
+            kinds = list(PosStore._kit(conn, row["id"], (row["template"] if "template" in row.keys() else "") or "").get("try_on") or [])
+        except Exception:
+            return ""
+        if "on_me" in kinds:
+            return "on_me"
+        if "in_home" in kinds:
+            return "in_home"
+        return ""
 
     def _last_items(self, conn: sqlite3.Connection, business_id: str, user: str) -> List[Dict[str, Any]]:
         row = conn.execute("SELECT items_json FROM pos_desk_orders WHERE business_id = ? AND customer_user = ? AND stage NOT IN"
