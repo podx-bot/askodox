@@ -7,6 +7,21 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #495 + #498 + #502 + #503 + #504 (2026-11-26, owner "1" / "merge the pending ones, no Play link now"; Play bundle
+  `askodox-play-1708.aab` = Live Build run 708 on fa4260c holds #495 + #498 + chat speed #496 / #500 ONLY -- #502 / #503 need a new build):
+  (#495) payment voice customer line = "free for YOU too" in 12 languages (never names a shop). (#498) real HDFC e-mail shape ("account
+  ending 1234", payee in brackets after the VPA); a PROVEN debit (debit word + own account + 12-digit RRN) is stopped only by
+  `noMoneyMoved` words, never by a mail's banner ad words; `spokenAccountName` = the voice never says "A/c" / digits; mail apps are never
+  auto-added -- e-mail card `askodoxMineMailCard` on My phone payments. Skill rule 19. (#502) BILL PHOTO: selling price never demanded --
+  a new item without one = `pos_products.buy_only` (never billed: `_issue` 400 `buy_only`; never on the customer menu / online listing;
+  app `sellableProducts`; a price > 0 clears it); reader gets TODAY + `total_qty`; screen shows the bill date, row amounts, the rows'
+  total; a quantity / rupee mismatch asks "save as it is?" (resend without `supplier_total_paise`). (#503) TRY-ON is not a page: Buy tile
+  `b.tryon` removed (route `/try-on` + "Try it" on result cards stay); `image_studio.brand_strip` adds an ASKODOX strip under every
+  try-on picture. (#504, another session) hard advice / guides on the reasoning model. OWNER QUEUE (asked 2026-11-26, NOT built): (1) no
+  Guide chip / guide button / per-page mics -- ONE Ask button on every page that answers in place (central: `app.dart` overlay,
+  `step_kit` `AskodoxStepBottom` mic, `AskodoxFillBar`, `AskodoxGuideChip`); (2) Items list + Add an item + Stock & barcodes = one tile;
+  (3) calculator bill (qty x rate rows, share, print) inside Make a bill; (4) "Try it" on a shop's own items / cart (customer menu must
+  show item photos first; kit `try_on` kind decides on_me / in_home); (5) a skill for app-wide one-command changes. Nothing phone verified.
 - `main` PR #496 + #500 (2026-11-26, owner "1" + "do 1-4, no link now"; NO Play bundle yet -- the app side of #496 needs a build): CHAT SPEED
   rounds 4-5 -- chat calls send `thinking` off (Haiku `disabled`, Sonnet `between_tools`, `_quick_thinking`; the 5.5 models think by default:
   Haiku first word was 5-7 s), a 400 naming thinking / ttl is remembered and retried without it (`_refused_thinking`); fixed instructions cached
