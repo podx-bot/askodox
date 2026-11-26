@@ -34,6 +34,14 @@ Future<void> _openVoiceMore(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// Scroll the sheet until the row is really on screen, then tap it (rows below the fold missed the tap).
+Future<void> _tapVoice(WidgetTester tester, Key key) async {
+  await tester.ensureVisible(find.byKey(key));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(key));
+  await tester.pumpAndSettle();
+}
+
 const _channel = MethodChannel('com.askodox.app/payment_alerts');
 
 /// What the phone was asked (method + its arguments).
@@ -229,16 +237,14 @@ void main() {
     await _openVoiceMore(tester);
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-bill-on')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-out-off')), findsOneWidget, reason: 'money sent: off by default');
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-bill')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKind-bill'));
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-bill-off')), findsOneWidget);
     final saved = _calls.lastWhere((c) => c.method == 'setVoiceKinds').arguments as Map;
     expect(saved['scope'], 'personal');
     expect(jsonDecode('${saved['kinds']}')['bill'], isFalse);
     expect((jsonDecode('${saved['kinds']}') as Map).containsKey('fake'), isFalse, reason: 'the warning is never switched off');
     // ▶ plays the real words of that kind on the phone.
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKindPlay-refund')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKindPlay-refund'));
     expect(_calls.where((c) => c.method == 'speakKind').single.arguments, containsPair('kind', 'refund'));
     await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxVoiceKind-fake')), 100,
         scrollable: find.byType(Scrollable).last);
@@ -274,15 +280,13 @@ void main() {
     for (final id in ['tune', 'hello', 'night', 'customer']) {
       expect(find.byKey(ValueKey('askodoxVoiceKindDot-$id-on')), findsOneWidget, reason: '$id: owner 2026-11-23, all ON');
     }
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-customer')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKind-customer'));
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-customer-off')), findsOneWidget);
     final saved = jsonDecode('${(_calls.lastWhere((c) => c.method == 'setVoiceKinds').arguments as Map)['kinds']}') as Map;
     expect(saved['customer'], isFalse);
     expect(saved['night'], isTrue);
     // ▶ plays the same words the phone says at night.
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKindPlay-night')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKindPlay-night'));
     expect(_calls.where((c) => c.method == 'speakKind').single.arguments, containsPair('kind', 'night'));
   });
 
