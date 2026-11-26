@@ -689,7 +689,13 @@ class UniversalAIAssistantService:
         prompt caching skips re-reading ~4k fixed tokens every turn). Same text either way."""
         if cache_upto <= 0 or cache_upto >= len(prompt):
             return prompt
-        return [{"type": "text", "text": prompt[:cache_upto], "cache_control": {"type": "ephemeral"}},
+        # Owner 2026-11-26 ("speed"): the fixed instructions stay cached for 1 HOUR (was the 5-minute default), so the
+        # first question after a pause no longer re-reads ~8k tokens (deploy log: cache_write=8405 on every such turn).
+        # 1-hour writes cost 2x input once; reads stay 0.1x. A refusal of "ttl" falls back to the 5-minute cache.
+        control: dict[str, Any] = {"type": "ephemeral"}
+        if not UniversalAIAssistantService._TTL_REFUSED:
+            control["ttl"] = "1h"
+        return [{"type": "text", "text": prompt[:cache_upto], "cache_control": control},
                 {"type": "text", "text": prompt[cache_upto:]}]
 
     # Owner 2026-11-26 ("chat speed"): the 5.5 models THINK by default when a request has no ``thinking`` field
@@ -698,6 +704,7 @@ class UniversalAIAssistantService:
     # {"type": "between_tools"}; the strongest model cannot turn it off (no field sent). A model that refuses the
     # field (400 naming "thinking") is remembered and asked again without it, so a model change never breaks chat.
     _THINKING_REFUSED: set[str] = set()
+    _TTL_REFUSED: bool = False
 
     @classmethod
     def _quick_thinking(cls, model: str) -> dict[str, Any]:
@@ -712,7 +719,11 @@ class UniversalAIAssistantService:
 
     @classmethod
     def _refused_thinking(cls, model: str, status: int, body: str) -> bool:
-        """True (and remembered) when Anthropic refused the thinking field for this model."""
+        """True (and remembered) when Anthropic refused the thinking field for this model, or the 1-hour cache."""
+        if status == 400 and "ttl" in str(body or "").lower() and not cls._TTL_REFUSED:
+            cls._TTL_REFUSED = True
+            logger.warning("universal_ai_assistant: the 1-hour cache was refused; using the 5-minute cache")
+            return True
         if status == 400 and "thinking" in str(body or "").lower() and cls._quick_thinking(model):
             cls._THINKING_REFUSED.add(str(model or "").lower())
             logger.warning("universal_ai_assistant: %s refused the thinking setting; asking without it", model)

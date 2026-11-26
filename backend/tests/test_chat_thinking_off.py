@@ -61,3 +61,18 @@ def test_calls_send_the_setting_and_retry_without_it_when_refused():
 def test_short_plain_reply_is_a_bubble_not_a_card():
     assert answer_card.build(None, reply="హలో!", user_text="Hello") is None
     assert answer_card.build(None, reply="Hi! How can I help?", user_text="hi") is None
+
+
+def test_fixed_instructions_cached_for_one_hour_and_fallback():
+    """Owner 2026-11-26: the first question after a pause re-read ~8k tokens (5-minute cache)."""
+    S = svc.UniversalAIAssistantService
+    S._TTL_REFUSED = False
+    content = S._content("FIXED RULES" * 10 + "question", cache_upto=110)
+    assert content[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    refusing = _Http()
+    refusing.post = lambda url, **kw: (refusing.sent.append(kw["json"]) or (
+        _Resp({}, status=400, text='{"error":{"message":"cache_control.ttl: unknown"}}')
+        if "ttl" in str(kw["json"]) else _Resp({"content": [{"type": "text", "text": "ok"}]})))
+    assert _brain(refusing)._call_claude("FIXED" * 50 + "q", model="claude-haiku-5-5", cache_upto=250) == "ok"
+    assert S._TTL_REFUSED and "ttl" not in str(refusing.sent[-1])
+    S._TTL_REFUSED = False
