@@ -1023,6 +1023,12 @@ def privacy(cfg: dict) -> Page:
 <li>Without the app, email <a href="mailto:{e(p)}">{e(p)}</a> from your registered number's account or include that number, with the subject "Delete my ASKODOX account". We confirm within 7 days.</li>
 </ol>
 <p>Some records may be kept for as long as the law requires, such as purchase and tax records for AI Credits, and records of requests, bills or orders you made with another person or shop may remain on their side.</p>
+<h2 id="youtube-and-social">YouTube, Facebook and Instagram</h2>
+<ul>
+<li><strong>YouTube.</strong> ASKODOX uses YouTube API Services to show YouTube videos in answers when you ask for videos, and to post ASKODOX's own videos to ASKODOX's own YouTube channel. By using these parts of ASKODOX you also agree to the <a href="https://www.youtube.com/t/terms" rel="noopener">YouTube Terms of Service</a>, and Google handles its side under the <a href="https://policies.google.com/privacy" rel="noopener">Google Privacy Policy</a>. ASKODOX does not ask for access to your own YouTube account and does not read or store your YouTube data.</li>
+<li><strong>ASKODOX's own channel.</strong> Only an authorised ASKODOX team member connects the ASKODOX channel. The permission is kept encrypted, is used only to upload ASKODOX's videos and read that channel's own video list, and can be removed at any time in ASKODOX or at <a href="https://myaccount.google.com/permissions" rel="noopener">Google's security settings</a>, after which we delete it.</li>
+<li><strong>Facebook Pages and Instagram.</strong> If a business chooses to connect its own Facebook Page or Instagram professional account, ASKODOX uses that connection only for what the business switches on (for example replying to messages about its own ASKODOX videos with answers the business approved). The business can disconnect at any time, and we then delete what that connection gave us. To have this data deleted, follow <a href="#delete-account">Deleting your account</a> or email <a href="mailto:{e(p)}">{e(p)}</a>.</li>
+</ul>
 <h2>How long we keep it</h2>
 <p>We keep information while your account is active and as long as needed for the purposes above. When you delete your account, we delete or anonymise your information unless we need to keep some of it to meet legal obligations or resolve disputes.</p>
 <h2>Age</h2>

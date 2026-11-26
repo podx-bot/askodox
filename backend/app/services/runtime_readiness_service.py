@@ -37,7 +37,7 @@ class RuntimeReadinessService:
         if not whatsapp_ready:
             warnings.append("WhatsApp send credentials are incomplete")
         if not webhook_ready:
-            warnings.append("WhatsApp webhook verify token is missing")
+            warnings.append("WhatsApp webhook verify token is not configured")
 
         sarvam = bool(str(getattr(self.settings, "sarvam_api_key", "") or "").strip())
         gemini = bool(str(getattr(self.settings, "gemini_api_key", "") or "").strip())

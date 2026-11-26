@@ -516,6 +516,9 @@ def create_app() -> FastAPI:
     from app.api.routes.studio import router as studio_router
 
     app.include_router(studio_router)
+    from app.api.routes.youtube_oauth import router as youtube_oauth_router
+
+    app.include_router(youtube_oauth_router)
     app.include_router(early_access_router)
     from app.api.routes.test_mode import router as test_mode_router
 

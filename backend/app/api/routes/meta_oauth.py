@@ -32,6 +32,19 @@ DEFAULT_SCOPES = (
 )
 
 
+# Asked ONLY with ?dm=1 (the auto-reply connection shown in Meta App Review). The default login keeps the five
+# scopes above, so an ordinary Page connection never fails on a permission Meta has not approved yet.
+MESSAGING_SCOPES = (
+    "pages_manage_metadata",
+    "pages_messaging",
+    "instagram_manage_messages",
+)
+
+
+def scopes_for(dm: str = "") -> tuple[str, ...]:
+    return DEFAULT_SCOPES + MESSAGING_SCOPES if str(dm).strip() in ("1", "true", "yes") else DEFAULT_SCOPES
+
+
 def _graph_version() -> str:
     return os.getenv("META_GRAPH_API_VERSION", "v24.0").strip() or "v24.0"
 
@@ -84,7 +97,7 @@ def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
 
 
 @router.get("/meta/oauth/start", response_model=None)
-def meta_oauth_start():
+def meta_oauth_start(dm: str = ""):
     if not _app_id():
         return JSONResponse({"error": "META_APP_ID is not configured"}, status_code=503)
     state = secrets.token_urlsafe(24)
@@ -94,7 +107,7 @@ def meta_oauth_start():
             "redirect_uri": _redirect_uri(),
             "state": state,
             "response_type": "code",
-            "scope": ",".join(DEFAULT_SCOPES),
+            "scope": ",".join(scopes_for(dm)),
         }
     )
     response = RedirectResponse(f"https://www.facebook.com/{_graph_version()}/dialog/oauth?{query}", status_code=302)

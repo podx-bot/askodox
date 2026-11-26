@@ -9167,6 +9167,10 @@
         {
           "pr": null,
           "change": "Owner approved \"1\" 2026-10-31 (branch claude/meta-oauth-callback). Needs META_APP_ID and META_APP_SECRET on Railway; NOT PRODUCTION VERIFIED; no token storage yet."
+        },
+        {
+          "date": "2026-11-26",
+          "change": "GET /meta/oauth/start?dm=1 also asks pages_manage_metadata / pages_messaging / instagram_manage_messages (Meta App Review demo for auto-replies); the default login keeps the five scopes; not production verified"
         }
       ]
     },
@@ -13383,6 +13387,84 @@
           "approved_by": "owner",
           "change": "new (2026-11-26); NOT PHONE VERIFIED",
           "date": "2026-11-26"
+        }
+      ]
+    },
+    {
+      "id": "youtube_own_channel_upload",
+      "name": "ASKODOX's own YouTube channel: connect + post a published Studio video",
+      "purpose": "Owner 2026-11-26 (WhatsApp + YouTube API approvals): ASKODOX's own promo videos go to ASKODOX's own YouTube channel from the Staff Workspace; the same flow is the demo for Google's sensitive-scope verification and the YouTube API audit.",
+      "expected_behavior": "A publisher gets a one-time 10-minute link (POST /admin/cc/workspace/youtube/connect) that opens Google's consent page with only youtube.upload + youtube.readonly; the callback saves the channel with the refresh token encrypted (fails closed without ASKODOX_SECRETS_KEY). No token is ever returned, shown or logged. A PUBLISHED Studio video is uploaded once (ref studio:<id>, default privacy private) and its link is saved as the YouTube post. Disconnect revokes the token at Google and deletes it.",
+      "roles": [
+        "staff"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/admin/cc/workspace/youtube",
+          "response_keys": [
+            "configured",
+            "connected",
+            "channel_title",
+            "uploads"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/youtube/connect",
+          "response_keys": [
+            "url",
+            "minutes"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/youtube/disconnect",
+          "response_keys": [
+            "connected"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/youtube/oauth/start",
+          "response_keys": []
+        },
+        {
+          "method": "GET",
+          "path": "/youtube/oauth/callback",
+          "response_keys": []
+        },
+        {
+          "method": "POST",
+          "path": "/admin/cc/workspace/studio/purchases/{purchase_id}/youtube",
+          "response_keys": [
+            "upload",
+            "already",
+            "purchase"
+          ]
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "status": "approved",
+      "flags": {},
+      "dependencies": [],
+      "tests": {
+        "backend": [
+          "tests/test_youtube_channel.py"
+        ],
+        "flutter": []
+      },
+      "history": [
+        {
+          "date": "2026-11-26",
+          "pr": null,
+          "change": "Built on branch claude/social-api-setup. Needs YOUTUBE_OAUTH_CLIENT_ID / YOUTUBE_OAUTH_CLIENT_SECRET on Railway; NOT PRODUCTION VERIFIED; uploads stay private until the YouTube API audit passes."
         }
       ]
     }
