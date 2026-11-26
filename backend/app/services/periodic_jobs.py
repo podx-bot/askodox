@@ -181,10 +181,39 @@ def _shop_activity(container: Any) -> Any:
     return shop_retention(container).roll()
 
 
+def _ai_cost_guard(container: Any) -> Any:
+    """AI cost guard (owner 2026-11-25, automation 6): today's AI bill against the staff's daily budget
+    (``automation.ai_cost_daily_inr``; 0 = off). At 80% and at 100% -- once each per day -- the Command Center gets a
+    notification and growth staff a push. It only warns; nobody's AI is cut by it."""
+    from app.api.routes.automations import automations, cost_guard_now
+    from app.api.routes.command_center import command_center
+    from app.services import governance as gov
+    from app.services.push_service import push_service
+
+    guard = cost_guard_now(container)
+    if not automations(container).cost_alert_due(guard):
+        return {"state": guard["state"], "alerted": False}
+    cc = command_center(container)
+    title = (f"AI ఖర్చు ఈ రోజు ₹{guard['today_cost_inr']:.0f} (budget ₹{guard['budget_inr']:.0f} లో {guard['percent']}%)."
+             " AI Credits page లో ఎవరు ఎక్కువ వాడుతున్నారో చూడండి.")
+    cc.notify_once(f"ai_cost:{guard['state']}:{automations(container)._today().isoformat()}", "ai_cost", title)
+    pushed = 0
+    try:
+        for person in cc.list_staff():
+            if person.get("active") and person.get("app_user_id") and gov.has_permission(
+                    person.get("permissions") or [], "growth:view"):
+                pushed += int(push_service(container).notify(
+                    person["app_user_id"], title="ASKODOX: AI ఖర్చు హెచ్చరిక", body=title[:170], route="/admin",
+                    event_key=f"ai_cost:{guard['state']}:{automations(container)._today().isoformat()}") or 0)
+    except Exception:
+        pass
+    return {"state": guard["state"], "alerted": True, "pushed": pushed}
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
             ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports),
             ("payalert_missed", 60.0, _payalert_missed), ("dues_followup", 3600.0, _dues_followup),
             ("expiry_alerts", 3600.0, _expiry_alerts), ("studio_reminders", 1800.0, _studio_reminders),
-            ("shop_activity", 21600.0, _shop_activity)]
+            ("shop_activity", 21600.0, _shop_activity), ("ai_cost_guard", 1800.0, _ai_cost_guard)]

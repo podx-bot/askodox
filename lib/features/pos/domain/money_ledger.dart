@@ -513,6 +513,25 @@ List<Map<String, Object?>> askodoxDueSuggestions(Iterable<Map<String, Object?>> 
   return out;
 }
 
+/// Owner 2026-11-26 (automation 2): a bill SMS with a due date is REMINDED by voice by itself -- 2 days before and on
+/// the day -- without the person adding it first. The same rules as the offer above: not when already paid, not when
+/// the person dismissed it ("వద్దు"), not when it is in their own list (that one is said already). Shape = what the
+/// phone's reminder reads (`dues` of the native config).
+List<Map<String, Object?>> askodoxAutoBillDues(Iterable<Map<String, Object?>> phoneEvents, List<AskodoxDue> dues,
+    Set<String> dismissed, DateTime today) {
+  final day = DateTime(today.year, today.month, today.day);
+  return [
+    for (final e in askodoxDueSuggestions(phoneEvents, dues, dismissed, today))
+      if (DateTime.tryParse('${e['due_date']}') case final date? when !date.isBefore(day))
+        {
+          'id': 'bill-${e['local_id']}',
+          'name': '${e['party'] ?? ''}'.trim(),
+          'amount_paise': (e['amount_paise'] as num).toInt(),
+          'date': askodoxDay(date),
+        },
+  ];
+}
+
 /// EMI debits the phone saw (bank SMS "EMI / NACH / auto debit") whose amount is not a due yet: "add as a monthly EMI?"
 List<AskodoxMoneyItem> askodoxEmiSuggestions(Iterable<AskodoxMoneyItem> items, List<AskodoxDue> dues, Set<String> dismissed) {
   final out = <AskodoxMoneyItem>[];

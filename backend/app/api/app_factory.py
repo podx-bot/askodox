@@ -440,6 +440,10 @@ def create_app() -> FastAPI:
     from app.api.routes.shop_retention import admin_router as shop_retention_admin_router
 
     app.include_router(shop_retention_admin_router)
+    from app.api.routes.automations import admin_router as automations_admin_router, router as automations_router
+
+    app.include_router(automations_router)
+    app.include_router(automations_admin_router)
     from app.api.routes.shop_retention import guide_admin_router
 
     app.include_router(guide_admin_router)

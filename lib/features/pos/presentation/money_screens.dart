@@ -38,7 +38,7 @@ const _amber = Color(0xFF92400E);
 String _rs(int paise) => askodoxPaise(paise);
 
 /// The native "My phone" settings with the ElevenLabs voice address (same as the My phone screen).
-Map<String, Object?> _nativeOf(WidgetRef ref, AskodoxMyPhoneAlerts m) {
+Map<String, Object?> _nativeOf(WidgetRef ref, AskodoxMyPhoneAlerts m, [List<AskodoxJson> phoneEvents = const []]) {
   var base = '';
   var token = '';
   try {
@@ -46,7 +46,8 @@ Map<String, Object?> _nativeOf(WidgetRef ref, AskodoxMyPhoneAlerts m) {
     final session = ref.read(authSessionProvider);
     token = session.user == null ? '' : (session.tokenPlaceholder ?? '');
   } catch (_) {}
-  return m.nativeConfig(baseUrl: base, token: token);
+  return m.nativeConfig(
+      baseUrl: base, token: token, autoDues: askodoxAutoBillDues(phoneEvents, m.dues, m.dismissed, DateTime.now()));
 }
 
 /// The money data of one view, loaded once and shared by the screens.
@@ -148,7 +149,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
     edit(m);
     await m.save();
     try {
-      await _bridge.configurePersonal(_nativeOf(ref, m));
+      await _bridge.configurePersonal(_nativeOf(ref, m, _data.phoneEvents));
     } catch (_) {}
     if (mounted) setState(() {});
   }
@@ -1369,7 +1370,7 @@ class _AskodoxDuesScreenState extends ConsumerState<AskodoxDuesScreen> {
     await m.save();
     try {
       final bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
-      await bridge.configurePersonal(_nativeOf(ref, m));
+      await bridge.configurePersonal(_nativeOf(ref, m, widget.phoneEvents));
       unawaited(bridge.checkDues());
     } catch (_) {}
     if (mounted) setState(() {});
@@ -1717,7 +1718,7 @@ class _UpcomingStepsState extends ConsumerState<AskodoxUpcomingStepsScreen> {
     await m.save();
     try {
       final bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
-      await bridge.configurePersonal(_nativeOf(ref, m));
+      await bridge.configurePersonal(_nativeOf(ref, m, widget.phoneEvents));
       unawaited(bridge.checkDues());
     } catch (_) {}
   }

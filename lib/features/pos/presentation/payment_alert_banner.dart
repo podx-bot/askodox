@@ -86,7 +86,8 @@ final askodoxPaymentAlertHealthProvider = FutureProvider.autoDispose<AskodoxAler
         final session = ref.read(authSessionProvider);
         token = session.user == null ? '' : (session.tokenPlaceholder ?? '');
       } catch (_) {}
-      await bridge.configurePersonal(mine.nativeConfig(baseUrl: base, token: token));
+      await bridge.configurePersonal(
+          mine.nativeConfig(baseUrl: base, token: token, autoDues: await mine.autoBillDues(bridge)));
     } catch (_) {}
   }
   final status = await bridge.status();
