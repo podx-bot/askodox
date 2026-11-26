@@ -146,6 +146,20 @@ void main() {
     });
   });
 
+  group('Items = one tile (owner 2026-11-26)', () {
+    test('Add an item + Stock & barcodes live inside Items; a person without the Items list keeps theirs', () {
+      final owner = askodoxSellerPages('k1', {'role': 'owner', 'template': 'kirana'}).map((p) => p.id).toSet();
+      expect(owner, contains('s.menu'));
+      expect(owner.contains('s.additem'), isFalse);
+      expect(owner.contains('s.stock'), isFalse);
+      final stockOnly = askodoxSellerPages('k1', {'my_role': 'cashier', 'template': 'kirana', 'tools': ['stock']})
+          .map((p) => p.id)
+          .toSet();
+      expect(stockOnly, contains('s.stock'));
+      expect(stockOnly.contains('s.menu'), isFalse);
+    });
+  });
+
   group('owner AND employee (owner 2026-11-22)', () {
     test('the shipped screens group nothing', () {
       expect(askodoxBuyerShippedLayout().entries.where((e) => e.isFolder), isEmpty);
