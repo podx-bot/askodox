@@ -113,6 +113,11 @@ class AssistantDecision(BaseModel):
     reply_language: str = ""
 
 
+# "Near me" words a model may put in entities.location: a relative place, never a town to filter shops by.
+_NEAR_WORDS = {"nearby", "near me", "near", "here", "around", "around me", "local", "my area", "this area", "my location",
+               "current location", "near my place", "close by", "closeby"}
+
+
 @router.post("/assistant", response_model=AssistantDecision)
 def assistant_decision(payload: AssistantRequest, request: Request) -> AssistantDecision:
     return _assistant_answer(payload, request)
@@ -349,8 +354,11 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
                 return decision
             # The place the person named ("biryani in Hyderabad"), not the phone's own location.
             place = str((decision.get("entities") or {}).get("location") or "").strip()
-            if place and payload.location and _desk(request).in_place(payload.location, place):
-                place = ""  # the model only copied the known location: "near me" keeps every shop as before
+            if place and (place.lower() in _NEAR_WORDS or not _desk(request).in_place(user_words, place)
+                          or (payload.location and _desk(request).in_place(payload.location, place))):
+                # Only a town the person really NAMED filters: the model writes "nearby" for "దగ్గర్లో" (probe
+                # 2026-11-26: every shop vanished) or copies the known location -- those keep every shop as before.
+                place = ""
             found = _desk(request).find_items(user_words, 3, place=place)
             if not found:
                 if shopping and wants:

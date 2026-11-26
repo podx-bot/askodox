@@ -826,3 +826,29 @@ def test_find_items_keeps_to_the_town_the_person_named(env):
     assert [h["id"] for h in desk.find_items("good biryani")] == [biz]
     assert desk.in_place("Uyyuru, Andhra Pradesh", "Uyyuru")
     assert not desk.in_place("", "Vijayawada")
+
+
+def test_chat_place_filter_uses_only_a_town_the_person_named(env, monkeypatch):
+    """Probe 2026-11-26: "దగ్గర్లో biryani" came back with entities.location = "nearby" and every ASKODOX shop
+    vanished. Only a town the person really said filters; "nearby" / a copied known location keeps every shop."""
+    from types import SimpleNamespace
+
+    from app.api.routes import in_app_assistant, pos_frontdesk
+
+    desk, store, rest, biz, *_ = env
+    with store._connect() as conn:
+        conn.execute("UPDATE pos_businesses SET address = ? WHERE id = ?", ("Gandigunta, Vuyyuru, Krishna", biz))
+    monkeypatch.setattr(pos_frontdesk, "_desk", lambda request: desk)
+
+    def ask(text, place, known=""):
+        payload = SimpleNamespace(message=text, history=[], locale="en", capabilities=["app_actions"], location=known)
+        decision = {"reply": "", "mode": "commerce", "transactional": True, "search_ready": True,
+                    "entities": {"subject": "biryani", "location": place}}
+        return in_app_assistant._own_shop_order(None, payload, decision)
+
+    assert ask("దగ్గర్లో biryani కావాలి", "nearby")["reply"].startswith("On ASKODOX")
+    assert ask("biryani nearby", "nearby")["reply"].startswith("On ASKODOX")
+    assert ask("biryani", "Uyyuru", known="Uyyuru, Andhra Pradesh")["reply"].startswith("On ASKODOX")
+    assert "app_action" not in ask("biryani in Hyderabad", "Hyderabad")
+    assert "app_action" not in ask("విజయవాడలో మంచి biryani", "Vijayawada")
+    assert ask("biryani in Vuyyuru", "Vuyyuru")["reply"].startswith("On ASKODOX")
