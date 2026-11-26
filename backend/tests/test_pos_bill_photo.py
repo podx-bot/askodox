@@ -61,7 +61,8 @@ def test_preview_matches_own_items_and_asks_only_what_is_missing(env):
     biscuit, oil_line, mystery = out["lines"]
     assert biscuit["new"] and biscuit["price_paise"] == 1200 and biscuit["ask"] == []
     assert oil_line["product_id"] == oil and not oil_line["new"] and oil_line["ask"] == []
-    assert set(mystery["ask"]) == {"qty_milli", "cost_paise", "price_paise", "rate_bp"}
+    # owner 2026-11-26: the selling price of a new item is never demanded
+    assert set(mystery["ask"]) == {"qty_milli", "cost_paise", "rate_bp"}
     assert out["ask"] == ["line:2"]
 
 
@@ -153,3 +154,36 @@ def test_a_long_bill_cut_off_by_the_model_keeps_every_complete_row():
 
     with pytest.raises(ValueError):
         UniversalImageService._parse_json('{"lines": [{"name": "SO')
+
+
+# Owner 2026-11-26 (hand-written bill for live birds: three rows of one item, "Total 130 kg", date "24/11", no selling
+# price -- the birds are bought, meat is sold): no selling price is demanded; the item is a BOUGHT item.
+BIRDS = {"supplier": {"name": "Star Broilers", "gstin": None, "phone": None}, "bill_no": "65", "bill_date": "2026-10-22",
+         "total": None, "total_qty": 130,
+         "lines": [{"name": "Birds Kg.", "qty": 42.6, "unit": "kg", "cost": 98, "gst_percent": None, "mrp": None},
+                   {"name": "Birds Kg.", "qty": 44.6, "unit": "kg", "cost": 98, "gst_percent": None, "mrp": None},
+                   {"name": "Birds Kg.", "qty": 43.2, "unit": "kg", "cost": 98, "gst_percent": None, "mrp": None}]}
+
+
+def test_a_bought_item_needs_no_selling_price_and_is_never_sold_by_mistake(env):
+    store, _purchases, photo, biz, _oil = env
+    preview = photo.preview(biz, OWNER, [(b"x", "image/jpeg")], FakeVision(BIRDS))
+    assert preview["bill_date"] == "2026-10-22" and preview["total_qty_milli"] == 130000
+    assert all(line["ask"] == [] for line in preview["lines"]) and preview["ask"] == []
+    out = photo.save(biz, OWNER, {"client_txn_id": "photo-birds-1", "supplier": preview["supplier"],
+                                  "supplier_bill_no": "65", "bill_date": preview["bill_date"], "lines": preview["lines"]})
+    assert out["created_items"] == 1  # three rows of one name = ONE item
+    birds = next(p for p in store.products(biz, OWNER) if p["name"] == "Birds Kg.")
+    assert birds["buy_only"] is True and birds["price_paise"] == 0 and birds["stock_milli"] == 130400
+    with pytest.raises(PosError) as e:  # it can never slip onto a bill at Rs 0
+        store.create_invoice(biz, OWNER, {"client_txn_id": "sale-birds", "lines": [{"product_id": birds["id"], "qty_milli": 1000}],
+                                          "payments": []})
+    assert e.value.code == "buy_only"
+    priced = store.update_product(biz, OWNER, birds["id"], {"price_paise": 14000})
+    assert priced["buy_only"] is False  # a selling price makes it an ordinary item
+
+
+def test_a_bill_dated_after_today_is_left_for_the_person_to_type(env):
+    _store, _purchases, photo, biz, _oil = env
+    late = dict(BIRDS, bill_date="2026-11-24")  # the reader took the wrong year: today (test clock) is 2026-10-24
+    assert photo.preview(biz, OWNER, [(b"x", "image/jpeg")], FakeVision(late))["bill_date"] == ""

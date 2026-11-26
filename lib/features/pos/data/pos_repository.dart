@@ -457,6 +457,9 @@ class AskodoxPosRepository {
   Future<AskodoxJson> checkGstin(String gstin) => _send('GET', '/api/pos/gstin/${Uri.encodeComponent(gstin)}');
   Future<List<AskodoxJson>> products(String id, {String q = ''}) async =>
       askodoxPosList((await _send('GET', '${_b(id)}/products', query: {if (q.isNotEmpty) 'q': q}))['products']);
+  /// The items that can go on a BILL: never a bought item with no selling price (`buy_only`, owner 2026-11-26).
+  Future<List<AskodoxJson>> sellableProducts(String id) async =>
+      [for (final p in await products(id)) if (p['buy_only'] != true) p];
   Future<AskodoxJson> addProduct(String id, AskodoxJson body) => _send('POST', '${_b(id)}/products', body: body);
   /// Combo offers of the shop (2-6 items for one price).
   Future<List<AskodoxJson>> combos(String id) async => askodoxPosList((await _send('GET', '${_b(id)}/combos'))['combos']);

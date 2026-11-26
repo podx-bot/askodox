@@ -69,6 +69,8 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
   final _billNo = TextEditingController();
   String _billDate = '';
   int? _totalPaise;
+  int? _totalQtyMilli; // the total QUANTITY written on the bill ("Total 130 kg"), when one is written
+  bool _skipPrintedTotal = false; // the person chose to save although the lines do not add up to the printed total
   final List<_BillLine> _lines = [];
   final List<_BillLine> _removed = []; // disposed with the screen (their boxes may still be on screen this frame)
   final _txn = askodoxNewTxnId();
@@ -113,6 +115,8 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
         _billNo.text = '${out['bill_no'] ?? ''}';
         _billDate = '${out['bill_date'] ?? ''}';
         _totalPaise = out['total_paise'] is num ? (out['total_paise'] as num).round() : null;
+        _totalQtyMilli = out['total_qty_milli'] is num ? (out['total_qty_milli'] as num).round() : null;
+        _skipPrintedTotal = false;
         if (!_read) {
           _error = te
               ? 'ఫోటో నుంచి బిల్లు చదవలేకపోయాను. వెలుతురులో స్పష్టంగా మళ్ళీ తీయండి, లేదా కింద చేతితో రాయండి.'
@@ -133,10 +137,9 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
       final q = askodoxParseMilli(l.qty.text);
       final c = askodoxParsePaise(l.cost.text);
       final p = askodoxParsePaise(l.price.text);
-      if (q == null || q <= 0 || c == null || (l.isNew && (p == null || p <= 0))) {
-        setState(() => _error = te
-            ? '${l.name.text}: ${l.isNew ? 'పరిమాణం, కొన్న ధర, మీ అమ్మకం ధర' : 'పరిమాణం, కొన్న ధర'} నింపండి.'
-            : '${l.name.text}: fill the quantity, the cost${l.isNew ? ' and your selling price' : ''}.');
+      // Owner 2026-11-26: the selling price is the shop's own choice -- never demanded (birds bought, meat sold).
+      if (q == null || q <= 0 || c == null) {
+        setState(() => _error = te ? '${l.name.text}: పరిమాణం, కొన్న ధర నింపండి.' : '${l.name.text}: fill the quantity and the cost.');
         return;
       }
       lines.add({
@@ -146,7 +149,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
         'qty_milli': q,
         'cost_paise': c,
         'rate_bp': l.rateBp,
-        if (l.isNew) 'price_paise': p,
+        if (l.isNew && p != null && p > 0) 'price_paise': p,
         if (l.batch.isNotEmpty) 'batch_no': l.batch,
         if (l.expiry.text.trim().isNotEmpty) 'expiry_date': l.expiry.text.trim(),
       });
@@ -154,6 +157,18 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
     if (_billNo.text.trim().isEmpty || (_supplierId == null && _supplierName.text.trim().isEmpty)) {
       setState(() => _error = te ? 'సప్లయర్ పేరు, బిల్లు నంబర్ నింపండి.' : 'Fill the supplier name and the bill number.');
       return;
+    }
+    // Owner 2026-11-26: the total written on the bill ("130 kg") against what the rows add up to -- ask, then save.
+    final written = _totalQtyMilli;
+    final sum = _qtySum;
+    if (written != null && sum != null && written != sum) {
+      final unit = _lines.first.unit;
+      final ok = await _confirm(
+          te,
+          te
+              ? 'బిల్లు మీద మొత్తం ${_BillLine._milli(written)} $unit అని ఉంది. లైన్లు కలిపితే ${_BillLine._milli(sum)} $unit. ఇలాగే సేవ్ చేయాలా?'
+              : 'The bill says ${_BillLine._milli(written)} $unit in total. The rows add up to ${_BillLine._milli(sum)} $unit. Save as it is?');
+      if (!ok || !mounted) return;
     }
     setState(() {
       _saving = true;
@@ -166,7 +181,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
         'supplier': {..._supplier, 'name': _supplierName.text.trim()},
         'supplier_bill_no': _billNo.text.trim(),
         if (_billDate.isNotEmpty) 'bill_date': _billDate,
-        if (_totalPaise != null) 'supplier_total_paise': _totalPaise,
+        if (_totalPaise != null && !_skipPrintedTotal) 'supplier_total_paise': _totalPaise,
         'lines': lines,
       });
       if (!mounted) return;
@@ -178,10 +193,79 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
               : 'Bill saved ✓ stock added${created > 0 ? ' · $created new items added' : ''}');
       Navigator.of(context).pop(true);
     } on AskodoxPosException catch (e) {
-      if (mounted) setState(() => _error = e.message(te));
+      if (!mounted) return;
+      if (e.code == 'total_mismatch' && !_skipPrintedTotal) {
+        // the rows do not add up to the amount printed on the bill: the person decides (owner 2026-11-26)
+        setState(() => _saving = false);
+        final ok = await _confirm(
+            te,
+            te
+                ? 'లైన్లు కలిపితే ₹${_BillLine._rupees(_amountSum)}. బిల్లు మీద ₹${_BillLine._rupees(_totalPaise)} అని ఉంది. లైన్ల మొత్తంతో సేవ్ చేయాలా?'
+                : 'The rows add up to ₹${_BillLine._rupees(_amountSum)}. The bill says ₹${_BillLine._rupees(_totalPaise)}. Save with the rows\' total?');
+        if (ok && mounted) {
+          _skipPrintedTotal = true;
+          return _save();
+        }
+        return;
+      }
+      setState(() => _error = e.message(te));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// The rows' quantity added up -- only when every row has one unit (kg + pcs are never added).
+  int? get _qtySum {
+    if (_lines.isEmpty || _lines.any((l) => l.unit != _lines.first.unit)) return null;
+    var sum = 0;
+    for (final l in _lines) {
+      sum += askodoxParseMilli(l.qty.text) ?? 0;
+    }
+    return sum;
+  }
+
+  static int? _lineAmount(_BillLine l) {
+    final q = askodoxParseMilli(l.qty.text);
+    final c = askodoxParsePaise(l.cost.text);
+    return q == null || c == null ? null : (q * c / 1000).round();
+  }
+
+  /// Quantity x cost of every row (before GST).
+  int get _amountSum => _lines.fold(0, (sum, l) => sum + (_lineAmount(l) ?? 0));
+
+  Future<bool> _confirm(bool te, String text) async =>
+      await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+                key: const Key('askodoxPosBillPhotoConfirm'),
+                content: Text(text),
+                actions: [
+                  TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(te ? 'సరిచేస్తా' : 'Let me fix it')),
+                  FilledButton(
+                      key: const Key('askodoxPosBillPhotoConfirmYes'),
+                      onPressed: () => Navigator.of(dialog).pop(true),
+                      child: Text(te ? 'సేవ్ చేయి' : 'Save')),
+                ],
+              )) ??
+      false;
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+        context: context,
+        initialDate: DateTime.tryParse(_billDate) ?? now,
+        firstDate: DateTime(now.year - 3),
+        lastDate: now);
+    if (picked != null && mounted) {
+      setState(() => _billDate =
+          '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+    }
+  }
+
+  /// 2026-11-24 -> 24-11-2026 (the way the bill writes it).
+  static String _dayFirst(String iso) {
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(iso);
+    return m == null ? iso : '${m.group(3)}-${m.group(2)}-${m.group(1)}';
   }
 
   InputDecoration _box(String label, {bool warn = false}) => InputDecoration(
@@ -282,6 +366,16 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
               controller: _billNo,
               onChanged: (_) => setState(() {}),
               decoration: _box(te ? 'బిల్లు నంబర్' : 'Bill number', warn: _billNo.text.trim().isEmpty)),
+          const SizedBox(height: 8),
+          // Owner 2026-11-26: the date written on the bill ("24/11") is shown and can be changed; empty = today.
+          InkWell(
+            key: const Key('askodoxPosBillPhotoDate'),
+            onTap: _pickDate,
+            child: InputDecorator(
+              decoration: _box(te ? 'బిల్లు తేదీ' : 'Bill date').copyWith(suffixIcon: const Icon(Icons.event_rounded)),
+              child: Text(_billDate.isEmpty ? (te ? 'ఈ రోజు (మార్చడానికి నొక్కండి)' : 'Today (tap to change)') : _dayFirst(_billDate)),
+            ),
+          ),
           const SizedBox(height: 6),
           for (var i = 0; i < _lines.length; i++)
             Card(
@@ -326,10 +420,19 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
                             controller: _lines[i].price,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             onChanged: (_) => setState(() {}),
-                            decoration: _box(te ? 'అమ్మే ధర ₹' : 'Sell ₹', warn: _lines[i].price.text.trim().isEmpty)),
+                            decoration: _box(te ? 'అమ్మే ధర ₹ (ఉంటే)' : 'Sell ₹ (if any)')),
                       ),
                     ],
                   ]),
+                  if (_lineAmount(_lines[i]) != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                          '${_lines[i].qty.text.trim()} × ₹${_lines[i].cost.text.trim()} = ₹${_BillLine._rupees(_lineAmount(_lines[i]))}',
+                          key: ValueKey('askodoxPosBillPhotoLineAmount-$i'),
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
                   const SizedBox(height: 8),
                   Row(children: [
                     Expanded(
@@ -361,6 +464,18 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
             ),
           ),
           const SizedBox(height: 8),
+          Text(
+              '${te ? 'లైన్ల మొత్తం' : 'Rows add up to'}: '
+              '${_qtySum != null ? '${_BillLine._milli(_qtySum)} ${_lines.first.unit} · ' : ''}₹${_BillLine._rupees(_amountSum)}',
+              key: const Key('askodoxPosBillPhotoSum'),
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          if (_totalQtyMilli != null && _qtySum != null)
+            Text(
+                '${te ? 'బిల్లు మీద రాసిన మొత్తం' : 'Total written on the bill'}: ${_BillLine._milli(_totalQtyMilli)} ${_lines.first.unit}'
+                '${_totalQtyMilli == _qtySum ? ' ✓' : (te ? ' — సరిపోలేదు' : ' — does not match')}',
+                key: const Key('askodoxPosBillPhotoWrittenQty'),
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, color: _totalQtyMilli == _qtySum ? null : const Color(0xFFB54708))),
           if (_totalPaise != null)
             Text('${te ? 'బిల్లు మీద మొత్తం' : 'Total printed on the bill'}: ₹${_BillLine._rupees(_totalPaise)}',
                 style: const TextStyle(fontWeight: FontWeight.w700)),

@@ -99,7 +99,10 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
   Future<void> _load() async {
     final repo = ref.read(askodoxPosRepositoryProvider);
     try {
-      final menu = askodoxPosList((await repo.deskMenu(widget.businessId))['items']);
+      final menu = [
+        for (final m in askodoxPosList((await repo.deskMenu(widget.businessId))['items']))
+          if (m['buy_only'] != true) m, // a bought item with no selling price is never billed
+      ];
       if (mounted) {
         setState(() {
           _menu = menu;

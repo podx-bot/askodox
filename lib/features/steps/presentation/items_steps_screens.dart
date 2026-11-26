@@ -166,7 +166,10 @@ class _ItemsState extends ConsumerState<AskodoxItemsStepsScreen> {
                       if (p['stock_milli'] != null) '${te ? 'స్టాక్' : 'stock'} ${askodoxQty(askodoxPosInt(p['stock_milli']), '${p['unit']}')}',
                       if (p['low_stock'] == true) (te ? 'తక్కువ' : 'LOW'),
                     ].join(' · '),
-                    amount: '${askodoxPaise(askodoxPosInt(p['price_paise']))}/${p['unit']}',
+                    // a bought item with no selling price (owner 2026-11-26): never "₹0"
+                    amount: p['buy_only'] == true
+                        ? (te ? 'కొన్నది' : 'bought')
+                        : '${askodoxPaise(askodoxPosInt(p['price_paise']))}/${p['unit']}',
                     amountColor: p['low_stock'] == true ? askodoxStepBad : askodoxStepInk,
                     onTap: () async {
                       await context.push<String>('/pos/${widget.businessId}/item/${p['id']}');
