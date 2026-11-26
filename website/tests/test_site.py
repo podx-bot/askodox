@@ -106,6 +106,10 @@ class SiteBuild(unittest.TestCase):
             self.assertIn('id="grievance"', self.page(page), page)
         self.assertIn('id="delete-account"', self.page("privacy"))
         self.assertIn("notification access", self.page("privacy"))
+        # Google / YouTube API rule: the policy names YouTube API Services and links both documents.
+        for needed in ('id="youtube-and-social"', "YouTube API Services", "https://www.youtube.com/t/terms",
+                       "https://policies.google.com/privacy"):
+            self.assertIn(needed, self.page("privacy"), needed)
 
     def test_forms_are_honest_without_endpoint(self):
         join = self.page("join")

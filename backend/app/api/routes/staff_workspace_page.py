@@ -359,7 +359,7 @@ async function studio(){const d=await api("/admin/cc/workspace/studio");const s=
  M.innerHTML=`<div class="card"><h3 style="margin:0 0 6px">🎥 Studio</h3><div class="mut">కొన్నాం → వచ్చింది → షూట్ → ఎడిట్ → పోస్ట్ → Return</div>
   <div class="row" style="margin-top:10px;gap:8px">${tile(s.today,"#fdecea","#b42318","ఈరోజే return")}${tile(s.tomorrow,"#fdf1e3","#a05a00","రేపు ఆఖరు")}${tile(s.time,"#e7f5ee","#0f7b43","సమయం ఉంది")}</div>
   <button class="p" id="st_new" style="width:100%;margin-top:10px">＋ కొత్త ప్రోడక్ట్ కొన్నాను</button>
-  <div class="row" style="margin-top:8px"><button class="s" id="st_money">💰 లెక్కలు</button><button class="s" id="st_unlock">🔓 Unlock</button></div>
+  <div class="row" style="margin-top:8px"><button class="s" id="st_money">💰 లెక్కలు</button><button class="s" id="st_unlock">🔓 Unlock</button><button class="s" id="st_yt">▶️ YouTube</button></div>
   <div class="row" style="margin-top:10px;flex-wrap:wrap">${chip("all","అన్నీ",s.open)}${chip("shoot","షూట్ కావాలి",s.need_shoot)}${chip("post","పోస్ట్",s.need_post)}${chip("return","Return",null)}${chip("closed","ముగిసినవి",null)}</div>
   ${d.all_staff?`<div class="mut" style="margin-top:6px">ఖర్చు (ఉంచుకున్నవి + return ఫీజు): ₹${esc(String(s.spent))}</div>`:""}</div>
   <div id="st_form"></div>${show.map(card).join("")||'<p class="mut">ఇక్కడ ఏమీ లేదు.</p>'}
@@ -368,7 +368,7 @@ async function studio(){const d=await api("/admin/cc/workspace/studio");const s=
  M.querySelectorAll("button[data-sf]").forEach(b=>b.onclick=()=>{SF=b.dataset.sf;studio()});
  M.querySelectorAll("button[data-vid]").forEach(b=>b.onclick=()=>{const box=$("#sv_"+b.dataset.vid);if(box.innerHTML){box.innerHTML="";return}studioVideo(b.dataset.vid)});
  if($("#ac_save"))$("#ac_save").onclick=async()=>{try{await api("/admin/cc/workspace/studio/accounts","POST",{store:$("#ac_store").value,label:$("#ac_label").value,whitelisted:$("#ac_wl").checked});toast("Saved");studio()}catch(e){toast(e.message)}};
- $("#st_new").onclick=()=>buyForm(d);$("#st_money").onclick=()=>studioMoney();$("#st_unlock").onclick=()=>studioUnlocks();
+ $("#st_new").onclick=()=>buyForm(d);$("#st_money").onclick=()=>studioMoney();$("#st_unlock").onclick=()=>studioUnlocks();$("#st_yt").onclick=()=>studioYouTube();
  M.querySelectorAll("button[data-sa]").forEach(b=>b.onclick=async()=>{const id=b.dataset.id,box=$("#sx_"+id);
   if(b.dataset.sa==="stage"){if(b.dataset.st==="delivered"){box.innerHTML=`<label>Delivery తేదీ</label><input type="date" id="dv_${id}" value="${d.today}"><button class="p" id="dvok_${id}">Save</button>`;
     $("#dvok_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/stage`,"POST",{stage:"delivered",delivery_date:$("#dv_"+id).value});studio()}catch(e){toast(e.message)}};return}
@@ -408,7 +408,7 @@ async function studioVideo(id){const box=$("#sv_"+id);let p;try{p=(await api(`/a
   ${p.download_url?`<a class="s btn" href="${esc(p.download_url)}" download target="_blank" rel="noopener">⬇️ వీడియో డౌన్‌లోడ్</a>`:p.edit_status==="READY"?'<div class="mut">⬇️ Publish అయ్యాక డౌన్‌లోడ్ లింక్ వస్తుంది</div>':""}
   <h4>4. Publish</h4><div class="bad" id="svpe_${id}"></div><button class="p" id="svpub_${id}">${p.published_at?"✅ Publish అయింది":"🚀 Publish"}</button>
   ${p.published_at?`<h4>5. షేర్ + పోస్ట్ లింక్</h4>${pf.map(([k,l,u])=>`<div style="margin-top:8px"><b>${l}</b>${k==="youtube"?block("టైటిల్",cap.youtube.title,2):""}${block("టెక్స్ట్",cap[k].text,6)}<a class="s btn" href="${u}" target="_blank" rel="noopener">${l} తెరువు</a>
-    <div class="row"><input id="svpl_${id}_${k}" placeholder="${k==="whatsapp"?"(ఐచ్ఛికం)":"పోస్ట్ లింక్ https://…"}" value="${esc((posts[k]||{}).url||"")}"><button class="s" data-post="${k}">${posts[k]?"✅":"పోస్ట్ చేశాను"}</button></div></div>`).join("")}`:""}
+    <div class="row"><input id="svpl_${id}_${k}" placeholder="${k==="whatsapp"?"(ఐచ్ఛికం)":"పోస్ట్ లింక్ https://…"}" value="${esc((posts[k]||{}).url||"")}"><button class="s" data-post="${k}">${posts[k]?"✅":"పోస్ట్ చేశాను"}</button></div>${k==="youtube"&&ME.can_publish&&!posts[k]?`<div class="row"><select id="svyp_${id}"><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option></select><button class="p" id="svyt_${id}">▶️ ASKODOX channel కి పంపు</button></div><div class="bad" id="svye_${id}"></div>`:""}</div>`).join("")}`:""}
  </div>`;
  box.querySelectorAll("video[data-auth]").forEach(async v=>{try{const c=cred()||{},h={};if(c.session)h["X-ASKODOX-Staff-Session"]=c.session;if(c.token)h["X-ASKODOX-Staff-Token"]=c.token;if(c.bearer)h["Authorization"]="Bearer "+c.bearer;
   const r=await fetch(v.dataset.auth,{headers:h});if(r.ok)v.src=URL.createObjectURL(await r.blob())}catch(e){}});
@@ -423,8 +423,19 @@ async function studioVideo(id){const box=$("#sv_"+id);let p;try{p=(await api(`/a
  $("#sve_"+id).onclick=async()=>{try{await api(`/admin/cc/workspace/studio/purchases/${id}/edit`,"POST",{voice:$("#svv_"+id).value,language:$("#svl_"+id).value,presenter:$("#svpr_"+id).checked,line:$("#svo_"+id).value});
   toast("✂️ తయారవుతోంది…");const poll=async k=>{const q=(await api(`/admin/cc/workspace/studio/purchases/${id}`)).purchase;if(q.edit_status==="MAKING"&&k<60){setTimeout(()=>poll(k+1),5000);return}studioVideo(id)};poll(0)}catch(e){toast(e.message)}};
  $("#svpub_"+id).onclick=async()=>{if(p.published_at)return;try{await api(`/admin/cc/workspace/studio/purchases/${id}/publish`,"POST");toast("🚀 Publish ✓");studioVideo(id)}catch(e){$("#svpe_"+id).textContent="⚠️ "+e.message}};
+ const ytb=$("#svyt_"+id);if(ytb)ytb.onclick=async()=>{ytb.disabled=true;ytb.textContent="⏳ పంపుతోంది…";try{await api(`/admin/cc/workspace/studio/purchases/${id}/youtube`,"POST",{privacy:$("#svyp_"+id).value});toast("▶️ YouTube ✓");studioVideo(id)}catch(e){ytb.disabled=false;ytb.textContent="▶️ ASKODOX channel కి పంపు";$("#svye_"+id).textContent="⚠️ "+e.message}};
  box.querySelectorAll("button[data-post]").forEach(b=>b.onclick=async()=>{const k=b.dataset.post;
   try{await api(`/admin/cc/workspace/studio/purchases/${id}/posted`,"POST",{platform:k,url:$(`#svpl_${id}_${k}`).value.trim()});toast("✓");studioVideo(id)}catch(e){toast(e.message)}})}
+// ASKODOX's own YouTube channel: connect once (publisher), then a published Studio video goes there in one tap.
+async function studioYouTube(){const box=$("#st_form");let d;try{d=await api("/admin/cc/workspace/youtube")}catch(e){box.innerHTML=`<div class="card bad">${esc(e.message)}</div>`;return}
+ box.innerHTML=`<div class="card"><h3 style="margin-top:0">▶️ ASKODOX YouTube channel</h3>
+  ${d.connected?`<div>✅ Connect అయింది: <b>${esc(d.channel_title)}</b></div>`:`<div class="mut">${d.configured?"ఇంకా connect కాలేదు.":"Railway లో YOUTUBE_OAUTH_CLIENT_ID / SECRET పెట్టాలి."}</div>`}
+  <div class="mut" style="margin-top:6px">ASKODOX సొంత channel మాత్రమే. Studio లో Publish అయిన వీడియోలు ఇక్కడి నుంచి channel కి వెళ్తాయి. YouTube audit అయ్యే వరకు అవి Private గానే ఉంటాయి.</div>
+  <div class="bad" id="yt_err"></div>
+  ${ME.can_publish?`<div class="row" style="margin-top:8px">${d.connected?'<button class="s" id="yt_off">Disconnect</button>':""}<button class="p" id="yt_on" ${d.configured?"":"disabled"}>${d.connected?"మళ్లీ Connect":"Google తో Connect"}</button></div>`:""}
+  ${d.uploads.length?`<h4>పంపిన వీడియోలు</h4>${d.uploads.map(u=>`<div style="border-top:1px solid var(--line);padding:6px 0"><a href="${esc(u.url)}" target="_blank" rel="noopener">${esc(u.url)}</a> <span class="mut">${esc(u.privacy)} · ${esc(u.created_at.slice(0,10))}</span></div>`).join("")}`:""}</div>`;
+ const on=$("#yt_on");if(on)on.onclick=async()=>{try{const r=await api("/admin/cc/workspace/youtube/connect","POST");$("#yt_err").innerHTML=`<a class="p btn" href="${esc(r.url)}" target="_blank" rel="noopener">Google sign-in తెరువు (${r.minutes} ని.)</a><div class="mut">Google ఈ sign-in ని Chrome లోనే ఒప్పుకుంటుంది -- app లోపల తెరుచుకోకపోతే లింక్ ని నొక్కి పట్టి Chrome లో తెరవండి.</div>`}catch(e){$("#yt_err").textContent="⚠️ "+e.message}};
+ const off=$("#yt_off");if(off)off.onclick=async()=>{try{await api("/admin/cc/workspace/youtube/disconnect","POST");toast("Disconnect ✓");studioYouTube()}catch(e){$("#yt_err").textContent="⚠️ "+e.message}}}
 // Studio round 3: commission typed from the dashboards (no API), month totals, best kinds, unlock progress.
 const RS=v=>"₹"+Number(v||0).toLocaleString("en-IN",{maximumFractionDigits:2});
 async function studioMoney(month){const box=$("#st_form");let d;try{d=await api("/admin/cc/workspace/studio/money"+(month?"?month="+encodeURIComponent(month):""))}catch(e){box.innerHTML=`<div class="card bad">${esc(e.message)}</div>`;return}

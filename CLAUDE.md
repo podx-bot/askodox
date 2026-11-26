@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- `main` PR #516 (2026-11-26, owner "1"; server deploy SUCCESS; NO Play bundle yet): GUIDE JOURNEY -- onboarding `_pre` stages (location, 23 language boxes, helper intro, terms scroll-to-accept) before the unchanged `_step` flow; `guide_session.py` + `routes/guide_session.py` (`/api/me/guide-session*`, adaptive questions, facts only with consent, `plan(minutes)`, pause / resume, delete, `/api/me/guide-reminders`, `/api/me/feature-requests` + console view `featurerequests`); app `/guide-session` (`lib/features/guide_session/`), reminder chips above the chat (`AskodoxGuideReminderChips`, flag `askodoxGuideReminderChip` on in `main()`). NOT built: auto page arrangement after the session, voice of the helper on the intro, notify-when-done push route. Nothing phone verified.
+- `main` PR #516 + #518 (2026-11-26, owner "1"; server deploy SUCCESS; Play bundle `askodox-play-1719.aab` = Live Build run 719 on 3de29f8; NOT in any bundle yet: #502, #503, the app side of #496): GUIDE JOURNEY -- onboarding `_pre` stages (location, 23 language boxes, helper intro, terms scroll-to-accept) before the unchanged `_step` flow; `guide_session.py` + `routes/guide_session.py` (`/api/me/guide-session*`, adaptive questions, facts only with consent, `plan(minutes)`, pause / resume, delete, `/api/me/guide-reminders`, `/api/me/feature-requests` + console view `featurerequests`); app `/guide-session` (`lib/features/guide_session/`), reminder chips above the chat (`AskodoxGuideReminderChips`, flag `askodoxGuideReminderChip` on in `main()`). NOT built: auto page arrangement after the session, voice of the helper on the intro, notify-when-done push route. Nothing phone verified.
 - `main` PR #495 + #498 + #502 + #503 + #504 (2026-11-26, owner "1" / "merge the pending ones, no Play link now"; Play bundle
   `askodox-play-1708.aab` = Live Build run 708 on fa4260c holds #495 + #498 + chat speed #496 / #500 ONLY -- #502 / #503 need a new build):
   (#495) payment voice customer line = "free for YOU too" in 12 languages (never names a shop). (#498) real HDFC e-mail shape ("account
@@ -807,6 +807,13 @@ this file, don't trust it blindly.
   country are filtered (`place_region_mismatch`, `region_mismatch`).
 - Account deletion revokes earlier tokens via
   `session_tokens.set_revocation_check` (table `account_deletions`).
+- ASKODOX's OWN YouTube channel = `youtube_channel.py` + `routes/youtube_oauth.py` (ONE channel, row id 1; scopes
+  youtube.upload + youtube.readonly only; one-time 10-min connect link made by a publisher; refresh token encrypted with
+  `secret_box`, never returned / logged; upload once per `ref` `studio:<id>`, default privacy private -- YouTube locks
+  uploads private until the Cloud project passes its API audit). Env `YOUTUBE_OAUTH_CLIENT_ID` / `_SECRET`
+  (`env_value` provider `youtube_oauth`). Never connect a customer's / shop's YouTube account through it.
+  WhatsApp webhook verify token has NO built-in value: `WHATSAPP_WEBHOOK_VERIFY_TOKEN` unset = verification refused.
+  Meta login: `/meta/oauth/start?dm=1` adds the messaging scopes (App Review demo); the default keeps five scopes.
 - Deployment keys: read through `commerce_finance.env_value` / `youtube_api_key`
   (aliases in `ENV_ALIASES`), never `os.getenv` directly in a new caller.
 - #128's campaigns live in `social_sponsored_campaigns`; `sponsored_campaigns`

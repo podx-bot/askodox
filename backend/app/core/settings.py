@@ -129,10 +129,8 @@ def load_settings() -> Settings:
         whatsapp_access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip(),
         whatsapp_phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip(),
         whatsapp_api_version=os.getenv("WHATSAPP_API_VERSION", "v23.0").strip(),
-        whatsapp_webhook_verify_token=os.getenv(
-            "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
-            "podx_verify_2026",
-        ).strip(),
+        # No built-in value (this repo is public): unset = webhook verification refused (fail closed).
+        whatsapp_webhook_verify_token=os.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "").strip(),
         sarvam_api_key=os.getenv("SARVAM_API_KEY", "").strip(),
         sarvam_stt_model=os.getenv("SARVAM_STT_MODEL", "saaras:v3").strip(),
         sarvam_stt_timeout_seconds=_positive_int_env("SARVAM_STT_TIMEOUT_SECONDS", 8),

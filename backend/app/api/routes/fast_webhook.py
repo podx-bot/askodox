@@ -1,5 +1,6 @@
 import logging
 import time
+import hmac
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
@@ -238,7 +239,9 @@ def verify_webhook(
     hub_challenge: Optional[str] = Query(default=None, alias="hub.challenge"),
 ):
     container = request.app.state.container
-    if hub_mode == "subscribe" and hub_verify_token == container.settings.whatsapp_webhook_verify_token and hub_challenge is not None:
+    expected = str(container.settings.whatsapp_webhook_verify_token or "")
+    if (hub_mode == "subscribe" and expected and hub_verify_token is not None
+            and hmac.compare_digest(hub_verify_token.encode(), expected.encode()) and hub_challenge is not None):
         visible_log("WHATSAPP WEBHOOK VERIFIED")
         return hub_challenge
     visible_log("WHATSAPP WEBHOOK VERIFICATION FAILED")

@@ -121,6 +121,9 @@ ENV_ALIASES: Dict[str, Dict[str, tuple[str, ...]]] = {
     "serper": {"api_key": ("SERPER_API_KEY",)},
     # ASKODOX's own Razorpay partner / referral sign-up link (razorpay_partner_signup_url).
     "razorpay_partner": {"signup_url": ("ASKODOX_RAZORPAY_PARTNER_URL",)},
+    # ASKODOX's own YouTube channel sign-in (youtube_channel.py): Google Cloud OAuth client (Web application).
+    "youtube_oauth": {"client_id": ("YOUTUBE_OAUTH_CLIENT_ID",), "client_secret": ("YOUTUBE_OAUTH_CLIENT_SECRET",),
+                      "redirect_uri": ("YOUTUBE_OAUTH_REDIRECT_URI",)},
 }
 
 
