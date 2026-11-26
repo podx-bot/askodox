@@ -7,6 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #516 (2026-11-26, owner "1"; server deploy SUCCESS; NO Play bundle yet): GUIDE JOURNEY -- onboarding `_pre` stages (location, 23 language boxes, helper intro, terms scroll-to-accept) before the unchanged `_step` flow; `guide_session.py` + `routes/guide_session.py` (`/api/me/guide-session*`, adaptive questions, facts only with consent, `plan(minutes)`, pause / resume, delete, `/api/me/guide-reminders`, `/api/me/feature-requests` + console view `featurerequests`); app `/guide-session` (`lib/features/guide_session/`), reminder chips above the chat (`AskodoxGuideReminderChips`, flag `askodoxGuideReminderChip` on in `main()`). NOT built: auto page arrangement after the session, voice of the helper on the intro, notify-when-done push route. Nothing phone verified.
 - `main` PR #495 + #498 + #502 + #503 + #504 (2026-11-26, owner "1" / "merge the pending ones, no Play link now"; Play bundle
   `askodox-play-1708.aab` = Live Build run 708 on fa4260c holds #495 + #498 + chat speed #496 / #500 ONLY -- #502 / #503 need a new build):
   (#495) payment voice customer line = "free for YOU too" in 12 languages (never names a shop). (#498) real HDFC e-mail shape ("account
