@@ -140,6 +140,9 @@ class _ItemsState extends ConsumerState<AskodoxItemsStepsScreen> {
         AskodoxStepMore('askodoxItemsStepsCombos', te ? 'కాంబో ఆఫర్లు' : 'Combo offers', Icons.local_offer_outlined,
             () => askodoxShowCombos(context, ref, widget.businessId, items)),
         if (_online != null && canSettings) AskodoxStepMore('askodoxItemsStepsWhere', te ? 'ఎక్కడ అమ్మాలి' : 'Where to sell', Icons.public, _where),
+        // Owner 2026-11-26: "Stock & barcodes" is not its own tile any more -- it opens from here.
+        AskodoxStepMore('askodoxItemsStepsStock', te ? 'స్టాక్ & బార్‌కోడ్' : 'Stock & barcodes', Icons.qr_code_rounded,
+            () => context.push('/pos/${widget.businessId}/items?full=1')),
         AskodoxStepMore('askodoxItemsStepsFull', te ? 'పాత పేజీ (ఆఫర్ / స్టాక్ / ఆన్‌లైన్)' : 'Old page (offer / stock / online)', Icons.menu_book_rounded,
             () => context.push('/pos/${widget.businessId}/items?full=1')),
       ],
