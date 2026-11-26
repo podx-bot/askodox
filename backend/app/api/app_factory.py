@@ -429,6 +429,9 @@ def create_app() -> FastAPI:
     from app.api.routes.notices import router as notices_router
 
     app.include_router(notices_router)
+    from app.api.routes.real_cost import router as real_cost_router
+
+    app.include_router(real_cost_router)
     from app.api.routes.payment_methods import router as payment_methods_router
 
     app.include_router(payment_methods_router)
