@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/guide_session/guide_reminders.dart';
 import '../../features/pos/data/pos_repository.dart';
 import '../../features/pos/domain/shop_page_names.dart';
 
@@ -315,7 +316,7 @@ class AskodoxChatPinStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(askodoxChatPinsProvider);
     final live = askodoxLiveOrderChip ? ref.watch(askodoxLiveOrdersProvider) : const <AskodoxJson>[];
-    if (state.pins.isEmpty && live.isEmpty) return const SizedBox.shrink();
+    if (state.pins.isEmpty && live.isEmpty) return const AskodoxGuideReminderChips();
     final te = _te(context);
     final control = ref.read(askodoxChatPinsProvider.notifier);
     if (state.folded && live.isEmpty) {
@@ -333,7 +334,9 @@ class AskodoxChatPinStrip extends ConsumerWidget {
         ),
       );
     }
-    return Padding(
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      const AskodoxGuideReminderChips(),
+      Padding(
       key: const Key('askodoxChatPins'),
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(children: [
@@ -392,6 +395,7 @@ class AskodoxChatPinStrip extends ConsumerWidget {
           onPressed: () => control.setFolded(true),
         ),
       ]),
-    );
+      ),
+    ]);
   }
 }

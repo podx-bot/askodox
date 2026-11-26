@@ -84,7 +84,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await _pump(tester);
     await _frames(tester);
-    expect(find.text('Language'), findsOneWidget);
+    // Owner 2026-11-26: a new user's first screen is now the location step (then language boxes, intro, terms).
+    expect(find.byKey(const Key('askodoxOnboardLocation')), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
