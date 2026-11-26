@@ -13200,6 +13200,34 @@
         "keys": [],
         "symbols": []
       }
+    },
+    {
+      "id": "calculator_bill_rows",
+      "name": "Calculator bill inside Make a bill",
+      "purpose": "Owner 2026-11-26: a shop with no item list (or a one-off sale) bills by rows of name, quantity x rate with a running total, inside the same Make a bill page.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/step_logic_test.dart",
+          "test/features/steps/step_pages_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBillStepsCalc",
+          "askodoxBillCalcOk",
+          "askodoxBillCalcAddRow",
+          "askodoxBillCalcTotal"
+        ],
+        "symbols": [
+          "askodoxCalcRowPaise",
+          "askodoxCalcRatePaise"
+        ]
+      }
     }
   ]
 }
