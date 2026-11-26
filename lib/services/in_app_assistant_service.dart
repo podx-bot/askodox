@@ -394,13 +394,15 @@ class InAppAssistantService {
   /// -- callers handle it exactly like [decide]'s. An older backend without the stream
   /// route (404 / 405) is asked through [decide]. [onTextDone] (optional): the streamed text is complete
   /// (`text_done`) while the rest of the decision is still being written -- a spoken turn may say its last
-  /// sentence now (owner 2026-11-22). Older backends never send it.
+  /// sentence now (owner 2026-11-22). Older backends never send it. [onHold] (optional): a live search is starting --
+  /// one short line to say at once (owner 2026-11-26).
   Future<InAppAssistantDecision?> decideStreaming({
     required String message,
     required String locale,
     required List<InAppAssistantTurn> history,
     required void Function(String textSoFar) onText,
     void Function()? onTextDone,
+    void Function(String line)? onHold,
     String? location,
     Map<String, Object?>? searchedFor,
     List<Map<String, Object?>>? adviceGiven,
@@ -474,6 +476,10 @@ class InAppAssistantService {
               onText('');
             case 'text_done':
               onTextDone?.call();
+            case 'hold':
+              // A live search is starting: one short "let me check" line, said at once, never part of the answer.
+              final line = '${event['text'] ?? ''}'.trim();
+              if (line.isNotEmpty) onHold?.call(line);
             case 'final':
               final decision = event['decision'];
               result = decision is Map<String, dynamic> ? InAppAssistantDecision.fromJson(decision) : null;

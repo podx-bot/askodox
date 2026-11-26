@@ -90,6 +90,34 @@ void main() {
     expect(again, isNotNull);
   });
 
+  test('hold = one short line while a live search runs; never part of the answer text', () async {
+    // Owner 2026-11-26: a search turn says "let me check" at once instead of 2-3 s of silence.
+    final client = MockClient((request) async => http.Response(
+          ndjson([
+            {'type': 'hold', 'text': 'ఒక్క నిమిషం, చూస్తున్నాను.'},
+            {'type': 'delta', 'text': 'Gold is ₹12,500 a gram.'},
+            {'type': 'final', 'decision': {...finalDecision, 'reply': 'Gold is ₹12,500 a gram.'}},
+          ]),
+          200,
+          headers: {'content-type': 'application/x-ndjson; charset=utf-8'},
+        ));
+    final order = <String>[];
+    final decision = await InAppAssistantService(client: client).decideStreaming(
+      message: 'gold price today',
+      locale: 'te',
+      history: const [],
+      onText: (text) => order.add('text:$text'),
+      onHold: (line) => order.add('hold:$line'),
+    );
+    expect(order, ['hold:ఒక్క నిమిషం, చూస్తున్నాను.', 'text:Gold is ₹12,500 a gram.']);
+    expect(decision!.reply, 'Gold is ₹12,500 a gram.');
+    // A caller without onHold ignores it.
+    final quiet = <String>[];
+    await InAppAssistantService(client: client)
+        .decideStreaming(message: 'x', locale: 'en', history: const [], onText: quiet.add);
+    expect(quiet, ['Gold is ₹12,500 a gram.']);
+  });
+
   test('an older backend without the stream route is asked the plain way', () async {
     final paths = <String>[];
     final client = MockClient((request) async {

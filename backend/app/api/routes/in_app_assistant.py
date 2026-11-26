@@ -145,6 +145,8 @@ def assistant_decision_stream(payload: AssistantRequest, request: Request) -> An
     # The streamed reply is complete (the rest of the decision is still being written): {"type":"text_done"}.
     # Older apps ignore an unknown type.
     on_text.text_done = lambda: pieces.put(("text_done", None))  # type: ignore[attr-defined]
+    # A live search is starting: one short "let me check" line the app may say at once ({"type":"hold","text":...}).
+    on_text.hold = lambda text: pieces.put(("hold", text))  # type: ignore[attr-defined]
 
     def work() -> None:
         try:
@@ -171,6 +173,8 @@ def assistant_decision_stream(payload: AssistantRequest, request: Request) -> An
                 yield '{"type": "reset"}\n'
             elif kind == "text_done":
                 yield '{"type": "text_done"}\n'
+            elif kind == "hold":
+                yield json.dumps({"type": "hold", "text": value}, ensure_ascii=False) + "\n"
             else:
                 yield json.dumps({"type": "final", "decision": value.model_dump()}, ensure_ascii=False) + "\n"
 

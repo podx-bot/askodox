@@ -314,3 +314,34 @@ def test_a_hard_turn_never_shows_the_early_reply_and_routes_with_the_strong_mode
     assert "claude-sonnet-5-5" in routing, routing  # owner 2026-11-25: reasoning model routes hard turns (speed)
     assert out["reply"]
     assert None not in pieces[:1]  # the dropped early reply was never shown, so nothing had to be withdrawn first
+
+
+def test_a_live_search_says_one_hold_line_first(monkeypatch):
+    """Owner 2026-11-26: a search turn waits 1.5-3 s for its first word -> the stream sends one short "let me check"
+    line in the reply language before the search; a turn with no search sends none."""
+    from app.services.universal_ai_assistant_service import UniversalAIAssistantService, hold_line
+
+    svc = UniversalAIAssistantService(None, api_key="", model="", http_client=object(), anthropic_api_key="a")
+    order = []
+    monkeypatch.setattr(svc, "_decision_json", lambda *a, **k: {
+        "reply": "Gold is about ₹12,500 a gram today.", "domain": "GENERAL", "transactional": False,
+        "action": "answer_live_info", "confidence": 0.9, "entities": {}})
+    monkeypatch.setattr(svc, "_live_grounding", lambda *a, **k: (order.append("search") or (None, "")))
+
+    def run(plan, words, locale):
+        order.clear()
+        monkeypatch.setattr(svc, "_plan", lambda *a, **k: plan)
+
+        def on_text(piece):
+            pass
+
+        on_text.hold = lambda text: order.append(("hold", text))
+        svc.decide(words, locale=locale, on_text=on_text)
+        return list(order)
+
+    got = run({"search": True, "query": "gold price today", "level": "simple"}, "నేటి బంగారం ధర ఎంత", "te")
+    assert got[0] == ("hold", "ఒక్క నిమిషం, చూస్తున్నాను.") and got[1] == "search"
+    assert hold_line("hi-IN") == "एक मिनट, देख रही हूँ।" and hold_line("xx") == "One moment, let me check."
+    monkeypatch.setattr(svc, "_needs_lookup", lambda *a, **k: False)
+    assert not [o for o in run({"search": False, "query": "", "level": "hard"}, "should I do SIP or FD", "en")
+                if isinstance(o, tuple)]
