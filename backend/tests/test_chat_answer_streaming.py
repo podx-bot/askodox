@@ -191,7 +191,8 @@ def test_the_routing_reply_streams_word_by_word_from_the_json():
 
 def test_fixed_instructions_are_sent_as_a_cached_block():
     blocks = svc.UniversalAIAssistantService._content("FIXEDpart-then-dynamic", cache_upto=5)
-    assert blocks[0] == {"type": "text", "text": "FIXED", "cache_control": {"type": "ephemeral"}}
+    # 2026-11-26: kept 1 hour (speed after a pause).
+    assert blocks[0] == {"type": "text", "text": "FIXED", "cache_control": {"type": "ephemeral", "ttl": "1h"}}
     assert blocks[1]["text"] == "part-then-dynamic"
     assert svc.UniversalAIAssistantService.content_text(blocks) == "FIXEDpart-then-dynamic"
     assert svc.UniversalAIAssistantService._content("short", cache_upto=0) == "short"
