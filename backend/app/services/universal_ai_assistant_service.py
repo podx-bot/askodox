@@ -692,6 +692,33 @@ class UniversalAIAssistantService:
         return [{"type": "text", "text": prompt[:cache_upto], "cache_control": {"type": "ephemeral"}},
                 {"type": "text", "text": prompt[cache_upto:]}]
 
+    # Owner 2026-11-26 ("chat speed"): the 5.5 models THINK by default when a request has no ``thinking`` field
+    # (adaptive thinking) -- the deploy log showed the first word of a quick Haiku routing reply after 5-7 s. Chat
+    # turns turn up-front thinking off: Haiku accepts {"type": "disabled"}, Sonnet's lowest setting is
+    # {"type": "between_tools"}; the strongest model cannot turn it off (no field sent). A model that refuses the
+    # field (400 naming "thinking") is remembered and asked again without it, so a model change never breaks chat.
+    _THINKING_REFUSED: set[str] = set()
+
+    @classmethod
+    def _quick_thinking(cls, model: str) -> dict[str, Any]:
+        name = str(model or "").lower()
+        if name in cls._THINKING_REFUSED:
+            return {}
+        if "haiku" in name:
+            return {"thinking": {"type": "disabled"}}
+        if "sonnet" in name:
+            return {"thinking": {"type": "between_tools"}}
+        return {}
+
+    @classmethod
+    def _refused_thinking(cls, model: str, status: int, body: str) -> bool:
+        """True (and remembered) when Anthropic refused the thinking field for this model."""
+        if status == 400 and "thinking" in str(body or "").lower() and cls._quick_thinking(model):
+            cls._THINKING_REFUSED.add(str(model or "").lower())
+            logger.warning("universal_ai_assistant: %s refused the thinking setting; asking without it", model)
+            return True
+        return False
+
     def _call_claude(self, prompt: str, *, model: str = "", max_tokens: int = 2048,
                      temperature: float = 0.2, timeout: float = 45.0, on_text: Any = None,
                      cache_upto: int = 0) -> str:
@@ -706,17 +733,23 @@ class UniversalAIAssistantService:
         if on_text is not None and hasattr(self.http, "stream"):
             return self._stream_claude(prompt, chosen, max_tokens, timeout, on_text, cache_upto=cache_upto)
         try:
-            response = self.http.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={"x-api-key": self.anthropic_api_key, "anthropic-version": "2023-06-01",
-                         "content-type": "application/json"},
-                # No "temperature": the current Claude models reject it with a 400
-                # ("temperature is deprecated for this model"), which silently sent every
-                # answer to Gemini. The argument stays so callers do not change.
-                json={"model": chosen, "max_tokens": max_tokens,
-                      "messages": [{"role": "user", "content": self._content(prompt, cache_upto)}]},
-                timeout=timeout,
-            )
+            def post() -> Any:
+                return self.http.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={"x-api-key": self.anthropic_api_key, "anthropic-version": "2023-06-01",
+                             "content-type": "application/json"},
+                    # No "temperature": the current Claude models reject it with a 400
+                    # ("temperature is deprecated for this model"), which silently sent every
+                    # answer to Gemini. The argument stays so callers do not change.
+                    json={"model": chosen, "max_tokens": max_tokens, **self._quick_thinking(chosen),
+                          "messages": [{"role": "user", "content": self._content(prompt, cache_upto)}]},
+                    timeout=timeout,
+                )
+
+            response = post()
+            if getattr(response, "status_code", 200) == 400 and self._refused_thinking(
+                    chosen, 400, str(getattr(response, "text", "") or "")):
+                response = post()
             response.raise_for_status()
             data = response.json()
             text = "".join(str(block.get("text") or "") for block in (data.get("content") or [])
@@ -754,19 +787,23 @@ class UniversalAIAssistantService:
         call_started = time.monotonic()
         first_token_ms = -1
         usage: dict[str, Any] = {}
+        refused = False
         try:
             with self.http.stream(
                 "POST", "https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": self.anthropic_api_key, "anthropic-version": "2023-06-01",
                          "content-type": "application/json"},
-                json={"model": chosen, "max_tokens": max_tokens, "stream": True,
+                json={"model": chosen, "max_tokens": max_tokens, "stream": True, **self._quick_thinking(chosen),
                       "messages": [{"role": "user", "content": self._content(prompt, cache_upto)}]},
                 timeout=timeout,
             ) as response:
                 if response.status_code >= 400:
                     response.read()
-                    response.raise_for_status()
-                for line in response.iter_lines():
+                    if self._refused_thinking(chosen, response.status_code, str(getattr(response, "text", "") or "")):
+                        refused = True
+                    else:
+                        response.raise_for_status()
+                for line in ([] if refused else response.iter_lines()):
                     if not line or not line.startswith("data:"):
                         continue
                     try:
@@ -788,6 +825,8 @@ class UniversalAIAssistantService:
                     elif kind == "error":
                         err = event.get("error") or {}
                         raise RuntimeError(f"stream error {err.get('type')}: {str(err.get('message'))[:200]}")
+            if refused:
+                return self._stream_claude(prompt, chosen, max_tokens, timeout, on_text, cache_upto=cache_upto)
             text = "".join(parts).strip()
             if stop_reason == "max_tokens":
                 logger.warning("universal_ai_assistant: claude answer cut at max_tokens (model=%s)", chosen)

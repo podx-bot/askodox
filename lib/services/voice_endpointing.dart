@@ -117,6 +117,12 @@ String askodoxMergeVoiceDraft(String typed, String transcript) {
   return '$t $v';
 }
 
+/// Voice conversation (talk mode): how long the mic waits for the person after a reply before pausing.
+const askodoxTalkNoSpeechTimeout = Duration(seconds: 10);
+
+/// Voice conversation: the gap between ASKODOX's voice ending and the mic opening again (no echo of its own voice).
+const askodoxTalkEchoGap = Duration(milliseconds: 700);
+
 /// How long the FIRST spoken part of a reply may be (owner 2026-11-25: was 160 for typed turns -- the voice waited
 /// for ~160 written characters and a long first clip; now the same short first part as talk mode).
 int askodoxFirstSpeechMax({required bool talk}) => talk ? 80 : 90;

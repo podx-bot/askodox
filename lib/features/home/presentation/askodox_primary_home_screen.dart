@@ -567,7 +567,9 @@ class _AskodoxPrimaryHomeScreenState
     _endpointer = _talkMode
         ? AskodoxVoiceEndpointer(
             silenceAfterSpeech: const Duration(milliseconds: 1800),
-            noSpeechTimeout: const Duration(seconds: 25),
+            // Owner phone 2026-11-26 ("why does the mic keep opening"): after a reply the mic waits 10 s, not 25 s;
+            // nobody speaking = the conversation pauses until a tap (never a loop of empty listens).
+            noSpeechTimeout: askodoxTalkNoSpeechTimeout,
             maxDuration: const Duration(minutes: 1),
           )
         : AskodoxVoiceEndpointer.untilStop();
@@ -4797,6 +4799,9 @@ class _AskodoxPrimaryHomeScreenState
     }
     if (_sending || _analyzingAttachments) return;
     final since = _talkIdleSince ??= DateTime.now();
+    // A short gap after ASKODOX stops speaking, so the mic never catches the end of its own voice (owner phone
+    // 2026-11-26: a stray "Hello" turn was heard right after a reply).
+    if (DateTime.now().difference(since) < askodoxTalkEchoGap) return;
     if (DateTime.now().difference(since) > const Duration(seconds: 8)) {
       // The mic never started: stop retrying silently, tell the person, keep the orb as the retry button.
       _talkIdleSince = null;

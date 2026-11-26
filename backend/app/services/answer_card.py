@@ -452,9 +452,13 @@ def build(writer: Any, *, reply: str, user_text: str = "", facts: str = "",
     text = str(reply or "").strip()
     if not text:
         return None
-    fallback = from_text(text, suggestions=suggestions, facts=facts)
     short = len(text) < 160 and MARK not in text and "\n" not in text.strip() and not facts
-    if short or writer is None:
+    if short:
+        # Owner phone 2026-11-26: "Hello" -> a big card holding only "హలో!" with a speaker and a big mic. A short plain
+        # reply is a chat bubble, never a card.
+        return None
+    fallback = from_text(text, suggestions=suggestions, facts=facts)
+    if writer is None:
         return fallback
     prompt = _CARD_PROMPT % {"icons": "|".join(TAB_ICONS), "dont_icons": "|".join(DONT_ICONS),
                              "user": str(user_text or "")[:1200], "facts": str(facts or "")[:2500] or "(none)",
