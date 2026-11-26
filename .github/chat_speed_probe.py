@@ -1,7 +1,7 @@
 import json,time,sys,urllib.request
 U="https://podx-ai-connect-production-3279.up.railway.app/api/in-app/assistant/stream"
 caps=["suggestions","answer_card","app_actions","auto_open"]
-qs=[("te","దగ్గర్లో biryani కావాలి"),("en","biryani near me"),("te","biryani కావాలి")]
+qs=[("te","దగ్గర్లో biryani కావాలి"),("en","biryani nearby"),("en","biryani in Hyderabad"),("te","విజయవాడలో biryani")]
 qsy=[("te","హలో"),("te","హలో"),("te","5 లక్షల home loan కి EMI ఎంత అవుతుంది 20 years"),("te","mutual fund లో SIP మంచిదా FD మంచిదా"),("te","విజయవాడలో మంచి biryani ఎక్కడ"),("te","నేటి బంగారం ధర ఎంత")]
 for loc,q in qs:
     body=json.dumps({"message":q,"locale":loc,"history":[],"capabilities":caps}).encode()
