@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ui/ui_switches.dart';
 import 'askodox_primary_home_screen.dart' show askodoxVoiceTranscriptionServiceProvider;
 
 /// How many screens with their own question mic are showing (the video Q&A
@@ -19,7 +20,7 @@ final askodoxQuestionMicTriggerProvider = StateProvider<int>((ref) => 0);
 /// start, tap again to stop; stops by itself after [maxDuration].
 class AskodoxQuestionMic extends ConsumerStatefulWidget {
   const AskodoxQuestionMic({super.key, required this.onText, this.lang = 'en',
-      this.maxDuration = const Duration(seconds: 45), this.followCentre = true});
+      this.maxDuration = const Duration(seconds: 45), this.followCentre = true, this.always = false});
 
   final ValueChanged<String> onText;
   final String lang;
@@ -27,6 +28,10 @@ class AskodoxQuestionMic extends ConsumerStatefulWidget {
 
   /// False for a mic beside one form box (several on a page): the centre Ask button never starts it.
   final bool followCentre;
+
+  /// True for a mic that is part of a CHAT or the Ask sheet: it stays when the mics inside pages are switched off
+  /// (`askodoxPageMicsOn`, owner 2026-11-26).
+  final bool always;
 
   @override
   ConsumerState<AskodoxQuestionMic> createState() => _AskodoxQuestionMicState();
@@ -39,6 +44,7 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
   _MicPhase _phase = _MicPhase.idle;
   Timer? _limit;
   late final StateController<int> _targets;
+  bool _shown = true;
 
   bool get _te => widget.lang == 'te';
 
@@ -46,7 +52,8 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
   void initState() {
     super.initState();
     _targets = ref.read(askodoxQuestionMicTargetsProvider.notifier);
-    if (!widget.followCentre) return;
+    _shown = widget.always || askodoxPageMicsOn;
+    if (!widget.followCentre || !_shown) return;
     Future.microtask(() => _targets.state++);
     ref.listenManual<int>(askodoxQuestionMicTriggerProvider, (previous, next) {
       if (previous != null && next != previous && mounted) unawaited(_toggle());
@@ -60,7 +67,7 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
       _device.invokeMethod<Object?>('cancelVoiceRecording').catchError((_) => null);
     }
     final targets = _targets;
-    if (!widget.followCentre) {
+    if (!widget.followCentre || !_shown) {
       super.dispose();
       return;
     }
@@ -137,7 +144,9 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
   }
 
   @override
-  Widget build(BuildContext context) => IconButton(
+  Widget build(BuildContext context) => !_shown
+      ? const SizedBox.shrink()
+      : IconButton(
         key: const Key('askodoxQuestionMic'),
         tooltip: _phase == _MicPhase.recording ? (_te ? 'ఆపండి' : 'Stop') : (_te ? 'మాట్లాడండి' : 'Speak'),
         onPressed: _phase == _MicPhase.transcribing ? null : _toggle,

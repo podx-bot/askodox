@@ -10123,6 +10123,11 @@
           "approved_by": "owner",
           "change": "new: guide ON / OFF switch + one-time intro + 5 s idle walkthroughs (design ASKODOX గైడ్ ఆన్ / ఆఫ్); NOT PHONE VERIFIED",
           "date": "2026-11-23"
+        },
+        {
+          "approved_by": "owner",
+          "change": "owner 2026-11-26: the chip, the intro card and the walkthrough that starts by itself are OFF in the real app (askodoxGuideSwitchOn, ui_switches.dart); code + keys kept",
+          "date": "2026-11-26"
         }
       ],
       "id": "guide_switch_idle_walkthrough",
@@ -13096,6 +13101,52 @@
           "askodoxAutoBillDues",
           "AskodoxShopAutomationsScreen",
           "askodoxWinbackLink"
+        ]
+      }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "lib/core/ui/ui_switches.dart holds the app-wide switches (askodoxPageMicsOn, askodoxGuideSwitchOn, askodoxAskEverywhereOn); main() calls askodoxApplyOwnerUi(). In the real app: AskodoxGuideChip draws nothing and the guide never starts by itself; AskodoxQuestionMic (unless always: true = a chat / the Ask sheet), the step pages' bottom mic and AskodoxFillBar draw nothing; AskodoxAskLayer shows the Ask button on every page outside the five bottom-bar pages (never on private pages, with the keyboard open or during a walkthrough) and AskodoxAskSheet answers there via /api/in-app/guide/ask + voice; the chat opens only from the sheet's own \"Ask in the chat\".",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: one Ask button on every page (answers in place), guide chip + page mics switched off in the real app, app-wide switches in ui_switches.dart; NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ],
+      "id": "ask_everywhere_one_button",
+      "name": "ONE Ask button on every page; no guide chip, no mics inside pages",
+      "purpose": "Owner 2026-11-26: the Guide chip, guide button and the mics on every page / box are not wanted. One Ask button on every page: say or type what you need, the answer comes on that page (not in the chat room). App-wide pieces switch in ONE place.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/guide/ask_everywhere_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAskHere",
+          "askodoxAskSheet",
+          "askodoxAskBox",
+          "askodoxAskSend",
+          "askodoxAskAnswer",
+          "askodoxAskToChat"
+        ],
+        "symbols": [
+          "askodoxApplyOwnerUi",
+          "askodoxPageMicsOn",
+          "askodoxAskShownOn",
+          "AskodoxAskLayer",
+          "AskodoxAskSheet"
         ]
       }
     }
