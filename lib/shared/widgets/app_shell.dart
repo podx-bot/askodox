@@ -1,3 +1,4 @@
+import '../../core/ui/mode_names.dart';
 import 'askodox_hub_icons.dart';
 import 'askodox_logo.dart';
 import 'dart:async';
@@ -255,7 +256,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                             color: seller ? _sellerColor : _buyerColor, borderRadius: BorderRadius.circular(10)),
-                        child: Text(seller ? (isTe ? 'అమ్ము' : 'Sell') : (isTe ? 'కొను' : 'Buy'),
+                        child: Text(askodoxSideName(seller: seller),
                             maxLines: 1,
                             softWrap: false,
                             style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
@@ -621,9 +622,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
         );
     return Expanded(
         child: Semantics(
-      label: isTe
-          ? (seller ? 'సెల్లర్ మోడ్. కొను నొక్కితే బయ్యర్ పేజీ, అమ్ము నొక్కితే షాప్ పేజీ' : 'బయ్యర్ మోడ్. కొను నొక్కితే బయ్యర్ పేజీ, అమ్ము నొక్కితే షాప్ పేజీ')
-          : (seller ? 'Seller mode. Buy opens the buyer page, Sell the shop page' : 'Buyer mode. Buy opens the buyer page, Sell the shop page'),
+      label: askodoxSwitchSemantics(seller: seller, te: isTe),
       child: Container(
         key: const Key('askodoxNavHistory'),
         child: Stack(children: [
@@ -641,13 +640,13 @@ class _PrimaryBottomBar extends ConsumerWidget {
                 height: 28,
                 decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
                 child: Row(children: [
-                  side('askodoxNavBuy', isTe ? 'కొను' : 'Buy', !seller, onBuy),
-                  side('askodoxNavSell', isTe ? 'అమ్ము' : 'Sell', seller, onSell),
+                  side('askodoxNavBuy', askodoxMyName, !seller, onBuy),
+                  side('askodoxNavSell', askodoxMyBizName, seller, onSell),
                 ]),
               ),
             ),
             const SizedBox(height: 4),
-            Text(seller ? (isTe ? 'సెల్లర్' : 'Seller') : (isTe ? 'బయ్యర్' : 'Buyer'),
+            Text(askodoxSideStateName(seller: seller, te: isTe),
                 key: const Key('askodoxNavShoppingState'),
                 maxLines: 1,
                 style: TextStyle(fontSize: 11, fontWeight: onPage ? FontWeight.w900 : FontWeight.w800, color: color)),

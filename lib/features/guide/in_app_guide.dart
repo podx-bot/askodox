@@ -190,7 +190,7 @@ const askodoxAutoGuides = <AskodoxGuideFlow>[
     AskodoxGuideStep('askodoxNavPayments', 'Money: the payments your phone received and the payment voice live here.',
         'మనీ — మీ ఫోన్‌కు వచ్చిన పేమెంట్లు, పేమెంట్ సౌండ్ ఇక్కడ.', route: '/', info: true),
     AskodoxGuideStep('askodoxNavHistory', 'Buy / Sell: have a shop? Tap "Sell" for your shop work.',
-        'కొను / అమ్ము — షాప్ ఉంటే "అమ్ము" నొక్కితే మీ షాప్ పనులు వస్తాయి.', route: '/', info: true),
+        'My / My Biz — షాప్ ఉంటే "My Biz" నొక్కితే మీ షాప్ పనులు వస్తాయి.', route: '/', info: true),
     AskodoxGuideStep('askodoxHeaderMenu', 'Menu: language, location, settings and help.',
         '☰ మెనూ — భాష, లొకేషన్, సెట్టింగ్స్, సహాయం ఇక్కడ.', route: '/', info: true),
     AskodoxGuideStep('askodoxGuideSwitch', 'I stay here. Do not want the guide? Tap this to turn it off.',
