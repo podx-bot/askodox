@@ -1,0 +1,23 @@
+name: diag play bundle link (throwaway, never merge)
+on:
+  push:
+    branches: [diag/play-bundle-link-1708]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the Play bundle as a prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download 45744407320 -R "$GITHUB_REPOSITORY" -n askodox-android-708 -D out
+          aab=$(find out -name '*.aab' | head -1)
+          test -n "$aab"
+          cp "$aab" askodox-play-1708.aab
+          sha256sum askodox-play-1708.aab
+          gh release create play-bundle-1708 askodox-play-1708.aab -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Play bundle 1708" --notes "Play Console upload only (not installable on a phone). PR #495 customer line 'free for you too'; PR #498 real HDFC e-mail shape, no account numbers in the voice, e-mail card to add Gmail; chat speed rounds 4-5 (#496, #500)."
