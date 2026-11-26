@@ -129,6 +129,41 @@ void main() {
     expect(find.text('1½'), findsNothing);
   });
 
+  testWidgets('calculator bill (owner 2026-11-26): qty x rate rows are added to the bill and billed as real lines', (tester) async {
+    final api = _Api((method, path, body) {
+      if (path.endsWith('/desk/menu')) return _menu;
+      if (path.endsWith('/quick-bill')) {
+        return {'id': 'inv3', 'number': 'B1/26-27/000009', 'totals': {'grand_total_paise': 5500}, 'pending_paise': 0};
+      }
+      return _common(method, path) ?? {};
+    });
+    await _pump(tester, api, const AskodoxBillStepsScreen(businessId: 'b1'));
+    await tester.tap(find.byKey(const Key('askodoxStepMore')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxBillStepsCalc')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxBillCalcName-0')), 'Rope');
+    await tester.enterText(find.byKey(const Key('askodoxBillCalcQty-0')), '2');
+    await tester.enterText(find.byKey(const Key('askodoxBillCalcRate-0')), '12.50');
+    await tester.tap(find.byKey(const Key('askodoxBillCalcAddRow')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxBillCalcQty-1')), '3');
+    await tester.enterText(find.byKey(const Key('askodoxBillCalcRate-1')), '10');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxBillCalcTotal')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxBillCalcTotal'))).data, '₹55');
+    await tester.tap(find.byKey(const Key('askodoxBillCalcOk')));
+    await tester.pumpAndSettle();
+    expect(find.text('Next · ₹55'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxBillStepsNext')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxBillPayCash')));
+    await tester.pumpAndSettle();
+    final lines = (api.calls['POST /api/pos/businesses/b1/quick-bill']! as Map)['lines'] as List;
+    expect(lines[0], {'name': 'Rope', 'amount_paise': 2500, 'qty_milli': 2000, 'rate_paise': 1250});
+    expect(lines[1], {'name': 'Item', 'amount_paise': 3000, 'qty_milli': 3000, 'rate_paise': 1000});
+  });
+
   testWidgets('bill by voice: "12 number 2, UPI" fills the tile and pre-selects Online -- nothing is billed by itself',
       (tester) async {
     final api = _Api((method, path, body) => path.endsWith('/desk/menu') ? _menu : (_common(method, path) ?? {}));
