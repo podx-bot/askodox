@@ -4742,7 +4742,8 @@ void main() {
       expect(methods(), contains('speakReply'));
       // Barge in: a tap on the orb stops the reply (or ends the next turn) -- the conversation goes on.
       await tester.tap(find.byKey(const Key('askodoxTalkOrb')));
-      await runFor(tester, const Duration(seconds: 1));
+      // The mic opens again after a short echo gap (askodoxTalkEchoGap, owner 2026-11-26).
+      await runFor(tester, const Duration(seconds: 2));
       int starts() => methods().where((m) => m == 'startVoiceRecording').length;
       expect(starts(), greaterThanOrEqualTo(2), reason: 'ASKODOX listens again after answering');
       await tester.tap(find.byKey(const Key('askodoxTalkClose')));
