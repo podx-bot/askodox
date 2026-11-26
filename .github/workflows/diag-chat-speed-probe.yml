@@ -1,0 +1,10 @@
+name: diag chat speed probe (throwaway, never merge)
+on:
+  push:
+    branches: [diag/chat-speed-probe-1126]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/chat_speed_probe.py
