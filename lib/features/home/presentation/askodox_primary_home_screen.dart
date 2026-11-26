@@ -291,6 +291,7 @@ class _AskodoxPrimaryHomeScreenState
   /// ChatGPT-style full-screen voice conversation from the centre "Ask" (owner 2026-11-15, pani E): listen ->
   /// (short silence) -> transcribe -> answer -> speak -> listen again, until Close. The chat mic stays as before.
   bool _talkMode = false;
+  int _talkIdleTicks = 0;
   bool _talkPaused = false;
   /// Why the voice conversation is waiting (shown INSIDE the full-screen overlay: a snackbar would be hidden under it).
   String? _talkNote;
@@ -4788,7 +4789,7 @@ class _AskodoxPrimaryHomeScreenState
     _talkLoop?.cancel();
     _talkLoop = Timer.periodic(const Duration(milliseconds: 350), (_) => _talkTick());
     // Opening the conversation listens at once; only a reply that just ended waits for the echo gap.
-    _talkIdleSince = DateTime.now().subtract(askodoxTalkEchoGap);
+    _talkIdleTicks = 1 << 20;
     _talkTick();
   }
 
@@ -4797,13 +4798,15 @@ class _AskodoxPrimaryHomeScreenState
     if (!mounted || !_talkMode || _talkPaused) return;
     if (_voicePhase != _VoicePhase.idle) {
       _talkIdleSince = null;
+      _talkIdleTicks = 0;
       return;
     }
     if (_sending || _analyzingAttachments) return;
-    final since = _talkIdleSince ??= DateTime.now();
     // A short gap after ASKODOX stops speaking, so the mic never catches the end of its own voice (owner phone
-    // 2026-11-26: a stray "Hello" turn was heard right after a reply).
-    if (DateTime.now().difference(since) < askodoxTalkEchoGap) return;
+    // 2026-11-26: a stray "Hello" turn was heard right after a reply). Counted in loop ticks (350 ms each).
+    _talkIdleTicks++;
+    if (_talkIdleTicks * 350 < askodoxTalkEchoGap.inMilliseconds) return;
+    final since = _talkIdleSince ??= DateTime.now();
     if (DateTime.now().difference(since) > const Duration(seconds: 8)) {
       // The mic never started: stop retrying silently, tell the person, keep the orb as the retry button.
       _talkIdleSince = null;
