@@ -76,3 +76,17 @@ def test_fixed_instructions_cached_for_one_hour_and_fallback():
     assert _brain(refusing)._call_claude("FIXED" * 50 + "q", model="claude-haiku-5-5", cache_upto=250) == "ok"
     assert S._TTL_REFUSED and "ttl" not in str(refusing.sent[-1])
     S._TTL_REFUSED = False
+
+
+def test_hard_written_answers_use_the_reasoning_model_not_the_strongest(monkeypatch):
+    """Production probe 2026-11-26: the strongest model took 17.4 s to its first word on a "SIP or FD" advice turn
+    (38 s in all) because it always thinks first. Hard guide / advice answers use the reasoning model."""
+    from app.services.universal_ai_assistant_service import UniversalAIAssistantService
+
+    monkeypatch.delenv("ANTHROPIC_HARD_MODEL", raising=False)
+    service = UniversalAIAssistantService(None, api_key="", model="", http_client=object(), anthropic_api_key="k", anthropic_reasoning_model="claude-sonnet-5-5")
+    assert service._model_for("hard", answer=True) == "claude-sonnet-5-5"
+    assert service._model_for("hard") == "claude-sonnet-5-5"
+    assert "opus" not in service.anthropic_hard_model
+    monkeypatch.setenv("ANTHROPIC_HARD_MODEL", "claude-opus-5-5")
+    assert service._model_for("hard", answer=True) == "claude-opus-5-5"

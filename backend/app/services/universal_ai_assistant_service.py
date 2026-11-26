@@ -633,11 +633,15 @@ class UniversalAIAssistantService:
 
     @property
     def anthropic_hard_model(self) -> str:
-        """The strongest model, for the hardest questions (owner 2026-11-14). Staff override: ANTHROPIC_HARD_MODEL."""
-        return (os.environ.get("ANTHROPIC_HARD_MODEL", "") or "claude-opus-5-5").strip()
+        """The model for the hardest written answers. Speed (owner 2026-11-26, production probe): the strongest model
+        thinks before every answer and cannot be told not to -- a "SIP or FD" advice turn waited 17.4 s for its
+        first word and 38 s in all, while the reasoning model answers hard turns in ~1 s first word. So hard answers
+        use the reasoning model; staff can still choose a model with ANTHROPIC_HARD_MODEL."""
+        return (os.environ.get("ANTHROPIC_HARD_MODEL", "") or self.anthropic_reasoning_model).strip()
 
     def _model_for(self, level: str, *, answer: bool = False) -> str:
-        """simple -> the fast model (routing) / reasoning model (written answers); medium -> reasoning; hard -> hard."""
+        """simple -> the fast model (routing) / reasoning model (written answers); medium -> reasoning; hard -> the
+        hard model (= the reasoning model unless staff set ANTHROPIC_HARD_MODEL)."""
         if level == "hard":
             return self.anthropic_hard_model
         if level == "medium" or answer:

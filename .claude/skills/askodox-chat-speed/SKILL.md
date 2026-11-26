@@ -27,7 +27,9 @@ Add them up for one question: transcribe + first_ms + first VOICE SPEAK ms = wha
    (`UniversalAIAssistantService._quick_thinking`). Without it the 5.5 models think first: Haiku first word 5-7 s.
 2. Fixed instructions are cached for 1 hour (`_content`, `"ttl": "1h"`); the 5-minute default made every first
    question after a pause re-read ~8k tokens.
-3. Hard turns route on the reasoning model, never the strongest (`_decision_json`); that took ~10 s.
+3. Hard turns route AND write their guide / advice on the reasoning model, never the strongest (`_decision_json`,
+   `anthropic_hard_model`): routing took ~10 s; a "SIP or FD" advice answer waited 17.4 s for its first word (38 s
+   in all, probe 2026-11-26) because the strongest model always thinks first. Staff override: ANTHROPIC_HARD_MODEL.
 4. The early route (`_EarlyRoute`) runs next to the planner; only search / hard drops it.
 5. First spoken part <= 90 chars with a comma cut (`askodoxFirstSpeechMax`, `askodoxSpeechChunks`).
 6. Short plain replies are a chat bubble, not an answer card (`answer_card.build`).
@@ -35,6 +37,11 @@ Add them up for one question: transcribe + first_ms + first VOICE SPEAK ms = wha
 
 `backend/tests/test_chat_thinking_off.py`, `test_chat_planner.py`, `test_chat_answer_streaming.py` and
 `test/services/voice_endpointing_test.dart` guard these; never "fix" a red test by removing the rule.
+
+## 2b. Measuring without the owner's phone
+The session cannot reach production directly. Push a throwaway `diag/chat-speed-probe-*` branch with a workflow that
+POSTs questions to `/api/in-app/assistant/stream` (no sign-in) and prints first-word / total seconds, then read the
+timing lines for that window. Never merge such a branch.
 
 ## 3. Report to the owner (Telugu, short)
 Per question: how many seconds to first words and to voice, which step was the biggest, and the next fix.
