@@ -19,7 +19,7 @@ from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 
-from app.services import answer_corrections, live_lookup
+from app.services import answer_corrections, live_lookup, real_cost
 from app.services.runtime_time_context import grounded_search_query, needs_live_verification, runtime_context_block
 from app.services.conversation_relation import ConversationRelationEngine
 from app.services import advice_memory, answer_card, reply_suggestions
@@ -227,6 +227,16 @@ FRIEND_REASONING_RULES = (
     "(7) The sum behind it: when they wonder how someone really earns, why a price or an offer works, or why a "
     "common belief does not hold, first name what most people assume, then show the real working with one small "
     "worked example, then give the one thing the person can do with it. "
+    "(8) The real cost of going: when the choice is a cheaper price somewhere farther, or pick-up against delivery, "
+    "or a nearer option against a better one, never compare the sticker prices alone. Give each option ONE total: "
+    "price + delivery fee + the trip (fuel or fare there and back, people, meals on the way, parking or small extra "
+    "spending, and the hours it takes) and name the winner by that total, the real difference in rupees and the "
+    "break-even (how much cheaper the far price must be before the trip pays). When the totals are within about "
+    "3 percent of each other, say the money does not decide and prefer the nearer one for the time, effort, easy "
+    "returns and service close by; if only the far option has something the near one lacks (a much wider choice, "
+    "a better warranty), say that. Use the person's own numbers; for anything they did not give, use the app's "
+    "typical figures " + real_cost.assumption_sentence() + " and say they are estimates the person can change. "
+    "Do the arithmetic carefully and show it in one short line per option; never invent a price. "
     "Answer shape: the verdict first in one plain sentence, then two or three 'because' reasons that each use a fact "
     "THEY gave (never a generic benefit), then what to avoid when it matters. When the facts needed for (1) are "
     "missing, the one allowed question asks about their situation, not about specifications. "
