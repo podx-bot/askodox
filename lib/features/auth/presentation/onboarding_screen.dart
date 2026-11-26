@@ -21,7 +21,7 @@ import '../../../core/update/askodox_update_service.dart';
 import '../../../shared/widgets/askodox_logo.dart';
 import '../../guide/guide_switch.dart';
 import '../../location/application/location_controller.dart';
-import '../../guide/in_app_guide.dart' show askodoxGuideById, askodoxGuideProvider;
+import '../../guide/in_app_guide.dart' show askodoxGuideById, askodoxGuideProvider, askodoxGuideSpeakerProvider;
 import '../../home/domain/active_role.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../../core/startup/startup_hint.dart';
@@ -1407,13 +1407,4 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         const SizedBox(height: 12),
         FilledButton(key: const Key('askodoxFinishSignUp'), onPressed: _busy ? null : _finish, child: Text(_t('toAskodox'))),
       ];
-
-  Widget _languageButton(String label, String code) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: OutlinedButton(
-          onPressed: () => _chooseLanguage(code),
-          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
-          child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        ),
-      );
 }
