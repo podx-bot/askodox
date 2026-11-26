@@ -64,8 +64,8 @@ const _night = AskodoxVoiceKind('night', 'Night ASKODOX count', 'రాత్ర
     '"ASKODOX count: 45 payments came today, total 12400 rupees." -- 9 pm, only on a day with payments',
     '"ASKODOX లెక్క: ఈరోజు 45 పేమెంట్స్ వచ్చాయి, మొత్తం 12400 రూపాయలు." — రాత్రి 9కి, పేమెంట్ వచ్చిన రోజే');
 const _customer = AskodoxVoiceKind('customer', 'ASKODOX line for customers', 'Customers కి ASKODOX మాట',
-    '"This voice is from ASKODOX. Free for your shop too." -- at most twice a day',
-    '"ఈ సౌండ్ ASKODOX ది. మీ షాప్ కి కూడా ఫ్రీ." — రోజుకు 2 సార్లు మాత్రమే');
+    '"This voice is from ASKODOX. Free for you too." -- at most twice a day',
+    '"ఈ సౌండ్ ASKODOX ది. మీకు కూడా ఫ్రీ." — రోజుకు 2 సార్లు మాత్రమే');
 
 /// The ASKODOX lines, the same on my phone and on a shop counter.
 const askodoxBrandVoiceKinds = [_tune, _hello, _night, _customer];
