@@ -99,6 +99,7 @@ void main() {
             {'type': 'final', 'decision': {...finalDecision, 'reply': 'Gold is ₹12,500 a gram.'}},
           ]),
           200,
+          headers: {'content-type': 'application/x-ndjson; charset=utf-8'},
         ));
     final order = <String>[];
     final decision = await InAppAssistantService(client: client).decideStreaming(
