@@ -4787,6 +4787,8 @@ class _AskodoxPrimaryHomeScreenState
     _talkPortal.show();
     _talkLoop?.cancel();
     _talkLoop = Timer.periodic(const Duration(milliseconds: 350), (_) => _talkTick());
+    // Opening the conversation listens at once; only a reply that just ended waits for the echo gap.
+    _talkIdleSince = DateTime.now().subtract(askodoxTalkEchoGap);
     _talkTick();
   }
 
