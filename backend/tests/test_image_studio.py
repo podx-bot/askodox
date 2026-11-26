@@ -206,3 +206,19 @@ def test_try_on_shares_the_daily_cap_and_failures_give_it_back(studio):
         assert client.post("/api/images/try-on", json=_try(), headers=_bearer(container)).json()["ok"]
     over = client.post("/api/images/try-on", json=_try(), headers=_bearer(container)).json()
     assert over["code"] == "daily_limit"
+
+
+def test_try_on_picture_carries_the_askodox_strip_and_never_fails_because_of_it():
+    # Owner 2026-11-26: the saved / shared try-on picture carries ASKODOX at the bottom; nothing of the picture is covered.
+    import io
+
+    from PIL import Image
+
+    from app.api.routes.image_studio import brand_strip
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (400, 600), (200, 120, 90)).save(buffer, format="PNG")
+    out = Image.open(io.BytesIO(brand_strip(buffer.getvalue(), "image/png")))
+    assert out.size[0] == 400 and out.size[1] > 600
+    assert out.getpixel((10, 10)) == (200, 120, 90) and out.getpixel((5, out.size[1] - 3)) == (20, 28, 60)
+    assert brand_strip(b"not a picture", "image/png") == b"not a picture"
