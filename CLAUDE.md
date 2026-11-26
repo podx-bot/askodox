@@ -7,6 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #511-#515 (2026-11-26, owner "Finish all" + "చేసేయండి"; Play bundle `askodox-play-1717.aab` = Live Build run 717 on 7aadb0d, holds everything since 1708 incl. #495-#504): (#511) commit-guard hook. (#512) Items list + Add an item + Stock & barcodes = ONE Seller tile (`_mergedIntoItems`; staff without the Items list keep their tiles). (#513) skill `askodox-one-command-ui`. (#514) CALCULATOR BILL in Make a bill (⋮ `askodoxBillStepsCalc`, rows name x qty x rate -> real lines `qty_milli` + `rate_paise`). (#515) customer menu item photos first (`has_photo`) + "Try it" only when the shop kit `try_on` is on_me / in_home (desk `resolve` returns `try_on`). OWNER QUEUE item 1 (one Ask button) was already on main. Nothing phone verified.
 - `main` PR #495 + #498 + #502 + #503 + #504 (2026-11-26, owner "1" / "merge the pending ones, no Play link now"; Play bundle
   `askodox-play-1708.aab` = Live Build run 708 on fa4260c holds #495 + #498 + chat speed #496 / #500 ONLY -- #502 / #503 need a new build):
   (#495) payment voice customer line = "free for YOU too" in 12 languages (never names a shop). (#498) real HDFC e-mail shape ("account
