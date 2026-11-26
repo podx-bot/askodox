@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #496 + #500 (2026-11-26, owner "1" + "do 1-4, no link now"; NO Play bundle yet -- the app side of #496 needs a build): CHAT SPEED
+  rounds 4-5 -- chat calls send `thinking` off (Haiku `disabled`, Sonnet `between_tools`, `_quick_thinking`; the 5.5 models think by default:
+  Haiku first word was 5-7 s), a 400 naming thinking / ttl is remembered and retried without it (`_refused_thinking`); fixed instructions cached
+  1 h (`_content` ttl "1h", `_TTL_REFUSED` fallback); short plain replies = bubble, no answer card (`answer_card.build`); talk mode echo gap
+  (`askodoxTalkEchoGap` 700 ms, counted in 350 ms loop ticks) + `askodoxTalkNoSpeechTimeout` 10 s. Skill `.claude/skills/askodox-chat-speed`
+  (log lines + the rules that must stay). NOT built: shorter prompts for small talk, ElevenLabs streaming playback (decide after the phone
+  test's new `first_token_ms` / `VOICE SPEAK` numbers). Nothing phone verified.
 - `main` PR #497 (2026-11-26, owner "1" = build, then "1 merge, no link now"; NO Play bundle yet -- newest is still 1703, the app side
   needs a new build): (A) AI PLAN -- `ai_credits.py` `PLAN_DEFAULTS` (settings `plan`): Rs 10 free per INDIA day (ledger mode `free`, never a
   balance; `daily_free_days` 0 = for ever), a use takes the free part first then the pack (`usefree:` row for a use paid from both), first
