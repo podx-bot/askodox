@@ -94,6 +94,12 @@ message shape or a real timing. This skill keeps a fixed bug from coming back.
     e-mail is bank-confirmed like the SMS; debits carry `rrn(text)` as their reference so SMS + e-mail + app match
     exactly. Gmail notifies only Primary by default: the app shows `askodoxBankMailHint` (Notifications "All").
 
+19. The voice never says an account NUMBER or "A/c" (owner 2026-11-26): `spokenAccountName` keeps only the person's own
+    words for the account ("HDFC ••1234" -> "HDFC", "A/c ••1234" -> nothing). A PROVEN debit (debit word + own account +
+    12-digit UPI reference) is stopped only by `noMoneyMoved` words, never by banner ad words in a bank e-mail
+    ("offers on Loans | EASYEMI"). "account ending 1234" is an account tail; "towards VPA x@ybl (NAME)" gives the payee.
+    Mail apps are never auto-added: the e-mail card on My phone payments (`askodoxMineMailCard`) adds them on one tap.
+
 ## How a message joins a row (`pickSamePayment`)
 
 - Same RRN on both → same payment, any order, within `SAME_REF_MS` (24 h). Two different full RRNs → never.

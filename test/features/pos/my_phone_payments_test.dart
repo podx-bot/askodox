@@ -107,6 +107,23 @@ void main() {
     expect(events.length, 1);
   });
 
+  testWidgets('Gmail on the phone: never added by itself, one tap on the e-mail card adds it as kind email', (tester) async {
+    // Owner 2026-11-26: "there is no place to add Gmail"; banks send no SMS for small payments, the e-mail always comes.
+    tester.view.physicalSize = const Size(1080, 4000);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    installed = [...installed, {'package': 'com.google.android.gm', 'label': 'Gmail'}];
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect((lastConfig['apps'] as Map).containsKey('com.google.android.gm'), isFalse, reason: 'mail is the person\'s choice');
+    expect(find.byKey(const Key('askodoxMineMailCard')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('askodoxMineMailAdd')));
+    await tester.pumpAndSettle();
+    expect((lastConfig['apps'] as Map).containsKey('com.google.android.gm'), isTrue);
+    expect((lastConfig['kinds'] as Map)['com.google.android.gm'], 'email');
+    expect(find.byKey(const Key('askodoxMineMailCard')), findsNothing, reason: 'the card goes once Gmail is read');
+  });
+
   testWidgets('a row shows the message it was read from; "wrong" fixes it; set-aside rows never count', (tester) async {
     tester.view.physicalSize = const Size(1080, 4000);
     tester.view.devicePixelRatio = 2.0;

@@ -633,6 +633,10 @@ object PaymentAlertParser {
         "refund", "reversed", "due", "reminder", "cashback", "reward", "offer", "coupon", "scratch", "verification code",
         "password", "pin ", "loan", "emi", "recharge", "bill pay")
 
+    /** Words that mean the money did NOT move -- they stop even a proven debit. */
+    private val noMoneyMoved = setOf("request", "collect", "otp", "one time", "failed", "declined", "unsuccessful", "pending",
+        "reversed", "refund", "verification code", "password", "pin ")
+
     /** What a debit was FOR (owner 2026-11-22: a bill / EMI / recharge that is paid IS a payment). */
     private val purposeWords = setOf("loan", "emi", "recharge", "bill pay")
     private val notDoneDebit = listOf("will be", "shall be", "would be", "to be debited", "to be deducted", "apply",
@@ -651,8 +655,13 @@ object PaymentAlertParser {
         // "Rs 1,941 debited from A/c XX1234 towards EMI of loan", "debited ... for Jio recharge", "you paid ... bill
         // payment", "debited towards card dues": the bank / app says the money LEFT -- what it was for never drops it.
         val done = (bankSent || strongDebit.any { view.contains(it) }) && notDoneDebit.none { view.contains(it) }
+        // Owner 2026-11-26 (HDFC e-mail with an "offers on Loans | Cards | EASYEMI" banner above "Rs.1.00 is debited from
+        // your account ending 1234 ... UPI transaction reference no.: 6410..."): a PROVEN debit -- debit word + the person's
+        // own account + the 12-digit UPI reference -- is stopped only by words that mean no money moved, never by ad words.
+        val proven = done && accountTail(joined) != null && rrn(joined) != null
         val stopped = notMoney.any { w ->
-            view.contains(w) && !(done && (w in purposeWords || (w == "due" && !dueWord.containsMatchIn(view))))
+            view.contains(w) && !(done && (w in purposeWords || (w == "due" && !dueWord.containsMatchIn(view)))) &&
+                !(proven && w !in noMoneyMoved)
         }
         if (stopped) return Result.Ignored
         val amounts = paymentAmounts(joined)
@@ -671,6 +680,8 @@ object PaymentAlertParser {
         Regex(""";\s*([A-Za-z][A-Za-z .]{1,40}?)\s+credited""", RegexOption.IGNORE_CASE),            // ICICI debit SMS
         Regex("""\bcr\.?\s+to\s+(\S.{1,60}?)$END""", RegexOption.IGNORE_CASE),                          // BoB debit SMS
         Regex("""upi/p2[am]/\d+/([A-Za-z][A-Za-z .]{1,40}?)(?:/|$END)""", RegexOption.IGNORE_CASE),     // Axis
+        // HDFC e-mail: "towards VPA ******1234@ybl (RAVI TEJA)" -- the name in brackets after the UPI id.
+        Regex("""\b(?:to|towards)\s+vpa\s+\S+@\S+\s*\(([A-Za-z][A-Za-z .]{1,40}?)\)""", RegexOption.IGNORE_CASE),
     )
 
     /**
@@ -737,7 +748,8 @@ object PaymentAlertParser {
     }
 
     private val accountRegex = Regex(
-        """(?:a/c|acct?|account|\bac\b)\s*(?:no\.?|number)?\s*[:.\-]?\s*[xX*.]*\s*(\d{3,4})\b""",
+        // Owner 2026-11-26 (HDFC e-mail "debited from your account ending 1234"): "ending (with / in)" may sit in between.
+        """(?:a/c|acct?|account|\bac\b)\s*(?:no\.?|number)?\s*(?:ending\s*(?:with|in)?)?\s*[:.\-]?\s*[xX*.]*\s*(\d{3,4})\b""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -766,6 +778,20 @@ object PaymentAlertParser {
             }
         }
         return appSides[pkg]?.takeIf { it in SIDES }
+    }
+
+    /**
+     * Owner 2026-11-26 ("why does it read the A/C number? Say names, the amount, the bank's name, a confirmation"): the
+     * name the voice may say for an account -- the person's own words ("Savings", "HDFC current") with every account
+     * marker ("A/c", "XX", "••", "*") and every digit taken out. Nothing left ("A/c ••1234") = nothing is said.
+     */
+    fun spokenAccountName(name: String?): String {
+        val t = (name ?: "")
+            .replace(Regex("""(?i)\b(?:a/c|a/c\.|acct|ac|account|no\.?|number|ending|xx+)\b"""), " ")
+            .replace(Regex("""[0-9•*xX]{2,}|\d"""), " ")
+            .replace(Regex("""[•*/:#.\-]"""), " ")
+            .replace(Regex("""\s+"""), " ").trim()
+        return if (t.any { it.isLetter() }) t else ""
     }
 
     fun accountTail(text: String?): String? = accountRegex.find(text ?: "")?.groupValues?.get(1)

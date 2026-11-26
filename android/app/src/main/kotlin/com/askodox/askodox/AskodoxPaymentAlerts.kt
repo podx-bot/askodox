@@ -1431,7 +1431,8 @@ object AskodoxPaymentAlerts {
      */
     private fun withAccount(cfg: JSONObject, account: String?, parts: List<String>): List<String> {
         if (account.isNullOrEmpty() || !cfg.optBoolean("say_account", false)) return parts
-        val name = cfg.optJSONObject("account_names")?.optString(account).orEmpty().trim()
+        // Never the account NUMBER or "A/c" (owner 2026-11-26): only the name the person gave it, digits taken out.
+        val name = PaymentAlertParser.spokenAccountName(cfg.optJSONObject("account_names")?.optString(account))
         return if (name.isEmpty()) parts else listOf("$name:") + parts
     }
 
