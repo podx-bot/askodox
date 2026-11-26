@@ -790,17 +790,38 @@ class PosFrontDesk:
                 "more": max(0, len(menu) - limit), "last_items": data["last_items"], "prepared": prepared,
                 "focus": focus[:12]}
 
-    def find_items(self, text: str, limit: int = 3) -> List[Dict[str, Any]]:
+    @staticmethod
+    def in_place(address: str, place: str) -> bool:
+        """True when the shop's own address names the place the person asked about, in any script ("విజయవాడ" =
+        "Vijayawada"); no place asked -> True. A shop with no address is not assumed to be there."""
+        from app.services.name_sound import latin, same, sounds
+
+        def forms(text: str) -> set:  # "Vuyyuru" / "Uyyuru": a leading v before a vowel is often dropped
+            words = re.findall(r"[a-z]+", latin(text).lower())
+            words += [w[1:] for w in words if len(w) > 3 and w[0] == "v" and w[1] in "aeiou"]
+            return {f for w in words if len(w) >= 3 for f in sounds(w)}
+
+        wanted = forms(place)
+        if not wanted:
+            return True
+        have = forms(address)
+        return any(same(w, h) or same(h, w) for w in wanted for h in have)
+
+    def find_items(self, text: str, limit: int = 3, place: str = "") -> List[Dict[str, Any]]:
         """Shops on ASKODOX (open) whose MENU has what the person asked for -- matched on the item's own words
         ("biryani" finds "Chicken Dum Biryani"), never on a category list. Only items on sale today. Each shop carries
-        its matching items with the menu prices; best match first (owner 2026-11-16: our shops are shown first)."""
-        said = self._words(text) - self._GENERIC
+        its matching items with the menu prices; best match first (owner 2026-11-16: our shops are shown first).
+        ``place`` = the town / area the person named ("biryani in Hyderabad"): only shops whose address is there
+        (production probe 2026-11-26: a Vuyyuru shop was offered for Vijayawada and Hyderabad)."""
+        said = self._words(text) - self._GENERIC - self._words(place)
         if not said:
             return []
         found: List[Dict[str, Any]] = []
         with self.store._connect() as conn:
-            for b in conn.execute("SELECT id, name, status FROM pos_businesses"):
+            for b in conn.execute("SELECT id, name, status, address FROM pos_businesses"):
                 if ((b["status"] if "status" in b.keys() else "open") or "open") != "open":
+                    continue
+                if place and not self.in_place(b["address"] or "", place):
                     continue
                 hits = []
                 for item in self._menu(conn, b["id"]):

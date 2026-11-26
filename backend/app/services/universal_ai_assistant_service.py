@@ -1104,6 +1104,15 @@ class UniversalAIAssistantService:
         return (bool(cls._ADVICE_ASK.search(text)) and not cls._COMMERCE_NOW.search(text)
                 and not cls._asks_where_to_get(text) and not cls._asks_for_videos(text))
 
+    def _routed_advice_is_full(self, reply: str, facts: str, late_evidence: bool) -> bool:
+        """True when the routing reply already IS the advice answer: written by the reasoning model (hard turns,
+        ``_decision_json``), long enough to be a whole answer, with no attachment to read and no evidence that arrived
+        after it was written. Otherwise the advisor writes it (quality: the fast model never writes advice)."""
+        return (getattr(_REQUEST, "level", "") == "hard" and not facts and not late_evidence
+                and len(str(reply or "").strip()) >= self.FULL_ADVICE_CHARS)
+
+    FULL_ADVICE_CHARS = 400
+
     def _advise(self, user_text: str, history: list[dict[str, str]], locale: str, location: str,
                 advice_ledger: list[dict[str, Any]] | None = None,
                 capabilities: list[str] | None = None, user_memory: list[str] | None = None,
@@ -1691,6 +1700,7 @@ class UniversalAIAssistantService:
             # app's context / instructions / attachment facts.
             said = self.own_words(clean)
             facts = self.attachment_facts_of(clean)
+            late_evidence = False  # live evidence found only AFTER the routing reply was written
             if grounding is None and not about_shown:
                 # The user's words named no model in Latin letters (Telugu-script
                 # voice "ఒప్పో ఫైండ్ ఎక్స్ 10"), but the model's own entities did:
@@ -1699,6 +1709,7 @@ class UniversalAIAssistantService:
                     " ".join(str(entities.get(k) or "") for k in ("brand", "model", "subject")))
                 if named:
                     grounding, grounding_block = self._live_grounding(f"{named} {user_text}", compact_history)
+                    late_evidence = grounding is not None
                     if grounding is not None and not self.wants_advice(user_text):
                         again = self._decision_json(
                             prompt.replace("Current user message:", grounding_block + "Current user message:", 1),
@@ -1749,10 +1760,17 @@ class UniversalAIAssistantService:
                 mode = "advice"
                 transactional = False
                 action = "advise"
-                advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities,
-                                                   user_memory=user_memory, lessons=lessons,
-                                                   evidence=runtime_block + "\n" + (grounding_block or ""),
-                                                   on_text=on_text)
+                if self._routed_advice_is_full(reply, facts, late_evidence):
+                    # Speed (owner 2026-11-26, production probe): a hard turn is routed on the reasoning model, which
+                    # already wrote the whole advice (1,544 chars in 7.6 s); writing it again took another 7.3 s and
+                    # swapped the answer on screen mid-voice. Keep it; its one-time-advice report came with it.
+                    path = "routed_advice"
+                    advice, advice_meta = "", None
+                else:
+                    advice, advice_meta = self._advise(user_text, compact_history, locale, clean_location, ledger, capabilities,
+                                                       user_memory=user_memory, lessons=lessons,
+                                                       evidence=runtime_block + "\n" + (grounding_block or ""),
+                                                       on_text=on_text)
                 if advice:
                     reply = advice
                     data["advice"] = advice_meta

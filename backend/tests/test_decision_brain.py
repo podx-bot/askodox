@@ -183,3 +183,37 @@ def test_already_searched_state_reaches_the_brain(monkeypatch):
     assert "Already searched for" in prompt and "large 2 door steel almirah" in prompt
     assert "Taste preferences" in prompt and "NEVER block a search" in prompt
     assert body["search_ready"] is False
+
+
+def test_hard_advice_already_written_by_routing_is_not_written_twice(monkeypatch):
+    """Production probe 2026-11-26 ("SIP or FD"): the reasoning model routed the hard turn and wrote the whole advice
+    (7.6 s); the advisor then wrote it again (7.3 s) and the answer changed on screen mid-voice. Keep the first."""
+    svc, _ = _svc(_decision("unused"))
+    svc.anthropic_api_key = "a"
+    full = "SIP if the money can stay 5+ years; FD if you need it within 3. " * 8
+    monkeypatch.setattr(svc, "_plan", lambda *a, **k: {"search": False, "query": "", "level": "hard"})
+    monkeypatch.setattr(svc, "_decision_json", lambda *a, **k: {
+        "reply": full, "domain": "GENERAL", "transactional": False, "action": "advise", "confidence": 0.9,
+        "entities": {}, "advice": {"key": "sip_vs_fd", "summary": "horizon decides", "severity": "info"}})
+    monkeypatch.setattr(svc, "_live_grounding", lambda *a, **k: (None, ""))
+
+    def no_second_write(*a, **k):
+        raise AssertionError("the advice was written twice")
+
+    monkeypatch.setattr(svc, "_advise", no_second_write)
+    out = svc.decide("Should I do a SIP or an FD for my savings?", locale="en")
+    assert out["mode"] == "advice" and out["reply"].startswith("SIP if the money")
+
+
+def test_short_or_fast_model_advice_still_goes_to_the_advisor():
+    svc, _ = _svc(_decision("unused"))
+    from app.services import universal_ai_assistant_service as mod
+
+    mod._REQUEST.level = "hard"
+    assert svc._routed_advice_is_full("x" * 500, "", False)
+    assert not svc._routed_advice_is_full("short verdict", "", False)
+    assert not svc._routed_advice_is_full("x" * 500, "photo shows a bill", False)
+    assert not svc._routed_advice_is_full("x" * 500, "", True)
+    mod._REQUEST.level = "medium"  # routed on the fast model: the advisor writes it
+    assert not svc._routed_advice_is_full("x" * 500, "", False)
+    mod._REQUEST.level = ""

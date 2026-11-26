@@ -347,7 +347,11 @@ def _own_shop_order(request: Request, payload: "AssistantRequest", decision: dic
             wants = bool(decision.get("mode") == "commerce" or decision.get("transactional") or decision.get("search_ready"))
             if not (shopping or wants):
                 return decision
-            found = _desk(request).find_items(user_words, 3)
+            # The place the person named ("biryani in Hyderabad"), not the phone's own location.
+            place = str((decision.get("entities") or {}).get("location") or "").strip()
+            if place and payload.location and _desk(request).in_place(payload.location, place):
+                place = ""  # the model only copied the known location: "near me" keeps every shop as before
+            found = _desk(request).find_items(user_words, 3, place=place)
             if not found:
                 if shopping and wants:
                     # Never promise "these are outside results" unless a search really runs this turn (a reply that only

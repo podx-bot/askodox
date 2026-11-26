@@ -811,3 +811,18 @@ def test_questions_about_a_named_shop_use_its_own_data(env):
     assert "not added" in desk.shop_answer(biz, "do they do home delivery", False)
     assert "₹160" in desk.shop_answer(biz, "chicken biryani price", False)
     assert desk.shop_answer(biz, "Murali Hotel", False) == ""
+
+
+def test_find_items_keeps_to_the_town_the_person_named(env):
+    """Production probe 2026-11-26: "biryani in Hyderabad" / "విజయవాడలో biryani" offered a Vuyyuru shop. A named
+    place keeps only shops whose own address is there (any script); no place = every shop as before."""
+    desk, store, rest, biz, table, biryani, fry, now, pushes = env
+    with store._connect() as conn:
+        conn.execute("UPDATE pos_businesses SET address = ? WHERE id = ?", ("Gandigunta, Vuyyuru, Krishna", biz))
+    assert desk.find_items("biryani in Hyderabad", place="Hyderabad") == []
+    assert desk.find_items("విజయవాడలో మంచి biryani", place="విజయవాడ") == []
+    assert [h["id"] for h in desk.find_items("biryani in Vuyyuru", place="Vuyyuru")] == [biz]
+    assert [h["id"] for h in desk.find_items("ఉయ్యూరు biryani", place="ఉయ్యూరు")] == [biz]
+    assert [h["id"] for h in desk.find_items("good biryani")] == [biz]
+    assert desk.in_place("Uyyuru, Andhra Pradesh", "Uyyuru")
+    assert not desk.in_place("", "Vijayawada")
