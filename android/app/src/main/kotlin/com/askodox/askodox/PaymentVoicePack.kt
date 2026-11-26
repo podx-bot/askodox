@@ -10,7 +10,7 @@ package com.askodox.askodox
  * Also the ASKODOX lines (owner 2026-11-23, all ON by default, each can be switched off):
  *  - an ASKODOX tune before every payment voice (Player, raw resource `askodox_tune`);
  *  - "Namaste, today ASKODOX tells your payments" before the FIRST payment of the day ([brandChoice]);
- *  - "This voice is ASKODOX's -- free for your shop too" at most twice a day, never on the first payments;
+ *  - "This voice is ASKODOX's -- free for you too" at most twice a day, never on the first payments;
  *  - the night "ASKODOX count" ([nightParts]) -- only on a day that had payments (no payment = no sound, no notice).
  * Money never "came through ASKODOX": the lines name ASKODOX as the voice, never as where the money went.
  */
@@ -191,7 +191,7 @@ object PaymentVoicePack {
     /** "Namaste! Today ASKODOX tells your payments." (said before the first payment of the day). */
     fun helloPart(language: String): String = HELLO[language] ?: HELLO.getValue("en")
 
-    /** "This voice is ASKODOX's. Free for your shop too." (customers at the counter hear it; max 2 a day). */
+    /** "This voice is ASKODOX's. Free for you too." (owner 2026-11-26: "for you", not "for your shop") (customers at the counter hear it; max 2 a day). */
     fun customerPart(language: String): String = CUSTOMER[language] ?: CUSTOMER.getValue("en")
 
     /**
@@ -306,18 +306,18 @@ object PaymentVoicePack {
     )
 
     private val CUSTOMER: Map<String, String> = mapOf(
-        "te" to "ఈ సౌండ్ ఆస్కోడాక్స్ ది. మీ షాప్ కి కూడా ఫ్రీ.",
-        "hi" to "यह आवाज़ आस्कोडॉक्स की है। आपकी दुकान के लिए भी फ्री।",
-        "en" to "This voice is from Askodox. Free for your shop too.",
-        "ta" to "இந்த குரல் அஸ்கோடாக்ஸ் உடையது. உங்கள் கடைக்கும் இலவசம்.",
-        "kn" to "ಈ ಧ್ವನಿ ಅಸ್ಕೋಡಾಕ್ಸ್‌ನದು. ನಿಮ್ಮ ಅಂಗಡಿಗೂ ಉಚಿತ.",
-        "ml" to "ഈ ശബ്ദം അസ്കോഡോക്സിന്റേതാണ്. നിങ്ങളുടെ കടയ്ക്കും സൗജന്യം.",
-        "bn" to "এই আওয়াজ আস্কোডক্সের। আপনার দোকানের জন্যও ফ্রি।",
-        "mr" to "हा आवाज आस्कोडॉक्सचा आहे. तुमच्या दुकानासाठीही मोफत.",
-        "gu" to "આ અવાજ આસ્કોડોક્સનો છે. તમારી દુકાન માટે પણ મફત.",
-        "pa" to "ਇਹ ਆਵਾਜ਼ ਆਸਕੋਡੌਕਸ ਦੀ ਹੈ। ਤੁਹਾਡੀ ਦੁਕਾਨ ਲਈ ਵੀ ਮੁਫ਼ਤ।",
-        "or" to "ଏହି ସ୍ୱର ଆସ୍କୋଡକ୍ସର। ଆପଣଙ୍କ ଦୋକାନ ପାଇଁ ମଧ୍ୟ ମାଗଣା।",
-        "ur" to "یہ آواز آسکوڈوکس کی ہے۔ آپ کی دکان کے لیے بھی مفت۔",
+        "te" to "ఈ సౌండ్ ఆస్కోడాక్స్ ది. మీకు కూడా ఫ్రీ.",
+        "hi" to "यह आवाज़ आस्कोडॉक्स की है। आपके लिए भी फ्री।",
+        "en" to "This voice is from Askodox. Free for you too.",
+        "ta" to "இந்த குரல் அஸ்கோடாக்ஸ் உடையது. உங்களுக்கும் இலவசம்.",
+        "kn" to "ಈ ಧ್ವನಿ ಅಸ್ಕೋಡಾಕ್ಸ್‌ನದು. ನಿಮಗೂ ಉಚಿತ.",
+        "ml" to "ഈ ശബ്ദം അസ്കോഡോക്സിന്റേതാണ്. നിങ്ങൾക്കും സൗജന്യം.",
+        "bn" to "এই আওয়াজ আস্কোডক্সের। আপনার জন্যও ফ্রি।",
+        "mr" to "हा आवाज आस्कोडॉक्सचा आहे. तुमच्यासाठीही मोफत.",
+        "gu" to "આ અવાજ આસ્કોડોક્સનો છે. તમારા માટે પણ મફત.",
+        "pa" to "ਇਹ ਆਵਾਜ਼ ਆਸਕੋਡੌਕਸ ਦੀ ਹੈ। ਤੁਹਾਡੇ ਲਈ ਵੀ ਮੁਫ਼ਤ।",
+        "or" to "ଏହି ସ୍ୱର ଆସ୍କୋଡକ୍ସର। ଆପଣଙ୍କ ପାଇଁ ମଧ୍ୟ ମାଗଣା।",
+        "ur" to "یہ آواز آسکوڈوکس کی ہے۔ آپ کے لیے بھی مفت۔",
     )
 
     /** language -> [head, one payment, {n} payments, total {money}, goodbye]. */

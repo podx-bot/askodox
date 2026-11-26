@@ -786,6 +786,14 @@ fun voicePackChecks() {
         println((if (cond) "ok   " else "FAIL ") + name)
     }
     val P = PaymentVoicePack
+    // Owner 2026-11-26: the customer line says "free for YOU too" (any person, not only a shop owner).
+    ok("customer line te = for you", P.customerPart("te") == "ఈ సౌండ్ ఆస్కోడాక్స్ ది. మీకు కూడా ఫ్రీ.")
+    ok("customer line en = for you", P.customerPart("en") == "This voice is from Askodox. Free for you too.")
+    ok("customer line never says shop", listOf("te", "hi", "en", "ta", "kn", "ml", "bn", "mr", "gu", "pa", "or", "ur").none {
+        val l = P.customerPart(it).lowercase()
+        l.contains("shop") || l.contains("షాప్") || l.contains("दुकान") || l.contains("கடை") || l.contains("ಅಂಗಡಿ") ||
+            l.contains("കട") || l.contains("দোকান") || l.contains("દુકાન") || l.contains("ਦੁਕਾਨ") || l.contains("ଦୋକାନ") || l.contains("دکان")
+    })
     ok("te 1234", P.numberWords(1234, "te") == listOf("వెయ్యి", "రెండు వందల", "ముప్పై నాలుగు"))
     ok("te 500", P.numberWords(500, "te") == listOf("ఐదు వందల"))
     ok("te 100 / 150", P.numberWords(100, "te") == listOf("వంద") && P.numberWords(150, "te") == listOf("నూట", "యాభై"))
