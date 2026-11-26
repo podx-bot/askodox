@@ -17,6 +17,7 @@ import 'features/analytics/application/analytics_providers.dart';
 import 'features/analytics/domain/analytics_models.dart';
 import 'core/startup/startup_hint.dart';
 import 'core/net/net_quality.dart';
+import 'features/guide_session/guide_reminders.dart';
 import 'shared/widgets/chat_pins.dart' show askodoxLiveOrderChip;
 import 'features/home/presentation/askodox_primary_home_screen.dart' show askodoxSpeakTypedReplies;
 import 'services/in_app_assistant_service.dart' show askodoxAutoOpenAppActions;
@@ -33,6 +34,7 @@ void main() {
   askodoxSpeakTypedReplies = true; // owner 2026-11-19: text + voice on every reply
   // Owner 2026-11-26: no guide chip / intro, no mics inside pages, ONE Ask button on every page (one place: ui_switches).
   askodoxApplyOwnerUi();
+  askodoxGuideReminderChip = true; // owner 2026-11-26: setup left / a feature that fits, as a chip above the chat
   askodoxAutoOpenAppActions = true; // owner 2026-11-20: a named screen opens at once, no extra tap
   LocationController.askOnStart = true; // owner 2026-11-20: first open asks Allow, the town names itself
   askodoxAutoJoinStaffVoices = true; // owner 2026-11-20: staff phones hear their shop's payments, no setup

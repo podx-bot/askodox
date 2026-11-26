@@ -13275,6 +13275,116 @@
           "date": "2026-11-26"
         }
       ]
+    },
+    {
+      "id": "onboarding_pre_flow",
+      "name": "First-open journey: location, language boxes, helper intro, terms",
+      "purpose": "Owner 2026-11-26: first open takes the location, shows 23 languages as boxes, the helper's introduction, and terms that must be scrolled to the end before accepting; then the phone number step.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/auth/onboarding_pre_flow_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxLanguageContinue"
+        ],
+        "symbols": [
+          "OnboardingScreen"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Fresh install walks location -> language -> intro -> terms (accept works only after scrolling to the end) -> mobile number. Sign-in only or a saved language skips the pre-stages.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ]
+    },
+    {
+      "id": "guide_session",
+      "name": "Guide session: adaptive getting-to-know questions with consent and time-box",
+      "purpose": "Owner 2026-11-26: the helper asks adaptive questions in the person's time (any amount), keeps facts only with consent, explains why, can be paused and resumed, and deletes on request.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_guide_session.py",
+          "tests/test_guide_session_routes.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxGuideNext",
+          "askodoxGuideNotUnderstood",
+          "askodoxGuideConsentYes"
+        ],
+        "symbols": [
+          "AskodoxGuideSessionScreen",
+          "AskodoxGuideReminderChips"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Route /guide-session: time, consent, questions, summary. Nothing kept without consent; delete removes all; reminders chip above the chat, dismissible.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ]
+    },
+    {
+      "id": "feature_requests_inbox",
+      "name": "Needs the app lacks: consented name-less request to Command Center",
+      "purpose": "Owner 2026-11-26: a need the app cannot meet becomes a 'being made for you' box and, with consent, a name-less request staff see; people who asked are told when it is done.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_guide_session_routes.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [
+          "askodoxFeatureGapBox",
+          "askodoxFeatureGapSend"
+        ],
+        "symbols": [
+          "AskodoxGuideSessionScreen"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "POST /api/me/feature-requests needs consent; console view featurerequests lists them; marking done notifies the people who asked once.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ]
     }
   ]
 }

@@ -225,6 +225,25 @@ class AskodoxPosRepository {
       _send('POST', '/api/automations/dismiss', body: {'kind': kind, 'ref': ref, 'forever': forever});
   /// Phone health: sent only after the person pressed "పంపు" for this report (`consent` true in the body).
   Future<AskodoxJson> phoneHealthReport(AskodoxJson body) => _send('POST', '/api/me/phone-health/report', body: body);
+  // Guide session (owner 2026-11-26): adaptive questions; nothing is kept without `consent`, a short time is never refused.
+  Future<AskodoxJson> guideSession(String language) => _send('GET', '/api/me/guide-session', query: {'language': language});
+  Future<AskodoxJson> guideStart(int minutes) => _send('POST', '/api/me/guide-session/start', body: {'minutes': minutes});
+  Future<AskodoxJson> guideConsent(bool consent) => _send('POST', '/api/me/guide-session/consent', body: {'consent': consent});
+  Future<AskodoxJson> guideTurn(String answer, String language,
+          {bool askedWhy = false, bool notUnderstood = false, bool skip = false}) =>
+      _send('POST', '/api/me/guide-session/turn',
+          body: {'answer': answer, 'language': language, 'asked_why': askedWhy, 'not_understood': notUnderstood, 'skip': skip},
+          timeout: const Duration(seconds: 40));
+  Future<AskodoxJson> guidePause() => _send('POST', '/api/me/guide-session/pause');
+  Future<AskodoxJson> guideDeleteFacts({String? topic}) =>
+      _send('DELETE', '/api/me/guide-session/facts', query: {if (topic != null) 'topic': topic});
+  Future<List<AskodoxJson>> guideReminders(String language) async =>
+      askodoxPosList((await _send('GET', '/api/me/guide-reminders', query: {'language': language}))['reminders']);
+  Future<AskodoxJson> guideDismiss(String ref, {bool forever = false}) =>
+      _send('POST', '/api/me/guide-reminders/dismiss', body: {'ref': ref, 'forever': forever});
+  /// A need the app cannot meet yet; sent only after the person ticked `consent`, without any name.
+  Future<AskodoxJson> featureRequest(String text, {required bool consent, bool tellMe = false}) =>
+      _send('POST', '/api/me/feature-requests', body: {'text': text, 'consent': consent, 'tell_me': tellMe});
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
   /// The customer's choice: 'cash' (pay at the counter / table) or 'online' (the shop's own UPI).

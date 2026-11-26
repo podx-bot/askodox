@@ -20,6 +20,7 @@ import '../../../core/providers/backend_providers.dart';
 import '../../../core/update/askodox_update_service.dart';
 import '../../../shared/widgets/askodox_logo.dart';
 import '../../guide/guide_switch.dart';
+import '../../location/application/location_controller.dart';
 import '../../guide/in_app_guide.dart' show askodoxGuideById, askodoxGuideProvider;
 import '../../home/domain/active_role.dart';
 import '../../profile/data/user_profile_repository.dart';
@@ -102,6 +103,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Timer? _resendTimer;
 
   int _step = 0;
+
+  /// Owner 2026-11-26: before the number, the first open goes location (0) -> language (1) -> the helper's
+  /// introduction (2) -> terms (3); 4 = the sign-in steps below (`_step`). Skipped when signing in again.
+  int _pre = 0;
+  bool _locationAsked = false;
+  bool _introSpoken = false;
+  bool _termsRead = false;
+  bool _termsTicked = false;
+  final _termsScroll = ScrollController();
+  static const _termsKey = 'askodox.terms.accepted.v1';
   bool _guideIntroAsked = false;
 
   /// The first open explains the guide switch once; turned ON there, the sign-in walkthrough starts at once.
@@ -316,6 +327,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       final mobile = prefs.getString(_mobileKey)?.trim() ?? '';
       if (mobile.isNotEmpty) _mobile.text = askodoxE164(mobile) ?? mobile;
       _step = 1;
+      _pre = 4;
     }
 
     final saved = prefs.getString(_localeKey)?.trim();
@@ -325,6 +337,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // Language already chosen on this phone (e.g. after sign-out): start at
       // the number; the language stays one tap away.
       _step = 1;
+      _pre = 4;
     } else {
       _languageCode = _deviceLanguageCode();
       _usingDeviceLanguage = true;
@@ -384,11 +397,78 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _otp.dispose();
     _name.dispose();
     _nameFocus.dispose();
+    _termsScroll.dispose();
     super.dispose();
   }
 
   String _t(String key) {
     const values = <String, Map<String, String>>{
+      'locTitle': {'en': 'Your location', 'te': 'మీ లొకేషన్', 'hi': 'आपकी लोकेशन'},
+      'locBody': {
+        'en': 'We need your place to show shops and work near you.',
+        'te': 'మీ దగ్గర ఉన్న షాపులు, పనులు చూపించడానికి మీ చోటు కావాలి.',
+        'hi': 'आपके पास की दुकानें और काम दिखाने के लिए आपकी जगह चाहिए।',
+      },
+      'locAuto': {'en': 'Taken automatically', 'te': 'ఆటోమేటిక్‌గా తీసుకున్నాం', 'hi': 'अपने-आप ले ली गई'},
+      'locWaiting': {'en': 'Allow location when the phone asks', 'te': 'ఫోన్ అడిగినప్పుడు లొకేషన్ అనుమతించండి', 'hi': 'फोन पूछे तो लोकेशन की अनुमति दें'},
+      'locKept': {
+        'en': 'Your place stays on your phone. You can change it later by hand.',
+        'te': 'మీ చోటు మీ ఫోన్‌లోనే ఉంటుంది. తర్వాత చేత్తో మార్చుకోవచ్చు.',
+        'hi': 'आपकी जगह आपके फोन में ही रहती है। बाद में हाथ से बदल सकते हैं।',
+      },
+      'locAllow': {'en': 'Allow location', 'te': 'లొకేషన్ అనుమతించండి', 'hi': 'लोकेशन की अनुमति दें'},
+      'introHello': {'en': 'Hello', 'te': 'నమస్కారం', 'hi': 'नमस्ते'},
+      'introBody1': {
+        'en': 'I am your assistant. I will explain this app in full and help you get ready to use it.',
+        'te': 'నేను మీ సహాయకురాలిని. ఈ యాప్ గురించి పూర్తిగా వివరంగా చెప్పి, మీరు వాడుకోవడానికి రెడీ చేయడంలో సహాయం చేస్తాను.',
+        'hi': 'मैं आपकी सहायक हूँ। मैं इस ऐप के बारे में पूरी तरह समझाकर आपको तैयार करने में मदद करूँगी।',
+      },
+      'introBody2': {
+        'en': 'If you like, let us begin.',
+        'te': 'మీకు ఇష్టమైతే మొదలుపెడదాం.',
+        'hi': 'आपको ठीक लगे तो शुरू करें।',
+      },
+      'introGo': {'en': 'OK, let us begin', 'te': 'ఓకే, మొదలుపెడదాం', 'hi': 'ठीक है, शुरू करें'},
+      'termsTitle': {'en': 'Terms and conditions', 'te': 'నిబంధనలు, షరతులు', 'hi': 'नियम और शर्तें'},
+      'termsHint': {
+        'en': 'Read it fully and scroll to the end.',
+        'te': 'పూర్తిగా చదివి, కింది వరకు స్క్రోల్ చేయండి.',
+        'hi': 'पूरा पढ़ें और नीचे तक स्क्रॉल करें।',
+      },
+      'termsMore': {'en': 'More below. Read to the end to tick.', 'te': 'ఇంకా కింద ఉంది. చివరి వరకు చదివితే టిక్ చేయగలరు.', 'hi': 'नीचे और है। अंत तक पढ़ें, फिर टिक करें।'},
+      'termsDone': {'en': 'You have read it all.', 'te': 'చివరి వరకు చదివారు.', 'hi': 'आपने पूरा पढ़ लिया।'},
+      'termsCheck': {'en': 'I have read and I agree', 'te': 'నేను చదివాను, అంగీకరిస్తున్నాను', 'hi': 'मैंने पढ़ा, मैं सहमत हूँ'},
+      'termsAccept': {'en': 'I agree', 'te': 'అంగీకరిస్తున్నాను', 'hi': 'मैं सहमत हूँ'},
+      'terms1': {
+        'en': 'This app uses your details only to help you.',
+        'te': 'ఈ యాప్ మీకు సహాయం చేయడానికి మాత్రమే మీ వివరాలు వాడుతుంది.',
+        'hi': 'यह ऐप आपके विवरण सिर्फ आपकी मदद के लिए इस्तेमाल करता है।',
+      },
+      'terms2': {
+        'en': 'Your data is never sold or given to anyone.',
+        'te': 'మీ డేటా ఎవరికీ అమ్మము, ఇవ్వము.',
+        'hi': 'आपका डेटा किसी को बेचा या दिया नहीं जाता।',
+      },
+      'terms3': {
+        'en': 'If you ask, all your data is deleted and does not stay in our database.',
+        'te': 'మీరు కోరితే మీ డేటా మొత్తం తొలగిస్తాం, మా డేటాబేస్ లో ఉండదు.',
+        'hi': 'आप कहें तो आपका सारा डेटा हटा दिया जाता है, हमारे डेटाबेस में नहीं रहता।',
+      },
+      'terms4': {
+        'en': 'ASKODOX never holds your money. Payment goes straight to the other person.',
+        'te': 'మీ డబ్బు ASKODOX దగ్గర ఉండదు. చెల్లింపు నేరుగా అవతలి వారికే వెళ్తుంది.',
+        'hi': 'आपका पैसा ASKODOX के पास नहीं रहता। भुगतान सीधे सामने वाले को जाता है।',
+      },
+      'terms5': {
+        'en': 'You choose what to tell. Anything you do not want to share can be left out.',
+        'te': 'ఏం చెప్పాలో మీ ఇష్టం. చెప్పడం ఇష్టం లేనిది వదిలేయొచ్చు.',
+        'hi': 'क्या बताना है आपकी मर्जी। जो न बताना चाहें, छोड़ सकते हैं।',
+      },
+      'terms6': {
+        'en': 'If these terms change, we tell you before.',
+        'te': 'ఈ నిబంధనలు మారితే మీకు ముందే చెప్తాం.',
+        'hi': 'ये शर्तें बदलें तो हम पहले बताएँगे।',
+      },
       'step': {'en': 'Step', 'te': 'దశ', 'hi': 'चरण'},
       'of': {'en': 'of', 'te': 'లో', 'hi': 'में से'},
       'languageTitle': {'en': 'Language', 'te': 'భాష', 'hi': 'भाषा'},
@@ -885,6 +965,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _languageCode = code;
       _usingDeviceLanguage = true;
       _step = 1;
+      if (_pre < 4) _pre = 2;
       _error = null;
     });
   }
@@ -896,6 +977,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _languageCode = normalized;
       _usingDeviceLanguage = false;
       _step = 1;
+      if (_pre < 4) _pre = 2;
       _error = null;
     });
   }
@@ -960,13 +1042,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     const SizedBox(height: 16),
                     const Text('ASKODOX', textAlign: TextAlign.center, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 8),
-                    Text('${_t('step')} ${_step + 1} ${_t('of')} 5', textAlign: TextAlign.center),
+                    if (_pre == 0 || _pre >= 4) Text('${_t('step')} ${_step + 1} ${_t('of')} 5', textAlign: TextAlign.center),
                     const SizedBox(height: 28),
-                    if (_step == 0) ..._languageStep(context),
-                    if (_step == 1) ..._mobileStep(),
-                    if (_step == 2) ..._otpStep(),
-                    if (_step == 3) ..._profileStep(),
-                    if (_step == 4) ..._roleStep(),
+                    if (_pre == 0) ..._locationStep(),
+                    if (_pre == 1 || (_pre == 4 && _step == 0)) ..._languageStep(context),
+                    if (_pre == 2) ..._helperIntroStep(),
+                    if (_pre == 3) ..._termsStep(),
+                    if (_pre >= 4 && _step == 1) ..._mobileStep(),
+                    if (_pre >= 4 && _step == 2) ..._otpStep(),
+                    if (_pre >= 4 && _step == 3) ..._profileStep(),
+                    if (_pre >= 4 && _step == 4) ..._roleStep(),
                     if (_error != null) ...[
                       const SizedBox(height: 14),
                       Text(_error!,
@@ -988,6 +1073,148 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
       ),
     );
+  }
+
+  /// Step 1 (owner 2026-11-26): the place is taken by itself -- the phone's own Allow dialog, then the town's name.
+  List<Widget> _locationStep() {
+    if (!_locationAsked && LocationController.askOnStart) {
+      _locationAsked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(ref.read(locationControllerProvider.notifier).requestPermission());
+      });
+    }
+    final place = ref.watch(locationControllerProvider).displayLocation;
+    return [
+      Text(_t('locTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      Text(_t('locBody')),
+      const SizedBox(height: 12),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            const Icon(Icons.my_location_rounded),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(place == null ? _t('locWaiting') : _t('locAuto'),
+                    key: const Key('askodoxOnboardLocation'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                if (place != null) ...[const SizedBox(height: 4), Text(place)],
+              ]),
+            ),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(_t('locKept'), style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085))),
+      const SizedBox(height: 16),
+      FilledButton(
+        key: const Key('askodoxLocationContinue'),
+        onPressed: () => setState(() => _pre = 1),
+        child: Text(_t('continue')),
+      ),
+      if (place == null)
+        TextButton(
+          key: const Key('askodoxLocationAllow'),
+          onPressed: () => unawaited(ref.read(locationControllerProvider.notifier).requestPermission()),
+          child: Text(_t('locAllow')),
+        ),
+    ];
+  }
+
+  /// Step 3: the helper (a Telugu-sounding woman's voice, the app's one voice) says hello and offers to get the person ready.
+  List<Widget> _helperIntroStep() {
+    final line = '${_t('introBody1')} ${_t('introBody2')}';
+    if (!_introSpoken && LocationController.askOnStart) {
+      _introSpoken = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(ref.read(askodoxGuideSpeakerProvider)('${_t('introHello')}. $line', _languageCode));
+      });
+    }
+    return [
+      Center(child: Icon(Icons.record_voice_over_rounded, size: 72, color: Theme.of(context).colorScheme.primary)),
+      const SizedBox(height: 16),
+      Text(_t('introHello'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 14),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_t('introBody1'), style: const TextStyle(fontSize: 15)),
+            const SizedBox(height: 10),
+            Text(_t('introBody2'), style: const TextStyle(fontSize: 15)),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 16),
+      FilledButton(key: const Key('askodoxIntroGo'), onPressed: () => setState(() => _pre = 3), child: Text(_t('introGo'))),
+    ];
+  }
+
+  /// Step 4: the terms are opened as a page to read; the tick unlocks only after the person has scrolled to the end.
+  List<Widget> _termsStep() {
+    void check() {
+      if (!_termsScroll.hasClients || _termsRead) return;
+      final p = _termsScroll.position;
+      if (p.maxScrollExtent <= 0 || p.pixels >= p.maxScrollExtent - 8) setState(() => _termsRead = true);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => check());
+    final lines = [for (var i = 1; i <= 6; i++) '$i. ${_t('terms$i')}'];
+    return [
+      Text(_t('termsTitle'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      Text(_t('termsHint')),
+      const SizedBox(height: 12),
+      Container(
+        height: 300,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFDCE4F2))),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (_) {
+            check();
+            return false;
+          },
+          child: Scrollbar(
+            controller: _termsScroll,
+            thumbVisibility: true,
+            child: ListView(
+              key: const Key('askodoxTermsScroll'),
+              controller: _termsScroll,
+              padding: const EdgeInsets.all(16),
+              children: [for (final l in lines) Padding(padding: const EdgeInsets.only(bottom: 14), child: Text(l, style: const TextStyle(fontSize: 14, height: 1.6)))],
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(_termsRead ? _t('termsDone') : _t('termsMore'),
+          style: TextStyle(fontSize: 12.5, color: _termsRead ? const Color(0xFF0B7A4B) : const Color(0xFF667085))),
+      CheckboxListTile(
+        key: const Key('askodoxTermsTick'),
+        value: _termsTicked,
+        onChanged: _termsRead ? (v) => setState(() => _termsTicked = v == true) : null,
+        controlAffinity: ListTileControlAffinity.leading,
+        contentPadding: EdgeInsets.zero,
+        title: Text(_t('termsCheck')),
+      ),
+      FilledButton(
+        key: const Key('askodoxTermsAccept'),
+        onPressed: _termsRead && _termsTicked ? _acceptTerms : null,
+        child: Text(_t('termsAccept')),
+      ),
+    ];
+  }
+
+  Future<void> _acceptTerms() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_termsKey, true);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _pre = 4;
+      _step = 1;
+    });
   }
 
   List<Widget> _languageStep(BuildContext context) => [
@@ -1019,8 +1246,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         const SizedBox(height: 20),
         Text(_t('changeLanguage'), style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
-        ...AskodoxLanguageCatalog.all.map(
-          (language) => _languageButton(language.name, language.code),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 2.3,
+          children: [
+            for (final language in AskodoxLanguageCatalog.all)
+              OutlinedButton(
+                key: ValueKey('askodoxLanguageBox-${language.code}'),
+                onPressed: () => _chooseLanguage(language.code),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                child: Text(language.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+              ),
+          ],
         ),
       ];
 

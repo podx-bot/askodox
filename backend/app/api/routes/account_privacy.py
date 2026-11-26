@@ -153,7 +153,8 @@ def delete_my_account(request: Request, confirm: str = "") -> dict:
                 "UPDATE pos_members SET active=0, app_user_id=NULL WHERE app_user_id=?", (user_id,)).rowcount
         if "fin_callbacks" in tables:  # finance call-back requests (they hold the number) go with the account
             conn.execute("DELETE FROM fin_callbacks WHERE user_id=?", (user_id,))
-        for own_table in ("phone_health_reports", "automation_dismissals"):
+        for own_table in ("phone_health_reports", "automation_dismissals", "guide_facts", "guide_sessions", "guide_reminder_dismissals",
+                          "guide_feature_waiters"):
             if own_table in tables:  # phone reports the person sent + the cards they put away go with the account
                 conn.execute(f"DELETE FROM {own_table} WHERE user_id=?", (user_id,))
         if "family_list_members" in tables:  # family shopping list: the person leaves; the others keep the list

@@ -963,6 +963,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మైక్ నొక్కి "చక్కెర, పాలు, సబ్బు" అని చెప్పండి లేదా చేర్చు నొక్కండి. కొన్నాక ఆ వస్తువుని నొక్కండి; వరుసలో ⋮ = మార్చు, ఇప్పుడు వద్దు, తీసేయి.',
     'ఇంట్లో వాళ్ళని మొబైల్ నంబర్‌తో చేర్చండి; వాళ్ళకీ అదే లిస్ట్ కనిపిస్తుంది, ఏదైనా చేర్చితే నోటిఫికేషన్ వస్తుంది. పైన ⋮ దగ్గర్లో ఎక్కడ దొరుకుతాయో చూపిస్తుంది.',
   ]),
+  '/guide-session': _H('Getting to know you', 'మీ గురించి తెలుసుకోవడం', [
+    'Pick how much time you have; any amount is fine and the rest waits for later.',
+    'Answer by typing or the mic. "I did not understand" or "Why do you ask?" explains again in other words. Skip anything you do not want to tell.',
+    'Details are kept only if you allow it, never given or sold, and ⋮ > "Delete what I told" removes them all.',
+  ], [
+    'మీ దగ్గర ఎంత టైం ఉందో ఎంచుకోండి; ఎంతైనా సరే, మిగతాది తర్వాత కొనసాగుతుంది.',
+    'టైప్ చేసి లేదా మైక్ తో చెప్పండి. "అర్థం కాలేదు" లేదా "ఎందుకు అడుగుతున్నారు?" నొక్కితే వేరే మాటల్లో మళ్ళీ చెప్తాను. చెప్పడం ఇష్టం లేనిది వదిలేయండి.',
+    'మీరు అనుమతిస్తేనే వివరాలు ఉంటాయి, ఎవరికీ ఇవ్వము, అమ్మము. ⋮ > "నేను చెప్పినవి తొలగించు" తో అన్నీ పోతాయి.',
+  ]),
   '/phone-health': _H('Phone health', 'ఫోన్ ఆరోగ్యం', [
     'ASKODOX checks only its own settings on this phone: notifications, battery limit, autostart, payment voice permission, voice.',
     'A red or orange line: tap "Open that page" and do what the bold line says for your phone. Come back and it turns green by itself.',
