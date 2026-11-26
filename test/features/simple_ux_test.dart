@@ -272,12 +272,12 @@ void main() {
     // The app opens on the Buyer side. Owner 2026-11-23 (design "Money · కొను · అమ్ము"): అమ్ము = Seller side + the
     // shop's page (branch 2), కొను = Buyer side + the buyer page; "Money" on BOTH sides opens the Money tab (branch 1).
     expect(container.read(askodoxSellerModeProvider), isFalse);
-    expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Buyer');
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Personal');
     await tester.tap(find.byKey(const Key('askodoxNavSell')));
     await tester.pumpAndSettle();
     expect(container.read(askodoxSellerModeProvider), isTrue);
     expect(find.text('HISTORY'), findsOneWidget, reason: 'అమ్ము opens the side page (branch 2)');
-    expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Seller');
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxNavShoppingState'))).data, 'Business');
     expect(find.byKey(const Key('askodoxNavShop')), askodoxPhase2 ? findsNothing : findsOneWidget);
     expect(find.byKey(const Key('askodoxNavPayments')), findsNothing);
     if (!askodoxPhase2) {
@@ -373,7 +373,7 @@ void main() {
       // The side the app is on sits beside the name and stays inside the header on a narrow phone.
       final chip = find.byKey(const Key('askodoxHeaderModeChip'));
       expect(chip, findsOneWidget);
-      expect(find.descendant(of: chip, matching: find.text('Buy')), findsOneWidget);
+      expect(find.descendant(of: chip, matching: find.text('My')), findsOneWidget);
       expect(tester.getRect(chip).right, lessThanOrEqualTo(360.5));
     }
     if (!askodoxPhase2) {
