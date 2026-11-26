@@ -1278,6 +1278,12 @@ _register(Resource(
 SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # key: (minimum, maximum, default)
     "video_study.max_seconds": (10, 600, 180),
+    # Automations (owner 2026-11-25 / 26): every number here, never in the app.
+    "automation.habit_times": (2, 12, 3),  # same shop, same weekday, this many times = a habit
+    "automation.winback_days": (3, 120, 15),  # a regular with no bill for this many days
+    "automation.stopped_push_gap_days": (1, 90, 7),  # one help push per shop in this many days
+    "automation.ai_cost_daily_inr": (0, 1000000, 0),  # AI cost guard: the day's budget in rupees (0 = off)
+    "automation.ai_cost_user_daily_inr": (0, 100000, 0),  # one person's AI cost in a day worth a look (0 = off)
     # Workers' independent (స్వతంత్రుడు) badge (owner plan 2026-11-24 rule 9).
     "workforce.badge_days": (0, 730, 90),
     "workforce.badge_jobs": (0, 1000, 50),

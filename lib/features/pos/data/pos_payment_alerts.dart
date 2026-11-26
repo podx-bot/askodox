@@ -563,7 +563,9 @@ class AskodoxMyPhoneAlerts {
   }
 
   /// What the native listener needs: NO business id = personal mode (credits + debits kept on the phone only).
-  Map<String, Object?> nativeConfig({String baseUrl = '', String token = ''}) => {
+  Map<String, Object?> nativeConfig(
+          {String baseUrl = '', String token = '', List<Map<String, Object?>> autoDues = const []}) =>
+      {
         'enabled': enabled,
         'language': language,
         'voice': 'female',
@@ -589,12 +591,23 @@ class AskodoxMyPhoneAlerts {
           for (final d in dues)
             if (askodoxNextDue(d, DateTime.now()) case final next?)
               {'id': d.id, 'name': d.name, 'amount_paise': d.amountPaise, 'date': askodoxDay(next)},
+          // owner 2026-11-26: bills the phone saw in an SMS (with a due date) are reminded by themselves
+          ...autoDues,
         ],
         'business_id': '',
         'device_id': '',
         'base_url': baseUrl, // the chosen ElevenLabs voice for "My phone" too (device voice when empty / offline)
         'token': token,
       };
+
+  /// The bill reminders the phone makes by itself, from the bill SMS it kept ([AskodoxPaymentAlertsBridge.localEvents]).
+  Future<List<Map<String, Object?>>> autoBillDues(AskodoxPaymentAlertsBridge bridge) async {
+    try {
+      return askodoxAutoBillDues(await bridge.localEvents(), dues, dismissed, DateTime.now());
+    } catch (_) {
+      return const [];
+    }
+  }
 
   /// The person's own name for an account tail ("Savings"), or "A/c ••1234".
   String accountName(String? tail) {

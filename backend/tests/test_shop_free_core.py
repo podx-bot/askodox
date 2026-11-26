@@ -97,7 +97,7 @@ def test_credits_can_never_carry_a_rate_for_them(tmp_path):
             svc.update_settings({"free_per_day": {key: 3}}, actor="staff:1")
         assert err.value.code == "free_forever"
     # charging ON with a real rate: a free-forever tool is still free, and nothing is written to the ledger
-    svc.update_settings({"charging": True, "rates_paise": {"chat": 50}}, actor="staff:1")
+    svc.update_settings({"plan": {"daily_free_paise": 0, "first_bonus_pct": 0, "daily_bonus_pct": 0}, "charging": True, "rates_paise": {"chat": 50}}, actor="staff:1")
     user = "app-phone-9400000911"
     for key in shop_free_core.keys():
         assert svc.reserve(user, key, f"r-{key}") == {"charged": False, "reason": "free_forever", "paise": 0}

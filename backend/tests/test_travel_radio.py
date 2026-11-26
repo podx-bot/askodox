@@ -259,7 +259,7 @@ def test_radio_runs_on_ai_credits_not_a_separate_pass(env):
     free = client.post("/api/radio/next", headers=me, json=_spot()).json()
     assert free["status"] == "ok" and free["credits"] == {"charged": False, "paise": 0}
     try:
-        service.update_settings({"charging": True, "rates_paise": {"radio": 50}}, actor="test")
+        service.update_settings({"plan": {"daily_free_paise": 0, "first_bonus_pct": 0, "daily_bonus_pct": 0}, "charging": True, "rates_paise": {"radio": 50}}, actor="test")
         status = client.get("/api/radio/status", headers=me).json()
         assert status["credits"] == {"charging": True, "rate_paise": 50}
         poor, me_poor = _user(container)

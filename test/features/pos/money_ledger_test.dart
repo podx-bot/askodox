@@ -78,6 +78,27 @@ void main() {
     expect(askodoxDueSuggestions(events, have, {'due-1'}, today).map((e) => e['local_id']), isEmpty);
   });
 
+  test('automation: a bill SMS with a due date is reminded by itself, unless paid, dismissed, past or already listed', () {
+    final today = DateTime(2026, 11, 26);
+    Map<String, Object?> due(String id, int amount, String date) =>
+        {'local_id': id, 'direction': 'due', 'amount_paise': amount, 'due_date': date, 'party': 'APCPDC', 'at_ms': 1000};
+    final events = [
+      due('due-1', 96200, '2026-11-28'),
+      due('due-2', 50000, '2026-11-25'), // yesterday: offered, but never reminded late
+      due('due-3', 70000, '2026-12-01'),
+      due('due-4', 30000, '2026-11-26'),
+      {'local_id': 'p', 'direction': 'out', 'amount_paise': 70000, 'at_ms': 2000}, // due-3 is paid
+    ];
+    expect(askodoxAutoBillDues(events, [], {}, today), [
+      {'id': 'bill-due-1', 'name': 'APCPDC', 'amount_paise': 96200, 'date': '2026-11-28'},
+      {'id': 'bill-due-4', 'name': 'APCPDC', 'amount_paise': 30000, 'date': '2026-11-26'},
+    ]);
+    expect(askodoxAutoBillDues(events, [], {'due-1'}, today).map((e) => e['id']), ['bill-due-4'], reason: 'వద్దు');
+    final listed = [AskodoxDue(id: 'x', name: 'Current', amountPaise: 30000, date: DateTime(2026, 10, 26))];
+    expect(askodoxAutoBillDues(events, listed, {}, today).map((e) => e['id']), ['bill-due-1'],
+        reason: 'the person\'s own due is said already: never twice');
+  });
+
   test('a bill reminder that is already paid is not offered as an upcoming due', () {
     final today = DateTime(2026, 11, 22);
     final reminder = {'local_id': 'due-1', 'direction': 'due', 'amount_paise': 96200, 'due_date': '2026-12-05', 'party': 'APCPDC', 'at_ms': 1000};

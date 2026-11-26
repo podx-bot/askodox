@@ -963,6 +963,24 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మైక్ నొక్కి "చక్కెర, పాలు, సబ్బు" అని చెప్పండి లేదా చేర్చు నొక్కండి. కొన్నాక ఆ వస్తువుని నొక్కండి; వరుసలో ⋮ = మార్చు, ఇప్పుడు వద్దు, తీసేయి.',
     'ఇంట్లో వాళ్ళని మొబైల్ నంబర్‌తో చేర్చండి; వాళ్ళకీ అదే లిస్ట్ కనిపిస్తుంది, ఏదైనా చేర్చితే నోటిఫికేషన్ వస్తుంది. పైన ⋮ దగ్గర్లో ఎక్కడ దొరుకుతాయో చూపిస్తుంది.',
   ]),
+  '/phone-health': _H('Phone health', 'ఫోన్ ఆరోగ్యం', [
+    'ASKODOX checks only its own settings on this phone: notifications, battery limit, autostart, payment voice permission, voice.',
+    'A red or orange line: tap "Open that page" and do what the bold line says for your phone. Come back and it turns green by itself.',
+    'Still a problem? "Send a report" sends only the phone maker, app version and these lines, and only when you press Send.',
+  ], [
+    'ASKODOX ఈ ఫోన్ లో తన సొంత settings మాత్రమే చూస్తుంది: నోటిఫికేషన్లు, బ్యాటరీ పరిమితి, autostart, payment voice అనుమతి, voice.',
+    'ఎరుపు లేదా నారింజ లైన్: "ఆ page తెరువు" నొక్కి, మీ ఫోన్ కి bold లో చెప్పింది చేయండి. వెనక్కి వస్తే అదే ఆకుపచ్చ అవుతుంది.',
+    'ఇంకా సమస్య ఉందా? "report పంపు" నొక్కితే ఫోన్ కంపెనీ పేరు, app వెర్షన్, ఈ లైన్లు మాత్రమే వెళ్తాయి. మీరు "పంపు" నొక్కితేనే.',
+  ]),
+  '/pos/:id/automations': _H('ASKODOX noticed', 'ASKODOX గమనించింది', [
+    'Running low: items at their low mark, grouped by the supplier you last bought them from. "Make an order draft" only makes a draft in Purchase orders; you check and send it.',
+    'Regulars not seen: customers who used to come often. Change the message, then "Open in WhatsApp" and send it yourself.',
+    'Every card has "Not now" and "Do not show again". ASKODOX never orders, pays or messages by itself.',
+  ], [
+    'Stock తక్కువ: low mark కి చేరిన ఐటమ్స్, చివరిగా కొన్న supplier వారీగా. "Order draft చేయి" నొక్కితే Purchase orders లో draft మాత్రమే తయారవుతుంది; మీరు చూసి పంపాలి.',
+    'రాని regular customers: ముందు తరచూ వచ్చినవాళ్ళు. Message మార్చుకుని "WhatsApp లో తెరువు" నొక్కి మీరే పంపండి.',
+    'ప్రతి card కి "వద్దు", "ఇక చూపించకు" ఉంటాయి. ASKODOX తనంతట order, payment, message ఏదీ చేయదు.',
+  ]),
   '/pos/:id/prices': _H('Change prices at once', 'ధరలు ఒకేసారి మార్చు', [
     'Step 1: all items, some sections, or tick the items.',
     'Step 2: up or down by % or ₹, or one price for all; choose rounding.',

@@ -44,6 +44,35 @@ void main() {
     });
   });
 
+  test('habit card -> the same cart link; a card without anything to order gives no chip', () {
+    final habit = askodoxHabitOf([
+      {'kind': 'other'},
+      {
+        'kind': 'habit',
+        'ref': 'biz_abc123',
+        'times': 4,
+        'order': {
+          'stage': 'done',
+          'kind': 'takeaway',
+          'business_id': 'biz_abc123',
+          'business_name': 'Murali Kirana',
+          'items': [{'product_id': 'p1', 'qty': 2, 'price_paise': 3000}],
+        },
+      },
+    ]);
+    expect(habit, isNotNull);
+    expect(habit!.shop, 'Murali Kirana');
+    expect(habit.ref, 'biz_abc123');
+    expect(habit.times, 4);
+    expect(habit.route, '/order-desk?code=biz_abc123&kind=takeaway&cart=${Uri.encodeQueryComponent('p1:2')}');
+    expect(askodoxHabitOf([]), isNull);
+    expect(
+        askodoxHabitOf([
+          {'kind': 'habit', 'ref': 'b', 'order': {'stage': 'done', 'business_id': 'biz_x12345', 'items': []}},
+        ]),
+        isNull);
+  });
+
   test('today spoken: numbers first, zero parts left out', () {
     final hub = {
       'sales': {'paise': 1250000},

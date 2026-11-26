@@ -158,6 +158,12 @@ def redeem_referral_safely(container: Any, code: str, user: str) -> dict | None:
         from app.api.routes.owner_os import award_referral_credits
 
         ref = {**ref, "priority_credits": award_referral_credits(container, ref)}
+        try:  # owner 2026-11-26: a friend joined -> the inviter's free AI for today is full again (once a day)
+            from app.api.routes.ai_credits import ai_credits
+
+            ref = {**ref, "ai_free_refilled": ai_credits(container).friend_joined(str(ref["referrer_user_id"]))}
+        except Exception:
+            pass
     return ref
 
 
