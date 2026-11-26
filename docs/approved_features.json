@@ -13202,6 +13202,45 @@
       }
     },
     {
+      "id": "calculator_bill_rows",
+      "name": "Calculator bill inside Make a bill",
+      "purpose": "Owner 2026-11-26: a shop with no item list (or a one-off sale) bills by rows of name, quantity x rate with a running total, inside the same Make a bill page.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/steps/step_logic_test.dart",
+          "test/features/steps/step_pages_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBillStepsCalc",
+          "askodoxBillCalcOk",
+          "askodoxBillCalcAddRow",
+          "askodoxBillCalcTotal"
+        ],
+        "symbols": [
+          "askodoxCalcRowPaise",
+          "askodoxCalcRatePaise"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Make a bill menu has a calculator: rows of name, quantity x rate with the row amount and a running total; 'Add to the bill' adds each row as a real line (qty_milli + rate_paise) into the same bill, which is then paid, shared and printed by the normal steps. Rows can be removed before billing; nothing is billed by the calculator itself.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ]
+    },
+    {
       "id": "order_desk_photos_try_it",
       "name": "Item photos first + Try it on the customer's menu",
       "purpose": "Owner 2026-11-26: the customer's menu shows each item's own photo first; 'Try it' (photo try-on) appears only on items with a photo in a shop whose Business Kit offers try-on (on_me / in_home).",

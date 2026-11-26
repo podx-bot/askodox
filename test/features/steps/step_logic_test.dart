@@ -68,4 +68,15 @@ void main() {
     expect(askodoxTenDigits('12345'), '');
     expect(askodoxTenDigits('1234567890'), '', reason: 'an Indian mobile starts with 6-9');
   });
+
+  test('calculator bill rows: qty x rate in paise (made-up numbers only)', () {
+    expect(askodoxCalcRowPaise('2', '12.50'), 2500);
+    expect(askodoxCalcRowPaise('1.5', '200'), 30000);
+    expect(askodoxCalcRowPaise('1½', '1,200'), 180000);
+    expect(askodoxCalcRowPaise('', '10'), 0);
+    expect(askodoxCalcRowPaise('3', ''), 0);
+    expect(askodoxCalcRowPaise('0', '10'), 0);
+    expect(askodoxCalcRowPaise('abc', '10'), 0);
+    expect(askodoxCalcRatePaise('7.25'), 725);
+  });
 }

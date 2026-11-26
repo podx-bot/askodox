@@ -246,6 +246,9 @@ const _sellerSpecs = <_SellerSpec>[
       Color(0xFF475569), who: 'owner'),
 ];
 
+/// Seller pages that live inside the Items page now (see [askodoxSellerPages]).
+const _mergedIntoItems = {'s.additem', 's.stock'};
+
 /// Pages the hub has no fixed route for (staff inner pages): their own routes.
 String _sellerRoute(String id, String page) => switch (page) {
       'staff.kiosk' => '/biz/$id/staff/kiosk',
@@ -285,9 +288,14 @@ List<AskodoxLaunchPage> askodoxSellerPages(String businessId, AskodoxJson busine
   final role = '${business['my_role'] ?? business['role'] ?? ''}';
   final staff = role != 'owner';
   final out = <AskodoxLaunchPage>[];
+  // Owner 2026-11-26: Items list + Add an item + Stock & barcodes = ONE tile (the Items page holds the other two) --
+  // but a person who is allowed Stock / Add and NOT the Items list keeps theirs.
+  final menuSpec = _sellerSpecs.firstWhere((x) => x.id == 's.menu');
+  final seesMenu = _sees(menuSpec, role, business);
   for (final s in _sellerSpecs) {
     if (s.food && !food) continue;
     if (s.flow != null && !flows.contains(s.flow)) continue;
+    if (seesMenu && _mergedIntoItems.contains(s.id)) continue;
     final route = _sellerRoute(businessId, s.page);
     if (!askodoxRouteShownNow(route) || !_sees(s, role, business)) continue;
     // ONE name per shop page (owner 2026-11-24): a shop page is called what `shop_page_names.dart` calls it everywhere.
@@ -328,8 +336,6 @@ AskodoxLaunchLayout askodoxSellerShippedLayout() => const AskodoxLaunchLayout([
       AskodoxLaunchEntry.page('s.tables'),
       AskodoxLaunchEntry.page('s.kitchen'),
       AskodoxLaunchEntry.page('s.menu'),
-      AskodoxLaunchEntry.page('s.additem'),
-      AskodoxLaunchEntry.page('s.stock'),
       AskodoxLaunchEntry.page('s.tasks'),
       AskodoxLaunchEntry.page('s.customers'),
       AskodoxLaunchEntry.page('s.crm'),
