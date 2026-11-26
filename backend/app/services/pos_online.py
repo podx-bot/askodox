@@ -135,6 +135,7 @@ class PosOnline:
                                                  (business_id,))}
         for product in rows:
             wanted = (product["active"] and (business["status"] or "open") == "open"
+                      and not dict(product).get("buy_only")  # bought, not sold as it is: never listed
                       and effective_channel(dict(product), business["online_default"]) != "pos")
             if not wanted and product["id"] not in linked:
                 continue  # never published, still not wanted: nothing to do
@@ -155,6 +156,7 @@ class PosOnline:
         owner = business["owner_user_id"]
         now = datetime.now(timezone.utc).isoformat()
         wanted = (product["active"] and (business["status"] or "open") == "open"
+                  and not dict(product).get("buy_only")
                   and effective_channel(dict(product), business["online_default"]) in ("online", "both"))
         with sqlite3.connect(db) as conn:
             conn.row_factory = sqlite3.Row

@@ -167,7 +167,7 @@ class _AskodoxPosSaleScreenState extends ConsumerState<AskodoxPosSaleScreen> {
 
   Future<void> _load() async {
     try {
-      final list = await ref.read(askodoxPosRepositoryProvider).products(widget.businessId);
+      final list = await ref.read(askodoxPosRepositoryProvider).sellableProducts(widget.businessId);
       Object? shopDefault;
       try {
         shopDefault = (await ref.read(askodoxPosRepositoryProvider).business(widget.businessId))['online_default'];

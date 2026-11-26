@@ -185,7 +185,7 @@ class _AskodoxPosOrderScreenState extends ConsumerState<AskodoxPosOrderScreen> {
   void initState() {
     super.initState();
     _refresh();
-    ref.read(askodoxPosRepositoryProvider).products(widget.businessId).then((m) {
+    ref.read(askodoxPosRepositoryProvider).sellableProducts(widget.businessId).then((m) {
       if (mounted) setState(() => _menu = m);
     }).catchError((_) {});
   }

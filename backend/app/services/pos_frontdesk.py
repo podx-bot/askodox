@@ -312,6 +312,9 @@ class PosFrontDesk:
             except Exception:
                 pass
         for r in conn.execute("SELECT * FROM pos_products WHERE business_id = ? AND active = 1 ORDER BY item_no, name", (business_id,)):
+            buy_only = bool(r["buy_only"]) if "buy_only" in r.keys() else False
+            if buy_only and not everything:
+                continue  # bought, not sold as it is (owner 2026-11-26): never on a customer's menu
             only_on = r["only_on"] if "only_on" in r.keys() else None
             if only_on and only_on != today and not everything:
                 continue  # a "today only" item of another day
@@ -329,6 +332,7 @@ class PosFrontDesk:
             except (TypeError, ValueError):
                 item["offer"] = None
             if everything:
+                item["buy_only"] = buy_only
                 item["today_only_flag"] = bool(only_on)
                 item["sold_out"] = sold_out
                 item["has_photo"] = r["id"] in photos

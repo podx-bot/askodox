@@ -29,15 +29,18 @@ PROMPT = (
     "You read a photo of a PURCHASE BILL / invoice a shop received from its supplier or distributor (printed or "
     "hand-written, any Indian language or English). Return ONLY JSON: {\"supplier\": {\"name\": string or null, "
     "\"gstin\": string or null, \"phone\": string or null}, \"bill_no\": string or null, \"bill_date\": \"YYYY-MM-DD\" "
-    "or null, \"total\": number or null, \"lines\": [{\"name\": string, \"qty\": number or null, \"unit\": string or "
+    "or null, \"total\": number or null, \"total_qty\": number or null, \"lines\": [{\"name\": string, \"qty\": number or null, \"unit\": string or "
     "null, \"cost\": number or null, \"gst_percent\": number or null, \"mrp\": number or null, \"batch\": string or "
     "null, \"expiry\": \"YYYY-MM-DD\" or null}]}. Rules: supplier = the SELLER printed at the top (not the buyer); "
     "one line per item row, name as printed; qty = the quantity bought; cost = the price of ONE unit BEFORE GST (if "
     "only the line amount is printed, divide it by qty; if the bill says prices include tax, remove the tax); "
     "gst_percent = the GST % printed for that line (CGST + SGST together, or IGST), null if not printed; mrp = the "
     "MRP printed for that item, else null; expiry = the expiry date printed for that item (use the last day of the "
-    "month when only month / year is printed), else null; total = the final bill amount. A value that is not clearly "
-    "readable is null -- NEVER guess. Skip headings, bank details, terms and tax summary rows."
+    "month when only month / year is printed), else null; total = the final bill amount; total_qty = the total "
+    "QUANTITY written on the bill (for example \"Total 130 kg\"), null when none is written -- never add it up "
+    "yourself and never put it in lines. bill_date: Indian bills write day first (24/11 = 24 November); when the year "
+    "is not written use the latest such date that is not after TODAY. A value that is not clearly readable is null "
+    "-- NEVER guess. Skip headings, bank details, terms, total rows and tax summary rows."
 )
 
 _UNIT_WORDS = {"pcs": "pcs", "pc": "pcs", "piece": "pcs", "pieces": "pcs", "nos": "pcs", "no": "pcs", "unit": "pcs",
@@ -70,21 +73,22 @@ def _unit(value: Any) -> str:
     return unit if unit in UNITS else "pcs"
 
 
-def read_bill(image_service: Any, images: Sequence[Tuple[bytes, str]]) -> Dict[str, Any]:
+def read_bill(image_service: Any, images: Sequence[Tuple[bytes, str]], today: str = "") -> Dict[str, Any]:
     """[(bytes, mime)] -> the bill as plain data. ``read`` False = the reader gave nothing (never raises)."""
     photos = [(data, mime) for data, mime in list(images)[:MAX_PHOTOS] if data]
     empty = {"read": False, "supplier": {"name": "", "gstin": "", "phone": ""}, "bill_no": "", "bill_date": "",
-             "total_paise": None, "lines": []}
+             "total_paise": None, "total_qty_milli": None, "lines": []}
+    prompt = PROMPT + (f" TODAY is {today}." if today else "")
     if not photos or image_service is None or not hasattr(image_service, "analyze_with_prompt"):
         return empty
 
     def one(photo: Tuple[bytes, str]) -> Any:
         try:
             try:
-                payload, _calls = image_service.analyze_with_prompt([photo], PROMPT, max_models=2,
+                payload, _calls = image_service.analyze_with_prompt([photo], prompt, max_models=2,
                                                                     allow_second_provider=True, fast=True)
             except TypeError:
-                payload, _calls = image_service.analyze_with_prompt([photo], PROMPT, max_models=2,
+                payload, _calls = image_service.analyze_with_prompt([photo], prompt, max_models=2,
                                                                     allow_second_provider=True)
         except Exception:
             return None
@@ -108,6 +112,11 @@ def read_bill(image_service: Any, images: Sequence[Tuple[bytes, str]]) -> Dict[s
             out["bill_no"] = re.sub(r"\s+", " ", str(page["bill_no"])).strip()[:40]
         if not out["bill_date"]:
             out["bill_date"] = _date(page.get("bill_date"))
+            if today and out["bill_date"] > today:
+                out["bill_date"] = ""  # a bill is never dated after today: the person types it
+        total_qty = _number(page.get("total_qty"))
+        if total_qty:
+            out["total_qty_milli"] = int(round(total_qty * 1000))
         total = _number(page.get("total"))
         if total:
             out["total_paise"] = int(round(total * 100))  # the last page carries the final amount
@@ -196,7 +205,7 @@ class PosBillPhoto:
 
     def preview(self, business_id: str, user: str, images: Sequence[Tuple[bytes, str]], image_service: Any) -> Dict[str, Any]:
         products, suppliers = self._catalogue(business_id, user)
-        bill = read_bill(image_service, images)
+        bill = read_bill(image_service, images, today=self.store._local(self.store.clock()))
         found = self._find_supplier(suppliers, bill["supplier"]["name"], bill["supplier"]["gstin"])
         gstin_ok = bool(bill["supplier"]["gstin"]) and pos_tax.validate_gstin(bill["supplier"]["gstin"])["valid"]
         if not gstin_ok:
@@ -214,11 +223,10 @@ class PosBillPhoto:
                 line["unit"] = match["unit"]
                 if line["rate_bp"] is None:
                     line["rate_bp"] = match["rate_bp"]
-            # a NEW item needs the shop's selling price: the MRP when printed, otherwise the owner types it
+            # Owner 2026-11-26: the selling price of a NEW item is the shop's own choice and never demanded (live birds
+            # are bought, meat is sold). The printed MRP is offered; left empty = a bought item with no selling price.
             line["price_paise"] = match["price_paise"] if match else line["mrp_paise"]
             missing = [k for k in ("qty_milli", "cost_paise") if line[k] is None]
-            if line["new"] and line["price_paise"] is None:
-                missing.append("price_paise")
             if line["rate_bp"] is None:
                 line["rate_bp"] = 0
                 if gstin_ok or (found and found["gstin"]):
@@ -248,8 +256,8 @@ class PosBillPhoto:
             if not raw.get("product_id") and norm(name) not in products:
                 if len(norm(name)) < 2:
                     raise PosError(400, "name", f"Line {n}: enter the item name.")
-                if raw.get("price_paise") is None or int(raw["price_paise"]) <= 0:
-                    raise PosError(400, "price", f"Line {n} ({name}): new item -- enter your selling price.")
+                if raw.get("price_paise") is not None and int(raw["price_paise"]) < 0:
+                    raise PosError(400, "price", f"Line {n} ({name}): the selling price cannot be negative.")
         supplier_id = data.get("supplier_id")
         if not supplier_id:
             info = data.get("supplier") if isinstance(data.get("supplier"), dict) else {}
@@ -266,8 +274,9 @@ class PosBillPhoto:
             if not product_id:
                 match = products.get(norm(name))
                 if match is None:
+                    price = int(raw.get("price_paise") or 0)
                     match = self.store.add_product(business_id, user, {
-                        "name": name, "unit": _unit(raw.get("unit")), "price_paise": int(raw["price_paise"]),
+                        "name": name, "unit": _unit(raw.get("unit")), "price_paise": price, "buy_only": price <= 0,
                         "rate_bp": int(raw.get("rate_bp") or 0), "track_stock": True, "track_batches": bool(expiry)})
                     products[norm(name)] = match
                     created += 1

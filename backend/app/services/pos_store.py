@@ -216,6 +216,9 @@ SCHEMA = [
 FOOD_TYPES = ("", "veg", "nonveg", "egg")
 
 MIGRATIONS = [
+    # Owner 2026-11-26: an item the shop BUYS but does not sell as it is (live birds bought, meat sold): no selling
+    # price is asked; it never reaches a bill, the customer menu or the online listing until a price is set.
+    ("pos_products", "buy_only", "INTEGER NOT NULL DEFAULT 0"),
     ("pos_products", "track_batches", "INTEGER NOT NULL DEFAULT 0"),
     ("pos_stock_moves", "batch_no", "TEXT"),
     ("pos_stock_moves", "expiry_date", "TEXT"),
@@ -659,6 +662,12 @@ class PosStore:
             if price < 0 or price > 10_00_00_000_00:
                 raise PosError(400, "price", "Enter the selling price.")
             out["price_paise"] = price
+            if price > 0 and partial:
+                out["buy_only"] = 0  # a selling price was set: the item can be sold now
+        if "buy_only" in data:
+            out["buy_only"] = 1 if data.get("buy_only") else 0
+        elif not partial:
+            out["buy_only"] = 0
         for key in ("price_includes_tax", "track_stock", "is_service", "track_batches", "track_serials"):
             if key in data or not partial:
                 out[key] = 1 if data.get(key, key == "price_includes_tax") else 0
@@ -868,7 +877,8 @@ class PosStore:
             out["offer"] = json.loads(out["offer"]) if out.get("offer") else None
         except (TypeError, ValueError):
             out["offer"] = None
-        for key in ("price_includes_tax", "track_stock", "is_service", "active", "track_batches", "track_serials"):
+        for key in ("price_includes_tax", "track_stock", "is_service", "active", "track_batches", "track_serials",
+                    "buy_only"):
             out[key] = bool(out.get(key))
         out["stock_milli"] = stock if out["track_stock"] else None
         try:
@@ -1354,6 +1364,9 @@ class PosStore:
                                    (raw.get("product_id"), business_id)).fetchone()
             if product is None:
                 raise PosError(400, "product", f"Item on line {index} is not in this shop's active list.")
+            if "buy_only" in product.keys() and product["buy_only"] and raw.get("unit_price_paise") is None:
+                raise PosError(400, "buy_only", f"{product['name']} has no selling price yet (it is a bought item). "
+                                                "Set its selling price in Items first.")
             pack = None
             if raw.get("pack"):
                 pack = conn.execute("SELECT * FROM pos_product_packs WHERE business_id = ? AND product_id = ? AND name = ?",

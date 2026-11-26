@@ -1365,7 +1365,10 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
       if (mounted) setState(() => _gstShop = '${biz['registration_type'] ?? 'unregistered'}' != 'unregistered');
     } catch (_) {}
     try {
-      final menu = askodoxPosList((await repo.deskMenu(widget.businessId))['items']);
+      final menu = [
+        for (final m in askodoxPosList((await repo.deskMenu(widget.businessId))['items']))
+          if (m['buy_only'] != true) m,
+      ];
       if (mounted) {
         setState(() => _menuByNo = {
               for (final m in menu)

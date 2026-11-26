@@ -43,7 +43,7 @@ class _TableOrderStepsState extends ConsumerState<AskodoxTableOrderStepsScreen> 
   void initState() {
     super.initState();
     unawaited(_refresh());
-    unawaited(_repo.products(widget.businessId).then((m) {
+    unawaited(_repo.sellableProducts(widget.businessId).then((m) {
       if (mounted) setState(() => _menu = m);
     }, onError: (_) {}));
   }
