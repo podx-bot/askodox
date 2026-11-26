@@ -646,6 +646,19 @@ fun main() {
     check("failed mail = not money", "HDFC Bank InstaAlerts", "Your UPI transaction of Rs.500.00 from account **1234 has FAILED. Amount if debited will be reversed", "IGNORED")
     check("card declined = not money", "HDFC Bank InstaAlerts", "Your HDFC Bank Credit Card ending 4321 transaction of Rs 500.00 at AMAZON was declined", "IGNORED")
     check("card limit mail = not a purchase", "SBI Card", "Your SBI Credit Card ending 4321 limit has been increased to Rs 1,00,000. Use it for purchases", "IGNORED")
+    // Owner 2026-11-26 (real HDFC e-mail for Rs 1, made-up numbers): banner ad words above, "account ending", the payee
+    // in brackets after the UPI id. It was IGNORED (no account read + "offers / Loans / EMI" in the banner).
+    val hdfcMail1 = "❗ You have done a UPI txn. Check details! HDFC Bank Festive Treats Lets You Treat With All Your Heart Go big with 10,000+ offers on Loans | Cards | Accounts | EASYEMI Explore Now>> Dear Customer, Greetings from HDFC Bank! Rs.1.00 is debited from your account ending 1234 towards VPA ******9999@ybl (RAVI TEJA) on 26-11-26. UPI transaction reference no.: 641000000001."
+    check("hdfc mail Rs 1 with banner ad", "HDFC Bank InstaAlerts", hdfcMail1, "OUT 100 to=RAVI TEJA acct=1234")
+    check("hdfc mail Rs 1 without banner", "HDFC Bank InstaAlerts", "Dear Customer, Rs.1.00 is debited from your account ending 1234 towards VPA ******9999@ybl (RAVI TEJA) on 26-11-26. UPI transaction reference no.: 641000000001.", "OUT 100 to=RAVI TEJA acct=1234")
+    check("proven debit + failed = still not money", "HDFC Bank InstaAlerts", "Rs.1.00 debit from your account ending 1234 FAILED. UPI transaction reference no.: 641000000002. Amount if debited will be reversed", "IGNORED")
+    check("offer ad with no account / no ref = not money", "HDFC Bank", "Get offers! Rs 500 cashback when Rs 5000 is debited on your card. Apply now", "IGNORED")
+    yes("spoken account name: A/c ••1234 = nothing", PaymentAlertParser.spokenAccountName("A/c ••1234") == "")
+    yes("spoken account name: HDFC ••1234 = HDFC", PaymentAlertParser.spokenAccountName("HDFC ••1234") == "HDFC")
+    yes("spoken account name: Savings = Savings", PaymentAlertParser.spokenAccountName("Savings") == "Savings")
+    yes("spoken account name: A/C XX1234 = nothing", PaymentAlertParser.spokenAccountName("A/C XX1234") == "")
+    yes("spoken account name: SBI A/c 1234 = SBI", PaymentAlertParser.spokenAccountName("SBI A/c 1234") == "SBI")
+    yes("spoken account name: Telugu name kept", PaymentAlertParser.spokenAccountName("షాప్ ఖాతా ••1234") == "షాప్ ఖాతా")
     val hdfcDebitSms = "Sent Rs.30000.00 From HDFC Bank A/C *1234 To SHOP X On 25/11/26 Ref 532912345678 Not You? Call 18002586161"
     val hdfcDebitMail = "❗ You have done a UPI txn. Check details! Dear Customer, Rs.30000.00 has been debited from account **1234 to VPA shop.x@okaxis SHOP X on 25-11-26. Your UPI transaction reference number is 532912345678."
     // Money SENT: e-mail first (no SMS, no notification yet) = spoken at once; the SMS 3 h later and the app 8 h later join.

@@ -119,7 +119,9 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
   /// Installed payment / bank / SMS apps (catalogue or by name), not yet in the list unless [includeChosen].
   List<AskodoxJson> _found(AskodoxMyPhoneAlerts m, {bool includeChosen = false}) => [
         for (final a in _installed)
+          // Mail apps are never added by themselves: the person adds them on the e-mail card (their mail, their choice).
           if (askodoxLooksLikeMoneyApp('${a['package']}', '${a['label']}') &&
+              askodoxMoneyAppKind('${a['package']}', '${a['label']}') != 'email' &&
               (includeChosen || !m.apps.containsKey('${a['package']}')))
             {
               'package': '${a['package']}',
@@ -255,6 +257,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
           ? const Center(child: CircularProgressIndicator())
           : ListView(key: const Key('askodoxMyPhonePayments'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 28), children: [
               _quickCard(mine, te),
+              _mailCard(mine, te),
               if (mine.enabled) _setupCard(mine, te),
               // Owner 2026-11-19: four tiles, one thing each -- a tap shows just that part (tap again to close).
               _tiles(te),
@@ -648,6 +651,54 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               ),
             ),
           if (open > 0 && _showDone) ...doneRows,
+        ]),
+      ),
+    );
+  }
+
+  /// Owner 2026-11-26 ("there is no place to add Gmail"): a mail app on this phone that is not read yet gets its own
+  /// card on top -- banks send NO SMS for small UPI payments (HDFC: none under Rs 100 sent / Rs 500 received) but an
+  /// e-mail for every one. One tap adds it; the card says how to get the mail's notification.
+  Widget _mailCard(AskodoxMyPhoneAlerts m, bool te) {
+    final mail = [
+      for (final a in _installed)
+        if (askodoxMoneyAppKind('${a['package']}', '${a['label']}') == 'email' && !m.apps.containsKey('${a['package']}'))
+          {'package': '${a['package']}', 'label': askodoxMoneyAppCatalog['${a['package']}']?.$1 ?? '${a['label']}'},
+    ];
+    if (mail.isEmpty) return const SizedBox.shrink();
+    final first = mail.firstWhere((a) => a['package'] == 'com.google.android.gm', orElse: () => mail.first);
+    return Card(
+      key: const Key('askodoxMineMailCard'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const Icon(Icons.mail_outline_rounded),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(te ? 'బ్యాంక్ ఈమెయిల్ కూడా చదవాలా?' : 'Read the bank\'s e-mail too?',
+                    style: const TextStyle(fontWeight: FontWeight.w800))),
+          ]),
+          const SizedBox(height: 6),
+          Text(
+            te
+                ? 'చిన్న పేమెంట్లకి bank SMS రాదు (HDFC: ₹100 లోపు పంపినవి, ₹500 లోపు వచ్చినవి). ఈమెయిల్ మాత్రం ప్రతి పేమెంట్‌కి వస్తుంది. '
+                    'Bank పంపిన mail మాత్రమే చదువుతుంది, మీ account నంబర్ ఉన్నదే. ఒకే పేమెంట్ SMS / app / mail ఏది వచ్చినా ఒక్కసారే చెబుతుంది.'
+                : 'Banks send no SMS for small payments (HDFC: under Rs 100 sent, Rs 500 received), but an e-mail for every one. '
+                    'Only mail from a bank that names your account is read. One payment is said once, whichever message comes.',
+            style: const TextStyle(fontSize: 12.5),
+          ),
+          const SizedBox(height: 6),
+          Text(askodoxBankMailHint('${first['package']}', te), style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 8),
+          FilledButton(
+            key: const Key('askodoxMineMailAdd'),
+            onPressed: () async {
+              await _change((x) => x.apps = {...x.apps, for (final a in mail) '${a['package']}': '${a['label']}'});
+              await _reload();
+            },
+            child: Text(te ? '${first['label']} జోడించు' : 'Add ${first['label']}'),
+          ),
         ]),
       ),
     );
