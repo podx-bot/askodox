@@ -572,6 +572,8 @@ class AskodoxStepPersonRow extends StatelessWidget {
     required this.amount,
     required this.onTap,
     this.amountColor = askodoxStepWarn,
+    this.photoUrl = '',
+    this.action,
   });
 
   final String name;
@@ -579,6 +581,12 @@ class AskodoxStepPersonRow extends StatelessWidget {
   final String amount;
   final VoidCallback onTap;
   final Color amountColor;
+
+  /// The item's own photo in place of the letter circle (owner 2026-11-26: photos first); the letter stays if it fails.
+  final String photoUrl;
+
+  /// A small button before the amount (e.g. "Try it").
+  final Widget? action;
 
   static const _palette = [
     (Color(0xFFE6EDFF), Color(0xFF1E40AF)),
@@ -598,11 +606,26 @@ class AskodoxStepPersonRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 2),
         decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEF0F4)))),
         child: Row(children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: bg,
-            child: Text(letter, style: TextStyle(color: fg, fontSize: 19, fontWeight: FontWeight.w800)),
-          ),
+          if (photoUrl.isEmpty)
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: bg,
+              child: Text(letter, style: TextStyle(color: fg, fontSize: 19, fontWeight: FontWeight.w800)),
+            )
+          else
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.network(photoUrl,
+                  key: const Key('askodoxStepRowPhoto'),
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => CircleAvatar(
+                        radius: 25,
+                        backgroundColor: bg,
+                        child: Text(letter, style: TextStyle(color: fg, fontSize: 19, fontWeight: FontWeight.w800)),
+                      )),
+            ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -614,6 +637,7 @@ class AskodoxStepPersonRow extends StatelessWidget {
             ]),
           ),
           const SizedBox(width: 8),
+          if (action != null) ...[action!, const SizedBox(width: 4)],
           Text(amount, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: amountColor)),
         ]),
       ),

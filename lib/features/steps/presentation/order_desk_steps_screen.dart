@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/backend_providers.dart';
 import '../../../shared/widgets/chat_pins.dart' show askodoxLiveOrdersProvider;
 import '../../location/presentation/map_pin_picker.dart';
 import '../../pos/data/pos_repository.dart';
@@ -65,6 +66,36 @@ class _OrderDeskStepsState extends ConsumerState<AskodoxOrderDeskStepsScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// "Try it" (owner 2026-11-26): how this shop's items can be shown -- from its Business Kit: on_me / in_home / '' (none).
+  String get _tryOn => '${_data?['try_on'] ?? ''}';
+
+  /// The item's own photo (public, like the shop page photos); '' when it has none.
+  String _photoUrl(AskodoxJson m) {
+    if (m['has_photo'] != true) return '';
+    final shop = '${(_data?['business'] as Map?)?['id'] ?? ''}';
+    if (shop.isEmpty) return '';
+    final base = ref.read(appConfigProvider).apiBaseUrl;
+    final path = '/api/pos/shops/$shop/photo/product/${m['id']}';
+    return base == null ? path : base.resolve(path).toString();
+  }
+
+  /// The small "Try it" button on an item with a photo, only in a shop whose kit offers it.
+  Widget? _tryButton(AskodoxJson m, bool te) {
+    final url = _photoUrl(m);
+    if (_tryOn.isEmpty || !url.startsWith('https://')) return null;
+    return IconButton(
+      key: Key('askodoxOrderDeskStepsTry-${m['id']}'),
+      tooltip: te ? 'ట్రై చేసి చూడు' : 'Try it',
+      visualDensity: VisualDensity.compact,
+      icon: const Icon(Icons.checkroom_rounded, size: 22),
+      onPressed: () => context.push(Uri(path: '/try-on', queryParameters: {
+        'image': url,
+        'name': _itemName(m),
+        'mode': _tryOn,
+      }).toString()),
+    );
   }
 
   List<String> get _modes => ((_data?['modes'] as List?) ?? const []).map((e) => '$e').toList();
@@ -411,6 +442,8 @@ class _OrderDeskStepsState extends ConsumerState<AskodoxOrderDeskStepsScreen> {
         onLongPress: available && q > 0 ? () => _itemSheet(id) : null,
         child: AskodoxStepPersonRow(
           key: Key('askodoxOrderDeskStepsItem-$id'),
+          photoUrl: _photoUrl(m),
+          action: _tryButton(m, te),
           name: '${askodoxItemIcon('${m['name'] ?? ''}', nameTe: '${m['name_te'] ?? ''}')} '
               '${m['item_no'] != null ? '#${m['item_no']} ' : ''}${_itemName(m)}',
           sub: available
@@ -525,6 +558,8 @@ class _OrderDeskStepsState extends ConsumerState<AskodoxOrderDeskStepsScreen> {
         if (_item(e.key) != null)
           AskodoxStepPersonRow(
             key: Key('askodoxOrderDeskStepsLine-${e.key}'),
+            photoUrl: _photoUrl(_item(e.key)!),
+            action: _tryButton(_item(e.key)!, te),
             name: '${_itemName(_item(e.key)!)} ×${e.value.round()}',
             sub: (_itemNote[e.key] ?? '').isEmpty ? (te ? 'నొక్కితే: తగ్గించు / పెంచు / నోట్' : 'Tap: less / more / note') : '✏️ ${_itemNote[e.key]}',
             amount: askodoxPaise((askodoxPosInt(_item(e.key)!['price_paise']) * e.value).round()),
