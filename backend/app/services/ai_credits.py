@@ -16,13 +16,20 @@ person to person; see payment_methods.py). Rupee values are shown so the user un
   double spend under concurrency) and released if the AI call produced nothing.
 * Refund of a pack (gateway REFUNDED) deducts the pack's credits again (the balance may go negative; spending then
   stops until the next recharge) -- recorded, never hidden.
+* AI PLAN (owner 2026-11-26, every number a Command Center setting, ``plan``): every signed-in person gets
+  ``daily_free_paise`` of AI use each INDIA day (use it or lose it at midnight IST; ``daily_free_days`` 0 = for ever,
+  N = the person's first N days); a use takes the day's free part FIRST, then the pack. The account's FIRST recharge
+  gets ``first_bonus_pct`` extra (100 = double, once for ever, a refund never brings it back); after that the first
+  recharge of each India day gets ``daily_bonus_pct`` extra and later recharges that day are 1:1. A friend joining
+  refills the day's free part once a day. People who paid have no other limit. The free part lives in the ledger as
+  mode ``free`` rows (never a balance: only today's rows count).
 """
 from __future__ import annotations
 
 import json
 import sqlite3
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services import shop_free_core
@@ -33,6 +40,18 @@ FEATURES = ("chat", "reasoning", "voice", "web_search", "image", "radio")
 # they are never a credits feature, never carry a rate, and a reserve for one always answers free.
 assert not set(FEATURES) & set(shop_free_core.keys()), "a free-forever shop tool can never be an AI Credits feature"
 MODES = ("live", "test")
+FREE_MODE = "free"  # the day's free part: ledger rows only, never added to a balance
+IST = timezone(timedelta(hours=5, minutes=30))
+PLAN_DEFAULTS: Dict[str, Any] = {  # owner 2026-11-26; staff change them in Command Center -> AI ప్లాన్
+    "daily_free_paise": 1000,  # ₹10 a day for everyone, recharge or not
+    "daily_free_days": 0,  # 0 = for ever; N = only a person's first N days
+    "first_bonus_pct": 100,  # the account's first recharge: ₹100 -> ₹200
+    "daily_bonus_pct": 10,  # after that, the first recharge of each day
+    "friend_refill": True,  # a friend joined -> the day's free part is full again (once a day)
+    "play_fee_pct": 15,  # ESTIMATE only: the store's share of a recharge made through Play billing
+}
+PLAN_LIMITS = {"daily_free_paise": 1_000_00, "daily_free_days": 3650, "first_bonus_pct": 500, "daily_bonus_pct": 100,
+               "play_fee_pct": 50}
 PACKS = [  # proposed by the owner; price == credits until staff decide a bonus (financial viability first)
     {"code": "ai_credits_100", "name": "AI Credits ₹100", "price": 100.0},
     {"code": "ai_credits_200", "name": "AI Credits ₹200", "price": 200.0},
@@ -56,6 +75,7 @@ SCHEMA = [
     "CREATE INDEX IF NOT EXISTS idx_ai_credit_ledger_user ON ai_credit_ledger(user_id, mode)",
     "CREATE TABLE IF NOT EXISTS ai_credit_settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL,"
     " updated_by TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS ai_credit_first_day (user_id TEXT PRIMARY KEY, day TEXT NOT NULL)",
 ]
 
 
@@ -67,6 +87,16 @@ class CreditsError(Exception):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _plan_of(data: Any) -> Dict[str, Any]:
+    data = data if isinstance(data, dict) else {}
+    return {key: (bool(data.get(key, default)) if isinstance(default, bool) else int(data.get(key, default)))
+            for key, default in PLAN_DEFAULTS.items()}
+
+
+def _percent(part: int, whole: int) -> int:
+    return max(0, min(100, round(100 * part / whole))) if whole > 0 else 0
 
 
 def seed_packs(growth: Any) -> None:
@@ -104,7 +134,8 @@ class AiCredits:
         out = {"charging": bool(data.get("charging", False)),
                "rates_paise": {f: int((data.get("rates_paise") or {}).get(f, 0)) for f in FEATURES},
                "free_per_day": {f: int((data.get("free_per_day") or {}).get(f, 0)) for f in FEATURES},
-               "show_usage": bool(data.get("show_usage", DEFAULT_SETTINGS["show_usage"]))}
+               "show_usage": bool(data.get("show_usage", DEFAULT_SETTINGS["show_usage"])),
+               "plan": _plan_of(data.get("plan"))}
         out["updated_by"] = row["updated_by"] if row else ""
         out["updated_at"] = row["updated_at"] if row else ""
         return out
@@ -113,7 +144,18 @@ class AiCredits:
         current = self.settings()
         new = {"charging": bool(data.get("charging", current["charging"])),
                "rates_paise": dict(current["rates_paise"]), "free_per_day": dict(current["free_per_day"]),
-               "show_usage": bool(data.get("show_usage", current["show_usage"]))}
+               "show_usage": bool(data.get("show_usage", current["show_usage"])),
+               "plan": dict(current["plan"])}
+        for key, value in (data.get("plan") or {}).items():
+            if key not in PLAN_DEFAULTS:
+                raise CreditsError("unknown_plan_field", 400, {"field": key})
+            if isinstance(PLAN_DEFAULTS[key], bool):
+                new["plan"][key] = bool(value)
+                continue
+            number = int(value if value not in (None, "") else 0)  # an empty box = 0 (for the days: for ever)
+            if number < 0 or number > PLAN_LIMITS[key]:
+                raise CreditsError("out_of_range", 400, {"field": f"plan.{key}", "max": PLAN_LIMITS[key]})
+            new["plan"][key] = number
         for key, limit in (("rates_paise", MAX_RATE_PAISE), ("free_per_day", 10_000)):
             for feature, value in (data.get(key) or {}).items():
                 if shop_free_core.is_free(feature):
@@ -153,28 +195,95 @@ class AiCredits:
             return {m: self._balance(conn, user_id, m) for m in MODES}
 
     def topup(self, user_id: str, *, paise: int, purchase_id: str, mode: str) -> bool:
-        """Called ONLY from billing.on_payment after a gateway-confirmed PAID. True when newly added."""
+        """Called ONLY from billing.on_payment after a gateway-confirmed PAID. True when newly added. The plan's
+        extra (first recharge / first of the day) is added in the same transaction as its own ``bonus`` row."""
         if mode not in MODES or paise <= 0:
             raise CreditsError("bad_topup", 400)
-        with closing(self._connect()) as conn:
-            return self._insert(conn, user_id, mode, paise, "topup", f"topup:{purchase_id}",
-                                note=f"purchase {purchase_id}")
+        plan = self.settings()["plan"]
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            pct, why = self._bonus_now(conn, user_id, mode, plan)
+            added = self._insert(conn, user_id, mode, paise, "topup", f"topup:{purchase_id}",
+                                 note=f"purchase {purchase_id}")
+            if added and pct > 0:
+                self._insert(conn, user_id, mode, paise * pct // 100, "bonus", f"bonus:{purchase_id}", note=why)
+            conn.execute("COMMIT")
+            return added
+        finally:
+            conn.close()
+
+    def _bonus_now(self, conn: sqlite3.Connection, user_id: str, mode: str, plan: Dict[str, Any]) -> tuple:
+        """(percent, reason) the NEXT recharge would get. A refunded recharge still counts as made (no second double)."""
+        ever = int(conn.execute("SELECT COUNT(*) FROM ai_credit_ledger WHERE user_id = ? AND mode = ? AND kind ="
+                                " 'topup'", (user_id, mode)).fetchone()[0])
+        if ever == 0:
+            return int(plan["first_bonus_pct"]), "first_recharge"
+        today = int(conn.execute("SELECT COUNT(*) FROM ai_credit_ledger WHERE user_id = ? AND mode = ? AND kind ="
+                                 " 'topup' AND created_at >= ?", (user_id, mode, self._day_start())).fetchone()[0])
+        return (int(plan["daily_bonus_pct"]), "daily_first") if today == 0 else (0, "used_today")
 
     def reverse_topup(self, user_id: str, *, purchase_id: str) -> bool:
-        """Gateway REFUNDED: take the pack's credits back (once)."""
+        """Gateway REFUNDED: take the pack's credits back (once), and the extra that came with it."""
         with closing(self._connect()) as conn:
             row = conn.execute("SELECT mode, delta_paise FROM ai_credit_ledger WHERE ref = ?",
                                (f"topup:{purchase_id}",)).fetchone()
             if not row:
                 return False
-            return self._insert(conn, user_id, row["mode"], -int(row["delta_paise"]), "refund",
+            done = self._insert(conn, user_id, row["mode"], -int(row["delta_paise"]), "refund",
                                 f"refund:{purchase_id}", note=f"purchase {purchase_id} refunded")
+            bonus = conn.execute("SELECT delta_paise FROM ai_credit_ledger WHERE ref = ?",
+                                 (f"bonus:{purchase_id}",)).fetchone()
+            if done and bonus:
+                self._insert(conn, user_id, row["mode"], -int(bonus["delta_paise"]), "refund",
+                             f"refundbonus:{purchase_id}", note=f"extra of purchase {purchase_id} taken back")
+            return done
+
+    # ------------------------------------------------------ the day's free --
+    def _today(self):
+        return self.clock().astimezone(IST).date()
+
+    def _day_start(self, day=None) -> str:
+        """The India day's first moment, as the UTC text the ledger stores (rows compare as text)."""
+        return datetime.combine(day or self._today(), time.min, IST).astimezone(timezone.utc).isoformat()
+
+    def _free(self, conn: sqlite3.Connection, user_id: str, plan: Dict[str, Any]) -> Dict[str, int]:
+        """Today's free part: {total, left, used}. Yesterday's rows never count (use it or lose it)."""
+        total = int(plan["daily_free_paise"])
+        today = self._today()
+        conn.execute("INSERT OR IGNORE INTO ai_credit_first_day(user_id, day) VALUES(?, ?)", (user_id, today.isoformat()))
+        days = int(plan["daily_free_days"])
+        if total > 0 and days > 0:
+            first = conn.execute("SELECT day FROM ai_credit_first_day WHERE user_id = ?", (user_id,)).fetchone()[0]
+            if (today - datetime.fromisoformat(first).date()).days >= days:
+                total = 0
+        if total <= 0:
+            return {"total": 0, "left": 0, "used": 0}
+        moved = int(conn.execute("SELECT COALESCE(SUM(delta_paise), 0) FROM ai_credit_ledger WHERE user_id = ? AND"
+                                 " mode = ? AND created_at >= ?", (user_id, FREE_MODE, self._day_start())).fetchone()[0])
+        left = max(0, min(total, total + moved))
+        return {"total": total, "left": left, "used": total - left}
+
+    def friend_joined(self, user_id: str) -> bool:
+        """A friend this person invited joined: today's free part is full again -- once per India day."""
+        settings = self.settings()
+        if not settings["plan"]["friend_refill"]:
+            return False
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            free = self._free(conn, user_id, settings["plan"])
+            done = free["total"] > 0 and self._insert(conn, user_id, FREE_MODE, free["used"], "refill",
+                                                      f"refill:{user_id}:{self._today().isoformat()}", note="friend joined")
+            conn.execute("COMMIT")
+            return bool(done)
+        finally:
+            conn.close()
 
     def _used_today(self, conn: sqlite3.Connection, user_id: str, feature: str) -> int:
-        day = self.clock().date().isoformat()
         return int(conn.execute("SELECT COUNT(*) FROM ai_credit_ledger WHERE user_id = ? AND feature = ? AND kind IN"
-                                " ('usage', 'free') AND substr(created_at, 1, 10) = ?",
-                                (user_id, feature, day)).fetchone()[0])
+                                " ('usage', 'free') AND ref LIKE 'use:%' AND created_at >= ?",
+                                (user_id, feature, self._day_start())).fetchone()[0])
 
     def reserve(self, user_id: str, feature: str, ref: str) -> Dict[str, Any]:
         """Before one AI use. Returns {charged, paise, mode, free}; raises CreditsError('insufficient', 402).
@@ -200,12 +309,25 @@ class AiCredits:
                 self._insert(conn, user_id, "live", 0, "free", f"use:{ref}", feature=feature)
                 conn.execute("COMMIT")
                 return {"charged": False, "free": True, "paise": 0}
+            from_free = min(rate, self._free(conn, user_id, settings["plan"])["left"])  # the day's free FIRST
+            rest = rate - from_free
+            if rest == 0:
+                self._insert(conn, user_id, FREE_MODE, -rate, "usage", f"use:{ref}", feature=feature)
+                conn.execute("COMMIT")
+                return {"charged": True, "paise": rate, "mode": FREE_MODE, "pack_paise": 0}
             for mode in MODES:  # real credits first, then TEST credits (billing testers rehearsing)
-                if self._balance(conn, user_id, mode) >= rate:
-                    self._insert(conn, user_id, mode, -rate, "usage", f"use:{ref}", feature=feature)
+                if self._balance(conn, user_id, mode) >= rest:
+                    self._insert(conn, user_id, mode, -rest, "usage", f"use:{ref}", feature=feature)
+                    if from_free:
+                        self._insert(conn, user_id, FREE_MODE, -from_free, "usage", f"usefree:{ref}", feature=feature)
                     conn.execute("COMMIT")
-                    return {"charged": True, "paise": rate, "mode": mode}
-            conn.execute("ROLLBACK")
+                    out = {"charged": True, "paise": rate, "mode": mode}
+                    return {**out, "pack_paise": rest} if from_free else out
+            if from_free:  # the last of today's free part still gives one whole use
+                self._insert(conn, user_id, FREE_MODE, -from_free, "usage", f"use:{ref}", feature=feature)
+                conn.execute("COMMIT")
+                return {"charged": True, "paise": from_free, "mode": FREE_MODE, "pack_paise": 0}
+            conn.execute("COMMIT")  # keeps the first-day row
         finally:
             conn.close()
         raise CreditsError("insufficient", 402, {"needed_paise": rate, "balance": self.balance(user_id)})
@@ -250,19 +372,85 @@ class AiCredits:
                                (f"use:{ref}",)).fetchone()
             if not row or row["kind"] != "usage":
                 return False
+            part = conn.execute("SELECT delta_paise FROM ai_credit_ledger WHERE ref = ?", (f"usefree:{ref}",)).fetchone()
+            if part:  # the free part of a use paid from both
+                self._insert(conn, user_id, FREE_MODE, -int(part["delta_paise"]), "release", f"releasefree:{ref}",
+                             feature=row["feature"], note="AI gave no answer")
             return self._insert(conn, user_id, row["mode"], -int(row["delta_paise"]), "release",
                                 f"release:{ref}", feature=row["feature"], note="AI gave no answer")
 
     def history(self, user_id: str, *, limit: int = 100) -> List[Dict[str, Any]]:
         with closing(self._connect()) as conn:
             rows = conn.execute("SELECT id, mode, delta_paise, kind, feature, note, created_at FROM ai_credit_ledger"
-                                " WHERE user_id = ? AND kind != 'free' ORDER BY id DESC LIMIT ?",
-                                (user_id, int(limit))).fetchall()
+                                " WHERE user_id = ? AND kind != 'free' AND mode != ? ORDER BY id DESC LIMIT ?",
+                                (user_id, FREE_MODE, int(limit))).fetchall()
         return [dict(r) for r in rows]
 
     def usage_today(self, user_id: str) -> Dict[str, int]:
         with closing(self._connect()) as conn:
             return {f: self._used_today(conn, user_id, f) for f in FEATURES}
+
+    def status(self, user_id: str) -> Dict[str, Any]:
+        """What the person's AI screen shows: two bars in PERCENT (today's free, my pack), a pace warning, and
+        whether the next recharge carries an extra. Rupees are for the recharge screen only."""
+        settings = self.settings()
+        plan = settings["plan"]
+        now = self.clock()
+        midnight = datetime.combine(self._today() + timedelta(days=1), time.min, IST)
+        with closing(self._connect()) as conn:
+            free = self._free(conn, user_id, plan)
+            mode = "live" if self._balance(conn, user_id, "live") > 0 or self._balance(conn, user_id, "test") <= 0 \
+                else "test"
+            balance = self._balance(conn, user_id, mode)
+            last = conn.execute("SELECT MAX(id) FROM ai_credit_ledger WHERE user_id = ? AND mode = ? AND kind IN"
+                                " ('topup', 'bonus')", (user_id, mode)).fetchone()[0]
+            base = int(conn.execute("SELECT COALESCE(SUM(delta_paise), 0) FROM ai_credit_ledger WHERE user_id = ? AND"
+                                    " mode = ? AND id <= ?", (user_id, mode, last)).fetchone()[0]) if last else 0
+            week = self._day_start(self._today() - timedelta(days=6))
+            spent = -int(conn.execute("SELECT COALESCE(SUM(delta_paise), 0) FROM ai_credit_ledger WHERE user_id = ? AND"
+                                      " mode = ? AND kind IN ('usage', 'release') AND created_at >= ?",
+                                      (user_id, mode, week)).fetchone()[0])
+            first = conn.execute("SELECT MIN(created_at) FROM ai_credit_ledger WHERE user_id = ? AND mode = ? AND kind ="
+                                 " 'usage' AND created_at >= ?", (user_id, mode, week)).fetchone()[0]
+            pct, why = self._bonus_now(conn, user_id, "live", plan)
+            conn.commit()
+        out_free = {"percent_left": _percent(free["left"], free["total"]), "on": free["total"] > 0,
+                    "resets_at": midnight.isoformat(), "runs_out_at": None}
+        since = (now.astimezone(IST) - datetime.combine(self._today(), time.min, IST)).total_seconds()
+        if free["used"] > 0 and free["left"] > 0 and since > 0:  # at this pace, before midnight?
+            ends = now + timedelta(seconds=free["left"] * since / free["used"])
+            if ends < midnight:
+                out_free["runs_out_at"] = ends.astimezone(IST).isoformat()
+        pack = {"percent_left": _percent(balance, base), "has": balance > 0, "test": mode == "test", "days_left": None}
+        if spent > 0 and balance > 0 and first:
+            days = max(1.0, (now - datetime.fromisoformat(first)).total_seconds() / 86400)
+            pack["days_left"] = int(balance / (spent / days))
+        return {"charging": settings["charging"], "free": out_free, "pack": pack,
+                "bonus": {"percent": pct, "kind": why, "left_today": pct > 0}}
+
+    def plan_estimate(self, *, days: int = 7) -> Dict[str, Any]:
+        """Command Center "AI ప్లాన్": what the plan gave away and brought in over the last days (ledger facts; the
+        free part is counted at the RATES people are charged, so it is the value given, not ASKODOX's own AI bill)."""
+        days = max(1, min(int(days), 90))
+        plan = self.settings()["plan"]
+        since = self._day_start(self._today() - timedelta(days=days - 1))
+        with closing(self._connect()) as conn:
+            people, used = conn.execute("SELECT COUNT(DISTINCT user_id), COALESCE(-SUM(delta_paise), 0) FROM"
+                                        " ai_credit_ledger WHERE mode = ? AND kind IN ('usage', 'release') AND"
+                                        " created_at >= ?", (FREE_MODE, since)).fetchone()
+            sums = {r[0]: (r[1], r[2]) for r in conn.execute(
+                "SELECT kind, COUNT(*), COALESCE(SUM(delta_paise), 0) FROM ai_credit_ledger WHERE mode = 'live' AND kind"
+                " IN ('topup', 'bonus', 'refund') AND created_at >= ? GROUP BY kind", (since,))}
+            refills = conn.execute("SELECT COUNT(*) FROM ai_credit_ledger WHERE mode = ? AND kind = 'refill' AND"
+                                   " created_at >= ?", (FREE_MODE, since)).fetchone()[0]
+        paid = sums.get("topup", (0, 0))[1]
+        return {"days": days, "plan": plan, "estimate": True,
+                "free": {"people": int(people or 0), "used_paise": int(used or 0),
+                         "most_paise": int(people or 0) * int(plan["daily_free_paise"]) * days, "refills": int(refills)},
+                "recharges": {"count": sums.get("topup", (0, 0))[0], "paid_paise": int(paid),
+                              "extra_given_paise": int(sums.get("bonus", (0, 0))[1]),
+                              "refunded_paise": -int(sums.get("refund", (0, 0))[1]),
+                              "store_fee_paise": int(paid) * int(plan["play_fee_pct"]) // 100}}
 
     def summary(self) -> Dict[str, Any]:
         """Staff reconciliation: totals per mode and kind (rupee values; no user detail)."""
@@ -271,7 +459,7 @@ class AiCredits:
                                 " ai_credit_ledger GROUP BY mode, kind").fetchall()
             users = conn.execute("SELECT COUNT(DISTINCT user_id) FROM ai_credit_ledger WHERE kind = 'topup'").fetchone()[0]
             negative = conn.execute("SELECT COUNT(*) FROM (SELECT user_id, mode, SUM(delta_paise) AS b FROM"
-                                    " ai_credit_ledger GROUP BY user_id, mode HAVING b < 0)").fetchone()[0]
+                                    " ai_credit_ledger WHERE mode != 'free' GROUP BY user_id, mode HAVING b < 0)").fetchone()[0]
         by: Dict[str, Dict[str, Any]] = {m: {} for m in MODES}
         for r in rows:
             by.setdefault(r["mode"], {})[r["kind"]] = {"count": r["n"], "paise": r["paise"]}

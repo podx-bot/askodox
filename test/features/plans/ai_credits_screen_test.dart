@@ -113,4 +113,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxAiCreditsUsage')), findsNothing);
   });
+
+  // Owner 2026-11-26: percent bars (today's free, my pack), a pace warning, rupees only in the recharge part.
+  Map<String, Object?> plan({Map<String, Object?>? free, Map<String, Object?>? pack, Map<String, Object?>? bonus}) => {
+        'balance_paise': {'live': 20000, 'test': 0},
+        'charging': true,
+        'rates_paise': {'chat': 100},
+        'free_per_day': {'chat': 0},
+        'used_today': {'chat': 3},
+        'packs': [],
+        'history': [],
+        'usage': {'today': {'value_paise': 300}, 'month': {'value_paise': 900, 'by_feature': {}}},
+        'status': {
+          'charging': true,
+          'free': free ?? {'percent_left': 70, 'on': true, 'resets_at': '2026-11-27T00:00:00+05:30', 'runs_out_at': null},
+          'pack': pack ?? {'percent_left': 80, 'has': true, 'test': false, 'days_left': 12},
+          'bonus': bonus ?? {'percent': 10, 'kind': 'daily_first', 'left_today': true},
+        },
+      };
+
+  testWidgets('AI plan: two percent bars, no rupees above the recharge part, today\'s extra still left', (tester) async {
+    await tester.pumpWidget(_app(plan()));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxAiBars')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('askodoxAiBarFree')), matching: find.text('70%')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('askodoxAiBarPack')), matching: find.text('80%')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('askodoxAiBars')), matching: find.textContaining('₹')), findsNothing);
+    expect(find.byKey(const Key('askodoxAiCreditsUsage')), findsNothing, reason: 'the rupee trial card gives way to bars');
+    expect(find.byKey(const Key('askodoxAiPaceWarning')), findsNothing);
+    expect(find.byKey(const Key('askodoxAiShopFree')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxAiBonusLine'))).data, contains('10%'));
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxAiCreditsBalance'))).data, contains('₹200'));
+  });
+
+  testWidgets('AI plan: pace warnings and the used / first-recharge lines', (tester) async {
+    await tester.pumpWidget(_app(plan(
+        free: {'percent_left': 10, 'on': true, 'resets_at': '2026-11-27T00:00:00+05:30', 'runs_out_at': '2026-11-26T13:20:00+05:30'},
+        pack: {'percent_left': 0, 'has': false, 'test': false, 'days_left': null},
+        bonus: {'percent': 100, 'kind': 'first_recharge', 'left_today': true})));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxAiPaceWarning')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const Key('askodoxAiBonusLine'))).data, contains('₹200'));
+    String en(String a, String b) => a;
+    expect(askodoxAiPaceWarning({'free': {'on': true}, 'pack': {'has': true, 'days_left': 2}}, en), contains('2 days'));
+    expect(askodoxAiPaceWarning({'free': {'on': true}, 'pack': {'has': true, 'days_left': 9}}, en), isNull);
+    expect(askodoxAiBonusLine({'bonus': {'percent': 0, 'kind': 'used_today'}}, en), contains('used'));
+    expect(askodoxAiBonusLine({'bonus': {'percent': 0, 'kind': 'daily_first'}}, en), isNull, reason: 'staff set 0%');
+    expect(askodoxAiClock('nonsense'), '');
+  });
 }

@@ -7,12 +7,13 @@ import pytest
 from app.services.ai_credits import AiCredits, CreditsError
 
 USER = "app-phone-9400000701"
+NO_PLAN = {"daily_free_paise": 0, "first_bonus_pct": 0, "daily_bonus_pct": 0}
 
 
 def _svc(tmp_path, **settings):
     svc = AiCredits(str(tmp_path / "c.db"), clock=lambda: datetime(2026, 10, 27, 6, 0, tzinfo=timezone.utc))
-    if settings:
-        svc.update_settings(settings, actor="staff:1")
+    # These tests are about the ledger itself; the AI plan's free part / recharge extras have tests/test_ai_plan.py.
+    svc.update_settings({"plan": NO_PLAN, **settings}, actor="staff:1")
     return svc
 
 
@@ -22,7 +23,7 @@ def test_off_by_default_nothing_is_deducted(tmp_path):
     assert svc.reserve(USER, "chat", "r1") == {"charged": False, "reason": "charging_off", "paise": 0}
     assert svc.balance(USER) == {"live": 0, "test": 0}
     with pytest.raises(CreditsError) as err:
-        svc.update_settings({"charging": True}, actor="staff:1")
+        svc.update_settings({"plan": {"daily_free_paise": 0, "first_bonus_pct": 0, "daily_bonus_pct": 0}, "charging": True}, actor="staff:1")
     assert err.value.code == "no_rates", "charging cannot start without rates"
     with pytest.raises(CreditsError):
         svc.update_settings({"rates_paise": {"chat": -1}}, actor="staff:1")
@@ -146,7 +147,7 @@ def test_http_routes_and_assistant_metering(monkeypatch):
     assert client.get("/admin/cc/ai-credits/settings").status_code in (401, 403)
     # Charging on with no balance: a signed-in chat is answered with a recharge notice, not the model.
     svc = routes.ai_credits(container)
-    svc.update_settings({"charging": True, "rates_paise": {"chat": 25}}, actor="test")
+    svc.update_settings({"plan": {"daily_free_paise": 0, "first_bonus_pct": 0, "daily_bonus_pct": 0}, "charging": True, "rates_paise": {"chat": 25}}, actor="test")
     try:
         out = client.post("/api/in-app/assistant", headers=auth, json={"message": "best phone under 15000"}).json()
         assert out["source"] == "credits" and out["credits"]["status"] == "insufficient" and "Recharge" in out["reply"]

@@ -143,7 +143,7 @@ def test_credits_spend_is_free_while_charging_is_off_and_atomic_when_on(tmp_path
 
     credits = AiCredits(str(tmp_path / "c.db"))
     assert credits.spend("u", 25, "notice:a", feature="notice")["charged"] is False
-    credits.update_settings({"charging": True, "rates_paise": {"chat": 25}}, actor="t")
+    credits.update_settings({"plan": {"daily_free_paise": 0, "first_bonus_pct": 0, "daily_bonus_pct": 0}, "charging": True, "rates_paise": {"chat": 25}}, actor="t")
     with pytest.raises(CreditsError) as err:
         credits.spend("u", 25, "notice:b", feature="notice")
     assert err.value.status == 402

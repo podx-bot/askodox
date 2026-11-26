@@ -24,6 +24,53 @@ class AskodoxAiCreditsState {
 
   /// Trial meter (owner 2026-11-24): what the person's own AI use WOULD cost; null when the server does not send it.
   Map? usage() => data['usage'] as Map?;
+
+  /// AI plan (owner 2026-11-26): percent bars + pace + whether the next recharge carries an extra. Shown only while
+  /// charging is on; null from an older server.
+  Map? status() => charging ? data['status'] as Map? : null;
+}
+
+/// "11:40 PM" from the server's India-time text; '' when it cannot be read.
+String askodoxAiClock(Object? iso) {
+  final at = DateTime.tryParse('${iso ?? ''}')?.toLocal();
+  if (at == null) return '';
+  final hour = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  return '$hour:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'AM' : 'PM'}';
+}
+
+/// The pace warning under the bars (like "at this pace you will run out"), or null when the pace is fine.
+String? askodoxAiPaceWarning(Map status, String Function(String, String) t) {
+  final free = (status['free'] as Map?) ?? const {};
+  final pack = (status['pack'] as Map?) ?? const {};
+  final hasPack = pack['has'] == true;
+  final days = (pack['days_left'] as num?)?.toInt();
+  if (hasPack && days != null && days <= 3) {
+    return days <= 0
+        ? t('At this pace your pack ends today.', 'ఈ వేగంతో మీ ప్యాక్ ఈ రోజే అయిపోతుంది.')
+        : t('At this pace your pack ends in $days days.', 'ఈ వేగంతో మీ ప్యాక్ $days రోజుల్లో అయిపోతుంది.');
+  }
+  final ends = askodoxAiClock(free['runs_out_at']);
+  if (!hasPack && free['on'] == true && ends.isNotEmpty) {
+    return t("At this pace today's free AI ends by $ends.", 'ఈ వేగంతో ఈ రోజు free AI $ends కి అయిపోతుంది.');
+  }
+  return null;
+}
+
+/// The line on the recharge part: is today's extra still there? Null when the plan gives no extra.
+String? askodoxAiBonusLine(Map status, String Function(String, String) t) {
+  final bonus = (status['bonus'] as Map?) ?? const {};
+  final percent = (bonus['percent'] as num?)?.toInt() ?? 0;
+  return switch ('${bonus['kind']}') {
+    'first_recharge' when percent == 100 =>
+      t('First recharge is doubled: pay ₹100, get ₹200. Once.', 'మొదటి రీఛార్జ్ డబుల్: ₹100 కడితే ₹200. ఒక్కసారే.'),
+    'first_recharge' when percent > 0 =>
+      t('First recharge gets $percent% extra. Once.', 'మొదటి రీఛార్జ్ కి $percent% అదనం. ఒక్కసారే.'),
+    'daily_first' when percent > 0 =>
+      t("Today's $percent% extra is still left.", 'ఈ రోజు $percent% అదనం ఇంకా మిగిలి ఉంది.'),
+    'used_today' => t("Today's extra is used. It comes again on tomorrow's first recharge.",
+        'ఈ రోజు అదనం వాడేశారు. రేపు మొదటి రీఛార్జ్ కి మళ్ళీ వస్తుంది.'),
+    _ => null,
+  };
 }
 
 /// The four groups the trial meter shows (server `ai_usage_meter.USER_FEATURES`).
@@ -85,6 +132,8 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
         data: (s) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(askodoxAiCreditsProvider),
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+            if (s.status() != null) AskodoxAiBarsCard(status: s.status()!, t: t),
+            if (s.status() == null)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -106,9 +155,24 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
                 ]),
               ),
             ),
-            if (s.usage() != null) ...[
+            if (s.usage() != null && s.status() == null) ...[
               const SizedBox(height: 8),
               _UsageCard(usage: s.usage()!, t: t),
+            ],
+            if (s.status() != null) ...[
+              // Rupees live only from here down (owner 2026-11-26): the recharge part.
+              const SizedBox(height: 12),
+              Text(t('Recharge', 'రీఛార్జ్'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text('${t('In your pack', 'మీ ప్యాక్ లో')}: ${askodoxRupees(s.balance('live'))}'
+                  '${s.balance('test') != 0 ? ' · TEST ${askodoxRupees(s.balance('test'))}' : ''}',
+                  key: const Key('askodoxAiCreditsBalance')),
+              if (askodoxAiBonusLine(s.status()!, t) != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(askodoxAiBonusLine(s.status()!, t)!,
+                      key: const Key('askodoxAiBonusLine'),
+                      style: const TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.w700)),
+                ),
             ],
             if (s.charging) ...[
               const SizedBox(height: 8),
@@ -129,7 +193,7 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
             // (owner, 2026-11-04: no list of "Not on sale yet" rows).
             if (!askodoxPlayStoreBuild && s.packs().any((p) => p['payable'] == true)) ...[
             const SizedBox(height: 8),
-            Text(t('Recharge', 'రీఛార్జ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
+            if (s.status() == null) Text(t('Recharge', 'రీఛార్జ్'), style: const TextStyle(fontWeight: FontWeight.w800)),
             for (final p in s.packs().where((p) => p['payable'] == true))
               ListTile(
                 key: ValueKey('askodoxAiPack-${p['plan_code']}'),
@@ -181,6 +245,7 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
     final f = _features[feature];
     return switch (kind) {
       'topup' => t('Recharge', 'రీఛార్జ్'),
+      'bonus' => t('Extra with the recharge', 'రీఛార్జ్ తో అదనం'),
       'usage' => f == null ? t('AI use', 'AI వాడకం') : t(f.$1, f.$2),
       'release' => t('Returned (AI gave no answer)', 'తిరిగి వచ్చింది (AI సమాధానం ఇవ్వలేదు)'),
       'refund' => t('Recharge refunded', 'రీఛార్జ్ refund'),
@@ -278,5 +343,73 @@ class _UsageCard extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+
+/// Two bars in PERCENT, like a usage screen: today's free AI and my pack. No rupees here (owner 2026-11-26).
+class AskodoxAiBarsCard extends StatelessWidget {
+  const AskodoxAiBarsCard({super.key, required this.status, required this.t});
+  final Map status;
+  final String Function(String, String) t;
+
+  @override
+  Widget build(BuildContext context) {
+    final free = (status['free'] as Map?) ?? const {};
+    final pack = (status['pack'] as Map?) ?? const {};
+    final warning = askodoxAiPaceWarning(status, t);
+    final resets = askodoxAiClock(free['resets_at']);
+    return Card(
+      key: const Key('askodoxAiBars'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (free['on'] == true)
+            _bar(context, const Key('askodoxAiBarFree'), t("Today's free", 'ఈ రోజు free'),
+                (free['percent_left'] as num?)?.toInt() ?? 0, const Color(0xFF16A34A),
+                resets.isEmpty ? '' : t('Full again at $resets. It cannot be saved.',
+                    '$resets కి మళ్ళీ నిండుతుంది. దాచుకోలేరు.')),
+          if (free['on'] == true) const SizedBox(height: 14),
+          _bar(context, const Key('askodoxAiBarPack'), t('Your pack', 'మీ ప్యాక్'),
+              pack['has'] == true ? (pack['percent_left'] as num?)?.toInt() ?? 0 : 0, const Color(0xFF2563EB),
+              pack['has'] == true
+                  ? t("Used after today's free part. No other limit.", 'ఈ రోజు free అయ్యాక ఇది వాడతాం. ఏ limit లేదు.')
+                  : t('No pack yet. Recharge below to keep going after the free part.',
+                      'ఇంకా ప్యాక్ లేదు. Free అయ్యాక కూడా వాడాలంటే కింద రీఛార్జ్ చేయండి.')),
+          if (warning != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text('⚠️ $warning',
+                  key: const Key('askodoxAiPaceWarning'),
+                  style: const TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w700)),
+            ),
+          const SizedBox(height: 10),
+          Text(
+              t('Payment voice, bills, dues and sales reports are always free.',
+                  'Payment voice, బిల్, బాకీ, sales report ఎప్పుడూ ఉచితం.'),
+              key: const Key('askodoxAiShopFree'), style: Theme.of(context).textTheme.bodySmall),
+        ]),
+      ),
+    );
+  }
+
+  Widget _bar(BuildContext context, Key key, String label, int percent, Color color, String note) {
+    return Column(key: key, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+        Text('$percent%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+      ]),
+      const SizedBox(height: 6),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: LinearProgressIndicator(
+            value: percent / 100, minHeight: 10, color: color, backgroundColor: const Color(0xFFE5E7EB)),
+      ),
+      if (note.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(note, style: Theme.of(context).textTheme.bodySmall),
+        ),
+    ]);
   }
 }

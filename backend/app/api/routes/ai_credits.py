@@ -52,6 +52,8 @@ def my_credits(request: Request) -> Dict[str, Any]:
             "rates_paise": settings["rates_paise"], "free_per_day": settings["free_per_day"],
             "used_today": service.usage_today(user), "packs": packs, "history": service.history(user, limit=50),
             "usage": _my_usage(container, user) if settings.get("show_usage") else None,
+            # Owner 2026-11-26: the AI screen shows PERCENT bars (today's free, my pack) + pace; rupees only on recharge.
+            "status": service.status(user),
             "note": "AI Credits are only for ASKODOX AI features: not transferable, not cash, never used to pay a seller."}
 
 
@@ -78,6 +80,7 @@ class SettingsBody(BaseModel):
     show_usage: Optional[bool] = None
     rates_paise: Optional[Dict[str, int]] = None
     free_per_day: Optional[Dict[str, int]] = None
+    plan: Optional[Dict[str, Any]] = None  # AI ప్లాన్: daily free, its days, first / daily recharge extra, friend refill
 
 
 @admin_router.get("/settings")
@@ -113,6 +116,22 @@ def put_settings(body: SettingsBody, request: Request) -> Dict[str, Any]:
 def summary(request: Request) -> Dict[str, Any]:
     _require(request, "growth:view")
     return ai_credits(request.app.state.container).summary()
+
+
+@admin_router.get("/plan")
+def plan(request: Request, days: int = 7) -> Dict[str, Any]:
+    """AI ప్లాన్: the plan's numbers + what it gave away / brought in (ledger facts) + ASKODOX's own AI bill (estimate)."""
+    from app.services import ai_usage_meter
+
+    _require(request, "growth:view")
+    container = request.app.state.container
+    out = ai_credits(container).plan_estimate(days=days)
+    try:
+        report = ai_usage_meter.report(container.settings.database_path, days=out["days"])
+        out["ai_cost"] = {"cost_inr": round(sum(f["cost_inr"] for f in report["features"]), 2), "basis": report["basis"]}
+    except Exception:
+        out["ai_cost"] = None
+    return out
 
 
 @admin_router.get("/costs")
