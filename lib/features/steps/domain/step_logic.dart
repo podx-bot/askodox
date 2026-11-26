@@ -108,6 +108,17 @@ int? askodoxParseQtyMilli(String text) {
   return (v * 1000).round();
 }
 
+/// One calculator-bill row: quantity x rate (rupees, decimals allowed) in paise. 0 when either is not a number > 0.
+int askodoxCalcRowPaise(String qty, String rate) {
+  final q = askodoxParseQtyMilli(qty);
+  final r = askodoxCalcRatePaise(rate);
+  if (q == null || q <= 0 || r <= 0) return 0;
+  return askodoxLinePaise(r, q);
+}
+
+/// A typed rate in rupees ("12", "12.50", "1,200") in paise; 0 when it is not a number.
+int askodoxCalcRatePaise(String rate) => askodoxParsePaise(rate.trim().replaceAll(',', '')) ?? 0;
+
 /// Metres between two places (the server measures the same way): "you are 40 m from the shop" is shown BEFORE the face
 /// check, so nobody does the face part only to be refused for the distance (owner 2026-11-23).
 int askodoxDistanceM(double aLat, double aLng, double bLat, double bLng) {

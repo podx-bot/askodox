@@ -30,9 +30,24 @@ class AskodoxBillStepsScreen extends ConsumerStatefulWidget {
 }
 
 class _Extra {
-  const _Extra(this.name, this.paise);
+  const _Extra(this.name, this.paise, {this.qtyMilli = 0, this.ratePaise = 0});
   final String name;
   final int paise;
+
+  /// Only calculator rows (quantity x rate) carry these; "Other" lines are a name + one amount.
+  final int qtyMilli;
+  final int ratePaise;
+}
+
+class _CalcRow {
+  final name = TextEditingController();
+  final qty = TextEditingController();
+  final rate = TextEditingController();
+  void dispose() {
+    name.dispose();
+    qty.dispose();
+    rate.dispose();
+  }
 }
 
 const _tileColors = [
@@ -331,7 +346,12 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
   List<AskodoxJson> _lines() => [
         for (final e in _qty.entries)
           if (e.value > 0 && _item(e.key) != null) _lineFor(_item(e.key)!, e.value),
-        for (final x in _extras) {'name': x.name, 'amount_paise': x.paise},
+        for (final x in _extras)
+          {
+            'name': x.name,
+            'amount_paise': x.paise,
+            if (x.qtyMilli > 0 && x.ratePaise > 0) ...{'qty_milli': x.qtyMilli, 'rate_paise': x.ratePaise},
+          },
         if (_items.isEmpty && askodoxKeypadPaise(_typed) > 0) {'name': '', 'amount_paise': askodoxKeypadPaise(_typed)},
       ];
 
@@ -542,6 +562,121 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
     }
   }
 
+  /// Calculator bill (owner 2026-11-26): rows of name + quantity x rate with a running total, added to THIS bill; the
+  /// way of paying, WhatsApp share and print are the same steps 2-3 as every other bill.
+  Future<void> _calculator() async {
+    final rows = <_CalcRow>[_CalcRow()];
+    final out = await showModalBottomSheet<List<_Extra>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (sheet, setInner) {
+          final te = _te;
+          final total = rows.fold<int>(0, (sum, r) => sum + askodoxCalcRowPaise(r.qty.text, r.rate.text));
+          return Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(sheet).bottom),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(te ? 'కాలిక్యులేటర్ బిల్లు' : 'Calculator bill',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: askodoxStepInk)),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView(shrinkWrap: true, children: [
+                  for (var i = 0; i < rows.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(children: [
+                        Expanded(
+                          flex: 5,
+                          child: TextField(
+                            key: Key('askodoxBillCalcName-$i'),
+                            controller: rows[i].name,
+                            decoration: InputDecoration(isDense: true, border: const OutlineInputBorder(), labelText: te ? 'పేరు' : 'Name'),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            key: Key('askodoxBillCalcQty-$i'),
+                            controller: rows[i].qty,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setInner(() {}),
+                            decoration: InputDecoration(isDense: true, border: const OutlineInputBorder(), labelText: te ? 'సంఖ్య' : 'Qty'),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            key: Key('askodoxBillCalcRate-$i'),
+                            controller: rows[i].rate,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setInner(() {}),
+                            decoration: InputDecoration(isDense: true, border: const OutlineInputBorder(), labelText: te ? 'రేటు ₹' : 'Rate ₹'),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 64,
+                          child: Text(askodoxStepRupees(askodoxCalcRowPaise(rows[i].qty.text, rows[i].rate.text)),
+                              key: Key('askodoxBillCalcAmount-$i'),
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: askodoxStepGreenDark)),
+                        ),
+                      ]),
+                    ),
+                ]),
+              ),
+              Row(children: [
+                TextButton.icon(
+                  key: const Key('askodoxBillCalcAddRow'),
+                  onPressed: () => setInner(() => rows.add(_CalcRow())),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(te ? 'వరుస చేర్చు' : 'Add a row'),
+                ),
+                const Spacer(),
+                Text(askodoxStepRupees(total),
+                    key: const Key('askodoxBillCalcTotal'),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: askodoxStepInk)),
+              ]),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 52,
+                child: FilledButton(
+                  key: const Key('askodoxBillCalcOk'),
+                  style: FilledButton.styleFrom(backgroundColor: askodoxStepGreen),
+                  onPressed: total <= 0
+                      ? null
+                      : () {
+                          final lines = <_Extra>[];
+                          for (final r in rows) {
+                            final paise = askodoxCalcRowPaise(r.qty.text, r.rate.text);
+                            if (paise <= 0) continue;
+                            final name = r.name.text.trim();
+                            lines.add(_Extra(name.isEmpty ? (te ? 'ఐటమ్' : 'Item') : name, paise,
+                                qtyMilli: askodoxParseQtyMilli(r.qty.text) ?? 0,
+                                ratePaise: askodoxCalcRatePaise(r.rate.text)));
+                          }
+                          Navigator.of(sheet).pop(lines);
+                        },
+                  child: Text(te ? 'బిల్లులో చేర్చు' : 'Add to the bill', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ]),
+          );
+        },
+      ),
+    );
+    for (final r in rows) {
+      r.dispose();
+    }
+    if (out == null || out.isEmpty || !mounted) return;
+    setState(() {
+      _extras.addAll(out);
+      _txn = askodoxNewTxnId();
+    });
+  }
+
   void _newBill() {
     setState(() {
       _qty.clear();
@@ -566,6 +701,8 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
     return [
       AskodoxStepMore('askodoxBillStepsFull', te ? 'పూర్తి బిల్లు పేజీ (GST, అడ్వాన్స్, మార్పు)' : 'Full bill page (GST, advance, edit)',
           Icons.receipt_long_rounded, () => context.push('/me/business/$id/bill?full=1')),
+      AskodoxStepMore('askodoxBillStepsCalc', te ? 'కాలిక్యులేటర్ బిల్లు (సంఖ్య × రేటు)' : 'Calculator bill (qty × rate)',
+          Icons.calculate_rounded, _calculator),
       AskodoxStepMore('askodoxBillStepsHistory', te ? 'బిల్లుల చరిత్ర' : 'Bill history', Icons.history_rounded,
           () => context.push('/biz/$id/money/history')),
       AskodoxStepMore('askodoxBillStepsItems', te ? 'ఐటమ్స్ చేర్చు / మార్చు' : 'Add / change items', Icons.list_alt_rounded,
@@ -640,6 +777,18 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
             icon: const Icon(Icons.add_box_rounded),
             label: Text(te ? 'ఐటమ్స్ చేర్చితే ఇక్కడ బొమ్మలుగా వస్తాయి' : 'Add items and they show here as tiles'),
           ),
+        if (_extras.isNotEmpty)
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            for (var i = 0; i < _extras.length; i++)
+              InputChip(
+                key: Key('askodoxBillExtraChip-$i'),
+                label: Text('${_extras[i].name} ${askodoxStepRupees(_extras[i].paise)}'),
+                onDeleted: () => setState(() {
+                  _extras.removeAt(i);
+                  _txn = askodoxNewTxnId();
+                }),
+              ),
+          ]),
         AskodoxStepAmountPad(value: _typed, onChanged: (v) => setState(() {
               _typed = v;
               _txn = askodoxNewTxnId();
