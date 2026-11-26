@@ -95,6 +95,33 @@ class AskodoxPaymentAlertsBridge {
   Future<void> setVoiceKinds(Map<String, bool> kinds, {required bool personal}) =>
       _call('setVoiceKinds', {'scope': personal ? 'personal' : 'shop', 'kinds': jsonEncode(kinds)});
 
+  /// Same as [setVoiceKinds] but tells the screen whether the phone really kept the choice (pilot finding 2026-11-26:
+  /// a refused save used to look saved). Off a phone there is nothing to keep, so that counts as saved.
+  Future<bool> saveVoiceKinds(Map<String, bool> kinds, {required bool personal}) async {
+    try {
+      await _ch.invokeMethod<Object?>('setVoiceKinds', {'scope': personal ? 'personal' : 'shop', 'kinds': jsonEncode(kinds)});
+      return true;
+    } on MissingPluginException {
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Same as [voiceKinds] but null when the phone could not read the saved choice (so the screen can say so
+  /// instead of showing the defaults as if they were saved).
+  Future<Map<String, bool>?> readVoiceKinds({required bool personal}) async {
+    try {
+      final out = await _ch.invokeMethod<String>('voiceKinds', {'scope': personal ? 'personal' : 'shop'});
+      final j = jsonDecode(out ?? '{}');
+      return j is Map ? {for (final e in j.entries) '${e.key}': e.value == true} : <String, bool>{};
+    } on MissingPluginException {
+      return <String, bool>{};
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Says the example of one kind with the same words and voice a real message gets.
   Future<void> speakKind(String kind, {required bool personal, String? language}) =>
       _call('speakKind', {'kind': kind, 'scope': personal ? 'personal' : 'shop', if (language != null) 'language': language});

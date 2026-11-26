@@ -1,0 +1,49 @@
+name: Web build preview
+
+# Owner 2026-11-26: a runnable build of the app for persona / UI testing (agents tap through it in a browser).
+# Manual only. Builds `flutter build web`, uploads the zip as an artifact and as a public release asset
+# (releases/download/web-preview-<run>/askodox-web-<run>.zip), so a test run can fetch it without a login.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: 3.47.9
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use pinned Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build web
+        run: flutter build web --release --dart-define=API_BASE_URL="${API_BASE_URL}"
+
+      - name: Zip
+        run: cd build/web && zip -qr "../../askodox-web-${GITHUB_RUN_NUMBER}.zip" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: askodox-web
+          path: askodox-web-${{ github.run_number }}.zip
+
+      - name: Public release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "web-preview-${GITHUB_RUN_NUMBER}" "askodox-web-${GITHUB_RUN_NUMBER}.zip" \
+            --prerelease --title "Web preview ${GITHUB_RUN_NUMBER}" --notes "Test build only (flutter build web)."
