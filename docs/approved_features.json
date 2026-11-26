@@ -13149,6 +13149,57 @@
           "AskodoxAskSheet"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/real-cost/compare",
+          "response_keys": [
+            "options",
+            "best",
+            "best_total",
+            "saves_vs_next",
+            "money_decides",
+            "sticker_winner_differs",
+            "nearest",
+            "assumed",
+            "estimate",
+            "summary"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "A near-vs-far or pickup-vs-delivery choice gets ONE total per option (price + delivery fee + the trip: fuel or fare there and back, people, meals, extras, hours); the best is the lowest total, with the real rupee difference, the break-even (how much cheaper the far price must be) and a note when the lowest sticker price is not the best total; totals within about 3 percent (or Rs 50) say the money does not decide and favour the nearer one. Figures the person gave win; the rest are labelled estimates (DEFAULT_ASSUMPTIONS). The chat brain applies the same rule (FRIEND_REASONING_RULES way 8) with the same numbers, category-free.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: real-cost reasoning (travel, petrol, people, meals, extras, time) in the friend reasoning rules + POST /api/real-cost/compare; NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ],
+      "id": "real_cost_reasoning",
+      "name": "Real cost of a choice (near vs far, pickup vs delivery)",
+      "purpose": "Owner 2026-11-26: a cheaper price far away is only cheaper after the trip is paid (petrol, two people, meals, extras, time); the same for pickup against delivery. The answer must show the real total and which option wins.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_real_cost.py",
+          "tests/test_friend_reasoning.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [],
+        "symbols": []
+      }
     }
   ]
 }
