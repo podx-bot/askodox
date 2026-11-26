@@ -13225,7 +13225,18 @@
         "symbols": [
           "AskodoxStepPersonRow"
         ]
-      }
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The customer's menu (order desk) shows each item's own photo first. A 'Try it' button (existing photo try-on screen) appears only on items that have a photo, in a shop whose Business Kit offers try-on (on_me or in_home); other shops show photos but no button. A failed kit lookup means not offered.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ]
     }
   ]
 }
