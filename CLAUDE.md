@@ -7,6 +7,13 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #519 + #520 (2026-11-26, owner "1"; server deploy of c6f998b SUCCESS; Play bundle `askodox-play-1721.aab` = Live Build
+  run 721 on c6f998b, holds everything on main): (#519) SWITCH NAMES "My | Biz" -- one place `lib/core/ui/mode_names.dart` (switch,
+  header chip, state line Personal / Business = వ్యక్తిగతం / వ్యాపారం, semantics, guide texts); keys / routes unchanged. (#520) server
+  only: ASKODOX's own YouTube channel connect + Studio upload, `/meta/oauth/start?dm=1` messaging scopes, no built-in WhatsApp webhook
+  verify token, website privacy policy YouTube / Facebook / Instagram section (see the gotcha below). NOT done: real Google / Meta
+  test (needs `YOUTUBE_OAUTH_CLIENT_ID` / `_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` on Railway), app size work (WebP scenes, unused
+  assets, size guard). Owner guide: https://claude.ai/artifact/HbPxSjjYhHBwYo79NinMwk. Nothing phone verified.
 - `main` PR #516 + #518 (2026-11-26, owner "1"; server deploy SUCCESS; Play bundle `askodox-play-1719.aab` = Live Build run 719 on 3de29f8; NOT in any bundle yet: #502, #503, the app side of #496): GUIDE JOURNEY -- onboarding `_pre` stages (location, 23 language boxes, helper intro, terms scroll-to-accept) before the unchanged `_step` flow; `guide_session.py` + `routes/guide_session.py` (`/api/me/guide-session*`, adaptive questions, facts only with consent, `plan(minutes)`, pause / resume, delete, `/api/me/guide-reminders`, `/api/me/feature-requests` + console view `featurerequests`); app `/guide-session` (`lib/features/guide_session/`), reminder chips above the chat (`AskodoxGuideReminderChips`, flag `askodoxGuideReminderChip` on in `main()`). NOT built: auto page arrangement after the session, voice of the helper on the intro, notify-when-done push route. Nothing phone verified.
 - `main` PR #495 + #498 + #502 + #503 + #504 (2026-11-26, owner "1" / "merge the pending ones, no Play link now"; Play bundle
   `askodox-play-1708.aab` = Live Build run 708 on fa4260c holds #495 + #498 + chat speed #496 / #500 ONLY -- #502 / #503 need a new build):
