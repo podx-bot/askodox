@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/ui/ui_switches.dart';
 import '../../home/presentation/question_mic.dart';
 import '../domain/step_logic.dart';
 
@@ -228,7 +229,7 @@ class AskodoxStepBottom extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),
       child: Row(children: [
-        if (onSpoken != null) ...[
+        if (onSpoken != null && askodoxPageMicsOn) ...[
           Container(
             key: const Key('askodoxStepMic'),
             width: 58,

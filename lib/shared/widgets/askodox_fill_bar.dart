@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ui/ui_switches.dart';
 import '../../features/home/presentation/question_mic.dart';
 import '../../features/pos/data/pos_repository.dart';
 
@@ -77,6 +78,7 @@ class _AskodoxFillBarState extends ConsumerState<AskodoxFillBar> {
 
   @override
   Widget build(BuildContext context) {
+    if (!askodoxPageMicsOn) return const SizedBox.shrink(); // owner 2026-11-26: no mics inside pages
     final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Material(

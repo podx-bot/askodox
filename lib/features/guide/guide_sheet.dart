@@ -370,7 +370,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                     ),
                   ),
                 ),
-                AskodoxQuestionMic(lang: te ? 'te' : 'en', onText: (text) => _askNow(text)),
+                AskodoxQuestionMic(lang: te ? 'te' : 'en', always: true, onText: (text) => _askNow(text)),
                 IconButton(
                   key: const Key('askodoxGuideAskGo'),
                   onPressed: _asking ? null : () => _askNow(),

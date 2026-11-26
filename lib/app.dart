@@ -15,6 +15,7 @@ import 'l10n_generated/app_localizations.dart';
 import 'shared/widgets/connectivity_banner.dart';
 import 'features/guide/in_app_guide.dart';
 import 'core/diagnostics/test_mode.dart';
+import 'features/guide/ask_everywhere.dart';
 import 'features/guide/screen_help_button.dart';
 
 Locale askodoxUiLocale(Locale? requested, Iterable<Locale> supportedLocales) {
@@ -71,10 +72,13 @@ class PodxApp extends ConsumerWidget {
               child: AskodoxGuideOverlay(
                   router: ref.watch(appRouterProvider),
                   // The guide button on every screen: one press = what to do here. Hidden for now (owner 2026-11-14).
-                  child: askodoxGuideButtonOn
-                      ? AskodoxScreenHelpLayer(
-                          router: ref.watch(appRouterProvider), child: child ?? const SizedBox.shrink())
-                      : (child ?? const SizedBox.shrink())))),
+                  // ONE Ask button on every page outside the bottom bar (owner 2026-11-26; on only in the real app).
+                  child: AskodoxAskLayer(
+                      router: ref.watch(appRouterProvider),
+                      child: askodoxGuideButtonOn
+                          ? AskodoxScreenHelpLayer(
+                              router: ref.watch(appRouterProvider), child: child ?? const SizedBox.shrink())
+                          : (child ?? const SizedBox.shrink()))))),
         ),
       ),
     );

@@ -22,7 +22,7 @@ import 'features/home/presentation/askodox_primary_home_screen.dart' show askodo
 import 'services/in_app_assistant_service.dart' show askodoxAutoOpenAppActions;
 import 'features/location/application/location_controller.dart' show LocationController;
 import 'features/pos/data/pos_payment_alerts.dart' show askodoxAutoJoinStaffVoices;
-import 'features/guide/guide_switch.dart' show askodoxGuideIntroEnabled;
+import 'core/ui/ui_switches.dart';
 import 'config/router/app_router.dart' show appRouterProvider;
 import 'features/shops/domain/shop_link_install.dart';
 
@@ -31,7 +31,8 @@ void main() {
   AskodoxStartupMetrics.markMain();
   askodoxLiveOrderChip = true; // running orders sit above the chat by themselves
   askodoxSpeakTypedReplies = true; // owner 2026-11-19: text + voice on every reply
-  askodoxGuideIntroEnabled = true; // owner 2026-11-23: the guide switch is explained once on the first open
+  // Owner 2026-11-26: no guide chip / intro, no mics inside pages, ONE Ask button on every page (one place: ui_switches).
+  askodoxApplyOwnerUi();
   askodoxAutoOpenAppActions = true; // owner 2026-11-20: a named screen opens at once, no extra tap
   LocationController.askOnStart = true; // owner 2026-11-20: first open asks Allow, the town names itself
   askodoxAutoJoinStaffVoices = true; // owner 2026-11-20: staff phones hear their shop's payments, no setup

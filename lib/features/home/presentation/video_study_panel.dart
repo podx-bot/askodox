@@ -271,6 +271,7 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
         ),
         // Speak the question here: the mic records INTO this video's Q&A.
         AskodoxQuestionMic(
+          always: true, // a chat about this video, not a page mic
           lang: lang,
           onText: (words) {
             _question.text = words;

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/ui/ui_switches.dart';
+
 /// Owner 2026-11-23: the guide is the user's own ON / OFF switch (like the Buy / Sell switch). OFF = the guide says
 /// and lights up nothing. ON = when the person stops on a screen for [askodoxGuideIdle] without touching anything, the
 /// guide lights the next button and says what to do. A one-time card explains the switch on the first app open; the
@@ -32,7 +34,8 @@ class AskodoxGuideSwitch extends StateNotifier<bool> {
   Future<void> _load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final on = prefs.getBool(askodoxGuideOnPrefsKey) ?? false;
+      // No chip to turn it off with (owner 2026-11-26) = the guide never starts by itself, whatever was saved.
+      final on = askodoxGuideSwitchOn && (prefs.getBool(askodoxGuideOnPrefsKey) ?? false);
       _loaded = true;
       if (mounted) state = on;
     } catch (_) {
@@ -104,6 +107,7 @@ class AskodoxGuideChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!askodoxGuideSwitchOn) return const SizedBox.shrink(); // owner 2026-11-26: no guide chip anywhere
     final on = ref.watch(askodoxGuideOnProvider);
     final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
     final label = on ? (te ? 'గైడ్ ఆన్' : 'Guide on') : (te ? 'గైడ్ ఆఫ్' : 'Guide off');
