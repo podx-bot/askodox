@@ -205,6 +205,41 @@ def blocked_item(item_name: str) -> bool:
     return any(b in words for b in _BLOCKED_WEAR)
 
 
+def brand_strip(data: bytes, mime_type: str) -> bytes:
+    """Owner 2026-11-26: every try-on picture carries ASKODOX at the bottom (it is saved / shared from the phone, so the
+    name travels with it). A strip is ADDED under the picture -- nothing of the picture is covered. Any problem = the
+    picture as it came (never a failed try-on because of the strip)."""
+    try:
+        import io
+
+        from PIL import Image, ImageDraw, ImageFont
+
+        picture = Image.open(io.BytesIO(data)).convert("RGB")
+        width, height = picture.size
+        if width < 120 or height < 120:
+            return data
+        strip = max(28, height // 16)
+        out = Image.new("RGB", (width, height + strip), (20, 28, 60))
+        out.paste(picture, (0, 0))
+        draw = ImageDraw.Draw(out)
+        try:
+            font = ImageFont.load_default(size=int(strip * 0.52))
+        except TypeError:  # an older Pillow: its one small built-in font
+            font = ImageFont.load_default()
+        text = "ASKODOX  ·  AI try-on"
+        box = draw.textbbox((0, 0), text, font=font)
+        draw.text(((width - (box[2] - box[0])) // 2, height + (strip - (box[3] - box[1])) // 2 - box[1]), text,
+                  fill=(255, 255, 255), font=font)
+        buffer = io.BytesIO()
+        if "png" in (mime_type or "").lower():
+            out.save(buffer, format="PNG")
+        else:
+            out.save(buffer, format="JPEG", quality=92)
+        return buffer.getvalue()
+    except Exception:  # noqa: BLE001
+        return data
+
+
 @router.post("/try-on")
 async def try_on(payload: TryOnRequest, request: Request) -> dict:
     """Your photo (or your room's) + the item's photo -> how it looks. Never stored; labelled as an AI picture."""
@@ -256,6 +291,7 @@ async def try_on(payload: TryOnRequest, request: Request) -> dict:
         return _no("provider_failed", "The picture could not be made this time. Please try again.", detail=reason)
     _finish(container, use_id, "ok", model=result.model)
     return {"ok": True, "kind": "try_on", "mode": payload.mode, "mime_type": result.mime_type, "model": result.model,
-            "image_base64": base64.b64encode(result.data).decode("ascii"), "label": TRY_ON_LABEL[lang],
+            "image_base64": base64.b64encode(brand_strip(result.data, result.mime_type)).decode("ascii"),
+            "label": TRY_ON_LABEL[lang],
             "daily_limit": daily_cap, "used_today": used + 1,
             "charged_paise": int(charge.get("paise") or 0) if charge.get("charged") else 0}
