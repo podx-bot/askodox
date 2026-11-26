@@ -10,8 +10,8 @@ import 'package:podx/features/money_home/money_home_store.dart';
 import 'package:podx/shared/widgets/chat_pins.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false, String section = 'money'}) async {
-  tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
+Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false, String section = 'money', double height = 2340}) async {
+  tester.view.physicalSize = Size(1080, height); // 360 x 780 dp phone (taller for the long Payment voice sheet)
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
   final container = ProviderContainer();
@@ -227,7 +227,7 @@ void main() {
   });
 
   testWidgets('Payment voice folder: 11 kinds on my phone, tap = on / off, fake warning locked on', (tester) async {
-    await _pump(tester);
+    await _pump(tester, height: 6000);
     await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-b.voice')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPaymentVoiceSheet')), findsOneWidget);
@@ -270,7 +270,7 @@ void main() {
   });
 
   testWidgets('Payment voice folder: ASKODOX lines are all on by default and each can be switched off', (tester) async {
-    await _pump(tester);
+    await _pump(tester, height: 6000);
     await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-b.voice')));
     await tester.pumpAndSettle();
     await _openVoiceMore(tester);
