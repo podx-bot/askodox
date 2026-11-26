@@ -7,6 +7,23 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- `main` PR #497 (2026-11-26, owner "1" = build, then "1 merge, no link now"; NO Play bundle yet -- newest is still 1703, the app side
+  needs a new build): (A) AI PLAN -- `ai_credits.py` `PLAN_DEFAULTS` (settings `plan`): Rs 10 free per INDIA day (ledger mode `free`, never a
+  balance; `daily_free_days` 0 = for ever), a use takes the free part first then the pack (`usefree:` row for a use paid from both), first
+  recharge +`first_bonus_pct` (100 = double, once; refund takes it back, never a second double), first recharge of a day +`daily_bonus_pct`
+  (`bonus:` rows), `friend_joined` refill once a day (hooked in `redeem_referral_safely`), `status()` = percent bars + pace + bonus,
+  `plan_estimate()`; GET `/api/me/ai-credits` `status`, GET `/admin/cc/ai-credits/plan`, console card `acPlanCard`. App `AskodoxAiBarsCard`
+  (shown only when charging is ON; rupees only in the recharge part). Works only once staff turn charging ON with rates (still OFF in
+  production). Play builds keep the recharge part hidden (Play payments policy); Play billing NOT built. Older ledger tests pass
+  `plan` zeros. (B) PHONE HEALTH -- `phone_health.py` + POST `/api/me/phone-health/report` (`consent` true each time, fixed `CHECKS` only),
+  console view `phonereports`; app `/phone-health` (`lib/features/phone_health/`, ☰ `askodoxMenu-phone`): own settings only from the
+  payment-alerts `status`, maker families `askodoxPhoneFamily` + `askodoxBatterySteps` / `askodoxAutostartSteps`; no Kotlin change, no
+  Accessibility. Not built: opening by itself when payment voice fails / setup stalls. (C) AUTOMATIONS -- `automations.py` +
+  `routes/automations.py` (drafts only; `automation_dismissals` = వద్దు / ఇక చూపించకు; settings `automation.*` in `SETTING_BOUNDS`): habit
+  (`/api/automations/buyer`, chip `askodoxOneTouch-habit`), bill reminder = app `askodoxAutoBillDues` into the native `dues` (needs My
+  phone alerts on), low stock -> DRAFT PO + win-back list (`/api/pos/businesses/{id}/automations`, app `/pos/:id/automations`, chip
+  `askodoxOneTouch-noticed`), console view `automations` (call list + staff-pressed help push, once per 7 days a shop), AI cost guard
+  (periodic job `ai_cost_guard`, warns only; budget 0 = off). Backend 2029 pass. Nothing phone verified.
 - `main` PR #493 (2026-11-26, owner "1"; Play bundle `askodox-play-1703.aab` = Live Build run 703 on 8c64a7a): PAYMENT VOICE -- (1) a late
   app notification of money the person SENT joins the bank's message up to 24 h, any order, unless names clash (`PaymentAlertParser.
   ownMoneyLate`, `OWN_OUT_LATE_MS`; owner: Rs 6,500 SMS 14:03, PhonePe 22:10 spoken again). (2) BANK ALERT E-MAIL = 3rd source: mail
