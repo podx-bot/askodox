@@ -13227,7 +13227,18 @@
           "askodoxCalcRowPaise",
           "askodoxCalcRatePaise"
         ]
-      }
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Make a bill menu has a calculator: rows of name, quantity x rate with the row amount and a running total; 'Add to the bill' adds each row as a real line (qty_milli + rate_paise) into the same bill, which is then paid, shared and printed by the normal steps. Rows can be removed before billing; nothing is billed by the calculator itself.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ]
     }
   ]
 }

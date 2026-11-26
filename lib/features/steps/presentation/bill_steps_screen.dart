@@ -108,6 +108,9 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
   @override
   void dispose() {
     _search.dispose();
+    for (final r in _calcRows) {
+      r.dispose();
+    }
     super.dispose();
   }
 
@@ -564,6 +567,8 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
 
   /// Calculator bill (owner 2026-11-26): rows of name + quantity x rate with a running total, added to THIS bill; the
   /// way of paying, WhatsApp share and print are the same steps 2-3 as every other bill.
+  final List<_CalcRow> _calcRows = [];
+
   Future<void> _calculator() async {
     final rows = <_CalcRow>[_CalcRow()];
     final out = await showModalBottomSheet<List<_Extra>>(
@@ -667,9 +672,9 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
         },
       ),
     );
-    for (final r in rows) {
-      r.dispose();
-    }
+    // The sheet is still animating out here: disposing now breaks its last frame.
+    // The controllers are disposed with the page instead.
+    _calcRows.addAll(rows);
     if (out == null || out.isEmpty || !mounted) return;
     setState(() {
       _extras.addAll(out);
