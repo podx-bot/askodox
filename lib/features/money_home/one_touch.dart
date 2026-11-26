@@ -125,6 +125,69 @@ void _ask(WidgetRef ref, BuildContext context, String text) {
   context.go('/');
 }
 
+/// Automation 1 (owner 2026-11-25): "same again?" -- the server's habit card for TODAY (the same shop on this weekday
+/// three times), turned into the same order-desk link as "again the same". Null = no habit today / not signed in.
+({String route, String shop, String ref, int times})? askodoxHabitOf(List<AskodoxJson> cards) {
+  for (final c in cards) {
+    if ('${c['kind']}' != 'habit' || c['order'] is! Map) continue;
+    final again = askodoxReorderOf([askodoxPosMap(c['order'])]);
+    if (again == null) continue;
+    return (route: again.route, shop: again.shop, ref: '${c['ref'] ?? ''}', times: (c['times'] as num?)?.toInt() ?? 0);
+  }
+  return null;
+}
+
+final askodoxHabitProvider = FutureProvider.autoDispose((ref) async {
+  try {
+    return askodoxHabitOf(await ref.watch(askodoxPosRepositoryProvider).buyerAutomations());
+  } catch (_) {
+    return null; // not signed in / offline / an older server: simply no card
+  }
+});
+
+/// The habit chip's sheet: open the same cart, not today ("వద్దు"), or never again for this shop ("ఇక చూపించకు").
+Future<void> _habitSheet(BuildContext context, WidgetRef ref, ({String route, String shop, String ref, int times}) habit,
+    bool te) async {
+  final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(
+                title: Text(te ? '${habit.shop}: ఈ రోజు మళ్ళీ అదే?' : '${habit.shop}: the same again today?',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(te
+                    ? 'ఈ వారం రోజున ${habit.times} సార్లు ఇక్కడే తీసుకున్నారు. Cart తెరుస్తాం, మొత్తం చూసి మీరే పంపాలి.'
+                    : 'You ordered here ${habit.times} times on this weekday. The cart opens; you check the total and send.'),
+              ),
+              ListTile(
+                  key: const Key('askodoxHabitYes'),
+                  leading: const Icon(Icons.replay_rounded),
+                  title: Text(te ? 'మళ్ళీ అదే' : 'Same again'),
+                  onTap: () => Navigator.of(sheet).pop('yes')),
+              ListTile(
+                  key: const Key('askodoxHabitNotNow'),
+                  leading: const Icon(Icons.close_rounded),
+                  title: Text(te ? 'వద్దు' : 'Not today'),
+                  onTap: () => Navigator.of(sheet).pop('no')),
+              ListTile(
+                  key: const Key('askodoxHabitNever'),
+                  leading: const Icon(Icons.visibility_off_outlined),
+                  title: Text(te ? 'ఇక చూపించకు' : 'Do not show again'),
+                  onTap: () => Navigator.of(sheet).pop('never')),
+            ]),
+          ));
+  if (choice == null || !context.mounted) return;
+  if (choice == 'yes') {
+    unawaited(context.push(habit.route));
+    return;
+  }
+  try {
+    await ref.read(askodoxPosRepositoryProvider).automationDismiss('habit', habit.ref, forever: choice == 'never');
+  } catch (_) {}
+  ref.invalidate(askodoxHabitProvider);
+}
+
 final askodoxReorderProvider = FutureProvider.autoDispose((ref) async {
   try {
     return askodoxReorderOf(await ref.watch(askodoxPosRepositoryProvider).deskMine());
@@ -142,7 +205,11 @@ class AskodoxBuyerOneTouch extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final te = Localizations.localeOf(context).languageCode == 'te';
     final again = signedIn ? ref.watch(askodoxReorderProvider).valueOrNull : null;
+    final habit = signedIn ? ref.watch(askodoxHabitProvider).valueOrNull : null;
     return _strip([
+      if (habit != null)
+        _Touch('askodoxOneTouch-habit', te ? 'ఈ రోజు మళ్ళీ ${habit.shop}?' : '${habit.shop} again today?',
+            Icons.event_repeat_rounded, const Color(0xFF0B6B52), () => unawaited(_habitSheet(context, ref, habit, te))),
       if (again != null)
         _Touch('askodoxOneTouch-again', te ? 'మళ్ళీ అదే · ${again.shop}' : 'Same again · ${again.shop}', Icons.replay_rounded,
             const Color(0xFF0B6B52), () => context.push(again.route)),
@@ -234,6 +301,9 @@ class _AskodoxSellerOneTouchState extends ConsumerState<AskodoxSellerOneTouch> {
       if (may('collect') || may('customers'))
         _Touch('askodoxOneTouch-dues', te ? 'బాకీ గుర్తు' : 'Baaki reminders', Icons.notifications_active_rounded, const Color(0xFFB45309),
             () => go('/pos/$_id/dues')),
+      if (may('purchases') || may('customers'))
+        _Touch('askodoxOneTouch-noticed', te ? 'ASKODOX గమనించింది' : 'ASKODOX noticed', Icons.auto_awesome_rounded,
+            const Color(0xFF0D9488), () => go('/pos/$_id/automations')),
       if (owner)
         _Touch('askodoxOneTouch-offer', te ? 'ఫ్లాష్ ఆఫర్' : 'Flash offer', Icons.local_offer_rounded, const Color(0xFFC2410C),
             () => go('/notices/new')),
@@ -252,6 +322,7 @@ class _AskodoxSellerOneTouchState extends ConsumerState<AskodoxSellerOneTouch> {
         'askodoxOneTouch-stock' => '/desk/$_id/menu',
         'askodoxOneTouch-dues' => '/pos/$_id/dues',
         'askodoxOneTouch-prices' => '/pos/$_id/prices',
+        'askodoxOneTouch-noticed' => '/pos/$_id/automations',
         'askodoxOneTouch-offer' => '/notices/new',
         'askodoxOneTouch-share' => '/pos/$_id/link',
         _ => '/',

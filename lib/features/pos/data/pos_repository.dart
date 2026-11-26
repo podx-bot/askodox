@@ -216,6 +216,15 @@ class AskodoxPosRepository {
       askodoxPosList((await _send('GET', '${_b(biz)}/reservations'))['reservations']);
   Future<AskodoxJson> shopReservationStatus(String biz, String id, String status) =>
       _send('POST', '${_b(biz)}/reservations/$id/status', body: {'status': status});
+  // Automations (owner 2026-11-26): what ASKODOX noticed. Drafts only -- nothing here orders, pays or messages.
+  Future<List<AskodoxJson>> buyerAutomations() async => askodoxPosList((await _send('GET', '/api/automations/buyer'))['cards']);
+  Future<AskodoxJson> shopAutomations(String biz) => _send('GET', '${_b(biz)}/automations');
+  Future<AskodoxJson> lowStockDraft(String biz, String supplierId) =>
+      _send('POST', '${_b(biz)}/automations/low-stock/draft', body: {'supplier_id': supplierId});
+  Future<AskodoxJson> automationDismiss(String kind, String ref, {bool forever = false}) =>
+      _send('POST', '/api/automations/dismiss', body: {'kind': kind, 'ref': ref, 'forever': forever});
+  /// Phone health: sent only after the person pressed "పంపు" for this report (`consent` true in the body).
+  Future<AskodoxJson> phoneHealthReport(AskodoxJson body) => _send('POST', '/api/me/phone-health/report', body: body);
   Future<List<AskodoxJson>> deskMine() async => askodoxPosList((await _send('GET', '/api/pos/order-desk/mine'))['orders']);
   Future<AskodoxJson> deskMineOne(String id) => _send('GET', '/api/pos/order-desk/mine/$id');
   /// The customer's choice: 'cash' (pay at the counter / table) or 'online' (the shop's own UPI).

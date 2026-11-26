@@ -58,6 +58,7 @@ import '../../steps/presentation/people_steps_screens.dart';
 import '../../steps/presentation/report_steps_screens.dart';
 import '../../steps/presentation/shop_chooser_steps_screen.dart';
 import '../../steps/presentation/table_order_steps_screen.dart';
+import '../../automations/shop_automations_screen.dart';
 import 'branches_screen.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
@@ -345,6 +346,9 @@ final askodoxPosRoutes = <GoRoute>[
   // Owner 2026-11-22: the shop's one free public page askodox.com/s/<name> (3 steps; only the owner makes it).
   GoRoute(path: '/pos/:id/link', builder: (context, state) => AskodoxShopLinkStepsScreen(businessId: state.pathParameters['id']!)),
   // Owner 2026-11-25 ("ఒక్క టచ్" leftovers): change many prices at once (3 steps), and the family shopping list.
+  GoRoute(
+      path: '/pos/:id/automations',
+      builder: (context, state) => AskodoxShopAutomationsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/prices', builder: (context, state) => AskodoxBulkPriceStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/me/family-list', builder: (context, state) => const AskodoxFamilyListScreen()),
   GoRoute(

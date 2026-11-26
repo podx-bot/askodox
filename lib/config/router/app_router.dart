@@ -60,6 +60,7 @@ import '../../features/companion/companion_performance_panel.dart';
 import '../../features/companion/companion_vrm_engine.dart';
 import '../../features/companion/screen_guide.dart';
 import '../../core/startup/startup_hint.dart';
+import '../../features/phone_health/phone_health_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final session = ref.watch(authSessionProvider);
@@ -255,6 +256,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/privacy',
           builder: (context, state) => const PrivacyCenterScreen()),
+      GoRoute(
+          path: '/phone-health',
+          builder: (context, state) => AskodoxPhoneHealthScreen(why: state.uri.queryParameters['why'] ?? 'user_asked')),
       GoRoute(
           path: '/me/ideas',
           builder: (context, state) => AskodoxIdeasScreen(about: state.uri.queryParameters['about'] ?? '')),

@@ -231,6 +231,8 @@ class AskodoxMenuBox extends ConsumerWidget {
       // care in the chat (the website "report a problem" page is gone from here).
       ('askodoxMenu-ideas', Icons.lightbulb_outline, te ? 'సలహాలు & సూచనలు' : 'Ideas & suggestions', '/me/ideas'),
       ('askodoxMenu-care', Icons.support_agent_rounded, te ? 'కస్టమర్ కేర్' : 'Customer care', askodoxCareMenuValue),
+      // Owner 2026-11-26: the phone's own settings that stop payment voice / notifications, checked and fixed here.
+      ('askodoxMenu-phone', Icons.health_and_safety_outlined, te ? 'ఫోన్ ఆరోగ్యం' : 'Phone health', '/phone-health'),
       if (askodoxGuidesOn)
         ('askodoxMenu-guide', Icons.assistant_navigation, te ? 'స్క్రీన్ గైడ్' : 'Screen Guide', askodoxGuideMenuValue),
       // Phase 2 places, each on its own side.

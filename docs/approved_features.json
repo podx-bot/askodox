@@ -12924,6 +12924,180 @@
           "askodoxBulkValueOk"
         ]
       }
+    },
+    {
+      "id": "ai_plan_daily_free_recharge_extras",
+      "name": "AI plan: Rs 10 free a day, first recharge double, daily 10% extra, percent bars",
+      "purpose": "Owner 2026-11-26 (design 56PnG1xhJvNEbG8q3PGE1d boards 3-4 + Command Center AI): people get used to ASKODOX AI free every day; paying is pay-as-you-go with no limit.",
+      "roles": [
+        "buyer",
+        "seller",
+        "staff (Command Center)"
+      ],
+      "status": "approved",
+      "domains": [
+        "ai",
+        "billing"
+      ],
+      "expected_behavior": "Every signed-in person gets plan.daily_free_paise (Rs 10) of AI use each INDIA day, recharge or not; it ends at midnight IST and cannot be saved; plan.daily_free_days 0 / empty = for ever. A use takes the day's free part first, then the pack. The account's first recharge gets plan.first_bonus_pct (100 = double) once for ever; after that the first recharge of each India day gets plan.daily_bonus_pct (10) and later recharges that day are 1:1; a refund takes the extra back and never brings the double back. A friend joining (referral redeemed) refills the inviter's free part once a day. People who paid have no other limit. Payment voice, bill, dues and sales reports stay free for ever. The app shows two PERCENT bars (today's free, my pack) and a pace warning; rupees only in the recharge part, with 'today's extra is left / used'. Command Center AI Credits page has the AI plan card (every number editable) with a cost estimate.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/ai-credits"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/ai-credits/plan"
+        }
+      ],
+      "tests": {
+        "backend": [
+          "tests/test_ai_plan.py"
+        ],
+        "flutter": [
+          "test/features/plans/ai_credits_screen_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAiBars",
+          "askodoxAiBarFree",
+          "askodoxAiBarPack",
+          "askodoxAiBonusLine"
+        ],
+        "symbols": [
+          "AskodoxAiBarsCard",
+          "askodoxAiPaceWarning",
+          "askodoxAiBonusLine"
+        ]
+      }
+    },
+    {
+      "id": "phone_health_check_fix_report",
+      "name": "Phone health: check the app's own settings, fix on the maker's page, report only with consent",
+      "purpose": "Owner 2026-11-26 (design 56PnG1xhJvNEbG8q3PGE1d boards 1-2): payment voice stops because of phone settings; the app shows which one and where to fix it on that maker's phone.",
+      "roles": [
+        "buyer",
+        "seller",
+        "staff (Command Center)"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "/phone-health checks ONLY ASKODOX's own state (its notifications, battery limit, autostart page, payment-voice permission, voice) and shows for each problem the steps for that phone maker's settings (Samsung, Xiaomi / Redmi / Poco, Vivo / iQOO, Oppo, Realme, OnePlus, Motorola, Google, Nothing, Tecno / Infinix / itel, Huawei / Honor, Asus, Nokia, Lava; any other maker gets plain Android). It never reads other apps, messages or photos and never taps a setting itself (no Accessibility automation). A report is sent only when the person presses Send in the consent dialog, every time (consent true in that request); the server keeps only fixed check ids + states, maker, app build; staff see the number masked in Command Center 'Phone reports'; reports go with the account and after 90 days.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/me/phone-health/report"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/phone-reports"
+        }
+      ],
+      "tests": {
+        "backend": [
+          "tests/test_phone_health.py"
+        ],
+        "flutter": [
+          "test/features/phone_health/phone_health_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMenu-phone",
+          "askodoxPhoneHealthSend",
+          "askodoxPhoneHealthConsent"
+        ],
+        "symbols": [
+          "AskodoxPhoneHealthScreen",
+          "askodoxPhoneChecks",
+          "askodoxPhoneFixSteps",
+          "askodoxPhoneReport"
+        ]
+      }
+    },
+    {
+      "id": "automations_six_drafts_only",
+      "name": "Six automations: habit card, bill reminder, low-stock order draft, regulars not seen, stopped-shop help push, AI cost guard",
+      "purpose": "Owner 'Ok' 2026-11-25 on design UFxZdSJNjNKMMMneqhyT5t: ASKODOX notices things by itself so people do less work.",
+      "roles": [
+        "buyer",
+        "seller",
+        "staff (Command Center)"
+      ],
+      "status": "approved",
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Money and messages to customers are DRAFTS only: nothing is ordered, sent or paid until the person taps. Every card has 'వద్దు' (not now) and 'ఇక చూపించకు' (never again). (1) Buy page chip 'again today?' only after the same shop on the same weekday automation.habit_times (3) times and no order today; it opens the same cart at the total + Send. (2) A bill SMS with a due date is reminded by voice by itself 2 days before and on the day unless paid, dismissed or already in the person's list. (3) Sell page 'ASKODOX noticed': items at their low-stock mark grouped by the last supplier; 'order draft' makes a DRAFT purchase order, never sent. (4) Regular customers (3+ bills) with no bill for automation.winback_days (15): a list and an editable message draft that opens in WhatsApp for the owner to send. (5) Command Center call list of quiet / stopped shops + a staff-pressed help push to their owners, once per automation.stopped_push_gap_days (7). (6) AI cost guard: today's AI bill against automation.ai_cost_daily_inr warns staff at 80% and 100%, once each a day; it never cuts anyone's AI.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-26); NOT PHONE VERIFIED",
+          "date": "2026-11-26"
+        }
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/automations/buyer"
+        },
+        {
+          "method": "POST",
+          "path": "/api/automations/dismiss"
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/automations"
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/automations/low-stock/draft"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/cc/automations"
+        }
+      ],
+      "tests": {
+        "backend": [
+          "tests/test_automations.py"
+        ],
+        "flutter": [
+          "test/features/money_home/one_touch_test.dart",
+          "test/features/automations/shop_automations_test.dart",
+          "test/features/pos/money_ledger_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxOneTouch-habit",
+          "askodoxOneTouch-noticed",
+          "askodoxWinbackMessage"
+        ],
+        "symbols": [
+          "askodoxHabitOf",
+          "askodoxAutoBillDues",
+          "AskodoxShopAutomationsScreen",
+          "askodoxWinbackLink"
+        ]
+      }
     }
   ]
 }
