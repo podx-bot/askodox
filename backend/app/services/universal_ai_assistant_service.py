@@ -555,6 +555,28 @@ def is_small_talk(text: str) -> bool:
     return bool(clean) and len(clean) <= 24 and clean in _SMALL_TALK
 
 
+# The one short line said while a live search runs (owner 2026-11-26), in the reply language; a woman's voice speaks
+# every line (ONE app voice), so the forms are feminine where the language marks it. Unknown language -> English.
+HOLD_LINES = {
+    "te": "ఒక్క నిమిషం, చూస్తున్నాను.",
+    "hi": "एक मिनट, देख रही हूँ।",
+    "ta": "ஒரு நிமிடம், பார்க்கிறேன்.",
+    "kn": "ಒಂದು ನಿಮಿಷ, ನೋಡುತ್ತೇನೆ.",
+    "ml": "ഒരു നിമിഷം, നോക്കട്ടെ.",
+    "mr": "एक मिनिट, बघते.",
+    "bn": "এক মিনিট, দেখছি।",
+    "gu": "એક મિનિટ, જોઉં છું.",
+    "pa": "ਇੱਕ ਮਿੰਟ, ਵੇਖਦੀ ਹਾਂ।",
+    "or": "ଗୋଟିଏ ମିନିଟ୍, ଦେଖୁଛି।",
+    "ur": "ایک منٹ، دیکھتی ہوں۔",
+    "en": "One moment, let me check.",
+}
+
+
+def hold_line(locale: str) -> str:
+    return HOLD_LINES.get(str(locale or "").strip().lower().replace("_", "-").split("-")[0], HOLD_LINES["en"])
+
+
 class UniversalAIAssistantService:
     GENERAL_MARKER = "OASAT domain=GENERAL;"
     ALLOWED_DOMAINS = {
@@ -1626,6 +1648,11 @@ class UniversalAIAssistantService:
         if early is not None:
             grounding, grounding_block = None, ""
         else:
+            hold = getattr(on_text, "hold", None)
+            if hold is not None and not guide_early and (plan.get("search") or self._needs_lookup(clean)):
+                # Speed (owner 2026-11-26): a live search takes 1.5-3 s before the first word; the app says one short
+                # "let me check" line at once (never part of the answer, never kept in the chat).
+                hold(hold_line(locale))
             grounding, grounding_block = self._live_grounding(clean, compact_history, plan=plan)
         grounding_ms = int((time.monotonic() - started) * 1000)
         prompt, cache_upto = routing_prompt(grounding_block)

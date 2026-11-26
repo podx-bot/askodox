@@ -37,6 +37,9 @@ Add them up for one question: transcribe + first_ms + first VOICE SPEAK ms = wha
 8. A hard advice turn whose routing reply (reasoning model) is already a full answer (>= 400 chars, no
    attachment, no late evidence) is NOT written again by `_advise` (`_routed_advice_is_full`, path
    `routed_advice`): writing it twice cost 7.3 s and swapped the answer on screen mid-voice.
+9. A search turn sends ONE `{"type":"hold"}` line ("ఒక్క నిమిషం, చూస్తున్నాను.", `hold_line` / `HOLD_LINES`, reply
+   language) before `_live_grounding`; the app says it at once (`_liveOnHold`, queue gen -1 = never counted as
+   heard, never in the chat). Search turns were 2-3.8 s of silence (probe 2026-11-26).
 
 `backend/tests/test_chat_thinking_off.py`, `test_chat_planner.py`, `test_chat_answer_streaming.py` and
 `test/services/voice_endpointing_test.dart` guard these; never "fix" a red test by removing the rule.

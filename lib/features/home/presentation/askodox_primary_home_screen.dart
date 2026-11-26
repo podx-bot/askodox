@@ -2583,6 +2583,7 @@ class _AskodoxPrimaryHomeScreenState
       authToken: ref.read(authSessionProvider).user == null ? null : ref.read(authSessionProvider).tokenPlaceholder,
       onText: _showStreamingReply,
       onTextDone: _liveOnTextDone,
+      onHold: _liveOnHold,
     );
     if (mounted && _streamingReply != null) setState(() => _streamingReply = null);
     final aiUsable = decision?.usable == true;
@@ -4512,6 +4513,20 @@ class _AskodoxPrimaryHomeScreenState
     if (!mounted || !_sending || !askodoxSpeakTypedReplies || !_streamSpeaks) return;
     _liveTextDone = true;
     _liveQueueParts();
+  }
+
+  /// A live search is starting (owner 2026-11-26): the short "let me check" line shows and is said at once, before
+  /// the answer's first part. It is never part of the answer: its generation is -1, so it is never counted as heard.
+  void _liveOnHold(String line) {
+    if (!mounted || !_sending) return;
+    if (_liveText.isNotEmpty || _liveQueue.isNotEmpty) return; // the answer already started
+    if (_streamingReply == null || _streamingReply!.isEmpty) setState(() => _streamingReply = line);
+    if (!askodoxSpeakTypedReplies || !_streamSpeaks || _speechMuted || _liveHalt) return;
+    if (!ref.read(askodoxFlagProvider('voice.sarvam_tts'))) return;
+    _liveLanguage = askodoxSpeechLanguage(reply: line, userText: _liveUserText, uiTelugu: _te);
+    _liveQueue.add((plain: line, shown: line, gen: -1));
+    unawaited(_liveFetch(line));
+    if (_liveTurn == null) unawaited(_liveRun());
   }
 
   /// Queues every finished part (the last one may still grow, unless the text is complete) and starts its audio
