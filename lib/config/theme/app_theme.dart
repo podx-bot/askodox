@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/ui/ui_switches.dart';
 import 'askodox_design_tokens.dart';
+import 'askodox_look.dart';
 import 'askodox_fonts.dart';
 
 abstract final class AppTheme {
-  static ThemeData get light => _theme(Brightness.light);
+  static ThemeData get light => askodoxNewLookOn ? askodoxLookTheme() : _theme(Brightness.light);
   static ThemeData get dark => _theme(Brightness.dark);
 
   static ThemeData _theme(Brightness brightness) {

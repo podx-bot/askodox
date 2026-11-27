@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../config/theme/askodox_fonts.dart';
+import '../../config/theme/askodox_look.dart';
+import '../../core/ui/ui_switches.dart';
 
 /// The look of every inner page (redesign, owner 2026-11-13: "all inner pages in this model").
 /// Soft grey page, white cards with a thin border and round corners, dark-navy text and primary
@@ -13,6 +15,7 @@ const askodoxInnerBlue = Color(0xFF2450C8);
 const askodoxInnerGreen = Color(0xFF17784C);
 
 ThemeData askodoxInnerTheme(ThemeData base) {
+  if (askodoxNewLookOn) return askodoxLookTheme();
   final radius14 = BorderRadius.circular(14);
   final scheme = base.colorScheme.copyWith(
     primary: askodoxInnerInk,
