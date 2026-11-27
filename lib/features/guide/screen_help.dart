@@ -1002,6 +1002,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ నెల కొత్తగా చేరినవారు, రెన్యూ చేసినవారు, వదిలినవారు, వారం వారీగా వసూలైన ఫీజు; మీరు నమోదు చేసిన దాని నుంచే.',
     'వదిలినవారికి: సిద్ధంగా ఉన్న "తిరిగి రండి" మెసేజ్; మీరే పంపాలి.',
   ]),
+  '/me/kitchen': _H('Kitchen stock', 'వంటగది స్టాక్', [
+    'Add what is in your kitchen with how much there is. Everything here is your own entry.',
+    'Use + and - when you use or buy something. "Finished" puts it on the buy list. You can set your own low level too.',
+    'The buy list can be shared with the family. Note the grocery spend to see the month\'s total. The list stays on this phone.',
+  ], [
+    'వంటగదిలో ఉన్న సరుకులను ఎంత ఉందో రాసి చేర్చండి. ఇక్కడ ఉన్నవన్నీ మీ స్వంత ఎంట్రీలే.',
+    'వాడినప్పుడు, కొన్నప్పుడు + - నొక్కండి. "అయిపోయింది" నొక్కితే కొనుగోలు లిస్ట్‌కి వెళ్తుంది. మీ స్వంత తక్కువ స్థాయి కూడా పెట్టవచ్చు.',
+    'కొనుగోలు లిస్ట్‌ని కుటుంబానికి పంపవచ్చు. కిరాణా ఖర్చు రాస్తే ఈ నెల మొత్తం కనిపిస్తుంది. లిస్ట్ ఈ ఫోన్‌లోనే ఉంటుంది.',
+  ]),
   '/me/vault': _H('Bills & warranty', 'బిల్స్ & వారంటీ', [
     'Take a photo of a bill or a warranty card. AI reads the item, shop, dates and serial number; check them and save.',
     'The list shows which warranty is ending. Search by item or shop. Tap a paper to see its photo and details.',

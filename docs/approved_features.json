@@ -14229,6 +14229,45 @@
           "askodoxVaultState"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "buyer",
+        "home"
+      ],
+      "expected_behavior": "The person's own home items with what is left (their own units and low levels, no presets); finished or low items form the buy list; grocery spend noted by the person adds up per month; everything stays on the person's phone, account-scoped.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: kitchen stock"
+      ],
+      "id": "kitchen_stock_home",
+      "name": "Kitchen stock",
+      "purpose": "Know what is running low at home and what groceries cost this month.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/kitchen/kitchen_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxKitchen",
+          "askodoxKitchenAdd",
+          "askodoxKitchenSave",
+          "askodoxKitchenShare"
+        ],
+        "symbols": [
+          "AskodoxKitchenScreen",
+          "askodoxKitchenBuyList",
+          "askodoxKitchenLow"
+        ]
+      }
     }
   ]
 }
