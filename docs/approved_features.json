@@ -13467,6 +13467,47 @@
           "change": "Built on branch claude/social-api-setup. Needs YOUTUBE_OAUTH_CLIENT_ID / YOUTUBE_OAUTH_CLIENT_SECRET on Railway; NOT PRODUCTION VERIFIED; uploads stay private until the YouTube API audit passes."
         }
       ]
+    },
+    {
+      "id": "video_study_uploader_pays_once",
+      "name": "Video study: only the uploader starts it, once, paid from the uploader's AI Credits",
+      "purpose": "Owner 2026-11-27: whoever uploads an ASKODOX video owns its study. The study is paid once from that uploader's AI Credits; viewers read the stored study for free and never start a paid study.",
+      "expected_behavior": "POST /api/videos/native/{video_id}/study: a viewer (or anonymous) without a stored study gets status not_studied and no model call. The uploader gets one reservation (feature video_study) per attempt; a failed analysis is released; no credits gives credits_low with no model call; parallel taps wait and read the stored study. Free while charging is off.",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/videos/native/{video_id}/study"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_native_video.py::test_only_the_uploader_starts_a_study_and_pays_once",
+          "tests/test_native_video.py::test_study_stays_free_while_charging_is_off"
+        ],
+        "flutter": []
+      },
+      "dependencies": [
+        "native_video"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-27",
+          "pr": null,
+          "change": "Phase 1 of the in-app video Q&A plan. Viewer Ask flow (stored study, product, message to uploader) is Phase 2, not built."
+        }
+      ]
     }
   ]
 }
