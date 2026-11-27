@@ -52,6 +52,10 @@ const _fake = AskodoxVoiceKind('fake', 'Looks fake (warning)', 'ఫేక్‌�
 const askodoxPersonalVoiceKinds = [_in, _out, _bill, _refund, _cashback, _pending, _failed, _due, _autopay, _request, _fake];
 const askodoxShopVoiceKinds = [_in, _refund, _request, _fake];
 
+/// Pilot finding 2026-11-26: fifteen lines on one sheet was too many for a first look. These four are shown first (every
+/// kind stays reachable under "More"); a list of four or fewer (a shop counter) is shown whole.
+const askodoxPrimaryVoiceIds = {'in', 'out', 'request', 'fake'};
+
 /// ASKODOX lines (owner 2026-11-23, all ON by default; each can be switched off): the ASKODOX tune before every voice,
 /// a hello before the day's first payment, the night count (only on a day with payments -- no payment = nothing) and a
 /// short line for customers (at most twice a day). ASKODOX is named as the voice, never as where the money went.
@@ -100,11 +104,21 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
   bool get _personal => widget.businessId == null;
   List<AskodoxVoiceKind> get _kinds => _personal ? askodoxPersonalVoiceKinds : askodoxShopVoiceKinds;
 
+  List<AskodoxVoiceKind> get _primaryKinds =>
+      _kinds.length <= 4 ? _kinds : [for (final k in _kinds) if (askodoxPrimaryVoiceIds.contains(k.id)) k];
+  List<AskodoxVoiceKind> get _moreKinds => [for (final k in _kinds) if (!_primaryKinds.contains(k)) k];
+
   /// Money kinds + the ASKODOX lines: one on / off map, saved together.
   List<AskodoxVoiceKind> get _allKinds => [..._kinds, ...askodoxBrandVoiceKinds];
   Map<String, bool>? _on;
   AskodoxMyPhoneAlerts? _mine;
   String? _playing;
+
+  /// Pilot finding 2026-11-26: the phone could not read / keep the choice -> say so, never show defaults as saved.
+  bool _loadFailed = false;
+
+  /// "More" (the less used kinds + the ASKODOX lines) is folded until asked for: four lines first, not fifteen.
+  bool _showMore = false;
 
   @override
   void initState() {
@@ -115,9 +129,17 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
   Future<void> _load() async {
     final bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
     var saved = <String, bool>{};
+    var failed = false;
     try {
-      saved = await bridge.voiceKinds(personal: _personal);
-    } catch (_) {}
+      final read = await bridge.readVoiceKinds(personal: _personal);
+      if (read == null) {
+        failed = true;
+      } else {
+        saved = read;
+      }
+    } catch (_) {
+      failed = true;
+    }
     AskodoxMyPhoneAlerts? mine;
     if (_personal) {
       try {
@@ -127,6 +149,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
     if (!mounted) return;
     setState(() {
       _mine = mine;
+      _loadFailed = failed;
       _on = askodoxVoiceKindsWithDefaults(saved, _allKinds, announceDebits: mine?.announceDebits ?? false);
     });
   }
@@ -137,9 +160,21 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
     final next = {...on, kind.id: !(on[kind.id] ?? true)};
     setState(() => _on = next);
     final bridge = ref.read(askodoxPaymentAlertsBridgeProvider);
+    var kept = false;
     try {
-      await bridge.setVoiceKinds({for (final e in next.entries) if (e.key != 'fake') e.key: e.value}, personal: _personal);
+      kept = await bridge.saveVoiceKinds({for (final e in next.entries) if (e.key != 'fake') e.key: e.value}, personal: _personal);
     } catch (_) {}
+    if (!kept) {
+      // Not kept by the phone: put the switch back and say so (it used to stay changed while the phone kept the old choice).
+      if (!mounted) return;
+      setState(() => _on = on);
+      final te = Localizations.localeOf(context).languageCode == 'te';
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        key: const Key('askodoxVoiceSaveFailed'),
+        content: Text(te ? 'సేవ్ కాలేదు, మళ్ళీ ప్రయత్నించండి' : 'Not saved - please try again'),
+      ));
+      return;
+    }
     // "Money sent" is also the older switch on My phone payments: keep both the same.
     final mine = _mine;
     if (kind.id == 'out' && mine != null) {
@@ -204,22 +239,46 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                     : 'Tap a line to switch it on / off. ▶ plays the words. The fake-message warning is always on.',
                 style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
             const SizedBox(height: 10),
+            if (_loadFailed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                    te
+                        ? 'ఫోన్ లో సేవ్ చేసినది చదవలేకపోయాను. ఇక్కడ చూపేవి మామూలు సెట్టింగ్స్ మాత్రమే.'
+                        : "Couldn't read what this phone saved. These are the usual settings only.",
+                    key: const Key('askodoxVoiceLoadFailed'),
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFFB45309), fontWeight: FontWeight.w700)),
+              ),
             if (on == null)
               const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-            else
-              for (final k in _kinds) _row(k, on[k.id] ?? true, te, language),
-            if (on != null) ...[
-              const SizedBox(height: 6),
-              Text(te ? 'ASKODOX మాటలు' : 'ASKODOX lines',
-                  key: const Key('askodoxPaymentVoiceBrand'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5)),
-              const SizedBox(height: 2),
-              Text(
-                  te
-                      ? 'అన్నీ ఆన్. పేమెంట్ రాని రోజు ఏ మాటా రాదు. ఏదైనా వద్దంటే నొక్కి ఆపండి.'
-                      : 'All on. On a day with no payment nothing is said. Tap one to switch it off.',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
-              const SizedBox(height: 8),
-              for (final k in askodoxBrandVoiceKinds) _row(k, on[k.id] ?? true, te, language),
+            else ...[
+              for (final k in _primaryKinds) _row(k, on[k.id] ?? true, te, language),
+              if (_moreKinds.isNotEmpty || askodoxBrandVoiceKinds.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TextButton.icon(
+                    key: const Key('askodoxVoiceMoreKinds'),
+                    onPressed: () => setState(() => _showMore = !_showMore),
+                    icon: Icon(_showMore ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+                    label: Text(_showMore
+                        ? (te ? 'తక్కువ చూపు' : 'Show less')
+                        : (te ? 'ఇంకా (${_moreKinds.length + askodoxBrandVoiceKinds.length})' : 'More (${_moreKinds.length + askodoxBrandVoiceKinds.length})')),
+                  ),
+                ),
+              if (_showMore) ...[
+                for (final k in _moreKinds) _row(k, on[k.id] ?? true, te, language),
+                const SizedBox(height: 6),
+                Text(te ? 'ASKODOX మాటలు' : 'ASKODOX lines',
+                    key: const Key('askodoxPaymentVoiceBrand'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5)),
+                const SizedBox(height: 2),
+                Text(
+                    te
+                        ? 'అన్నీ ఆన్. పేమెంట్ రాని రోజు ఏ మాటా రాదు. ఏదైనా వద్దంటే నొక్కి ఆపండి.'
+                        : 'All on. On a day with no payment nothing is said. Tap one to switch it off.',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                const SizedBox(height: 8),
+                for (final k in askodoxBrandVoiceKinds) _row(k, on[k.id] ?? true, te, language),
+              ],
             ],
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -271,12 +330,18 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(k.label(te), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    if (k.locked)
+                      Text(te ? 'ఎప్పుడూ ఆన్ (మార్చలేరు)' : 'Always on (cannot be changed)',
+                          key: ValueKey('askodoxVoiceKindLocked-${k.id}'),
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309), fontWeight: FontWeight.w800)),
                     Text(k.sample(te),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12, color: active ? const Color(0xFF1F5F4F) : const Color(0xFF7A8190))),
                   ]),
                 ),
+                Text(active ? (te ? 'ఆన్' : 'ON') : (te ? 'ఆఫ్' : 'OFF'),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: active ? const Color(0xFF12A150) : const Color(0xFF7A8190))),
                 IconButton(
                   key: ValueKey('askodoxVoiceKindPlay-${k.id}'),
                   tooltip: te ? 'వినండి' : 'Listen',

@@ -107,6 +107,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// Owner 2026-11-26: before the number, the first open goes location (0) -> language (1) -> the helper's
   /// introduction (2) -> terms (3); 4 = the sign-in steps below (`_step`). Skipped when signing in again.
   int _pre = 0;
+
+  /// True when the four first-open screens were skipped (signing in again, or a language already chosen).
+  bool _preSkipped = false;
   bool _locationAsked = false;
   bool _introSpoken = false;
   bool _termsRead = false;
@@ -328,6 +331,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (mobile.isNotEmpty) _mobile.text = askodoxE164(mobile) ?? mobile;
       _step = 1;
       _pre = 4;
+      _preSkipped = true;
     }
 
     final saved = prefs.getString(_localeKey)?.trim();
@@ -338,6 +342,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // the number; the language stays one tap away.
       _step = 1;
       _pre = 4;
+      _preSkipped = true;
     } else {
       _languageCode = _deviceLanguageCode();
       _usingDeviceLanguage = true;
@@ -1042,7 +1047,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     const SizedBox(height: 16),
                     const Text('ASKODOX', textAlign: TextAlign.center, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 8),
-                    if (_pre == 0 || _pre >= 4) Text('${_t('step')} ${_step + 1} ${_t('of')} 5', textAlign: TextAlign.center),
+                    // Pilot finding 2026-11-26: the count was missing on the first four screens (8 in all on the first
+                    // open). Signing in again skips them, so that run keeps the old "of 5".
+                    Text(
+                        _preSkipped
+                            ? '${_t('step')} ${_step + 1} ${_t('of')} 5'
+                            : '${_t('step')} ${_pre < 4 ? _pre + 1 : 4 + _step} ${_t('of')} 8',
+                        key: const Key('askodoxOnboardingStepCount'),
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 28),
                     if (_pre == 0) ..._locationStep(),
                     if (_pre == 1 || (_pre == 4 && _step == 0)) ..._languageStep(context),

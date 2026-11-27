@@ -10,8 +10,8 @@ import 'package:podx/features/money_home/money_home_store.dart';
 import 'package:podx/shared/widgets/chat_pins.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false, String section = 'money'}) async {
-  tester.view.physicalSize = const Size(1080, 2340); // 360 x 780 dp phone
+Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false, String section = 'money', double height = 2340}) async {
+  tester.view.physicalSize = Size(1080, height); // 360 x 780 dp phone (taller for the long Payment voice sheet)
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
   final container = ProviderContainer();
@@ -23,6 +23,23 @@ Future<ProviderContainer> _pump(WidgetTester tester, {bool seller = false, Strin
   ));
   await tester.pumpAndSettle();
   return container;
+}
+
+
+/// The Payment voice sheet shows four lines first; the rest (and the ASKODOX lines) sit under "More".
+Future<void> _openVoiceMore(WidgetTester tester) async {
+  final more = find.byKey(const Key('askodoxVoiceMoreKinds'));
+  await tester.scrollUntilVisible(more, 100, scrollable: find.byType(Scrollable).last);
+  await tester.tap(more);
+  await tester.pumpAndSettle();
+}
+
+/// Scroll the sheet until the row is really on screen, then tap it (rows below the fold missed the tap).
+Future<void> _tapVoice(WidgetTester tester, Key key) async {
+  await tester.ensureVisible(find.byKey(key));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(key));
+  await tester.pumpAndSettle();
 }
 
 const _channel = MethodChannel('com.askodox.app/payment_alerts');
@@ -210,22 +227,24 @@ void main() {
   });
 
   testWidgets('Payment voice folder: 11 kinds on my phone, tap = on / off, fake warning locked on', (tester) async {
-    await _pump(tester);
+    await _pump(tester, height: 6000);
     await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-b.voice')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxPaymentVoiceSheet')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxVoiceKind-bill')), findsNothing, reason: 'four lines first, the rest under More');
+    expect(find.byKey(const ValueKey('askodoxVoiceKindDot-in-on')), findsOneWidget);
+    expect(find.byKey(const ValueKey('askodoxVoiceKindLocked-fake')), findsOneWidget, reason: 'the lock says why it cannot change');
+    await _openVoiceMore(tester);
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-bill-on')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-out-off')), findsOneWidget, reason: 'money sent: off by default');
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-bill')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKind-bill'));
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-bill-off')), findsOneWidget);
     final saved = _calls.lastWhere((c) => c.method == 'setVoiceKinds').arguments as Map;
     expect(saved['scope'], 'personal');
     expect(jsonDecode('${saved['kinds']}')['bill'], isFalse);
     expect((jsonDecode('${saved['kinds']}') as Map).containsKey('fake'), isFalse, reason: 'the warning is never switched off');
     // ▶ plays the real words of that kind on the phone.
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKindPlay-refund')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKindPlay-refund'));
     expect(_calls.where((c) => c.method == 'speakKind').single.arguments, containsPair('kind', 'refund'));
     await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxVoiceKind-fake')), 100,
         scrollable: find.byType(Scrollable).last);
@@ -234,25 +253,40 @@ void main() {
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-fake-on')), findsOneWidget, reason: 'never switched off');
   });
 
-  testWidgets('Payment voice folder: ASKODOX lines are all on by default and each can be switched off', (tester) async {
+  testWidgets('Payment voice folder: a refused save puts the switch back and says so (pilot finding 2026-11-26)', (tester) async {
     await _pump(tester);
     await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-b.voice')));
     await tester.pumpAndSettle();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, (call) async {
+      _calls.add(call);
+      if (call.method == 'setVoiceKinds') throw PlatformException(code: 'save_failed');
+      return call.method == 'events' ? '[]' : '{}';
+    });
+    expect(find.byKey(const ValueKey('askodoxVoiceKindDot-in-on')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-in')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('askodoxVoiceKindDot-in-on')), findsOneWidget, reason: 'not kept -> still on');
+    expect(find.byKey(const Key('askodoxVoiceSaveFailed')), findsOneWidget);
+  });
+
+  testWidgets('Payment voice folder: ASKODOX lines are all on by default and each can be switched off', (tester) async {
+    await _pump(tester, height: 6000);
+    await tester.tap(find.byKey(const ValueKey('askodoxMoneyTile-b.voice')));
+    await tester.pumpAndSettle();
+    await _openVoiceMore(tester);
     final list = find.byType(Scrollable).last;
     await tester.scrollUntilVisible(find.byKey(const ValueKey('askodoxVoiceKind-customer')), 100, scrollable: list);
     expect(find.byKey(const Key('askodoxPaymentVoiceBrand')), findsOneWidget);
     for (final id in ['tune', 'hello', 'night', 'customer']) {
       expect(find.byKey(ValueKey('askodoxVoiceKindDot-$id-on')), findsOneWidget, reason: '$id: owner 2026-11-23, all ON');
     }
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKind-customer')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKind-customer'));
     expect(find.byKey(const ValueKey('askodoxVoiceKindDot-customer-off')), findsOneWidget);
     final saved = jsonDecode('${(_calls.lastWhere((c) => c.method == 'setVoiceKinds').arguments as Map)['kinds']}') as Map;
     expect(saved['customer'], isFalse);
     expect(saved['night'], isTrue);
     // ▶ plays the same words the phone says at night.
-    await tester.tap(find.byKey(const ValueKey('askodoxVoiceKindPlay-night')));
-    await tester.pumpAndSettle();
+    await _tapVoice(tester, const ValueKey('askodoxVoiceKindPlay-night'));
     expect(_calls.where((c) => c.method == 'speakKind').single.arguments, containsPair('kind', 'night'));
   });
 
