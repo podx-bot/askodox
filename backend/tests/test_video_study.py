@@ -163,14 +163,28 @@ def test_hallucination_guard_rejects_an_uncited_model_answer(tmp_path):
     invented = FakeGenai(answer={"found": True, "answer": "It has run 45,000 km and is accident-free.",
                                  "fact_keys": ["kilometres"], "timestamps": ["9:99"]})
     service = vs.VideoStudyService(vs.VideoStudyStore(str(tmp_path / "s.db")), client=invented)
-    answer = service.answer(study, "Is it accident-free?", "en")
+    answer = service.answer(study, "Is it accident-free?", "en", use_model=True)
     assert not answer["found"] and "45,000" not in answer["answer"]
     cited = FakeGenai(answer={"found": True, "answer": "The seller asks ₹12.5 lakh (at 1:42).",
                               "fact_keys": ["asking_price"], "timestamps": ["1:42"]})
     answer = vs.VideoStudyService(vs.VideoStudyStore(str(tmp_path / "t.db")), client=cited).answer(
-        study, "At what time did he mention the price?", "en")
+        study, "At what time did he mention the price?", "en", use_model=True)
     assert answer["found"] and answer["timestamps"] == ["1:42"]
     assert answer["facts"][0]["basis"] == vs.BASIS_CLAIM
+
+
+def test_viewer_questions_never_cost_a_model_call(tmp_path):
+    """Owner decision (2026-11-27, choice A): the stored study answers, otherwise the question goes to the
+    uploader. A per-question model call happens only with an explicit use_model=True."""
+    fake = FakeGenai(answer={"found": True, "answer": "It has run 45,000 km.", "fact_keys": ["kilometres"],
+                             "timestamps": []})
+    service = vs.VideoStudyService(vs.VideoStudyStore(str(tmp_path / "s.db")), client=fake)
+    study = vs.normalize_study(CAR_STUDY, ref="yt_x", source="youtube", duration=150)
+    answer = service.answer(study, "How many kilometres has it run?", "en")
+    assert fake.text_calls == 0, "no model call for a viewer question"
+    assert not answer["found"], "no stored fact matches -> not answered here (the uploader gets it)"
+    assert service.answer(study, "What is the price?", "en")["found"], "a stored fact still answers for free"
+    assert fake.text_calls == 0
 
 
 def test_market_comparison_never_mixes_external_with_video_facts():

@@ -428,14 +428,19 @@ class VideoStudyService:
 
     # grounded answers
 
-    def answer(self, study: Dict[str, Any], question: str, language: str = "en") -> Dict[str, Any]:
+    def answer(self, study: Dict[str, Any], question: str, language: str = "en", *,
+               use_model: bool = False) -> Dict[str, Any]:
         """An answer ONLY from the stored study: which facts it used, their
-        basis and timestamps. Nothing found -> 'not confirmed'."""
+        basis and timestamps. Nothing found -> 'not confirmed'.
+        Viewer questions (owner decision 2026-11-27, choice A) never cost a model
+        call: the stored facts answer, otherwise the question goes to the uploader.
+        ``use_model=True`` is an explicit opt-in for a paid per-question answer."""
         question = str(question or "").strip()[:300]
         base = {"ref": study.get("ref"), "question": question, "language": language, "from": "video"}
         if study.get("status") != "ready":
             return {**base, "found": False, "answer": unavailable_message(language), "facts": [], "timestamps": []}
-        result = self._answer_with_model(study, question, language) if self.client is not None else None
+        result = self._answer_with_model(study, question, language) if (use_model and self.client is not None) \
+            else None
         if result is None:
             result = self._answer_from_facts(study, question, language)
         if not result.get("found"):

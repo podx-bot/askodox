@@ -174,7 +174,7 @@ class AskodoxVideoStudy {
 /// A grounded answer: only from the stored study.
 class AskodoxVideoAnswer {
   const AskodoxVideoAnswer({required this.found, required this.answer, this.facts = const [],
-      this.timestamps = const [], this.basis});
+      this.timestamps = const [], this.basis, this.nextStep, this.askUploader = false});
 
   final bool found;
   final String answer;
@@ -185,6 +185,12 @@ class AskodoxVideoAnswer {
   /// unknown (where the answer comes from).
   final String? basis;
 
+  /// answered | product | ask_uploader | none (the backend's first step that applies).
+  final String? nextStep;
+
+  /// True only when the study did not answer and the viewer may message the uploader in-app.
+  final bool askUploader;
+
   factory AskodoxVideoAnswer.fromJson(Map<String, Object?> j) => AskodoxVideoAnswer(
         found: j['found'] == true,
         answer: '${j['answer'] ?? ''}',
@@ -194,7 +200,19 @@ class AskodoxVideoAnswer {
         ],
         timestamps: [for (final t in (j['timestamps'] as List? ?? const [])) '$t'],
         basis: j['basis'] == null ? null : '${j['basis']}',
+        nextStep: j['next_step'] == null ? null : '${j['next_step']}',
+        askUploader: j['ask_uploader'] == true,
       );
+}
+
+/// What the in-app message to the uploader came back as: waiting for them, or auto-answered (FAQ).
+class AskodoxUploaderMessage {
+  const AskodoxUploaderMessage({required this.status, this.reply});
+
+  final String status;
+  final String? reply;
+
+  bool get answered => status == 'AUTO_ANSWERED' && (reply ?? '').isNotEmpty;
 }
 
 /// Explain + funnel tracking for reviewed videos. Tracking is
@@ -250,6 +268,24 @@ class AskodoxVideoService {
     final result = await _client.post<Map<String, Object?>>(path, body: {'question': question, 'language': language});
     return switch (result) {
       ApiSuccess(:final data) => AskodoxVideoAnswer.fromJson(data),
+      ApiError() => null,
+    };
+  }
+
+  /// The viewer's question the study could not answer goes to the uploader, in-app
+  /// (never a phone number). Needs the signed-in session token; null when it failed.
+  Future<AskodoxUploaderMessage?> askUploader(String videoRef, String text, {String? authToken}) async {
+    if (!videoRef.startsWith('nv_')) return null;
+    final result = await _client.post<Map<String, Object?>>(
+      '/api/videos/${Uri.encodeComponent(videoRef.substring(3))}/message',
+      body: {'text': text},
+      options: ApiRequestOptions(authToken: authToken, timeout: const Duration(seconds: 30)),
+    );
+    return switch (result) {
+      ApiSuccess(:final data) => AskodoxUploaderMessage(
+          status: '${data['status'] ?? ''}',
+          reply: data['reply'] == null ? null : '${data['reply']}',
+        ),
       ApiError() => null,
     };
   }

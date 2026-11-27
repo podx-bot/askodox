@@ -186,7 +186,12 @@ def ask_video(video_id: str, body: AskBody, request: Request) -> dict:
         actions = ["view_listing", "order"] + actions
     if (record.get("data") or {}).get("preorder_enabled"):
         actions.append("pre_order")
-    return {"ref": ref, "studied": bool(study), **grounded, "actions": actions, "listing": first}
+    from app.services import video_ask_flow as flow
+
+    reachable = flow.uploader_reachable(record, user)
+    return {"ref": ref, "studied": bool(study), **grounded, "actions": actions, "listing": first,
+            "next_step": flow.next_step(bool(grounded.get("found")), first is not None, reachable),
+            "ask_uploader": flow.offer_uploader(bool(grounded.get("found")), reachable)}
 
 
 @router.get("/api/videos/{video_id}/comments")
