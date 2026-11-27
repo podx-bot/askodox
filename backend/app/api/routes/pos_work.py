@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from app.api.routes.pos import _call, _store, _user
+from app.services.pos_memberships import PosMemberships
 from app.services.pos_work import PosBookings, PosJobs, PosMonthly
 
 router = APIRouter(prefix="/api/pos", tags=["POS bookings, jobs, monthly"])
@@ -214,6 +215,81 @@ def monthly_member_status(business_id: str, member_id: str, body: StatusIn, requ
 @router.get("/me/monthly")
 def my_monthly(request: Request) -> Dict[str, Any]:
     return {"plans": _call(_monthly(request).mine, _user(request, "monthly-me", 120))}
+
+
+# ---- term memberships + attendance (owner 2026-11-27)
+def _terms(request: Request) -> PosMemberships:
+    return PosMemberships(_store(request))
+
+
+class TermMemberIn(BaseModel):
+    name: str = Field(max_length=60)
+    phone: str = Field(default="", max_length=20)
+    months: int = Field(ge=1, le=36)
+    fee_paise: int = Field(ge=1)
+    start_date: str = Field(default="", max_length=10)
+    paid: bool = False
+    method: str = Field(default="cash", max_length=20)
+    note: str = Field(default="", max_length=200)
+
+
+class TermRenewIn(BaseModel):
+    months: int = Field(default=0, ge=0, le=36)
+    amount_paise: int = Field(default=0, ge=0)
+    method: str = Field(default="cash", max_length=20)
+
+
+class TermVisitIn(BaseModel):
+    came: bool = True
+
+
+class TermCheckInIn(BaseModel):
+    code: str = Field(max_length=12)
+
+
+@router.get("/businesses/{business_id}/members")
+def term_members(business_id: str, request: Request) -> Dict[str, Any]:
+    return _call(_terms(request).overview, business_id, _user(request, "members", 240))
+
+
+@router.post("/businesses/{business_id}/members")
+def add_term_member(business_id: str, body: TermMemberIn, request: Request) -> Dict[str, Any]:
+    return _call(_terms(request).add, business_id, _user(request, "members", 120), body.model_dump())
+
+
+@router.post("/businesses/{business_id}/members/{member_id}/renew")
+def renew_term_member(business_id: str, member_id: str, body: TermRenewIn, request: Request) -> Dict[str, Any]:
+    return _call(_terms(request).renew, business_id, _user(request, "members", 120), member_id, body.model_dump())
+
+
+@router.post("/businesses/{business_id}/members/{member_id}/status")
+def term_member_status(business_id: str, member_id: str, body: StatusIn, request: Request) -> Dict[str, Any]:
+    return _call(_terms(request).set_status, business_id, _user(request, "members", 120), member_id, body.status)
+
+
+@router.get("/businesses/{business_id}/members/attendance")
+def term_attendance(business_id: str, request: Request) -> Dict[str, Any]:
+    return _call(_terms(request).attendance, business_id, _user(request, "members", 240))
+
+
+@router.post("/businesses/{business_id}/members/{member_id}/visit")
+def term_visit(business_id: str, member_id: str, body: TermVisitIn, request: Request) -> Dict[str, Any]:
+    return _call(_terms(request).mark, business_id, _user(request, "members", 600), member_id, body.came)
+
+
+@router.get("/businesses/{business_id}/members/report")
+def term_report(business_id: str, request: Request, month: str = "") -> Dict[str, Any]:
+    return _call(_terms(request).report, business_id, _user(request, "members", 120), month)
+
+
+@router.get("/me/memberships")
+def my_memberships(request: Request) -> Dict[str, Any]:
+    return {"memberships": _call(_terms(request).mine, _user(request, "members-me", 120))}
+
+
+@router.post("/me/memberships/{business_id}/check-in")
+def my_membership_check_in(business_id: str, body: TermCheckInIn, request: Request) -> Dict[str, Any]:
+    return _call(_terms(request).check_in, _user(request, "members-checkin", 30), business_id, body.code)
 
 
 class CollectForIn(BaseModel):

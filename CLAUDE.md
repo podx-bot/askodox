@@ -7,6 +7,18 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/gym-kit` (2026-11-27, owner "merge and continue phase 3"; #538 morning brief merged as 5b9dd75):
+  MEMBERS & ATTENDANCE = the gym owner kit as ONE universal engine `pos_memberships.py` (tables `pos_term_members` /
+  `pos_term_payments` / `pos_term_visits`; `add_months` == Dart `askodoxTermEnd`, keep equal): term in months + fee ->
+  END DAY worked out; `renew` = a fee RECORD that moves the end day (from the old end day if not passed, else today);
+  `overview` (members / ending this month / fee to come, ENDING_DAYS 5, LEFT_AFTER_DAYS 30), `attendance` (staff tap
+  or the member's own check-in with today's 4-digit `visit_code`, once a day; ABSENT_DAYS 7), `report` (reports perm),
+  `mine` / `check_in`, `ending_count` -> morning brief key `renewals`. Every reminder / message = a WhatsApp DRAFT the
+  owner sends. Routes in `routes/pos_work.py` (`/api/pos/businesses/{id}/members*`, `/api/pos/me/memberships*`).
+  App `lib/features/memberships/` (`/biz/:id/members`, `/attendance`, `/report`, `/me/memberships`), hub key
+  `money.members` + Seller page `s.members` (kit flow 5), Buyer page `b.memberships`. `PosMonthly` stays the
+  calendar-month due book. NOT built: QR scan by camera (the code is typed), fee by payment voice with automatic
+  renewal, voice-filled new member form. Nothing phone verified.
 - `main` PR #539 + #541 (2026-11-27, owner "merge without asking; ask only before the Play link, after all work is done"): TEST SWEEP -- web build of the new look driven in headless Chrome (217 routes, demo shop, 390 px + Hindi at 320 px): no crash / blank page / overflow; kiosk `/biz/:id/staff/kiosk` is still a light page (camera, left on purpose); emoji boxes only in the sandbox (no emoji font). BUG FIXED (#539): `PosPaymentAlerts._allowed_with_devices` ignored the owner's per-person "Payment sound" tick (`pos_members.tools` `payalerts`) -- an unticked cashier still heard the owner's payments. `tests/test_pos_payment_routing_audit.py` = who hears what (owner / ticked / unticked / kitchen / removed / other shop / two-shop owner / QR +1 paise / same notification vs two customers). Backend 2107 pass. Local load (single sandbox process, 20 concurrent): /health 120 rps, POS reads ~35 rps, `/api/me/ai-credits` ~11 rps (p50 1.7 s under load, 55 ms alone) -- the heaviest read; per-user rate limits answer 429 by design. Not done: real-AI persona tests (sandbox cannot reach providers), beta 20-50 users, final load test. Nothing phone verified.
 - Branch `claude/morning-brief` (2026-11-27, owner "Ok go" = phase 2 of the new plan): MORNING BRIEF --
   `morning_brief.py` (`MorningBrief.shop` / `.me`, READ ONLY: dues `PosDuesFollowup.to_remind` (no pay link made),

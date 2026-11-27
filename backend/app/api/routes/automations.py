@@ -136,8 +136,10 @@ def shop_brief(business_id: str, request: Request) -> Dict[str, Any]:
     container = request.app.state.container
     store, _ = _pos(request)
     try:
+        from app.services.pos_memberships import PosMemberships
+
         return morning_brief(container).shop(store, dues_followup(container, store, _bills(request)),
-                                             automations(container), business_id, user)
+                                             automations(container), business_id, user, PosMemberships(store))
     except PosError as error:
         raise _fail(error) from None
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/theme/askodox_look.dart';
 import '../../core/flags/askodox_release_phase.dart';
 import '../business/presentation/biz_hub.dart' show AskodoxBizKind, askodoxBizKindOf, askodoxBizRoute, askodoxKitFlows;
 import '../pos/data/pos_repository.dart' show AskodoxJson;
@@ -95,6 +96,8 @@ const askodoxBuyerPages = <AskodoxLaunchPage>[
       route: '/hire'),
   AskodoxLaunchPage('b.monthly', 'My monthly plans', 'నా నెలవారీ', Icons.event_repeat_rounded, Color(0xFFBCACFB),
       route: '/me/monthly'),
+  AskodoxLaunchPage('b.memberships', 'My memberships', 'నా సభ్యత్వాలు', Icons.badge_rounded, AskodoxLook.accentText,
+      route: '/me/memberships'),
   // Owner 2026-11-26: photo try-on is NOT a page of its own -- it lives on a PRODUCT ("Try it" on an item with a photo).
   AskodoxLaunchPage('b.following', 'Shops I follow', 'ఫాలో షాప్‌లు', Icons.favorite_rounded, Color(0xFFFE9488),
       route: '/me/following', keyName: 'askodoxShoppingFollowing'),
@@ -175,6 +178,8 @@ const _sellerSpecs = <_SellerSpec>[
       tool: 'customers|sale', perm: 'customers', flow: '4'),
   _SellerSpec('s.monthly', 'money.monthly', 'Monthly members', 'నెలవారీ సభ్యులు', Icons.event_repeat_rounded,
       Color(0xFFBCACFB), tool: 'customers|sale', perm: 'customers', flow: '5'),
+  _SellerSpec('s.members', 'money.members', 'Members & attendance', 'సభ్యులు & హాజరు', Icons.badge_rounded,
+      AskodoxLook.accentText, tool: 'customers|sale', perm: 'customers', flow: '5'),
   _SellerSpec('s.dues', 'money.dues', 'Dues', 'బాకీలు', Icons.menu_book_rounded, Color(0xFFF88E66),
       tool: 'dues|customers', perm: 'customers|sell'),
   _SellerSpec('s.qr', 'money.accounts', 'My QR / accounts', 'నా QR / ఖాతాలు', Icons.qr_code_2_rounded, Color(0xFFF7F9FC),
@@ -323,6 +328,7 @@ AskodoxLaunchLayout askodoxSellerShippedLayout() => const AskodoxLaunchLayout([
       AskodoxLaunchEntry.page('s.bookings'),
       AskodoxLaunchEntry.page('s.jobs'),
       AskodoxLaunchEntry.page('s.monthly'),
+      AskodoxLaunchEntry.page('s.members'),
       AskodoxLaunchEntry.page('s.checkin'),
       AskodoxLaunchEntry.page('s.attendance'),
       AskodoxLaunchEntry.page('s.mymonth'),

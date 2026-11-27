@@ -469,6 +469,21 @@ class AskodoxPosRepository {
       _send('POST', '${_b(biz)}/monthly/members/$member/pay', body: body);
   Future<AskodoxJson> monthlyMemberStatus(String biz, String member, String status) =>
       _send('POST', '${_b(biz)}/monthly/members/$member/status', body: {'status': status});
+  /// Term memberships + attendance (owner 2026-11-27): a gym, a class, a pool ... Fees are records; reminders are drafts.
+  Future<AskodoxJson> termMembers(String biz) => _send('GET', '${_b(biz)}/members');
+  Future<AskodoxJson> addTermMember(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/members', body: body);
+  Future<AskodoxJson> renewTermMember(String biz, String member, AskodoxJson body) =>
+      _send('POST', '${_b(biz)}/members/$member/renew', body: body);
+  Future<AskodoxJson> termMemberStatus(String biz, String member, String status) =>
+      _send('POST', '${_b(biz)}/members/$member/status', body: {'status': status});
+  Future<AskodoxJson> termAttendance(String biz) => _send('GET', '${_b(biz)}/members/attendance');
+  Future<AskodoxJson> termVisit(String biz, String member, bool came) =>
+      _send('POST', '${_b(biz)}/members/$member/visit', body: {'came': came});
+  Future<AskodoxJson> termReport(String biz) => _send('GET', '${_b(biz)}/members/report');
+  Future<List<AskodoxJson>> myMemberships() async =>
+      askodoxPosList((await _send('GET', '/api/pos/me/memberships'))['memberships']);
+  Future<AskodoxJson> membershipCheckIn(String biz, String code) =>
+      _send('POST', '/api/pos/me/memberships/$biz/check-in', body: {'code': code});
   Future<List<AskodoxJson>> myMonthly() async => askodoxPosList((await _send('GET', '/api/pos/me/monthly'))['plans']);
   /// Business Kit (owner 2026-11-24): what customers ask this shop + the owner's answers (owner only).
   Future<AskodoxJson> shopQuestions(String id) => _send('GET', '/api/shops/$id/questions');

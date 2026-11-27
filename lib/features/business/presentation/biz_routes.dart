@@ -15,6 +15,7 @@ import 'biz_money.dart';
 import 'biz_reports.dart';
 import 'biz_staff.dart';
 import 'biz_work.dart';
+import '../../memberships/memberships_screens.dart';
 
 /// The business hub's pages (owner 2026-11-18): `/biz/:id` is the hub, `/biz/:id/:group` a group page.
 final askodoxBizRoutes = <GoRoute>[
@@ -104,6 +105,14 @@ final askodoxBizRoutes = <GoRoute>[
       builder: (c, s) => s.uri.queryParameters['full'] == '1'
           ? AskodoxBizJobsScreen(businessId: s.pathParameters['id']!)
           : AskodoxJobStepsScreen(businessId: s.pathParameters['id']!)),
+  // Owner 2026-11-27 (phase 3): term members + attendance for every business that sells time by the term.
+  GoRoute(path: '/biz/:id/members', builder: (c, s) => AskodoxMembersScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/members/attendance',
+      builder: (c, s) => AskodoxMembersAttendanceScreen(businessId: s.pathParameters['id']!)),
+  GoRoute(
+      path: '/biz/:id/members/report',
+      builder: (c, s) => AskodoxMembersReportScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/monthly',
       builder: (c, s) => s.uri.queryParameters['full'] == '1'
