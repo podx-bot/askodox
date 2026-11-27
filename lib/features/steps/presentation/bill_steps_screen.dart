@@ -781,7 +781,12 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
             key: const Key('askodoxBillStepsAddItems'),
             onPressed: () => context.push('/desk/${widget.businessId}/menu'),
             icon: const Icon(Icons.add_box_rounded),
-            label: Text(te ? 'ఐటమ్స్ చేర్చితే ఇక్కడ బొమ్మలుగా వస్తాయి' : 'Add items and they show here as tiles'),
+            // Items exist but every one is out of stock / switched off: say that, not "add items".
+            label: Text((_menu ?? const []).isNotEmpty
+                ? (te
+                    ? '${_menu!.length} ఐటమ్స్ స్టాక్ అయిపోయాయి / ఆఫ్‌లో ఉన్నాయి — ఇక్కడ సరిచేయి'
+                    : '${_menu!.length} items are out of stock / switched off — fix here')
+                : (te ? 'ఐటమ్స్ చేర్చితే ఇక్కడ బొమ్మలుగా వస్తాయి' : 'Add items and they show here as tiles')),
           ),
         if (_extras.isNotEmpty)
           Wrap(spacing: 8, runSpacing: 4, children: [
