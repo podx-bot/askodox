@@ -674,6 +674,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '7,000 అడుగులు = ఒక రోజు పూర్తి పని. పని అసలు క్రమంలో, నిజ సమయంలో సగంలో జరుగుతుంది.',
     'పాయింట్లు, బహుమతులు లేవు. ట్రెడ్‌మిల్ అడుగులకు "చేతితో నమోదు" వాడండి; ఆదివారం విశ్రాంతి.',
   ]),
+  '/work/workout': _H('Workout', 'వర్కౌట్', [
+    'Pick a body part and an exercise, tap Start. Set the kg and the times with + and −, then "Set done".',
+    'The rest timer starts by itself. A set better than your best so far shows "New record".',
+    '"Finish workout" shows the time, the sets and the weight moved. Free; your workouts stay on this phone.',
+  ], [
+    'శరీర భాగం, వ్యాయామం ఎంచుకుని "మొదలు" నొక్కండి. + − తో కేజీ, సార్లు పెట్టి "సెట్ పూర్తయింది" నొక్కండి.',
+    'విశ్రాంతి టైమర్ తనంతట మొదలవుతుంది. మీ గత బెస్ట్ కంటే ఎక్కువ చేస్తే "కొత్త రికార్డ్" చూపిస్తుంది.',
+    '"వర్కౌట్ పూర్తి" నొక్కితే సమయం, సెట్లు, ఎత్తిన బరువు కనిపిస్తాయి. ఉచితం; మీ వర్కౌట్ ఈ ఫోన్‌లోనే ఉంటుంది.',
+  ]),
   '/work/seva': _H('Seva / meditation', 'సేవ / ధ్యానం', [
     'Optional. Choose a practice and a time, then tap Start in a walking break.',
     'Only the minutes are kept on your phone; your choice is never stored.',

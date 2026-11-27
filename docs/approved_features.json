@@ -13925,6 +13925,43 @@
           "askodoxTermEnd"
         ]
       }
+    },
+    {
+      "api": [],
+      "id": "live_work_workout_tracker",
+      "name": "Live Work workout: sets, rest timer, personal records, week and streak (free, on the phone)",
+      "purpose": "Owner 2026-11-27 (phase 4): a person who works out logs each set in two taps, rests by a timer that starts by itself, sees when a set beats their own best, and sees the week and the days in a row. Free: no server call, no AI, no AI Credits; the workouts stay on the phone (account-scoped). No points (the owner gives those rules later).",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/workout/workout_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxWorkWorkout",
+          "askodoxWorkoutScreen",
+          "askodoxWorkoutPick",
+          "askodoxWorkoutSetDone",
+          "askodoxWorkoutRest",
+          "askodoxWorkoutRecord",
+          "askodoxWorkoutFinish",
+          "askodoxWorkoutDone",
+          "askodoxWorkoutStreak",
+          "askodoxWorkoutMedals"
+        ],
+        "symbols": [
+          "AskodoxWorkoutScreen",
+          "askodoxWorkoutProvider",
+          "askodoxWorkoutRecords",
+          "askodoxWorkoutStreak",
+          "askodoxWorkoutPrefsKey"
+        ]
+      }
     }
   ]
 }

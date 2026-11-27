@@ -56,6 +56,7 @@ const askodoxAccountScopedKeys = <String>[
   'askodox.active_conversation_turns.v1',
   'askodox.greeting.seen_before',
   'askodox.work_mode.v1',
+  'askodox.workout.v1',
   // Owner 2026-11-23 (Lite step 3): questions kept while there was no net.
   'askodox.offline_questions.v1',
   // Owner 2026-11-22: the person's own Money screens (folders, order, hidden pages) and the shop in view.

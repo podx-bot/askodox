@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/workout-tracker` (2026-11-27, owner "set the points aside, do the rest" = phase 4; stacked on
+  `claude/gym-kit` PR #540, which is CI green but NOT merged yet): LIVE WORK WORKOUT -- `lib/features/workout/`
+  (`workout_logic.dart` pure rules: better set = heavier or same weight more times, a record needs an EARLIER
+  workout's best and is said once per exercise per workout, streak counts to today or yesterday, weight in grams;
+  `workout_store.dart` prefs `askodox.workout.v1` account-scoped, last 400 workouts; `workout_screen.dart` pick ->
+  set (2 steppers, 2.5 kg step) -> rest timer 90 s by itself -> done), route `/work/workout`, button
+  `askodoxWorkWorkout` on the Live Work bar, "my gym" card from `askodoxMyMembershipsProvider`. Free: no server
+  call, no AI, NO POINTS (owner gives the rules later -- do not add them). Own code and own exercise list.
+  NOT built: own exercise by voice, pay the gym fee from here. Registry `live_work_workout_tracker`. Nothing phone verified.
 - Branch `claude/gym-kit` (2026-11-27, owner "merge and continue phase 3"; #538 morning brief merged as 5b9dd75):
   MEMBERS & ATTENDANCE = the gym owner kit as ONE universal engine `pos_memberships.py` (tables `pos_term_members` /
   `pos_term_payments` / `pos_term_visits`; `add_months` == Dart `askodoxTermEnd`, keep equal): term in months + fee ->
