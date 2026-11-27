@@ -14169,7 +14169,7 @@
       "status": "approved",
       "tests": {
         "backend": [
-          "backend/tests/test_paper_vault.py"
+          "tests/test_paper_vault.py"
         ],
         "flutter": [
           "test/features/vault/vault_test.dart"
