@@ -13680,6 +13680,40 @@
           "askodoxNewLookOn"
         ]
       }
+    },
+    {
+      "id": "app_links_askodox_com",
+      "name": "askodox.com video / shop / product links open the app",
+      "purpose": "Owner 2026-11-27: a shared askodox.com/v|s|p/<id> link opens ASKODOX when installed (Android App Links), the web page shows otherwise.",
+      "expected_behavior": "website Caddyfile serves /.well-known/assetlinks.json with the Play app-signing SHA-256 for com.askodox.askodox and proxies /v/* to the backend share page; AndroidManifest has an autoVerify VIEW filter for askodox.com /v/ /s/ /p/; the app router sends those paths to Home.",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_app_links.py::test_assetlinks_served_with_the_play_signing_certificate",
+          "tests/test_app_links.py::test_manifest_verifies_the_same_paths"
+        ],
+        "flutter": []
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-27",
+          "pr": null,
+          "change": "App Links, last item of the in-app plan."
+        }
+      ]
     }
   ]
 }

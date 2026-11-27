@@ -74,6 +74,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // The old mock seller area (mock OTP, mock plans/payments, demo
       // analytics) is gone: sellers manage their REAL listings in one place.
       final path = state.uri.path;
+      // App Links (owner 2026-11-27): askodox.com/v|s|p/<id> shared links open the app on Home (the app-only
+      // pages stay reached from there); the web page still shows for people without the app.
+      if (path.startsWith('/v/') || path.startsWith('/s/') || path.startsWith('/p/')) return '/';
       if (path == '/seller' || path.startsWith('/seller/')) return '/listings/mine';
       // Phase 1 (Play policy): pages left out of this build are never reachable from a notification,
       // promo or deep link either.

@@ -47,6 +47,25 @@
 
 	# ASKODOX product pages (owner 2026-11-20): Facebook / Instagram / YouTube links open ASKODOX first
 	# (/p/<id>, counted /p/<id>/buy -> the store) and /shop is the one profile link. Same backend.
+	# App Links (owner 2026-11-27): Android checks this file to let askodox.com/v|s|p/... open the app. The
+	# fingerprint is the Play app-signing certificate (public, not a secret).
+	@askodox_assetlinks path /.well-known/assetlinks.json
+	handle @askodox_assetlinks {
+		header Content-Type application/json
+		header Cache-Control "public, max-age=3600"
+		respond `[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.askodox.askodox","sha256_cert_fingerprints":["15:6C:E6:73:A0:5A:61:4F:CC:8A:BA:67:76:9A:BF:24:EF:02:C5:D9:CD:B9:2A:D3:17:C0:7D:BE:83:A5:D1:8D"]}}]` 200
+	}
+
+	# Shared video page (owner 2026-11-27): askodox.com/v/<id> = the backend's public share page.
+	@askodox_video_share path /v/*
+	handle @askodox_video_share {
+		header Content-Security-Policy "default-src 'self'; img-src 'self' https: data:; media-src 'self' https:; style-src 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+		header -Cache-Control
+		reverse_proxy {$ASKODOX_BACKEND_URL:https://podx-ai-connect-production-3279.up.railway.app} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
 	@askodox_picks path /p/* /shop
 	handle @askodox_picks {
 		header Content-Security-Policy "default-src 'self'; img-src 'self' https: data:; media-src 'self' https:; style-src 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'; base-uri 'none'"
