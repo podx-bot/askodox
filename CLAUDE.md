@@ -7,6 +7,15 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/table-watch` (2026-11-27, phase 5, stacked on `claude/workout-tracker` PR #543): TABLE WATCH, QR ONLY
+  -- `pos_table_watch.py` (`pos_table_sits`: a table + a time, NO customer identity; `sat` from the customer
+  `GET /order-desk/resolve` of a TABLE code -- route-level, best effort; states empty / seated / unseen (`UNSEEN_MINUTES`
+  5) / waiting (open desk order or staff table order not served) / eating (served); a sitting with no order ends after
+  `SIT_HOURS` 3; `seen` / `free` by floor staff; `due_alerts` once per sitting, max 20 a table a day) + periodic job
+  `table_watch` (60 s, push to owner / manager / waiter / cashier, route `/pos/:id/tables/watch`). Routes
+  `/api/pos/businesses/{id}/desk/table-watch[/{table}/seen|free]` (in `routes/pos_frontdesk.py`). App
+  `lib/features/table_watch/` (`/pos/:id/tables/watch`, opened from the Tables page ⋮ `askodoxTablesStepsWatch` or
+  the push; refresh 30 s). Camera watch NOT built (owner: QR only). Registry `table_watch_qr`. Nothing phone verified.
 - Branch `claude/workout-tracker` (2026-11-27, owner "set the points aside, do the rest" = phase 4; stacked on
   `claude/gym-kit` PR #540, which is CI green but NOT merged yet): LIVE WORK WORKOUT -- `lib/features/workout/`
   (`workout_logic.dart` pure rules: better set = heavier or same weight more times, a record needs an EARLIER

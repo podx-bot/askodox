@@ -13975,6 +13975,86 @@
           "date": "2026-11-27"
         }
       ]
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/table-watch",
+          "response_keys": [
+            "now",
+            "unseen_minutes",
+            "tables",
+            "counts",
+            "alerts"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/table-watch/{table_id}/seen",
+          "response_keys": [
+            "ok",
+            "changed"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/table-watch/{table_id}/free",
+          "response_keys": [
+            "ok",
+            "changed"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "For every business with tables: a customer opening the menu from a table's own QR starts a sitting on that table (no customer identity is kept; a second scan at the same table or a scan while an order runs changes nothing). The Table watch page (Tables page menu, or the notification) shows every table as free / seated / go to them / order waiting / eating with the minutes: seated = sat, no order yet; order waiting = an open order not served yet (a customer order or a staff-made table order); eating = served; a sitting with no order ends by itself after 3 hours. A table whose people sat 5 minutes with nobody going to them is on top and the owner + manager / waiter / cashier get ONE push for that sitting (a minute job; at most 20 a table a day). Tap a table: 'I am going' (stops the alert), 'Take the order', 'They left' (table free); a table with an order opens that order. QR only: no camera, no AI, no AI Credits; nothing moves money.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: table watch from the table QR (phase 5 of the 2026-11-27 plan, design canvas table watch screen); camera watch is NOT built (the owner chose QR only); NOT PHONE VERIFIED",
+          "date": "2026-11-27"
+        }
+      ],
+      "id": "table_watch_qr",
+      "name": "Table watch: who is sitting and for how long, from the table QR (no camera)",
+      "purpose": "Owner 2026-11-27 (phase 5): the owner / floor staff see at a glance which table has people, how long they have sat, which order is waiting, and above all which table nobody has gone to yet -- so no customer sits unseen.",
+      "roles": [
+        "owner",
+        "manager",
+        "waiter",
+        "cashier",
+        "kitchen"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_table_watch.py"
+        ],
+        "flutter": [
+          "test/features/table_watch/table_watch_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxTableWatch",
+          "askodoxTableWatchBusy",
+          "askodoxTableWatchSeen",
+          "askodoxTableWatchTakeOrder",
+          "askodoxTableWatchFree",
+          "askodoxTableWatchNote",
+          "askodoxTablesStepsWatch"
+        ],
+        "symbols": [
+          "AskodoxTableWatchScreen",
+          "askodoxTableWatchText",
+          "askodoxTableWatchTime",
+          "askodoxTableWatchOrder"
+        ]
+      }
     }
   ]
 }
