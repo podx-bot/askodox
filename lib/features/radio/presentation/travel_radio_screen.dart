@@ -152,12 +152,12 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                                         ? 'మీ AI Credits తోనే పనిచేస్తుంది -- ఇప్పుడు ఉచితం. వేరే ప్యాకేజ్ అవసరం లేదు.'
                                         : 'Runs on your AI Credits -- free right now. No separate package.'),
                             key: const Key('askodoxRadioCredits'),
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFFB6C5DC))),
                         if (s.internalTesting) ...[
                           const SizedBox(height: 6),
                           Text(te ? 'అంతర్గత పరీక్ష -- ధర / బిల్లింగ్ లేదు' : 'Internal testing -- no price, no billing',
                               key: const Key('askodoxRadioInternalTesting'),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFB45309))),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFFB9E6A))),
                         ],
                         if (s.access) ...[
                           const SizedBox(height: 6),
@@ -246,7 +246,7 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                                   ? 'ఒక ఊరి బులెటిన్ = ఒక AI Credits ఉపయోగం — ఇప్పటికి ఛార్జ్ లేదు. ఏమీ దొరకకపోతే ఏమీ కట్ కాదు.'
                                   : 'One town bulletin = one AI Credits use — no charge for now. Nothing found = nothing charged.'),
                           key: const Key('askodoxRadioTownCost'),
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF475467)),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFFB6C5DC)),
                         ),
                         if (_news != null) ...[
                           const SizedBox(height: 10),
@@ -259,7 +259,7 @@ class _TravelRadioScreenState extends ConsumerState<TravelRadioScreen> {
                                 child: Text.rich(TextSpan(children: [
                                   TextSpan(text: h.title, style: const TextStyle(fontWeight: FontWeight.w700)),
                                   if (h.source.isNotEmpty)
-                                    TextSpan(text: '  · ${h.source}', style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+                                    TextSpan(text: '  · ${h.source}', style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D0))),
                                 ])),
                               ),
                         ],

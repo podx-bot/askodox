@@ -272,7 +272,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(te ? 'ఇక్కడ ఏం చేయాలి' : 'What to do here', style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+                  Text(te ? 'ఇక్కడ ఏం చేయాలి' : 'What to do here', style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D0))),
                   Text(widget.help.title(te), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                 ]),
               ),
@@ -292,7 +292,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                 key: const Key('askodoxWelcomeGuide'),
                 margin: const EdgeInsets.only(top: 10),
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFF1F6FF), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: const Color(0xFF262E3D), borderRadius: BorderRadius.circular(10)),
                 child: Text(
                   te
                       ? 'ASKODOX కి స్వాగతం! ఏ పేజీలోనైనా సందేహం వస్తే ఎడమ వైపు ఉన్న ఈ "చెప్పు" బటన్ నొక్కండి — ఆ పేజీలో ఏం చేయాలో చెబుతుంది; పైన మైక్ నొక్కి ఏం కావాలో చెబితే అదే చేస్తుంది.'
@@ -307,9 +307,9 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   CircleAvatar(
                     radius: 12,
-                    backgroundColor: const Color(0xFFEAF1FF),
+                    backgroundColor: const Color(0xFF232D44),
                     child: Text('${i + 1}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF1769FF))),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF8EB7FF))),
                   ),
                   const SizedBox(width: 10),
                   Expanded(child: Text(step, style: const TextStyle(fontSize: 14.5, height: 1.35))),
@@ -324,7 +324,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                     child: OutlinedButton.icon(
                       key: const Key('askodoxGuideUnderstood'),
                       onPressed: _gotIt,
-                      icon: const Icon(Icons.check_circle_outline, color: Color(0xFF15803D)),
+                      icon: const Icon(Icons.check_circle_outline, color: Color(0xFF75D48B)),
                       label: Text(te ? 'అర్థమైంది' : 'Got it'),
                     ),
                   ),
@@ -332,7 +332,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('askodoxGuideNotUnderstood'),
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB45309)),
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFB9E6A)),
                       onPressed: _asking ? null : () => _notClear(own),
                       icon: const Icon(Icons.help_outline),
                       label: Text(te ? 'అర్థం కాలేదు' : 'Not clear'),
@@ -345,7 +345,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                 key: const Key('askodoxGuideTellMe'),
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: const Color(0xFF382B1A), borderRadius: BorderRadius.circular(10)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Text(te ? 'ఏం చేయాలనుకుంటున్నారో చెప్పండి — నేనే చేస్తాను.' : 'Say what you want to do — I will do it.',
                       style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -356,8 +356,8 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
             // Ask the guide: type or speak.
             Container(
               padding: const EdgeInsets.fromLTRB(10, 2, 2, 2),
-              decoration: BoxDecoration(color: const Color(0xFFF8FAFF), borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFD0DCF5))),
+              decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF384768))),
               child: Row(children: [
                 Expanded(
                   child: TextField(
@@ -386,7 +386,7 @@ class _AskodoxGuideSheetState extends ConsumerState<AskodoxGuideSheet> {
                 width: double.infinity,
                 margin: const EdgeInsets.only(top: 8),
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFF1F6FF), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: const Color(0xFF262E3D), borderRadius: BorderRadius.circular(10)),
                 child: Text(_answer!, style: const TextStyle(fontSize: 14.5, height: 1.35)),
               ),
             if (_answerFlow != null)

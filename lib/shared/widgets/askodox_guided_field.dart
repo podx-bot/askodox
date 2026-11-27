@@ -313,11 +313,11 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
                 Text(line, key: const Key('askodoxFieldHelpText'), style: const TextStyle(fontSize: 14.5, height: 1.35)),
                 const SizedBox(height: 8),
                 Text(widget.guide.example(te),
-                    style: const TextStyle(fontSize: 13.5, color: Color(0xFF6C4DFF), fontWeight: FontWeight.w700)),
+                    style: const TextStyle(fontSize: 13.5, color: Color(0xFFADAEFD), fontWeight: FontWeight.w700)),
                 if (widget.guide.optional) ...[
                   const SizedBox(height: 6),
                   Text(te ? 'ఇది ఐచ్ఛికం -- ఖాళీగా వదిలేయొచ్చు.' : 'This one is optional -- you may leave it empty.',
-                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085))),
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFFAEB9D0))),
                 ],
               ]),
             ),
@@ -355,11 +355,11 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
           helperMaxLines: 3,
           labelText: widget.label,
           hintText: widget.guide.example(te),
-          hintStyle: const TextStyle(color: Color(0xFFA0A8B8)),
+          hintStyle: const TextStyle(color: Color(0xFF9198A8)),
           floatingLabelBehavior: FloatingLabelBehavior.always,
           errorText: problem,
           errorMaxLines: 3,
-          errorStyle: const TextStyle(color: Color(0xFFB54708)),
+          errorStyle: const TextStyle(color: Color(0xFFFB9F7A)),
           errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF79009))),
           focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF79009), width: 2)),
           suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -374,7 +374,7 @@ class _AskodoxGuidedFieldState extends ConsumerState<AskodoxGuidedField> {
               // Phase 1: a plain help icon, no robot (owner 2026-11-15, pani C).
               icon: askodoxGuidesOn
                   ? AskodoxMascot(mood: mood, size: 28)
-                  : const Icon(Icons.help_outline_rounded, color: Color(0xFF5A6478), size: 22),
+                  : const Icon(Icons.help_outline_rounded, color: Color(0xFFB3BED5), size: 22),
             ),
           ]),
         ),

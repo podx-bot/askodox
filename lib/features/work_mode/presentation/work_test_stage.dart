@@ -29,7 +29,7 @@ class AskodoxWorkTestStagePicker extends StatelessWidget {
             builder: (context, status, _) => Text(
               'test: picture $status · stage ${forced == null ? 'real' : forced + 1}',
               key: const Key('askodoxWorkTestStatus'),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF5A6478)),
+              style: const TextStyle(fontSize: 11, color: Color(0xFFB3BED5)),
             ),
           ),
           Wrap(

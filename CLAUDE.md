@@ -7,6 +7,14 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/new-look-1b-all` (2026-11-27, owner "B" = all pages at once; after #530 palette + #531 guard):
+  NEW LOOK ON FOR THE WHOLE APP -- 137 files, every hand-written light-UI colour mapped to the dark look (white ->
+  card, near-white -> page, pale -> line / dark tint, dark inks -> soft white, strong colours -> their light
+  shade, shadows stay black), `Colors.white` -> `AskodoxLook.sheet`, `askodoxNewLookOn` true (not a setting).
+  Paper kept light (`AskodoxPaper` on the quick-bill picture and the two QR share pictures; QR poster, PDFs, print
+  untouched). No Flutter in the sandbox: only CI saw it compile -- NOBODY HAS SEEN IT ON A SCREEN. Known weak spots
+  to check on the phone: bright badges (amber / light green) with letters on them, pictures with white edges, pages
+  drawn for a light page. Nothing phone verified.
 - `main` PR #522 + #523 + #524 + #525 (2026-11-27, owner "1" / "merge"; server deploy 82f1db2 SUCCESS; NOT in any Play bundle; newest is still 1719): PAYMENT VOICE PAGE + WEB PREVIEW -- (#522) `PaymentAlertsBridge.saveVoiceKinds` / `readVoiceKinds` (the native `_call` swallows PlatformException, so a refused save used to look saved: the switch now goes back + SnackBar `askodoxVoiceSaveFailed`), sheet shows 4 kinds (`askodoxPrimaryVoiceIds` in, out, request, fake) + `askodoxVoiceMoreKinds` ("More (N)"), lock text `askodoxVoiceKindLocked-<id>`, ON / OFF word; onboarding step count `askodoxOnboardingStepCount` ("step N of 5" when the pre-stages are skipped, else of 8). (#523) manual workflow `web-build-preview.yml` (`workflow_dispatch`, `--no-web-resources-cdn`, release `web-preview-N` with `askodox-web-N.zip`). (#524) `Platform.environment` is not supported on web: bottom bar showed the "could not be shown" view (kIsWeb guard in `app_shell.dart`, `askodox_hub_icons.dart`). (#525) 8 px gap before the ON / OFF label (Telugu on 320 dp touched the sentence). LOCAL WEB TEST (cloud sandbox, no Flutter): serve the zip with `python3 -m http.server`, run `backend` with `ASKODOX_DEMO_LOGIN=yes` (demo 9999999999 / OTP 123456), drive with headless Chrome (playwright, `--no-sandbox`), route the production host to localhost:8000; Telugu glyphs need `fonts.gstatic.com/s/notosanstelugu/**` answered with `backend/app/assets/fonts/NotoSansTelugu-Bold.ttf`; other scripts show boxes (no font). Nothing phone verified.
 - `main` PR #516 + #518 (2026-11-26, owner "1"; server deploy SUCCESS; Play bundle `askodox-play-1719.aab` = Live Build run 719 on 3de29f8; NOT in any bundle yet: #502, #503, the app side of #496): GUIDE JOURNEY -- onboarding `_pre` stages (location, 23 language boxes, helper intro, terms scroll-to-accept) before the unchanged `_step` flow; `guide_session.py` + `routes/guide_session.py` (`/api/me/guide-session*`, adaptive questions, facts only with consent, `plan(minutes)`, pause / resume, delete, `/api/me/guide-reminders`, `/api/me/feature-requests` + console view `featurerequests`); app `/guide-session` (`lib/features/guide_session/`), reminder chips above the chat (`AskodoxGuideReminderChips`, flag `askodoxGuideReminderChip` on in `main()`). NOT built: auto page arrangement after the session, voice of the helper on the intro, notify-when-done push route. Nothing phone verified.
 - `main` PR #495 + #498 + #502 + #503 + #504 (2026-11-26, owner "1" / "merge the pending ones, no Play link now"; Play bundle
@@ -944,8 +952,14 @@ this file, don't trust it blindly.
   media only to owner / staff. Video DMs answer from approved FAQ only.
 - Integration states: `integration_readiness.runtime_rows` + public
   `/health/integrations` (no secrets). Firebase "configured" is never LIVE.
-- Theme: `PodxApp` uses `ThemeMode.light` (the shell is light). A dark app
-  theme turned every pushed route black -- don't reintroduce it.
+- NEW LOOK (owner 2026-11-27, whole app): ONE look = `lib/config/theme/askodox_look.dart` (`AskodoxLook` tokens,
+  `askodoxLookTheme()`); `AppTheme.light` and `askodoxInnerTheme` both return it (`ThemeMode.light` stays; brightness
+  is dark). The colours written on pages were converted value to value (light UI -> dark look) -- so a NEW page
+  must not copy a light-UI colour: read the theme or `AskodoxLook` (`sheet` = what used to be white). Guard:
+  `test/config/raw_colour_guard_test.dart` (a file may not gain `Color(0x..)` / `Colors.x`; lower its number in
+  `test/fixtures/raw_colour_baseline.json` when you clean it). PAPER stays black on white: QR codes / posters, bill
+  pictures, PDFs, print -- wrap in `AskodoxPaper`; never give a QR a dark background. Left alone on purpose: drawn
+  art (work scene, companion), camera and video screens, `rich_reply.dart` (knows light and dark itself).
 - Category tree = `taxonomy.py` + resource `taxonomy_nodes` (staff-editable,
   seeded once) + `/api/taxonomy/resolve`; capabilities inherit down the path.
   The app calls it only for delivery capability / partner phrases.

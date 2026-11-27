@@ -560,7 +560,7 @@ class _TablesStepsState extends ConsumerState<AskodoxTablesStepsScreen> {
                             onTap: () => unawaited(_tapTable(t)),
                             child: Ink(
                               decoration: BoxDecoration(
-                                color: t['order'] is Map ? const Color(0xFFFFF1E0) : askodoxStepGreenSoft,
+                                color: t['order'] is Map ? const Color(0xFF402804) : askodoxStepGreenSoft,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(color: t['order'] is Map ? askodoxStepWarn : askodoxStepGreen),
                               ),

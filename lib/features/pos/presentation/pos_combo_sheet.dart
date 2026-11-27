@@ -111,7 +111,7 @@ class _CombosSheetState extends ConsumerState<_CombosSheet> {
                     : 'A few items together for one price. The bill takes the saving off by itself when all of them are on it.',
                 style: const TextStyle(fontSize: 12.5)),
             if (_error != null)
-              Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: Color(0xFFB42318)))),
+              Padding(padding: const EdgeInsets.only(top: 6), child: Text(_error!, style: const TextStyle(color: Color(0xFFFEA293)))),
             if (combos == null)
               const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
             else ...[

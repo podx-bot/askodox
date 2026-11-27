@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -10,7 +11,7 @@ import '../../core/flags/askodox_release_phase.dart';
 /// Mode game, anonymous Talk and Radio. Shown in the main header on every tab
 /// and in the app bars of those three screens, so people get used to them.
 class AskodoxHubIcons extends StatelessWidget {
-  const AskodoxHubIcons({super.key, this.current, this.color = const Color(0xFF10204A)});
+  const AskodoxHubIcons({super.key, this.current, this.color = const Color(0xFFF7F9FC)});
 
   /// 'work' / 'talk' / 'radio' when shown on that screen (its own icon is lit).
   final String? current;
@@ -28,8 +29,8 @@ class AskodoxHubIcons extends StatelessWidget {
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
         isSelected: here,
-        style: here ? IconButton.styleFrom(backgroundColor: const Color(0xFFE3F4EA)) : null,
-        icon: Icon(glyph, size: 21, color: here ? const Color(0xFF1F8A5B) : color),
+        style: here ? IconButton.styleFrom(backgroundColor: const Color(0xFF143525)) : null,
+        icon: Icon(glyph, size: 21, color: here ? const Color(0xFF6DCF9B) : color),
         onPressed: here ? null : () => context.push(path),
       );
     }
@@ -91,24 +92,24 @@ class _AskodoxLiveGameButtonState extends State<AskodoxLiveGameButton> with Sing
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.fromLTRB(6, 4, 8, 4),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF1F8A5B), Color(0xFF2E7DD7)]),
+            gradient: const LinearGradient(colors: [Color(0xFF6DCF9B), Color(0xFF82B8FB)]),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.sports_esports_rounded, size: 18, color: Colors.white),
+            const Icon(Icons.sports_esports_rounded, size: 18, color: AskodoxLook.sheet),
             const SizedBox(width: 4),
             FadeTransition(
               opacity: Tween<double>(begin: 0.35, end: 1).animate(_pulse),
               child: Container(
                 width: 7,
                 height: 7,
-                decoration: const BoxDecoration(color: Color(0xFFFF3B30), shape: BoxShape.circle),
+                decoration: const BoxDecoration(color: Color(0xFFF9897A), shape: BoxShape.circle),
               ),
             ),
             const SizedBox(width: 3),
             const Text('LIVE',
                 key: Key('askodoxHeaderGameLive'),
-                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+                style: TextStyle(color: AskodoxLook.sheet, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
           ]),
         ),
       ),

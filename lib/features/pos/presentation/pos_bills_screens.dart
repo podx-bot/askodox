@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -201,13 +202,13 @@ class _AskodoxBillHistoryScreenState extends ConsumerState<AskodoxBillHistoryScr
     Widget tile(String label, int paise, {bool due = false}) => Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-              color: due ? const Color(0xFFFFF1E3) : Colors.white,
+              color: due ? const Color(0xFF3F280D) : AskodoxLook.sheet,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: due ? const Color(0xFFF3D3B2) : const Color(0xFFE2E5EA))),
+              border: Border.all(color: due ? const Color(0xFF643E0D) : const Color(0xFF4A526B))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: TextStyle(fontSize: 12, color: due ? const Color(0xFFB4530A) : const Color(0xFF5B6475))),
+            Text(label, style: TextStyle(fontSize: 12, color: due ? const Color(0xFFFB9E6A) : const Color(0xFFB4BED1))),
             Text(askodoxBillRupees(paise),
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: due ? const Color(0xFFB4530A) : null)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: due ? const Color(0xFFFB9E6A) : null)),
           ]),
         );
     final shown = [
@@ -289,14 +290,14 @@ class _AskodoxBillHistoryScreenState extends ConsumerState<AskodoxBillHistoryScr
                                   child: Text('${b['number']} · ${askodoxBillRupees(askodoxPosInt(b['total_paise']))}',
                                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
                               if ('${b['status']}' != 'issued')
-                                Text(te ? 'రద్దు' : 'Cancelled', style: const TextStyle(color: Color(0xFF5B6475)))
+                                Text(te ? 'రద్దు' : 'Cancelled', style: const TextStyle(color: Color(0xFFB4BED1)))
                               else if (askodoxPosInt(b['due_paise']) > 0)
                                 Text('${te ? 'బాకీ' : 'Pending'} ${askodoxBillRupees(askodoxPosInt(b['due_paise']))}',
-                                    style: const TextStyle(color: Color(0xFFB4530A), fontWeight: FontWeight.w700))
+                                    style: const TextStyle(color: Color(0xFFFB9E6A), fontWeight: FontWeight.w700))
                               else
                                 Text(
                                     '${[for (final m in (b['modes'] as List? ?? const [])) te ? askodoxBillModeLabel('$m').$2 : askodoxBillModeLabel('$m').$1].join(' + ')} ✓',
-                                    style: const TextStyle(color: Color(0xFF1F7A4A), fontWeight: FontWeight.w700)),
+                                    style: const TextStyle(color: Color(0xFF7DD29D), fontWeight: FontWeight.w700)),
                             ]),
                             const SizedBox(height: 2),
                             Text(
@@ -307,13 +308,13 @@ class _AskodoxBillHistoryScreenState extends ConsumerState<AskodoxBillHistoryScr
                                   if ('${b['sent']}' == 'whatsapp') te ? 'WhatsApp పంపాం' : 'sent on WhatsApp',
                                   if (b['seen'] == true) te ? 'చూశారు' : 'seen',
                                 ].join(' · '),
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                                style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
                             if ('${b['status']}' == 'issued' && b['printed'] == false)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(te ? '🖨 ప్రింట్ చేయాలి' : '🖨 Not printed yet',
                                     key: Key('askodoxBillNotPrinted-${b['id']}'),
-                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
+                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFFBCACFB))),
                               ),
                             if (b['customer_says_paid'] == true && askodoxPosInt(b['due_paise']) > 0)
                               Padding(
@@ -322,7 +323,7 @@ class _AskodoxBillHistoryScreenState extends ConsumerState<AskodoxBillHistoryScr
                                     te
                                         ? 'కస్టమర్ "కట్టాను" అన్నారు — మీ UPI లో చూసి "కట్టారు" నొక్కండి.'
                                         : 'The customer says they paid — check your UPI, then tap "Paid".',
-                                    style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4530A))),
+                                    style: const TextStyle(fontSize: 12.5, color: Color(0xFFFB9E6A))),
                               ),
                             if ('${b['status']}' == 'issued')
                               Row(children: [
@@ -472,7 +473,7 @@ class _AskodoxMyBillsScreenState extends ConsumerState<AskodoxMyBillsScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(child: Text('${b['shop']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
-            Text('${b['number']} · ${_clock(b['issued_at'])}', style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+            Text('${b['number']} · ${_clock(b['issued_at'])}', style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
           ]),
           const SizedBox(height: 6),
           for (final l in askodoxPosList(b['lines']))
@@ -493,7 +494,7 @@ class _AskodoxMyBillsScreenState extends ConsumerState<AskodoxMyBillsScreen> {
           else if (due <= 0)
             Text(
                 '${te ? 'కట్టారు' : 'Paid'} ✓ ${(b['paid_with'] as List? ?? const []).join(', ')}',
-                style: const TextStyle(color: Color(0xFF1F7A4A), fontWeight: FontWeight.w700))
+                style: const TextStyle(color: Color(0xFF7DD29D), fontWeight: FontWeight.w700))
           else ...[
             const SizedBox(height: 8),
             if (upi.isNotEmpty) ...[
@@ -523,7 +524,7 @@ class _AskodoxMyBillsScreenState extends ConsumerState<AskodoxMyBillsScreen> {
                   te
                       ? 'డబ్బు నేరుగా షాప్ UPI కి వెళ్తుంది. ASKODOX డబ్బు పట్టుకోదు.'
                       : "Money goes straight to the shop's UPI. ASKODOX never holds it.",
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
             ] else
               Text(te ? 'షాప్‌లో కట్టండి (షాప్ UPI ఇంకా జోడించలేదు).' : 'Pay at the shop (the shop has not added its UPI yet).'),
             // Owner 2026-11-19: not paying today? One tap gives the shop a date; reminders wait until then.

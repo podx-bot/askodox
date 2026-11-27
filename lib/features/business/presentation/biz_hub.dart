@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -23,25 +24,25 @@ class AskodoxBizTone {
 }
 
 const askodoxBizTones = <String, AskodoxBizTone>{
-  'orders': AskodoxBizTone(Color(0xFFE8EEFB), Color(0xFF1E3FA0)),
-  'money': AskodoxBizTone(Color(0xFFE7F5EE), Color(0xFF17784C)),
-  'menu': AskodoxBizTone(Color(0xFFFFF1E3), Color(0xFFB45309)),
-  'staff': AskodoxBizTone(Color(0xFFF1EBFB), Color(0xFF5B2A9E)),
-  'customers': AskodoxBizTone(Color(0xFFFCE9F1), Color(0xFFA3215C)),
-  'settings': AskodoxBizTone(Color(0xFFF1F2F4), Color(0xFF374151)),
-  'reports': AskodoxBizTone(Color(0xFFF1EBFB), Color(0xFF5B2A9E)),
-  'teal': AskodoxBizTone(Color(0xFFE3F4F6), Color(0xFF0E6A84)),
-  'pink': AskodoxBizTone(Color(0xFFFCE9F1), Color(0xFFA3215C)),
-  'gray': AskodoxBizTone(Color(0xFFF1F2F4), Color(0xFF374151)),
-  'blue': AskodoxBizTone(Color(0xFFE8EEFB), Color(0xFF1E3FA0)),
-  'green': AskodoxBizTone(Color(0xFFE7F5EE), Color(0xFF17784C)),
-  'orange': AskodoxBizTone(Color(0xFFFFF1E3), Color(0xFFB45309)),
-  'purple': AskodoxBizTone(Color(0xFFF1EBFB), Color(0xFF5B2A9E)),
+  'orders': AskodoxBizTone(Color(0xFF242D43), Color(0xFFAFC8FC)),
+  'money': AskodoxBizTone(Color(0xFF1A3429), Color(0xFF7CD3A2)),
+  'menu': AskodoxBizTone(Color(0xFF3F280D), Color(0xFFFB9E6A)),
+  'staff': AskodoxBizTone(Color(0xFF332842), Color(0xFFCDBAFF)),
+  'customers': AskodoxBizTone(Color(0xFF412331), Color(0xFFFBA1BF)),
+  'settings': AskodoxBizTone(Color(0xFF1F2432), Color(0xFFC0CDE0)),
+  'reports': AskodoxBizTone(Color(0xFF332842), Color(0xFFCDBAFF)),
+  'teal': AskodoxBizTone(Color(0xFF113437), Color(0xFF7DCCE9)),
+  'pink': AskodoxBizTone(Color(0xFF412331), Color(0xFFFBA1BF)),
+  'gray': AskodoxBizTone(Color(0xFF1F2432), Color(0xFFC0CDE0)),
+  'blue': AskodoxBizTone(Color(0xFF242D43), Color(0xFFAFC8FC)),
+  'green': AskodoxBizTone(Color(0xFF1A3429), Color(0xFF7CD3A2)),
+  'orange': AskodoxBizTone(Color(0xFF3F280D), Color(0xFFFB9E6A)),
+  'purple': AskodoxBizTone(Color(0xFF332842), Color(0xFFCDBAFF)),
 };
 
-const _ink = Color(0xFF16203F);
-const _muted = Color(0xFF4B5563);
-const _askPurple = Color(0xFF5B2A9E);
+const _ink = Color(0xFFF7F9FC);
+const _muted = Color(0xFFB9C5D5);
+const _askPurple = Color(0xFFCDBAFF);
 
 /// What kind of business decides a few names inside the groups (never the groups themselves).
 enum AskodoxBizKind { food, service, retail }
@@ -185,9 +186,9 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flo
         strip: (h) {
           final o = askodoxPosMap(h['orders']);
           return [
-            ('New', 'కొత్తవి', '${askodoxPosInt(o['new'])}', const Color(0xFF1E3FA0)),
-            (food ? 'Cooking' : 'In progress', food ? 'వంటలో' : 'జరుగుతున్నవి', '${askodoxPosInt(o['cooking'])}', const Color(0xFFB45309)),
-            ('Done', 'పూర్తి', '${askodoxPosInt(o['done'])}', const Color(0xFF17784C)),
+            ('New', 'కొత్తవి', '${askodoxPosInt(o['new'])}', const Color(0xFFAFC8FC)),
+            (food ? 'Cooking' : 'In progress', food ? 'వంటలో' : 'జరుగుతున్నవి', '${askodoxPosInt(o['cooking'])}', const Color(0xFFFB9E6A)),
+            ('Done', 'పూర్తి', '${askodoxPosInt(o['done'])}', const Color(0xFF7CD3A2)),
           ];
         },
         history: ('Order history', 'ఆర్డర్ల చరిత్ర', 'Search by date, table, customer', 'తేదీ, టేబుల్, కస్టమర్‌తో వెతకండి', 'orders.incoming'),
@@ -230,9 +231,9 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flo
         strip: (h) {
           final s = askodoxPosMap(h['split']);
           return [
-            ('Cash', 'క్యాష్', _rs(s['cash_paise']), const Color(0xFF17784C)),
-            ('Online', 'ఆన్‌లైన్', _rs(s['online_paise']), const Color(0xFF1E3FA0)),
-            ('Dues', 'బాకీ', _rs(askodoxPosMap(h['dues'])['paise']), const Color(0xFFB45309)),
+            ('Cash', 'క్యాష్', _rs(s['cash_paise']), const Color(0xFF7CD3A2)),
+            ('Online', 'ఆన్‌లైన్', _rs(s['online_paise']), const Color(0xFFAFC8FC)),
+            ('Dues', 'బాకీ', _rs(askodoxPosMap(h['dues'])['paise']), const Color(0xFFFB9E6A)),
           ];
         },
         history: ('Bill history', 'బిల్లుల చరిత్ర', 'Number, customer, date · ✏ same-day edit',
@@ -277,12 +278,12 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flo
         strip: (h) {
           final m = askodoxPosMap(h['menu']);
           return [
-            ('Items', 'ఐటమ్స్', '${askodoxPosInt(m['items'])}', const Color(0xFFB45309)),
-            ('Sections', 'విభాగాలు', '${askodoxPosInt(m['sections'])}', const Color(0xFF1E3FA0)),
+            ('Items', 'ఐటమ్స్', '${askodoxPosInt(m['items'])}', const Color(0xFFFB9E6A)),
+            ('Sections', 'విభాగాలు', '${askodoxPosInt(m['sections'])}', const Color(0xFFAFC8FC)),
             if (food || askodoxPosInt(m['low_stock']) == 0)
-              ('No section', 'విభాగం లేనివి', '${askodoxPosInt(m['no_section'])}', const Color(0xFFB91C1C))
+              ('No section', 'విభాగం లేనివి', '${askodoxPosInt(m['no_section'])}', const Color(0xFFFEA195))
             else
-              ('Low stock', 'స్టాక్ తక్కువ', '${askodoxPosInt(m['low_stock'])}', const Color(0xFFB91C1C)),
+              ('Low stock', 'స్టాక్ తక్కువ', '${askodoxPosInt(m['low_stock'])}', const Color(0xFFFEA195)),
           ];
         },
         tiles: [
@@ -300,9 +301,9 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flo
     AskodoxBizGroupSpec('staff', Icons.groups_outlined, 'Staff & attendance', 'సిబ్బంది & హాజరు',
         sub: (h, te) => te ? '${askodoxPosInt(h['staff'])} మంది' : '${askodoxPosInt(h['staff'])} people',
         strip: (h) => [
-              ('Staff', 'సిబ్బంది', '${askodoxPosInt(h['staff'])}', const Color(0xFF5B2A9E)),
-              ('Calls answered', 'పిలుపులు ఉన్నవి', '${askodoxPosInt(h['calls'])}', const Color(0xFFB45309)),
-              ('Payment sounds', 'పేమెంట్ సౌండ్', '${askodoxPosInt(h['sounds'])}', const Color(0xFF17784C)),
+              ('Staff', 'సిబ్బంది', '${askodoxPosInt(h['staff'])}', const Color(0xFFCDBAFF)),
+              ('Calls answered', 'పిలుపులు ఉన్నవి', '${askodoxPosInt(h['calls'])}', const Color(0xFFFB9E6A)),
+              ('Payment sounds', 'పేమెంట్ సౌండ్', '${askodoxPosInt(h['sounds'])}', const Color(0xFF7CD3A2)),
             ],
         tiles: const [
           AskodoxBizTileSpec('staff.people', Icons.badge_outlined, 'Staff & roles', 'సిబ్బంది & పాత్రలు',
@@ -322,9 +323,9 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flo
           final r = askodoxPosMap(h['reviews']);
           return [
             ('Rating', 'రేటింగ్', r['average'] is num ? '★ ${(r['average'] as num).toStringAsFixed(1)}' : '—',
-                const Color(0xFFB45309)),
-            ('Reviews', 'రివ్యూలు', '${askodoxPosInt(r['count'])}', const Color(0xFFA3215C)),
-            ('To answer', 'జవాబు ఇవ్వాలి', '${askodoxPosInt(r['unanswered'])}', const Color(0xFF1E3FA0)),
+                const Color(0xFFFB9E6A)),
+            ('Reviews', 'రివ్యూలు', '${askodoxPosInt(r['count'])}', const Color(0xFFFBA1BF)),
+            ('To answer', 'జవాబు ఇవ్వాలి', '${askodoxPosInt(r['unanswered'])}', const Color(0xFFAFC8FC)),
           ];
         },
         tiles: [
@@ -418,7 +419,7 @@ class AskodoxBizScaffold extends StatelessWidget {
       children: children,
     );
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: const Color(0xFF1F2432),
       appBar: AppBar(
         backgroundColor: tone.bg,
         surfaceTintColor: tone.bg,
@@ -430,7 +431,7 @@ class AskodoxBizScaffold extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: tone.fg, size: 22),
           ),
           const SizedBox(width: 10),
@@ -473,7 +474,7 @@ class AskodoxBizStrip extends StatelessWidget {
         Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(c.$1, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _muted)),
               FittedBox(
@@ -540,7 +541,7 @@ class AskodoxBizTile extends StatelessWidget {
                 Container(
                   width: 36,
                   height: 36,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(10)),
                   child: Icon(icon, color: tone.fg, size: 20),
                 ),
                 const SizedBox(height: 6),
@@ -554,7 +555,7 @@ class AskodoxBizTile extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: tone.fg, borderRadius: BorderRadius.circular(9)),
-                    child: Text(badge!, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                    child: Text(badge!, style: const TextStyle(color: AskodoxLook.sheet, fontSize: 11, fontWeight: FontWeight.w800)),
                   ),
                 ),
             ]),
@@ -589,9 +590,9 @@ class AskodoxBizHistoryRow extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 12),
         child: Material(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE5E7EB))),
+              borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFF4A526B))),
           child: InkWell(
             key: const Key('askodoxBizHistory'),
             borderRadius: BorderRadius.circular(14),
@@ -599,7 +600,7 @@ class AskodoxBizHistoryRow extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(children: [
-                const Icon(Icons.history, color: Color(0xFF374151)),
+                const Icon(Icons.history, color: Color(0xFFC0CDE0)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -607,7 +608,7 @@ class AskodoxBizHistoryRow extends StatelessWidget {
                     Text(sub, style: const TextStyle(fontSize: 11.5, color: _muted)),
                   ]),
                 ),
-                const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF)),
+                const Icon(Icons.chevron_right, color: Color(0xFF9299A4)),
               ]),
             ),
           ),
@@ -714,16 +715,16 @@ class _AskodoxAskBarState extends ConsumerState<AskodoxAskBar> {
           key: const Key('askodoxAskBar'),
           padding: const EdgeInsets.only(left: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AskodoxLook.sheet,
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: const Color(0xFFD9CCF2), width: 1.5),
+            border: Border.all(color: const Color(0xFF4F3D6C), width: 1.5),
             boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 10, offset: Offset(0, 2))],
           ),
           child: Row(children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: _askPurple, borderRadius: BorderRadius.circular(8)),
-              child: const Text('ASK', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+              child: const Text('ASK', style: TextStyle(color: AskodoxLook.sheet, fontSize: 11, fontWeight: FontWeight.w900)),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -794,18 +795,18 @@ class AskodoxBizHubBody extends ConsumerWidget {
         final orders = askodoxPosMap(hub['orders']);
         final quick = <(String, IconData, String, Color, String?)>[
           if (askodoxBizAllowed('sell', business)) ('money.bill', Icons.calculate_outlined, te ? 'బిల్లు చేయి' : 'Make a bill',
-              const Color(0xFF17784C), 'askodoxBizQuick-bill'),
+              const Color(0xFF7CD3A2), 'askodoxBizQuick-bill'),
           ('orders.incoming', Icons.receipt_long_outlined,
               '${te ? 'ఆర్డర్లు' : 'Orders'}${askodoxPosInt(orders['new']) > 0 ? ' ${askodoxPosInt(orders['new'])}' : ''}',
-              const Color(0xFF1E3FA0), 'askodoxBizQuick-orders'),
-          ('orders.qr', Icons.qr_code_2, te ? 'QR చూపు' : 'Show QR', const Color(0xFF374151), 'askodoxBizQuick-qr'),
+              const Color(0xFFAFC8FC), 'askodoxBizQuick-orders'),
+          ('orders.qr', Icons.qr_code_2, te ? 'QR చూపు' : 'Show QR', const Color(0xFFC0CDE0), 'askodoxBizQuick-qr'),
         ].where((q) => askodoxRouteShownNow(askodoxBizRoute(businessId, q.$1))).toList();
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           AskodoxBizStrip(cells: [
-            (te ? 'ఈ రోజు అమ్మకం' : "Today's sales", askodoxPaise(askodoxPosInt(sales['paise'])), const Color(0xFF17784C)),
-            (te ? 'బాకీ' : 'Dues', askodoxPaise(askodoxPosInt(askodoxPosMap(hub['dues'])['paise'])), const Color(0xFFB45309)),
+            (te ? 'ఈ రోజు అమ్మకం' : "Today's sales", askodoxPaise(askodoxPosInt(sales['paise'])), const Color(0xFF7CD3A2)),
+            (te ? 'బాకీ' : 'Dues', askodoxPaise(askodoxPosInt(askodoxPosMap(hub['dues'])['paise'])), const Color(0xFFFB9E6A)),
             (te ? 'పేమెంట్ సౌండ్' : 'Payment sound', te ? '${askodoxPosInt(hub['sounds'])} సార్లు' : '${askodoxPosInt(hub['sounds'])}×',
-                const Color(0xFF1E3FA0)),
+                const Color(0xFFAFC8FC)),
           ]),
           const SizedBox(height: 10),
           Row(children: [
@@ -829,7 +830,7 @@ class AskodoxBizHubBody extends ConsumerWidget {
           if (askodoxBizAllowed('reports', business)) ...[
             const SizedBox(height: 10),
             Material(
-              color: const Color(0xFFF1EBFB),
+              color: const Color(0xFF332842),
               borderRadius: BorderRadius.circular(16),
               child: InkWell(
                 key: const Key('askodoxBizReportsCard'),
@@ -843,12 +844,12 @@ class AskodoxBizHubBody extends ConsumerWidget {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(te ? 'రిపోర్ట్స్ & అనాలిటిక్స్' : 'Reports & analytics',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF5B2A9E))),
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFCDBAFF))),
                         Text(te ? 'ఈ రోజు ఎలా ఉంది, సమస్యలు + కారణాలు, సలహాలు, వినండి' : 'How today went, problems + why, what to do, listen',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFFB9C5D5))),
                       ]),
                     ),
-                    const Icon(Icons.chevron_right, color: Color(0xFF5B2A9E)),
+                    const Icon(Icons.chevron_right, color: Color(0xFFCDBAFF)),
                   ]),
                 ),
               ),
@@ -877,9 +878,9 @@ class AskodoxBizHubBody extends ConsumerWidget {
           TextButton.icon(
             key: const Key('askodoxBizIdea'),
             onPressed: () => context.push('/me/ideas?about=business'),
-            icon: const Icon(Icons.lightbulb_outline, color: Color(0xFF8A6100)),
+            icon: const Icon(Icons.lightbulb_outline, color: Color(0xFFE0B467)),
             label: Text(te ? 'మీ ఐడియా చెప్పండి — ఏది ఇంకా సులువుగా ఉండాలి?' : 'Tell us your idea — what should be easier?',
-                style: const TextStyle(color: Color(0xFF8A6100), fontWeight: FontWeight.w800)),
+                style: const TextStyle(color: Color(0xFFE0B467), fontWeight: FontWeight.w800)),
           ),
         ]);
       },

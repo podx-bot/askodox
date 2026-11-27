@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -98,13 +99,13 @@ IconData askodoxHubIcon(AskodoxHubAction a) => switch (a) {
     };
 
 const _hubColors = {
-  AskodoxHubAction.voice: Color(0xFF6C4DFF),
-  AskodoxHubAction.chat: Color(0xFF1769FF),
-  AskodoxHubAction.camera: Color(0xFFE5484D),
-  AskodoxHubAction.photos: Color(0xFF0F7B3F),
-  AskodoxHubAction.video: Color(0xFFD9344F),
+  AskodoxHubAction.voice: Color(0xFFADAEFD),
+  AskodoxHubAction.chat: Color(0xFF8EB7FF),
+  AskodoxHubAction.camera: Color(0xFFFD8A86),
+  AskodoxHubAction.photos: Color(0xFF77D593),
+  AskodoxHubAction.video: Color(0xFFFC9196),
   AskodoxHubAction.files: Color(0xFFE08A00),
-  AskodoxHubAction.location: Color(0xFF0B9E6A),
+  AskodoxHubAction.location: Color(0xFF52CC95),
 };
 
 /// The ring of companion actions around the companion (the approved
@@ -141,7 +142,7 @@ class AskodoxCompanionHub extends StatelessWidget {
           key: const Key('askodoxHubScrim'),
           behavior: HitTestBehavior.opaque,
           onTap: onClose,
-          child: const ColoredBox(color: Color(0x33101A3A)),
+          child: const ColoredBox(color: Color(0x33F7F9FC)),
         ),
       ),
       Align(
@@ -205,10 +206,10 @@ class _HubButton extends StatelessWidget {
             width: AskodoxCompanionHub._button,
             height: AskodoxCompanionHub._button,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AskodoxLook.sheet,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFD9D2FF), width: 1.5),
-              boxShadow: const [BoxShadow(color: Color(0x336C4DFF), blurRadius: 14, offset: Offset(0, 4))],
+              border: Border.all(color: const Color(0xFF493F6F), width: 1.5),
+              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 4))],
             ),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(askodoxHubIcon(action), color: _hubColors[action], size: 22),
@@ -216,7 +217,7 @@ class _HubButton extends StatelessWidget {
               Text(askodoxHubLabel(action, lang),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF10204A))),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFF7F9FC))),
             ]),
           ),
         ),
@@ -378,10 +379,10 @@ class _AskodoxInAppFloatingCompanionState extends ConsumerState<AskodoxInAppFloa
                   height: size,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
+                    color: AskodoxLook.sheet,
                     border:
-                        Border.all(color: live.listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF), width: 2),
-                    boxShadow: const [BoxShadow(color: Color(0x406C4DFF), blurRadius: 12)],
+                        Border.all(color: live.listening ? const Color(0xFFFD8A86) : const Color(0xFFADAEFD), width: 2),
+                    boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 12)],
                   ),
                   child: ClipOval(child: AskodoxCompanion(mood: live.mood, size: size - 4)),
                 ),
@@ -395,9 +396,9 @@ class _AskodoxInAppFloatingCompanionState extends ConsumerState<AskodoxInAppFloa
                   // Never taller than the room above / below the avatar.
                   constraints: BoxConstraints(maxHeight: math.max(120.0, panelRoom)),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AskodoxLook.sheet,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [BoxShadow(color: Color(0x33101A3A), blurRadius: 16)],
+                    boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 16)],
                   ),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     // The actions scroll if the room is short; Minimize /
@@ -409,7 +410,7 @@ class _AskodoxInAppFloatingCompanionState extends ConsumerState<AskodoxInAppFloa
                         ActionChip(
                           key: const Key('askodoxFloatAskThis'),
                           visualDensity: VisualDensity.compact,
-                          avatar: const Icon(Icons.help_outline_rounded, size: 16, color: Color(0xFF6C4DFF)),
+                          avatar: const Icon(Icons.help_outline_rounded, size: 16, color: Color(0xFFADAEFD)),
                           label: Text(
                               switch (widget.lang) {
                                 'te' => 'దీని గురించి అడగండి',

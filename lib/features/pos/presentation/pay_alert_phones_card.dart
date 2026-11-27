@@ -12,16 +12,16 @@ import 'my_payment_alerts_screen.dart' show askodoxStaffRoleLabel;
 (String, Color) askodoxPhoneSoundState(AskodoxJson p, bool te) {
   final reason = '${p['reason'] ?? ''}';
   return switch ('${p['state']}') {
-    'working' => (te ? '✅ పనిచేస్తోంది' : '✅ Working', const Color(0xFF15803D)),
-    'permission_off' => ('⚠ ${te ? 'అనుమతి ఆఫ్' : 'Permission off'}: ${askodoxPhoneSoundReason(reason, te)}', const Color(0xFFB91C1C)),
+    'working' => (te ? '✅ పనిచేస్తోంది' : '✅ Working', const Color(0xFF75D48B)),
+    'permission_off' => ('⚠ ${te ? 'అనుమతి ఆఫ్' : 'Permission off'}: ${askodoxPhoneSoundReason(reason, te)}', const Color(0xFFFEA195)),
     'not_answering' => (
         '⚠ ${te ? 'సౌండ్ రాలేదు' : 'Sound missed'}'
             '${p['missed_amount_paise'] is num ? ' (${askodoxRupees(p['missed_amount_paise'])})' : ''}: '
             '${askodoxPhoneSoundReason(reason, te)}',
-        const Color(0xFFB91C1C)
+        const Color(0xFFFEA195)
       ),
-    'off' => (te ? '🔕 ఆ ఫోన్‌లో సౌండ్ ఆఫ్ చేశారు' : '🔕 Sound switched off on that phone', const Color(0xFF6B7280)),
-    _ => (te ? '⏳ ఇంకా తెలియదు — ఒక టెస్ట్ సౌండ్ పంపండి' : '⏳ Not known yet — send a test sound', const Color(0xFF6B7280)),
+    'off' => (te ? '🔕 ఆ ఫోన్‌లో సౌండ్ ఆఫ్ చేశారు' : '🔕 Sound switched off on that phone', const Color(0xFFB1B9C8)),
+    _ => (te ? '⏳ ఇంకా తెలియదు — ఒక టెస్ట్ సౌండ్ పంపండి' : '⏳ Not known yet — send a test sound', const Color(0xFFB1B9C8)),
   };
 }
 
@@ -80,9 +80,9 @@ class _AskodoxPayAlertPhonesCardState extends ConsumerState<AskodoxPayAlertPhone
       if (bad.isEmpty) return const SizedBox.shrink();
       return Card(
         key: const Key('askodoxPayAlertPhonesWarning'),
-        color: const Color(0xFFFEE2E2),
+        color: const Color(0xFF603D3E),
         child: ListTile(
-          leading: const Icon(Icons.volume_off_rounded, color: Color(0xFFB91C1C)),
+          leading: const Icon(Icons.volume_off_rounded, color: Color(0xFFFEA195)),
           title: Text(te ? '${bad.length} ఫోన్‌లో పేమెంట్ సౌండ్ రావట్లేదు' : 'Payment sound not working on ${bad.length} phone(s)',
               style: const TextStyle(fontWeight: FontWeight.w800)),
           subtitle: Text([for (final p in bad) '${askodoxPhoneName(p, te)}: ${askodoxPhoneSoundState(p, te).$1}'].join('\n')),
@@ -122,7 +122,7 @@ class _AskodoxPayAlertPhonesCardState extends ConsumerState<AskodoxPayAlertPhone
                   te
                       ? 'అనుమతులు దూరం నుంచి మార్చలేం. ఆ ఫోన్‌లో ASKODOX తెరిస్తే చేయాల్సిన ఒక్క స్టెప్ మాత్రమే చూపిస్తుంది.'
                       : 'Settings cannot be changed from another phone. Opening ASKODOX on that phone shows the one step it needs.',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
             ),
         ]),
       ),

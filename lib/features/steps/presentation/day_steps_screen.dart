@@ -11,7 +11,7 @@ import '../../pos/presentation/pos_common.dart';
 import '../domain/step_logic.dart';
 import 'step_kit.dart';
 
-const _night = Color(0xFF1E293B);
+const _night = Color(0xFFF7F9FC);
 
 /// `/pos/:id/day` (owner 2026-11-22, "3 steps"): ① is today's online money right? (the bills' UPI / card total, yes /
 /// there is a difference -> the bill history) ② how much cash is in the drawer? (dialer keypad, "should be ₹X",
@@ -217,7 +217,7 @@ class _AskodoxDayStepsScreenState extends ConsumerState<AskodoxDayStepsScreen> {
               buttonKey: const Key('askodoxDayStepsSend'),
               label: te ? 'WhatsApp కి పంపు' : 'Send on WhatsApp',
               icon: Icons.send_rounded,
-              color: const Color(0xFF15803D),
+              color: const Color(0xFF75D48B),
               onPressed: _send),
         ),
       _ => AskodoxStepScaffold(
@@ -241,7 +241,7 @@ class _AskodoxDayStepsScreenState extends ConsumerState<AskodoxDayStepsScreen> {
           label: methods.isEmpty
               ? (te ? 'ఈ రోజు ఆన్‌లైన్ డబ్బు లేదు' : 'No online money today')
               : methods.map((m) => '${_methodName(m, te)} ${askodoxStepRupees(_net(m))}').join(' · '),
-          color: const Color(0xFF1D4ED8),
+          color: const Color(0xFFA0BFFF),
           size: 46),
       const SizedBox(height: 6),
       Center(
@@ -252,7 +252,7 @@ class _AskodoxDayStepsScreenState extends ConsumerState<AskodoxDayStepsScreen> {
       AskodoxStepChoice(
         key: const Key('askodoxDayStepsOnlineOk'),
         icon: Icons.check_rounded,
-        color: const Color(0xFF15803D),
+        color: const Color(0xFF75D48B),
         title: te ? 'సరే, సరిపోయింది' : 'Yes, it matches',
         sub: te ? 'బ్యాంక్ యాప్‌లో కూడా ఇంతే' : 'The bank app shows the same',
         onTap: () => setState(() => _step = 2),
@@ -261,7 +261,7 @@ class _AskodoxDayStepsScreenState extends ConsumerState<AskodoxDayStepsScreen> {
       AskodoxStepChoice(
         key: const Key('askodoxDayStepsOnlineDiff'),
         icon: Icons.report_problem_rounded,
-        color: const Color(0xFFC2410C),
+        color: const Color(0xFFFF9A79),
         title: te ? 'తేడా ఉంది' : 'There is a difference',
         sub: te ? 'ఈ రోజు బిల్లులు చూపిస్తాం — సరిచేసి మళ్ళీ రండి' : "We show today's bills — fix and come back",
         onTap: () => context.push('/biz/${widget.businessId}/money/history'),
@@ -310,7 +310,7 @@ class _AskodoxDayStepsScreenState extends ConsumerState<AskodoxDayStepsScreen> {
           size: 42),
       const SizedBox(height: 14),
       AskodoxStepBlocks([
-        (te ? 'క్యాష్' : 'Cash', askodoxStepRupees(_cash), const Color(0xFF0F6B3C)),
+        (te ? 'క్యాష్' : 'Cash', askodoxStepRupees(_cash), const Color(0xFF86D7A1)),
         (te ? 'ఆన్‌లైన్' : 'Online', askodoxStepRupees(_online), askodoxStepInfo),
         (te ? 'పన్ను' : 'Tax', askodoxStepRupees(askodoxPosInt(d['tax_paise'])), askodoxStepWarn),
       ]),

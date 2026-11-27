@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -30,10 +31,10 @@ class AskodoxMoneyScreen extends ConsumerStatefulWidget {
   ConsumerState<AskodoxMoneyScreen> createState() => _AskodoxMoneyScreenState();
 }
 
-const _accent = Color(0xFF1E3FA0);
-const _green = Color(0xFF17784C);
-const _red = Color(0xFFB91C1C);
-const _amber = Color(0xFF92400E);
+const _accent = Color(0xFFAFC8FC);
+const _green = Color(0xFF7CD3A2);
+const _red = Color(0xFFFEA195);
+const _amber = Color(0xFFFFA980);
 
 String _rs(int paise) => askodoxPaise(paise);
 
@@ -283,7 +284,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: i.direction == 'out' ? _red : _green)),
             Text(i.title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-            Text(_when(i.at, te), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF5B6475))),
+            Text(_when(i.at, te), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFB4BED1))),
             if (_proof(i, te) case final p?) Center(child: Padding(padding: const EdgeInsets.only(top: 6), child: _Pill(p.$1, p.$2))),
             const Divider(height: 24),
             if (i.how.isNotEmpty) _kv(te ? 'ఎలా' : 'How', te ? askodoxHowLabel(i.how).$2 : askodoxHowLabel(i.how).$1),
@@ -298,10 +299,10 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                 key: const Key('askodoxMoneyDetailMessage'),
                 margin: const EdgeInsets.only(top: 8),
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(10)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(te ? 'వచ్చిన మెసేజ్ (ఈ ఫోన్‌లోనే ఉంటుంది)' : 'The message (stays on this phone)',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5B6475))),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFB4BED1))),
                   const SizedBox(height: 4),
                   SelectableText(_rowMessage(i), style: const TextStyle(fontSize: 13)),
                 ]),
@@ -370,7 +371,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Text(k, style: const TextStyle(color: Color(0xFF5B6475)))),
+          Expanded(child: Text(k, style: const TextStyle(color: Color(0xFFB4BED1)))),
           Flexible(flex: 2, child: Text(v, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
         ]),
       );
@@ -385,7 +386,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
       'bank_sms' => (te ? '✓ బ్యాంక్ SMS లో అందింది' : '✓ Received (bank SMS)', _green),
       'provider' => (te ? '✓ Razorpay లో అందింది' : '✓ Received (Razorpay)', _green),
       'cashier' => (te ? '✓ క్యాషియర్ నమోదు చేశారు' : '✓ Entered by the cashier', _green),
-      _ => i.kind == 'payment' ? (te ? '⏳ బ్యాంక్ SMS ఇంకా రాలేదు' : '⏳ Bank SMS not seen yet', const Color(0xFF6B7280)) : null,
+      _ => i.kind == 'payment' ? (te ? '⏳ బ్యాంక్ SMS ఇంకా రాలేదు' : '⏳ Bank SMS not seen yet', const Color(0xFFB1B9C8)) : null,
     };
   }
 
@@ -426,7 +427,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                   ? '⏳ = యాప్ నోటిఫికేషన్‌లో మాత్రమే అందింది, బ్యాంక్ SMS ఇంకా రాలేదు.'
                   : '⏳ = received in an app notification only; no bank SMS yet.',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFFB4BED1))),
           const SizedBox(height: 8),
           AskodoxPayAlertDisclaimer(te: te),
         ]),
@@ -485,11 +486,11 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
     Widget stat(String label, String value, {String sub = ''}) => Expanded(
           child: Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: AskodoxLook.sheet.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(12)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              Text(value, style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800)),
-              if (sub.isNotEmpty) Text(sub, style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
+              Text(label, style: const TextStyle(color: AskodoxLook.sheet70, fontSize: 12)),
+              Text(value, style: const TextStyle(color: AskodoxLook.sheet, fontSize: 21, fontWeight: FontWeight.w800)),
+              if (sub.isNotEmpty) Text(sub, style: const TextStyle(color: AskodoxLook.sheet70, fontSize: 11.5)),
             ]),
           ),
         );
@@ -506,10 +507,10 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                 constraints: const BoxConstraints(minHeight: 74),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
                   Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color)),
                   if (sub.isNotEmpty)
-                    Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+                    Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFFB4BED1))),
                 ]),
               ),
             ),
@@ -519,30 +520,30 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
     final tiles = personal
         ? [
             tile('pending', te ? 'కట్టాల్సిన బిల్లులు' : 'Bills to pay', _rs(pendingSum),
-                te ? '${pending.length} బిల్' : '${pending.length} bills', _amber, const Color(0xFFFFF4E5), () => _openList(kind: 'pending')),
+                te ? '${pending.length} బిల్' : '${pending.length} bills', _amber, const Color(0xFF3C2A0D), () => _openList(kind: 'pending')),
             const SizedBox(width: 8),
             tile('top', te ? 'ఎక్కువ ఖర్చు' : 'Spent most on',
                 topCat == null ? '—' : (te ? askodoxCategoryLabel(topCat.key).$2 : askodoxCategoryLabel(topCat.key).$1),
-                topCat == null ? '' : _rs(topCat.value), const Color(0xFF1B2333), Colors.white,
+                topCat == null ? '' : _rs(topCat.value), const Color(0xFFF7F9FC), AskodoxLook.sheet,
                 () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => AskodoxMoneyMonthScreen(items: all, mine: _data.mine, personal: personal)))),
             const SizedBox(width: 8),
             tile('pairs', te ? 'జత చేయాలి' : 'To join', '${pairs.length}', te ? 'బిల్ ↔ పేమెంట్' : 'bill ↔ payment', _accent,
-                const Color(0xFFE8EEFB), () => _openList()),
+                const Color(0xFF242D43), () => _openList()),
           ]
         : [
             tile('pending', te ? 'రావాల్సిన బాకీ' : 'Customers owe', _rs(pendingSum),
-                te ? '${pending.length} బిల్లులు' : '${pending.length} bills', _amber, const Color(0xFFFFF4E5), () => _openList(kind: 'pending')),
+                te ? '${pending.length} బిల్లులు' : '${pending.length} bills', _amber, const Color(0xFF3C2A0D), () => _openList(kind: 'pending')),
             const SizedBox(width: 8),
-            tile('cash', te ? 'క్యాష్ / UPI' : 'Cash / UPI', '${_rs(cash)} / ${_rs(totals.inPaise - cash)}', '', const Color(0xFF1B2333),
-                Colors.white, () => _openList(kind: 'in')),
+            tile('cash', te ? 'క్యాష్ / UPI' : 'Cash / UPI', '${_rs(cash)} / ${_rs(totals.inPaise - cash)}', '', const Color(0xFFF7F9FC),
+                AskodoxLook.sheet, () => _openList(kind: 'in')),
             const SizedBox(width: 8),
             tile('pairs', te ? 'జత చేయాలి' : 'To join', '${pairs.length}', te ? 'పేమెంట్ ↔ బిల్' : 'payment ↔ bill', _accent,
-                const Color(0xFFE8EEFB), () => _openList()),
+                const Color(0xFF242D43), () => _openList()),
           ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: const Color(0xFF1F2432),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(key: const Key('askodoxMoney'), padding: EdgeInsets.zero, children: [
@@ -554,15 +555,15 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
               Row(children: [
                 IconButton(
                     tooltip: te ? 'వెనక్కి' : 'Back',
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: AskodoxLook.sheet),
                     onPressed: () => Navigator.of(context).maybePop()),
                 Expanded(
                     child: Text(personal ? (te ? 'నా డబ్బు' : 'My money') : (te ? 'షాప్ డబ్బు' : 'Shop money'),
-                        style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800))),
+                        style: const TextStyle(color: AskodoxLook.sheet, fontSize: 19, fontWeight: FontWeight.w800))),
                 IconButton(
                   key: const Key('askodoxMoneySearchToggle'),
                   tooltip: te ? 'వెతుకు' : 'Search',
-                  icon: const Icon(Icons.search, color: Colors.white),
+                  icon: const Icon(Icons.search, color: AskodoxLook.sheet),
                   onPressed: () => _openList(search: true),
                 ),
                 PopupMenuButton<String>(
@@ -580,8 +581,8 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                   ],
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
-                    child: Text('${_periodLabel(te)} ▾', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                    decoration: BoxDecoration(color: AskodoxLook.sheet.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
+                    child: Text('${_periodLabel(te)} ▾', style: const TextStyle(color: AskodoxLook.sheet, fontSize: 13)),
                   ),
                 ),
               ]),
@@ -589,7 +590,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: AskodoxLook.sheet.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(children: [
@@ -625,7 +626,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+                        style: const TextStyle(color: AskodoxLook.sheet, fontSize: 12.5)),
                   ),
                 ),
             ]),
@@ -656,7 +657,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(te ? 'EMI, కరెంట్ బిల్, అద్దె చేర్చండి — గడువుకు 2 రోజుల ముందు, ఆ రోజు వాయిస్‌తో చెప్తుంది.'
                           : 'Add EMI, current bill, rent — said aloud 2 days before and on the day.',
-                          style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                          style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                     )
                   : ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 14), children: [
                       for (final u in upcoming.take(8))
@@ -665,7 +666,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                           width: 132,
                           margin: const EdgeInsets.only(right: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
+                          decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF4A526B))),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(u.$1.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                             Text(_rs(u.$1.amountPaise), style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -673,7 +674,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                               final days = DateTime(u.$2.year, u.$2.month, u.$2.day).difference(today).inDays;
                               return Text(
                                   days <= 0 ? (te ? 'ఈ రోజే' : 'Today') : days == 1 ? (te ? 'రేపు' : 'Tomorrow') : days <= 7 ? (te ? '$days రోజుల్లో' : 'in $days days') : '${u.$2.day}/${u.$2.month}',
-                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: days <= 3 ? const Color(0xFFB45309) : const Color(0xFF374151)));
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: days <= 3 ? const Color(0xFFFB9E6A) : const Color(0xFFC0CDE0)));
                             }),
                           ]),
                         ),
@@ -683,7 +684,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
           Container(
             margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
                 Expanded(child: Text(te ? 'ఇటీవల' : 'Latest', style: const TextStyle(fontWeight: FontWeight.w800))),
@@ -708,7 +709,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: Material(
-        color: sel ? Colors.white : Colors.transparent,
+        color: sel ? AskodoxLook.sheet : Colors.transparent,
         borderRadius: BorderRadius.circular(9),
         child: InkWell(
           key: ValueKey('askodoxMoneyOwner-$id'),
@@ -730,7 +731,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(label,
-                style: TextStyle(color: sel ? _accent : Colors.white, fontWeight: sel ? FontWeight.w800 : FontWeight.w500, fontSize: 13)),
+                style: TextStyle(color: sel ? _accent : AskodoxLook.sheet, fontWeight: sel ? FontWeight.w800 : FontWeight.w500, fontSize: 13)),
           ),
         ),
       ),
@@ -777,7 +778,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
     final balances = askodoxLatestBalances(all);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: const Color(0xFF1F2432),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(key: const Key('askodoxMoney'), padding: EdgeInsets.zero, children: [
@@ -792,7 +793,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
           Container(
             margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               if (shown.isEmpty)
                 Padding(
@@ -842,28 +843,28 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
         Row(children: [
           IconButton(
               tooltip: te ? 'వెనక్కి' : 'Back',
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: const Icon(Icons.arrow_back, color: AskodoxLook.sheet),
               onPressed: () => _listMode ? setState(() => _listMode = false) : Navigator.of(context).maybePop()),
           Expanded(
             child: _searching
                 ? TextField(
                     key: const Key('askodoxMoneySearch'),
                     autofocus: true,
-                    style: const TextStyle(color: Colors.white),
-                    cursorColor: Colors.white,
+                    style: const TextStyle(color: AskodoxLook.sheet),
+                    cursorColor: AskodoxLook.sheet,
                     decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: te ? 'పేరు / మొత్తం / ఖాతా' : 'Name / amount / account',
-                        hintStyle: const TextStyle(color: Colors.white70)),
+                        hintStyle: const TextStyle(color: AskodoxLook.sheet70)),
                     onChanged: (v) => setState(() => _q = v),
                   )
                 : Text(personal ? (te ? 'నా డబ్బు' : 'My money') : (te ? 'షాప్ డబ్బు' : 'Shop money'),
-                    style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+                    style: const TextStyle(color: AskodoxLook.sheet, fontSize: 19, fontWeight: FontWeight.w800)),
           ),
           IconButton(
             key: const Key('askodoxMoneySearchToggle'),
             tooltip: te ? 'వెతుకు' : 'Search',
-            icon: Icon(_searching ? Icons.close : Icons.search, color: Colors.white),
+            icon: Icon(_searching ? Icons.close : Icons.search, color: AskodoxLook.sheet),
             onPressed: () => setState(() {
               _searching = !_searching;
               if (!_searching) _q = '';
@@ -884,8 +885,8 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
         if (personal && balances.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(te ? 'చివరిగా తెలిసిన బ్యాలెన్స్ (బ్యాంక్ SMS)' : 'Last known balance (bank SMS)',
-              textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          Text(_rs(total), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
+              textAlign: TextAlign.center, style: const TextStyle(color: AskodoxLook.sheet70, fontSize: 12)),
+          Text(_rs(total), textAlign: TextAlign.center, style: const TextStyle(color: AskodoxLook.sheet, fontSize: 30, fontWeight: FontWeight.w800)),
         ],
         if (personal && keys.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -940,7 +941,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        color: sel ? Colors.white : Colors.white.withValues(alpha: 0.14),
+        color: sel ? AskodoxLook.sheet : AskodoxLook.sheet.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           key: ValueKey('askodoxMoneyAccount-${key ?? 'all'}'),
@@ -950,10 +951,10 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
             constraints: const BoxConstraints(minWidth: 120),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: sel ? const Color(0xFF1B2333) : Colors.white)),
+              Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: sel ? const Color(0xFFF7F9FC) : AskodoxLook.sheet)),
               if (bal != null)
                 Text('${_rs(bal.$1)} · ${_when(bal.$2, te)}',
-                    style: TextStyle(fontSize: 12, color: sel ? const Color(0xFF5B6475) : Colors.white70)),
+                    style: TextStyle(fontSize: 12, color: sel ? const Color(0xFFB4BED1) : AskodoxLook.sheet70)),
             ]),
           ),
         ),
@@ -965,18 +966,18 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
         key: const Key('askodoxMoneyTotals'),
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
           Expanded(
             child: Column(children: [
-              Text(te ? 'వచ్చింది' : 'Came in', style: const TextStyle(color: Color(0xFF5B6475), fontSize: 13)),
+              Text(te ? 'వచ్చింది' : 'Came in', style: const TextStyle(color: Color(0xFFB4BED1), fontSize: 13)),
               Text(_rs(t.inPaise), style: const TextStyle(color: _green, fontSize: 22, fontWeight: FontWeight.w800)),
             ]),
           ),
-          Container(width: 1, height: 40, color: const Color(0xFFE5E7EB)),
+          Container(width: 1, height: 40, color: const Color(0xFF4A526B)),
           Expanded(
             child: Column(children: [
-              Text(te ? 'ఖర్చు' : 'Went out', style: const TextStyle(color: Color(0xFF5B6475), fontSize: 13)),
+              Text(te ? 'ఖర్చు' : 'Went out', style: const TextStyle(color: Color(0xFFB4BED1), fontSize: 13)),
               Text(_rs(t.outPaise), style: const TextStyle(color: _red, fontSize: 22, fontWeight: FontWeight.w800)),
             ]),
           ),
@@ -996,7 +997,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
     final sum = week.fold<int>(0, (a, b) => a + b.$1.amountPaise);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14)),
       child: ListTile(
         key: const Key('askodoxMoneyDues'),
         leading: const Icon(Icons.event_note_outlined, color: _accent),
@@ -1026,7 +1027,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
       key: const Key('askodoxMoneyPending'),
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFFFF4E5), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: const Color(0xFF3C2A0D), borderRadius: BorderRadius.circular(14)),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1051,7 +1052,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
         key: ValueKey('askodoxMoneyPair-${s.payment.id}'),
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFFFF4E5), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: const Color(0xFF3C2A0D), borderRadius: BorderRadius.circular(14)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(te ? 'ఈ బిల్‌కి కట్టారా?' : 'Was this for that bill?', style: const TextStyle(fontWeight: FontWeight.w800, color: _amber)),
           Text(
@@ -1085,7 +1086,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
         key: ValueKey('askodoxMoneyDuePair-${p.id}'),
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFE8EEFB), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: const Color(0xFF242D43), borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
           Expanded(
             child: Text(
@@ -1172,7 +1173,7 @@ class _AskodoxMoneyScreenState extends ConsumerState<AskodoxMoneyScreen> with Wi
                     if (i.account.isNotEmpty) _accountName(i.account, te),
                     _when(i.at, te),
                   ].where((x) => x.isNotEmpty).join(' · '),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
               if (i.kind == 'bill' && i.pending)
                 Text(te ? 'ఇంకా కట్టలేదు' : 'Not paid yet', style: const TextStyle(fontSize: 11.5, color: _amber, fontWeight: FontWeight.w600)),
               if (linkText.isNotEmpty || cat.isNotEmpty)
@@ -1216,17 +1217,17 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (text, bg, fg) = kind == 'bill'
-        ? ('₹', const Color(0xFFFFF4E5), _amber)
+        ? ('₹', const Color(0xFF3C2A0D), _amber)
         : switch (how) {
-            'phonepe' => ('Pe', const Color(0xFFEFE7FB), const Color(0xFF5B2A9E)),
-            'gpay' => ('GP', const Color(0xFFE6F4EA), _green),
-            'paytm' => ('Pt', const Color(0xFFE6F4F8), const Color(0xFF0E6A84)),
-            'razorpay' => ('Rz', const Color(0xFFE8EEFB), _accent),
-            'sms' || 'bank' => ('Bk', const Color(0xFFF1F2F4), const Color(0xFF374151)),
-            'cash' => ('₹', const Color(0xFFE6F4EA), _green),
-            'wallet' => ('W', const Color(0xFFFFF4E5), _amber),
-            'qr' => ('QR', const Color(0xFFE8EEFB), _accent),
-            _ => ('UPI', const Color(0xFFF1F2F4), const Color(0xFF374151)),
+            'phonepe' => ('Pe', const Color(0xFF4D425C), const Color(0xFFCDBAFF)),
+            'gpay' => ('GP', const Color(0xFF1B3424), _green),
+            'paytm' => ('Pt', const Color(0xFF183239), const Color(0xFF7DCCE9)),
+            'razorpay' => ('Rz', const Color(0xFF242D43), _accent),
+            'sms' || 'bank' => ('Bk', const Color(0xFF1F2432), const Color(0xFFC0CDE0)),
+            'cash' => ('₹', const Color(0xFF1B3424), _green),
+            'wallet' => ('W', const Color(0xFF3C2A0D), _amber),
+            'qr' => ('QR', const Color(0xFF242D43), _accent),
+            _ => ('UPI', const Color(0xFF1F2432), const Color(0xFFC0CDE0)),
           };
     return Container(
       width: size,
@@ -1277,14 +1278,14 @@ class _AskodoxMoneyMonthScreenState extends State<AskodoxMoneyMonthScreen> {
             const SizedBox(height: 4),
             ClipRRect(
               borderRadius: BorderRadius.circular(5),
-              child: LinearProgressIndicator(value: max == 0 ? 0 : value / max, minHeight: 10, color: c, backgroundColor: const Color(0xFFE5E7EB)),
+              child: LinearProgressIndicator(value: max == 0 ? 0 : value / max, minHeight: 10, color: c, backgroundColor: const Color(0xFF4A526B)),
             ),
           ]),
         );
     final diff = t.outPaise - prev.outPaise;
     return Scaffold(
       key: const Key('askodoxMoneyMonthScreen'),
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: const Color(0xFF1F2432),
       appBar: AppBar(title: Text(te ? 'ఎక్కడ ఖర్చు / ఎక్కడ నుంచి వచ్చింది' : 'Where it went / came from')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Wrap(spacing: 8, children: [
@@ -1320,7 +1321,7 @@ class _AskodoxMoneyMonthScreenState extends State<AskodoxMoneyMonthScreen> {
                 Text(te ? 'ఎక్కడ ఖర్చు' : 'Where it went', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                 for (final c in cats)
                   bar(c.key.isEmpty ? (te ? 'వర్గం లేనివి (వరుస నొక్కి పెట్టండి)' : 'Not set (tap a row to set)') : (te ? askodoxCategoryLabel(c.key).$2 : askodoxCategoryLabel(c.key).$1),
-                      c.value, cats.first.value, c.key.isEmpty ? const Color(0xFF9CA3AF) : const Color(0xFFB45309)),
+                      c.value, cats.first.value, c.key.isEmpty ? const Color(0xFF9299A4) : const Color(0xFFFB9E6A)),
               ]),
             ),
           ),
@@ -1404,7 +1405,7 @@ class _AskodoxDuesScreenState extends ConsumerState<AskodoxDuesScreen> {
     final emis = m == null ? const <AskodoxMoneyItem>[] : askodoxEmiSuggestions(widget.items, m.dues, m.dismissed);
     return Scaffold(
       key: const Key('askodoxDuesScreen'),
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: const Color(0xFF1F2432),
       appBar: AppBar(title: Text(te ? 'రాబోయే చెల్లింపులు' : 'Upcoming payments')),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('askodoxDueAdd'),
@@ -1418,7 +1419,7 @@ class _AskodoxDuesScreenState extends ConsumerState<AskodoxDuesScreen> {
               Row(children: [
                 Expanded(child: _box(te ? 'ఈ వారం' : 'This week', _rs(week), _amber)),
                 const SizedBox(width: 8),
-                Expanded(child: _box(te ? 'ఈ నెల మొత్తం' : 'This month', _rs(month), const Color(0xFF1B2333))),
+                Expanded(child: _box(te ? 'ఈ నెల మొత్తం' : 'This month', _rs(month), const Color(0xFFF7F9FC))),
               ]),
               for (final e in found)
                 _suggest(
@@ -1468,9 +1469,9 @@ class _AskodoxDuesScreenState extends ConsumerState<AskodoxDuesScreen> {
 
   Widget _box(String label, String value, Color c) => Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
         child: Column(children: [
-          Text(label, style: const TextStyle(color: Color(0xFF5B6475), fontSize: 12.5)),
+          Text(label, style: const TextStyle(color: Color(0xFFB4BED1), fontSize: 12.5)),
           Text(value, style: TextStyle(color: c, fontSize: 21, fontWeight: FontWeight.w800)),
         ]),
       );
@@ -1480,12 +1481,12 @@ class _AskodoxDuesScreenState extends ConsumerState<AskodoxDuesScreen> {
         key: ValueKey(key),
         margin: const EdgeInsets.only(top: 10),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFE8EEFB), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: const Color(0xFF242D43), borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
-              if (sub.isNotEmpty) Text(sub, style: const TextStyle(fontSize: 12, color: Color(0xFF374151))),
+              if (sub.isNotEmpty) Text(sub, style: const TextStyle(fontSize: 12, color: Color(0xFFC0CDE0))),
             ]),
           ),
           TextButton(onPressed: add, child: Text(te ? 'జోడించు' : 'Add')),
@@ -1502,7 +1503,7 @@ class _AskodoxDuesScreenState extends ConsumerState<AskodoxDuesScreen> {
             : left == 0
                 ? (te ? 'ఈ రోజు' : 'Today')
                 : (te ? '${next.day}/${next.month} · $left రోజుల్లో' : '${next.day}/${next.month} · in $left days');
-    final color = next == null ? _green : (left! <= 2 ? _amber : const Color(0xFF374151));
+    final color = next == null ? _green : (left! <= 2 ? _amber : const Color(0xFFC0CDE0));
     final repeat = switch (d.repeat) {
       'once' => te ? 'ఒక్కసారి' : 'once',
       'quarterly' => te ? 'ప్రతి 3 నెలలకు' : 'every 3 months',
@@ -1514,13 +1515,13 @@ class _AskodoxDuesScreenState extends ConsumerState<AskodoxDuesScreen> {
       key: ValueKey('askodoxDue-${d.id}'),
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14)),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(d.name, style: const TextStyle(fontWeight: FontWeight.w800)),
             Text([repeat, if (d.category.isNotEmpty) te ? askodoxCategoryLabel(d.category).$2 : askodoxCategoryLabel(d.category).$1].join(' · '),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
             Text(whenText, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
           ]),
         ),

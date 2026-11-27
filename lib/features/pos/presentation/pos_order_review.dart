@@ -195,7 +195,7 @@ class _AskodoxPosOrderReviewSheetState extends State<AskodoxPosOrderReviewSheet>
       return ListTile(
         key: ValueKey('askodoxPosMultiLine-$i'),
         dense: true,
-        leading: const Icon(Icons.help_outline, color: Color(0xFFB45309)),
+        leading: const Icon(Icons.help_outline, color: Color(0xFFFB9E6A)),
         title: Text('"${r.phrase}" — $problem'),
         trailing: PopupMenuButton<AskodoxPosItemRef>(
           key: ValueKey('askodoxPosMultiChoose-$i'),
@@ -220,9 +220,9 @@ class _AskodoxPosOrderReviewSheetState extends State<AskodoxPosOrderReviewSheet>
       return ListTile(
         key: ValueKey('askodoxPosMultiLine-$i'),
         dense: true,
-        leading: const Icon(Icons.error_outline, color: Color(0xFFB91C1C)),
+        leading: const Icon(Icons.error_outline, color: Color(0xFFFEA195)),
         title: Text('"${r.phrase}"'),
-        subtitle: Text(problem, style: const TextStyle(color: Color(0xFFB91C1C))),
+        subtitle: Text(problem, style: const TextStyle(color: Color(0xFFFEA195))),
         trailing: c.item == null
             ? PopupMenuButton<AskodoxPosItemRef>(
                 key: ValueKey('askodoxPosMultiChoose-$i'),

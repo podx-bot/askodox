@@ -133,14 +133,14 @@ class AskodoxLiteBanner extends StatelessWidget {
             child: Container(
               key: Key('askodoxLiteBanner-${net.name}'),
               width: double.infinity,
-              color: const Color(0xFFFFF1E0),
+              color: const Color(0xFF402804),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               child: Row(children: [
-                Icon(off ? Icons.wifi_off_rounded : Icons.network_check_rounded, size: 18, color: const Color(0xFF9A4A07)),
+                Icon(off ? Icons.wifi_off_rounded : Icons.network_check_rounded, size: 18, color: const Color(0xFFFEA56F)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(text,
-                      style: const TextStyle(fontSize: 12.5, height: 1.3, fontWeight: FontWeight.w700, color: Color(0xFF9A4A07))),
+                      style: const TextStyle(fontSize: 12.5, height: 1.3, fontWeight: FontWeight.w700, color: Color(0xFFFEA56F))),
                 ),
               ]),
             ),
@@ -179,7 +179,7 @@ class _AskodoxLiteImageState extends State<AskodoxLiteImage> {
                 alignment: Alignment.bottomRight,
                 child: Padding(
                   padding: EdgeInsets.all(2),
-                  child: Icon(Icons.download_for_offline_rounded, size: 16, color: Color(0xFF6C4DFF)),
+                  child: Icon(Icons.download_for_offline_rounded, size: 16, color: Color(0xFFADAEFD)),
                 ),
               ),
             ]),

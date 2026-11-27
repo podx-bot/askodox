@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 
 import '../data/pos_repository.dart';
@@ -10,7 +11,7 @@ class AskodoxPaperBill extends StatelessWidget {
   final AskodoxJson paper;
   final bool te;
 
-  static const _ink = Color(0xFF9D1D5A);
+  static const _ink = Color(0xFFFDA3C2);
 
   static String rupees(int paise) {
     final neg = paise < 0;
@@ -47,7 +48,7 @@ class AskodoxPaperBill extends StatelessWidget {
     return Container(
       key: const Key('askodoxPaperBill'),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFDF7),
+        color: const Color(0xFF1F2432),
         border: Border.all(color: _ink, width: 1.6),
         borderRadius: BorderRadius.circular(6),
       ),
@@ -72,7 +73,7 @@ class AskodoxPaperBill extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
             decoration: BoxDecoration(color: _ink, borderRadius: BorderRadius.circular(4)),
             child: Text(cancelled ? (te ? 'రద్దైన బిల్' : 'CANCELLED') : _title,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12.5)),
+                style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w900, fontSize: 12.5)),
           ),
         ),
         const SizedBox(height: 6),
@@ -91,7 +92,7 @@ class AskodoxPaperBill extends StatelessWidget {
         Table(
           columnWidths: const {0: FixedColumnWidth(22), 1: FlexColumnWidth(), 2: IntrinsicColumnWidth(), 3: IntrinsicColumnWidth(), 4: IntrinsicColumnWidth()},
           border: const TableBorder(
-              top: BorderSide(color: _ink), bottom: BorderSide(color: _ink), horizontalInside: BorderSide(color: Color(0x339D1D5A))),
+              top: BorderSide(color: _ink), bottom: BorderSide(color: _ink), horizontalInside: BorderSide(color: Color(0x33FDA3C2))),
           children: [
             TableRow(children: [
               const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Text('#', style: head)),
@@ -131,7 +132,7 @@ class AskodoxPaperBill extends StatelessWidget {
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(border: Border.all(color: const Color(0x669D1D5A)), borderRadius: BorderRadius.circular(6)),
+          decoration: BoxDecoration(border: Border.all(color: const Color(0x66FDA3C2)), borderRadius: BorderRadius.circular(6)),
           child: Column(children: [
             if (askodoxPosInt(paper['cash_paise']) > 0) row('💵 ${te ? 'క్యాష్' : 'Cash'}', rupees(askodoxPosInt(paper['cash_paise']))),
             if (askodoxPosInt(paper['online_paise']) > 0)
@@ -139,8 +140,8 @@ class AskodoxPaperBill extends StatelessWidget {
                   '📱 ${te ? 'ఆన్‌లైన్' : 'Online'}${(paper['online_apps'] as List? ?? const []).isEmpty ? '' : ' (${(paper['online_apps'] as List).join(', ')})'}',
                   rupees(askodoxPosInt(paper['online_paise']))),
             if (askodoxPosInt(paper['due_paise']) > 0)
-              row('📒 ${te ? 'బాకీ' : 'Baaki (due)'}', rupees(askodoxPosInt(paper['due_paise'])), bold: true, color: const Color(0xFFB45309)),
-            if (askodoxPosInt(paper['due_paise']) == 0 && !cancelled) row(te ? 'పూర్తిగా కట్టారు ✓' : 'Fully paid ✓', '', color: const Color(0xFF17784C)),
+              row('📒 ${te ? 'బాకీ' : 'Baaki (due)'}', rupees(askodoxPosInt(paper['due_paise'])), bold: true, color: const Color(0xFFFB9E6A)),
+            if (askodoxPosInt(paper['due_paise']) == 0 && !cancelled) row(te ? 'పూర్తిగా కట్టారు ✓' : 'Fully paid ✓', '', color: const Color(0xFF7CD3A2)),
           ]),
         ),
         const SizedBox(height: 6),

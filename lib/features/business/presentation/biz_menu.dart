@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -42,9 +43,9 @@ class AskodoxFoodMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (type) {
-      'veg' => const Color(0xFF17784C),
-      'egg' => const Color(0xFFB45309),
-      'nonveg' => const Color(0xFFB91C1C),
+      'veg' => const Color(0xFF7CD3A2),
+      'egg' => const Color(0xFFFB9E6A),
+      'nonveg' => const Color(0xFFFEA195),
       _ => null,
     };
     if (color == null) return const SizedBox(width: 0);
@@ -97,7 +98,7 @@ class _AskodoxBizMenuScreenState extends ConsumerState<AskodoxBizMenuScreen> {
             prefixIcon: const Icon(Icons.search),
             hintText: te ? 'ఐటమ్ పేరు / నంబర్ — అన్ని విభాగాల్లో' : 'Item name / number — all sections',
             filled: true,
-            fillColor: Colors.white,
+            fillColor: AskodoxLook.sheet,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             isDense: true,
           ),
@@ -179,7 +180,7 @@ class _AskodoxMenuItemRowState extends ConsumerState<AskodoxMenuItemRow> {
       onTap: () => context.push('/biz/${widget.businessId}/menu/item/${it['id']}'),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEF0F3)))),
+        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1F2432)))),
         child: Row(children: [
           AskodoxProductThumb(businessId: widget.businessId, productId: '${it['id']}', hasPhoto: it['has_photo'] == true),
           const SizedBox(width: 10),
@@ -191,7 +192,7 @@ class _AskodoxMenuItemRowState extends ConsumerState<AskodoxMenuItemRow> {
                   child: Text('${it['name']}',
                       style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          color: on ? null : const Color(0xFF9CA3AF),
+                          color: on ? null : const Color(0xFF9299A4),
                           decoration: on ? null : TextDecoration.lineThrough)),
                 ),
               ]),
@@ -201,7 +202,7 @@ class _AskodoxMenuItemRowState extends ConsumerState<AskodoxMenuItemRow> {
                     te ? 'ఈ రోజు $sold అమ్మాం' : '$sold sold today',
                     if (!on) te ? 'ఈ రోజు లేదు' : 'off today',
                   ].join(' · '),
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF4B5563))),
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFFB9C5D5))),
             ]),
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -259,9 +260,9 @@ class _AskodoxProductThumbState extends ConsumerState<AskodoxProductThumb> {
         child: Container(
           width: widget.size,
           height: widget.size,
-          color: const Color(0xFFFFF1E3),
+          color: const Color(0xFF3F280D),
           child: _bytes == null
-              ? const Icon(Icons.image_outlined, color: Color(0xFFB45309))
+              ? const Icon(Icons.image_outlined, color: Color(0xFFFB9E6A))
               : Image.memory(_bytes!, fit: BoxFit.cover),
         ),
       );
@@ -483,11 +484,11 @@ class _AskodoxBizItemScreenState extends ConsumerState<AskodoxBizItemScreen> {
               ),
               const SizedBox(height: 10),
               AskodoxBizStrip(cells: [
-                (te ? 'ధర' : 'Price', askodoxPaise(askodoxPosInt(it['price_paise'])), const Color(0xFF16203F)),
+                (te ? 'ధర' : 'Price', askodoxPaise(askodoxPosInt(it['price_paise'])), const Color(0xFFF7F9FC)),
                 (te ? 'ఈ రోజు' : 'Today', te ? '${askodoxPosInt(it['sold_today'])} అమ్మాం' : '${askodoxPosInt(it['sold_today'])} sold',
-                    const Color(0xFF17784C)),
+                    const Color(0xFF7CD3A2)),
                 (te ? 'స్థితి' : 'Status', it['available'] == true ? (te ? 'ఉంది' : 'On') : (te ? 'లేదు' : 'Off'),
-                    it['available'] == true ? const Color(0xFF17784C) : const Color(0xFFB91C1C)),
+                    it['available'] == true ? const Color(0xFF7CD3A2) : const Color(0xFFFEA195)),
               ]),
               AskodoxBizSection(te ? 'ఈ ఐటమ్ — బటన్లుగా' : 'This item'),
               AbsorbPointer(
@@ -685,7 +686,7 @@ class _AskodoxBizMenuSortScreenState extends ConsumerState<AskodoxBizMenuSortScr
                     child: FilledButton(
                       key: const Key('askodoxMenuSortSave'),
                       style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF5B2A9E), minimumSize: const Size.fromHeight(48)),
+                          backgroundColor: const Color(0xFFCDBAFF), minimumSize: const Size.fromHeight(48)),
                       onPressed: _saving ? null : _save,
                       child: Text(te ? 'సేవ్ చేయి (${rows.length})' : 'Save (${rows.length})'),
                     ),
@@ -709,7 +710,7 @@ class _AskodoxBizMenuSortScreenState extends ConsumerState<AskodoxBizMenuSortScr
                     te
                         ? 'మీరు వేరే పని చేసుకోవచ్చు — అయ్యాక notification వస్తుంది. ($_seconds సె.)'
                         : 'You can do other work — a notification comes when it is ready. (${_seconds}s)',
-                    key: const Key('askodoxMenuSortWaiting'), style: const TextStyle(color: Color(0xFF4B5563))),
+                    key: const Key('askodoxMenuSortWaiting'), style: const TextStyle(color: Color(0xFFB9C5D5))),
                 const SizedBox(height: 10),
                 LinearProgressIndicator(value: (_seconds / 90).clamp(0.05, 0.95), minHeight: 8, borderRadius: BorderRadius.circular(4)),
               ]),

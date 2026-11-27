@@ -207,7 +207,7 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(_searchMessage!, key: const Key('askodoxPlaceSearchMessage'),
-                style: const TextStyle(color: Color(0xFFB42318))),
+                style: const TextStyle(color: Color(0xFFFEA293))),
           ),
         if (_results.isNotEmpty)
           SizedBox(
@@ -243,7 +243,7 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
                           width: 44,
                           height: 44,
                           alignment: Alignment.topCenter,
-                          child: const Icon(Icons.location_on_rounded, size: 44, color: Color(0xFFD93025)),
+                          child: const Icon(Icons.location_on_rounded, size: 44, color: Color(0xFFFE9485)),
                         ),
                     ]),
                     const RichAttributionWidget(attributions: [TextSourceAttribution('OpenStreetMap contributors')]),
@@ -252,7 +252,7 @@ class _AskodoxMapPinPickerState extends ConsumerState<AskodoxMapPinPicker> {
               : GestureDetector(
                   key: const Key('askodoxMapSurface'),
                   onTap: () => _dropPin(_pin),
-                  child: const SizedBox.expand(child: ColoredBox(color: Color(0xFFE8EEF5))),
+                  child: const SizedBox.expand(child: ColoredBox(color: Color(0xFF1F2432))),
                 ),
         ),
         if (_pinned && _junction != null)

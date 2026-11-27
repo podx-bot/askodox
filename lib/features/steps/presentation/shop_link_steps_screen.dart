@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -286,7 +287,7 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
             buttonKey: const Key('askodoxShopLinkSend'),
             label: te ? 'WhatsApp లో పంపు' : 'Send on WhatsApp',
             icon: Icons.send_rounded,
-            color: const Color(0xFF15803D),
+            color: const Color(0xFF75D48B),
             onPressed: _link['enabled'] == false ? null : _sendWhatsApp,
           ),
         ),
@@ -394,10 +395,10 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
               decoration: BoxDecoration(
                 color: Color(entry.value),
                 shape: BoxShape.circle,
-                border: Border.all(color: _color == entry.key ? askodoxStepInk : Colors.white, width: 3),
+                border: Border.all(color: _color == entry.key ? askodoxStepInk : AskodoxLook.sheet, width: 3),
                 boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 4)],
               ),
-              child: _color == entry.key ? const Icon(Icons.check_rounded, color: Colors.white) : null,
+              child: _color == entry.key ? const Icon(Icons.check_rounded, color: AskodoxLook.sheet) : null,
             ),
           ),
       ]),
@@ -424,13 +425,13 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: _tone, borderRadius: BorderRadius.circular(18)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_shop, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+          Text(_shop, style: const TextStyle(color: AskodoxLook.sheet, fontSize: 20, fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
           Text('askodox.com/s/${askodoxCleanSlug(_slug.text)}',
-              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              style: const TextStyle(color: AskodoxLook.sheet, fontSize: 13, fontWeight: FontWeight.w600)),
           if (_offer.text.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text('🎁 ${_offer.text.trim()}', style: const TextStyle(color: Colors.white, fontSize: 13.5)),
+            Text('🎁 ${_offer.text.trim()}', style: const TextStyle(color: AskodoxLook.sheet, fontSize: 13.5)),
           ],
         ]),
       ),
@@ -475,7 +476,7 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
             key: const Key('askodoxShopLinkSms'),
             icon: Icons.sms_rounded,
             label: te ? 'SMS కార్డ్' : 'SMS card',
-            color: const Color(0xFF0369A1),
+            color: const Color(0xFF81C6FB),
             onTap: enabled ? _sms : null),
         AskodoxStepRoundAction(
             key: const Key('askodoxShopLinkOpen'),
@@ -488,7 +489,7 @@ class _AskodoxShopLinkStepsScreenState extends ConsumerState<AskodoxShopLinkStep
       AskodoxStepBlocks([
         (te ? 'ఈ రోజు చూసినవాళ్లు' : 'Seen today', '$today', askodoxStepInfo),
         (te ? '7 రోజుల్లో' : 'Last 7 days', '$views', askodoxStepInk),
-        (te ? 'ఆర్డర్లు (7 రో.)' : 'Orders (7 d)', '$orders', const Color(0xFF15803D)),
+        (te ? 'ఆర్డర్లు (7 రో.)' : 'Orders (7 d)', '$orders', const Color(0xFF75D48B)),
       ]),
       const SizedBox(height: 10),
       // Phase 2 (owner 2026-11-25): how many people installed ASKODOX from this shop's link (a number only).

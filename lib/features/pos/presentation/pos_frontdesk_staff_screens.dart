@@ -109,12 +109,12 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
                   margin: const EdgeInsets.only(top: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF4E5),
+                    color: const Color(0xFF3C2A0D),
                     border: Border.all(color: const Color(0xFFF59E0B)),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(children: [
-                    Icon(askodoxTableAskIcon('${r['kind']}'), size: 30, color: const Color(0xFFB45309)),
+                    Icon(askodoxTableAskIcon('${r['kind']}'), size: 30, color: const Color(0xFFFB9E6A)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -122,12 +122,12 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                         Text('${'${r['text']}'.isNotEmpty ? r['text'] : r['label']}${askodoxPosInt(r['qty']) > 1 ? ' × ${r['qty']}' : ''}',
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                        Text(askodoxClockWords(r['created_at'], te), style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                        Text(askodoxClockWords(r['created_at'], te), style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
                       ]),
                     ),
                     FilledButton(
                       key: Key('askodoxDeskRequestDone-${r['id']}'),
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF17784C), minimumSize: const Size(0, 48)),
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7CD3A2), minimumSize: const Size(0, 48)),
                       onPressed: () async {
                         try {
                           final out = await ref.read(askodoxPosRepositoryProvider).deskRequestDone(widget.businessId, '${r['id']}');
@@ -441,7 +441,7 @@ class _AskodoxDeskOrdersScreenState extends ConsumerState<AskodoxDeskOrdersScree
             Text(
                 o['pay_choice'] == 'cash' ? (te ? '💵 క్యాష్ కడతారు' : '💵 Will pay cash') : (te ? '📱 ఆన్‌లైన్ (UPI) కడతారు' : '📱 Will pay online (UPI)'),
                 key: ValueKey('askodoxDeskPayChoice-${o['id']}'),
-                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF15803D))),
+                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF75D48B))),
           if (isDelivery) ...[
             Text('${o['address']}${'${o['landmark']}'.isEmpty ? '' : ' · ${o['landmark']}'}'),
             if ('${o['maps_url']}'.isNotEmpty)
@@ -643,11 +643,11 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
   Widget _itemRow(AskodoxJson m, bool te) {
     final on = m['available'] == true;
     final food = '${m['food_type'] ?? ''}';
-    final foodColor = food == 'veg' ? const Color(0xFF17784C) : (food == 'egg' ? const Color(0xFFB45309) : const Color(0xFFB91C1C));
+    final foodColor = food == 'veg' ? const Color(0xFF7CD3A2) : (food == 'egg' ? const Color(0xFFFB9E6A) : const Color(0xFFFEA195));
     return Container(
       key: Key('askodoxDeskItem-${m['id']}'),
       padding: const EdgeInsets.symmetric(vertical: 2),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEF0F3)))),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1F2432)))),
       child: Row(children: [
         if (food.isNotEmpty)
           Container(
@@ -662,19 +662,19 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: Text('#${m['item_no']}',
-                key: Key('askodoxDeskMenuNo-${m['id']}'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B6475))),
+                key: Key('askodoxDeskMenuNo-${m['id']}'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFB4BED1))),
           ),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${m['name']}',
-                style: TextStyle(fontWeight: FontWeight.w700, color: on ? null : const Color(0xFF9AA1AD), decoration: on ? null : TextDecoration.lineThrough)),
+                style: TextStyle(fontWeight: FontWeight.w700, color: on ? null : const Color(0xFF9299A5), decoration: on ? null : TextDecoration.lineThrough)),
             if (m['today_only_flag'] == true || !on)
               Text(
                   [
                     if (m['today_only_flag'] == true) te ? 'ఈ రోజు మాత్రమే' : 'Today only',
                     if (!on) te ? 'ఈ రోజు లేదు' : 'Out today',
                   ].join(' · '),
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309))),
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFFFB9E6A))),
           ]),
         ),
         Text(askodoxPaise(askodoxPosInt(m['price_paise'])), style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -758,7 +758,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                       Padding(
                         padding: const EdgeInsets.only(top: 10, bottom: 4),
                         child: Text(g.isEmpty ? (te ? 'విభాగం లేనివి' : 'No section') : g,
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF5B21B6))),
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFC7BBFC))),
                       ),
                       for (final r in rows.where((r) => '${r['menu_group']}' == g))
                         Row(children: [
@@ -1091,7 +1091,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                       ? 'ఎక్కువ ఐటమ్స్ ఉంటే: Excel / Google Sheets నుంచి వరుసలు (పేరు, ధర, యూనిట్, కేటగిరీ) కాపీ చేసి ఇక్కడ పేస్ట్ చేయండి — ఒకేసారి 200 వరకు.'
                       : 'Many items? Copy rows (name, price, unit, category) from Excel / Google Sheets and paste here — up to 200 at once.',
                   key: const Key('askodoxDeskMenuBulkHint'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('askodoxDeskMenuText'),
@@ -1144,7 +1144,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                     leading: _previewThumb(_preview[i]),
                     onTap: () => _editPreview(i, te),
                     title: Text(askodoxPosInt(_preview[i]['price_paise']) > 0 ? '${_preview[i]['name']} · ${askodoxPaise(askodoxPosInt(_preview[i]['price_paise']))}' : '${_preview[i]['name']} · ${te ? 'రేటు రాయండి' : 'add price'}',
-                        style: TextStyle(color: askodoxPosInt(_preview[i]['price_paise']) > 0 ? null : const Color(0xFFB91C1C))),
+                        style: TextStyle(color: askodoxPosInt(_preview[i]['price_paise']) > 0 ? null : const Color(0xFFFEA195))),
                     subtitle: Text([
                       _preview[i]['exists'] == true ? (te ? 'ఉన్నదే — ధర మారుతుంది (పాతది ${askodoxPaise(askodoxPosInt(_preview[i]['old_price_paise']))})' : 'Exists — price changes (was ${askodoxPaise(askodoxPosInt(_preview[i]['old_price_paise']))})') : (te ? 'కొత్తది' : 'New'),
                       if (_preview[i]['today_only'] == true) te ? 'ఈ రోజు మాత్రమే' : 'Today only',
@@ -1176,7 +1176,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
               // saved until the owner checks the preview.
               if (items.length > 1)
                 Material(
-                  color: const Color(0xFFF3EEFF),
+                  color: const Color(0xFF312844),
                   borderRadius: BorderRadius.circular(14),
                   child: InkWell(
                     key: const Key('askodoxDeskMenuAiSort'),
@@ -1189,7 +1189,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(te ? 'AI తో సర్దు' : 'Sort with AI', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF5B21B6))),
+                            Text(te ? 'AI తో సర్దు' : 'Sort with AI', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFC7BBFC))),
                             Text(
                                 te
                                     ? 'బిర్యానీలు, స్టార్టర్స్, డ్రింక్స్… విభాగాలు + వెజ్ / నాన్-వెజ్ AI సూచిస్తుంది. మీరు చూసి సేవ్ చేయండి.'
@@ -1200,7 +1200,7 @@ class _AskodoxDeskMenuScreenState extends ConsumerState<AskodoxDeskMenuScreen> {
                         if (_sorting)
                           const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
                         else
-                          const Icon(Icons.chevron_right, color: Color(0xFF5B21B6)),
+                          const Icon(Icons.chevron_right, color: Color(0xFFC7BBFC)),
                       ]),
                     ),
                   ),
@@ -1400,7 +1400,7 @@ class _AskodoxMasterThumbState extends ConsumerState<AskodoxMasterThumb> {
         child: FutureBuilder<Uint8List?>(
           future: _bytes,
           builder: (context, snap) => snap.data == null
-              ? const Icon(Icons.inventory_2_outlined, color: Color(0xFF94A3B8))
+              ? const Icon(Icons.inventory_2_outlined, color: Color(0xFF4C596C))
               : ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.memory(snap.data!, width: 44, height: 44, fit: BoxFit.cover)),

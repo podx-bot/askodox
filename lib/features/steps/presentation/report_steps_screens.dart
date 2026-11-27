@@ -144,7 +144,7 @@ class _GstState extends ConsumerState<AskodoxGstStepsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(top: 12),
                         child: Text('${r['disclaimer']}',
-                            key: const Key('askodoxGstStepsDisclaimer'), style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+                            key: const Key('askodoxGstStepsDisclaimer'), style: const TextStyle(fontSize: 12, color: Color(0xFFFB9E6A))),
                       ),
                   ]),
                 ),

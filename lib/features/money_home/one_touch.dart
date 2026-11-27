@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -92,8 +93,8 @@ Widget _strip(List<_Touch> touches) => SizedBox(
         itemBuilder: (context, i) {
           final t = touches[i];
           final switchOn = t.on;
-          final bg = switchOn == null ? Colors.white : (switchOn ? const Color(0xFF0B6B52) : const Color(0xFFE5E7EB));
-          final fg = switchOn == true ? Colors.white : const Color(0xFF17201C);
+          final bg = switchOn == null ? AskodoxLook.sheet : (switchOn ? const Color(0xFF83D5B7) : const Color(0xFF4A526B));
+          final fg = switchOn == true ? AskodoxLook.sheet : const Color(0xFFF7F9FC);
           return Material(
             color: bg,
             elevation: switchOn == null ? 1 : 0,
@@ -108,7 +109,7 @@ Widget _strip(List<_Touch> touches) => SizedBox(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(t.icon, size: 20, color: switchOn == true ? Colors.white : t.color),
+                    Icon(t.icon, size: 20, color: switchOn == true ? AskodoxLook.sheet : t.color),
                     const SizedBox(width: 6),
                     Text(t.label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: fg)),
                   ]),
@@ -209,19 +210,19 @@ class AskodoxBuyerOneTouch extends ConsumerWidget {
     return _strip([
       if (habit != null)
         _Touch('askodoxOneTouch-habit', te ? 'ఈ రోజు మళ్ళీ ${habit.shop}?' : '${habit.shop} again today?',
-            Icons.event_repeat_rounded, const Color(0xFF0B6B52), () => unawaited(_habitSheet(context, ref, habit, te))),
+            Icons.event_repeat_rounded, const Color(0xFF83D5B7), () => unawaited(_habitSheet(context, ref, habit, te))),
       if (again != null)
         _Touch('askodoxOneTouch-again', te ? 'మళ్ళీ అదే · ${again.shop}' : 'Same again · ${again.shop}', Icons.replay_rounded,
-            const Color(0xFF0B6B52), () => context.push(again.route)),
+            const Color(0xFF83D5B7), () => context.push(again.route)),
       if (signedIn)
-        _Touch('askodoxOneTouch-family', te ? 'ఇంటి లిస్ట్' : 'Family list', Icons.checklist_rounded, const Color(0xFF7C3AED),
+        _Touch('askodoxOneTouch-family', te ? 'ఇంటి లిస్ట్' : 'Family list', Icons.checklist_rounded, const Color(0xFFBCACFB),
             () => context.push('/me/family-list')),
-      _Touch('askodoxOneTouch-now', te ? 'ఇప్పుడే కావాలి' : 'Need it now', Icons.bolt_rounded, const Color(0xFFC2410C),
+      _Touch('askodoxOneTouch-now', te ? 'ఇప్పుడే కావాలి' : 'Need it now', Icons.bolt_rounded, const Color(0xFFFF9A79),
           () => _ask(ref, context, te ? 'దగ్గర్లో ఇప్పుడు తెరిచి ఉన్న షాప్‌లు చూపించు' : 'Show shops near me that are open now')),
-      _Touch('askodoxOneTouch-compare', te ? 'ధర పోల్చు' : 'Compare price', Icons.bar_chart_rounded, const Color(0xFF2563EB),
+      _Touch('askodoxOneTouch-compare', te ? 'ధర పోల్చు' : 'Compare price', Icons.bar_chart_rounded, const Color(0xFF95B9FD),
           () => _ask(ref, context, te ? 'ఈ ఐటమ్ దగ్గర్లో ఎక్కడ తక్కువ ధరకు దొరుకుతుంది?' : 'Where nearby is this item cheapest?')),
       _Touch('askodoxOneTouch-problem', te ? 'సమస్య చెప్పు' : 'Report a problem', Icons.report_gmailerrorred_rounded,
-          const Color(0xFFB42318), () => _ask(ref, context, askodoxCareOpening(te))),
+          const Color(0xFFFEA293), () => _ask(ref, context, askodoxCareOpening(te))),
     ]);
   }
 }
@@ -286,29 +287,29 @@ class _AskodoxSellerOneTouchState extends ConsumerState<AskodoxSellerOneTouch> {
     final touches = <_Touch>[
       if (owner)
         _Touch('askodoxOneTouch-open', status == 'open' ? (te ? 'షాప్ ఓపెన్' : 'Shop open') : (te ? 'షాప్ బ్రేక్' : 'On a break'),
-            status == 'open' ? Icons.storefront_rounded : Icons.pause_circle_rounded, const Color(0xFF0B6B52),
+            status == 'open' ? Icons.storefront_rounded : Icons.pause_circle_rounded, const Color(0xFF83D5B7),
             () => unawaited(_toggle(te)),
             on: status == 'open'),
       if (hub != null && may('reports'))
-        _Touch('askodoxOneTouch-today', te ? 'ఈ రోజు లెక్క వినండి' : 'Hear today', Icons.volume_up_rounded, const Color(0xFF0D9488),
+        _Touch('askodoxOneTouch-today', te ? 'ఈ రోజు లెక్క వినండి' : 'Hear today', Icons.volume_up_rounded, const Color(0xFF59C9BB),
             () => unawaited(ref.read(askodoxGuideSpeakerProvider)(askodoxTodaySpoken(hub, te), te ? 'te' : 'en'))),
       if (may('products') || may('stock'))
-        _Touch('askodoxOneTouch-stock', te ? 'స్టాక్ లేదు' : 'Out of stock', Icons.remove_shopping_cart_rounded, const Color(0xFFB42318),
+        _Touch('askodoxOneTouch-stock', te ? 'స్టాక్ లేదు' : 'Out of stock', Icons.remove_shopping_cart_rounded, const Color(0xFFFEA293),
             () => go('/desk/$_id/menu')),
       if (may('products'))
-        _Touch('askodoxOneTouch-prices', te ? 'ధరలు మార్చు' : 'Change prices', Icons.price_change_rounded, const Color(0xFF7C3AED),
+        _Touch('askodoxOneTouch-prices', te ? 'ధరలు మార్చు' : 'Change prices', Icons.price_change_rounded, const Color(0xFFBCACFB),
             () => go('/pos/$_id/prices')),
       if (may('collect') || may('customers'))
-        _Touch('askodoxOneTouch-dues', te ? 'బాకీ గుర్తు' : 'Baaki reminders', Icons.notifications_active_rounded, const Color(0xFFB45309),
+        _Touch('askodoxOneTouch-dues', te ? 'బాకీ గుర్తు' : 'Baaki reminders', Icons.notifications_active_rounded, const Color(0xFFFB9E6A),
             () => go('/pos/$_id/dues')),
       if (may('purchases') || may('customers'))
         _Touch('askodoxOneTouch-noticed', te ? 'ASKODOX గమనించింది' : 'ASKODOX noticed', Icons.auto_awesome_rounded,
-            const Color(0xFF0D9488), () => go('/pos/$_id/automations')),
+            const Color(0xFF59C9BB), () => go('/pos/$_id/automations')),
       if (owner)
-        _Touch('askodoxOneTouch-offer', te ? 'ఫ్లాష్ ఆఫర్' : 'Flash offer', Icons.local_offer_rounded, const Color(0xFFC2410C),
+        _Touch('askodoxOneTouch-offer', te ? 'ఫ్లాష్ ఆఫర్' : 'Flash offer', Icons.local_offer_rounded, const Color(0xFFFF9A79),
             () => go('/notices/new')),
       if (owner)
-        _Touch('askodoxOneTouch-share', te ? 'షాప్ షేర్' : 'Share shop', Icons.share_rounded, const Color(0xFF2563EB), () => go('/pos/$_id/link')),
+        _Touch('askodoxOneTouch-share', te ? 'షాప్ షేర్' : 'Share shop', Icons.share_rounded, const Color(0xFF95B9FD), () => go('/pos/$_id/link')),
     ];
     final shown = [
       for (final t in touches)

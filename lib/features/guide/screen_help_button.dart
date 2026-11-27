@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -215,11 +216,11 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
             top: false,
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               const Material(
-                color: Colors.white,
+                color: AskodoxLook.sheet,
                 elevation: 3,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.horizontal(right: Radius.circular(22)),
-                  side: BorderSide(color: Color(0xFFD0DCF5)),
+                  side: BorderSide(color: Color(0xFF384768)),
                 ),
                 child: Padding(padding: EdgeInsets.fromLTRB(4, 4, 6, 4), child: AskodoxMascot(size: 30)),
               ),
@@ -227,7 +228,7 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
               Flexible(
                 child: Material(
                   key: const Key('askodoxGuideNudgeSheet'),
-                  color: Colors.white,
+                  color: AskodoxLook.sheet,
                   elevation: 4,
                   borderRadius: BorderRadius.circular(14),
                   child: Padding(
@@ -239,7 +240,7 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
                       if (panel.example != null) ...[
                         const SizedBox(height: 6),
                         Text('${te ? 'ఉదాహరణ' : 'Example'}: ${panel.example}',
-                            style: const TextStyle(fontSize: 13.5, color: Color(0xFF1749B8))),
+                            style: const TextStyle(fontSize: 13.5, color: Color(0xFFA7C4FB))),
                       ],
                       Row(mainAxisSize: MainAxisSize.min, children: [
                         if (panel.help != null)
@@ -266,11 +267,11 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
             top: false,
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               const Material(
-                color: Colors.white,
+                color: AskodoxLook.sheet,
                 elevation: 3,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.horizontal(right: Radius.circular(22)),
-                  side: BorderSide(color: Color(0xFFD0DCF5)),
+                  side: BorderSide(color: Color(0xFF384768)),
                 ),
                 child: Padding(padding: EdgeInsets.fromLTRB(4, 4, 6, 4), child: AskodoxMascot(size: 30)),
               ),
@@ -278,7 +279,7 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
               Flexible(
                 child: Material(
                   key: const Key('askodoxGuideNudge'),
-                  color: Colors.white,
+                  color: AskodoxLook.sheet,
                   elevation: 4,
                   borderRadius: BorderRadius.circular(14),
                   child: Padding(
@@ -317,13 +318,13 @@ class _AskodoxScreenHelpLayerState extends ConsumerState<AskodoxScreenHelpLayer>
               button: true,
               label: te ? 'గైడ్: ఇక్కడ ఏం చేయాలి' : 'Guide: what to do here',
               child: Material(
-                color: Colors.white,
+                color: AskodoxLook.sheet,
                 elevation: 3,
                 shape: RoundedRectangleBorder(
                   borderRadius: path == '/profile'
                       ? const BorderRadius.horizontal(left: Radius.circular(22))
                       : const BorderRadius.horizontal(right: Radius.circular(22)),
-                  side: const BorderSide(color: Color(0xFFD0DCF5)),
+                  side: const BorderSide(color: Color(0xFF384768)),
                 ),
                 child: InkWell(
                   key: const Key('askodoxScreenHelpButton'),
@@ -356,6 +357,6 @@ class _GuideLabel extends StatelessWidget {
     final te = Localizations.maybeLocaleOf(context)?.languageCode == 'te';
     // Owner 2026-11-24: one button "చెప్పు" -- first tap explains this page, inside it the mic takes a command.
     return Text(te ? 'చెప్పు' : 'Tell',
-        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF1769FF)));
+        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF8EB7FF)));
   }
 }

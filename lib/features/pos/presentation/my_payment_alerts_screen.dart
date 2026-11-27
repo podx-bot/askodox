@@ -179,7 +179,7 @@ class _AskodoxMyPaymentAlertsScreenState extends ConsumerState<AskodoxMyPaymentA
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('${shop['name']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
           Text('${te ? 'మీ పాత్ర' : 'Your role'}: ${askodoxStaffRoleLabel('${shop['role']}', te)}',
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
           const SizedBox(height: 8),
           FilledButton.icon(
             key: ValueKey('askodoxMyPaymentAlertsOpen-$id'),

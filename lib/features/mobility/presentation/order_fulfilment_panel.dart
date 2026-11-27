@@ -88,9 +88,9 @@ class _AskodoxFulfilmentPanelState extends ConsumerState<AskodoxFulfilmentPanel>
         ]),
         Text(askodoxDeliveryStatusLabel(v.deliveryStatus, widget.te),
             key: ValueKey('askodoxDeliveryStatus-${widget.orderId}'),
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFF475467))),
-        if (v.jobStage.isNotEmpty) Text(v.jobStage, style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
-        if (_error != null) Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFB3261E))),
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFFB6C5DC))),
+        if (v.jobStage.isNotEmpty) Text(v.jobStage, style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D0))),
+        if (_error != null) Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFFEA294))),
       ]),
     );
   }

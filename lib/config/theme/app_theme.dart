@@ -14,20 +14,20 @@ abstract final class AppTheme {
     final colors = ColorScheme.fromSeed(
       seedColor: AskodoxDesignTokens.violet500,
       brightness: brightness,
-      surface: isDark ? AskodoxDesignTokens.surface : Colors.white,
+      surface: isDark ? AskodoxDesignTokens.surface : AskodoxLook.sheet,
     );
 
-    final foreground = isDark ? Colors.white : const Color(0xFF14213D);
-    final muted = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF667085);
-    final cardColor = isDark ? AskodoxDesignTokens.surfaceRaised : Colors.white;
-    final outline = isDark ? AskodoxDesignTokens.outline : const Color(0xFFDCE4F2);
-    final inputFill = isDark ? AskodoxDesignTokens.surfaceRaised : Colors.white;
+    final foreground = isDark ? AskodoxLook.sheet : const Color(0xFFF7F9FC);
+    final muted = isDark ? const Color(0xFF4A526B) : const Color(0xFFAEB9D0);
+    final cardColor = isDark ? AskodoxDesignTokens.surfaceRaised : AskodoxLook.sheet;
+    final outline = isDark ? AskodoxDesignTokens.outline : const Color(0xFF3E485A);
+    final inputFill = isDark ? AskodoxDesignTokens.surfaceRaised : AskodoxLook.sheet;
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colors,
-      scaffoldBackgroundColor: isDark ? AskodoxDesignTokens.ink : const Color(0xFFF7FAFF),
+      scaffoldBackgroundColor: isDark ? AskodoxDesignTokens.ink : const Color(0xFF1F2432),
       textTheme: ThemeData(brightness: brightness).textTheme.apply(
             bodyColor: foreground,
             displayColor: foreground,
@@ -36,7 +36,7 @@ abstract final class AppTheme {
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
-        backgroundColor: isDark ? Colors.transparent : Colors.white,
+        backgroundColor: isDark ? Colors.transparent : AskodoxLook.sheet,
         foregroundColor: foreground,
         surfaceTintColor: Colors.transparent,
       ),
@@ -53,8 +53,8 @@ abstract final class AppTheme {
         filled: true,
         fillColor: inputFill,
         hintStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, color: muted),
-        prefixIconColor: isDark ? AskodoxDesignTokens.violet100 : const Color(0xFF1769FF),
-        suffixIconColor: isDark ? AskodoxDesignTokens.violet100 : const Color(0xFF1769FF),
+        prefixIconColor: isDark ? AskodoxDesignTokens.violet100 : const Color(0xFF8EB7FF),
+        suffixIconColor: isDark ? AskodoxDesignTokens.violet100 : const Color(0xFF8EB7FF),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
           borderSide: BorderSide(color: outline),
@@ -66,21 +66,21 @@ abstract final class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
           borderSide: BorderSide(
-            color: isDark ? AskodoxDesignTokens.violet300 : const Color(0xFF1769FF),
+            color: isDark ? AskodoxDesignTokens.violet300 : const Color(0xFF8EB7FF),
             width: 1.7,
           ),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: isDark ? AskodoxDesignTokens.surfaceRaised : const Color(0xFFF2F6FF),
+        backgroundColor: isDark ? AskodoxDesignTokens.surfaceRaised : const Color(0xFF272E3C),
         labelStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, color: foreground),
         side: BorderSide(color: outline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 72,
-        backgroundColor: isDark ? AskodoxDesignTokens.surface : Colors.white,
-        indicatorColor: isDark ? AskodoxDesignTokens.surfaceRaised : const Color(0xFFE9F7ED),
+        backgroundColor: isDark ? AskodoxDesignTokens.surface : AskodoxLook.sheet,
+        indicatorColor: isDark ? AskodoxDesignTokens.surfaceRaised : const Color(0xFF1B3424),
         labelTextStyle: WidgetStatePropertyAll(TextStyle(fontFamilyFallback: askodoxFontFallback, color: foreground)),
         iconTheme: WidgetStatePropertyAll(IconThemeData(color: foreground)),
       ),

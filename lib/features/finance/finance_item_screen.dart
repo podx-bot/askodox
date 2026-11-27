@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -291,7 +292,7 @@ class _FinanceItemState extends ConsumerState<AskodoxFinanceItemScreen> {
           key: const ValueKey('askodoxFinanceCallCard'),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              border: Border.all(color: askodoxStepLine), borderRadius: BorderRadius.circular(16), color: Colors.white),
+              border: Border.all(color: askodoxStepLine), borderRadius: BorderRadius.circular(16), color: AskodoxLook.sheet),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(_t('Shall our executive call you and tell you?', 'మా ఎగ్జిక్యూటివ్ కాల్ చేసి చెప్పమంటారా?'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: askodoxStepInk)),

@@ -87,7 +87,7 @@ class _AskodoxDeveloperDiagnosticsScreenState extends ConsumerState<AskodoxDevel
           ? const Center(child: CircularProgressIndicator())
           : ListView(padding: const EdgeInsets.all(12), children: [
               const Card(
-                color: Color(0xFFFFF4E5),
+                color: Color(0xFF3C2A0D),
                 child: Padding(
                   padding: EdgeInsets.all(12),
                   child: Text(

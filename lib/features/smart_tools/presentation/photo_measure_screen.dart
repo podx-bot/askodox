@@ -159,7 +159,7 @@ class _AskodoxPhotoMeasureScreenState extends ConsumerState<AskodoxPhotoMeasureS
                   onTapDown: (d) => _tap(d, Size(box.maxWidth, box.maxHeight)),
                   child: Stack(fit: StackFit.expand, children: [
                     Image.memory(photo.bytes, fit: BoxFit.fill,
-                        errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFFE5E7EB))),
+                        errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF4A526B))),
                     CustomPaint(painter: _MarksPainter(points: List.of(_points), image: image)),
                   ]),
                 ),
@@ -208,7 +208,7 @@ class _MarksPainter extends CustomPainter {
     Offset at(AskodoxPoint p) => Offset(p.x / image.width * size.width, p.y / image.height * size.height);
     for (var i = 0; i < points.length; i++) {
       final paint = Paint()
-        ..color = i < 2 ? const Color(0xFF1769FF) : const Color(0xFFDC2626)
+        ..color = i < 2 ? const Color(0xFF8EB7FF) : const Color(0xFFFE9488)
         ..strokeWidth = 3;
       canvas.drawCircle(at(points[i]), 6, paint);
       if (i.isOdd) canvas.drawLine(at(points[i - 1]), at(points[i]), paint);

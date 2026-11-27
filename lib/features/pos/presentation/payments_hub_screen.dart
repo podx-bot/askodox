@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,11 +27,11 @@ class AskodoxPaymentsHubScreen extends ConsumerStatefulWidget {
   ConsumerState<AskodoxPaymentsHubScreen> createState() => _AskodoxPaymentsHubScreenState();
 }
 
-const _ink = Color(0xFF10204A);
-const _muted = Color(0xFF5A6478);
-const _line = Color(0xFFE6E9EF);
-const _blue = Color(0xFF2450C8);
-const _green = Color(0xFF17784C);
+const _ink = Color(0xFFF7F9FC);
+const _muted = Color(0xFFB3BED5);
+const _line = Color(0xFF4A526B);
+const _blue = Color(0xFFA3C0FC);
+const _green = Color(0xFF7CD3A2);
 
 /// "₹2,450" with Indian digit grouping (paise -> whole rupees).
 String askodoxRupees(int paise) {
@@ -184,8 +185,8 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
     final te = askodoxPosTe(context);
     final shops = _shops;
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
-      appBar: AppBar(backgroundColor: const Color(0xFFF4F5F7), elevation: 0, scrolledUnderElevation: 0, toolbarHeight: 44),
+      backgroundColor: const Color(0xFF1F2432),
+      appBar: AppBar(backgroundColor: const Color(0xFF1F2432), elevation: 0, scrolledUnderElevation: 0, toolbarHeight: 44),
       body: SafeArea(
         top: false,
         child: shops == null
@@ -234,7 +235,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
   }
 
   BoxDecoration get _card => BoxDecoration(
-        color: Colors.white,
+        color: AskodoxLook.sheet,
         border: Border.all(color: _line),
         borderRadius: BorderRadius.circular(20),
       );
@@ -281,19 +282,19 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
-              const Icon(Icons.qr_code_2_rounded, color: Colors.white, size: 40),
+              const Icon(Icons.qr_code_2_rounded, color: AskodoxLook.sheet, size: 40),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(te ? 'నా QR / ఖాతాలు' : 'My QR / accounts',
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                      style: const TextStyle(color: AskodoxLook.sheet, fontSize: 17, fontWeight: FontWeight.w800)),
                   // Owner 2026-11-17: ONE place for the QR and the accounts (no separate "My accounts" button).
                   Text(te ? 'QR చూపించు · UPI / బ్యాంక్ చేర్చు, మార్చు' : 'Show the QR · add / change UPI and bank',
                       key: const Key('askodoxPaymentsHubAccounts'),
-                      style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                      style: const TextStyle(color: AskodoxLook.sheet70, fontSize: 12.5)),
                 ]),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white),
+              const Icon(Icons.chevron_right, color: AskodoxLook.sheet),
             ]),
           ),
         ),
@@ -321,13 +322,13 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
               Container(
                 width: 38,
                 height: 38,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(11)),
                 child: Icon(icon, color: fg, size: 21),
               ),
               const SizedBox(height: 8),
               Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink)),
               const SizedBox(height: 2),
-              Text(sub, key: subKey, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+              Text(sub, key: subKey, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFFB9C5D5))),
             ]),
           ),
         ),
@@ -401,7 +402,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
       const SizedBox(height: 8),
       Material(
         key: const Key('askodoxPaymentsHubRecent'),
-        color: Colors.white,
+        color: AskodoxLook.sheet,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _line)),
         child: Column(children: [
@@ -414,12 +415,12 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
           for (var i = 0; i < latest.length; i++)
             Container(
               key: ValueKey('askodoxPaymentsHubEvent-${latest[i]['id']}'),
-              decoration: i == 0 ? null : const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),
+              decoration: i == 0 ? null : const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF1F2432)))),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(children: [
                 CircleAvatar(
                   radius: 19,
-                  backgroundColor: const Color(0xFFE8EEFC),
+                  backgroundColor: const Color(0xFF242D44),
                   child: Text(initials('${latest[i]['source_label'] ?? ''}'),
                       style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _blue)),
                 ),
@@ -445,7 +446,7 @@ class _AskodoxPaymentsHubScreenState extends ConsumerState<AskodoxPaymentsHubScr
             onTap: () => context.push(shopId == 'me' ? '/me/payments/phone' : '/me/payment-alerts/$shopId/history'),
             child: Container(
               width: double.infinity,
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF1F2432)))),
               padding: const EdgeInsets.all(14),
               child: Text(te ? 'అన్నీ చూడండి' : 'See all',
                   textAlign: TextAlign.center,

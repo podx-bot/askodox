@@ -118,7 +118,7 @@ class _AskodoxLevelScreenState extends ConsumerState<AskodoxLevelScreen> {
             key: const Key('askodoxLevelReading'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         Text(te ? 'మొత్తం వాలు ${askodoxInclination(g).toStringAsFixed(1)}°'
             : 'Overall tilt ${askodoxInclination(g).toStringAsFixed(1)}°'),
-        if (level) Text(te ? 'సమతలం ✓' : 'Level ✓', style: const TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.w800)),
+        if (level) Text(te ? 'సమతలం ✓' : 'Level ✓', style: const TextStyle(color: Color(0xFF75D48B), fontWeight: FontWeight.w800)),
       ]);
     } else {
       final e = askodoxEdgeAngle(g);
@@ -126,7 +126,7 @@ class _AskodoxLevelScreenState extends ConsumerState<AskodoxLevelScreen> {
       body = Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Transform.rotate(
           angle: fromVertical * math.pi / 180,
-          child: Container(width: 6, height: 160, color: fromVertical < 0.5 ? const Color(0xFF15803D) : Colors.orange),
+          child: Container(width: 6, height: 160, color: fromVertical < 0.5 ? const Color(0xFF75D48B) : Colors.orange),
         ),
         const SizedBox(height: 20),
         Text(te ? 'నిలువు నుండి ${fromVertical.toStringAsFixed(1)}°' : '${fromVertical.toStringAsFixed(1)}° from vertical',
@@ -189,7 +189,7 @@ class _Bubble extends StatelessWidget {
             height: bubble,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: (level ? const Color(0xFF15803D) : Colors.lightGreen).withValues(alpha: 0.75),
+              color: (level ? const Color(0xFF75D48B) : Colors.lightGreen).withValues(alpha: 0.75),
             ),
           ),
         ),
@@ -259,7 +259,7 @@ class _AskodoxCompassScreenState extends ConsumerState<AskodoxCompassScreen> {
       body = Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Transform.rotate(
           angle: -heading * math.pi / 180,
-          child: const Icon(Icons.navigation_rounded, size: 160, color: Color(0xFFDC2626)),
+          child: const Icon(Icons.navigation_rounded, size: 160, color: Color(0xFFFE9488)),
         ),
         const SizedBox(height: 16),
         Text('${heading.toStringAsFixed(0)}° ${askodoxCardinal(heading, te: te)}',

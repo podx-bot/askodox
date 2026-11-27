@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 
 import '../domain/result_board_tabs.dart';
@@ -27,8 +28,8 @@ class AskodoxResultBoardTabRow extends StatelessWidget {
   final VoidCallback onExpand;
   final bool expanded;
 
-  static const _ink = Color(0xFF10204A);
-  static const _accent = Color(0xFF1769FF);
+  static const _ink = Color(0xFFF7F9FC);
+  static const _accent = Color(0xFF8EB7FF);
 
   @override
   Widget build(BuildContext context) {
@@ -79,9 +80,9 @@ class AskodoxResultBoardTabRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: on ? _accent : Colors.white,
+            color: on ? _accent : AskodoxLook.sheet,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: on ? _accent : const Color(0xFFDCE4F0)),
+            border: Border.all(color: on ? _accent : const Color(0xFF4A526B)),
           ),
           alignment: Alignment.center,
           child: Text(
@@ -89,7 +90,7 @@ class AskodoxResultBoardTabRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: on ? Colors.white : (count == 0 && tab != AskodoxBoardTab.all ? const Color(0xFF98A2B3) : _ink),
+              color: on ? AskodoxLook.sheet : (count == 0 && tab != AskodoxBoardTab.all ? const Color(0xFF8F99AA) : _ink),
             ),
           ),
         ),

@@ -292,7 +292,7 @@ Future<void> _showReservation(BuildContext context, WidgetRef ref, AskodoxJson r
         ),
         ListTile(
           key: const Key('askodoxReservationCancel'),
-          leading: const Icon(Icons.close_rounded, color: Color(0xFFB42318)),
+          leading: const Icon(Icons.close_rounded, color: Color(0xFFFEA293)),
           title: Text(te ? 'రిజర్వేషన్ రద్దు చేయి' : 'Cancel this reservation'),
           onTap: () => Navigator.pop(sheet, true),
         ),
@@ -329,7 +329,7 @@ class AskodoxChatPinStrip extends ConsumerWidget {
             margin: const EdgeInsets.only(bottom: 4),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
             child: Container(
-                width: 42, height: 4, decoration: BoxDecoration(color: const Color(0xFFB8C0CC), borderRadius: BorderRadius.circular(4))),
+                width: 42, height: 4, decoration: BoxDecoration(color: const Color(0xFF9199A4), borderRadius: BorderRadius.circular(4))),
           ),
         ),
       );
@@ -349,9 +349,9 @@ class AskodoxChatPinStrip extends ConsumerWidget {
                   padding: const EdgeInsets.only(right: 6),
                   child: ActionChip(
                     key: ValueKey('askodoxLiveOrder-${o['id']}'),
-                    backgroundColor: const Color(0xFFE8F5EC),
+                    backgroundColor: const Color(0xFF1C3425),
                     avatar: Icon('${o['kind']}' == 'dine_in' ? Icons.table_restaurant_outlined : Icons.receipt_long_outlined,
-                        size: 16, color: const Color(0xFF17784C)),
+                        size: 16, color: const Color(0xFF7CD3A2)),
                     label: Text(
                         o['shop_orders'] == true
                             ? (te ? 'నడుస్తున్న ఆర్డర్లు (${o['count']})' : 'Running orders (${o['count']})')

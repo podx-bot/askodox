@@ -280,7 +280,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
       ]..sort((a, b) => ((_qty['${b['id']}'] ?? 0) > 0 ? 1 : 0).compareTo((_qty['${a['id']}'] ?? 0) > 0 ? 1 : 0));
 
   Widget _foodDot(String type) {
-    final color = type == 'veg' ? const Color(0xFF17784C) : (type == 'egg' ? const Color(0xFFB45309) : const Color(0xFFB91C1C));
+    final color = type == 'veg' ? const Color(0xFF7CD3A2) : (type == 'egg' ? const Color(0xFFFB9E6A) : const Color(0xFFFEA195));
     return Container(
       width: 14,
       height: 14,
@@ -321,7 +321,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                 Text('${widget.card['name'] ?? ''}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
                 Row(children: [
                   Text(open ? (te ? 'ఇప్పుడు తెరిచి ఉంది · ASKODOX లో' : 'Open now · on ASKODOX') : (te ? 'ఇప్పుడు మూసి ఉంది' : 'Closed now'),
-                      style: TextStyle(fontSize: 12, color: open ? const Color(0xFF1F7A4A) : const Color(0xFFB4530A))),
+                      style: TextStyle(fontSize: 12, color: open ? const Color(0xFF7DD29D) : const Color(0xFFFB9E6A))),
                   const SizedBox(width: 6),
                   askodoxRatingLine(widget.card['rating'], size: 12),
                 ]),
@@ -409,9 +409,9 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                 scrollDirection: Axis.horizontal,
                 child: Row(children: [
                   if (_hasFoodMarks) ...[
-                    _foodChip('veg', te ? 'వెజ్' : 'Veg', const Color(0xFF17784C)),
+                    _foodChip('veg', te ? 'వెజ్' : 'Veg', const Color(0xFF7CD3A2)),
                     const SizedBox(width: 6),
-                    _foodChip('nonveg', te ? 'నాన్-వెజ్' : 'Non-veg', const Color(0xFFB91C1C)),
+                    _foodChip('nonveg', te ? 'నాన్-వెజ్' : 'Non-veg', const Color(0xFFFEA195)),
                     const SizedBox(width: 10),
                   ],
                   if (_groups.length > 1)
@@ -446,13 +446,13 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                       Text(
                           '${m['item_no'] != null ? '#${m['item_no']} ' : ''}${te && '${m['name_te'] ?? ''}'.isNotEmpty ? m['name_te'] : m['name']}',
                           style: TextStyle(
-                              fontWeight: FontWeight.w700, color: m['available'] == true ? null : const Color(0xFF5B6475))),
+                              fontWeight: FontWeight.w700, color: m['available'] == true ? null : const Color(0xFFB4BED1))),
                       Row(children: [
                         Text(
                             m['available'] == true
                                 ? _rupees(askodoxPosInt(m['price_paise']))
                                 : (te ? 'ఈరోజు అయిపోయింది' : 'finished today'),
-                            style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                         const SizedBox(width: 8),
                         askodoxRatingLine(m['rating'], size: 11),
                         if (askodoxOfferLabel(m, te).isNotEmpty) ...[
@@ -460,7 +460,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                           Flexible(
                             child: Text('🏷 ${askodoxOfferLabel(m, te)}',
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF17784C), fontWeight: FontWeight.w700)),
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF7CD3A2), fontWeight: FontWeight.w700)),
                           ),
                         ],
                       ]),
@@ -469,7 +469,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                   if (m['available'] == true)
                     Container(
                       decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFD5DAE5)), borderRadius: BorderRadius.circular(18)),
+                          border: Border.all(color: const Color(0xFF4A526B)), borderRadius: BorderRadius.circular(18)),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         InkWell(
                           key: Key('askodoxChatShopMenuLess-${m['id']}'),
@@ -479,7 +479,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                             padding: const EdgeInsets.all(7),
                             child: Icon(Icons.remove,
                                 size: 18,
-                                color: (_qty['${m['id']}'] ?? 0) == 0 ? const Color(0xFFB8C0CC) : const Color(0xFF16203F)),
+                                color: (_qty['${m['id']}'] ?? 0) == 0 ? const Color(0xFF9199A4) : const Color(0xFFF7F9FC)),
                           ),
                         ),
                         SizedBox(
@@ -493,7 +493,7 @@ class _AskodoxChatShopMenuCardState extends ConsumerState<AskodoxChatShopMenuCar
                           onTap: () => _change('${m['id']}', 1),
                           child: const Padding(
                             padding: EdgeInsets.all(7),
-                            child: Icon(Icons.add, size: 18, color: Color(0xFF2563EB)),
+                            child: Icon(Icons.add, size: 18, color: Color(0xFF95B9FD)),
                           ),
                         ),
                       ]),

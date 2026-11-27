@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -48,8 +49,8 @@ class AskodoxPosProductTile extends ConsumerWidget {
   final int inCartMilli;
 
   static const _colors = [
-    Color(0xFFDBEAFE), Color(0xFFDCFCE7), Color(0xFFFEF3C7), Color(0xFFFCE7F3),
-    Color(0xFFE0E7FF), Color(0xFFCCFBF1), Color(0xFFFFEDD5), Color(0xFFF3E8FF),
+    Color(0xFF354963), Color(0xFF0E3721), Color(0xFF372D02), Color(0xFF422136),
+    Color(0xFF3E4665), Color(0xFF03362F), Color(0xFF3F2903), Color(0xFF362545),
   ];
 
   @override
@@ -61,7 +62,7 @@ class AskodoxPosProductTile extends ConsumerWidget {
     final stock = product['stock_milli'];
     final low = product['low_stock'] == true;
     return Material(
-      color: Colors.white,
+      color: AskodoxLook.sheet,
       elevation: 1,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
@@ -89,9 +90,9 @@ class AskodoxPosProductTile extends ConsumerWidget {
                   child: Container(
                     key: const Key('askodoxPosTileNumber'),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xE6141B4D), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: const Color(0xE6F7F9FC), borderRadius: BorderRadius.circular(8)),
                     child: Text('${askodoxPosInt(product['item_no'])}',
-                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(color: AskodoxLook.sheet, fontSize: 11.5, fontWeight: FontWeight.w800)),
                   ),
                 ),
               if (inCartMilli > 0)
@@ -100,9 +101,9 @@ class AskodoxPosProductTile extends ConsumerWidget {
                   right: 4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(color: const Color(0xFF69C97E), borderRadius: BorderRadius.circular(10)),
                     child: Text(askodoxQty(inCartMilli, ''),
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(color: AskodoxLook.sheet, fontSize: 11, fontWeight: FontWeight.w800)),
                   ),
                 ),
             ]),
@@ -116,7 +117,7 @@ class AskodoxPosProductTile extends ConsumerWidget {
                 Text('${te ? 'స్టాక్' : 'Stock'} ${askodoxQty(askodoxPosInt(stock), '${product['unit']}')}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10.5, color: low ? const Color(0xFFB91C1C) : const Color(0xFF6B7280))),
+                    style: TextStyle(fontSize: 10.5, color: low ? const Color(0xFFFEA195) : const Color(0xFFB1B9C8))),
             ]),
           ),
         ]),
@@ -360,7 +361,7 @@ class _AskodoxPosRatesCardState extends ConsumerState<AskodoxPosRatesCard> {
                 height: 64,
                 child: photo != null
                     ? Image.memory(photo, fit: BoxFit.cover)
-                    : Container(color: const Color(0xFFF3F4F6), child: const Icon(Icons.image_outlined)),
+                    : Container(color: const Color(0xFF1F2432), child: const Icon(Icons.image_outlined)),
               ),
             ),
             const SizedBox(width: 10),

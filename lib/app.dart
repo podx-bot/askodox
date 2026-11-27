@@ -1,3 +1,4 @@
+import 'config/theme/askodox_look.dart';
 import 'shared/widgets/askodox_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -142,7 +143,7 @@ class _StartupGateState extends ConsumerState<_StartupGate> {
               SizedBox(height: 14),
               Text(
                 BrandConfig.displayName,
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 2),
+                style: TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w900, letterSpacing: 2),
               ),
               SizedBox(height: 16),
               CircularProgressIndicator(),

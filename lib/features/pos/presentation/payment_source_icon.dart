@@ -47,19 +47,19 @@ class _AskodoxPaymentSourceIconState extends State<AskodoxPaymentSourceIcon> {
   Widget build(BuildContext context) {
     final badge = AskodoxPaymentSourceIcon.bankBadge(widget.event['bank_sms_from']);
     if (widget.event['status'] == 'suspect_sender') {
-      return const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309));
+      return const Icon(Icons.warning_amber_rounded, color: Color(0xFFFB9E6A));
     }
     if (_icon == null) {
       if (badge.isEmpty) return widget.fallback;
       return Container(
         width: 40,
         padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(color: const Color(0xFFE8EEFB), borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(color: const Color(0xFF242D43), borderRadius: BorderRadius.circular(8)),
         child: Text(badge,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.fade,
-            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF1E3FA0))),
+            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFFAFC8FC))),
       );
     }
     return FutureBuilder<Uint8List?>(

@@ -191,7 +191,7 @@ class _AskodoxCompanionPerformancePanelState extends ConsumerState<AskodoxCompan
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(children: [
-              Expanded(child: Text(label, style: const TextStyle(color: Color(0xFF64748B)))),
+              Expanded(child: Text(label, style: const TextStyle(color: Color(0xFFA8BAD3)))),
               Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
             ]),
           ),
@@ -199,7 +199,7 @@ class _AskodoxCompanionPerformancePanelState extends ConsumerState<AskodoxCompan
         const Text(
           'Frames come from Flutter\'s own frame timings while the companion above animates. APK size per '
           'build is in the Live Build artifact (APK_SIZES.txt). GPU counters are not exposed to apps on Android.',
-          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          style: TextStyle(fontSize: 11, color: Color(0xFFA8BAD3)),
         ),
         Row(children: [
           FilledButton.tonalIcon(

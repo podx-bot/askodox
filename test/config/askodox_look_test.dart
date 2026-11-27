@@ -6,11 +6,18 @@ import 'package:podx/core/ui/ui_switches.dart';
 import 'package:podx/shared/widgets/askodox_inner_theme.dart';
 
 void main() {
-  tearDown(() => askodoxNewLookOn = false);
+  test('the new look is the app look', () {
+    expect(askodoxNewLookOn, isTrue);
+    expect(AppTheme.light.brightness, Brightness.dark);
+    expect(AskodoxLook.sheet, AskodoxLook.cardA);
+  });
 
-  test('new look is off by default', () {
-    expect(askodoxNewLookOn, isFalse);
-    expect(AppTheme.light.brightness, Brightness.light);
+  testWidgets('paper stays dark on white inside the dark app', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(body: AskodoxPaper(child: ColoredBox(color: AskodoxLook.paperWhite, child: Text('bill'))))));
+    final style = DefaultTextStyle.of(tester.element(find.text('bill'))).style;
+    expect(AskodoxLook.contrast(style.color!, AskodoxLook.paperWhite), greaterThanOrEqualTo(4.5));
   });
 
   test('text and accent colours are readable on the page and the cards', () {
@@ -23,8 +30,7 @@ void main() {
     expect(AskodoxLook.contrast(AskodoxLook.onAccent, AskodoxLook.accent), greaterThanOrEqualTo(4.5));
   });
 
-  test('one switch gives the whole app the new look, Telugu letters first', () {
-    askodoxNewLookOn = true;
+  test('the whole app has the new look, Telugu letters first', () {
     for (final t in [AppTheme.light, askodoxInnerTheme(AppTheme.light)]) {
       expect(t.scaffoldBackgroundColor, AskodoxLook.bg);
       expect(t.colorScheme.primary, AskodoxLook.accent);

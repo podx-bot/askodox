@@ -311,7 +311,7 @@ class AskodoxInspectionReportView extends StatelessWidget {
           if (r.visibleText != null)
             _section(context, te ? 'చదివిన టెక్స్ట్' : 'Text read', [r.visibleText!], icon: Icons.text_snippet_outlined),
           _section(context, te ? 'ఫోటో నుండి నిర్ధారించలేనివి' : 'Cannot be confirmed from a photo', r.notVerifiable,
-              icon: Icons.help_outline_rounded, color: const Color(0xFFB45309)),
+              icon: Icons.help_outline_rounded, color: const Color(0xFFFB9E6A)),
           _section(context, te ? 'చేయాల్సిన పరీక్షలు' : 'What to check', r.recommendedChecks,
               icon: Icons.fact_check_outlined),
           _section(context, te ? 'భద్రతా హెచ్చరికలు' : 'Safety warnings', r.safetyWarnings,

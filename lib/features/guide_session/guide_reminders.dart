@@ -68,8 +68,8 @@ class AskodoxGuideReminderChips extends ConsumerWidget {
                 onLongPress: () => control.dismiss(r, forever: true),
                 child: InputChip(
                   key: ValueKey('askodoxGuideReminder-${r.ref}'),
-                  backgroundColor: const Color(0xFFFFF4D6),
-                  avatar: const Icon(Icons.lightbulb_outline_rounded, size: 16, color: Color(0xFF8A5A00)),
+                  backgroundColor: const Color(0xFF392C01),
+                  avatar: const Icon(Icons.lightbulb_outline_rounded, size: 16, color: Color(0xFFE7B26B)),
                   label: Text(
                       r.kind == 'setup'
                           ? (te ? 'సెటప్ మిగిలింది: ${r.text}' : 'Setup left: ${r.text}')

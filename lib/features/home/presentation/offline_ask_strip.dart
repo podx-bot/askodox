@@ -11,8 +11,8 @@ class AskodoxOfflineAskStrip extends StatelessWidget {
   final String lang;
   final void Function(String question) onAsk;
 
-  static const _ink = Color(0xFF9A4A07);
-  static const _paper = Color(0xFFFFF1E0);
+  static const _ink = Color(0xFFFEA56F);
+  static const _paper = Color(0xFF402804);
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<AskodoxNet>(

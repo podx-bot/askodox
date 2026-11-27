@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -325,7 +326,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         // The part shared as a PICTURE (owner 2026-11-15, pani A: a QR must reach WhatsApp as a QR, not a text link).
         RepaintBoundary(
           key: _qrKey,
-          child: Container(
+          child: AskodoxPaper(child: Container(
             color: Colors.white,
             padding: const EdgeInsets.all(12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -345,7 +346,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
               SelectableText(upi, style: const TextStyle(fontSize: 13, color: _payMuted)),
             ]),
           ),
-        ),
+        )),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(
@@ -395,7 +396,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         ListTile(
           key: ValueKey('askodoxPayMethod-${m['id']}'),
           leading: CircleAvatar(
-            backgroundColor: const Color(0xFFE8EEFC),
+            backgroundColor: const Color(0xFF242D44),
             child: Icon(m['kind'] == 'bank' ? Icons.account_balance : Icons.qr_code_2, color: _payBlue, size: 20),
           ),
           title: Text(
@@ -418,7 +419,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
         ),
       ListTile(
         leading: const CircleAvatar(
-          backgroundColor: Color(0xFFF4F5F7),
+          backgroundColor: Color(0xFF1F2432),
           child: Icon(Icons.account_balance_outlined, color: _payMuted, size: 20),
         ),
         title: Text(hasBank ? (te ? 'మరో బ్యాంక్ ఖాతా' : 'Another bank account') : (te ? 'బ్యాంక్ ఖాతా' : 'Bank account'),
@@ -434,7 +435,7 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
     return _payPaper(
       child: Column(children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const Divider(height: 1, color: Color(0xFFEEF0F4)),
+          if (i > 0) const Divider(height: 1, color: Color(0xFF1F2432)),
           rows[i],
         ],
       ]),
@@ -442,21 +443,21 @@ class _AskodoxMyPaymentMethodsScreenState extends ConsumerState<AskodoxMyPayment
   }
 }
 
-const _payBg = Color(0xFFF4F5F7);
-const _payInk = Color(0xFF10204A);
-const _payMuted = Color(0xFF5A6478);
-const _payBlue = Color(0xFF2450C8);
+const _payBg = Color(0xFF1F2432);
+const _payInk = Color(0xFFF7F9FC);
+const _payMuted = Color(0xFFB3BED5);
+const _payBlue = Color(0xFFA3C0FC);
 /// A white card that is also a Material, so list rows inside keep their ink.
 Widget _payPaper({required Widget child}) => Material(
-      color: Colors.white,
+      color: AskodoxLook.sheet,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFFE6E9EF))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFF4A526B))),
       child: child,
     );
 
 final _payCard = BoxDecoration(
-  color: Colors.white,
-  border: Border.all(color: const Color(0xFFE6E9EF)),
+  color: AskodoxLook.sheet,
+  border: Border.all(color: const Color(0xFF4A526B)),
   borderRadius: BorderRadius.circular(20),
 );
 
@@ -731,9 +732,9 @@ class _AskodoxPosCollectScreenState extends ConsumerState<AskodoxPosCollectScree
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: switch ('${current['status']}') {
-                                'matched' => const Color(0xFFB45309),
-                                'confirmed' => const Color(0xFF15803D),
-                                _ => const Color(0xFF1D4ED8),
+                                'matched' => const Color(0xFFFB9E6A),
+                                'confirmed' => const Color(0xFF75D48B),
+                                _ => const Color(0xFFA0BFFF),
                               })),
                       if (current['status'] == 'pending' || current['status'] == 'matched')
                         Wrap(spacing: 8, children: [
@@ -812,7 +813,7 @@ class AskodoxPaymentOptionsNotice extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(icon, size: 18, color: const Color(0xFF92400E)),
+            Icon(icon, size: 18, color: const Color(0xFFFFA980)),
             const SizedBox(width: 8),
             Expanded(child: Text(te ? tel : en, style: const TextStyle(fontSize: 12))),
           ]),
@@ -822,7 +823,7 @@ class AskodoxPaymentOptionsNotice extends StatelessWidget {
     // the optional ways stay folded under "More" so the page stays neat.
     return Material(
       key: Key(forBuyer ? 'askodoxPayOptionsNoticeBuyer' : 'askodoxPayOptionsNotice'),
-      color: const Color(0xFFFFFBEB),
+      color: const Color(0xFF352D0F),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(forBuyer ? 10 : 16)),
       child: Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),

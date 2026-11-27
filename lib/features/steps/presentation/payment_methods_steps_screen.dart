@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -406,7 +407,7 @@ class _PaymentMethodsStepsState extends ConsumerState<AskodoxPaymentMethodsSteps
             Center(
               child: RepaintBoundary(
                 key: _qrKey,
-                child: Container(
+                child: AskodoxPaper(child: Container(
                   color: Colors.white,
                   padding: const EdgeInsets.all(8),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -426,7 +427,7 @@ class _PaymentMethodsStepsState extends ConsumerState<AskodoxPaymentMethodsSteps
                     SelectableText('${main['upi_id']}', style: const TextStyle(fontSize: 13, color: askodoxStepMuted)),
                   ]),
                 ),
-              ),
+              )),
             ),
           const SizedBox(height: 10),
           for (final m in methods)

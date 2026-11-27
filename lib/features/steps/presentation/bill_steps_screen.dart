@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -51,7 +52,7 @@ class _CalcRow {
 }
 
 const _tileColors = [
-  Color(0xFFE3F5EA), Color(0xFFFFF1E0), Color(0xFFE6EDFF), Color(0xFFF1EBFB), Color(0xFFFDECEA), Color(0xFFE0F2F1),
+  Color(0xFF123624), Color(0xFF402804), Color(0xFF222C4A), Color(0xFF332842), Color(0xFF402623), Color(0xFF0F3433),
 ];
 
 class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen> {
@@ -469,7 +470,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
               height: 54,
               child: FilledButton(
                 key: const Key('askodoxBillDueOk'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFC2410C)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF9A79)),
                 onPressed: () {
                   if (name.text.trim().isEmpty && askodoxTenDigits(phone.text).isEmpty) return;
                   Navigator.of(sheet).pop(true);
@@ -530,7 +531,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
               height: 52,
               child: FilledButton(
                 key: const Key('askodoxBillSendOk'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF15803D)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF75D48B)),
                 onPressed: () => Navigator.of(sheet).pop(true),
                 child: Text(te ? 'పంపు' : 'Send'),
               ),
@@ -873,7 +874,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
     return Stack(clipBehavior: Clip.none, children: [
       Positioned.fill(
         child: Material(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             key: Key('askodoxBillTile-$id'),
@@ -922,8 +923,8 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
             padding: const EdgeInsets.symmetric(horizontal: 7),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-                color: askodoxStepDone, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white, width: 2.5)),
-            child: Text(askodoxQtyShort(qty), style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w900)),
+                color: askodoxStepDone, borderRadius: BorderRadius.circular(14), border: Border.all(color: AskodoxLook.sheet, width: 2.5)),
+            child: Text(askodoxQtyShort(qty), style: const TextStyle(color: AskodoxLook.sheet, fontSize: 12.5, fontWeight: FontWeight.w900)),
           ),
         ),
     ]);
@@ -956,7 +957,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
   }
 
   Widget _otherTile(bool te) => Material(
-        color: Colors.white,
+        color: AskodoxLook.sheet,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: const Key('askodoxBillOther'),
@@ -964,11 +965,11 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
           onTap: _other,
           child: Container(
             decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF9CA3AF), width: 1.5)),
+                borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF9299A4), width: 1.5)),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.add_rounded, size: 32, color: Color(0xFF374151)),
+              const Icon(Icons.add_rounded, size: 32, color: Color(0xFFC0CDE0)),
               const SizedBox(height: 4),
-              Text(te ? 'వేరేది' : 'Other', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF374151))),
+              Text(te ? 'వేరేది' : 'Other', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFC0CDE0))),
             ]),
           ),
         ),
@@ -984,7 +985,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
       AskodoxStepChoice(
         key: const Key('askodoxBillPayCash'),
         icon: Icons.payments_rounded,
-        color: const Color(0xFF15803D),
+        color: const Color(0xFF75D48B),
         title: te ? 'క్యాష్' : 'Cash',
         sub: te ? 'చేతికి డబ్బు ఇచ్చారు' : 'Paid in cash',
         selected: _said == 'cash',
@@ -995,7 +996,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
       AskodoxStepChoice(
         key: const Key('askodoxBillPayOnline'),
         icon: Icons.qr_code_2_rounded,
-        color: const Color(0xFF1D4ED8),
+        color: const Color(0xFFA0BFFF),
         title: te ? 'ఆన్‌లైన్ / UPI' : 'Online / UPI',
         sub: te ? 'QR చూపిస్తాం · వచ్చినప్పుడు ఫోన్ చెప్తుంది' : 'We show the QR · the phone speaks when it lands',
         selected: _said == 'online',
@@ -1006,7 +1007,7 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
       AskodoxStepChoice(
         key: const Key('askodoxBillPayDue'),
         icon: Icons.menu_book_rounded,
-        color: const Color(0xFFC2410C),
+        color: const Color(0xFFFF9A79),
         title: te ? 'బాకీ' : 'Due',
         sub: te ? 'తర్వాత కడతారు — పేరు అడుగుతాం' : 'They pay later — we ask the name',
         selected: _said == 'due',
@@ -1081,14 +1082,14 @@ class _AskodoxBillStepsScreenState extends ConsumerState<AskodoxBillStepsScreen>
             key: const Key('askodoxBillStepsSend'),
             icon: Icons.send_rounded,
             label: te ? 'WhatsApp కి' : 'WhatsApp',
-            color: const Color(0xFF15803D),
+            color: const Color(0xFF75D48B),
             onTap: _saved == null ? null : _send),
         const SizedBox(width: 22),
         AskodoxStepRoundAction(
             key: const Key('askodoxBillStepsPrint'),
             icon: Icons.print_rounded,
             label: te ? 'ప్రింట్' : 'Print',
-            color: const Color(0xFF334155),
+            color: const Color(0xFFBCCDE6),
             onTap: _saved == null ? null : () => askodoxPrintInvoice(context, ref, _saved!, businessId: widget.businessId)),
       ]),
     ]);

@@ -278,7 +278,7 @@ class _AskodoxNotificationsOffBannerState extends ConsumerState<AskodoxNotificat
     final te = Localizations.localeOf(context).languageCode == 'te';
     return Card(
       key: const Key('askodoxNotificationsOff'),
-      color: const Color(0xFFFFF4E5),
+      color: const Color(0xFF3C2A0D),
       child: ListTile(
         leading: const Icon(Icons.notifications_off_outlined),
         title: Text(te ? 'నోటిఫికేషన్స్ ఆఫ్‌లో ఉన్నాయి' : 'Notifications are off'),

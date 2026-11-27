@@ -64,7 +64,7 @@ class _AskodoxMascotState extends State<AskodoxMascot> with SingleTickerProvider
         width: widget.size,
         height: widget.size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Icon(Icons.smart_toy_rounded, size: widget.size * .8, color: const Color(0xFF1769FF)));
+        errorBuilder: (_, __, ___) => Icon(Icons.smart_toy_rounded, size: widget.size * .8, color: const Color(0xFF8EB7FF)));
     final clipped = widget.circle
         ? ClipOval(child: image)
         : ClipRRect(borderRadius: BorderRadius.circular(widget.size * .22), child: image);

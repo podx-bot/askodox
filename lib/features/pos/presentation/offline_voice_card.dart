@@ -67,11 +67,11 @@ class _AskodoxOfflineVoiceCardState extends ConsumerState<AskodoxOfflineVoiceCar
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: ok ? const Color(0xFFE8F5EE) : const Color(0xFFFFF4E5),
+        color: ok ? const Color(0xFF1C3428) : const Color(0xFF3C2A0D),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(children: [
-        Icon(ok ? Icons.offline_bolt : Icons.wifi_off, color: ok ? const Color(0xFF17784C) : const Color(0xFFB45309)),
+        Icon(ok ? Icons.offline_bolt : Icons.wifi_off, color: ok ? const Color(0xFF7CD3A2) : const Color(0xFFFB9E6A)),
         const SizedBox(width: 10),
         Expanded(child: Text(te ? label.$2 : label.$1, style: const TextStyle(fontSize: 13))),
         if (!ok && s['supported'] != false)

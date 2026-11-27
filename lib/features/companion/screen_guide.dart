@@ -493,7 +493,7 @@ class _ScreenGuideScreenState extends ConsumerState<ScreenGuideScreen> with Widg
         if (s.phase == ScreenGuidePhase.privacyPaused)
           Card(
             key: const Key('screenGuidePrivacyPaused'),
-            color: const Color(0xFFFFF4E5),
+            color: const Color(0xFF3C2A0D),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

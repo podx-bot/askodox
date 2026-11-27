@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -80,13 +81,13 @@ class _AskodoxIdeasScreenState extends ConsumerState<AskodoxIdeasScreen> {
     final te = _te;
     return Scaffold(
       key: const Key('askodoxIdeas'),
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: const Color(0xFF1F2432),
       appBar: AppBar(title: Text(te ? 'సలహాలు & సూచనలు' : 'Ideas & suggestions')),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: const Color(0xFFFFF7E0), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: const Color(0xFF392C01), borderRadius: BorderRadius.circular(16)),
             child: Row(children: [
               const Text('💡', style: TextStyle(fontSize: 40)),
               const SizedBox(width: 10),
@@ -113,8 +114,8 @@ class _AskodoxIdeasScreenState extends ConsumerState<AskodoxIdeasScreen> {
           ]),
           const SizedBox(height: 14),
           Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E5EC))),
+            decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF4A526B))),
             padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Expanded(
@@ -141,14 +142,14 @@ class _AskodoxIdeasScreenState extends ConsumerState<AskodoxIdeasScreen> {
           ),
           const SizedBox(height: 6),
           Text(te ? 'ఫోన్ నంబర్, OTP, కార్డ్ నంబర్లు రాయకండి.' : 'Do not write phone numbers, OTPs or card numbers.',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB1B9C8))),
           const SizedBox(height: 12),
           FilledButton.icon(
             key: const Key('askodoxIdeaSend'),
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             onPressed: _sending ? null : _send,
             icon: _sending
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.4, color: AskodoxLook.sheet))
                 : const Icon(Icons.send_rounded),
             label: Text(te ? 'పంపు' : 'Send', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
           ),
@@ -157,10 +158,10 @@ class _AskodoxIdeasScreenState extends ConsumerState<AskodoxIdeasScreen> {
             Container(
               key: const Key('askodoxIdeaThanks'),
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: const Color(0xFFE7F5EE), borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(color: const Color(0xFF1A3429), borderRadius: BorderRadius.circular(14)),
               child: Text(
                   te ? '🙏 ధన్యవాదాలు! మీ ఐడియా మా టీమ్‌కి చేరింది. ఇంకోటి ఉంటే రాయండి.' : '🙏 Thank you! Your idea reached our team. Send another any time.',
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF17784C))),
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF7CD3A2))),
             ),
           ],
         ]),

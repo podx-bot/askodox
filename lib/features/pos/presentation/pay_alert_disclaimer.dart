@@ -27,7 +27,7 @@ class AskodoxPayAlertDisclaimer extends StatelessWidget {
         key: const Key('askodoxPayAlertDisclaimer'),
         width: double.infinity,
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: const Color(0xFFF6F7F9), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(10)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -35,7 +35,7 @@ class AskodoxPayAlertDisclaimer extends StatelessWidget {
             for (final line in askodoxPayAlertDisclaimerLines(te))
               Padding(
                 padding: const EdgeInsets.only(top: 3),
-                child: Text('• $line', style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+                child: Text('• $line', style: const TextStyle(fontSize: 11.5, color: Color(0xFFB4BED1))),
               ),
           ],
         ),

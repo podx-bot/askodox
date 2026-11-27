@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -17,11 +18,11 @@ import 'biz_hub.dart';
 /// Staff & attendance (owner 2026-11-18): who came when (own phone lock + location, or the shop phone with a photo),
 /// the month calendar P / A / OT / leave, salary worked out line by line, advances, tasks.
 
-const _purple = Color(0xFF5B2A9E);
-const _green = Color(0xFF17784C);
-const _red = Color(0xFFB91C1C);
-const _orange = Color(0xFFB45309);
-const _muted = Color(0xFF4B5563);
+const _purple = Color(0xFFCDBAFF);
+const _green = Color(0xFF7CD3A2);
+const _red = Color(0xFFFEA195);
+const _orange = Color(0xFFFB9E6A);
+const _muted = Color(0xFFB9C5D5);
 
 final askodoxAttTodayProvider = FutureProvider.autoDispose.family<AskodoxJson, String>(
     (ref, id) => ref.watch(askodoxPosRepositoryProvider).attendanceToday(id));
@@ -40,7 +41,7 @@ String _clock(Object? iso) {
       'A' => (te ? 'రాలేదు' : 'Absent', _red),
       'leave' => (te ? 'సెలవు' : 'Leave', _purple),
       'half' => (te ? 'సగం రోజు' : 'Half day', _orange),
-      _ => (te ? 'ఇంకా రాలేదు' : 'Not yet', const Color(0xFF6B7280)),
+      _ => (te ? 'ఇంకా రాలేదు' : 'Not yet', const Color(0xFFB1B9C8)),
     };
 
 Widget _pill(String text, Color color) => Container(
@@ -165,7 +166,7 @@ class _PersonTile extends StatelessWidget {
             Row(children: [
               CircleAvatar(
                   radius: 18,
-                  backgroundColor: Colors.white,
+                  backgroundColor: AskodoxLook.sheet,
                   child: Text(name.characters.first, style: const TextStyle(color: _purple, fontWeight: FontWeight.w900))),
               const Spacer(),
               _pill(label, color),
@@ -293,7 +294,7 @@ class _AskodoxBizCheckInScreenState extends ConsumerState<AskodoxBizCheckInScree
                 width: 150,
                 height: 150,
                 decoration: BoxDecoration(
-                    shape: BoxShape.circle, color: const Color(0xFFE7F5EE), border: Border.all(color: _green, width: 4)),
+                    shape: BoxShape.circle, color: const Color(0xFF1A3429), border: Border.all(color: _green, width: 4)),
                 child: _busy
                     ? const Padding(padding: EdgeInsets.all(50), child: CircularProgressIndicator())
                     : const Icon(Icons.fingerprint, size: 90, color: _green),
@@ -320,7 +321,7 @@ class _AskodoxBizCheckInScreenState extends ConsumerState<AskodoxBizCheckInScree
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFFE7F5EE), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: const Color(0xFF1A3429), borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
               const Icon(Icons.place_outlined, color: _green),
               const SizedBox(width: 8),
@@ -418,16 +419,16 @@ class _AskodoxBizKioskScreenState extends ConsumerState<AskodoxBizKioskScreen> {
     final people = askodoxPosList(ref.watch(askodoxAttTodayProvider(widget.businessId)).valueOrNull?['people']);
     return Scaffold(
       key: const Key('askodoxBizKiosk'),
-      backgroundColor: const Color(0xFF16203F),
+      backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16203F),
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF7F9FC),
+        foregroundColor: AskodoxLook.sheet,
         title: Text(te ? 'హాజరు — షాప్ ఫోన్' : 'Attendance — shop phone'),
       ),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Text(te ? '1. మీ పేరు నొక్కండి  2. వచ్చాను / వెళ్తున్నా  3. ఫోటో' : '1. Tap your name  2. In / out  3. Photo',
-              style: const TextStyle(color: Color(0xFFC7CEE0), fontSize: 15, fontWeight: FontWeight.w700)),
+              style: const TextStyle(color: Color(0xFF9198A9), fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 14),
           Wrap(spacing: 10, runSpacing: 10, children: [
             for (final p in people)
@@ -437,7 +438,7 @@ class _AskodoxBizKioskScreenState extends ConsumerState<AskodoxBizKioskScreen> {
                 child: FilledButton(
                   key: Key('askodoxKioskName-${p['ref']}'),
                   style: FilledButton.styleFrom(
-                      backgroundColor: _who == '${p['ref']}' ? _green : const Color(0xFF26304F),
+                      backgroundColor: _who == '${p['ref']}' ? _green : const Color(0xFFF7F9FC),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                   onPressed: () => setState(() => _who = '${p['ref']}'),
                   child: Text('${p['name']}'.isEmpty ? '••${p['ref']}' : '${p['name']}',
@@ -450,7 +451,7 @@ class _AskodoxBizKioskScreenState extends ConsumerState<AskodoxBizKioskScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: _green, borderRadius: BorderRadius.circular(14)),
-              child: Text(_last, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+              child: Text(_last, textAlign: TextAlign.center, style: const TextStyle(color: AskodoxLook.sheet, fontSize: 17, fontWeight: FontWeight.w900)),
             ),
           ],
           const SizedBox(height: 20),
@@ -708,7 +709,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
                 child: Column(children: [
                   FittedBox(child: Text(c.$1, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: c.$3))),
                   Text(c.$2, style: const TextStyle(fontSize: 11, color: _muted)),
@@ -719,7 +720,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
         ]),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
           child: Row(children: [
             IconButton(
                 onPressed: () {
@@ -753,7 +754,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
                 Container(
                   key: Key('askodoxAttDay-${day['date']}'),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEF0F3)))),
+                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1F2432)))),
                   child: Row(children: [
                     SizedBox(
                       width: 42,
@@ -788,7 +789,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
                                 style: TextStyle(
                                     fontWeight: FontWeight.w900,
                                     fontSize: 12,
-                                    color: askodoxPosMap(day['att'])['status'] == s ? Colors.white : color)),
+                                    color: askodoxPosMap(day['att'])['status'] == s ? AskodoxLook.sheet : color)),
                           ),
                         ),
                       ),
@@ -856,7 +857,7 @@ class _AskodoxBizStaffPersonScreenState extends ConsumerState<AskodoxBizStaffPer
     );
   }
 
-  Widget _line(String a, String b, {bool bold = false, Color color = const Color(0xFF16203F)}) => Padding(
+  Widget _line(String a, String b, {bool bold = false, Color color = const Color(0xFFF7F9FC)}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(children: [
           Expanded(child: Text(a, style: TextStyle(fontWeight: bold ? FontWeight.w900 : FontWeight.w500, color: _muted))),
@@ -1364,7 +1365,7 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
               AskodoxBizSection(te ? 'పద్ధతి — ఒకటి లేదా రెండూ' : 'Method — one or both'),
               SwitchListTile(
                 key: const Key('askodoxAttOwnPhone'),
-                tileColor: Colors.white,
+                tileColor: AskodoxLook.sheet,
                 value: s['own_phone'] == true,
                 onChanged: (v) => _save({'own_phone': v}),
                 title: Text(te ? 'ప్రతి ఒక్కరి ఫోన్‌లో' : "On each person's phone"),
@@ -1373,7 +1374,7 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
               const SizedBox(height: 6),
               SwitchListTile(
                 key: const Key('askodoxAttKiosk'),
-                tileColor: Colors.white,
+                tileColor: AskodoxLook.sheet,
                 value: s['kiosk'] == true,
                 onChanged: (v) => _save({'kiosk': v}),
                 title: Text(te ? 'షాప్ ఫోన్ / ట్యాబ్‌లో' : 'On the shop phone / tablet'),
@@ -1384,7 +1385,7 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
                 key: const Key('askodoxAttPinCard'),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                    color: s['shop_pin'] == true ? const Color(0xFFE8F7EE) : const Color(0xFFFFF1E3),
+                    color: s['shop_pin'] == true ? const Color(0xFF183526) : const Color(0xFF3F280D),
                     borderRadius: BorderRadius.circular(12)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Text(
@@ -1416,7 +1417,7 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
               AskodoxBizSection(te ? 'మోసం రాకుండా' : 'No cheating'),
               SwitchListTile(
                 key: const Key('askodoxAttRequireLocation'),
-                tileColor: Colors.white,
+                tileColor: AskodoxLook.sheet,
                 value: s['require_location'] != false,
                 onChanged: (v) => _save({'require_location': v}),
                 title: Text(te ? 'లొకేషన్ తప్పనిసరి' : 'Location is a must'),
@@ -1425,7 +1426,7 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
               const SizedBox(height: 6),
               SwitchListTile(
                 key: const Key('askodoxAttRequireFace'),
-                tileColor: Colors.white,
+                tileColor: AskodoxLook.sheet,
                 value: s['require_live_face'] != false,
                 onChanged: (v) => _save({'require_live_face': v}),
                 title: Text(te ? 'ముఖం లైవ్ చెక్' : 'Live face check'),
@@ -1436,7 +1437,7 @@ class _AskodoxBizAttSetupScreenState extends ConsumerState<AskodoxBizAttSetupScr
               const SizedBox(height: 6),
               SwitchListTile(
                 key: const Key('askodoxAttOutsideOk'),
-                tileColor: Colors.white,
+                tileColor: AskodoxLook.sheet,
                 value: s['outside_needs_ok'] != false,
                 onChanged: (v) => _save({'outside_needs_ok': v}),
                 title: Text(te ? 'దూరంగా ఉంటే నన్ను అడగాలి' : 'Away from the shop = ask me'),
@@ -1609,7 +1610,7 @@ class AskodoxBizAttTodayScreen extends ConsumerWidget {
           Row(children: [
             CircleAvatar(
                 radius: 16,
-                backgroundColor: const Color(0xFFF1EBFB),
+                backgroundColor: const Color(0xFF332842),
                 child: Text(name.characters.first, style: const TextStyle(color: _purple, fontWeight: FontWeight.w900))),
             const SizedBox(width: 8),
             Expanded(
@@ -1659,7 +1660,7 @@ class AskodoxBizAttTodayScreen extends ConsumerWidget {
                     key: Key('askodoxAttToday-${p['ref']}-$s'),
                     style: OutlinedButton.styleFrom(
                       backgroundColor: status == s ? color : null,
-                      foregroundColor: status == s ? Colors.white : color,
+                      foregroundColor: status == s ? AskodoxLook.sheet : color,
                       side: BorderSide(color: color, width: 1.5),
                       minimumSize: const Size.fromHeight(40),
                       padding: EdgeInsets.zero,
@@ -1724,14 +1725,14 @@ class _AskodoxStaffFaceState extends ConsumerState<AskodoxStaffFace> {
   Widget build(BuildContext context) {
     final name = '${widget.person['name'] ?? ''}'.trim();
     final present = askodoxPosMap(widget.person['today'])['status'] != null;
-    final ring = widget.selected ? _purple : (present ? _green : const Color(0xFFCBD5E1));
+    final ring = widget.selected ? _purple : (present ? _green : const Color(0xFF4A526B));
     return Container(
       width: widget.size,
       height: widget.size,
       padding: const EdgeInsets.all(2.5),
       decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: ring, width: widget.selected ? 3 : 2)),
       child: CircleAvatar(
-        backgroundColor: const Color(0xFFEDE9FE),
+        backgroundColor: const Color(0xFF49435E),
         backgroundImage: _photo == null ? null : MemoryImage(_photo!),
         child: _photo != null
             ? null

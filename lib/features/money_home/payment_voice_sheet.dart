@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -215,8 +216,8 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(color: const Color(0xFF0D9488), borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.volume_up_rounded, color: Colors.white),
+                decoration: BoxDecoration(color: const Color(0xFF59C9BB), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.volume_up_rounded, color: AskodoxLook.sheet),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -228,7 +229,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                           : te
                               ? '${_kinds.length} లో $count ఆన్ · ${_personal ? 'నా ఫోన్' : 'షాప్ కౌంటర్'}'
                               : '$count of ${_kinds.length} on · ${_personal ? 'my phone' : 'shop counter'}',
-                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                 ]),
               ),
             ]),
@@ -237,7 +238,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                 te
                     ? 'ఏది వచ్చినప్పుడు ఫోన్ చెప్పాలో నొక్కి ఆన్ / ఆఫ్ చేయండి. ▶ నొక్కితే ఎలా చెబుతుందో వినిపిస్తుంది. ఫేక్ మెసేజ్ హెచ్చరిక ఎప్పుడూ ఆన్.'
                     : 'Tap a line to switch it on / off. ▶ plays the words. The fake-message warning is always on.',
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
             const SizedBox(height: 10),
             if (_loadFailed)
               Padding(
@@ -247,7 +248,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                         ? 'ఫోన్ లో సేవ్ చేసినది చదవలేకపోయాను. ఇక్కడ చూపేవి మామూలు సెట్టింగ్స్ మాత్రమే.'
                         : "Couldn't read what this phone saved. These are the usual settings only.",
                     key: const Key('askodoxVoiceLoadFailed'),
-                    style: const TextStyle(fontSize: 12.5, color: Color(0xFFB45309), fontWeight: FontWeight.w700)),
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFFFB9E6A), fontWeight: FontWeight.w700)),
               ),
             if (on == null)
               const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
@@ -275,7 +276,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                     te
                         ? 'అన్నీ ఆన్. పేమెంట్ రాని రోజు ఏ మాటా రాదు. ఏదైనా వద్దంటే నొక్కి ఆపండి.'
                         : 'All on. On a day with no payment nothing is said. Tap one to switch it off.',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
                 const SizedBox(height: 8),
                 for (final k in askodoxBrandVoiceKinds) _row(k, on[k.id] ?? true, te, language),
               ],
@@ -302,7 +303,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
   Widget _row(AskodoxVoiceKind k, bool active, bool te, String language) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Material(
-          color: active ? const Color(0xFFEFFBF7) : const Color(0xFFF4F5F7),
+          color: active ? const Color(0xFF1D332D) : const Color(0xFF1F2432),
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             key: ValueKey('askodoxVoiceKind-${k.id}'),
@@ -320,10 +321,10 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                     height: 26,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                        color: active ? (k.locked ? const Color(0xFFB45309) : const Color(0xFF12A150)) : const Color(0xFFC5CAD3),
+                        color: active ? (k.locked ? const Color(0xFFFB9E6A) : const Color(0xFF66CA82)) : const Color(0xFF9498A1),
                         shape: BoxShape.circle),
                     child: Icon(k.locked ? Icons.lock_rounded : (active ? Icons.check_rounded : Icons.remove_rounded),
-                        size: 16, color: Colors.white),
+                        size: 16, color: AskodoxLook.sheet),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -333,23 +334,23 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                     if (k.locked)
                       Text(te ? 'ఎప్పుడూ ఆన్ (మార్చలేరు)' : 'Always on (cannot be changed)',
                           key: ValueKey('askodoxVoiceKindLocked-${k.id}'),
-                          style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309), fontWeight: FontWeight.w800)),
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFFFB9E6A), fontWeight: FontWeight.w800)),
                     Text(k.sample(te),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: active ? const Color(0xFF1F5F4F) : const Color(0xFF7A8190))),
+                        style: TextStyle(fontSize: 12, color: active ? const Color(0xFF95D4C0) : const Color(0xFFACB3C3))),
                   ]),
                 ),
                 const SizedBox(width: 8),
                 Text(active ? (te ? 'ఆన్' : 'ON') : (te ? 'ఆఫ్' : 'OFF'),
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: active ? const Color(0xFF12A150) : const Color(0xFF7A8190))),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: active ? const Color(0xFF66CA82) : const Color(0xFFACB3C3))),
                 IconButton(
                   key: ValueKey('askodoxVoiceKindPlay-${k.id}'),
                   tooltip: te ? 'వినండి' : 'Listen',
                   onPressed: _playing == null ? () => _play(k, language) : null,
                   icon: _playing == k.id
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.play_circle_fill_rounded, color: Color(0xFF0D9488)),
+                      : const Icon(Icons.play_circle_fill_rounded, color: Color(0xFF59C9BB)),
                 ),
               ]),
             ),

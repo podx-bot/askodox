@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -99,8 +100,8 @@ const askodoxCompanyLinks = <(String, IconData, String, String, String)>[
   ('privacy', Icons.privacy_tip_outlined, 'Privacy', 'ప్రైవసీ', 'https://askodox.com/privacy/'),
 ];
 
-const _buyerColor = Color(0xFF6C4DFF);
-const _sellerColor = Color(0xFF0B7A4B);
+const _buyerColor = Color(0xFFADAEFD);
+const _sellerColor = Color(0xFF77D49F);
 
 /// ☰ (owner 2026-11-22): a box that drops from the TOP, in the side's colour (purple = Buyer, green = Seller).
 /// - Buyer: the person's name, phone and address (✏ edits them);
@@ -116,7 +117,7 @@ class AskodoxHeaderMenuButton extends ConsumerWidget {
         key: const Key('askodoxHeaderMenu'),
         tooltip: te ? 'మెనూ' : 'Menu',
         visualDensity: VisualDensity.compact,
-        icon: const Icon(Icons.menu_rounded, color: Color(0xFF10204A)),
+        icon: const Icon(Icons.menu_rounded, color: Color(0xFFF7F9FC)),
         onPressed: () async {
           final route = await showGeneralDialog<String>(
             context: context,
@@ -246,7 +247,7 @@ class AskodoxMenuBox extends ConsumerWidget {
       alignment: Alignment.topCenter,
       child: Material(
         key: const Key('askodoxMenuBox'),
-        color: Colors.white,
+        color: AskodoxLook.sheet,
         elevation: 8,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
         clipBehavior: Clip.antiAlias,
@@ -263,7 +264,7 @@ class AskodoxMenuBox extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
                     child: Text(seller ? (te ? 'అమ్ము' : 'Sell') : (te ? 'కొను' : 'Buy'),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                        style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w800, fontSize: 12)),
                   ),
                   const Spacer(),
                   IconButton(
@@ -285,13 +286,13 @@ class AskodoxMenuBox extends ConsumerWidget {
               ),
               _grid([
                 for (final (id, icon, en, tel, url) in askodoxCompanyLinks) ('askodoxMenu-$id', icon, te ? tel : en, url),
-              ], const Color(0xFF374151), pick),
+              ], const Color(0xFFC0CDE0), pick),
               const SizedBox(height: 12),
               if (signedIn)
                 OutlinedButton.icon(
                   key: const ValueKey('askodoxMenu-signout'),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFB42318), minimumSize: const Size.fromHeight(46)),
+                      foregroundColor: const Color(0xFFFEA293), minimumSize: const Size.fromHeight(46)),
                   onPressed: () => pick(askodoxSignOutMenuValue),
                   icon: const Icon(Icons.logout_rounded),
                   label: Text(te ? 'లాగ్ అవుట్' : 'Logout'),
@@ -347,7 +348,7 @@ class AskodoxMenuBox extends ConsumerWidget {
                           maxLines: 2,
                           textAlign: TextAlign.center,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF16203F))),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFFF7F9FC))),
                     ]),
                   ),
                 ),
@@ -458,24 +459,24 @@ class _HeaderCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
-              CircleAvatar(radius: 24, backgroundColor: color, child: Icon(icon, color: Colors.white)),
+              CircleAvatar(radius: 24, backgroundColor: color, child: Icon(icon, color: AskodoxLook.sheet)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF16203F))),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFF7F9FC))),
                   for (final l in lines)
                     Text(l,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF4B5563))),
+                        style: const TextStyle(fontSize: 12.5, color: Color(0xFFB9C5D5))),
                 ]),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.edit_rounded, size: 14, color: color),
                   const SizedBox(width: 4),
@@ -500,7 +501,7 @@ class AskodoxHeaderGuideButton extends StatelessWidget {
         key: const Key('askodoxHeaderScreenGuide'),
         tooltip: te ? 'స్క్రీన్ గైడ్' : 'Screen Guide',
         visualDensity: VisualDensity.compact,
-        icon: const Icon(Icons.assistant_navigation, color: Color(0xFF10204A)),
+        icon: const Icon(Icons.assistant_navigation, color: Color(0xFFF7F9FC)),
         onPressed: () => askodoxShowScreenGuide(context, te: te),
       );
 }
@@ -528,7 +529,7 @@ void askodoxShowScreenGuide(BuildContext context, {required bool te}) {
                   te
                       ? 'ప్రచురించడం, తొలగించడం, చెల్లించడం లేదా సున్నితమైన వివరాలు పంపే ముందు మీ నిర్ధారణ అడుగుతాను. OTP / కార్డ్ / ఆధార్ / PAN స్క్రీన్లలో గైడ్ ఆగుతుంది.'
                       : 'I ask before publishing, deleting, paying or sending sensitive details. The guide pauses on OTP, card, Aadhaar and PAN screens.',
-                  style: const TextStyle(color: Color(0xFF5B6475), fontSize: 12.5)),
+                  style: const TextStyle(color: Color(0xFFB4BED1), fontSize: 12.5)),
             ),
             AskodoxGuideList(te: te, onStarted: () => Navigator.of(sheet).pop()),
           ]),

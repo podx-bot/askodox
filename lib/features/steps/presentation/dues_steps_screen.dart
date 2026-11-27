@@ -319,11 +319,11 @@ class _AskodoxDuesStepsScreenState extends ConsumerState<AskodoxDuesStepsScreen>
     return ListView(padding: const EdgeInsets.fromLTRB(16, 2, 16, 12), children: [
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: const Color(0xFFF6F7FB), borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(18)),
         child: Row(children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: const Color(0xFFE6EDFF),
+            backgroundColor: const Color(0xFF222C4A),
             child: Text(_nameOf(person).characters.first.toUpperCase(),
                 style: const TextStyle(color: askodoxStepInfo, fontWeight: FontWeight.w800, fontSize: 18)),
           ),
@@ -367,7 +367,7 @@ class _AskodoxDuesStepsScreenState extends ConsumerState<AskodoxDuesStepsScreen>
               key: const Key('askodoxDuesStepsReceipt'),
               icon: Icons.send_rounded,
               label: te ? 'రసీదు పంపు' : 'Send receipt',
-              color: const Color(0xFF15803D),
+              color: const Color(0xFF75D48B),
               onTap: _receipt),
         ]),
       ]);

@@ -131,7 +131,7 @@ class _AskodoxProtractorScreenState extends ConsumerState<AskodoxProtractorScree
                 key: const Key('askodoxProtractorImage'),
                 onTapDown: (d) => _tap(d, Size(box.maxWidth, box.maxHeight)),
                 child: Stack(fit: StackFit.expand, children: [
-                  Image.memory(photo.bytes, fit: BoxFit.fill, errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFFE5E7EB))),
+                  Image.memory(photo.bytes, fit: BoxFit.fill, errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF4A526B))),
                   CustomPaint(painter: _AnglePainter(List.of(_points), image)),
                 ]),
               ),
@@ -175,7 +175,7 @@ class _AnglePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     Offset at(AskodoxPoint p) => Offset(p.x / image.width * size.width, p.y / image.height * size.height);
     final paint = Paint()
-      ..color = const Color(0xFF1769FF)
+      ..color = const Color(0xFF8EB7FF)
       ..strokeWidth = 3;
     for (var i = 0; i < points.length; i++) {
       canvas.drawCircle(at(points[i]), 6, paint);
@@ -675,7 +675,7 @@ class _AskodoxVehicleReportScreenState extends ConsumerState<AskodoxVehicleRepor
                   : ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: Image.memory(_photos[side.id]!.bytes, width: 48, height: 48, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.check_circle, color: Color(0xFF16A34A))),
+                          errorBuilder: (_, __, ___) => const Icon(Icons.check_circle, color: Color(0xFF69C97E))),
                     ),
               title: Text(te ? side.te : side.en),
               subtitle: Text(te ? side.tipTe : side.tipEn, style: const TextStyle(fontSize: 12)),

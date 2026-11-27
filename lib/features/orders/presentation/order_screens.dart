@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,9 +41,9 @@ String _statusLabel(BuildContext context, String raw) {
 }
 
 Color _statusColor(String raw) => switch (raw.toUpperCase()) {
-      'ACCEPTED' || 'FULFILLED' || 'CLOSED' => const Color(0xFF1B8A3B),
-      'REJECTED' || 'CANCELLED' || 'DISPUTED' => const Color(0xFFB3261E),
-      _ => const Color(0xFF9A7B00),
+      'ACCEPTED' || 'FULFILLED' || 'CLOSED' => const Color(0xFF74D083),
+      'REJECTED' || 'CANCELLED' || 'DISPUTED' => const Color(0xFFFEA294),
+      _ => const Color(0xFFD1B14F),
     };
 
 class MyOrdersScreen extends ConsumerStatefulWidget {
@@ -266,9 +267,9 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AskodoxLook.sheet,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE1E8F2)),
+        border: Border.all(color: const Color(0xFF4A526B)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -293,13 +294,13 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
           if (quantityLabel != null)
             Text(quantityLabel,
                 style: const TextStyle(
-                    color: Color(0xFF667085),
+                    color: Color(0xFFAEB9D0),
                     fontWeight: FontWeight.w600,
                     fontSize: 13)),
           if (amountLabel != null)
             Text(amountLabel,
                 style: const TextStyle(
-                    color: Color(0xFF10204A),
+                    color: Color(0xFFF7F9FC),
                     fontWeight: FontWeight.w800,
                     fontSize: 13)),
         ]),
@@ -307,7 +308,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
           const SizedBox(height: 4),
           Text('${order.createdAt!.toLocal()}'.split('.').first,
               style: const TextStyle(
-                  color: Color(0xFF9AA4B2),
+                  color: Color(0xFF8F99A7),
                   fontSize: 11,
                   fontWeight: FontWeight.w600)),
         ],
@@ -319,7 +320,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     'కొనుగోలుదారు గమనిక: ${order.buyerNote}')
                 : order.buyerNote!,
             style: const TextStyle(
-                color: Color(0xFF475467),
+                color: Color(0xFFB6C5DC),
                 fontSize: 12.5,
                 fontStyle: FontStyle.italic),
           ),
@@ -336,23 +337,23 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6EE),
+                color: const Color(0xFF263224),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.call, size: 16, color: Color(0xFF1B8A3B)),
+                const Icon(Icons.call, size: 16, color: Color(0xFF74D083)),
                 const SizedBox(width: 8),
                 Text(
                   isSeller
                       ? _t(context, 'Buyer: $contact', 'కొనుగోలుదారు: $contact')
                       : _t(context, 'Seller: $contact', 'విక్రేత: $contact'),
                   style: const TextStyle(
-                      color: Color(0xFF1B8A3B),
+                      color: Color(0xFF74D083),
                       fontWeight: FontWeight.w700,
                       fontSize: 12.5),
                 ),
                 const SizedBox(width: 6),
-                const Icon(Icons.copy, size: 14, color: Color(0xFF1B8A3B)),
+                const Icon(Icons.copy, size: 14, color: Color(0xFF74D083)),
               ]),
             ),
           ),
@@ -382,7 +383,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
           if (_actionError != null) ...[
             Text(_actionError!,
                 style: const TextStyle(
-                    color: Color(0xFFB3261E),
+                    color: Color(0xFFFEA294),
                     fontSize: 12,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),

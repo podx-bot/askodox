@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -287,9 +288,9 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
       final id = '${current['id']}';
       final status = '${current['status'] ?? 'open'}';
       final statusColor = switch (status) {
-        'paused' => const Color(0xFFB45309),
-        'closed' => const Color(0xFFB91C1C),
-        _ => const Color(0xFF17784C),
+        'paused' => const Color(0xFFFB9E6A),
+        'closed' => const Color(0xFFFEA195),
+        _ => const Color(0xFF7CD3A2),
       };
       // Owner 2026-11-18: ONE hub -- the shop card (tap: switch shop / open-pause-close / details), today's
       // numbers, three every-day buttons and the 6 groups. Every other business page opens from here.
@@ -304,7 +305,7 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
               children: [
                 Material(
-                  color: Colors.white,
+                  color: AskodoxLook.sheet,
                   borderRadius: BorderRadius.circular(16),
                   child: InkWell(
                     key: const Key('askodoxMyBusinessShop'),
@@ -359,8 +360,8 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
                         Container(
                           width: 44,
                           height: 44,
-                          decoration: BoxDecoration(color: const Color(0xFFFFF1E3), borderRadius: BorderRadius.circular(12)),
-                          child: const Icon(Icons.storefront_outlined, color: Color(0xFFB45309)),
+                          decoration: BoxDecoration(color: const Color(0xFF3F280D), borderRadius: BorderRadius.circular(12)),
+                          child: const Icon(Icons.storefront_outlined, color: Color(0xFFFB9E6A)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -370,7 +371,7 @@ class _AskodoxMyBusinessScreenState extends ConsumerState<AskodoxMyBusinessScree
                               TextSpan(text: '● ${_statusLabel(status, te)}',
                                   style: TextStyle(color: statusColor, fontWeight: FontWeight.w800)),
                               TextSpan(text: te ? ' · ${_statusText(te)} · మార్చు' : ' · ${_statusText(te)} · change'),
-                            ]), style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+                            ]), style: const TextStyle(fontSize: 12, color: Color(0xFFB9C5D5))),
                           ]),
                         ),
                         const Icon(Icons.expand_more),
@@ -767,7 +768,7 @@ class _AskodoxBusinessProfileScreenState extends ConsumerState<AskodoxBusinessPr
       _Fill.place => IconButton(
           key: const Key('askodoxBusinessMapPick'),
           tooltip: te ? 'మ్యాప్‌లో ఎంచుకోండి' : 'Pick on the map',
-          icon: Icon(Icons.location_on_rounded, color: _lat.isEmpty ? null : const Color(0xFF16A34A)),
+          icon: Icon(Icons.location_on_rounded, color: _lat.isEmpty ? null : const Color(0xFF69C97E)),
           onPressed: () => _pickPlace(box, te)),
       _ => null,
     };
@@ -1469,15 +1470,15 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
         // Owner 2026-11-19 (neat page): the total and the two actions are always in sight, no scrolling to find them.
         if (_saved == null)
           Material(
-            color: Colors.white,
+            color: AskodoxLook.sheet,
             child: Container(
               key: const Key('askodoxQuickBillSticky'),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE3E6EE)))),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF4A526B)))),
               padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
               child: Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Text(te ? 'మొత్తం' : 'Total', style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                    Text(te ? 'మొత్తం' : 'Total', style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
                     Text('₹${_rupees(total)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                   ]),
                 ),
@@ -1627,7 +1628,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: Material(
-                    color: (m.$1 == 'online' ? _online : _method == m.$1) && !_split ? const Color(0xFF1E3FA0) : const Color(0xFFF2F4F7),
+                    color: (m.$1 == 'online' ? _online : _method == m.$1) && !_split ? const Color(0xFFAFC8FC) : const Color(0xFF1F2432),
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       key: Key('askodoxQuickBillPay-${m.$1}'),
@@ -1647,7 +1648,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                           Text(te ? m.$4 : m.$3,
                               style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  color: (m.$1 == 'online' ? _online : _method == m.$1) && !_split ? Colors.white : const Color(0xFF1F2937))),
+                                  color: (m.$1 == 'online' ? _online : _method == m.$1) && !_split ? AskodoxLook.sheet : const Color(0xFFF7F9FC))),
                         ]),
                       ),
                     ),
@@ -1659,7 +1660,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: Material(
-                  color: _split ? const Color(0xFF1E3FA0) : const Color(0xFFF2F4F7),
+                  color: _split ? const Color(0xFFAFC8FC) : const Color(0xFF1F2432),
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     key: const Key('askodoxQuickBillSplit'),
@@ -1674,7 +1675,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         const Text('🔀', style: TextStyle(fontSize: 18)),
                         Text(te ? 'రెండూ' : 'Both',
-                            style: TextStyle(fontWeight: FontWeight.w800, color: _split ? Colors.white : const Color(0xFF1F2937))),
+                            style: TextStyle(fontWeight: FontWeight.w800, color: _split ? AskodoxLook.sheet : const Color(0xFFF7F9FC))),
                       ]),
                     ),
                   ),
@@ -1686,7 +1687,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             Padding(
               padding: const EdgeInsets.only(top: 6, bottom: 4),
               child: Text(te ? 'కొంత క్యాష్, కొంత ఆన్‌లైన్ — మిగిలింది బాకీ.' : 'Part cash, part online — the rest is baaki.',
-                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                  style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
             ),
           if (_split)
             Row(children: [
@@ -1731,7 +1732,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                 key: const Key('askodoxQuickBillSound'),
                 margin: const EdgeInsets.only(top: 6),
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFE7F5EE), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: const Color(0xFF1A3429), borderRadius: BorderRadius.circular(12)),
                 child: Row(children: [
                   const Text('🔔', style: TextStyle(fontSize: 20)),
                   const SizedBox(width: 8),
@@ -1769,7 +1770,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(te ? 'బాకీ ₹${_rupees(total - _advancePaise / 100)} — కస్టమర్ పేరు / నంబర్ రాయండి' : 'Baaki ₹${_rupees(total - _advancePaise / 100)} — add the customer name / number',
-                  key: const Key('askodoxQuickBillPending'), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
+                  key: const Key('askodoxQuickBillPending'), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFFB9E6A))),
             ),
             // Owner 2026-11-20: when will they pay? One tap ("1 week" already picked); reminders start 3 days before.
             const SizedBox(height: 4),
@@ -1932,7 +1933,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
           const SizedBox(height: 8),
           RepaintBoundary(
             key: _billKey,
-            child: Container(
+            child: AskodoxPaper(child: Container(
               color: Colors.white,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1985,7 +1986,7 @@ class _AskodoxQuickBillScreenState extends ConsumerState<AskodoxQuickBillScreen>
                 ],
               ),
             ),
-          ),
+          )),
           const SizedBox(height: 12),
           FilledButton.icon(
             key: const Key('askodoxQuickBillShowQr'),

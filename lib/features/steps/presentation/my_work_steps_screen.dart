@@ -294,7 +294,7 @@ class _MyWorkStepsState extends ConsumerState<AskodoxMyWorkStepsScreen> {
             if ('${me['reject_note'] ?? ''}'.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('${me['reject_note']}', style: const TextStyle(fontSize: 12, color: Color(0xFF9A3412))),
+                child: Text('${me['reject_note']}', style: const TextStyle(fontSize: 12, color: Color(0xFFFCA991))),
               ),
             const SizedBox(height: 12),
             OutlinedButton.icon(

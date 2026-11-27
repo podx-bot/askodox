@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import '../../finance/finance_item_screen.dart';
 import '../../../core/flags/askodox_remote_flags.dart';
 import '../../../core/net/net_quality.dart';
@@ -103,7 +104,7 @@ import '../data/availability_watch_repository.dart';
 import '../domain/answer_card.dart';
 import 'answer_card_view.dart';
 
-const _ink = Color(0xFF10204A);
+const _ink = Color(0xFFF7F9FC);
 /// ON in the real app (main.dart): typed turns are answered with voice too. Widget tests keep it OFF.
 bool askodoxSpeakTypedReplies = false;
 
@@ -115,8 +116,8 @@ String askodoxAppActionRoute(String route, String said) {
   return Uri(path: route, queryParameters: {'say': said.trim()}).toString();
 }
 
-const _muted = Color(0xFF667085);
-const _blue = Color(0xFF1769FF);
+const _muted = Color(0xFFAEB9D0);
+const _blue = Color(0xFF8EB7FF);
 
 String askodoxAttachmentMimeType(String filename) {
   final extension = filename.toLowerCase().split('.').last;
@@ -4698,7 +4699,7 @@ class _AskodoxPrimaryHomeScreenState
         controller: _talkPortal,
         overlayChildBuilder: (_) => _talkOverlay(te),
         child: ColoredBox(
-        color: const Color(0xFFF9FBFF),
+        color: const Color(0xFF1F2432),
         child: Stack(children: [
           // ONE conversational page: the active results stay above, the
           // conversation about them scrolls below, then the input -- the
@@ -4774,7 +4775,7 @@ class _AskodoxPrimaryHomeScreenState
               key: const Key('askodoxShoppingModeBanner'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF1F7A4A) : const Color(0xFF4B3BC4))),
+              style: TextStyle(fontWeight: FontWeight.w800, color: on ? const Color(0xFF7DD29D) : const Color(0xFFB6BCFC))),
         ),
       ),
     );
@@ -4902,13 +4903,13 @@ class _AskodoxPrimaryHomeScreenState
   Widget _talkOverlay(bool te) {
     final level = _voiceLevels.isEmpty ? 0.0 : _voiceLevels.last;
     final (label, color) = switch (_voicePhase) {
-      _ when _talkPaused => (te ? 'ఆగింది — మాట్లాడటానికి గోళం నొక్కండి' : 'Paused — tap the orb to talk', const Color(0xFF94A3B8)),
+      _ when _talkPaused => (te ? 'ఆగింది — మాట్లాడటానికి గోళం నొక్కండి' : 'Paused — tap the orb to talk', const Color(0xFF4C596C)),
       _VoicePhase.recording => (te ? 'వింటున్నాను…' : 'Listening…', const Color(0xFF38BDF8)),
       // Owner 2026-11-19: no "Thinking…" wait text -- the orb moves and the answer's words appear as they come.
       _VoicePhase.transcribing || _VoicePhase.thinking => ('', const Color(0xFFA78BFA)),
       _VoicePhase.speaking => (te ? 'మాట్లాడుతున్నాను… (ఆపడానికి గోళం నొక్కండి)' : 'Speaking… (tap the orb to interrupt)', const Color(0xFF34D399)),
       _VoicePhase.idle when _sending || _analyzingAttachments => ('', const Color(0xFFA78BFA)),
-      _VoicePhase.idle => (te ? 'మైక్ సిద్ధం చేస్తున్నాను…' : 'Getting the mic ready…', const Color(0xFF94A3B8)),
+      _VoicePhase.idle => (te ? 'మైక్ సిద్ధం చేస్తున్నాను…' : 'Getting the mic ready…', const Color(0xFF4C596C)),
     };
     final lastUser = _turns.lastWhere((t) => t.isUser, orElse: () => const ConversationTurnRecord(text: '', isUser: true));
     // The previous answer is never shown under a NEW question (owner phone test 2026-11-19): until this question's
@@ -4921,12 +4922,12 @@ class _AskodoxPrimaryHomeScreenState
     return Positioned.fill(
       child: Material(
         key: const Key('askodoxTalkMode'),
-        color: const Color(0xFF0B1220),
+        color: const Color(0xFFF7F9FC),
         child: SafeArea(
           child: Column(children: [
             const SizedBox(height: 18),
             Text(te ? 'ASKODOX తో మాట్లాడండి' : 'Talk with ASKODOX',
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                style: const TextStyle(color: AskodoxLook.sheet, fontSize: 18, fontWeight: FontWeight.w800)),
             Expanded(
               child: Center(
                 child: GestureDetector(
@@ -4938,7 +4939,7 @@ class _AskodoxPrimaryHomeScreenState
                     height: size,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [Colors.white, color, color.withValues(alpha: .35)]),
+                      gradient: RadialGradient(colors: [AskodoxLook.sheet, color, color.withValues(alpha: .35)]),
                       boxShadow: [BoxShadow(color: color.withValues(alpha: .55), blurRadius: 40, spreadRadius: 6)],
                     ),
                   ),
@@ -4950,7 +4951,7 @@ class _AskodoxPrimaryHomeScreenState
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
                 child: Text(_talkTiming!, key: const Key('askodoxTalkTiming'), textAlign: TextAlign.center,
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5)),
+                    style: const TextStyle(color: Color(0xFFA8BAD3), fontSize: 11.5)),
               ),
             if (_talkNote != null)
               Padding(
@@ -4961,12 +4962,12 @@ class _AskodoxPrimaryHomeScreenState
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
               child: Text(lastUser.text, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13.5)),
+                  style: const TextStyle(color: Color(0xFF4A526B), fontSize: 13.5)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(askodoxPlainReply(lastReply.text), maxLines: 4, overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.35)),
+                  textAlign: TextAlign.center, style: const TextStyle(color: AskodoxLook.sheet, fontSize: 15, height: 1.35)),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 22),
@@ -4981,10 +4982,10 @@ class _AskodoxPrimaryHomeScreenState
                 IconButton.filled(
                   key: const Key('askodoxTalkClose'),
                   iconSize: 30,
-                  style: IconButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                  style: IconButton.styleFrom(backgroundColor: const Color(0xFFFE9488)),
                   tooltip: te ? 'మూసివేయి' : 'Close',
                   onPressed: () => unawaited(_exitTalkMode()),
-                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  icon: const Icon(Icons.close_rounded, color: AskodoxLook.sheet),
                 ),
               ]),
             ),
@@ -5166,15 +5167,15 @@ class _AskodoxPrimaryHomeScreenState
                 key: const Key('askodoxHomeGreeting'),
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AskodoxLook.sheet,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(18),
                     topRight: Radius.circular(18),
                     bottomRight: Radius.circular(18),
                     bottomLeft: Radius.circular(4),
                   ),
-                  border: Border.all(color: const Color(0xFFE2DDFF)),
-                  boxShadow: const [BoxShadow(color: Color(0x146C4DFF), blurRadius: 12, offset: Offset(0, 4))],
+                  border: Border.all(color: const Color(0xFF49406C)),
+                  boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 4))],
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
@@ -5219,11 +5220,11 @@ class _AskodoxPrimaryHomeScreenState
             Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFEDEBFF),
+                    color: const Color(0xFF2E2849),
                     borderRadius: BorderRadius.circular(12)),
                 child: const Text('DEMO',
                     style: TextStyle(
-                        color: Color(0xFF5B4BFF),
+                        color: Color(0xFFA9B2FB),
                         fontSize: 10,
                         fontWeight: FontWeight.w900))),
           ]),
@@ -5304,8 +5305,8 @@ class _AskodoxPrimaryHomeScreenState
       key: const Key('askodoxResultContext'),
       constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FBFF),
-        border: Border(bottom: BorderSide(color: Color(0xFFE1E8F2))),
+        color: Color(0xFF1F2432),
+        border: Border(bottom: BorderSide(color: Color(0xFF4A526B))),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         // ONE row: Result Board | Local | Online | Deals | Reviews | Videos,
@@ -5443,13 +5444,13 @@ class _AskodoxPrimaryHomeScreenState
       key: const Key('askodoxResultPill'),
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FBFF),
-        border: Border(bottom: BorderSide(color: Color(0xFFE1E8F2))),
+        color: Color(0xFF1F2432),
+        border: Border(bottom: BorderSide(color: Color(0xFF4A526B))),
       ),
       child: Row(children: [
         Expanded(
           child: Material(
-            color: const Color(0xFFEAF1FF),
+            color: const Color(0xFF232D44),
             shape: const StadiumBorder(),
             child: InkWell(
               key: const Key('askodoxResultPillRestore'),
@@ -5689,11 +5690,11 @@ class _AskodoxPrimaryHomeScreenState
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 decoration: BoxDecoration(
-                    color: turn.isUser ? _blue : Colors.white,
+                    color: turn.isUser ? _blue : AskodoxLook.sheet,
                     borderRadius: BorderRadius.circular(18),
                     border: turn.isUser
                         ? null
-                        : Border.all(color: const Color(0xFFE1E8F2))),
+                        : Border.all(color: const Color(0xFF4A526B))),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -5727,7 +5728,7 @@ class _AskodoxPrimaryHomeScreenState
                                 cacheWidth: 360,
                                 semanticLabel: attachment['name'],
                                 errorBuilder: (_, __, ___) => Text(attachment['name'] ?? '',
-                                    style: const TextStyle(color: Colors.white, fontSize: 12))),
+                                    style: const TextStyle(color: AskodoxLook.sheet, fontSize: 12))),
                           ),
                         )
                       else
@@ -5741,14 +5742,14 @@ class _AskodoxPrimaryHomeScreenState
                               _ => Icons.description_rounded,
                             },
                             size: 16,
-                            color: turn.isUser ? Colors.white : _blue,
+                            color: turn.isUser ? AskodoxLook.sheet : _blue,
                           ),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(attachment['name'] ?? '',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    color: turn.isUser ? Colors.white : _ink,
+                                    color: turn.isUser ? AskodoxLook.sheet : _ink,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700)),
                           ),
@@ -5771,14 +5772,14 @@ class _AskodoxPrimaryHomeScreenState
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Text(note,
                               style: TextStyle(
-                                  fontSize: 12, color: turn.isUser ? Colors.white70 : _muted)),
+                                  fontSize: 12, color: turn.isUser ? AskodoxLook.sheet70 : _muted)),
                         ),
                     if (turn.text.isNotEmpty)
                       // Assistant replies render their structure (headings,
                       // points, bold, tables, links) -- never raw "**".
                       turn.isUser
                           ? Text(turn.text,
-                              style: const TextStyle(color: Colors.white, height: 1.35, fontWeight: FontWeight.w500))
+                              style: const TextStyle(color: AskodoxLook.sheet, height: 1.35, fontWeight: FontWeight.w500))
                           : AskodoxRichReply(
                               // Being read aloud: the text appears as it is spoken.
                               _revealTurn == index && _revealEnd != null
@@ -5793,7 +5794,7 @@ class _AskodoxPrimaryHomeScreenState
                           const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
                           const SizedBox(width: 8),
                           Text(te ? 'voice వస్తోంది…' : 'voice is coming…',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF3B26B8))),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFBAC3FF))),
                         ]),
                       ),
                   ],
@@ -6088,9 +6089,9 @@ class _AskodoxPrimaryHomeScreenState
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AskodoxLook.sheet,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFE1E8F2))),
+                    border: Border.all(color: const Color(0xFF4A526B))),
                 child: AskodoxRichReply(_streamingReply!,
                     style: const TextStyle(color: _ink, height: 1.35, fontWeight: FontWeight.w500)),
               ),
@@ -6126,19 +6127,19 @@ class _AskodoxPrimaryHomeScreenState
       key: const Key('askodoxChatCartBar'),
       margin: const EdgeInsets.fromLTRB(10, 4, 10, 4),
       padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-      decoration: BoxDecoration(color: const Color(0xFF1E3FA0), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: const Color(0xFFAFC8FC), borderRadius: BorderRadius.circular(14)),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text('${cart.count} ${te ? 'ఐటమ్స్' : 'items'} · ${cart.kindLabel} · ${cart.shopName}',
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            Text(money, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AskodoxLook.sheet70, fontSize: 12)),
+            Text(money, style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w800, fontSize: 17)),
           ]),
         ),
         TextButton(
           key: const Key('askodoxChatCartShow'),
           onPressed: cart.show,
-          style: TextButton.styleFrom(foregroundColor: Colors.white, minimumSize: const Size(44, 44)),
+          style: TextButton.styleFrom(foregroundColor: AskodoxLook.sheet, minimumSize: const Size(44, 44)),
           child: Text(te ? 'చూడు' : 'View'),
         ),
         const SizedBox(width: 4),
@@ -6146,7 +6147,7 @@ class _AskodoxPrimaryHomeScreenState
           key: const Key('askodoxChatCartSend'),
           onPressed: () => unawaited(cart.send()),
           style: FilledButton.styleFrom(
-              backgroundColor: Colors.white, foregroundColor: const Color(0xFF1E3FA0), minimumSize: const Size(44, 44)),
+              backgroundColor: AskodoxLook.sheet, foregroundColor: const Color(0xFFAFC8FC), minimumSize: const Size(44, 44)),
           child: Text(te ? 'ఆర్డర్ పెట్టు' : 'Place order', style: const TextStyle(fontWeight: FontWeight.w800)),
         ),
       ]),
@@ -6157,8 +6158,8 @@ class _AskodoxPrimaryHomeScreenState
         padding: EdgeInsets.fromLTRB(
             10, 8, 10, 8 + MediaQuery.paddingOf(context).bottom),
         decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFE1E7F0)))),
+            color: AskodoxLook.sheet,
+            border: Border(top: BorderSide(color: Color(0xFF4A526B)))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (_voicePhase != _VoicePhase.idle) _voicePanel(te),
         if (_attachments.isNotEmpty) _attachmentPreview(te),
@@ -6184,7 +6185,7 @@ class _AskodoxPrimaryHomeScreenState
           enabled: !_sending,
           textInputAction: TextInputAction.send,
           onSubmitted: (_) => _sendFromComposer(),
-          cursorColor: const Color(0xFF5B4BFF),
+          cursorColor: const Color(0xFFA9B2FB),
           style: const TextStyle(
             color: _ink, fontSize: 16, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
@@ -6199,21 +6200,21 @@ class _AskodoxPrimaryHomeScreenState
             onPressed: _sending ? null : () => unawaited(_startVoice()),
             icon: Icon(
                 _voicePhase == _VoicePhase.recording ? Icons.stop_circle_rounded : Icons.mic_rounded,
-                color: _voicePhase == _VoicePhase.recording ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF))),
+                color: _voicePhase == _VoicePhase.recording ? const Color(0xFFFD8A86) : const Color(0xFFADAEFD))),
           hintStyle: const TextStyle(
-            color: Color(0xFF7B8496), fontWeight: FontWeight.w500),
+            color: Color(0xFFA9B2C5), fontWeight: FontWeight.w500),
           filled: true,
-          fillColor: const Color(0xFFF8F9FC),
+          fillColor: const Color(0xFF1F2432),
           contentPadding:
             const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(26),
             borderSide: const BorderSide(
-              color: Color(0xFFDDD9FF), width: 1.5)),
+              color: Color(0xFF483F70), width: 1.5)),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(26),
             borderSide: const BorderSide(
-              color: Color(0xFF6C4DFF), width: 2)),
+              color: Color(0xFFADAEFD), width: 2)),
           ),
         )),
         IconButton.filled(
@@ -6222,7 +6223,7 @@ class _AskodoxPrimaryHomeScreenState
             backgroundColor: _blue,
             minimumSize: const Size(40, 40),
             padding: EdgeInsets.zero),
-          icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white)),
+          icon: const Icon(Icons.arrow_upward_rounded, color: AskodoxLook.sheet)),
         ]),
         // ONE small, global accuracy note (instead of a warning on every
         // result): shown once results / answers are on screen.
@@ -6237,7 +6238,7 @@ class _AskodoxPrimaryHomeScreenState
                 _ => 'ASKODOX can make mistakes. Check important details.',
               },
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF98A2B3), fontSize: 10.5),
+              style: const TextStyle(color: Color(0xFF8F99AA), fontSize: 10.5),
             ),
           ),
       ]),
@@ -6264,9 +6265,9 @@ class _AskodoxPrimaryHomeScreenState
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFFDDD9FF)),
+          border: Border.all(color: const Color(0xFF483F70)),
           boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 2))]),
       child: Row(children: [
         AnimatedScale(
@@ -6277,12 +6278,12 @@ class _AskodoxPrimaryHomeScreenState
           // the plain mic/speaker cue.
           child: CircleAvatar(
                   radius: 14,
-                  backgroundColor: listening ? const Color(0xFFE5484D) : const Color(0xFF6C4DFF),
+                  backgroundColor: listening ? const Color(0xFFFD8A86) : const Color(0xFFADAEFD),
                   child: Icon(
                       _voicePhase == _VoicePhase.speaking
                           ? Icons.volume_up_rounded
                           : Icons.mic_rounded,
-                      color: Colors.white,
+                      color: AskodoxLook.sheet,
                       size: 16),
                 ),
         ),
@@ -6331,7 +6332,7 @@ class _AskodoxPrimaryHomeScreenState
                           width: 3,
                           height: 3 + 27 * _barLevel(i),
                           decoration: BoxDecoration(
-                              color: const Color(0xFF6C4DFF),
+                              color: const Color(0xFFADAEFD),
                               borderRadius: BorderRadius.circular(2)),
                         ),
                       ),
@@ -6347,8 +6348,8 @@ class _AskodoxPrimaryHomeScreenState
             key: const Key('askodoxVoiceStop'),
             tooltip: te ? 'ఆపండి' : 'Stop',
             onPressed: () => _finishVoice(noSpeech: false),
-            style: IconButton.styleFrom(backgroundColor: const Color(0xFFE5484D), fixedSize: const Size(44, 44)),
-            icon: const Icon(Icons.stop_rounded, color: Colors.white),
+            style: IconButton.styleFrom(backgroundColor: const Color(0xFFFD8A86), fixedSize: const Size(44, 44)),
+            icon: const Icon(Icons.stop_rounded, color: AskodoxLook.sheet),
           )
         else if (_voicePhase == _VoicePhase.speaking) ...[
           IconButton(
@@ -6421,7 +6422,7 @@ class _AskodoxPrimaryHomeScreenState
             // follows it from then on.
             ListTile(
               key: const Key('askodoxMessageWrong'),
-              leading: const Icon(Icons.report_gmailerrorred_rounded, color: Color(0xFFB42318)),
+              leading: const Icon(Icons.report_gmailerrorred_rounded, color: Color(0xFFFEA293)),
               title: Text(te ? 'ఈ జవాబు తప్పు' : 'This answer is wrong'),
               onTap: () => Navigator.pop(sheet, 'wrong'),
             ),
@@ -6549,9 +6550,9 @@ class _AskodoxPrimaryHomeScreenState
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
         decoration: BoxDecoration(
-            color: const Color(0xFFF2F6FF),
+            color: const Color(0xFF272E3C),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFD7E3F5))),
+            border: Border.all(color: const Color(0xFF394860))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
             height: 64,
@@ -6565,7 +6566,7 @@ class _AskodoxPrimaryHomeScreenState
                       width: 150,
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                          color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                          color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(10)),
                       child: Row(children: [
                         if (attachment.isImage)
                           ClipRRect(
@@ -6672,24 +6673,24 @@ class _DemoProfileCard extends StatelessWidget {
         margin: const EdgeInsets.only(right: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            color: Colors.white,
+            color: AskodoxLook.sheet,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDCE6F4))),
+            border: Border.all(color: const Color(0xFF3C495B))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             CircleAvatar(
                 radius: 20,
-                backgroundColor: const Color(0xFFEAF2FF),
+                backgroundColor: const Color(0xFF212E43),
                 child: Icon(icon, color: _blue, size: 21)),
             const Spacer(),
             Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFF2F0FF),
+                    color: const Color(0xFF2E2A42),
                     borderRadius: BorderRadius.circular(10)),
                 child: const Text('DEMO',
                     style: TextStyle(
-                        color: Color(0xFF5B4BFF),
+                        color: Color(0xFFA9B2FB),
                         fontSize: 9,
                         fontWeight: FontWeight.w900))),
           ]),
@@ -6724,9 +6725,9 @@ class _ListingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isError ? const Color(0xFFB3261E) : const Color(0xFF1B8A3B);
+    final color = isError ? const Color(0xFFFEA294) : const Color(0xFF74D083);
     final background =
-        isError ? const Color(0xFFFDECEA) : const Color(0xFFE9F7EE);
+        isError ? const Color(0xFF402623) : const Color(0xFF1A3426);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -6765,16 +6766,16 @@ class _RoleNotice extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-              color: const Color(0xFFEDEBFF),
+              color: const Color(0xFF2E2849),
               borderRadius: BorderRadius.circular(14)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.swap_horiz_rounded,
-                size: 16, color: Color(0xFF5B4BFF)),
+                size: 16, color: Color(0xFFA9B2FB)),
             const SizedBox(width: 6),
             Flexible(
               child: Text(text,
                   style: const TextStyle(
-                      color: Color(0xFF3B2FCC),
+                      color: Color(0xFFB4C1FB),
                       fontSize: 12,
                       fontWeight: FontWeight.w800)),
             ),
@@ -6808,7 +6809,7 @@ class _RoleQuestion extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
           decoration: BoxDecoration(
-              color: const Color(0xFFEDEBFF),
+              color: const Color(0xFF2E2849),
               borderRadius: BorderRadius.circular(14)),
           child: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -6816,7 +6817,7 @@ class _RoleQuestion extends StatelessWidget {
             children: [
               Text(question,
                   style: const TextStyle(
-                      color: Color(0xFF3B2FCC), fontWeight: FontWeight.w800)),
+                      color: Color(0xFFB4C1FB), fontWeight: FontWeight.w800)),
               TextButton(onPressed: onSwitch, child: Text(switchLabel)),
               TextButton(onPressed: onKeep, child: Text(keepLabel)),
             ],
@@ -6924,10 +6925,10 @@ class _SupportCardState extends State<_SupportCard> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: widget.critical ? const Color(0xFFFFF1F0) : const Color(0xFFF2F6FF),
+          color: widget.critical ? const Color(0xFF3D2726) : const Color(0xFF272E3C),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: widget.critical ? const Color(0xFFFFC9C4) : const Color(0xFFD7E3F5))),
+              color: widget.critical ? const Color(0xFF6C3532) : const Color(0xFF394860))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           const Icon(Icons.support_agent_rounded, color: _blue),
@@ -6959,7 +6960,7 @@ class _SupportCardState extends State<_SupportCard> {
                 ? 'టికెట్ #${supportCase.caseId} ASKODOX టీమ్‌కి పంపాం (ఈ సంభాషణ మొత్తం వారికి చేరింది, మళ్ళీ చెప్పనక్కర్లేదు). సమాధానం ఇక్కడే వస్తుంది.'
                 : 'Ticket #${supportCase.caseId} sent to the ASKODOX team (with this whole conversation -- no need to explain again). The answer comes back here.',
             key: const Key('askodoxSupportCaseCreated'),
-            style: const TextStyle(color: Color(0xFF1B8A3B), fontWeight: FontWeight.w700),
+            style: const TextStyle(color: Color(0xFF74D083), fontWeight: FontWeight.w700),
           ),
           // No live chat / call with staff (owner 2026-11-15, pani D): the team answers the ticket here.
           Wrap(spacing: 8, children: [
@@ -7334,9 +7335,9 @@ class _ChatResultsView extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5FF),
+        color: const Color(0xFF272D3E),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFD6E0FF)),
+        border: Border.all(color: const Color(0xFF3A456E)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -7396,16 +7397,16 @@ class _ChatResultsView extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
         decoration: BoxDecoration(
-            color: const Color(0xFFFFF4E5),
+            color: const Color(0xFF3C2A0D),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFFFD8A8))),
+            border: Border.all(color: const Color(0xFF62400A))),
         child: Row(children: [
-          Icon(icon, size: 18, color: const Color(0xFF9A5B00)),
+          Icon(icon, size: 18, color: const Color(0xFFEFAA64)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
                 style: const TextStyle(
-                    color: Color(0xFF7A4A00), fontWeight: FontWeight.w700)),
+                    color: Color(0xFFEEB77B), fontWeight: FontWeight.w700)),
           ),
           if (action != null) action,
         ]),
@@ -7413,17 +7414,17 @@ class _ChatResultsView extends StatelessWidget {
 }
 
 Color _kindColor(AskodoxCompareKind kind) => switch (kind) {
-      AskodoxCompareKind.local => const Color(0xFF0F7B3F),
-      AskodoxCompareKind.jobs => const Color(0xFF1769FF),
-      AskodoxCompareKind.deals => const Color(0xFFD9344F),
-      AskodoxCompareKind.sponsored => const Color(0xFF7A5A00),
-      AskodoxCompareKind.online => const Color(0xFF1769FF),
-      AskodoxCompareKind.affiliate => const Color(0xFF6C4DFF),
-      AskodoxCompareKind.used => const Color(0xFF8A5A00),
-      AskodoxCompareKind.surplus => const Color(0xFF00897B),
-      AskodoxCompareKind.videos => const Color(0xFFD9344F),
-      AskodoxCompareKind.shorts => const Color(0xFFB0306A),
-      AskodoxCompareKind.news => const Color(0xFF3B6EA8),
+      AskodoxCompareKind.local => const Color(0xFF77D593),
+      AskodoxCompareKind.jobs => const Color(0xFF8EB7FF),
+      AskodoxCompareKind.deals => const Color(0xFFFC9196),
+      AskodoxCompareKind.sponsored => const Color(0xFFDDBA72),
+      AskodoxCompareKind.online => const Color(0xFF8EB7FF),
+      AskodoxCompareKind.affiliate => const Color(0xFFADAEFD),
+      AskodoxCompareKind.used => const Color(0xFFE7B26B),
+      AskodoxCompareKind.surplus => const Color(0xFF63CCBC),
+      AskodoxCompareKind.videos => const Color(0xFFFC9196),
+      AskodoxCompareKind.shorts => const Color(0xFFFE97BC),
+      AskodoxCompareKind.news => const Color(0xFF89BFFE),
     };
 
 /// The compact comparison after a request: a row of kind tabs (only the
@@ -7498,7 +7499,7 @@ class _ComparisonBoardState extends State<_ComparisonBoard> {
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           onPressed: enabled ? () => _move(kind, rows.length, delta) : null,
-          icon: Icon(icon, color: enabled ? color : const Color(0xFFB8C2D3)),
+          icon: Icon(icon, color: enabled ? color : const Color(0xFF8F99A9)),
         );
     return Padding(
       key: ValueKey('askodoxCategoryBox-${kind.name}'),
@@ -7554,13 +7555,13 @@ class _ComparisonBoardState extends State<_ComparisonBoard> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: selected ? color : Colors.white,
+                color: selected ? color : AskodoxLook.sheet,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: selected ? color : const Color(0xFFE1E8F2)),
+                border: Border.all(color: selected ? color : const Color(0xFF4A526B)),
               ),
               child: Text('$label  $count',
                   style: TextStyle(
-                      color: selected ? Colors.white : color, fontWeight: FontWeight.w800, fontSize: 12.5)),
+                      color: selected ? AskodoxLook.sheet : color, fontWeight: FontWeight.w800, fontSize: 12.5)),
             ),
           ),
         );
@@ -7571,7 +7572,7 @@ class _ComparisonBoardState extends State<_ComparisonBoard> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(children: [
-          tab('all', all, total, const Color(0xFF10204A), _only == null, () => setState(() => _only = null)),
+          tab('all', all, total, const Color(0xFFF7F9FC), _only == null, () => setState(() => _only = null)),
           for (final (kind, rows) in widget.groups)
             tab(kind.name, askodoxCompareLabel(kind, widget.lang), rows.length, _kindColor(kind), _only == kind,
                 () => setState(() => _only = _only == kind ? null : kind)),
@@ -7896,9 +7897,9 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
       margin: compact ? const EdgeInsets.only(right: 8, bottom: 8) : const EdgeInsets.only(bottom: 10),
       padding: EdgeInsets.all(compact ? 8 : 14),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(compact ? 14 : 18),
-          border: Border.all(color: const Color(0xFFE1E8F2))),
+          border: Border.all(color: const Color(0xFF4A526B))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // The column label (LOCAL / ONLINE / DEALS ...); paid rows carry
         // their Sponsored / Promoted badge instead.
@@ -7937,10 +7938,10 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                     Image.network(match.imageUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
-                            const ColoredBox(color: Color(0xFF10204A))),
+                            const ColoredBox(color: Color(0xFFF7F9FC))),
                     const Center(
                       child: Icon(Icons.play_circle_fill_rounded,
-                          size: 28, color: Colors.white),
+                          size: 28, color: AskodoxLook.sheet),
                     ),
                   ]),
                 ),
@@ -7962,8 +7963,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                   child: Stack(fit: StackFit.expand, children: [
                     Image.network(match.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF10204A))),
-                    const Center(child: Icon(Icons.play_circle_fill_rounded, size: 24, color: Colors.white)),
+                        errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFFF7F9FC))),
+                    const Center(child: Icon(Icons.play_circle_fill_rounded, size: 24, color: AskodoxLook.sheet)),
                   ]),
                 ),
               ),
@@ -7991,7 +7992,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                     margin: const EdgeInsets.only(bottom: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF4D6),
+                      color: const Color(0xFF392C01),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: const Color(0xFFE0B64A)),
                     ),
@@ -8002,7 +8003,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                                 ? (te ? 'షాప్ లింక్' : 'Shop link')
                                 : (te ? 'స్పాన్సర్డ్' : 'Sponsored'),
                         style: const TextStyle(
-                            color: Color(0xFF7A5A00), fontSize: 11, fontWeight: FontWeight.w800)),
+                            color: Color(0xFFDDBA72), fontSize: 11, fontWeight: FontWeight.w800)),
                   ),
                 Text(match.title,
                     maxLines: compact ? 2 : 3,
@@ -8034,8 +8035,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: match.fitStatus == 'fits'
-                              ? const Color(0xFF1B7F3B)
-                              : (match.fitStatus == 'mismatch' ? const Color(0xFFB3261E) : const Color(0xFF8A5A00)))),
+                              ? const Color(0xFF78D38A)
+                              : (match.fitStatus == 'mismatch' ? const Color(0xFFFEA294) : const Color(0xFFE7B26B)))),
                 ],
                 SizedBox(height: compact ? 4 : 8),
                 Wrap(spacing: compact ? 5 : 8, runSpacing: compact ? 4 : 6, children: [
@@ -8085,8 +8086,8 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
             _orderStatusMessage!,
             style: TextStyle(
                 color: _orderFailed
-                    ? const Color(0xFFB3261E)
-                    : const Color(0xFF1B8A3B),
+                    ? const Color(0xFFFEA294)
+                    : const Color(0xFF74D083),
                 fontWeight: FontWeight.w700,
                 fontSize: 13),
           ),
@@ -8138,7 +8139,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AskodoxLook.sheet))
                     : Text(
                         placed
                             ? (te ? 'అభ్యర్థన పంపబడింది' : 'Request sent')
@@ -8147,7 +8148,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                                 : action == ChatResultAction.connect
                                     ? (te ? 'కనెక్ట్ అభ్యర్థన పంపండి' : 'Connect')
                                     : _l('send_request', 'అభ్యర్థన పంపండి', 'Send request'),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                        style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w800),
                       ),
               ),
             if (match.destinationUrl?.trim().isNotEmpty == true)
@@ -8364,7 +8365,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
 
   Widget _sourceIcon() => Container(
       decoration: BoxDecoration(
-          color: const Color(0xFFF0EFFF),
+          color: const Color(0xFF2D2A44),
           borderRadius: BorderRadius.circular(14)),
       child: Icon(
           switch (_action) {
@@ -8374,7 +8375,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
                 ? Icons.near_me_rounded
                 : Icons.storefront_rounded,
           },
-          color: const Color(0xFF5B4BFF)));
+          color: const Color(0xFFA9B2FB)));
 
   String _sourceLabel(String source) => switch (source.toLowerCase()) {
         'online' => _te ? 'ఆన్‌లైన్' : 'Online',
@@ -8390,7 +8391,7 @@ class _MatchCardState extends ConsumerState<_MatchCard> {
           ? const EdgeInsets.symmetric(horizontal: 7, vertical: 3)
           : const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-          color: const Color(0xFFF6F7FA),
+          color: const Color(0xFF1F2432),
           borderRadius: BorderRadius.circular(20)),
       child: Text(text,
           style: TextStyle(

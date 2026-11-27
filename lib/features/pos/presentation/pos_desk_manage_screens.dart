@@ -364,7 +364,7 @@ class _AskodoxDeskSettingsScreenState extends ConsumerState<AskodoxDeskSettingsS
                           key: Key('askodoxQuickReq-${r['key']}'),
                           label: Text(te ? '${r['te']}' : '${r['en']}'),
                           selected: r['enabled'] == true,
-                          selectedColor: const Color(0xFFE7F5EE),
+                          selectedColor: const Color(0xFF1A3429),
                           onSelected: (v) {
                             final off = _offKeys.toSet();
                             v ? off.remove('${r['key']}') : off.add('${r['key']}');
@@ -560,7 +560,7 @@ class _AskodoxDeskSalesScreenState extends ConsumerState<AskodoxDeskSalesScreen>
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         title: Text('${b['number']}${'${b['customer']}'.isEmpty ? '' : ' · ${b['customer']}'}'),
-                        subtitle: askodoxPosInt(b['balance_paise']) > 0 ? Text('${te ? 'బాకీ' : 'Due'} ${askodoxPaise(askodoxPosInt(b['balance_paise']))}', style: const TextStyle(color: Color(0xFFB91C1C))) : null,
+                        subtitle: askodoxPosInt(b['balance_paise']) > 0 ? Text('${te ? 'బాకీ' : 'Due'} ${askodoxPaise(askodoxPosInt(b['balance_paise']))}', style: const TextStyle(color: Color(0xFFFEA195))) : null,
                         trailing: Text(askodoxPaise(askodoxPosInt(b['total_paise'])))),
                 ],
                 const SizedBox(height: 8),

@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -1118,7 +1119,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
       ),
       const SizedBox(height: 8),
-      Text(_t('locKept'), style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085))),
+      Text(_t('locKept'), style: const TextStyle(fontSize: 12.5, color: Color(0xFFAEB9D0))),
       const SizedBox(height: 16),
       FilledButton(
         key: const Key('askodoxLocationContinue'),
@@ -1180,7 +1181,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       const SizedBox(height: 12),
       Container(
         height: 300,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFDCE4F2))),
+        decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF3E485A))),
         child: NotificationListener<ScrollNotification>(
           onNotification: (_) {
             check();
@@ -1200,7 +1201,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       const SizedBox(height: 8),
       Text(_termsRead ? _t('termsDone') : _t('termsMore'),
-          style: TextStyle(fontSize: 12.5, color: _termsRead ? const Color(0xFF0B7A4B) : const Color(0xFF667085))),
+          style: TextStyle(fontSize: 12.5, color: _termsRead ? const Color(0xFF77D49F) : const Color(0xFFAEB9D0))),
       CheckboxListTile(
         key: const Key('askodoxTermsTick'),
         value: _termsTicked,
@@ -1327,7 +1328,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   _ => '',
                 },
                 key: const Key('askodoxOtpChannel'),
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF475467))),
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFFB6C5DC))),
           ),
         const SizedBox(height: 18),
         TextField(

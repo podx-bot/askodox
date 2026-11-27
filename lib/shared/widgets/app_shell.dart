@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import '../../core/ui/mode_names.dart';
 import 'askodox_hub_icons.dart';
 import 'askodox_logo.dart';
@@ -33,11 +34,11 @@ import '../../features/work_mode/data/work_mode_store.dart';
 import '../../features/work_mode/domain/live_work_status.dart';
 import '../../features/work_mode/domain/work_mode_plan.dart';
 
-const _navInk = Color(0xFF10204A);
-const _navAccent = Color(0xFF4F46FF);
+const _navInk = Color(0xFFF7F9FC);
+const _navAccent = Color(0xFFA7B5FE);
 // Buy / sell switch (owner 2026-11-21): purple = Buyer side, green = Seller side.
-const _buyerColor = Color(0xFF6C4DFF);
-const _sellerColor = Color(0xFF0B7A4B);
+const _buyerColor = Color(0xFFADAEFD);
+const _sellerColor = Color(0xFF77D49F);
 
 /// The customer shell. Every bottom item has ONE distinct purpose:
 /// Home (ask ASKODOX) · Explore (past conversations and saved options) ·
@@ -215,9 +216,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
     // Header + bottom bar keep the original light look; inner pages get the redesign theme.
     return Theme(data: AppTheme.light, child: Scaffold(
-      backgroundColor: const Color(0xFFF8FBFF),
+      backgroundColor: const Color(0xFF1F2432),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AskodoxLook.sheet,
         foregroundColor: _navInk,
         elevation: 0,
         // The coloured line under the header says which side the app is on (purple = Buyer, green = Seller).
@@ -260,7 +261,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                         child: Text(askodoxSideName(seller: seller),
                             maxLines: 1,
                             softWrap: false,
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+                            style: const TextStyle(color: AskodoxLook.sheet, fontSize: 12, fontWeight: FontWeight.w800)),
                       ),
                       // Owner 2026-11-23: the guide ON / OFF switch, inside the same box so a narrow phone shrinks it too.
                       const SizedBox(width: 6),
@@ -325,7 +326,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                         },
                         key: ValueKey('askodoxLocationSource-$source'),
                         size: 18,
-                        color: source == 'stale' ? const Color(0xFFB26A00) : const Color(0xFF1769FF)),
+                        color: source == 'stale' ? const Color(0xFFEEA150) : const Color(0xFF8EB7FF)),
                   );
                 }),
                 const SizedBox(width: 2),
@@ -503,7 +504,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
       // Owner 2026-11-23: the switch touched the screen edge and "అమ్ము" was cut on curved / rounded screens -- the
       // bar keeps clear of both edges.
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE6ECF5)))),
+      decoration: const BoxDecoration(color: AskodoxLook.sheet, border: Border(top: BorderSide(color: Color(0xFF4A526B)))),
       child: Row(children: [
         _item('askodoxNavHome', currentBranch == 0, Icons.home_outlined, Icons.home_rounded, isTe ? 'హోమ్' : 'Home', onHome),
         _liveWorkItem(),
@@ -524,18 +525,18 @@ class _PrimaryBottomBar extends ConsumerWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: live.listening ? const Color(0xFFE5484D) : (seller ? _sellerColor : _buyerColor),
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: const [BoxShadow(color: Color(0x336C4DFF), blurRadius: 12)],
+                  color: live.listening ? const Color(0xFFFD8A86) : (seller ? _sellerColor : _buyerColor),
+                  border: Border.all(color: AskodoxLook.sheet, width: 3),
+                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 12)],
                 ),
                 child: live.listening
-                    ? const Icon(Icons.stop_rounded, color: Colors.white, size: 30)
+                    ? const Icon(Icons.stop_rounded, color: AskodoxLook.sheet, size: 30)
                     : FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 6),
                           child: Text(isTe ? 'అడగండి' : 'Ask',
-                              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+                              style: const TextStyle(color: AskodoxLook.sheet, fontSize: 17, fontWeight: FontWeight.w900)),
                         ),
                       ),
               ),
@@ -614,7 +615,7 @@ class _PrimaryBottomBar extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Text(text,
                         maxLines: 1,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: active ? Colors.white : _navInk)),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: active ? AskodoxLook.sheet : _navInk)),
                   ),
                 ),
               ),
@@ -721,8 +722,8 @@ class _LiveWorkDotState extends State<_LiveWorkDot> with SingleTickerProviderSta
         width: 14,
         height: 14,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(color: Color(0xFFC4251A), shape: BoxShape.circle),
-        child: const Text('!', style: TextStyle(color: Colors.white, fontSize: 10, height: 1, fontWeight: FontWeight.w900)),
+        decoration: const BoxDecoration(color: Color(0xFFFF9C8D), shape: BoxShape.circle),
+        child: const Text('!', style: TextStyle(color: AskodoxLook.sheet, fontSize: 10, height: 1, fontWeight: FontWeight.w900)),
       );
     }
     final live = status == AskodoxLiveWorkStatus.live;
@@ -730,7 +731,7 @@ class _LiveWorkDotState extends State<_LiveWorkDot> with SingleTickerProviderSta
       key: Key(live ? 'askodoxNavLiveWorkDot-live' : 'askodoxNavLiveWorkDot-idle'),
       width: 10,
       height: 10,
-      decoration: BoxDecoration(color: live ? const Color(0xFF12A150) : const Color(0xFF9AA0B4), shape: BoxShape.circle),
+      decoration: BoxDecoration(color: live ? const Color(0xFF66CA82) : const Color(0xFF9298AB), shape: BoxShape.circle),
     );
     if (!live) return dot;
     return FadeTransition(opacity: Tween<double>(begin: 1, end: 0.25).animate(_blink), child: dot);

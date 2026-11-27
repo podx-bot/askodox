@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../pos/data/pos_repository.dart';
 
-const _green = Color(0xFF0B7A4B);
+const _green = Color(0xFF77D49F);
 
 /// The kinds of shop offered first (the server's own templates; "Other" = general). The kind decides which pages the
 /// Seller side shows (a hotel gets tables + kitchen) and the ready catalogue.
@@ -92,17 +93,17 @@ class _AskodoxShopSetupCardState extends ConsumerState<AskodoxShopSetupCard> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: _green, borderRadius: BorderRadius.circular(18)),
         child: Row(children: [
-          const Icon(Icons.storefront_rounded, color: Colors.white, size: 34),
+          const Icon(Icons.storefront_rounded, color: AskodoxLook.sheet, size: 34),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(te ? 'మీ షాప్ మొదలుపెట్టండి' : 'Start your shop',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
+                  style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w900, fontSize: 17)),
               Text(
                   te
                       ? 'షాప్ డబ్బు మీ సొంత డబ్బుతో కలవదు. బిల్లులు, బాకీలు, పేమెంట్ సౌండ్ అన్నీ షాప్ పేరు మీద.'
                       : 'Shop money never mixes with your own. Bills, dues and the payment sound stay under the shop.',
-                  style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+                  style: const TextStyle(color: AskodoxLook.sheet, fontSize: 12.5)),
             ]),
           ),
         ]),
@@ -149,14 +150,14 @@ class _AskodoxShopSetupCardState extends ConsumerState<AskodoxShopSetupCard> {
               _error == 'states'
                   ? (te ? 'రాష్ట్రాల లిస్ట్ రాలేదు. ఇంటర్నెట్ చూసి మళ్ళీ తెరవండి.' : 'Could not load the states. Check the internet.')
                   : (te ? 'షాప్ సేవ్ కాలేదు. మళ్ళీ ప్రయత్నించండి.' : 'The shop was not saved. Try again.'),
-              style: const TextStyle(color: Color(0xFFB42318))),
+              style: const TextStyle(color: Color(0xFFFEA293))),
         ),
       FilledButton.icon(
         key: const Key('askodoxShopSetupStart'),
         style: FilledButton.styleFrom(backgroundColor: _green, minimumSize: const Size.fromHeight(50)),
         onPressed: ready ? () => _start(te) : null,
         icon: _busy
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AskodoxLook.sheet))
             : const Icon(Icons.check_rounded),
         label: Text(te ? 'మొదలుపెట్టు' : 'Start'),
       ),
@@ -165,7 +166,7 @@ class _AskodoxShopSetupCardState extends ConsumerState<AskodoxShopSetupCard> {
           te
               ? 'తర్వాత: మీ QR / UPI పెట్టండి, పేమెంట్ సౌండ్ ఆన్ చేయండి — రెండూ షాప్ పేజీల్లోనే ఉంటాయి. ASKODOX మీ డబ్బు ఎప్పుడూ పట్టుకోదు.'
               : 'Next: add your QR / UPI and turn on the payment sound -- both are among the shop pages. ASKODOX never holds your money.',
-          style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+          style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
     ]);
   }
 }

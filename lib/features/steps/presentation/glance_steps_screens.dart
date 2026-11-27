@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -132,7 +133,7 @@ class _DuesRemindersState extends ConsumerState<AskodoxDuesRemindersStepsScreen>
         Builder(
           builder: (ctx) => FilledButton.icon(
             key: Key('askodoxDuesStepsWhatsApp-${r['invoice_id']}'),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF128C7E), minimumSize: const Size.fromHeight(54)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF63CBBB), minimumSize: const Size.fromHeight(54)),
             onPressed: () {
               Navigator.pop(ctx);
               unawaited(_whatsApp(r));
@@ -790,7 +791,7 @@ class _ReportsState extends ConsumerState<AskodoxReportsStepsScreen> {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AskodoxLook.sheet,
                             borderRadius: BorderRadius.circular(14),
                             border: Border(left: BorderSide(color: p['level'] == 'high' ? askodoxStepBad : askodoxStepWarn, width: 6))),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

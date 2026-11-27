@@ -136,7 +136,7 @@ class _LocationSetupScreenState extends ConsumerState<LocationSetupScreen> {
                   _t('Approximate location allowed -- nearby results are right to about 1-3 km. Allow "Precise" for exact distances.',
                       'సుమారు లొకేషన్ మాత్రమే అనుమతించారు -- దగ్గరి ఫలితాలు 1-3 కి.మీ. వరకు సరిగ్గా ఉంటాయి. ఖచ్చితమైన దూరానికి "Precise" అనుమతించండి.'),
                   key: const Key('askodoxApproximateLocation'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFA8BAD3))),
             ),
           FilledButton.icon(
             key: const Key('askodoxUseMyLocation'),
@@ -150,7 +150,7 @@ class _LocationSetupScreenState extends ConsumerState<LocationSetupScreen> {
             const SizedBox(height: 8),
             Card(
               key: const Key('askodoxLocationDenied'),
-              color: const Color(0xFFFFF4E5),
+              color: const Color(0xFF3C2A0D),
               child: ListTile(
                 leading: const Icon(Icons.location_off_outlined),
                 title: Text(switch (state.permission) {

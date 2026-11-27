@@ -198,7 +198,7 @@ Future<void> askodoxArrangeSection(
                         title: Text(layout.names[id] ?? byId[id]!.title,
                             style: TextStyle(
                                 fontWeight: FontWeight.w700,
-                                color: layout.hidden.contains(id) ? const Color(0xFF9CA3AF) : null,
+                                color: layout.hidden.contains(id) ? const Color(0xFF9299A4) : null,
                                 decoration: layout.hidden.contains(id) ? TextDecoration.lineThrough : null)),
                         subtitle: layout.names.containsKey(id) ? Text(byId[id]!.title, style: const TextStyle(fontSize: 11.5)) : null,
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -233,7 +233,7 @@ Future<void> askodoxArrangeSection(
                               save(layout.copyWith(hidden: hidden));
                             },
                           ),
-                          const Icon(Icons.drag_indicator, color: Color(0xFF9CA3AF)),
+                          const Icon(Icons.drag_indicator, color: Color(0xFF9299A4)),
                         ]),
                       ),
                     ),

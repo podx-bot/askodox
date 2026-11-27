@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -26,17 +27,17 @@ class AskodoxNavSection extends ConsumerWidget {
   /// The teammate shown next to the heading (BIZZO for business, ...).
   final AskodoxMascotRole? mascot;
 
-  static const ink = Color(0xFF10204A);
-  static const accent = Color(0xFF1769FF);
+  static const ink = Color(0xFFF7F9FC);
+  static const accent = Color(0xFF8EB7FF);
 
   /// Soft background + strong colour pairs; each section starts at its own colour (owner 2026-11-17: "add colours").
   static const palette = [
-    (Color(0xFFE8EEFB), Color(0xFF1E3FA0)),
-    (Color(0xFFE7F5EE), Color(0xFF17784C)),
-    (Color(0xFFFFF1E3), Color(0xFFB45309)),
-    (Color(0xFFF1EBFB), Color(0xFF5B2A9E)),
-    (Color(0xFFE3F4F6), Color(0xFF0E6A84)),
-    (Color(0xFFFCE9F1), Color(0xFFA3215C)),
+    (Color(0xFF242D43), Color(0xFFAFC8FC)),
+    (Color(0xFF1A3429), Color(0xFF7CD3A2)),
+    (Color(0xFF3F280D), Color(0xFFFB9E6A)),
+    (Color(0xFF332842), Color(0xFFCDBAFF)),
+    (Color(0xFF113437), Color(0xFF7DCCE9)),
+    (Color(0xFF412331), Color(0xFFFBA1BF)),
   ];
 
   /// The section's fixed id for the person's own layout: its key (`Key('askodoxProfileSection-x')`); none = fixed.
@@ -96,7 +97,7 @@ class AskodoxNavSection extends ConsumerWidget {
                 key: ValueKey('askodoxArrange-$section'),
                 tooltip: Localizations.localeOf(context).languageCode == 'te' ? 'క్రమం / పేర్లు మార్చు' : 'Arrange / rename',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.tune_rounded, size: 18, color: Color(0xFF6B7280)),
+                icon: const Icon(Icons.tune_rounded, size: 18, color: Color(0xFFB1B9C8)),
                 onPressed: () => askodoxArrangeSection(context, section, title, [
                   for (final t in arrangeable) AskodoxLayoutItem(id: rowId(t)!, title: t.title, icon: t.icon),
                 ]),
@@ -117,15 +118,15 @@ class AskodoxNavSection extends ConsumerWidget {
         if (others.isNotEmpty) ...[
           if (tiles.isNotEmpty) const SizedBox(height: 10),
           Material(
-            color: Colors.white,
+            color: AskodoxLook.sheet,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Color(0xFFE6E9EF)),
+              side: const BorderSide(color: Color(0xFF4A526B)),
             ),
             child: Column(children: [
               for (final (i, row) in others.indexed) ...[
-                if (i > 0) const Divider(height: 1, indent: 60, color: Color(0xFFEEF0F4)),
+                if (i > 0) const Divider(height: 1, indent: 60, color: Color(0xFF1F2432)),
                 row,
               ],
             ]),
@@ -164,7 +165,7 @@ class AskodoxNavColorTile extends ConsumerWidget {
                 Container(
                   width: 38,
                   height: 38,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                  decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(11)),
                   child: Icon(row.icon, color: colors.$2, size: 21),
                 ),
                 const Spacer(),
@@ -188,7 +189,7 @@ class AskodoxNavColorTile extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(row.subtitle!,
-                      maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFF4B5563))),
+                      maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFFB9C5D5))),
                 ),
             ]),
           ),
@@ -219,8 +220,8 @@ class AskodoxNavListRow extends ConsumerWidget {
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: const Color(0xFFE8EEFC), borderRadius: BorderRadius.circular(11)),
-              child: Icon(row.icon, color: const Color(0xFF2450C8), size: 20),
+              decoration: BoxDecoration(color: const Color(0xFF242D44), borderRadius: BorderRadius.circular(11)),
+              child: Icon(row.icon, color: const Color(0xFFA3C0FC), size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -233,7 +234,7 @@ class AskodoxNavListRow extends ConsumerWidget {
                     child: Text(row.subtitle!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF5A6478))),
+                        style: const TextStyle(fontSize: 12.5, color: Color(0xFFB3BED5))),
                   ),
               ]),
             ),
@@ -247,7 +248,7 @@ class AskodoxNavListRow extends ConsumerWidget {
                   child: const Padding(padding: EdgeInsets.all(4), child: AskodoxMascot(size: 24)),
                 ),
               ),
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFF98A2B3)),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF8F99AA)),
           ]),
         ),
       ),
@@ -272,10 +273,10 @@ class AskodoxNavTile extends ConsumerWidget {
         message: row.subtitle ?? row.title,
         triggerMode: TooltipTriggerMode.longPress,
         child: Material(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFFE3E9F3)),
+            side: const BorderSide(color: Color(0xFF4A526B)),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -298,7 +299,7 @@ class AskodoxNavTile extends ConsumerWidget {
                         child: Text(row.subtitle!,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085))),
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFFAEB9D0))),
                       ),
                   ]),
                 ),
@@ -363,7 +364,7 @@ class AskodoxNavRow extends StatelessWidget {
         subtitle: subtitle == null
             ? null
             : Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-        trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: Color(0xFF98A2B3)),
+        trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: Color(0xFF8F99AA)),
         onTap: onTap,
         onLongPress: longPress(context),
       );

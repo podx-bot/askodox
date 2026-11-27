@@ -1381,7 +1381,7 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
         if (_method == 'due') ...[
           const SizedBox(height: 8),
           Text(te ? '${askodoxPaise(_left)} బాకీగా ఉంటుంది' : '${askodoxPaise(_left)} stays as a due',
-              key: const Key('askodoxPosDueLeft'), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFC2410C))),
+              key: const Key('askodoxPosDueLeft'), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFFF9A79))),
           if (!widget.allowCredit) ...[
             AskodoxPosField(
                 key: const Key('askodoxPosDueName'),
@@ -1447,7 +1447,7 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
             te
                 ? 'QR చూపించడం = డబ్బు అందినట్టు కాదు. మీ ఫోన్ / బ్యాంక్‌లో వచ్చిందని చూసి మాత్రమే జోడించండి.'
                 : 'Showing a QR is not payment. Add this only after you see the money arrive in your bank / UPI app.',
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309)),
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFFFB9E6A)),
           ),
         Row(children: [
           OutlinedButton(
@@ -1476,7 +1476,7 @@ class AskodoxPosPaymentSheetState extends State<AskodoxPosPaymentSheet> {
               style: const TextStyle(fontSize: 12)),
         if (_method == 'due' && !_dueOk)
           Text(te ? 'బాకీకి పేరు లేదా ఫోన్ నంబర్ రాయండి.' : 'Give a name or phone number for the due.',
-              style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFFB9E6A))),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,

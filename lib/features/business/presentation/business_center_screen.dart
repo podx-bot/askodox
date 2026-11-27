@@ -145,9 +145,9 @@ class _Stat extends StatelessWidget {
 }
 
 Color askodoxSeverityColor(String severity) => switch (severity) {
-      'red' => const Color(0xFFD32F2F),
-      'green' => const Color(0xFF2E7D32),
-      _ => const Color(0xFFEF6C00),
+      'red' => const Color(0xFFFB978D),
+      'green' => const Color(0xFF83D283),
+      _ => const Color(0xFFF18D57),
     };
 
 class _InsightCard extends StatelessWidget {

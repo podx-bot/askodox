@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -374,12 +375,12 @@ class _AskodoxPttChannelScreenState extends ConsumerState<AskodoxPttChannelScree
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _talking ? const Color(0xFFDC2626) : (_sending ? Colors.grey : const Color(0xFF1769FF)),
+                color: _talking ? const Color(0xFFFE9488) : (_sending ? Colors.grey : const Color(0xFF8EB7FF)),
               ),
               child: Text(
                 _talking ? (te ? 'మాట్లాడుతున్నారు' : 'Talking') : (_sending ? (te ? 'పంపుతోంది' : 'Sending') : (te ? 'పట్టుకుని మాట్లాడండి' : 'Hold to talk')),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w800),
               ),
             ),
           ),

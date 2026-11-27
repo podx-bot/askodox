@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -114,7 +115,7 @@ class _AskodoxAskLayerState extends ConsumerState<AskodoxAskLayer> {
               button: true,
               label: te ? 'అడగండి' : 'Ask',
               child: Material(
-                color: const Color(0xFF2E7D5B),
+                color: const Color(0xFF81CEA8),
                 elevation: 3,
                 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.horizontal(left: Radius.circular(22))),
                 child: InkWell(
@@ -124,9 +125,9 @@ class _AskodoxAskLayerState extends ConsumerState<AskodoxAskLayer> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.mic_rounded, color: Colors.white, size: 22),
+                      const Icon(Icons.mic_rounded, color: AskodoxLook.sheet, size: 22),
                       Text(te ? 'అడుగు' : 'Ask',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AskodoxLook.sheet)),
                     ]),
                   ),
                 ),
@@ -245,7 +246,7 @@ class _AskodoxAskSheetState extends ConsumerState<AskodoxAskSheet> {
             Container(
               key: const Key('askodoxAskAnswer'),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFF1F8F4), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(12)),
               child: Text(_answer!, style: const TextStyle(fontSize: 15, height: 1.4)),
             ),
           ],

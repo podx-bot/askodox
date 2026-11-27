@@ -273,7 +273,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
         isDense: true,
         border: const OutlineInputBorder(),
         filled: warn,
-        fillColor: warn ? const Color(0xFFFFF4E5) : null,
+        fillColor: warn ? const Color(0xFF3C2A0D) : null,
       );
 
   @override
@@ -319,7 +319,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text(_error!, key: const Key('askodoxPosBillPhotoError'), style: const TextStyle(color: Color(0xFFB42318))),
+            child: Text(_error!, key: const Key('askodoxPosBillPhotoError'), style: const TextStyle(color: Color(0xFFFEA293))),
           ),
         // Owner 2026-11-24: when a photo cannot be read the bill is still entered here -- by hand, any supplier.
         if (!_read && !_reading)
@@ -475,7 +475,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
                 '${_totalQtyMilli == _qtySum ? ' ✓' : (te ? ' — సరిపోలేదు' : ' — does not match')}',
                 key: const Key('askodoxPosBillPhotoWrittenQty'),
                 style: TextStyle(
-                    fontWeight: FontWeight.w700, color: _totalQtyMilli == _qtySum ? null : const Color(0xFFB54708))),
+                    fontWeight: FontWeight.w700, color: _totalQtyMilli == _qtySum ? null : const Color(0xFFFB9F7A))),
           if (_totalPaise != null)
             Text('${te ? 'బిల్లు మీద మొత్తం' : 'Total printed on the bill'}: ₹${_BillLine._rupees(_totalPaise)}',
                 style: const TextStyle(fontWeight: FontWeight.w700)),

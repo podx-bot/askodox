@@ -14,9 +14,9 @@ class AskodoxIntelligenceCard extends StatelessWidget {
   final void Function(String route) onOpen;
 
   static Color accentFor(String kind) => switch (kind) {
-        'fraud' || 'fraud_refusal' || 'tax_evasion_awareness' => const Color(0xFFB45309),
-        'smart_tricks' => const Color(0xFF15803D),
-        _ => const Color(0xFF1769FF),
+        'fraud' || 'fraud_refusal' || 'tax_evasion_awareness' => const Color(0xFFFB9E6A),
+        'smart_tricks' => const Color(0xFF75D48B),
+        _ => const Color(0xFF8EB7FF),
       };
 
   static IconData iconFor(String kind) => switch (kind) {
@@ -117,7 +117,7 @@ class AskodoxIntelligenceCard extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.only(top: 3),
                 child: Text(askodoxStr(source['title']),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF1769FF), decoration: TextDecoration.underline)),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF8EB7FF), decoration: TextDecoration.underline)),
               ),
             ),
         ],

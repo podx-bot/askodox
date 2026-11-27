@@ -35,7 +35,7 @@ class _Sources extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(askodoxStr(askodoxMap(raw)['title']),
-                    style: const TextStyle(color: Color(0xFF1769FF), decoration: TextDecoration.underline, fontSize: 12.5)),
+                    style: const TextStyle(color: Color(0xFF8EB7FF), decoration: TextDecoration.underline, fontSize: 12.5)),
               ),
             ),
           if ((verifiedOn ?? '').isNotEmpty)
@@ -129,7 +129,7 @@ class _AskodoxIncomeTaxScreenState extends ConsumerState<AskodoxIncomeTaxScreen>
   Widget _regime(Map<String, Object?> r, String title, bool lower, bool te) => Expanded(
         child: Card(
           key: ValueKey('askodoxTaxRegime-${askodoxStr(r['regime'])}'),
-          color: lower ? const Color(0xFFDCFCE7) : null,
+          color: lower ? const Color(0xFF0E3721) : null,
           child: Padding(
             padding: const EdgeInsets.all(10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -138,7 +138,7 @@ class _AskodoxIncomeTaxScreenState extends ConsumerState<AskodoxIncomeTaxScreen>
               Text(askodoxRupees(r['total_tax']), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
               Text('${te ? 'పన్ను విధించదగిన ఆదాయం' : 'Taxable'}: ${askodoxRupees(r['taxable_income'])}',
                   style: const TextStyle(fontSize: 12)),
-              if (lower) Text(te ? 'తక్కువ పన్ను' : 'Lower tax', style: const TextStyle(color: Color(0xFF15803D))),
+              if (lower) Text(te ? 'తక్కువ పన్ను' : 'Lower tax', style: const TextStyle(color: Color(0xFF75D48B))),
             ]),
           ),
         ),
@@ -509,7 +509,7 @@ class _AskodoxFraudListScreenState extends ConsumerState<AskodoxFraudListScreen>
             padding: const EdgeInsets.all(12),
             children: [
               Text(te ? 'డబ్బు పోయిన వెంటనే 1930 కి కాల్ చేయండి.' : 'Lost money to a scam? Call 1930 immediately.',
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFB45309))),
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFFB9E6A))),
               for (final raw in schemes)
                 Card(
                   child: ListTile(

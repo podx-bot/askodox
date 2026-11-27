@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,9 +36,9 @@ class AskodoxCompanionPicker extends ConsumerWidget {
               width: 84,
               padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
               decoration: BoxDecoration(
-                color: selected ? const Color(0xFFEDE8FF) : Colors.white,
+                color: selected ? const Color(0xFF4A4260) : AskodoxLook.sheet,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: selected ? const Color(0xFF6C4DFF) : const Color(0xFFE2E6EF), width: selected ? 2 : 1),
+                border: Border.all(color: selected ? const Color(0xFFADAEFD) : const Color(0xFF4A526B), width: selected ? 2 : 1),
               ),
               child: Column(children: [
                 SizedBox.square(dimension: 56, child: preview),
@@ -79,7 +80,7 @@ class AskodoxCompanionPicker extends ConsumerWidget {
               label: t('Still photo', 'స్టిల్ ఫోటో'),
               selected: off3d,
               onTap: () => notifier.update(companion: AskodoxCompanionSettings.automatic, render3d: false),
-              preview: const Icon(Icons.photo_rounded, color: Color(0xFF8A94A6), size: 34),
+              preview: const Icon(Icons.photo_rounded, color: Color(0xFFA3ADBF), size: 34),
             ),
           ],
         ),
@@ -88,7 +89,7 @@ class AskodoxCompanionPicker extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(key: const Key('askodoxCompanionLiteNotice'), children: [
-            const Icon(Icons.speed_rounded, size: 18, color: Color(0xFF8A94A6)),
+            const Icon(Icons.speed_rounded, size: 18, color: Color(0xFFA3ADBF)),
             const SizedBox(width: 6),
             Expanded(
               child: Text(t('Lighter motion for smoothness on this phone (same companion).',

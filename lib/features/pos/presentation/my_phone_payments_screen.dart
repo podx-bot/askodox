@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -306,7 +307,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
         padding: const EdgeInsets.all(14),
         child: ready
             ? Row(children: [
-                const Icon(Icons.check_circle, color: Color(0xFF15803D)),
+                const Icon(Icons.check_circle, color: Color(0xFF75D48B)),
                 const SizedBox(width: 10),
                 Expanded(
                     child: Text(te ? 'పేమెంట్ అలర్ట్స్ ఆన్ ✓ (${m.apps.length} యాప్‌లు)' : 'Payment alerts are on ✓ (${m.apps.length} apps)',
@@ -364,7 +365,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
             ListTile(
               key: const Key('askodoxMineAccess'),
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309)),
+              leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFFFB9E6A)),
               title: Text(te ? 'నోటిఫికేషన్ యాక్సెస్ ఇవ్వండి' : 'Allow notification access'),
               subtitle: Text(te ? 'ASKODOX ని ఆన్ చేయండి.' : 'Switch ASKODOX on in the list.'),
               trailing: FilledButton(onPressed: _bridge.openListenerSettings, child: Text(te ? 'తెరవండి' : 'Open')),
@@ -500,10 +501,10 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
       final on = _section == id;
       return Expanded(
         child: Material(
-          color: on ? const Color(0xFFE9EEFF) : Colors.white,
+          color: on ? const Color(0xFF252C48) : AskodoxLook.sheet,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: on ? const Color(0xFF2B4BC0) : const Color(0xFFE3E6EE))),
+              side: BorderSide(color: on ? const Color(0xFFA7C1FD) : const Color(0xFF4A526B))),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             key: Key('askodoxMineTile-$id'),
@@ -511,11 +512,11 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(icon, size: 22, color: const Color(0xFF141B4D)),
+                Icon(icon, size: 22, color: const Color(0xFFF7F9FC)),
                 const SizedBox(height: 4),
                 Text(te ? tel : en, style: const TextStyle(fontWeight: FontWeight.w700)),
                 Text(te ? subTe : subEn,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
               ]),
             ),
           ),
@@ -555,7 +556,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
         dense: true,
         contentPadding: EdgeInsets.zero,
         leading: Icon(done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-            color: done ? const Color(0xFF17784C) : const Color(0xFFB45309)),
+            color: done ? const Color(0xFF7CD3A2) : const Color(0xFFFB9E6A)),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: done ? null : Text(how, style: const TextStyle(fontSize: 12)),
         trailing: done
@@ -944,7 +945,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               key: const Key('askodoxAccountsShopOff'),
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF382B1A), borderRadius: BorderRadius.circular(12)),
               child: Row(children: [
                 Expanded(
                     child: Text(
@@ -963,7 +964,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               key: ValueKey('askodoxAccountWhose-$tail'),
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF272D42), borderRadius: BorderRadius.circular(12)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(te ? 'కొత్త ఖాతా ••$tail కనిపించింది — ఇది ఎవరిది?' : 'New account ••$tail seen -- whose is it?',
                     style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -1114,7 +1115,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
             if (askodoxRowDoubt(e) case final d?)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(te ? d.$2 : d.$1, style: const TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w600)),
+                child: Text(te ? d.$2 : d.$1, style: const TextStyle(color: Color(0xFFFB9E6A), fontWeight: FontWeight.w600)),
               ),
             const SizedBox(height: 12),
             Text(te ? 'ఈ message నుంచి చదివాం' : 'Read from this message', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -1122,7 +1123,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
             Container(
               key: const Key('askodoxMineRowRaw'),
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(10)),
               child: SelectableText(
                 raw.isEmpty
                     ? (te
@@ -1134,20 +1135,20 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
             ),
             const SizedBox(height: 4),
             Text(te ? 'ఇది ఈ ఫోన్‌లోనే ఉంటుంది, ఎక్కడికీ పంపము.' : 'This stays on this phone; it is never sent anywhere.',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFFB1B9C8))),
             const SizedBox(height: 14),
             Text(te ? 'తప్పుగా చదివిందా?' : 'Read wrongly?', style: const TextStyle(fontWeight: FontWeight.w700)),
             if (out || e['excluded'] == true)
               ListTile(
                 key: const Key('askodoxMineRowCorrect-in'),
-                leading: const Icon(Icons.call_received_rounded, color: Color(0xFF17784C)),
+                leading: const Icon(Icons.call_received_rounded, color: Color(0xFF7CD3A2)),
                 title: Text(te ? 'తప్పు: ఇది వచ్చిన డబ్బు' : 'Wrong: this money came in'),
                 onTap: () => Navigator.pop(ctx, 'in'),
               ),
             if (!out || e['excluded'] == true)
               ListTile(
                 key: const Key('askodoxMineRowCorrect-out'),
-                leading: const Icon(Icons.call_made_rounded, color: Color(0xFFB91C1C)),
+                leading: const Icon(Icons.call_made_rounded, color: Color(0xFFFEA195)),
                 title: Text(te ? 'తప్పు: ఇది వెళ్ళిన డబ్బు' : 'Wrong: this money went out'),
                 onTap: () => Navigator.pop(ctx, 'out'),
               ),
@@ -1232,7 +1233,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Material(
-                color: const Color(0xFFFFF4E5),
+                color: const Color(0xFF3C2A0D),
                 borderRadius: BorderRadius.circular(10),
                 child: ListTile(
                   key: ValueKey('askodoxMineNameAccount-$tail'),
@@ -1303,14 +1304,14 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
               leading: AskodoxPaymentSourceIcon(
                   event: e,
                   fallback: Icon(e['direction'] == 'out' ? Icons.call_made_rounded : Icons.call_received_rounded,
-                      color: e['direction'] == 'out' ? const Color(0xFFB91C1C) : const Color(0xFF17784C))),
+                      color: e['direction'] == 'out' ? const Color(0xFFFEA195) : const Color(0xFF7CD3A2))),
               title: Text(
                   '${e['direction'] == 'info' ? (e['info'] == 'suspect' ? '⚠️ ' : e['info'] == 'ask' ? '❓ ' : 'ℹ️ ') : e['doubt'] != null ? '❓ ' : ''}'
                   '${e['direction'] == 'info' ? '' : e['direction'] == 'out' ? '−' : '+'}${e['amount_paise'] is num ? askodoxRupees(e['amount_paise']) : '—'}'
                   '${'${e['party'] ?? ''}'.isEmpty ? '' : ' · ${e['party']}'}',
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: e['excluded'] == true ? const Color(0xFF9CA3AF) : null,
+                      color: e['excluded'] == true ? const Color(0xFF9299A4) : null,
                       decoration: e['excluded'] == true ? TextDecoration.lineThrough : null)),
               subtitle: Text([
                 if (askodoxRowDoubt(e) case final d?) te ? d.$2 : d.$1,
@@ -1338,7 +1339,7 @@ class _AskodoxMyPhonePaymentsScreenState extends ConsumerState<AskodoxMyPhonePay
                 te
                     ? 'ఏ వరుసనైనా నొక్కితే: చదివిన అసలు message, "తప్పు" సరిచేయడం, ఖాతా మార్చడం.'
                     : 'Tap any row: the message it was read from, "wrong" corrections, change its account.',
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFFB1B9C8))),
         ]),
       ),
     );
@@ -1510,7 +1511,7 @@ class _PlaceSheetState extends ConsumerState<_PlaceSheet> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C))),
+              child: Text(_error!, style: const TextStyle(color: Color(0xFFFEA195))),
             ),
           const SizedBox(height: 12),
           FilledButton(key: const Key('askodoxPlaceSave'), onPressed: _save, child: Text(te ? 'సేవ్' : 'Save')),

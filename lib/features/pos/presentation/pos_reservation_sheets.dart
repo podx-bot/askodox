@@ -171,7 +171,7 @@ class _ReserveSheetState extends ConsumerState<_ReserveSheet> {
                       },
                 icon: const Icon(Icons.add_circle)),
           ]),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFB42318))),
+          if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFFEA293))),
           const SizedBox(height: 4),
           if (tables == null)
             const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
@@ -294,7 +294,7 @@ class _ShopReservationsState extends ConsumerState<_ShopReservations> {
                             IconButton(
                                 tooltip: te ? 'రద్దు' : 'Cancel',
                                 onPressed: () => _set('${r['id']}', 'cancelled'),
-                                icon: const Icon(Icons.close_rounded, color: Color(0xFFB42318))),
+                                icon: const Icon(Icons.close_rounded, color: Color(0xFFFEA293))),
                           ]),
                   ),
               ]),
