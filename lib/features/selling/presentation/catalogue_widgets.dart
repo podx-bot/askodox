@@ -76,14 +76,14 @@ class AskodoxCatalogueCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.storefront_rounded, color: Color(0xFF6C4DFF)),
+            const Icon(Icons.storefront_rounded, color: Color(0xFFADAEFD)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(template.name(lang), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
             ),
           ]),
           Text('${template.categories.length} ${l('categories')} · ${template.itemCount} ${l('items')}',
-              style: const TextStyle(color: Color(0xFF64748B))),
+              style: const TextStyle(color: Color(0xFFA8BAD3))),
           const SizedBox(height: 6),
           Text(l('pick_categories'), style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 6),
@@ -240,7 +240,7 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(fillNote!, key: const Key('askodoxCatalogueSmartFillNote'),
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFFB6C5DC))),
                 ),
               const SizedBox(height: 8),
               for (final (i, a) in specs.indexed)
@@ -251,7 +251,7 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
                     Padding(
                       padding: const EdgeInsets.only(top: 6, bottom: 6),
                       child: Text(a.group.toUpperCase(),
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF667085),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFAEB9D0),
                               letterSpacing: .6)),
                     ),
                   Text('${a.label(widget.lang)}${a.unit == null ? '' : ' (${a.unit})'}${a.required ? ' *' : ''}',
@@ -346,7 +346,7 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
                 onChanged: included ? (v) => setState(() => e.size = v ?? e.size) : null,
               )
             else
-              Text(e.size, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              Text(e.size, style: const TextStyle(fontSize: 12, color: Color(0xFFA8BAD3))),
           ]),
         ),
         SizedBox(
@@ -374,14 +374,14 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
               label: Text('${e.attributes.values.where((v) => v.trim().isNotEmpty).length}'),
               child: Icon(Icons.tune_rounded,
                   color: included && e.price != null && !e.readyFor(widget.template.attributes)
-                      ? const Color(0xFFB26A00)
+                      ? const Color(0xFFEEA150)
                       : null),
             ),
           ),
         IconButton(
           tooltip: e.photoBase64 == null ? _l('photo') : _l('photo_added'),
           icon: Icon(e.photoBase64 == null ? Icons.add_a_photo_outlined : Icons.check_circle_rounded,
-              color: e.photoBase64 == null ? null : const Color(0xFF0F7B3F)),
+              color: e.photoBase64 == null ? null : const Color(0xFF77D593)),
           onPressed: included ? () => _photo(e) : null,
         ),
         Switch(
@@ -405,7 +405,7 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(widget.template.name(widget.lang), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
             Text('${chosen.length} ${_l('selected')} · ${_l('in_stock')} ⇆',
-                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                style: const TextStyle(color: Color(0xFFA8BAD3), fontSize: 12)),
             const SizedBox(height: 6),
             Expanded(
               child: _reviewing
@@ -443,11 +443,11 @@ class _AskodoxCatalogueEditorSheetState extends ConsumerState<AskodoxCatalogueEd
                         decoration: InputDecoration(labelText: _l('shop_address')),
                       ),
                       const SizedBox(height: 6),
-                      Text(_l('no_price_note'), style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text(_l('no_price_note'), style: const TextStyle(fontSize: 12, color: Color(0xFFA8BAD3))),
                     ]),
             ),
             if (_message != null)
-              Text(_message!, key: const Key('askodoxCatalogueMessage'), style: const TextStyle(color: Color(0xFFB42318))),
+              Text(_message!, key: const Key('askodoxCatalogueMessage'), style: const TextStyle(color: Color(0xFFFEA293))),
             Row(children: [
               if (_reviewing) TextButton(onPressed: () => setState(() => _reviewing = false), child: Text(_l('back'))),
               const Spacer(),

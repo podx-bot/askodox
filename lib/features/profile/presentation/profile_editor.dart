@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -455,7 +456,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
         key: key,
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(10, 6, 4, 8),
-        decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE4E9F2)), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(border: Border.all(color: const Color(0xFF4A526B)), borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
       );
 
@@ -464,7 +465,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
       for (final (i, ph) in _phones.indexed)
         _item(key: ValueKey('askodoxEditPhone-$i'), children: [
           Row(children: [
-            Icon(ph.kind == 'whatsapp' ? Icons.chat_outlined : Icons.call_outlined, size: 18, color: const Color(0xFF0E7A45)),
+            Icon(ph.kind == 'whatsapp' ? Icons.chat_outlined : Icons.call_outlined, size: 18, color: const Color(0xFF78D499)),
             const SizedBox(width: 6),
             Expanded(
               child: ph.locked
@@ -486,7 +487,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
               IconButton(
                 key: ValueKey('askodoxEditPhoneDelete-$i'),
                 tooltip: _t('Delete', 'తొలగించు'),
-                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFB42318)),
+                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFEA293)),
                 onPressed: () => setState(() => _phones.removeAt(i)),
               ),
           ]),
@@ -511,7 +512,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
             ),
           const SizedBox(height: 6),
           Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            Text(_t('Reachable', 'అందుబాటు'), style: const TextStyle(fontSize: 12.5, color: Color(0xFF475467))),
+            Text(_t('Reachable', 'అందుబాటు'), style: const TextStyle(fontSize: 12.5, color: Color(0xFFB6C5DC))),
             _timeButton(_t('from', 'నుండి'), ph.from, (v) => ph.from = v, ValueKey('askodoxEditPhoneFrom-$i')),
             _timeButton(_t('to', 'వరకు'), ph.to, (v) => ph.to = v, ValueKey('askodoxEditPhoneTo-$i')),
           ]),
@@ -549,7 +550,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
       for (final (i, a) in _addresses.indexed)
         _item(key: ValueKey('askodoxEditAddressItem-$i'), children: [
           Row(children: [
-            const Icon(Icons.place_outlined, size: 18, color: Color(0xFF9A3D00)),
+            const Icon(Icons.place_outlined, size: 18, color: Color(0xFFFCA984)),
             const SizedBox(width: 6),
             Expanded(
               child: DropdownButton<String>(
@@ -566,7 +567,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
             IconButton(
               key: ValueKey('askodoxEditAddressDelete-$i'),
               tooltip: _t('Delete', 'తొలగించు'),
-              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFB42318)),
+              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFEA293)),
               onPressed: () => setState(() => _addresses.removeAt(i)),
             ),
           ]),
@@ -658,12 +659,12 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
         Text(
             _t('The shop number, address and hours come from the Numbers and Addresses boxes — no need to type them again.',
                 'షాప్ నంబర్, చిరునామా, టైమింగ్స్ "నంబర్లు", "చిరునామాలు" బాక్సుల నుండే — మళ్ళీ రాయక్కర్లేదు.'),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
+            style: const TextStyle(fontSize: 12, color: Color(0xFFB6C5DC))),
       ]);
 
   Widget _roleBody(String role) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(askodoxFieldLabel(role), key: ValueKey('askodoxEditRole-$role'),
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF475467))),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFB6C5DC))),
         for (final f in _fieldsFor(role).entries)
           TextField(
             key: ValueKey('askodoxEditRole-$role-${f.key}'),
@@ -679,7 +680,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
     final held = [for (final r in AskodoxUserRole.values) if (roles.owned.contains(r)) r];
     return Material(
       key: _keys.putIfAbsent('roles', GlobalKey.new),
-      color: Colors.white,
+      color: AskodoxLook.sheet,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
       padding: const EdgeInsets.all(12),
@@ -693,8 +694,8 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
               key: ValueKey('profileRole-${role.name}'),
               visualDensity: VisualDensity.compact,
               selected: roles.owned.contains(role),
-              side: role == roles.active ? const BorderSide(color: Color(0xFF1769FF), width: 2) : null,
-              avatar: role == roles.active ? const Icon(Icons.bolt_rounded, size: 18, color: Color(0xFF1769FF)) : null,
+              side: role == roles.active ? const BorderSide(color: Color(0xFF8EB7FF), width: 2) : null,
+              avatar: role == roles.active ? const Icon(Icons.bolt_rounded, size: 18, color: Color(0xFF8EB7FF)) : null,
               label: Text(role == roles.active
                   ? '${askodoxUserRoleLabel(role, telugu: widget.telugu)} · ${_t('Active now', 'ఇప్పుడు యాక్టివ్')}'
                   : askodoxUserRoleLabel(role, telugu: widget.telugu)),
@@ -745,10 +746,10 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
       padding: const EdgeInsets.only(top: 10),
       // A Material (not a coloured box) so list tiles inside show their ink.
       child: Material(
-      color: Colors.white,
+      color: AskodoxLook.sheet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: open ? const Color(0xFF1769FF) : const Color(0xFFE4E9F2)),
+        side: BorderSide(color: open ? const Color(0xFF8EB7FF) : const Color(0xFF4A526B)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -759,14 +760,14 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
-              Icon(s.icon, color: const Color(0xFF1769FF)),
+              Icon(s.icon, color: const Color(0xFF8EB7FF)),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(s.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                   Text(s.status,
                       style: TextStyle(
-                          fontSize: 12, color: s.done ? const Color(0xFF0E7A45) : const Color(0xFFB54708), fontWeight: FontWeight.w700)),
+                          fontSize: 12, color: s.done ? const Color(0xFF78D499) : const Color(0xFFFB9F7A), fontWeight: FontWeight.w700)),
                 ]),
               ),
               Icon(open ? Icons.expand_less_rounded : Icons.expand_more_rounded),
@@ -819,7 +820,7 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
     final roleBoxes = sections.where((s) => s.id.startsWith('role-') || s.id == 'business').toList();
 
     Widget mini(({String id, IconData icon, String title, String status, bool done}) s) => Material(
-          color: _open == s.id ? const Color(0xFFEAF1FF) : Colors.white,
+          color: _open == s.id ? const Color(0xFF232D44) : AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             key: ValueKey('askodoxEditMini-${s.id}'),
@@ -828,14 +829,14 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Row(children: [
-                Icon(s.icon, size: 20, color: const Color(0xFF1769FF)),
+                Icon(s.icon, size: 20, color: const Color(0xFF8EB7FF)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
                     Text(s.status, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11, color: s.done ? const Color(0xFF0E7A45) : const Color(0xFFB54708))),
+                        style: TextStyle(fontSize: 11, color: s.done ? const Color(0xFF78D499) : const Color(0xFFFB9F7A))),
                   ]),
                 ),
               ]),
@@ -859,11 +860,11 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(children: [
-                  const Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF0E7A45)),
+                  const Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF78D499)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(_t('Your number is verified by OTP — filled in for you.', 'మీ నంబర్ OTP తో ధృవీకరించబడింది — ఆటోగా నింపాం.'),
-                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF0E7A45))),
+                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF78D499))),
                   ),
                 ]),
               ),
@@ -871,8 +872,8 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
             // Say or paste: e-mails, links, numbers, GST and hours go into the right boxes.
             Container(
               padding: const EdgeInsets.fromLTRB(12, 0, 4, 0),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFD0D9EA))),
+              decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF3C485E))),
               child: Row(children: [
                 Expanded(
                   child: TextField(
@@ -901,10 +902,10 @@ class _AskodoxProfileEditorState extends ConsumerState<AskodoxProfileEditor> {
             if (_notice != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(_notice!, key: const Key('askodoxEditNotice'), style: const TextStyle(color: Color(0xFF0E7A45))),
+                child: Text(_notice!, key: const Key('askodoxEditNotice'), style: const TextStyle(color: Color(0xFF78D499))),
               ),
             const SizedBox(height: 12),
-            Text(_t('My details', 'నా వివరాలు'), style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF475467))),
+            Text(_t('My details', 'నా వివరాలు'), style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFB6C5DC))),
             const SizedBox(height: 6),
             GridView.count(
               key: const Key('askodoxEditGrid'),

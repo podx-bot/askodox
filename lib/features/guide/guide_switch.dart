@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -21,7 +22,7 @@ bool askodoxGuideIntroEnabled = false;
 const askodoxGuideIdle = Duration(seconds: 5);
 
 /// Guide colour = the colour of the light around the button (not green: green is the Seller side).
-const askodoxGuideGold = Color(0xFFFFC94D);
+const askodoxGuideGold = Color(0xFF5C4304);
 
 class AskodoxGuideSwitch extends StateNotifier<bool> {
   AskodoxGuideSwitch() : super(false) {
@@ -88,14 +89,14 @@ Future<void> askodoxToggleGuide(BuildContext context, WidgetRef ref, {bool? to})
     key: Key(on ? 'askodoxGuideBannerOn' : 'askodoxGuideBannerOff'),
     duration: const Duration(seconds: 2),
     behavior: SnackBarBehavior.floating,
-    backgroundColor: on ? askodoxGuideGold : const Color(0xFF475467),
+    backgroundColor: on ? askodoxGuideGold : const Color(0xFFB6C5DC),
     content: Row(children: [
       Icon(on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-          size: 18, color: on ? const Color(0xFF14213D) : Colors.white),
+          size: 18, color: on ? const Color(0xFFF7F9FC) : AskodoxLook.sheet),
       const SizedBox(width: 8),
       Expanded(
         child: Text(askodoxGuideBannerText(on, te),
-            style: TextStyle(fontWeight: FontWeight.w700, color: on ? const Color(0xFF14213D) : Colors.white)),
+            style: TextStyle(fontWeight: FontWeight.w700, color: on ? const Color(0xFFF7F9FC) : AskodoxLook.sheet)),
       ),
     ]),
   ));
@@ -123,7 +124,7 @@ class AskodoxGuideChip extends ConsumerWidget {
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
-            color: on ? askodoxGuideGold : const Color(0xFFE9ECF2),
+            color: on ? askodoxGuideGold : const Color(0xFF4A526B),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -131,7 +132,7 @@ class AskodoxGuideChip extends ConsumerWidget {
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                  color: on ? const Color(0xFF14213D) : const Color(0xFF98A2B3), shape: BoxShape.circle),
+                  color: on ? const Color(0xFFF7F9FC) : const Color(0xFF8F99AA), shape: BoxShape.circle),
             ),
             const SizedBox(width: 5),
             Text(label,
@@ -140,7 +141,7 @@ class AskodoxGuideChip extends ConsumerWidget {
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: on ? const Color(0xFF14213D) : const Color(0xFF475467))),
+                    color: on ? const Color(0xFFF7F9FC) : const Color(0xFFB6C5DC))),
           ]),
         ),
       ),
@@ -166,22 +167,22 @@ Future<bool> askodoxGuideIntroOnce(BuildContext context, WidgetRef ref) async {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: const Color(0xFFFFF4D6), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, size: 20, color: const Color(0xFF8A5A00)),
+            decoration: BoxDecoration(color: const Color(0xFF392C01), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, size: 20, color: const Color(0xFFE7B26B)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text.rich(TextSpan(children: [
-              TextSpan(text: '$bold ', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF14213D))),
+              TextSpan(text: '$bold ', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFF7F9FC))),
               TextSpan(text: text),
-            ]), style: const TextStyle(fontSize: 14.5, height: 1.45, color: Color(0xFF344054))),
+            ]), style: const TextStyle(fontSize: 14.5, height: 1.45, color: Color(0xFFBECDE6))),
           ),
         ]),
       );
   final on = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AskodoxLook.sheet,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     builder: (context) => SafeArea(
       child: Padding(
@@ -193,7 +194,7 @@ Future<bool> askodoxGuideIntroOnce(BuildContext context, WidgetRef ref) async {
               width: 48,
               height: 48,
               decoration: const BoxDecoration(color: askodoxGuideGold, shape: BoxShape.circle),
-              child: const Icon(Icons.volume_up_rounded, color: Color(0xFF14213D)),
+              child: const Icon(Icons.volume_up_rounded, color: Color(0xFFF7F9FC)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -201,7 +202,7 @@ Future<bool> askodoxGuideIntroOnce(BuildContext context, WidgetRef ref) async {
                 Text(te ? 'నేను మీ ASKODOX గైడ్' : 'I am your ASKODOX guide',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                 Text(te ? 'ఇది ఒక్కసారే వస్తుంది' : 'You see this only once',
-                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085))),
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFFAEB9D0))),
               ]),
             ),
           ]),
@@ -216,7 +217,7 @@ Future<bool> askodoxGuideIntroOnce(BuildContext context, WidgetRef ref) async {
             key: const Key('askodoxGuideIntroOn'),
             style: FilledButton.styleFrom(
                 backgroundColor: askodoxGuideGold,
-                foregroundColor: const Color(0xFF14213D),
+                foregroundColor: const Color(0xFFF7F9FC),
                 minimumSize: const Size.fromHeight(52)),
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(te ? 'గైడ్ ఆన్ చేయి' : 'Turn the guide on',

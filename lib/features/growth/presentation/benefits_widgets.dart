@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,7 +39,7 @@ class AskodoxBenefitsChip extends ConsumerWidget {
     ].join(' · ');
     return ActionChip(
       key: ValueKey('askodoxBenefits-${match.id}'),
-      avatar: const Icon(Icons.local_offer_rounded, size: 16, color: Color(0xFF0F7B3F)),
+      avatar: const Icon(Icons.local_offer_rounded, size: 16, color: Color(0xFF77D593)),
       label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
       visualDensity: VisualDensity.compact,
       onPressed: () => showModalBottomSheet<void>(
@@ -128,14 +129,14 @@ class _AskodoxBenefitsSheetState extends ConsumerState<AskodoxBenefitsSheet> {
                   Text([offer.provider, offer.name].where((s) => s.isNotEmpty).join(' · '),
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   Text(askodoxBenefitHeadline(offer, widget.lang),
-                      style: const TextStyle(color: Color(0xFF0F7B3F), fontWeight: FontWeight.w800)),
+                      style: const TextStyle(color: Color(0xFF77D593), fontWeight: FontWeight.w800)),
                   for (final c in offer.conditions)
                     if (_condition(c).isNotEmpty) Text(_condition(c), style: const TextStyle(fontSize: 12)),
                   if (offer.expiresAt != null)
                     Text('${_l('expires')}: ${offer.expiresAt!.split('T').first}', style: const TextStyle(fontSize: 12)),
                   if (offer.verifiedAt != null)
                     Text('${_l('verified')}: ${offer.verifiedAt!.split('T').first}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                        style: const TextStyle(fontSize: 11, color: Color(0xFFA8BAD3))),
                   if (_codes[offer.id] != null)
                     Row(children: [
                       Text('${_l('your_code')}: '),
@@ -166,7 +167,7 @@ class _AskodoxBenefitsSheetState extends ConsumerState<AskodoxBenefitsSheet> {
                 ]),
               ),
             ),
-          Text(note.isNotEmpty ? note : _l('offers_note'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          Text(note.isNotEmpty ? note : _l('offers_note'), style: const TextStyle(fontSize: 11, color: Color(0xFFA8BAD3))),
         ]),
       ),
     );
@@ -221,18 +222,18 @@ class _AskodoxScratchCardState extends State<AskodoxScratchCard> {
               borderRadius: BorderRadius.circular(16),
               child: Stack(fit: StackFit.expand, children: [
                 Container(
-                  color: const Color(0xFFEFFAF3),
+                  color: const Color(0xFF1F3328),
                   alignment: Alignment.center,
                   padding: const EdgeInsets.all(12),
                   child: Text(_rewardText,
                       key: const Key('askodoxScratchReward'),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0F7B3F))),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF77D593))),
                 ),
                 if (!_revealed)
                   CustomPaint(painter: _CoverPainter(_scratches), child: Center(
                     child: Text(askodoxChatLabel('scratch_hint', widget.lang),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w800)),
                   )),
               ]),
             ),
@@ -255,7 +256,7 @@ class _CoverPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.saveLayer(Offset.zero & size, Paint());
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF6C4DFF));
+    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFADAEFD));
     final clear = Paint()..blendMode = BlendMode.clear;
     for (final p in points) {
       canvas.drawCircle(p, 18, clear);

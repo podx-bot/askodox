@@ -283,7 +283,7 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
         key: const Key('askodoxDealPayTo'),
         margin: const EdgeInsets.only(top: 6, bottom: 4),
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: const Color(0xFF1C3425), borderRadius: BorderRadius.circular(10)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(te ? 'విక్రేతకు నేరుగా కట్టండి (ASKODOX డబ్బు పట్టుకోదు)' : 'Pay the seller directly (ASKODOX never holds money)',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
@@ -406,13 +406,13 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F5FF),
+        color: const Color(0xFF2E2B3C),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2DEFF)),
+        border: Border.all(color: const Color(0xFF48406B)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.handshake_outlined, size: 18, color: Color(0xFF5B4BFF)),
+          const Icon(Icons.handshake_outlined, size: 18, color: Color(0xFFA9B2FB)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -431,11 +431,11 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
         if (d != null && _paymentLabel(d.order.paymentState) != null)
           Text(_paymentLabel(d.order.paymentState)!,
               key: const Key('askodoxDealPayment'),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF5E6472))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB7BECD))),
         if (d != null && d.payTo.isNotEmpty) _payToBlock(d.payTo, te),
         if (d != null && d.order.price != null)
           Text('${te ? 'ధర' : 'Price'}: ₹${d.order.price!.toStringAsFixed(0)}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF5E6472))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB7BECD))),
         if (d != null)
           for (final m in d.messages.reversed.take(4).toList().reversed)
             Padding(
@@ -449,13 +449,13 @@ class _AskodoxDealPanelState extends ConsumerState<AskodoxDealPanel> {
               widget.sellerView
                   ? (te ? 'కస్టమర్ మీ సమాధానం కోసం వేచి ఉన్నారు.' : 'The customer is waiting for your reply.')
                   : (te ? 'విక్రేత ఇంకా స్పందించలేదు.' : 'The seller has not responded yet.'),
-              style: const TextStyle(fontSize: 12, color: Color(0xFFB3261E)),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFFEA294)),
             ),
           ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFB3261E))),
+            child: Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFFEA294))),
           ),
         if (buttons.isNotEmpty) ...[
           const SizedBox(height: 8),

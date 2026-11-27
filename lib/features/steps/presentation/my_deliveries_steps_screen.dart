@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -192,8 +193,8 @@ class _MyDeliveriesStepsState extends ConsumerState<AskodoxMyDeliveriesStepsScre
                 key: ValueKey('askodoxMyDeliveriesStepsAnswer-$id-$a'),
                 style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
-                    backgroundColor: mine == a ? askodoxStepGreen : const Color(0xFFF1F5F9),
-                    foregroundColor: mine == a ? Colors.white : const Color(0xFF334155)),
+                    backgroundColor: mine == a ? askodoxStepGreen : const Color(0xFF1F2432),
+                    foregroundColor: mine == a ? AskodoxLook.sheet : const Color(0xFFBCCDE6)),
                 onPressed: () => Navigator.pop(ctx, a),
                 child: Text(_answerWords(a), style: const TextStyle(fontWeight: FontWeight.w800)),
               ),

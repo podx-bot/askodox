@@ -381,7 +381,7 @@ class _SuggestionNote extends StatelessWidget {
     final missing = [for (final m in (suggested['not_established'] as List? ?? const [])) '$m'];
     return Card(
       key: const ValueKey('video-suggestions'),
-      color: const Color(0xFFF2F0FF),
+      color: const Color(0xFF2E2A42),
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -394,7 +394,7 @@ class _SuggestionNote extends StatelessWidget {
           for (final f in features) Text('• $f (${te ? 'వీడియోలో కనిపించింది' : 'seen in video'})'),
           if (missing.isNotEmpty)
             Text('${te ? 'వీడియోలో నిర్ధారించలేదు' : 'Not established in the video'}: ${missing.join(', ')}',
-                style: const TextStyle(color: Color(0xFF8A5A00))),
+                style: const TextStyle(color: Color(0xFFE7B26B))),
         ]),
       ),
     );
@@ -435,15 +435,15 @@ class _CommentTile extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${comment['text']}', style: const TextStyle(fontWeight: FontWeight.w600)),
           if (comment['status'] == 'FLAGGED')
-            Text(te ? 'స్టాఫ్ రివ్యూలో ఉంది' : 'Held for staff review', style: const TextStyle(color: Color(0xFFB54708))),
+            Text(te ? 'స్టాఫ్ రివ్యూలో ఉంది' : 'Held for staff review', style: const TextStyle(color: Color(0xFFFB9F7A))),
           if (reply != null && '$reply'.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text('$by: $reply'),
             if (comment['basis'] != null) Text(_basisLabel(comment['basis'] as String?, te),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFB6C5DC))),
           ] else if (status == 'waiting_seller' || status == 'draft_pending')
             Text(te ? 'సెల్లర్ జవాబు కోసం వేచి ఉంది' : 'Waiting for the seller',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFB6C5DC))),
           if (owner && (status == 'waiting_seller' || status == 'draft_pending'))
             Wrap(spacing: 8, children: [
               if (status == 'draft_pending')
@@ -698,7 +698,7 @@ class _VideoSellerInboxScreenState extends ConsumerState<VideoSellerInboxScreen>
                     style: const TextStyle(fontSize: 12)),
                 Text(t('Never automatic: payments / refunds, legal, medical / safety, price negotiation, private details.',
                     'ఎప్పుడూ ఆటో కాదు: పేమెంట్ / రీఫండ్, లీగల్, వైద్య / భద్రత, ధర బేరం, వ్యక్తిగత వివరాలు.'),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF475467))),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFB6C5DC))),
                 SwitchListTile(
                     key: const ValueKey('video-ai-pause'),
                     contentPadding: EdgeInsets.zero,

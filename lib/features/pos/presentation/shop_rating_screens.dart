@@ -119,11 +119,11 @@ class _AskodoxRateSheetState extends ConsumerState<AskodoxRateSheet> {
                   ? 'మీ రేటింగ్ ఇతరులకు సరైనది ఎంచుకోవడానికి సహాయం చేస్తుంది. నక్షత్రాలు మాత్రమే — రాయాల్సిన పని లేదు.'
                   : 'Your stars help others choose. Stars only — nothing to write.',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFFFF8EB), borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(color: const Color(0xFF382C14), borderRadius: BorderRadius.circular(14)),
             child: Column(children: [
               Text('${widget.ask['shop'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
@@ -132,7 +132,7 @@ class _AskodoxRateSheetState extends ConsumerState<AskodoxRateSheet> {
           ),
           if (askodoxPosList(widget.ask['items']).isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(te ? 'మీరు తీసుకున్న ఐటమ్స్' : 'What you had', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF5B6475))),
+            Text(te ? 'మీరు తీసుకున్న ఐటమ్స్' : 'What you had', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFB4BED1))),
             for (final it in askodoxPosList(widget.ask['items']))
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -298,7 +298,7 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
                           width: 140,
                           height: 110,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(width: 140, color: const Color(0xFFE5E7EB))),
+                          errorBuilder: (_, __, ___) => Container(width: 140, color: const Color(0xFF4A526B))),
                     ),
                   ),
               ]),
@@ -310,9 +310,9 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
             if (_category(prof, te).isNotEmpty) Text('· ${_category(prof, te)}'),
             Text('· ${p['followers'] ?? 0} ${te ? 'మంది ఫాలో' : 'followers'}'),
           ]),
-          if ('${b['address'] ?? ''}'.isNotEmpty) Text('${b['address']}', style: const TextStyle(color: Color(0xFF5B6475))),
+          if ('${b['address'] ?? ''}'.isNotEmpty) Text('${b['address']}', style: const TextStyle(color: Color(0xFFB4BED1))),
           if ('${prof['hours'] ?? ''}'.isNotEmpty)
-            Text('${te ? 'సమయం' : 'Hours'}: ${prof['hours']}', style: const TextStyle(color: Color(0xFF17784C), fontWeight: FontWeight.w700)),
+            Text('${te ? 'సమయం' : 'Hours'}: ${prof['hours']}', style: const TextStyle(color: Color(0xFF7CD3A2), fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
           Row(children: [
             if (p['is_owner'] == true)
@@ -340,7 +340,7 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(te ? 'ఇది మీ షాప్ — కస్టమర్లకు ఇలాగే కనిపిస్తుంది.' : 'This is your shop — customers see it like this.',
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1E3FA0))),
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFAFC8FC))),
             ),
           if ('${prof['description'] ?? ''}'.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -349,7 +349,7 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
           if (socials.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(te ? 'ఇతర చోట్ల (అక్కడ మీరే ఫాలో నొక్కాలి)' : 'Elsewhere (tap Follow there yourself)',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
             Wrap(spacing: 6, children: [
               for (final s in socials)
                 ActionChip(key: Key('askodoxShopSocial-${s.$1}'), label: Text('${s.$2} ↗'), onPressed: () => _open(s.$3)),
@@ -379,7 +379,7 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
                               value: total == 0 ? 0 : askodoxPosInt(dist[n]) / total,
                               minHeight: 7,
                               color: _amber,
-                              backgroundColor: const Color(0xFFEEF0F3),
+                              backgroundColor: const Color(0xFF1F2432),
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -455,7 +455,7 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
             CircleAvatar(radius: 14, child: Text('${r['name']}'.isEmpty ? '?' : '${r['name']}'.characters.first)),
             const SizedBox(width: 8),
             Expanded(child: Text('${r['name']}', style: const TextStyle(fontWeight: FontWeight.w700))),
-            Text(askodoxClockWords(r['at'], te), style: const TextStyle(fontSize: 11, color: Color(0xFF5B6475))),
+            Text(askodoxClockWords(r['at'], te), style: const TextStyle(fontSize: 11, color: Color(0xFFB4BED1))),
             if (r['mine'] != true)
               IconButton(
                 tooltip: te ? 'రిపోర్ట్' : 'Report',
@@ -476,7 +476,7 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(_photoUrl('review', '$id'), width: 64, height: 52, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(width: 64, height: 52, color: const Color(0xFFE5E7EB))),
+                        errorBuilder: (_, __, ___) => Container(width: 64, height: 52, color: const Color(0xFF4A526B))),
                   ),
               ]),
             ),
@@ -494,7 +494,7 @@ class _AskodoxShopPageScreenState extends ConsumerState<AskodoxShopPageScreen> {
             Container(
               margin: const EdgeInsets.only(left: 36, top: 6),
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFFF2F4F7), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(8)),
               child: Text('${te ? 'షాప్ జవాబు' : 'Shop reply'}: ${r['reply']}', style: const TextStyle(fontSize: 12.5)),
             ),
         ]),

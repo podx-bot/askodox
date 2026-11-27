@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -132,7 +133,7 @@ class _AskodoxBizCashbookScreenState extends ConsumerState<AskodoxBizCashbookScr
             Expanded(
               child: FilledButton(
                 key: const Key('askodoxCashIn'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF17784C), minimumSize: const Size.fromHeight(50)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7CD3A2), minimumSize: const Size.fromHeight(50)),
                 onPressed: () => _add('income'),
                 child: Text(te ? '+ ఆదాయం' : '+ Money in', style: const TextStyle(fontWeight: FontWeight.w900)),
               ),
@@ -141,7 +142,7 @@ class _AskodoxBizCashbookScreenState extends ConsumerState<AskodoxBizCashbookScr
             Expanded(
               child: FilledButton(
                 key: const Key('askodoxCashOut'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB91C1C), minimumSize: const Size.fromHeight(50)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFEA195), minimumSize: const Size.fromHeight(50)),
                 onPressed: () => _add('expense'),
                 child: Text(te ? '− ఖర్చు' : '− Money out', style: const TextStyle(fontWeight: FontWeight.w900)),
               ),
@@ -152,18 +153,18 @@ class _AskodoxBizCashbookScreenState extends ConsumerState<AskodoxBizCashbookScr
       children: [
         if (_error != null) AskodoxPosError(error: _error!, onRetry: _load),
         AskodoxBizStrip(cells: [
-          (te ? 'ఆదాయం' : 'In', askodoxPaise(askodoxPosInt(d?['income_paise'])), const Color(0xFF17784C)),
-          (te ? 'ఖర్చు' : 'Out', askodoxPaise(askodoxPosInt(d?['expense_paise'])), const Color(0xFFB91C1C)),
-          (te ? 'మిగిలింది' : 'Left', askodoxPaise(askodoxPosInt(d?['balance_paise'])), const Color(0xFF1E3FA0)),
+          (te ? 'ఆదాయం' : 'In', askodoxPaise(askodoxPosInt(d?['income_paise'])), const Color(0xFF7CD3A2)),
+          (te ? 'ఖర్చు' : 'Out', askodoxPaise(askodoxPosInt(d?['expense_paise'])), const Color(0xFFFEA195)),
+          (te ? 'మిగిలింది' : 'Left', askodoxPaise(askodoxPosInt(d?['balance_paise'])), const Color(0xFFAFC8FC)),
         ]),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
           child: Row(children: [
             IconButton(key: const Key('askodoxCashPrevMonth'), onPressed: () => _shift(-1), icon: const Icon(Icons.chevron_left)),
             Expanded(
               child: Text(_monthLabel(_month, te),
-                  textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E3FA0))),
+                  textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFAFC8FC))),
             ),
             IconButton(key: const Key('askodoxCashNextMonth'), onPressed: () => _shift(1), icon: const Icon(Icons.chevron_right)),
           ]),
@@ -215,13 +216,13 @@ class _AskodoxBizCashbookScreenState extends ConsumerState<AskodoxBizCashbookScr
                   subtitle: Text(
                       '${e['kind'] == 'income' ? (te ? 'ఆదాయం' : 'In') : (te ? 'ఖర్చు' : 'Out')} · ${askodoxCashCategory('${e['category']}', te)}',
                       style: TextStyle(
-                          color: e['kind'] == 'income' ? const Color(0xFF17784C) : const Color(0xFFB91C1C),
+                          color: e['kind'] == 'income' ? const Color(0xFF7CD3A2) : const Color(0xFFFEA195),
                           fontWeight: FontWeight.w700)),
                   trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                     Text('${e['kind'] == 'income' ? '+' : '−'}${askodoxPaise(askodoxPosInt(e['amount_paise']))}',
                         style: TextStyle(
                             fontWeight: FontWeight.w900,
-                            color: e['kind'] == 'income' ? const Color(0xFF17784C) : const Color(0xFFB91C1C))),
+                            color: e['kind'] == 'income' ? const Color(0xFF7CD3A2) : const Color(0xFFFEA195))),
                     if (e['auto'] != true)
                       IconButton(
                         tooltip: te ? 'తీసేయి' : 'Remove',
@@ -328,7 +329,7 @@ class AskodoxCashEntrySheetState extends ConsumerState<AskodoxCashEntrySheet> {
           FilledButton(
             key: const Key('askodoxCashSave'),
             style: FilledButton.styleFrom(
-                backgroundColor: out ? const Color(0xFFB91C1C) : const Color(0xFF17784C),
+                backgroundColor: out ? const Color(0xFFFEA195) : const Color(0xFF7CD3A2),
                 minimumSize: const Size.fromHeight(50)),
             onPressed: _busy ? null : _save,
             child: Text(te ? 'సేవ్' : 'Save'),
@@ -419,10 +420,10 @@ class _AskodoxBizDuesScreenState extends ConsumerState<AskodoxBizDuesScreen> {
       children: [
         if (_error != null) AskodoxPosError(error: _error!, onRetry: _load),
         AskodoxBizStrip(cells: [
-          (te ? 'మొత్తం బాకీ' : 'Total due', askodoxPaise(askodoxPosInt(_data?['total_paise'])), const Color(0xFFB45309)),
-          (te ? 'ఎంత మంది' : 'People', '${people.length}', const Color(0xFF1E3FA0)),
+          (te ? 'మొత్తం బాకీ' : 'Total due', askodoxPaise(askodoxPosInt(_data?['total_paise'])), const Color(0xFFFB9E6A)),
+          (te ? 'ఎంత మంది' : 'People', '${people.length}', const Color(0xFFAFC8FC)),
           (te ? 'పాత బాకీ' : 'Oldest', oldest.length >= 10 ? '${oldest.substring(8, 10)}/${oldest.substring(5, 7)}' : '—',
-              const Color(0xFFB91C1C)),
+              const Color(0xFFFEA195)),
         ]),
         const SizedBox(height: 10),
         if (_data == null && _error == null) const Center(child: CircularProgressIndicator()),
@@ -438,9 +439,9 @@ class _AskodoxBizDuesScreenState extends ConsumerState<AskodoxBizDuesScreen> {
               ListTile(
                 key: Key('askodoxDuePerson-${p['name']}-${p['last4']}'),
                 leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFFFF1E3),
+                    backgroundColor: const Color(0xFF3F280D),
                     child: Text('${p['name']}'.isEmpty ? '?' : '${p['name']}'.characters.first,
-                        style: const TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w900))),
+                        style: const TextStyle(color: Color(0xFFFB9E6A), fontWeight: FontWeight.w900))),
                 title: Text('${p['name']}'.isEmpty ? (te ? 'పేరు లేదు' : 'No name') : '${p['name']}',
                     style: const TextStyle(fontWeight: FontWeight.w800)),
                 subtitle: Text([
@@ -448,7 +449,7 @@ class _AskodoxBizDuesScreenState extends ConsumerState<AskodoxBizDuesScreen> {
                   te ? '${askodoxPosList(p['bills']).length} బిల్లులు' : '${askodoxPosList(p['bills']).length} bills',
                 ].join(' · ')),
                 trailing: Text(askodoxPaise(askodoxPosInt(p['due_paise'])),
-                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFB45309), fontSize: 16)),
+                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFB9E6A), fontSize: 16)),
                 onTap: () => setState(() => _open = _open == '${p['name']}|${p['last4']}' ? null : '${p['name']}|${p['last4']}'),
               ),
               if (_open == '${p['name']}|${p['last4']}')
@@ -578,7 +579,7 @@ class _AskodoxBizBillHistoryScreenState extends ConsumerState<AskodoxBizBillHist
             prefixIcon: const Icon(Icons.search),
             hintText: te ? 'బిల్ నంబర్ / ఫోన్ నంబర్' : 'Bill number / phone number',
             filled: true,
-            fillColor: Colors.white,
+            fillColor: AskodoxLook.sheet,
             isDense: true,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -604,7 +605,7 @@ class _AskodoxBizBillHistoryScreenState extends ConsumerState<AskodoxBizBillHist
             padding: const EdgeInsets.fromLTRB(2, 12, 2, 4),
             child: Text(
                 '${day.key} · ${day.value.length} ${te ? 'బిల్లులు' : 'bills'} · ${askodoxPaise(day.value.where((b) => b['status'] != 'cancelled').fold<int>(0, (a, b) => a + askodoxPosInt(b['total_paise'])))}',
-                style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF4B5563), fontSize: 12.5)),
+                style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFB9C5D5), fontSize: 12.5)),
           ),
           Card(
             margin: EdgeInsets.zero,
@@ -619,10 +620,10 @@ class _AskodoxBizBillHistoryScreenState extends ConsumerState<AskodoxBizBillHist
                               ? Icons.menu_book_outlined
                               : ((b['modes'] as List? ?? const []).contains('cash') ? Icons.payments_outlined : Icons.phone_android),
                       color: b['status'] == 'cancelled'
-                          ? const Color(0xFF9CA3AF)
+                          ? const Color(0xFF9299A4)
                           : askodoxPosInt(b['due_paise']) > 0
-                              ? const Color(0xFFB45309)
-                              : const Color(0xFF17784C)),
+                              ? const Color(0xFFFB9E6A)
+                              : const Color(0xFF7CD3A2)),
                   title: Text('${b['number']}${'${b['customer_name'] ?? ''}'.isNotEmpty ? ' · ${b['customer_name']}' : ''}',
                       style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text([

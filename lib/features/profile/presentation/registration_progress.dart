@@ -45,7 +45,7 @@ class AskodoxRegistrationProgress extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               dense: true,
               leading: Icon(r.status == 'complete' ? Icons.check_circle_outline_rounded : Icons.edit_note_rounded,
-                  color: r.status == 'complete' ? const Color(0xFF16A34A) : const Color(0xFFB45309)),
+                  color: r.status == 'complete' ? const Color(0xFF69C97E) : const Color(0xFFFB9E6A)),
               title: Text(askodoxFieldLabel(r.role)),
               subtitle: Text(r.status == 'complete'
                   ? verificationText(r.verification)

@@ -50,7 +50,7 @@ class AskodoxPlansScreen extends ConsumerWidget {
                       t('Not available yet', 'ఇంకా అందుబాటులో లేదు'),
                   ].join(' · ')),
                   trailing: s.currentPlan == p.code && s.currentStatus != 'PENDING_PAYMENT'
-                      ? const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A))
+                      ? const Icon(Icons.check_circle_rounded, color: Color(0xFF69C97E))
                       : s.payable.contains(p.code)
                           ? FilledButton(
                               key: ValueKey('askodoxPlanPay-${p.code}'),
@@ -80,7 +80,7 @@ class AskodoxPlansScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(top: 12),
               child: Text(note,
                   key: const Key('askodoxPlansPayNote'),
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF475467))),
+                  style: const TextStyle(fontSize: 13, color: Color(0xFFB6C5DC))),
             ),
           if (s.paymentMode == 'test' && s.payable.isNotEmpty)
             Padding(
@@ -89,7 +89,7 @@ class AskodoxPlansScreen extends ConsumerWidget {
                   t('TEST MODE: no real money. Use Razorpay test card / test UPI only.',
                       'టెస్ట్ మోడ్: నిజమైన డబ్బు కాదు. Razorpay టెస్ట్ కార్డ్ / టెస్ట్ UPI మాత్రమే వాడండి.'),
                   key: const Key('askodoxPlansTestMode'),
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFFB9E6A))),
             ),
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -97,7 +97,7 @@ class AskodoxPlansScreen extends ConsumerWidget {
                 t('Card / UPI details are entered only on Razorpay\'s page. Paid plans open once billing is approved.',
                     'కార్డ్ / UPI వివరాలు Razorpay పేజీలో మాత్రమే. బిల్లింగ్ ఆమోదం తర్వాతే పెయిడ్ ప్లాన్లు.'),
                 key: const Key('askodoxPlansBillingNote'),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D0))),
           ),
         ]),
       ),

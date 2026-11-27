@@ -454,18 +454,18 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
           key: ValueKey('askodoxPosAttrPrefilled-$key'),
           margin: const EdgeInsets.only(left: 6),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(6)),
+          decoration: BoxDecoration(color: const Color(0xFF143529), borderRadius: BorderRadius.circular(6)),
           child: Text(te ? 'ఆటోగా నింపాం — సరిచూడండి' : 'Filled for you — check',
-              style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857))),
+              style: const TextStyle(fontSize: 10.5, color: Color(0xFF76D3AD))),
         ),
       if (spec['required'] == true)
         Container(
           margin: const EdgeInsets.only(left: 6),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(
-              color: missing ? const Color(0xFFFEE2E2) : const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(6)),
+              color: missing ? const Color(0xFF603D3E) : const Color(0xFF232F3D), borderRadius: BorderRadius.circular(6)),
           child: Text(missing ? (te ? 'కావాలి' : 'Needed') : (te ? 'తప్పనిసరి' : 'Required'),
-              style: TextStyle(fontSize: 10.5, color: missing ? const Color(0xFFB91C1C) : const Color(0xFF1D4ED8))),
+              style: TextStyle(fontSize: 10.5, color: missing ? const Color(0xFFFEA195) : const Color(0xFFA0BFFF))),
         ),
     ]);
     if ('${spec['kind']}' == 'choice') {
@@ -548,7 +548,7 @@ class _AskodoxPosItemDetailsScreenState extends ConsumerState<AskodoxPosItemDeta
                       key: const Key('askodoxPosItemMissing'),
                       margin: const EdgeInsets.only(top: 10),
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(color: const Color(0xFF382B1A), borderRadius: BorderRadius.circular(10)),
                       child: Text(te
                           ? '${_missing.length} తప్పనిసరి వివరాలు లేవు — "కావాలి" అని ఉన్నవి నింపండి. ఏ వివరం పేరు నొక్కినా ఏం రాయాలో చెబుతుంది.'
                           : '${_missing.length} required detail(s) missing — fill the ones marked "Needed". Tap the name of a detail to see what to write.'),

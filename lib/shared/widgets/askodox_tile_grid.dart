@@ -99,7 +99,7 @@ class AskodoxTileGrid extends StatelessWidget {
         alignment: Alignment.centerRight,
         child: TextButton.icon(
           key: ValueKey('askodoxArrange-$section'),
-          style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: const Color(0xFF6B7280)),
+          style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: const Color(0xFFB1B9C8)),
           onPressed: () => askodoxArrangeSection(context, section, layoutTitle ?? '', [
             for (final t in this.tiles) AskodoxLayoutItem(id: t.id, title: t.title, icon: t.icon),
           ]),
@@ -131,7 +131,7 @@ class AskodoxTileGrid extends StatelessWidget {
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: candidate.isEmpty ? null : Border.all(color: const Color(0xFF2563EB), width: 2),
+            border: candidate.isEmpty ? null : Border.all(color: const Color(0xFF95B9FD), width: 2),
           ),
           child: card,
         ),
@@ -211,10 +211,10 @@ class _TileCard extends StatelessWidget {
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
+                        color: const Color(0xFF382B1A),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(tile.badge!, style: const TextStyle(fontSize: 10.5, color: Color(0xFF9A3412))),
+                      child: Text(tile.badge!, style: const TextStyle(fontSize: 10.5, color: Color(0xFFFCA991))),
                     ),
                 ]),
               ),
@@ -243,7 +243,7 @@ class _PinButton extends ConsumerWidget {
       visualDensity: VisualDensity.compact,
       iconSize: 18,
       tooltip: pinned ? (te ? 'చాట్ పైనుంచి తీసేయి' : 'Remove from above the chat') : (te ? 'చాట్ పైన పిన్ చేయి' : 'Pin above the chat'),
-      icon: Icon(pinned ? Icons.push_pin : Icons.push_pin_outlined, color: pinned ? const Color(0xFF2563EB) : const Color(0xFF9CA3AF)),
+      icon: Icon(pinned ? Icons.push_pin : Icons.push_pin_outlined, color: pinned ? const Color(0xFF95B9FD) : const Color(0xFF9299A4)),
       onPressed: () => askodoxOfferChatPin(context, mine),
     );
   }

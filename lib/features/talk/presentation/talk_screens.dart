@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,9 +11,9 @@ import '../../../shared/widgets/askodox_hub_icons.dart';
 import '../../home/presentation/question_mic.dart';
 import '../data/talk_repository.dart';
 
-const _ink = Color(0xFF10204A);
-const _green = Color(0xFF1F8A5B);
-const _soft = Color(0xFFF6F5F0);
+const _ink = Color(0xFFF7F9FC);
+const _green = Color(0xFF6DCF9B);
+const _soft = Color(0xFF1F2432);
 
 /// Accepted once per phone (the rules + 18+ + what listening costs).
 const askodoxTalkRulesKey = 'askodox.talk.rules.v1';
@@ -165,7 +166,7 @@ class _AskodoxTalkScreenState extends ConsumerState<AskodoxTalkScreen> {
       key: const Key('askodoxTalkScreen'),
       backgroundColor: _soft,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AskodoxLook.sheet,
         foregroundColor: _ink,
         elevation: 0,
         title: Text(te ? 'చర్చ' : 'Talk', style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -200,7 +201,7 @@ class _AskodoxTalkScreenState extends ConsumerState<AskodoxTalkScreen> {
                           prefixIcon: const Icon(Icons.search_rounded),
                           hintText: te ? 'ఏ విషయం మీద మాట్లాడాలి? ఉదా. వరి ధరలు' : 'What to talk about? e.g. paddy prices',
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: AskodoxLook.sheet,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                         ),
                       ),
@@ -219,22 +220,22 @@ class _AskodoxTalkScreenState extends ConsumerState<AskodoxTalkScreen> {
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(askodoxTalkProblemText(_problem!, te),
-                              key: const Key('askodoxTalkProblem'), style: const TextStyle(color: Color(0xFFB45309))),
+                              key: const Key('askodoxTalkProblem'), style: const TextStyle(color: Color(0xFFFB9E6A))),
                         ),
                       const SizedBox(height: 14),
                       Text(
                         query.isEmpty ? (te ? 'ఇప్పుడు జరుగుతున్న చర్చలు' : 'Active now') : (te ? 'దొరికిన చర్చలు' : 'Found'),
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF5B6670)),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB3BFCA)),
                       ),
                       const SizedBox(height: 8),
                       if (_rooms.isEmpty)
                         Text(te ? 'ఇంకా ఏ చర్చా లేదు — మొదటి వారు మీరే అవ్వండి.' : 'No talk yet — be the first.',
-                            style: const TextStyle(color: Color(0xFF7A838C))),
+                            style: const TextStyle(color: Color(0xFFAAB4BD))),
                       for (final room in _rooms)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Material(
-                            color: Colors.white,
+                            color: AskodoxLook.sheet,
                             borderRadius: BorderRadius.circular(14),
                             child: ListTile(
                               key: ValueKey('askodoxTalkRoom-${room.id}'),
@@ -252,7 +253,7 @@ class _AskodoxTalkScreenState extends ConsumerState<AskodoxTalkScreen> {
                             ? 'చదవడం ఉచితం · 🔊 వినడం = AI Credits'
                             : 'Reading is free · 🔊 listening = AI Credits',
                         key: const Key('askodoxTalkCostNote'),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF7A838C)),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFFAAB4BD)),
                       ),
                     ]),
     );
@@ -443,7 +444,7 @@ class _AskodoxTalkRoomScreenState extends ConsumerState<AskodoxTalkRoomScreen> {
       key: const Key('askodoxTalkRoomScreen'),
       backgroundColor: _soft,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AskodoxLook.sheet,
         foregroundColor: _ink,
         elevation: 0,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -451,23 +452,23 @@ class _AskodoxTalkRoomScreenState extends ConsumerState<AskodoxTalkRoomScreen> {
               maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
           if (_room?.alias != null)
             Text(te ? 'మీ పేరు: ${_room!.alias}' : 'You are: ${_room!.aliasEn ?? _room!.alias}',
-                key: const Key('askodoxTalkYou'), style: const TextStyle(fontSize: 12, color: Color(0xFF5B6670))),
+                key: const Key('askodoxTalkYou'), style: const TextStyle(fontSize: 12, color: Color(0xFFB3BFCA))),
         ]),
         actions: const [AskodoxHubIcons(current: 'talk')],
       ),
       body: Column(children: [
         Container(
           width: double.infinity,
-          color: const Color(0xFFFFF6E0),
+          color: const Color(0xFF3A2C01),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           child: Text(
             te ? 'చదవడం ఉచితం · 🔊 వినడం = AI Credits · బూతులు **** అవుతాయి' : 'Reading free · 🔊 listening = AI Credits · rude words become ****',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B4A00)),
+            style: const TextStyle(fontSize: 12, color: Color(0xFFE5BF81)),
           ),
         ),
         Expanded(
           child: _messages.isEmpty
-              ? Center(child: Text(te ? 'మొదటి మాట మీదే!' : 'Say the first word!', style: const TextStyle(color: Color(0xFF7A838C))))
+              ? Center(child: Text(te ? 'మొదటి మాట మీదే!' : 'Say the first word!', style: const TextStyle(color: Color(0xFFAAB4BD))))
               : ListView.builder(
                   key: const Key('askodoxTalkMessages'),
                   controller: _scroll,
@@ -483,7 +484,7 @@ class _AskodoxTalkRoomScreenState extends ConsumerState<AskodoxTalkRoomScreen> {
                         padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
                         constraints: const BoxConstraints(maxWidth: 320),
                         decoration: BoxDecoration(
-                          color: m.mine ? const Color(0xFFE3F4EA) : Colors.white,
+                          color: m.mine ? const Color(0xFF143525) : AskodoxLook.sheet,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -495,7 +496,7 @@ class _AskodoxTalkRoomScreenState extends ConsumerState<AskodoxTalkRoomScreen> {
                             if (m.kind == 'voice')
                               const Padding(
                                 padding: EdgeInsets.only(left: 4),
-                                child: Icon(Icons.mic_rounded, size: 13, color: Color(0xFF7A838C)),
+                                child: Icon(Icons.mic_rounded, size: 13, color: Color(0xFFAAB4BD)),
                               ),
                           ]),
                           Row(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -528,7 +529,7 @@ class _AskodoxTalkRoomScreenState extends ConsumerState<AskodoxTalkRoomScreen> {
             padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
             child: muted
                 ? Text(askodoxTalkProblemText('muted', te), key: const Key('askodoxTalkMuted'),
-                    style: const TextStyle(color: Color(0xFFB45309)))
+                    style: const TextStyle(color: Color(0xFFFB9E6A)))
                 : Row(children: [
                     Expanded(
                       child: TextField(
@@ -542,7 +543,7 @@ class _AskodoxTalkRoomScreenState extends ConsumerState<AskodoxTalkRoomScreen> {
                           counterText: '',
                           hintText: te ? 'మీ మాట రాయండి లేదా మాట్లాడండి' : 'Write or speak',
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: AskodoxLook.sheet,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
                         ),
                       ),

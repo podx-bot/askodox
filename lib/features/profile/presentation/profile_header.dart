@@ -92,14 +92,14 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
         key: key,
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 18, color: const Color(0xFF64748B)),
+          Icon(icon, size: 18, color: const Color(0xFFA8BAD3)),
           const SizedBox(width: 8),
-          SizedBox(width: 92, child: Text(label, style: const TextStyle(color: Color(0xFF64748B)))),
+          SizedBox(width: 92, child: Text(label, style: const TextStyle(color: Color(0xFFA8BAD3)))),
           Expanded(
             child: Text(value ?? _t('Not added', 'ఇవ్వలేదు'),
                 style: TextStyle(
                     fontWeight: value == null ? FontWeight.w400 : FontWeight.w700,
-                    color: value == null ? const Color(0xFF94A3B8) : null)),
+                    color: value == null ? const Color(0xFF4C596C) : null)),
           ),
         ]),
       );
@@ -194,7 +194,7 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
                     style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
                 if (profile.mobile != null)
                   Text(profile.mobile!, key: const Key('askodoxProfileMobile'),
-                      style: const TextStyle(color: Color(0xFF64748B))),
+                      style: const TextStyle(color: Color(0xFFA8BAD3))),
               ]),
             ),
             IconButton(
@@ -237,7 +237,7 @@ class _AskodoxProfileHeaderState extends ConsumerState<AskodoxProfileHeader> {
               _row(Icons.inventory_2_outlined, _t('Listings', 'లిస్టింగ్‌లు'), '${profile.listings}'),
           ],
           if (_message != null)
-            Text(_message!, style: const TextStyle(color: Color(0xFFB42318))),
+            Text(_message!, style: const TextStyle(color: Color(0xFFFEA293))),
         ]),
       ),
     );

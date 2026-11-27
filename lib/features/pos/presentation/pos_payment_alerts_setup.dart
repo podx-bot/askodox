@@ -39,9 +39,9 @@ class AskodoxPayAlertSetupCard extends StatelessWidget {
       final all = done == steps.length;
       return Card(
         key: const Key('askodoxPayAlertSetupDone'),
-        color: all ? const Color(0xFFF0FDF4) : null,
+        color: all ? const Color(0xFF1C3425) : null,
         child: ListTile(
-          leading: Icon(all ? Icons.check_circle : Icons.schedule, color: all ? const Color(0xFF15803D) : null),
+          leading: Icon(all ? Icons.check_circle : Icons.schedule, color: all ? const Color(0xFF75D48B) : null),
           title: Text(all
               ? (te ? 'అన్నీ రెడీ. పేమెంట్ వస్తే ఈ ఫోన్ మాట్లాడుతుంది.' : 'All set. This phone speaks when a payment comes.')
               : (te ? 'సెటప్ $done/${steps.length}. మిగతావి తర్వాత అడుగుతాం.' : 'Setup $done/${steps.length}. The rest is asked next time.')),
@@ -52,7 +52,7 @@ class AskodoxPayAlertSetupCard extends StatelessWidget {
     final sound = step.kind == 'sound';
     return Card(
       key: const Key('askodoxPayAlertSetup'),
-      color: const Color(0xFFF5F3FF),
+      color: const Color(0xFF2F2A3E),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -74,7 +74,7 @@ class AskodoxPayAlertSetupCard extends StatelessWidget {
                   : 'Check: 1) raise the Media volume with the volume button. 2) a connected Bluetooth speaker plays it there. '
                       '3) choose the Google engine in Settings → Text-to-speech. Then tap OK again.',
               key: const Key('askodoxPayAlertSetupSoundHelp'),
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFFB45309)),
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFFFB9E6A)),
             ),
           ],
           const SizedBox(height: 12),

@@ -424,7 +424,7 @@ class _SelfShopCheckStepsState extends ConsumerState<AskodoxSelfShopCheckStepsSc
                       key: const Key('askodoxSelfShopCheckStepsResult'),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                          color: check['all_clear'] == true ? askodoxStepGreenSoft : const Color(0xFFFFF7ED),
+                          color: check['all_clear'] == true ? askodoxStepGreenSoft : const Color(0xFF382B1A),
                           borderRadius: BorderRadius.circular(12)),
                       child: Text(
                           check['all_clear'] == true
@@ -434,12 +434,12 @@ class _SelfShopCheckStepsState extends ConsumerState<AskodoxSelfShopCheckStepsSc
                     ),
                   if (check != null) ...[
                     _section('askodoxSelfShopCheckStepsNotSeen', te ? 'ఫోటోలో కనబడలేదు — చేతితో చూడండి' : 'Not seen — check by hand',
-                        const Color(0xFFFEF3C7), askodoxPosList(check['not_seen']), te),
+                        const Color(0xFF372D02), askodoxPosList(check['not_seen']), te),
                     _section('askodoxSelfShopCheckStepsNotBilled', te ? 'లిస్ట్‌లో లేవు (బిల్ కాలేదు)' : 'Not on the list (not billed)',
-                        const Color(0xFFFEE2E2), askodoxPosList(check['not_billed']), te),
+                        const Color(0xFF603D3E), askodoxPosList(check['not_billed']), te),
                     _section('askodoxSelfShopCheckStepsCount', te ? 'ఒకటి కంటే ఎక్కువ — లెక్క చేతితో' : 'More than one — count by hand',
-                        const Color(0xFFEFF6FF), askodoxPosList(check['count_by_hand']), te),
-                    _section('askodoxSelfShopCheckStepsMatched', te ? 'సరిపోయాయి' : 'Matched', const Color(0xFFF0FDF4),
+                        const Color(0xFF232F3D), askodoxPosList(check['count_by_hand']), te),
+                    _section('askodoxSelfShopCheckStepsMatched', te ? 'సరిపోయాయి' : 'Matched', const Color(0xFF1C3425),
                         askodoxPosList(check['matched']), te),
                     Padding(
                       padding: const EdgeInsets.only(top: 6, bottom: 6),

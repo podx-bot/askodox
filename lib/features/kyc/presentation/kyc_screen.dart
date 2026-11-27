@@ -45,7 +45,7 @@ class AskodoxKycScreen extends ConsumerWidget {
                     dense: true,
                     title: Text(te ? a.value.$2 : a.value.$1),
                     trailing: Icon(s.requirements[a.key]! ? Icons.check_circle : Icons.radio_button_unchecked,
-                        color: s.requirements[a.key]! ? const Color(0xFF16A34A) : const Color(0xFF98A2B3)),
+                        color: s.requirements[a.key]! ? const Color(0xFF69C97E) : const Color(0xFF8F99AA)),
                   ),
             ],
           ),
@@ -82,7 +82,7 @@ class AskodoxKycScreen extends ConsumerWidget {
                       'Do not upload Aadhaar: use DigiLocker when it is enabled.',
                       'PAN కార్డ్, GST సర్టిఫికెట్, బ్యాంక్ ప్రూఫ్, వ్యాపార నమోదు లేదా ప్రొఫెషనల్ లైసెన్స్. '
                           'ఆధార్ అప్‌లోడ్ చేయవద్దు.'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D0))),
             ),
           ],
           for (final c in s.checks)

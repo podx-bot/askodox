@@ -228,8 +228,8 @@ class MyListingsScreen extends ConsumerWidget {
       return Container(
         width: 48,
         height: 48,
-        decoration: BoxDecoration(color: const Color(0xFFEFF3FA), borderRadius: BorderRadius.circular(10)),
-        child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF667085)),
+        decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(10)),
+        child: const Icon(Icons.inventory_2_outlined, color: Color(0xFFAEB9D0)),
       );
     }
 
@@ -311,7 +311,7 @@ class MyListingsScreen extends ConsumerWidget {
                     key: ValueKey('askodoxMyListing-${item['id']}'),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE3E9F3))),
+                        borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFF4A526B))),
                     child: ListTile(
                       key: ValueKey('askodoxEditListing-${item['id']}'),
                       onTap: () => edit(item),

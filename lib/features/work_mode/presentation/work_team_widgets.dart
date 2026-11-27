@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -11,9 +12,9 @@ import '../data/work_team_repository.dart';
 import '../domain/work_mode_plan.dart';
 import 'work_scene.dart';
 
-const _ink = Color(0xFF10204A);
-const _green = Color(0xFF1F8A5B);
-const _muted = Color(0xFF5B6670);
+const _ink = Color(0xFFF7F9FC);
+const _green = Color(0xFF6DCF9B);
+const _muted = Color(0xFFB3BFCA);
 
 /// Where a new person gets the app (shared with every invite and result).
 const askodoxAppDownloadLink = 'https://askodox.com/app/';
@@ -298,7 +299,7 @@ class _AskodoxWorkTeamCardState extends ConsumerState<AskodoxWorkTeamCard> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Icon(Icons.circle, size: 9, color: m.active ? _green : const Color(0xFFB0BEC5)),
+                Icon(Icons.circle, size: 9, color: m.active ? _green : const Color(0xFF8D9BA1)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text('${m.name}${m.me ? (te ? ' (మీరు)' : ' (you)') : ''}',
@@ -317,8 +318,8 @@ class _AskodoxWorkTeamCardState extends ConsumerState<AskodoxWorkTeamCard> {
                 child: LinearProgressIndicator(
                   value: m.steps / maxSteps,
                   minHeight: 7,
-                  backgroundColor: const Color(0xFFE3F4EA),
-                  color: m.me ? _green : const Color(0xFF3F6E9E),
+                  backgroundColor: const Color(0xFF143525),
+                  color: m.me ? _green : const Color(0xFF8EC0F5),
                 ),
               ),
             ]),
@@ -343,14 +344,14 @@ class _AskodoxWorkTeamCardState extends ConsumerState<AskodoxWorkTeamCard> {
       children.add(Text(
         key: const Key('askodoxWorkTeamProblem'),
         askodoxWorkTeamProblemText(problem, te),
-        style: const TextStyle(fontSize: 12.5, color: Color(0xFFC62828), fontWeight: FontWeight.w700),
+        style: const TextStyle(fontSize: 12.5, color: Color(0xFFFE9B90), fontWeight: FontWeight.w700),
       ));
     }
     return Container(
       key: const Key('askodoxWorkTeam'),
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
   }
@@ -522,7 +523,7 @@ class _AskodoxWorkResultCardState extends ConsumerState<AskodoxWorkResultCard> {
           te
               ? '${m.name}: ${_fmt(m.steps)} అడుగులు · ${(m.steps / widget.stepsPerUnit).floor()} ${widget.job.unit(te)}'
               : '${m.name}: ${_fmt(m.steps)} steps · ${(m.steps / widget.stepsPerUnit).floor()} ${widget.job.unit(te)}',
-          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+          style: const TextStyle(color: AskodoxLook.sheet, fontSize: 13, fontWeight: FontWeight.w700),
         ),
     ];
   }

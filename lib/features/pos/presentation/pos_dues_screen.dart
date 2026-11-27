@@ -108,7 +108,7 @@ class _AskodoxPosDuesScreenState extends ConsumerState<AskodoxPosDuesScreen> {
     final state = '${r['state']}';
     final sent = r['sent_today'] == true;
     final hasPhone = '${r['whatsapp_to'] ?? ''}'.isNotEmpty;
-    final color = state == 'overdue' ? const Color(0xFFB91C1C) : state == 'remind' ? const Color(0xFF17784C) : const Color(0xFF5B6475);
+    final color = state == 'overdue' ? const Color(0xFFFEA195) : state == 'remind' ? const Color(0xFF7CD3A2) : const Color(0xFFB4BED1);
     return Card(
       key: ValueKey('askodoxDue-${r['invoice_id']}'),
       child: Padding(
@@ -122,13 +122,13 @@ class _AskodoxPosDuesScreenState extends ConsumerState<AskodoxPosDuesScreen> {
             if (state == 'remind' && hasPhone)
               sent
                   ? Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.check_circle, color: Color(0xFF17784C), size: 20),
+                      const Icon(Icons.check_circle, color: Color(0xFF7CD3A2), size: 20),
                       const SizedBox(width: 4),
-                      Text(te ? 'పంపాం' : 'Sent', style: const TextStyle(color: Color(0xFF17784C), fontWeight: FontWeight.w700)),
+                      Text(te ? 'పంపాం' : 'Sent', style: const TextStyle(color: Color(0xFF7CD3A2), fontWeight: FontWeight.w700)),
                     ])
                   : FilledButton.icon(
                       key: ValueKey('askodoxDueWhatsApp-${r['invoice_id']}'),
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF128C7E)),
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF63CBBB)),
                       onPressed: () => _whatsApp(r, te),
                       icon: const Icon(Icons.chat, size: 18),
                       label: const Text('WhatsApp'),
@@ -177,7 +177,7 @@ class _AskodoxPosDuesScreenState extends ConsumerState<AskodoxPosDuesScreen> {
                         te
                             ? 'కట్టాల్సిన తేదీకి 3 రోజుల ముందు నుంచి ఆ రోజు వరకు రోజుకి ఒకసారి గుర్తు చేస్తాం. ASKODOX ఉన్న కస్టమర్‌కి యాప్‌లో తానే వెళ్తుంది; మిగతా వారికి WhatsApp ఒక్క టాప్.'
                             : 'From 3 days before the pay date up to the date, once a day. Customers on ASKODOX get it in the app by itself; others: one tap on WhatsApp.',
-                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                        style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                     if (items.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 40),

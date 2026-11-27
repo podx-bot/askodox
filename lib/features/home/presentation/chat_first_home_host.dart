@@ -38,7 +38,7 @@ class _ChatFirstHomeHostState extends State<ChatFirstHomeHost> {
   Widget build(BuildContext context) {
     if (!_ready) {
       return const ColoredBox(
-        color: Color(0xFFF9FBFF),
+        color: Color(0xFF1F2432),
         child: Center(child: CircularProgressIndicator()),
       );
     }

@@ -377,20 +377,20 @@ class _AskodoxPosSelfShopCheckScreenState extends ConsumerState<AskodoxPosSelfSh
                       key: const Key('askodoxPosSelfShopResult'),
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                          color: check['all_clear'] == true ? const Color(0xFFDCFCE7) : const Color(0xFFFFF7ED),
+                          color: check['all_clear'] == true ? const Color(0xFF0E3721) : const Color(0xFF382B1A),
                           borderRadius: BorderRadius.circular(10)),
                       child: Text(check['all_clear'] == true
                           ? (te ? 'లిస్ట్‌లోని ప్రతి రకం ఫోటోలో కనబడింది.' : 'Every kind of item on the list was seen in the photo.')
                           : (te ? 'కొన్ని తేడాలు ఉన్నాయి — కింద చూడండి.' : 'Some differences — see below.')),
                     ),
-                    _section('askodoxPosSelfShopMatched', te ? 'సరిపోయాయి' : 'Matched', const Color(0xFFF0FDF4),
+                    _section('askodoxPosSelfShopMatched', te ? 'సరిపోయాయి' : 'Matched', const Color(0xFF1C3425),
                         askodoxPosList(check['matched']), te),
                     _section('askodoxPosSelfShopNotSeen', te ? 'ఫోటోలో కనబడలేదు — చేతితో చూడండి' : 'Not seen — check by hand',
-                        const Color(0xFFFEF3C7), askodoxPosList(check['not_seen']), te),
+                        const Color(0xFF372D02), askodoxPosList(check['not_seen']), te),
                     _section('askodoxPosSelfShopNotBilled', te ? 'లిస్ట్‌లో లేవు (బిల్ కాలేదు)' : 'Not on the list (not billed)',
-                        const Color(0xFFFEE2E2), askodoxPosList(check['not_billed']), te),
+                        const Color(0xFF603D3E), askodoxPosList(check['not_billed']), te),
                     _section('askodoxPosSelfShopCount', te ? 'ఒకటి కంటే ఎక్కువ — లెక్క చేతితో' : 'More than one — count by hand',
-                        const Color(0xFFEFF6FF), askodoxPosList(check['count_by_hand']), te),
+                        const Color(0xFF232F3D), askodoxPosList(check['count_by_hand']), te),
                     const SizedBox(height: 6),
                     Text(
                         te
@@ -513,7 +513,7 @@ class _AskodoxSelfShopScreenState extends ConsumerState<AskodoxSelfShopScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             if (item['price_paise'] != null) Text('${askodoxPaise(askodoxPosInt(item['price_paise']))} / ${item['unit'] ?? ''}'),
-            if (reason != null) ...[const SizedBox(height: 8), Text(reason, style: const TextStyle(color: Color(0xFFB45309)))],
+            if (reason != null) ...[const SizedBox(height: 8), Text(reason, style: const TextStyle(color: Color(0xFFFB9E6A)))],
             const SizedBox(height: 8),
             if (facts.isEmpty)
               Text(te ? 'షాప్ ఈ సరుకుకి ఇంకా వివరాలు పెట్టలేదు.' : 'The shop has not added details for this item yet.')
@@ -619,7 +619,7 @@ class _AskodoxSelfShopScreenState extends ConsumerState<AskodoxSelfShopScreen> {
                     Container(
                       key: const Key('askodoxSelfShopExitCode'),
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: const Color(0xFF232F3D), borderRadius: BorderRadius.circular(12)),
                       child: Column(children: [
                         Text(te ? 'కౌంటర్‌లో ఈ కోడ్ చూపించండి' : 'Show this code at the counter'),
                         Text('${s['exit_code']}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, letterSpacing: 8)),

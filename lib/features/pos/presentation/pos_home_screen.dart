@@ -346,11 +346,11 @@ class _AskodoxPosDashboardScreenState extends ConsumerState<AskodoxPosDashboardS
                 style: const TextStyle(fontSize: 12.5),
               ),
               if ('${askodoxPosMap(b['rules'])['einvoice_note'] ?? ''}'.isNotEmpty)
-                Text('${askodoxPosMap(b['rules'])['einvoice_note']}', style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+                Text('${askodoxPosMap(b['rules'])['einvoice_note']}', style: const TextStyle(fontSize: 12, color: Color(0xFFFB9E6A))),
               if (_pending > 0 || _rejected > 0)
                 Card(
                   key: const Key('askodoxPosQueue'),
-                  color: const Color(0xFFFFF7ED),
+                  color: const Color(0xFF382B1A),
                   child: ListTile(
                     leading: const Icon(Icons.cloud_off_outlined),
                     title: Text(te ? '$_pending బిల్లులు పంపాలి' : '$_pending bills waiting to send'),

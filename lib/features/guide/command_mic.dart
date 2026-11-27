@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -176,7 +177,7 @@ class _AskodoxCommandMicState extends ConsumerState<AskodoxCommandMic> {
         final editing = _phase == _Phase.editing;
         return Card(
           key: const Key('askodoxCommandHeard'),
-          color: const Color(0xFFEFF6FF),
+          color: const Color(0xFF232F3D),
           child: Padding(
             padding: const EdgeInsets.all(10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -218,11 +219,11 @@ class _AskodoxCommandMicState extends ConsumerState<AskodoxCommandMic> {
           key: const Key('askodoxCommandMic'),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
-            backgroundColor: listening ? const Color(0xFFDC2626) : scheme.primary,
+            backgroundColor: listening ? const Color(0xFFFE9488) : scheme.primary,
           ),
           onPressed: reading ? null : (listening ? () => unawaited(_stop()) : () => unawaited(_listen())),
           icon: reading
-              ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AskodoxLook.sheet))
               : Icon(listening ? Icons.stop_rounded : Icons.mic_rounded, size: 18 + 10 * _level),
           label: Text(listening
               ? (te ? 'వింటున్నాను… ఆపేస్తే పంపుతాను' : 'Listening… stop talking and I send it')

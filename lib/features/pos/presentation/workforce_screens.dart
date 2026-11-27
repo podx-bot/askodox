@@ -239,7 +239,7 @@ class _MyWorkState extends ConsumerState<AskodoxMyWorkScreen> {
               te
                   ? 'మీ కార్డ్ (పేరు, పని, ఊరు, రేటింగ్) మాత్రమే businesses కి వెళ్తుంది. ఫోన్ నంబర్ మీరు చేరిన తర్వాతే.'
                   : 'Only your card (name, work, town, rating) goes to businesses. Your number only after you join.',
-              style: const TextStyle(color: Color(0xFF64748B))),
+              style: const TextStyle(color: Color(0xFFA8BAD3))),
         ),
       ];
 
@@ -267,7 +267,7 @@ class _MyWorkState extends ConsumerState<AskodoxMyWorkScreen> {
         key: const Key('askodoxWorkBadge'),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            color: badge['has'] == true ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+            color: badge['has'] == true ? const Color(0xFF143529) : const Color(0xFF1F2432),
             borderRadius: BorderRadius.circular(14)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(badge['has'] == true ? (te ? '✓ స్వతంత్రుడు' : '✓ Independent') : (te ? 'స్వతంత్రుడు అవ్వాలంటే' : 'To become independent'),
@@ -281,7 +281,7 @@ class _MyWorkState extends ConsumerState<AskodoxMyWorkScreen> {
               _ => te ? 'మీ Udyam నంబర్' : 'Your Udyam number',
             }}'),
           const SizedBox(height: 6),
-          Text(_s(me['reject_note']), style: const TextStyle(fontSize: 12, color: Color(0xFF9A3412))),
+          Text(_s(me['reject_note']), style: const TextStyle(fontSize: 12, color: Color(0xFFFCA991))),
         ]),
       ),
       if (offers.isNotEmpty) _section(te ? 'పని అడుగుతున్నారు' : 'Work offered'),
@@ -331,7 +331,7 @@ class _MyWorkState extends ConsumerState<AskodoxMyWorkScreen> {
                         }),
                         child: Text(te ? 'అందింది' : 'Received'),
                       )
-                    : const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)))
+                    : const Icon(Icons.check_circle_rounded, color: Color(0xFF69C97E)))
                 : FilledButton(
                     key: ValueKey('askodoxWorkDone-${o['id']}'),
                     onPressed: () => _guard(context, () async {
@@ -518,7 +518,7 @@ class _TeamState extends ConsumerState<AskodoxAuthorityTeamScreen> with SingleTi
   Widget _team(AskodoxJson data, bool te) {
     final team = _l(data['team']);
     return ListView(padding: const EdgeInsets.all(16), children: [
-      Text(_s(data['adding_note']), style: const TextStyle(fontSize: 12, color: Color(0xFF9A3412))),
+      Text(_s(data['adding_note']), style: const TextStyle(fontSize: 12, color: Color(0xFFFCA991))),
       if (team.isEmpty) Padding(padding: const EdgeInsets.only(top: 24), child: Text(te ? 'ఇంకా ఎవరూ లేరు' : 'Nobody yet')),
       for (final w in team)
         Card(
@@ -645,7 +645,7 @@ class _TeamState extends ConsumerState<AskodoxAuthorityTeamScreen> with SingleTi
             ? 'GST లేదా Udyam నంబర్ ఉన్న businesses మాత్రమే కొత్త పని వాళ్ళను చూడగలవు. మీ సిబ్బందిని Staff పేజీలో ఫోన్ నంబర్ తో చేర్చుకోవచ్చు.'
             : 'Only businesses with a GST or Udyam number can find new workers. Add your own staff by phone on the Staff page.'),
         const SizedBox(height: 12),
-        Text(_s(data['udyam_help']), style: const TextStyle(color: Color(0xFF15803D))),
+        Text(_s(data['udyam_help']), style: const TextStyle(color: Color(0xFF75D48B))),
       ]);
     }
     return ListView(padding: const EdgeInsets.all(16), children: [
@@ -788,7 +788,7 @@ class _TeamState extends ConsumerState<AskodoxAuthorityTeamScreen> with SingleTi
           ),
       ]),
       Text(te ? 'Worker తనే ఒప్పుకున్న ఆర్డర్ = ఎప్పుడూ క్యాష్, worker దగ్గర.' : 'An order the worker takes himself = always cash, with him.',
-          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          style: const TextStyle(fontSize: 12, color: Color(0xFFA8BAD3))),
       _section(te ? 'మీ ధరలు (కస్టమర్ కి కనిపిస్తాయి)' : 'Your prices (customers see them)'),
       for (final t in types)
         Padding(
@@ -826,7 +826,7 @@ class _TeamState extends ConsumerState<AskodoxAuthorityTeamScreen> with SingleTi
         ),
       ),
       const SizedBox(height: 12),
-      Text(_s(data['udyam_help']), style: const TextStyle(color: Color(0xFF15803D))),
+      Text(_s(data['udyam_help']), style: const TextStyle(color: Color(0xFF75D48B))),
     ]);
   }
 }

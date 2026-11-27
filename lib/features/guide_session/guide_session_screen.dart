@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -284,7 +285,7 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
             if (_left.isNotEmpty && _done.isNotEmpty)
               _card(
                   te ? 'ఇంతకు ముందు చేసినవి మిగిలాయి: ${_left.map((k) => askodoxGuideTopicName(k, te: true)).join(', ')}' : 'Left from before: ${_left.map((k) => askodoxGuideTopicName(k, te: false)).join(', ')}',
-                  const Color(0xFFFFF4D6)),
+                  const Color(0xFF392C01)),
             Wrap(spacing: 10, runSpacing: 10, children: [
               for (final m in askodoxGuideTimeChoices)
                 ChoiceChip(
@@ -321,7 +322,7 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
                     te
                         ? 'ఉదాహరణకు రేపు మీరు "బైక్ కి పెట్రోల్ ఎంత" అని అడిగితే, మీ బైక్ వివరాలతో లెక్క వేసి చెప్పడానికి. చెప్పడం ఇష్టం లేనిది వదిలేయొచ్చు.'
                         : 'For example, if you ask tomorrow "how much petrol for my bike", I can work it out with your bike. Anything you do not want to tell can be left out.',
-                    const Color(0xFFFFF4D6)),
+                    const Color(0xFF392C01)),
               ),
             const SizedBox(height: 10),
             OutlinedButton(
@@ -347,7 +348,7 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
             if (_timeUp)
               _card(
                   te ? 'మీరు చెప్పిన ${askodoxGuideMinutesLabel(_minutes, te: true)} అయింది. ఇప్పుడు ఆపి, మిగతాది తర్వాత చేద్దామా?' : 'Your ${askodoxGuideMinutesLabel(_minutes, te: false)} are over. Stop now and do the rest later?',
-                  const Color(0xFFFFF4D6),
+                  const Color(0xFF392C01),
                   key: const Key('askodoxGuideTimeUp'),
                   action: TextButton(
                       key: const Key('askodoxGuideStopNow'), onPressed: _stopForNow, child: Text(te ? 'తర్వాత చేద్దాం' : 'Later'))),
@@ -358,12 +359,12 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(color: askodoxStepInk, borderRadius: BorderRadius.circular(18)),
-                      child: Text(_lastSaid, style: const TextStyle(color: Colors.white, fontSize: 14)))),
+                      child: Text(_lastSaid, style: const TextStyle(color: AskodoxLook.sheet, fontSize: 14)))),
             if (_facts.isNotEmpty)
               _card(
                   '${te ? 'నాకు అర్థమైనది' : 'What I understood'}: ${_facts.map((f) => '${f['value']}').join(', ')}', askodoxStepGreenSoft,
                   key: const Key('askodoxGuideUnderstood')),
-            if (_explanation.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: _card(_explanation, const Color(0xFFFFF4D6), key: const Key('askodoxGuideExplain'))),
+            if (_explanation.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: _card(_explanation, const Color(0xFF392C01), key: const Key('askodoxGuideExplain'))),
             const SizedBox(height: 12),
             TextField(
               key: const Key('askodoxGuideAnswerField'),
@@ -421,14 +422,14 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
               Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: _card('${te ? 'మిగిలినవి (తర్వాత)' : 'Left for later'}: ${_left.map((k) => askodoxGuideTopicName(k, te: te)).join(', ')}',
-                      const Color(0xFFFFF4D6),
+                      const Color(0xFF392C01),
                       key: const Key('askodoxGuideLeft'))),
             const SizedBox(height: 10),
             _card(
                 te
                     ? 'Home లో పైన "సెటప్ మిగిలింది" చిప్ ఉంటుంది. నొక్కితే ఇక్కడినుంచే కొనసాగుతుంది. మార్పులు కనిపించడానికి యాప్ మూసి మళ్ళీ తెరవండి.'
                     : 'On Home there is a "Setup left" chip. Tap it to continue from here. Close and reopen the app to see the changes.',
-                Colors.white),
+                AskodoxLook.sheet),
             if (_gapSent) Padding(padding: const EdgeInsets.only(top: 10), child: _gapBox(te)),
           ]),
           bottom: AskodoxStepBottom(
@@ -441,7 +442,7 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
         key: const Key('askodoxFeatureGapBox'),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFC7CDDA), width: 2), borderRadius: BorderRadius.circular(20), color: Colors.white),
+            border: Border.all(color: const Color(0xFF9398A5), width: 2), borderRadius: BorderRadius.circular(20), color: AskodoxLook.sheet),
         child: Column(children: [
           Text(te ? 'మీ కోసం ఇది తయారవుతోంది' : 'This is being made for you', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),

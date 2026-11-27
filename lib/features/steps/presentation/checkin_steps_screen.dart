@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -14,7 +15,7 @@ import '../domain/step_logic.dart' show askodoxDistanceM, askodoxDistanceText;
 import 'live_face_screen.dart';
 import 'step_kit.dart';
 
-const _purple = Color(0xFF7C3AED);
+const _purple = Color(0xFFBCACFB);
 
 /// `/biz/:id/staff/checkin` (owner 2026-11-22, "3 steps"; owner AND staff mark their own): ① one big round button
 /// (I'm in / I'm leaving, by today's state) ② WHERE: the phone's real location inside the shop's radius (owner
@@ -285,7 +286,7 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
     return switch (_phase) {
       'no_location' => note(
           Icons.location_off_rounded,
-          const Color(0xFFB45309),
+          const Color(0xFFFB9E6A),
           te
               ? 'హాజరుకి మీరు ఎక్కడ ఉన్నారో కావాలి. ఫోన్ లొకేషన్ ఆన్ చేసి ASKODOX కి అనుమతి ఇవ్వండి.'
               : 'Attendance needs where you are. Turn on the phone\'s location and allow ASKODOX.',
@@ -306,13 +307,13 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
           ]),
       'no_pin' => note(
           Icons.wrong_location_rounded,
-          const Color(0xFFB45309),
+          const Color(0xFFFB9E6A),
           te ? 'ఓనర్ ఇంకా షాప్ లొకేషన్ పెట్టలేదు. ఓనర్ కి చెప్పండి — హాజరు సెటప్ లో ఒక్కసారి పెడితే చాలు.'
               : 'The owner has not set the shop location yet. Tell the owner — once in Attendance setup.',
           [button('askodoxCheckInBack', te ? 'సరే' : 'OK', () => setState(() => _step = 1), main: false)]),
       'far' => note(
           Icons.near_me_disabled_rounded,
-          const Color(0xFFB45309),
+          const Color(0xFFFB9E6A),
           te
               ? 'షాప్ కి ${askodoxDistanceText(_distance ?? 0)} దూరం (అనుమతి $radius m). బయట పని అయితే ఓనర్ ని అడగండి — ఓనర్ కి వెంటనే తెలుస్తుంది.'
               : '${askodoxDistanceText(_distance ?? 0)} from the shop (allowed $radius m). Field work? Ask the owner — they are told at once.',
@@ -323,7 +324,7 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
             }),
             button('askodoxCheckInBack', te ? 'వెనక్కి' : 'Back', () => setState(() => _step = 1), main: false),
           ]),
-      'error' => note(Icons.error_outline_rounded, const Color(0xFFB91C1C), _problem, [
+      'error' => note(Icons.error_outline_rounded, const Color(0xFFFEA195), _problem, [
           button('askodoxCheckInRetry', te ? 'మళ్ళీ' : 'Try again', () => _go(_action)),
           button('askodoxCheckInBack', te ? 'వెనక్కి' : 'Back', () => setState(() => _step = 1), main: false),
         ]),
@@ -381,10 +382,10 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
           child: Container(
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Color(0xFFEDE7FB), spreadRadius: 16), BoxShadow(color: Color(0xFFF6F2FD), spreadRadius: 32)],
+              boxShadow: [BoxShadow(color: Color(0xFF000000), spreadRadius: 16), BoxShadow(color: Color(0xFF000000), spreadRadius: 32)],
             ),
             child: Material(
-              color: action == 'out' ? const Color(0xFFB91C1C) : _purple,
+              color: action == 'out' ? const Color(0xFFFEA195) : _purple,
               shape: const CircleBorder(),
               child: InkWell(
                 key: Key('askodoxCheckInStepsGo-$action'),
@@ -395,13 +396,13 @@ class _AskodoxCheckInStepsScreenState extends ConsumerState<AskodoxCheckInStepsS
                   height: 220,
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     // owner 2026-11-23: not a fingerprint any more -- the live face + location decide
-                    Icon(action == 'out' ? Icons.logout_rounded : Icons.face_retouching_natural_rounded, size: 76, color: Colors.white),
+                    Icon(action == 'out' ? Icons.logout_rounded : Icons.face_retouching_natural_rounded, size: 76, color: AskodoxLook.sheet),
                     const SizedBox(height: 6),
                     Text(action == 'out' ? (te ? 'వెళ్తున్నా' : "I'm leaving") : (te ? 'వచ్చాను' : "I'm in"),
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AskodoxLook.sheet)),
                     if (inAt != null)
                       Text(te ? '${_clockOf(inAt, te)} కి వచ్చారు' : 'In at ${_clockOf(inAt, te)}',
-                          style: const TextStyle(fontSize: 13, color: Colors.white70)),
+                          style: const TextStyle(fontSize: 13, color: AskodoxLook.sheet70)),
                   ]),
                 ),
               ),

@@ -7,21 +7,21 @@ import '../../core/ui/ui_switches.dart';
 /// The look of every inner page (redesign, owner 2026-11-13: "all inner pages in this model").
 /// Soft grey page, white cards with a thin border and round corners, dark-navy text and primary
 /// buttons, blue links. Home is NOT wrapped (owner: Home stays as it is).
-const askodoxInnerBg = Color(0xFFF4F5F7);
-const askodoxInnerInk = Color(0xFF10204A);
-const askodoxInnerMuted = Color(0xFF5A6478);
-const askodoxInnerLine = Color(0xFFE6E9EF);
-const askodoxInnerBlue = Color(0xFF2450C8);
-const askodoxInnerGreen = Color(0xFF17784C);
+const askodoxInnerBg = Color(0xFF1F2432);
+const askodoxInnerInk = Color(0xFFF7F9FC);
+const askodoxInnerMuted = Color(0xFFB3BED5);
+const askodoxInnerLine = Color(0xFF4A526B);
+const askodoxInnerBlue = Color(0xFFA3C0FC);
+const askodoxInnerGreen = Color(0xFF7CD3A2);
 
 ThemeData askodoxInnerTheme(ThemeData base) {
   if (askodoxNewLookOn) return askodoxLookTheme();
   final radius14 = BorderRadius.circular(14);
   final scheme = base.colorScheme.copyWith(
     primary: askodoxInnerInk,
-    onPrimary: Colors.white,
+    onPrimary: AskodoxLook.sheet,
     secondary: askodoxInnerBlue,
-    surface: Colors.white,
+    surface: AskodoxLook.sheet,
     onSurface: askodoxInnerInk,
     surfaceTint: Colors.transparent,
   );
@@ -40,7 +40,7 @@ ThemeData askodoxInnerTheme(ThemeData base) {
       iconTheme: const IconThemeData(color: askodoxInnerInk),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: AskodoxLook.sheet,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -56,11 +56,11 @@ ThemeData askodoxInnerTheme(ThemeData base) {
       titleTextStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, fontSize: 15, fontWeight: FontWeight.w700, color: askodoxInnerInk),
       subtitleTextStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, fontSize: 12.5, color: askodoxInnerMuted),
     ),
-    dividerTheme: const DividerThemeData(color: Color(0xFFEEF0F4), thickness: 1, space: 1),
+    dividerTheme: const DividerThemeData(color: Color(0xFF1F2432), thickness: 1, space: 1),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: askodoxInnerInk,
-        foregroundColor: Colors.white,
+        foregroundColor: AskodoxLook.sheet,
         minimumSize: const Size(48, 46),
         shape: RoundedRectangleBorder(borderRadius: radius14),
         textStyle: const TextStyle(fontFamilyFallback: askodoxFontFallback, fontWeight: FontWeight.w700),
@@ -70,7 +70,7 @@ ThemeData askodoxInnerTheme(ThemeData base) {
       style: OutlinedButton.styleFrom(
         foregroundColor: askodoxInnerInk,
         minimumSize: const Size(48, 46),
-        side: const BorderSide(color: Color(0xFFDCE0E8)),
+        side: const BorderSide(color: Color(0xFF4A526B)),
         shape: RoundedRectangleBorder(borderRadius: radius14),
         textStyle: const TextStyle(fontFamilyFallback: askodoxFontFallback, fontWeight: FontWeight.w700),
       ),
@@ -80,15 +80,15 @@ ThemeData askodoxInnerTheme(ThemeData base) {
     ),
     inputDecorationTheme: base.inputDecorationTheme.copyWith(
       filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: radius14, borderSide: const BorderSide(color: Color(0xFFDCE0E8))),
-      enabledBorder: OutlineInputBorder(borderRadius: radius14, borderSide: const BorderSide(color: Color(0xFFDCE0E8))),
+      fillColor: AskodoxLook.sheet,
+      border: OutlineInputBorder(borderRadius: radius14, borderSide: const BorderSide(color: Color(0xFF4A526B))),
+      enabledBorder: OutlineInputBorder(borderRadius: radius14, borderSide: const BorderSide(color: Color(0xFF4A526B))),
       focusedBorder: OutlineInputBorder(borderRadius: radius14, borderSide: const BorderSide(color: askodoxInnerBlue, width: 1.5)),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((s) => Colors.white),
+      thumbColor: WidgetStateProperty.resolveWith((s) => AskodoxLook.sheet),
       trackColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? askodoxInnerGreen : const Color(0xFFC9CED8)),
+          (s) => s.contains(WidgetState.selected) ? askodoxInnerGreen : const Color(0xFF9498A2)),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
     ),
     expansionTileTheme: const ExpansionTileThemeData(

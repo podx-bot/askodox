@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -38,7 +39,7 @@ IconData askodoxTableAskIcon(String key) => switch (key) {
 
 /// The veg / non-veg / egg mark printed on Indian menus: a square with a dot (green / red / brown).
 Widget askodoxFoodDot(String type) {
-  final color = type == 'veg' ? const Color(0xFF17784C) : (type == 'egg' ? const Color(0xFFB45309) : const Color(0xFFB91C1C));
+  final color = type == 'veg' ? const Color(0xFF7CD3A2) : (type == 'egg' ? const Color(0xFFFB9E6A) : const Color(0xFFFEA195));
   return Container(
     width: 14,
     height: 14,
@@ -459,7 +460,7 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFFFF4E0), Color(0xFFFFE7EF)]),
+            gradient: const LinearGradient(colors: [Color(0xFF3C2A02), Color(0xFF45202F)]),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(children: [
@@ -476,7 +477,7 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
                         if ('${welcome['favourite'] ?? ''}'.isNotEmpty)
                           te ? 'మీ ఇష్టం: ${welcome['favourite']}' : 'Your usual: ${welcome['favourite']}',
                       ].join(' · '),
-                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
               ]),
             ),
           ]),
@@ -629,7 +630,7 @@ class _AskodoxOrderDeskScreenState extends ConsumerState<AskodoxOrderDeskScreen>
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-        decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Color(0x1A141E3C), blurRadius: 14, offset: Offset(0, -4))]),
+        decoration: const BoxDecoration(color: AskodoxLook.sheet, boxShadow: [BoxShadow(color: Color(0x1A000000), blurRadius: 14, offset: Offset(0, -4))]),
         child: FilledButton(
           key: const Key('askodoxOrderPlace'),
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), padding: const EdgeInsets.symmetric(horizontal: 16)),
@@ -849,7 +850,7 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                         key: const Key('askodoxOrderPayCash'),
                         style: OutlinedButton.styleFrom(
                             minimumSize: const Size.fromHeight(52),
-                            backgroundColor: o['pay_choice'] == 'cash' ? const Color(0xFFDCFCE7) : null),
+                            backgroundColor: o['pay_choice'] == 'cash' ? const Color(0xFF0E3721) : null),
                         onPressed: () => _choose('cash', payLink),
                         icon: const Icon(Icons.payments_outlined),
                         label: Text(o['pay_choice'] == 'cash' ? (te ? '✓ క్యాష్' : '✓ Cash') : (te ? 'క్యాష్' : 'Cash')),
@@ -881,7 +882,7 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                       key: const Key('askodoxOrderThanks'),
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: const Color(0xFFFFF8EB), borderRadius: BorderRadius.circular(14)),
+                      decoration: BoxDecoration(color: const Color(0xFF382C14), borderRadius: BorderRadius.circular(14)),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         if ('${o['thanks'] ?? ''}'.isNotEmpty)
                           Text('🙏 ${o['thanks']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -912,7 +913,7 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                     key: const Key('askodoxOrderStage'),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: waiting ? const Color(0xFFFFF4E5) : (closed ? const Color(0xFFFDECEC) : const Color(0xFFE7F5EE)),
+                      color: waiting ? const Color(0xFF3C2A0D) : (closed ? const Color(0xFF402526) : const Color(0xFF1A3429)),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Column(children: [
@@ -924,7 +925,7 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                           style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
-                              color: waiting ? const Color(0xFF92400E) : (closed ? const Color(0xFFB91C1C) : const Color(0xFF17784C)))),
+                              color: waiting ? const Color(0xFFFFA980) : (closed ? const Color(0xFFFEA195) : const Color(0xFF7CD3A2)))),
                       if (waiting)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
@@ -957,17 +958,17 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                                   },
                                   size: 22,
                                   color: switch (st.state) {
-                                    AskodoxStepState.done => const Color(0xFF17784C),
-                                    AskodoxStepState.now => const Color(0xFFB45309),
-                                    AskodoxStepState.next => const Color(0xFF9AA3B2),
+                                    AskodoxStepState.done => const Color(0xFF7CD3A2),
+                                    AskodoxStepState.now => const Color(0xFFFB9E6A),
+                                    AskodoxStepState.next => const Color(0xFF9099A8),
                                   }),
                               const SizedBox(width: 10),
                               Expanded(
                                   child: Text(askodoxOrderStepName(st.stage, te),
                                       style: TextStyle(
                                           fontWeight: st.state == AskodoxStepState.next ? FontWeight.w500 : FontWeight.w800,
-                                          color: st.state == AskodoxStepState.next ? const Color(0xFF5B6475) : null))),
-                              Text(askodoxClockWords(st.at, te), style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                                          color: st.state == AskodoxStepState.next ? const Color(0xFFB4BED1) : null))),
+                              Text(askodoxClockWords(st.at, te), style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                             ]),
                           ),
                       ]),
@@ -987,9 +988,9 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                                       style: TextStyle(decoration: i['status'] == 'unavailable' ? TextDecoration.lineThrough : null)),
                                   if (i['status'] == 'unavailable')
                                     Text(te ? 'ఇది ఈ రోజు లేదు' : 'Not available today',
-                                        style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)))
+                                        style: const TextStyle(fontSize: 12, color: Color(0xFFFEA195)))
                                   else if ('${i['note'] ?? ''}'.isNotEmpty)
-                                    Text('${i['note']}', style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+                                    Text('${i['note']}', style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
                                 ]),
                               ),
                               Text(askodoxPaise(askodoxPosInt(i['price_paise']) * (i['qty'] as num).round()),
@@ -1011,7 +1012,7 @@ class _AskodoxOrderTrackScreenState extends ConsumerState<AskodoxOrderTrackScree
                                 balance > 0
                                     ? '${te ? 'ఇంకా కట్టాల్సింది' : 'Still to pay'}: ${askodoxPaise(balance)}'
                                     : (te ? 'కట్టేశారు ✓' : 'Paid ✓'),
-                                style: TextStyle(color: balance > 0 ? const Color(0xFFB45309) : const Color(0xFF17784C))),
+                                style: TextStyle(color: balance > 0 ? const Color(0xFFFB9E6A) : const Color(0xFF7CD3A2))),
                           ),
                       ]),
                     ),
@@ -1171,7 +1172,7 @@ class _AskodoxTableRequestsPanelState extends ConsumerState<AskodoxTableRequests
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(children: [
-                    Icon(askodoxTableAskIcon('${r['kind']}'), size: 18, color: const Color(0xFF1E3FA0)),
+                    Icon(askodoxTableAskIcon('${r['kind']}'), size: 18, color: const Color(0xFFAFC8FC)),
                     const SizedBox(width: 8),
                     Expanded(child: Text('${r['text']}'.isNotEmpty ? '${r['text']}' : '${r['label']}')),
                     Text(
@@ -1183,7 +1184,7 @@ class _AskodoxTableRequestsPanelState extends ConsumerState<AskodoxTableRequests
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: r['status'] == 'done' ? const Color(0xFF17784C) : const Color(0xFFB45309))),
+                            color: r['status'] == 'done' ? const Color(0xFF7CD3A2) : const Color(0xFFFB9E6A))),
                   ]),
                 ),
             ]),

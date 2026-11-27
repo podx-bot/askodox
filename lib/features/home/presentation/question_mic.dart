@@ -153,7 +153,7 @@ class _AskodoxQuestionMicState extends ConsumerState<AskodoxQuestionMic> {
         icon: switch (_phase) {
           _MicPhase.transcribing =>
             const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-          _MicPhase.recording => const Icon(Icons.stop_circle_rounded, color: Color(0xFFE5484D)),
+          _MicPhase.recording => const Icon(Icons.stop_circle_rounded, color: Color(0xFFFD8A86)),
           _MicPhase.idle => const Icon(Icons.mic_rounded),
         },
       );

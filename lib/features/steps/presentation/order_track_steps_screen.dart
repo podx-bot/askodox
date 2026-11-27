@@ -234,7 +234,7 @@ class _OrderTrackStepsState extends ConsumerState<AskodoxOrderTrackStepsScreen> 
               key: const Key('askodoxOrderTrackStepsThanks'),
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFFFF8EB), borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(color: const Color(0xFF382C14), borderRadius: BorderRadius.circular(14)),
               child: Text('🙏 ${o['thanks']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
             ),
           for (final st in askodoxOrderSteps(o))
@@ -252,7 +252,7 @@ class _OrderTrackStepsState extends ConsumerState<AskodoxOrderTrackStepsScreen> 
                     color: switch (st.state) {
                       AskodoxStepState.done => askodoxStepDone,
                       AskodoxStepState.now => askodoxStepWarn,
-                      AskodoxStepState.next => const Color(0xFF9AA3B2),
+                      AskodoxStepState.next => const Color(0xFF9099A8),
                     }),
                 const SizedBox(width: 12),
                 Expanded(

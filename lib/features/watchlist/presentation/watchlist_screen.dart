@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,14 +48,14 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         };
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FAFF),
+      backgroundColor: const Color(0xFF1F2432),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: AskodoxLook.sheet,
+        surfaceTintColor: AskodoxLook.sheet,
         elevation: 0,
         title: Text(
           t('History', 'చరిత్ర'),
-          style: const TextStyle(color: Color(0xFF14213D), fontWeight: FontWeight.w900),
+          style: const TextStyle(color: Color(0xFFF7F9FC), fontWeight: FontWeight.w900),
         ),
       ),
       body: ListView(
@@ -62,7 +63,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         children: [
           Text(
             t('Continue where you left off', 'మీరు ఆపిన చోటు నుంచే కొనసాగించండి'),
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF14213D)),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFFF7F9FC)),
           ),
           const SizedBox(height: 6),
           Text(
@@ -70,7 +71,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
               'Every ask, clarification, result and deal stays together as one ASKODOX timeline.',
               'మీ ప్రతి ప్రశ్న, వివరణ, ఫలితం మరియు డీల్ అన్నీ ఒకే ASKODOX టైమ్‌లైన్‌లో కలిసి ఉంటాయి.',
             ),
-            style: const TextStyle(color: Color(0xFF667085), height: 1.4),
+            style: const TextStyle(color: Color(0xFFAEB9D0), height: 1.4),
           ),
           const SizedBox(height: 18),
           Wrap(
@@ -101,7 +102,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                         'ఇంకా సంభాషణలు లేవు. ASKODOXని ఏదైనా అడగండి.')
                     : t('Nothing here for this filter.', 'ఈ ఫిల్టర్‌లో ఏమీ లేవు.'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF667085)),
+                style: const TextStyle(color: Color(0xFFAEB9D0)),
               ),
             ),
           for (final item in visible)
@@ -116,9 +117,9 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
               status: statusLabel(item.status),
               time: _relativeTime(item.updatedAt, isTelugu),
               accent: switch (item.status) {
-                AskodoxConversationStatus.active => const Color(0xFF1769FF),
-                AskodoxConversationStatus.matched => const Color(0xFF10A53A),
-                AskodoxConversationStatus.completed => const Color(0xFF8E5CF7),
+                AskodoxConversationStatus.active => const Color(0xFF8EB7FF),
+                AskodoxConversationStatus.matched => const Color(0xFF70C879),
+                AskodoxConversationStatus.completed => const Color(0xFFB7A1FD),
               },
               onTap: () => _open(item),
             ),
@@ -126,8 +127,8 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('historyNewAsk'),
-        backgroundColor: const Color(0xFF1769FF),
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFF8EB7FF),
+        foregroundColor: AskodoxLook.sheet,
         onPressed: _newAsk,
         icon: const Icon(Icons.add_rounded),
         label: Text(t('New ask', 'కొత్త ప్రశ్న'), style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -165,13 +166,13 @@ class _HistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        color: Colors.white,
-        surfaceTintColor: Colors.white,
+        color: AskodoxLook.sheet,
+        surfaceTintColor: AskodoxLook.sheet,
         elevation: 0,
         margin: const EdgeInsets.only(bottom: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFFE5EAF2)),
+          side: const BorderSide(color: Color(0xFF4A526B)),
         ),
         child: InkWell(
           onTap: onTap,
@@ -193,19 +194,19 @@ class _HistoryCard extends StatelessWidget {
                       Text(title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF14213D))),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFFF7F9FC))),
                       const SizedBox(height: 5),
                       Row(children: [
                         Container(width: 7, height: 7, decoration: BoxDecoration(color: accent, shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        Expanded(child: Text(status, style: const TextStyle(color: Color(0xFF667085)))),
+                        Expanded(child: Text(status, style: const TextStyle(color: Color(0xFFAEB9D0)))),
                       ]),
                       const SizedBox(height: 4),
-                      Text(time, style: const TextStyle(color: Color(0xFF98A2B3), fontSize: 12)),
+                      Text(time, style: const TextStyle(color: Color(0xFF8F99AA), fontSize: 12)),
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF98A2B3)),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF8F99AA)),
               ],
             ),
           ),

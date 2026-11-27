@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -82,12 +83,12 @@ String askodoxMySpokenState(AskodoxJson e) {
 }
 
 Color _statusColor(AskodoxJson e) => e['test'] == true
-    ? const Color(0xFF6B7280)
+    ? const Color(0xFFB1B9C8)
     : switch ('${e['status']}') {
-        'provider_verified' => const Color(0xFF15803D),
-        'ambiguous' => const Color(0xFFB45309),
-        'failed' => const Color(0xFFB91C1C),
-        _ => const Color(0xFF1D4ED8),
+        'provider_verified' => const Color(0xFF75D48B),
+        'ambiguous' => const Color(0xFFFB9E6A),
+        'failed' => const Color(0xFFFEA195),
+        _ => const Color(0xFFA0BFFF),
       };
 
 /// The live strip at the top of the shop dashboard: the latest payment alert at a glance (or how to turn it on).
@@ -161,9 +162,9 @@ class _AskodoxPosPaymentAlertStripState extends ConsumerState<AskodoxPosPaymentA
     final (stEn, stTe) = last == null ? ('', '') : askodoxPaymentStatusLabel(last);
     return Card(
       key: const Key('askodoxPayAlertStrip'),
-      color: const Color(0xFFEFF6FF),
+      color: const Color(0xFF232F3D),
       child: ListTile(
-        leading: Icon(_listener ? Icons.volume_up : Icons.volume_off_outlined, color: _listener ? const Color(0xFF1D4ED8) : const Color(0xFFB91C1C)),
+        leading: Icon(_listener ? Icons.volume_up : Icons.volume_off_outlined, color: _listener ? const Color(0xFFA0BFFF) : const Color(0xFFFEA195)),
         title: Text(last == null
             ? (te ? 'ఇంకా పేమెంట్ అలర్ట్ రాలేదు' : 'No payment alert yet')
             : '${askodoxRupees(last['amount_paise'])} · ${askodoxPayAlertTime(last['detected_at'])} · ${last['source_label']}'),
@@ -375,7 +376,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
 
     return Card(
       key: const Key('askodoxPayAlertUnknown'),
-      color: const Color(0xFFFFFBEB),
+      color: const Color(0xFF352D0F),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -388,7 +389,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Text('${askodoxRupees(askodoxPosInt(u['amount_paise']))} · ${labels[u['package']] ?? u['package']}',
                     style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text('"${u['template']}"', style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                Text('"${u['template']}"', style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                 Text(te ? 'ఇది మీకు వచ్చిన డబ్బా?' : 'Is this money you received?'),
                 const SizedBox(height: 6),
                 Row(children: [
@@ -848,7 +849,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                   child: ListView(key: const Key('askodoxPayAlerts'), padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
                     if (_settings['feature_on'] == false)
                       Card(
-                        color: const Color(0xFFFEF2F2),
+                        color: const Color(0xFF3B2829),
                         child: ListTile(
                           leading: const Icon(Icons.block),
                           title: Text(te ? 'ASKODOX ఈ ఫీచర్‌ను ప్రస్తుతం ఆపింది.' : 'ASKODOX has switched this feature off for now.'),
@@ -857,7 +858,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                     if (_phoneOnly)
                       Card(
                         key: const Key('askodoxPayAlertPhoneOnly'),
-                        color: const Color(0xFFFFF7ED),
+                        color: const Color(0xFF382B1A),
                         child: ListTile(
                           leading: const Icon(Icons.phone_android),
                           title: Text(te ? 'ఫోన్-మాత్రమే మోడ్' : 'Phone-only mode'),
@@ -929,20 +930,20 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
                 Container(
                   width: 38,
                   height: 38,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+                  decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(11)),
                   child: Icon(icon, color: fg, size: 21),
                 ),
                 const Spacer(),
                 if (badge != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(9)),
+                    decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(9)),
                     child: Text(badge, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: fg)),
                   ),
               ]),
               const SizedBox(height: 8),
               Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-              Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563))),
+              Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFFB9C5D5))),
             ]),
           ),
         ),
@@ -975,17 +976,17 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
       }),
       const SizedBox(height: 12),
       Material(
-        color: const Color(0xFFE8EEFB),
+        color: const Color(0xFF242D43),
         borderRadius: BorderRadius.circular(14),
         child: ListTile(
           key: const ValueKey('askodoxPayAlertOpen-history'),
-          leading: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF1E3FA0)),
+          leading: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFFAFC8FC)),
           title: Text(te ? 'వచ్చిన డబ్బు, చరిత్ర అంతా "నా డబ్బు" లోనే' : 'Money and history are all in "My money"',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
           subtitle: Text(te
               ? 'గత 24 గం: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (నోటిఫికేషన్‌లో అందినవి)'
               : 'Last 24 h: ${_summary['count'] ?? 0} · ${askodoxRupees(_summary['notified_total_paise'] ?? 0)} (received in notifications)'),
-          trailing: Text(te ? 'తెరువు ›' : 'Open ›', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3FA0))),
+          trailing: Text(te ? 'తెరువు ›' : 'Open ›', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFAFC8FC))),
           onTap: () => context.push('/money'),
         ),
       ),
@@ -1044,7 +1045,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           key: key,
           dense: true,
           contentPadding: EdgeInsets.zero,
-          leading: Icon(ok ? Icons.check_circle : Icons.error_outline, color: ok ? const Color(0xFF15803D) : const Color(0xFFB91C1C)),
+          leading: Icon(ok ? Icons.check_circle : Icons.error_outline, color: ok ? const Color(0xFF75D48B) : const Color(0xFFFEA195)),
           title: Text(text),
           trailing: action,
         );
@@ -1081,7 +1082,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           if (_status['ttsLanguageOk'] == false)
             Text(te ? 'ఫోన్‌లో తెలుగు వాయిస్ లేదు — ఇంగ్లీష్‌లో చెబుతాం. Settings > Text-to-speech లో తెలుగు డౌన్‌లోడ్ చేయండి.'
                     : 'This phone has no Telugu voice — English is used. Download Telugu in Settings > Text-to-speech.',
-                style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFFB9E6A))),
           if (unavailable)
             Text(te ? 'వినడం Android ఫోన్‌లో మాత్రమే.' : 'Listening works on the Android phone only.', style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 6),
@@ -1130,7 +1131,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
           ),
           if (pendingLocal > 0)
             Text(te ? '$pendingLocal ఈ ఫోన్ నుండి ఇంకా పంపాలి (ఇంటర్నెట్ వచ్చాక)' : '$pendingLocal from this phone waiting to send (when online)',
-                key: const Key('askodoxPayAlertPendingLocal'), style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+                key: const Key('askodoxPayAlertPendingLocal'), style: const TextStyle(fontSize: 12, color: Color(0xFFFB9E6A))),
           const SizedBox(height: 6),
           TextField(
             key: const Key('askodoxPayAlertSearch'),
@@ -1184,11 +1185,11 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
     return ListTile(
       key: ValueKey('askodoxPayAlertLocal-${l['local_id']}'),
       contentPadding: EdgeInsets.zero,
-      leading: const CircleAvatar(backgroundColor: Color(0x1FB45309), child: Icon(Icons.phone_android, color: Color(0xFFB45309))),
+      leading: const CircleAvatar(backgroundColor: Color(0x1FFB9E6A), child: Icon(Icons.phone_android, color: Color(0xFFFB9E6A))),
       title: Text('${askodoxRupees(l['amount_paise'])} · ${l['source_label'] ?? l['source_app'] ?? ''}',
           style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(why, style: const TextStyle(color: Color(0xFFB45309), fontSize: 12.5, fontWeight: FontWeight.w600)),
+        Text(why, style: const TextStyle(color: Color(0xFFFB9E6A), fontSize: 12.5, fontWeight: FontWeight.w600)),
         if (askodoxBankConfirmedLabel(l) case final b?) Text(te ? b.$2 : b.$1, style: const TextStyle(fontSize: 12)),
         Text('${askodoxPayAlertTime(l['detected_at'])} · ${te ? 'వాయిస్' : 'Voice'}: ${te ? spTe : spEn} · ${te ? 'ఈ ఫోన్ మాత్రమే' : 'this phone only'}',
             style: const TextStyle(fontSize: 12)),
@@ -1224,7 +1225,7 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
               style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: local?['bank_confirmed'] == true ? const Color(0xFF17784C) : const Color(0xFF6B7280))),
+                  color: local?['bank_confirmed'] == true ? const Color(0xFF7CD3A2) : const Color(0xFFB1B9C8))),
         Text([
           askodoxPayAlertTime(e['detected_at']),
           if (ref.isNotEmpty) 'Ref ••$ref',
@@ -1236,12 +1237,12 @@ class _AskodoxPosPaymentAlertsScreenState extends ConsumerState<AskodoxPosPaymen
         if (askodoxPayAlertTimeline(e, te).isNotEmpty)
           Text(askodoxPayAlertTimeline(e, te),
               key: ValueKey('askodoxPayAlertTimeline-${e['id']}'),
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF374151))),
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFFC0CDE0))),
         if (acks.isNotEmpty || pending > 0)
           Text([
             for (final a in acks) '${a['device']}: ${te ? askodoxSpokenLabel('${a['state']}').$2 : askodoxSpokenLabel('${a['state']}').$1}',
             if (pending > 0) te ? '$pending పరికరాలకు ఇంకా అందలేదు' : 'delivery pending on $pending device(s)',
-          ].join(' · '), style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280))),
+          ].join(' · '), style: const TextStyle(fontSize: 11.5, color: Color(0xFFB1B9C8))),
       ]),
     );
   }
@@ -1484,10 +1485,10 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
             Text(
                 '${te ? 'కనెక్ట్ అయింది' : 'Connected'} · ${_p['mode'] == 'live' ? 'LIVE' : (te ? 'టెస్ట్ మోడ్' : 'TEST mode')} · key ••${_p['key_id_tail']}',
                 key: const Key('askodoxPayAlertProviderOn'),
-                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF15803D))),
+                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF75D48B))),
             if (_p['mode'] != 'live')
               Text(te ? 'టెస్ట్ మోడ్: అసలు డబ్బు కాదు, లెక్కలో చేరదు.' : 'Test mode: not real money, never counted.',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFFB9E6A))),
             const SizedBox(height: 6),
             Text(te ? 'Razorpay Dashboard → Webhooks లో ఈ URL పెట్టండి (events: qr_code.credited, payment.captured):' : 'In Razorpay Dashboard → Webhooks add this URL (events: qr_code.credited, payment.captured):',
                 style: const TextStyle(fontSize: 12)),
@@ -1533,7 +1534,7 @@ class _AskodoxPosProviderCardState extends ConsumerState<AskodoxPosProviderCard>
           ] else ...[
             if (_p['secrets_ready'] == false)
               Text(te ? 'సర్వర్‌లో రహస్య కీ ఇంకా సెట్ కాలేదు — ASKODOX సపోర్ట్ చేయాలి.' : 'The server secret key is not set yet — ASKODOX support must do this.',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFFEA195))),
             AskodoxPosField(controller: _keyId, label: 'Razorpay Key ID (rzp_test_…)', maxLength: 60),
             AskodoxPosField(controller: _keySecret, label: 'Razorpay Key Secret', maxLength: 120),
             AskodoxPosField(controller: _hook, label: te ? 'Webhook secret (మీరు Razorpay లో పెట్టేది)' : 'Webhook secret (you set it in Razorpay)', maxLength: 120),

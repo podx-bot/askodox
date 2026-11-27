@@ -53,12 +53,12 @@ class _TermsBox extends StatelessWidget {
         key: const Key('askodoxAdvanceTerms'),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7ED),
+          color: const Color(0xFF382B1A),
           border: Border.all(color: const Color(0xFFF59E0B)),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309)),
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFFB9E6A)),
           const SizedBox(width: 8),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
         ]),
@@ -155,7 +155,7 @@ class _AskodoxPosAdvanceSettingsScreenState extends ConsumerState<AskodoxPosAdva
                   if (d['enabled'] == true) ...[
                     ListTile(
                       key: const Key('askodoxAdvanceOn'),
-                      leading: const Icon(Icons.check_circle, color: Color(0xFF16A34A)),
+                      leading: const Icon(Icons.check_circle, color: Color(0xFF69C97E)),
                       title: Text(te ? 'ఆన్‌లో ఉంది' : 'Turned on'),
                     ),
                     Row(children: [
@@ -322,7 +322,7 @@ class _AskodoxPosCustomerAdvanceCardState extends ConsumerState<AskodoxPosCustom
             ListTile(
               key: ValueKey('askodoxPosAdvancePending-${e['id']}'),
               dense: true,
-              leading: const Icon(Icons.hourglass_top_rounded, color: Color(0xFFB45309)),
+              leading: const Icon(Icons.hourglass_top_rounded, color: Color(0xFFFB9E6A)),
               title: Text('${askodoxAdvanceKindText('${e['kind']}', te)} · ${askodoxPaise(askodoxPosInt(e['amount_paise']))}'),
               subtitle: Text(askodoxAdvanceStatusText('pending', te)),
               trailing: TextButton(onPressed: () => _withdraw('${e['id']}'), child: Text(te ? 'వెనక్కి' : 'Withdraw')),
@@ -486,7 +486,7 @@ class _AskodoxMyShopAdvancesScreenState extends ConsumerState<AskodoxMyShopAdvan
                                 margin: const EdgeInsets.only(top: 8),
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(8)),
+                                    color: const Color(0xFF232F3D), borderRadius: BorderRadius.circular(8)),
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                   Text(_ask(e, '${shop['shop']}', te), style: const TextStyle(fontWeight: FontWeight.w700)),
                                   const SizedBox(height: 6),

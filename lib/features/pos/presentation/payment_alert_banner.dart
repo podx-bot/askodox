@@ -153,18 +153,18 @@ class _AskodoxPaymentAlertBannerState extends ConsumerState<AskodoxPaymentAlertB
     final broken = health != AskodoxAlertHealth.off;
     return Material(
       key: const Key('askodoxPaymentAlertBanner'),
-      color: broken ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+      color: broken ? const Color(0xFF603D3E) : const Color(0xFF372D02),
       child: InkWell(
         onTap: () => context.push('/me/payments/phone'),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
           child: Row(children: [
             Icon(broken ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                color: broken ? const Color(0xFFB91C1C) : const Color(0xFFB45309), size: 20),
+                color: broken ? const Color(0xFFFEA195) : const Color(0xFFFB9E6A), size: 20),
             const SizedBox(width: 8),
             Expanded(
                 child: Text(askodoxAlertHealthText(health, te),
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)))),
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFFF7F9FC)))),
             TextButton(
                 key: const Key('askodoxPaymentAlertBannerFix'),
                 onPressed: () => context.push('/me/payments/phone'),

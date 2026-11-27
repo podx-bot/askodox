@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -21,9 +22,9 @@ import 'one_touch.dart';
 import 'payment_voice_sheet.dart';
 import 'shop_setup_card.dart';
 
-const _buyerColor = Color(0xFF6C4DFF);
-const _sellerColor = Color(0xFF0B7A4B);
-const _ink = Color(0xFF16203F);
+const _buyerColor = Color(0xFFADAEFD);
+const _sellerColor = Color(0xFF77D49F);
+const _ink = Color(0xFFF7F9FC);
 
 /// "Money" on the bottom bar, in BOTH sides (owner 2026-11-22):
 /// - Buyer side = the person's own money: one card (this month in / out + the latest two) and their pages;
@@ -236,17 +237,17 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
       onTap: () => context.push('/money?owner=me&lock=1'),
       title: te ? 'నా డబ్బు · ఈ నెల' : 'My money · this month',
       numbers: [
-        (te ? 'వచ్చింది' : 'In', askodoxPaise(totals.inPaise), const Color(0xFF12A150)),
-        (te ? 'పోయింది' : 'Out', askodoxPaise(totals.outPaise), const Color(0xFFC4251A)),
+        (te ? 'వచ్చింది' : 'In', askodoxPaise(totals.inPaise), const Color(0xFF66CA82)),
+        (te ? 'పోయింది' : 'Out', askodoxPaise(totals.outPaise), const Color(0xFFFF9C8D)),
       ],
       lines: [
         for (final i in latest)
           (i.title.isEmpty ? (te ? 'పేమెంట్' : 'Payment') : i.title, '${i.direction == 'in' ? '+' : '−'}${askodoxPaise(i.amountPaise)}',
-              i.direction == 'in' ? const Color(0xFF12A150) : const Color(0xFFC4251A)),
+              i.direction == 'in' ? const Color(0xFF66CA82) : const Color(0xFFFF9C8D)),
         if (latest.isEmpty)
           (m?.enabled == true
               ? (te ? 'ఇంకా పేమెంట్లు రాలేదు' : 'No payments yet')
-              : (te ? 'పేమెంట్ వాయిస్ ఆన్ చేస్తే ఇక్కడ కనిపిస్తాయి' : 'Turn on Payment voice to see them here'), '', const Color(0xFF5B6475)),
+              : (te ? 'పేమెంట్ వాయిస్ ఆన్ చేస్తే ఇక్కడ కనిపిస్తాయి' : 'Turn on Payment voice to see them here'), '', const Color(0xFFB4BED1)),
       ],
     );
   }
@@ -260,8 +261,8 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         numbers: const [],
         lines: [
           (te ? 'ఆర్డర్ల స్థితి, ఫాలో చేసే షాప్‌లు, వాటి అప్‌డేట్స్ — అన్నీ ఇక్కడ.' : 'Order status, shops you follow and their updates — all here.',
-              '', const Color(0xFF5B6475)),
-          (te ? 'డబ్బు, బిల్లులు, ఖాతాలు కింద "మనీ" లో.' : 'Money, bills and accounts are under "Money".', '', const Color(0xFF5B6475)),
+              '', const Color(0xFFB4BED1)),
+          (te ? 'డబ్బు, బిల్లులు, ఖాతాలు కింద "మనీ" లో.' : 'Money, bills and accounts are under "Money".', '', const Color(0xFFB4BED1)),
         ],
       );
 
@@ -278,7 +279,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
     PopupMenuItem<String> heading(String text) => PopupMenuItem(
         enabled: false,
         height: 30,
-        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B6475))));
+        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFB4BED1))));
     return _card(
       key: Key(_side ? 'askodoxShopPageCard' : 'askodoxMoneyHomeCard'),
       color: _sellerColor,
@@ -288,7 +289,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
       trailing: PopupMenuButton<String>(
         key: const Key('askodoxMoneyShopChooser'),
         tooltip: te ? 'షాప్ మార్చు' : 'Change shop',
-        icon: const Icon(Icons.swap_horiz_rounded, color: Colors.white),
+        icon: const Icon(Icons.swap_horiz_rounded, color: AskodoxLook.sheet),
         onSelected: (v) {
           if (v == '__add__') {
             context.push('/me/business');
@@ -309,19 +310,19 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
       numbers: _side
           ? [
               (te ? 'కొత్త ఆర్డర్లు' : 'New orders', hub == null ? '…' : '${askodoxPosInt(askodoxPosMap(hub['orders'])['new'])}',
-                  const Color(0xFF1E3FA0)),
+                  const Color(0xFFAFC8FC)),
             ]
           : [
         (te ? 'ఈ రోజు అమ్మకం' : 'Today', hub == null ? '…' : askodoxPaise(askodoxPosInt(askodoxPosMap(hub['sales'])['paise'])),
-            const Color(0xFF12A150)),
+            const Color(0xFF66CA82)),
         (te ? 'బాకీ' : 'Dues', hub == null ? '…' : askodoxPaise(askodoxPosInt(askodoxPosMap(hub['dues'])['paise'])),
-            const Color(0xFFB45309)),
+            const Color(0xFFFB9E6A)),
         (te ? 'కొత్త ఆర్డర్లు' : 'New orders', hub == null ? '…' : '${askodoxPosInt(askodoxPosMap(hub['orders'])['new'])}',
-            const Color(0xFF1E3FA0)),
+            const Color(0xFFAFC8FC)),
       ],
       lines: _side
           ? [(te ? 'ఆర్డర్లు, ఐటమ్స్, సిబ్బంది, కస్టమర్లు, సెట్టింగ్స్' : 'Orders, items, staff, customers, settings', '',
-              const Color(0xFF5B6475))]
+              const Color(0xFFB4BED1))]
           : const [],
     );
   }
@@ -342,7 +343,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
         child: SizedBox(
           height: _cardHeight - 16,
           child: Material(
-            color: Colors.white,
+            color: AskodoxLook.sheet,
             elevation: 1,
             shadowColor: const Color(0x22000000),
             borderRadius: BorderRadius.circular(18),
@@ -360,9 +361,9 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                       child: Text(title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                          style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w900, fontSize: 15)),
                     ),
-                    if (trailing != null) trailing else const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                    if (trailing != null) trailing else const Icon(Icons.chevron_right_rounded, color: AskodoxLook.sheet),
                   ]),
                 ),
                 Expanded(
@@ -373,7 +374,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                         for (final (label, value, c) in numbers)
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+                              Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFFB4BED1))),
                               FittedBox(
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
@@ -466,7 +467,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                       width: i == page ? 18 : 7,
                       height: 7,
                       decoration: BoxDecoration(
-                          color: i == page ? color : const Color(0xFFC9CED8), borderRadius: BorderRadius.circular(4)),
+                          color: i == page ? color : const Color(0xFF9498A2), borderRadius: BorderRadius.circular(4)),
                     ),
                 ]),
               ),
@@ -527,7 +528,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                 for (final p in hits)
                   ListTile(
                     key: ValueKey('askodoxSidePageHit-${p.id}'),
-                    leading: CircleAvatar(backgroundColor: p.color, child: Icon(p.icon, color: Colors.white, size: 20)),
+                    leading: CircleAvatar(backgroundColor: p.color, child: Icon(p.icon, color: AskodoxLook.sheet, size: 20)),
                     title: Text(te ? p.te : p.en),
                     subtitle: Text(askodoxMoneySectionIds.contains(p.id) ? (te ? 'మనీ లో' : 'in Money') : (te ? 'ఈ పేజీలో' : 'on this page')),
                     onTap: () => _open(p, shop),
@@ -644,8 +645,8 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           child: Container(
             width: 22,
             height: 22,
-            decoration: const BoxDecoration(color: Color(0xFF5B6475), shape: BoxShape.circle),
-            child: const Icon(Icons.remove_rounded, size: 16, color: Colors.white),
+            decoration: const BoxDecoration(color: Color(0xFFB4BED1), shape: BoxShape.circle),
+            child: const Icon(Icons.remove_rounded, size: 16, color: AskodoxLook.sheet),
           ),
         ),
       );
@@ -746,7 +747,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
             width: size,
             height: size,
             decoration: BoxDecoration(color: p.color, borderRadius: BorderRadius.circular(size * .29)),
-            child: Icon(p.icon, color: Colors.white, size: size / 2),
+            child: Icon(p.icon, color: AskodoxLook.sheet, size: size / 2),
           ),
           const SizedBox(height: 5),
           Padding(
@@ -770,7 +771,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
           width: 56,
           height: 56,
           padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(color: const Color(0xFFE7EAF2), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: const Color(0xFF4A526B), borderRadius: BorderRadius.circular(16)),
           child: GridView.count(
             crossAxisCount: 2,
             mainAxisSpacing: 3,
@@ -782,7 +783,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                 if (byId[c] != null)
                   Container(
                     decoration: BoxDecoration(color: byId[c]!.color, borderRadius: BorderRadius.circular(5)),
-                    child: Icon(byId[c]!.icon, size: 12, color: Colors.white),
+                    child: Icon(byId[c]!.icon, size: 12, color: AskodoxLook.sheet),
                   ),
             ],
           ),
@@ -831,7 +832,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 child: Material(
                   key: _panelKey,
-                  color: Colors.white,
+                  color: AskodoxLook.sheet,
                   elevation: 6,
                   borderRadius: BorderRadius.circular(24),
                   child: Padding(
@@ -858,7 +859,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                               ? 'పట్టుకుని బయటకు లాగితే పేజీ స్క్రీన్ మీదకు వస్తుంది; లోపలే లాగితే వరుస మారుతుంది.'
                               : 'Hold and drag a page out to put it on the screen; inside the folder to change its place.',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFFB4BED1))),
                       const SizedBox(height: 6),
                       GridView(
                         gridDelegate:
@@ -994,7 +995,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(color: byId[e.page]!.color, borderRadius: BorderRadius.circular(10)),
-                  child: Icon(byId[e.page]!.icon, color: Colors.white, size: 20),
+                  child: Icon(byId[e.page]!.icon, color: AskodoxLook.sheet, size: 20),
                 ),
                 title: Text(byId[e.page]!.label(te)),
                 onTap: () => Navigator.pop(sheet, e.id),
@@ -1137,7 +1138,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
               te
                   ? 'పట్టుకుని లాగండి: ఎక్కడ వదిలితే అక్కడే ఉంటుంది, మిగతావి జరుగుతాయి. అంచుకి = తర్వాతి స్క్రీన్. ఫోల్డర్: నొక్కి పట్టి వదిలి "ఫోల్డర్‌లో పెట్టు". "−" = దాచు.'
                   : 'Hold and drag: it stays where you drop it, the others shift. Edge = next screen. Folder: press, hold, let go → "Put in a folder". "−" = hide.',
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B6475))),
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFFB4BED1))),
         ])),
           ),
         ),
@@ -1161,7 +1162,7 @@ class _AskodoxMoneyHomeScreenState extends ConsumerState<AskodoxMoneyHomeScreen>
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(color: byId[id]!.color, borderRadius: BorderRadius.circular(10)),
-                      child: Icon(byId[id]!.icon, color: Colors.white, size: 20),
+                      child: Icon(byId[id]!.icon, color: AskodoxLook.sheet, size: 20),
                     ),
                     title: Text(byId[id]!.label(te)),
                     trailing: TextButton(

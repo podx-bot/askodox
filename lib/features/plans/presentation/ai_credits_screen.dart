@@ -144,7 +144,7 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
                       style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
                   if (s.balance('test') != 0)
                     Text('${t('TEST credits (sandbox money)', 'TEST credits (sandbox డబ్బు)')}: ${askodoxRupees(s.balance('test'))}',
-                        key: const Key('askodoxAiCreditsTest'), style: const TextStyle(color: Color(0xFFB45309))),
+                        key: const Key('askodoxAiCreditsTest'), style: const TextStyle(color: Color(0xFFFB9E6A))),
                   const SizedBox(height: 6),
                   Text(
                       s.charging
@@ -171,7 +171,7 @@ class AskodoxAiCreditsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(askodoxAiBonusLine(s.status()!, t)!,
                       key: const Key('askodoxAiBonusLine'),
-                      style: const TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.w700)),
+                      style: const TextStyle(color: Color(0xFF75D48B), fontWeight: FontWeight.w700)),
                 ),
             ],
             if (s.charging) ...[
@@ -366,12 +366,12 @@ class AskodoxAiBarsCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (free['on'] == true)
             _bar(context, const Key('askodoxAiBarFree'), t("Today's free", 'ఈ రోజు free'),
-                (free['percent_left'] as num?)?.toInt() ?? 0, const Color(0xFF16A34A),
+                (free['percent_left'] as num?)?.toInt() ?? 0, const Color(0xFF69C97E),
                 resets.isEmpty ? '' : t('Full again at $resets. It cannot be saved.',
                     '$resets కి మళ్ళీ నిండుతుంది. దాచుకోలేరు.')),
           if (free['on'] == true) const SizedBox(height: 14),
           _bar(context, const Key('askodoxAiBarPack'), t('Your pack', 'మీ ప్యాక్'),
-              pack['has'] == true ? (pack['percent_left'] as num?)?.toInt() ?? 0 : 0, const Color(0xFF2563EB),
+              pack['has'] == true ? (pack['percent_left'] as num?)?.toInt() ?? 0 : 0, const Color(0xFF95B9FD),
               pack['has'] == true
                   ? t("Used after today's free part. No other limit.", 'ఈ రోజు free అయ్యాక ఇది వాడతాం. ఏ limit లేదు.')
                   : t('No pack yet. Recharge below to keep going after the free part.',
@@ -381,7 +381,7 @@ class AskodoxAiBarsCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 12),
               child: Text('⚠️ $warning',
                   key: const Key('askodoxAiPaceWarning'),
-                  style: const TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w700)),
+                  style: const TextStyle(color: Color(0xFFFB9E6A), fontWeight: FontWeight.w700)),
             ),
           const SizedBox(height: 10),
           Text(
@@ -403,7 +403,7 @@ class AskodoxAiBarsCard extends StatelessWidget {
       ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: LinearProgressIndicator(
-            value: percent / 100, minHeight: 10, color: color, backgroundColor: const Color(0xFFE5E7EB)),
+            value: percent / 100, minHeight: 10, color: color, backgroundColor: const Color(0xFF4A526B)),
       ),
       if (note.isNotEmpty)
         Padding(

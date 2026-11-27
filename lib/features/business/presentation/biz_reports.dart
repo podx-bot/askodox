@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,12 +17,12 @@ import 'biz_hub.dart';
 /// colours, bars instead of tables, and "వినండి" reads it out. Every problem shows WHY (from the shop's own rows) and
 /// one thing to do, with a button that opens the page where it is fixed.
 
-const _green = Color(0xFF17784C);
-const _red = Color(0xFFB91C1C);
-const _orange = Color(0xFFB45309);
-const _blue = Color(0xFF1E3FA0);
-const _purple = Color(0xFF5B2A9E);
-const _muted = Color(0xFF4B5563);
+const _green = Color(0xFF7CD3A2);
+const _red = Color(0xFFFEA195);
+const _orange = Color(0xFFFB9E6A);
+const _blue = Color(0xFFAFC8FC);
+const _purple = Color(0xFFCDBAFF);
+const _muted = Color(0xFFB9C5D5);
 
 final askodoxReportDayProvider = FutureProvider.autoDispose.family<AskodoxJson, (String, String)>(
     (ref, k) => ref.watch(askodoxPosRepositoryProvider).reportDay(k.$1, date: k.$2));
@@ -105,7 +106,7 @@ class _AskodoxBizReportsScreenState extends ConsumerState<AskodoxBizReportsScree
                   key: Key('askodoxReportTab-$k'),
                   label: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
                   selected: _tab == k,
-                  selectedColor: const Color(0xFFE4D8F8),
+                  selectedColor: const Color(0xFF4F3E68),
                   onSelected: (_) => setState(() => _tab = k),
                 ),
               ),
@@ -368,7 +369,7 @@ class _AskodoxBizReportsScreenState extends ConsumerState<AskodoxBizReportsScree
   Widget _bigLine(String label, String value, Color color) => Container(
         margin: const EdgeInsets.only(top: 6),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(12)),
         child: Row(children: [
           Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800))),
           Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: color)),
@@ -391,7 +392,7 @@ class _ProblemCard extends StatelessWidget {
       key: Key('askodoxReportProblem-${p['key']}'),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(14),
           border: Border(left: BorderSide(color: color, width: 6))),
       padding: const EdgeInsets.all(12),
@@ -436,7 +437,7 @@ class _Bars extends StatelessWidget {
             Expanded(
               child: Container(
                 height: 22,
-                decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(8)),
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
                   widthFactor: top == 0 ? 0 : (r.$2 / top).clamp(0.02, 1.0),
@@ -470,7 +471,7 @@ class _HourChart extends StatelessWidget {
     final busiest = peak ?? shown.reduce((a, b) => askodoxPosInt(a['bills']) >= askodoxPosInt(b['bills']) ? a : b)['hour'];
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14)),
       child: Column(children: [
         SizedBox(
           height: 110,
@@ -485,7 +486,7 @@ class _HourChart extends StatelessWidget {
                     Container(
                       height: 86 * askodoxPosInt(h['bills']) / top,
                       decoration: BoxDecoration(
-                          color: askodoxPosInt(h['hour']) == askodoxPosInt(busiest) ? _red : const Color(0xFF9DB0E8),
+                          color: askodoxPosInt(h['hour']) == askodoxPosInt(busiest) ? _red : const Color(0xFF465587),
                           borderRadius: BorderRadius.circular(4)),
                     ),
                   ]),
@@ -517,7 +518,7 @@ class _DayChart extends StatelessWidget {
     final top = series.fold<int>(1, (m, d) => askodoxPosInt(d['paise']) > m ? askodoxPosInt(d['paise']) : m);
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(14)),
       child: Column(children: [
         SizedBox(
           height: 120,
@@ -529,7 +530,7 @@ class _DayChart extends StatelessWidget {
                   child: Container(
                     height: 116 * askodoxPosInt(d['paise']) / top,
                     decoration: BoxDecoration(
-                        color: askodoxPosInt(d['paise']) == top ? _green : const Color(0xFF8FCFB0),
+                        color: askodoxPosInt(d['paise']) == top ? _green : const Color(0xFF26664B),
                         borderRadius: BorderRadius.circular(3)),
                   ),
                 ),
@@ -600,7 +601,7 @@ class _AskodoxBizReportSettingsScreenState extends ConsumerState<AskodoxBizRepor
           : [
               SwitchListTile(
                 key: const Key('askodoxReportNightPush'),
-                tileColor: Colors.white,
+                tileColor: AskodoxLook.sheet,
                 value: s['night_push'] == true,
                 onChanged: (v) => _save({'night_push': v}),
                 title: Text(te ? 'ప్రతి రాత్రి రిపోర్ట్ పంపు' : 'Send the report every night'),
@@ -611,7 +612,7 @@ class _AskodoxBizReportSettingsScreenState extends ConsumerState<AskodoxBizRepor
               const SizedBox(height: 8),
               ListTile(
                 key: const Key('askodoxReportTime'),
-                tileColor: Colors.white,
+                tileColor: AskodoxLook.sheet,
                 leading: const Icon(Icons.schedule),
                 title: Text(te ? 'ఎప్పుడు?' : 'When?'),
                 trailing: Text('${s['send_time']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),

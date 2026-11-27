@@ -435,7 +435,7 @@ class _AskodoxPosItemsScreenState extends ConsumerState<AskodoxPosItemsScreen> {
                       key: ValueKey('askodoxPosItemOffer-${p['id']}'),
                       tooltip: te ? 'ఆఫర్' : 'Offer',
                       onPressed: () => _offer(p),
-                      icon: Icon(Icons.local_offer_outlined, color: p['offer'] == null ? null : const Color(0xFF17784C))),
+                      icon: Icon(Icons.local_offer_outlined, color: p['offer'] == null ? null : const Color(0xFF7CD3A2))),
                   if (p['track_stock'] == true && p['track_serials'] != true)
                     IconButton(onPressed: () => _stock(p), icon: const Icon(Icons.inventory_outlined)),
                 ]),
@@ -648,7 +648,7 @@ class _AskodoxPosItemFormState extends ConsumerState<AskodoxPosItemForm> {
                     ? 'ప్యాకెట్ మీద ఎక్స్‌పైరీ: $_photoExpiry. స్టాక్ (కొనుగోలు బిల్లు) చేర్చేటప్పుడు ఈ తేదీ పెట్టండి; దగ్గరపడితే ASKODOX చెబుతుంది.'
                     : 'Expiry on the pack: $_photoExpiry. Enter it when you add the stock (purchase bill); ASKODOX warns you before it expires.',
                 key: const Key('askodoxPosItemPhotoExpiry'),
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFFB45309))),
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFFFB9E6A))),
           ),
         const SizedBox(height: 12),
         AskodoxPosField(controller: _name, label: te ? 'పేరు (ఇంగ్లీష్)' : 'Name', maxLength: 80,
@@ -862,7 +862,7 @@ class _AskodoxPosCustomersScreenState extends ConsumerState<AskodoxPosCustomersS
                 title: Text('${c['name']}'),
                 subtitle: Text('${c['gstin'] ?? 'B2C'}'),
                 trailing: Text(askodoxPaise(askodoxPosInt(c['balance_paise'])),
-                    style: TextStyle(fontWeight: FontWeight.w800, color: askodoxPosInt(c['balance_paise']) > 0 ? const Color(0xFFB91C1C) : null)),
+                    style: TextStyle(fontWeight: FontWeight.w800, color: askodoxPosInt(c['balance_paise']) > 0 ? const Color(0xFFFEA195) : null)),
                 onTap: () async {
                   await context.push('/pos/${widget.businessId}/customers/${c['id']}');
                   if (mounted) _reload();
@@ -972,7 +972,7 @@ class _AskodoxCustomerSuggestionsState extends ConsumerState<AskodoxCustomerSugg
                         key: ValueKey('askodoxCustomerSuggestionSave-$phone'),
                         tooltip: te ? 'చేర్చు' : 'Save',
                         onPressed: () => _save(r),
-                        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF15803D))),
+                        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF75D48B))),
                     IconButton(
                         key: ValueKey('askodoxCustomerSuggestionSkip-$phone'),
                         tooltip: te ? 'వద్దు' : 'No',
@@ -1259,7 +1259,7 @@ class _AskodoxPosInvoiceScreenState extends ConsumerState<AskodoxPosInvoiceScree
           final isInvoice = inv['doc_kind'] == 'invoice' && inv['status'] == 'issued';
           return ListView(key: const Key('askodoxPosInvoice'), padding: const EdgeInsets.all(12), children: [
             if (inv['status'] == 'cancelled')
-              Text('${te ? 'రద్దు' : 'CANCELLED'}: ${inv['cancel_reason']}', style: const TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.w800)),
+              Text('${te ? 'రద్దు' : 'CANCELLED'}: ${inv['cancel_reason']}', style: const TextStyle(color: Color(0xFFFEA195), fontWeight: FontWeight.w800)),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -1488,7 +1488,7 @@ class _AskodoxPosGstScreenState extends ConsumerState<AskodoxPosGstScreen> {
               Text(_month, style: const TextStyle(fontWeight: FontWeight.w700)),
               IconButton(onPressed: () => _shift(1), icon: const Icon(Icons.chevron_right)),
             ]),
-            Text('${r['disclaimer']}', key: const Key('askodoxPosGstDisclaimer'), style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+            Text('${r['disclaimer']}', key: const Key('askodoxPosGstDisclaimer'), style: const TextStyle(fontSize: 12, color: Color(0xFFFB9E6A))),
             Text(te ? 'రేటు వారీగా (పన్ను విధించదగిన విలువ)' : 'By rate (taxable value)', style: const TextStyle(fontWeight: FontWeight.w800)),
             for (final row in askodoxPosList(r['by_rate'])) _row('${askodoxRate(askodoxPosInt(row['rate_bp']))} · ${row['category']}', row),
             _row('B2B', askodoxPosMap(r['b2b'])),
@@ -1594,7 +1594,7 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
             else
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text('${te ? 'ఫోన్' : 'Phone'}: ••••${m['phone_last4']}', style: const TextStyle(color: Color(0xFF5B6475))),
+                child: Text('${te ? 'ఫోన్' : 'Phone'}: ••••${m['phone_last4']}', style: const TextStyle(color: Color(0xFFB4BED1))),
               ),
             Text(te ? 'పాత్ర' : 'Role', style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
@@ -1707,13 +1707,13 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
     final accepts = m['accepts_orders'] == true;
     final name = '${m['label'] ?? ''}'.isNotEmpty ? '${m['label']}' : (owner ? (te ? 'మీరు' : 'You') : '••${m['phone_last4']}');
     final status = !active
-        ? (te ? 'తీసేశారు' : 'Removed', const Color(0xFF6B7280))
+        ? (te ? 'తీసేశారు' : 'Removed', const Color(0xFFB1B9C8))
         : paused
-            ? (te ? 'ఆపారు (Pause)' : 'Paused', const Color(0xFFB45309))
+            ? (te ? 'ఆపారు (Pause)' : 'Paused', const Color(0xFFFB9E6A))
             : accepts
-                ? (te ? 'ఆర్డర్లు ఒప్పుకోవచ్చు' : 'Accepts orders', const Color(0xFF17784C))
-                : (te ? 'ఆర్డర్లు ఒప్పుకోరు' : 'Does not accept orders', const Color(0xFF5B6475));
-    Widget btn(String key, IconData icon, String tip, VoidCallback onTap, {Color bg = const Color(0xFFF2F4F7), Color fg = const Color(0xFF16203F)}) =>
+                ? (te ? 'ఆర్డర్లు ఒప్పుకోవచ్చు' : 'Accepts orders', const Color(0xFF7CD3A2))
+                : (te ? 'ఆర్డర్లు ఒప్పుకోరు' : 'Does not accept orders', const Color(0xFFB4BED1));
+    Widget btn(String key, IconData icon, String tip, VoidCallback onTap, {Color bg = const Color(0xFF1F2432), Color fg = const Color(0xFFF7F9FC)}) =>
         Padding(
           padding: const EdgeInsets.only(left: 6),
           child: Material(
@@ -1735,10 +1735,10 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: active ? null : const Color(0xFF6B7280))),
-            Text('${askodoxStaffRoleLabel('${m['role']}', te)} · ••••${m['phone_last4']}', style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+            Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: active ? null : const Color(0xFFB1B9C8))),
+            Text('${askodoxStaffRoleLabel('${m['role']}', te)} · ••••${m['phone_last4']}', style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
             Text(owner ? (te ? 'ఎప్పుడూ ఒప్పుకోవచ్చు' : 'Always accepts') : status.$1,
-                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: owner ? const Color(0xFF17784C) : status.$2)),
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: owner ? const Color(0xFF7CD3A2) : status.$2)),
           ]),
         ),
         if (!owner && active) ...[
@@ -1749,7 +1749,7 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
                   () => ref.read(askodoxPosRepositoryProvider).editMember(widget.businessId, '${m['phone_last4']}', paused: !paused),
                   paused ? (te ? 'మళ్లీ మొదలైంది' : 'Resumed') : (te ? 'ఆపాం — ఆర్డర్లు రావు' : 'Paused — no orders reach them')))),
           btn('askodoxStaffRemove-${m['phone_last4']}', Icons.delete_outline, te ? 'తీసేయి' : 'Remove', () => unawaited(_remove(m)),
-              bg: const Color(0xFFFDECEC), fg: const Color(0xFFB91C1C)),
+              bg: const Color(0xFF402526), fg: const Color(0xFFFEA195)),
         ],
         if (!owner && !active)
           TextButton(key: Key('askodoxStaffRestore-${m['phone_last4']}'), onPressed: () => unawaited(_restore(m)), child: Text(te ? 'తిరిగి తెచ్చు' : 'Bring back')),
@@ -1789,14 +1789,14 @@ class _AskodoxPosStaffScreenState extends ConsumerState<AskodoxPosStaffScreen> {
                         te
                             ? 'కొత్త ఆర్డర్ వస్తే "ఆర్డర్లు ఒప్పుకోవచ్చు" ఉన్నవాళ్ల ఫోన్లలో మోగుతుంది. ఎవరో ఒకరు నొక్కితే చాలు. ఎవరినీ అనుమతించకపోతే మీరొక్కరే. ఆటోమేటిక్‌గా ఒప్పుకోవడం ఉండదు.'
                             : 'A new order rings the people who "accept orders"; one tap from any of them is enough. Allow nobody and it is only you. Nothing is accepted by itself.',
-                        style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                        style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                     const SizedBox(height: 8),
                     // Owner 2026-11-24: Staff and "who accepts orders / who hears each step" are ONE page.
                     Card(
-                      color: const Color(0xFFF5F3FF),
+                      color: const Color(0xFF2F2A3E),
                       child: ListTile(
                         key: const Key('askodoxStaffOrderAlerts'),
-                        leading: const Icon(Icons.notifications_active_rounded, color: Color(0xFF7C3AED)),
+                        leading: const Icon(Icons.notifications_active_rounded, color: Color(0xFFBCACFB)),
                         title: Text(te ? 'ఆర్డర్ అలర్ట్స్: ఏ స్టెప్ ఎవరికి వినిపించాలి' : 'Order alerts: who hears each step',
                             style: const TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text(te ? 'కొత్త ఆర్డర్, వంట అయింది, డెలివరీ — ఒక్కో స్టెప్‌కి ఎవరో ఎంచుకోండి.' : 'New order, ready, delivery — choose people per step.'),

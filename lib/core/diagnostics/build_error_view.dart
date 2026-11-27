@@ -24,14 +24,14 @@ void askodoxInstallBuildErrorView(Uri? apiBase) {
           .then((_) {}, onError: (_) {}));
     }
     return const Material(
-      color: Color(0xFFFFF8EB),
+      color: Color(0xFF382C14),
       child: Padding(
         padding: EdgeInsets.all(16),
         child: Center(
           child: Text(
             'ఈ భాగం చూపించలేకపోయాం. వెనక్కి వెళ్ళి మళ్ళీ తెరవండి.\nThis part could not be shown. Go back and open it again.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF92400E), fontSize: 13),
+            style: TextStyle(color: Color(0xFFFFA980), fontSize: 13),
           ),
         ),
       ),

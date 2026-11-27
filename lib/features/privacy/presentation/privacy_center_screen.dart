@@ -97,7 +97,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
             TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Cancel', 'రద్దు'))),
             FilledButton(
               key: const Key('askodoxConfirmDelete'),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFEA294)),
               onPressed: typed.text.trim().toUpperCase() == 'DELETE' ? () => Navigator.pop(context, true) : null,
               child: Text(_t('Delete account', 'ఖాతా తొలగించండి')),
             ),
@@ -137,7 +137,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
     final signedIn = ref.watch(authSessionProvider).user != null;
     Widget promise(String text) => ListTile(
           dense: true,
-          leading: const Icon(Icons.check_circle_rounded, color: Color(0xFF1B8A3B)),
+          leading: const Icon(Icons.check_circle_rounded, color: Color(0xFF74D083)),
           title: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
         );
     return Scaffold(
@@ -183,8 +183,8 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
             ),
             ListTile(
               key: const Key('askodoxDeleteAccount'),
-              leading: const Icon(Icons.delete_forever_outlined, color: Color(0xFFB3261E)),
-              title: Text(_t('Delete my account', 'నా ఖాతా తొలగించండి'), style: const TextStyle(color: Color(0xFFB3261E))),
+              leading: const Icon(Icons.delete_forever_outlined, color: Color(0xFFFEA294)),
+              title: Text(_t('Delete my account', 'నా ఖాతా తొలగించండి'), style: const TextStyle(color: Color(0xFFFEA294))),
               onTap: _busy ? null : _deleteAccount,
             ),
           ],

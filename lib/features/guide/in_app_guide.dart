@@ -1,3 +1,4 @@
+import '../../config/theme/askodox_look.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -722,7 +723,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
           top: MediaQuery.paddingOf(context).top + 8,
           child: Material(
             key: const Key('askodoxGuidePaused'),
-            color: const Color(0xFF10204A),
+            color: const Color(0xFFF7F9FC),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -730,7 +731,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
                   _te
                       ? 'ఇది ప్రైవేట్ స్క్రీన్ -- గైడ్ ఆగింది. ఇక్కడి వివరాలు చదవదు.'
                       : 'Private screen -- the guide is paused and reads nothing here.',
-                  style: const TextStyle(color: Colors.white)),
+                  style: const TextStyle(color: AskodoxLook.sheet)),
             ),
           ),
         )
@@ -759,7 +760,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
       top: below ? r.bottom + 4 : r.top - 40,
       child: IgnorePointer(
         child: Icon(below ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-            key: const Key('askodoxGuideArrow'), size: 36, color: const Color(0xFFFFC94D)),
+            key: const Key('askodoxGuideArrow'), size: 36, color: const Color(0xFF5C4304)),
       ),
     );
   }
@@ -783,7 +784,7 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
       child: Material(
         key: _bubbleKey,
         elevation: 6,
-        color: Colors.white,
+        color: AskodoxLook.sheet,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 6, 6),
@@ -808,10 +809,10 @@ class _AskodoxGuideOverlayState extends ConsumerState<AskodoxGuideOverlay> with 
             ),
             Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${s.flow.title(_te)} · ${s.index + 1}/${s.flow.steps.length}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF6C4DFF), fontWeight: FontWeight.w800)),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFADAEFD), fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
             Text(text, key: const Key('askodoxGuideText'),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF10204A))),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFFF7F9FC))),
             Row(mainAxisAlignment: MainAxisAlignment.end, children: [
               if (lost && step.route != null)
                 TextButton(
@@ -856,25 +857,25 @@ class AskodoxGuideFacePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final r = size.shortestSide / 2;
-    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF6C4DFF));
-    canvas.drawCircle(c, r * .86, Paint()..color = const Color(0xFFF1ECFF));
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFFADAEFD));
+    canvas.drawCircle(c, r * .86, Paint()..color = const Color(0xFF312747));
     for (final dx in [-r * .34, r * .34]) {
       final eye = c + Offset(dx, -r * .18);
       if (blink) {
         canvas.drawLine(eye - Offset(r * .14, 0), eye + Offset(r * .14, 0),
             Paint()
-              ..color = const Color(0xFF10204A)
+              ..color = const Color(0xFFF7F9FC)
               ..strokeWidth = 2.2
               ..strokeCap = StrokeCap.round);
       } else {
-        canvas.drawCircle(eye, r * .17, Paint()..color = Colors.white);
-        canvas.drawCircle(eye + look * (r * .07), r * .095, Paint()..color = const Color(0xFF10204A));
+        canvas.drawCircle(eye, r * .17, Paint()..color = AskodoxLook.sheet);
+        canvas.drawCircle(eye + look * (r * .07), r * .095, Paint()..color = const Color(0xFFF7F9FC));
       }
     }
     final open = mouth.clamp(0.0, 1.0);
     final mouthRect = Rect.fromCenter(center: c + Offset(0, r * .36), width: r * .62, height: r * (.06 + .32 * open));
     canvas.drawRRect(RRect.fromRectAndRadius(mouthRect, Radius.circular(r * .2)),
-        Paint()..color = const Color(0xFF10204A));
+        Paint()..color = const Color(0xFFF7F9FC));
   }
 
   @override
@@ -893,13 +894,13 @@ class _SpotlightPainter extends CustomPainter {
       ..addRect(Offset.zero & size)
       ..addRRect(hole)
       ..fillType = PathFillType.evenOdd;
-    canvas.drawPath(dim, Paint()..color = const Color(0x8C0B1330));
+    canvas.drawPath(dim, Paint()..color = const Color(0x8CF7F9FC));
     canvas.drawRRect(
         hole.inflate(2 + 6 * t),
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
-          ..color = Color.lerp(const Color(0xFFFFC94D), const Color(0x00FFC94D), t * .7)!);
+          ..color = Color.lerp(const Color(0xFF5C4304), const Color(0x00FFC94D), t * .7)!);
   }
 
   @override

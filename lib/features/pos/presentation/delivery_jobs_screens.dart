@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -19,10 +20,10 @@ String askodoxRupee(Object? paise) {
 }
 
 const askodoxWorkColours = <String, (Color, String, String)>{
-  'free': (Color(0xFF16A34A), 'Free', 'ఖాళీ'),
-  'busy': (Color(0xFFEA580C), 'On a job', 'పనిలో'),
-  'off': (Color(0xFFDC2626), 'Busy / off', 'బిజీ / ఆఫ్'),
-  'unknown': (Color(0xFF94A3B8), 'Not set', 'తెలియదు'),
+  'free': (Color(0xFF69C97E), 'Free', 'ఖాళీ'),
+  'busy': (Color(0xFFF88E66), 'On a job', 'పనిలో'),
+  'off': (Color(0xFFFE9488), 'Busy / off', 'బిజీ / ఆఫ్'),
+  'unknown': (Color(0xFF4C596C), 'Not set', 'తెలియదు'),
 };
 
 Future<void> _dial(String phone) async {
@@ -303,9 +304,9 @@ class _DeliveryJobsState extends ConsumerState<AskodoxDeliveryJobsScreen> {
         Container(
           key: const Key('askodoxDeliveryRoute'),
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(color: const Color(0xFF232F3D), borderRadius: BorderRadius.circular(14)),
           child: Row(children: [
-            const Icon(Icons.route_rounded, color: Color(0xFF1D4ED8)),
+            const Icon(Icons.route_rounded, color: Color(0xFFA0BFFF)),
             const SizedBox(width: 8),
             Flexible(
               child: Text('≈ ${_km!.toStringAsFixed(1)} km${_minutes == null ? '' : ' · $_minutes ${te ? 'ని.' : 'min'}'}',
@@ -515,8 +516,8 @@ class _MyDeliveriesState extends ConsumerState<AskodoxMyDeliveriesScreen> {
                         child: FilledButton(
                           key: ValueKey('askodoxWorkStatus-$c'),
                           style: FilledButton.styleFrom(
-                              backgroundColor: colour == c ? askodoxWorkColours[c]!.$1 : const Color(0xFFF1F5F9),
-                              foregroundColor: colour == c ? Colors.white : const Color(0xFF334155),
+                              backgroundColor: colour == c ? askodoxWorkColours[c]!.$1 : const Color(0xFF1F2432),
+                              foregroundColor: colour == c ? AskodoxLook.sheet : const Color(0xFFBCCDE6),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                           onPressed: () => _do(() => _repo.setWorkStatus(c)),
                           child: FittedBox(
@@ -532,7 +533,7 @@ class _MyDeliveriesState extends ConsumerState<AskodoxMyDeliveriesScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(te ? '3 గంటలుగా రంగు మార్చలేదు – ఇప్పుడు ఏది?' : 'No colour for 3 hours – which is it now?',
-                        style: const TextStyle(color: Color(0xFF64748B))),
+                        style: const TextStyle(color: Color(0xFFA8BAD3))),
                   ),
                 for (final c in cash)
                   Padding(
@@ -563,7 +564,7 @@ class _MyDeliveriesState extends ConsumerState<AskodoxMyDeliveriesScreen> {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${job['shop']} · ${job['label']}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
+          Text('${job['shop']} · ${job['label']}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF75D48B))),
           Text('${job['from']} → ${job['to']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
           Text([
             if (job['km'] != null) '≈ ${(job['km'] as num).toStringAsFixed(1)} km',
@@ -595,7 +596,7 @@ class _MyDeliveriesState extends ConsumerState<AskodoxMyDeliveriesScreen> {
     final qr = _qr[id] ?? askodoxPosMap(job['request']);
     return Card(
       key: ValueKey('askodoxMyJob-$id'),
-      color: const Color(0xFFFFF7ED),
+      color: const Color(0xFF382B1A),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

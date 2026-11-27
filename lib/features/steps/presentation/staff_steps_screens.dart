@@ -68,7 +68,7 @@ class _AttendanceStepsState extends ConsumerState<AskodoxAttendanceStepsScreen> 
                     ('P', te ? 'వచ్చారు' : 'Present', askodoxStepDone),
                     ('A', te ? 'రాలేదు' : 'Absent', askodoxStepBad),
                     ('OT', te ? 'ఎక్కువ గంటలు' : 'Overtime', askodoxStepWarn),
-                    ('leave', te ? 'సెలవు' : 'Leave', const Color(0xFF5B2A9E)),
+                    ('leave', te ? 'సెలవు' : 'Leave', const Color(0xFFCDBAFF)),
                   ])
                     FilledButton(
                       key: Key('askodoxAttStepsMark-$ref0-$s'),
@@ -161,7 +161,7 @@ class _AttendanceStepsState extends ConsumerState<AskodoxAttendanceStepsScreen> 
       'P' => ('P', askodoxStepDone),
       'A' => ('A', askodoxStepBad),
       'OT' => ('OT', askodoxStepWarn),
-      'leave' => (te ? 'సె' : 'L', const Color(0xFF5B2A9E)),
+      'leave' => (te ? 'సె' : 'L', const Color(0xFFCDBAFF)),
       _ => ('—', askodoxStepMuted),
     };
     final inAt = _clockOf(t['in_at']);

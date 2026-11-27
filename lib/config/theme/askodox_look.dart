@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'askodox_fonts.dart';
 
@@ -6,8 +7,8 @@ import 'askodox_fonts.dart';
 /// orange accent, soft white text, Noto Sans Telugu as the main letters and fixed-width figures for money.
 ///
 /// This file is the ONLY place the new look's colours live. A page never writes a colour of its own: it reads the
-/// theme, or these tokens. Turn the look on for the whole app with `askodoxNewLookOn` (lib/core/ui/ui_switches.dart);
-/// off = the app looks exactly as before.
+/// theme, or these tokens. Since 1B (2026-11-27) the colours written on the pages are this look's colours too (codemod, value to value),
+/// so the look is always on. Paper (QR posters, bills, PDFs, print) stays light: wrap it in [AskodoxPaper].
 abstract final class AskodoxLook {
   // Page: a soft light at the top fading into the page colour.
   static const bgTop = Color(0xFF2E3550);
@@ -28,6 +29,15 @@ abstract final class AskodoxLook {
   static const onAccent = Color(0xFF231300);
   static const accentText = Color(0xFFFFB866);
   static const good = Color(0xFF5BE3A0);
+
+  /// What used to be white: a card's face, and the letters / icons on a filled button.
+  static const sheet = cardA;
+  static const sheet70 = Color(0xB3323950);
+  static const sheet54 = Color(0x8A323950);
+
+  /// Paper (QR posters, bill pictures, anything shared or printed) stays black on white. See [AskodoxPaper].
+  static const paperWhite = Color(0xFFFFFFFF);
+  static const paperInk = Color(0xFF0F172A);
 
   /// Main letters: Telugu first, the other scripts come from [askodoxFontFallback].
   static const font = 'NotoSansTelugu';
@@ -103,6 +113,7 @@ ThemeData askodoxLookTheme() {
       backgroundColor: AskodoxLook.bg,
       foregroundColor: text,
       surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
       titleTextStyle: TextStyle(
         fontFamily: AskodoxLook.font,
         fontFamilyFallback: askodoxFontFallback,
@@ -206,4 +217,26 @@ ThemeData askodoxLookTheme() {
       collapsedIconColor: AskodoxLook.muted,
     ),
   );
+}
+
+/// Paper inside the dark app: a bill picture, a QR poster, anything that is shared or printed. Letters and icons
+/// with no colour of their own are dark here, whatever the page around it looks like.
+class AskodoxPaper extends StatelessWidget {
+  const AskodoxPaper({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+        data: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.light,
+          colorScheme: ColorScheme.fromSeed(seedColor: AskodoxLook.accent, surface: AskodoxLook.paperWhite),
+          dividerTheme: const DividerThemeData(color: Color(0xFFE5E7EB), thickness: 1),
+        ),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: AskodoxLook.paperInk),
+          child: IconTheme.merge(data: const IconThemeData(color: AskodoxLook.paperInk), child: child),
+        ),
+      );
 }

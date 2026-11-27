@@ -190,14 +190,14 @@ class _AskodoxTryOnScreenState extends ConsumerState<AskodoxTryOnScreen> {
           child: Container(
             height: 150,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: const Color(0xFF1F2432),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFCBD5E1)),
+              border: Border.all(color: const Color(0xFF4A526B)),
             ),
             clipBehavior: Clip.antiAlias,
             child: bytes == null
                 ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(icon, size: 34, color: const Color(0xFF475569)),
+                    Icon(icon, size: 34, color: const Color(0xFFB5C5DD)),
                     const SizedBox(height: 6),
                     Text(label, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700)),
                   ])
@@ -269,13 +269,13 @@ class _AskodoxTryOnScreenState extends ConsumerState<AskodoxTryOnScreen> {
         if (_problem != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text(_problem!, key: const Key('askodoxTryOnProblem'), style: const TextStyle(color: Color(0xFFB91C1C))),
+            child: Text(_problem!, key: const Key('askodoxTryOnProblem'), style: const TextStyle(color: Color(0xFFFEA195))),
           ),
         if (_result != null) ...[
           const SizedBox(height: 14),
           ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(_result!, key: const Key('askodoxTryOnResult'))),
           const SizedBox(height: 6),
-          Text(_label, style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+          Text(_label, style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
           const SizedBox(height: 6),
           Row(children: [
             Expanded(
@@ -300,7 +300,7 @@ class _AskodoxTryOnScreenState extends ConsumerState<AskodoxTryOnScreen> {
             te
                 ? 'మీ ఫోటోలు చిత్రం తయారు చేయడానికి మాత్రమే; ASKODOX దాచుకోదు. AI చిత్రం కాబట్టి నిజమైన ఫిట్, రంగు కొంచెం వేరుగా ఉండొచ్చు.'
                 : 'Your photos are used only to make the picture; ASKODOX does not keep them. It is an AI picture, so the real fit and colour may differ.',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            style: const TextStyle(fontSize: 12, color: Color(0xFFA8BAD3))),
       ]),
     );
   }

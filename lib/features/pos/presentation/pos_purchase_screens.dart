@@ -535,7 +535,7 @@ class AskodoxPosStockReportScreen extends ConsumerWidget {
               ListTile(
                 key: ValueKey('askodoxPosExpiry-${i['batch_no']}'),
                 dense: true,
-                leading: Icon(i['expired'] == true ? Icons.dangerous_outlined : Icons.schedule, color: i['expired'] == true ? const Color(0xFFB91C1C) : null),
+                leading: Icon(i['expired'] == true ? Icons.dangerous_outlined : Icons.schedule, color: i['expired'] == true ? const Color(0xFFFEA195) : null),
                 title: Text('${i['name']} · ${te ? 'బ్యాచ్' : 'batch'} ${i['batch_no']}'),
                 subtitle: Text('${i['expiry_date']}${i['expired'] == true ? (te ? ' · ఎక్స్‌పైర్ అయింది — అమ్మకానికి రాదు' : ' · EXPIRED — cannot be sold') : ''}'),
                 trailing: Text(askodoxQty(askodoxPosInt(i['qty_milli']), '${i['unit']}')),

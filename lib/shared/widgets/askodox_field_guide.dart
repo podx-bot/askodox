@@ -30,7 +30,7 @@ class AskodoxFieldGuideButton extends StatelessWidget {
     return IconButton(
       tooltip: telugu ? 'ఇక్కడ ఏం రాయాలి?' : 'What goes here?',
       visualDensity: VisualDensity.compact,
-      icon: const Icon(Icons.help_outline, size: 20, color: Color(0xFF1769FF)),
+      icon: const Icon(Icons.help_outline, size: 20, color: Color(0xFF8EB7FF)),
       onPressed: () => askodoxShowFieldGuide(
         context,
         title: telugu ? titleTe : titleEn,
@@ -55,7 +55,7 @@ Future<void> askodoxShowFieldGuide(BuildContext context, {required String title,
             if (askodoxGuidesOn)
               const AskodoxMascot(size: 34)
             else
-              const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF2450C8), size: 28),
+              const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFA3C0FC), size: 28),
             const SizedBox(width: 10),
             Expanded(child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
           ]),
@@ -66,7 +66,7 @@ Future<void> askodoxShowFieldGuide(BuildContext context, {required String title,
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFF1F6FF), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: const Color(0xFF262E3D), borderRadius: BorderRadius.circular(10)),
               child: Text('${telugu ? 'ఉదాహరణ' : 'Example'}: $example', style: const TextStyle(fontSize: 13.5)),
             ),
           ],

@@ -165,9 +165,9 @@ class _AskodoxPhoneHealthScreenState extends ConsumerState<AskodoxPhoneHealthScr
     final (name, what) = askodoxPhoneCheckText(check.id, te: te);
     final steps = askodoxPhoneFixSteps(check.fix, _maker, te: te);
     final (icon, color) = switch (check.state) {
-      'ok' => (Icons.check_circle_rounded, const Color(0xFF15803D)),
-      'bad' => (Icons.error_rounded, const Color(0xFFB42318)),
-      _ => (Icons.help_rounded, const Color(0xFFB45309)),
+      'ok' => (Icons.check_circle_rounded, const Color(0xFF75D48B)),
+      'bad' => (Icons.error_rounded, const Color(0xFFFEA293)),
+      _ => (Icons.help_rounded, const Color(0xFFFB9E6A)),
     };
     return Card(
       key: ValueKey('askodoxPhoneCheck-${check.id}'),

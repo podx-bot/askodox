@@ -605,7 +605,7 @@ class _AskodoxBizJobsScreenState extends ConsumerState<AskodoxBizJobsScreen> {
                           if (askodoxPosInt(j['estimate_paise']) > 0) '${te ? 'అంచనా' : 'Est.'} ${askodoxPaise(askodoxPosInt(j['estimate_paise']))}',
                           if (askodoxPosInt(j['advance_paise']) > 0) '${te ? 'అడ్వాన్స్' : 'Adv.'} ${askodoxPaise(askodoxPosInt(j['advance_paise']))}',
                           if (askodoxPosInt(j['balance_paise']) > 0) '${te ? 'మిగతా' : 'Balance'} ${askodoxPaise(askodoxPosInt(j['balance_paise']))}',
-                        ].join(' · '), style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6475))),
+                        ].join(' · '), style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4BED1))),
                         if ((next['${j['status']}'] ?? const []).isNotEmpty || askodoxPosInt(j['balance_paise']) > 0) ...[
                           const SizedBox(height: 8),
                           Wrap(spacing: 8, children: [
@@ -831,13 +831,13 @@ class _AskodoxBizMonthlyScreenState extends ConsumerState<AskodoxBizMonthlyScree
                         child: Card(
                             child: ListTile(
                                 title: Text(askodoxPaise(askodoxPosInt(_month?['owed_paise'])),
-                                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFB45309))),
+                                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFB9E6A))),
                                 subtitle: Text(te ? 'ఇంకా రావాలి' : 'Still to come')))),
                     Expanded(
                         child: Card(
                             child: ListTile(
                                 title: Text(askodoxPaise(askodoxPosInt(_month?['collected_paise'])),
-                                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF17784C))),
+                                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF7CD3A2))),
                                 subtitle: Text(te ? 'వచ్చింది' : 'Received')))),
                   ]),
                 SizedBox(

@@ -60,8 +60,8 @@ class AskodoxAttachButton extends StatelessWidget {
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: const Color(0xFFEDEBFF),
-                        child: Icon(icon(c), color: const Color(0xFF5B4BFF)),
+                        backgroundColor: const Color(0xFF2E2849),
+                        child: Icon(icon(c), color: const Color(0xFFA9B2FB)),
                       ),
                       const SizedBox(height: 6),
                       Text(label(c, lang), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
@@ -81,6 +81,6 @@ class AskodoxAttachButton extends StatelessWidget {
         key: const Key('askodoxAttachButton'),
         tooltip: switch (lang) { 'te' => 'జత చేయండి', 'hi' => 'जोड़ें', _ => 'Attach' },
         onPressed: enabled ? () => _open(context) : null,
-        icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF5B4BFF), size: 28),
+        icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFFA9B2FB), size: 28),
       );
 }

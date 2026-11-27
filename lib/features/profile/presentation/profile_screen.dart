@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/chat_pins.dart';
@@ -338,11 +339,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       selected: roles.owned.contains(role),
                                       side: role == roles.active
                                           ? const BorderSide(
-                                              color: Color(0xFF1769FF), width: 2)
+                                              color: Color(0xFF8EB7FF), width: 2)
                                           : null,
                                       avatar: role == roles.active
                                           ? const Icon(Icons.bolt_rounded,
-                                              size: 18, color: Color(0xFF1769FF))
+                                              size: 18, color: Color(0xFF8EB7FF))
                                           : null,
                                       label: Text(role == roles.active
                                           ? '${askodoxUserRoleLabel(role, telugu: _te)} · ${t('Active now', 'ఇప్పుడు యాక్టివ్')}'
@@ -508,7 +509,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             SwitchListTile(
               key: const Key('askodoxVoiceModeSwitch'),
               dense: true,
-              secondary: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF1769FF)),
+              secondary: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF8EB7FF)),
               title: Text(t('Always speak replies', 'ప్రతి జవాబు వాయిస్‌లో'), style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text(t('Off: replies follow how you ask -- typed gets text, mic gets voice. On: every reply is spoken.',
                   'ఆఫ్: మీరు ఎలా అడిగితే అలా -- type చేస్తే text, mic లో అడిగితే voice. ఆన్: ప్రతి జవాబు వినిపిస్తుంది.')),
@@ -522,7 +523,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               SwitchListTile(
                 key: const Key('askodoxTestModeSwitch'),
                 dense: true,
-                secondary: const Icon(Icons.bug_report_outlined, color: Color(0xFF1769FF)),
+                secondary: const Icon(Icons.bug_report_outlined, color: Color(0xFF8EB7FF)),
                 title: Text(t('Test Mode (staff)', 'Test Mode (staff)'), style: const TextStyle(fontWeight: FontWeight.w800)),
                 subtitle: Text(t('Records this phone\'s screens, replies, voice and errors for the team. Turns off by itself in 7 days.',
                     'ఈ phone లో screens, జవాబులు, voice, errors team కోసం record అవుతాయి. 7 రోజుల్లో దానంతట అదే off అవుతుంది.')),
@@ -660,7 +661,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         Row(children: [
                           const Icon(Icons.system_update_alt_rounded,
-                              color: Color(0xFF1769FF)),
+                              color: Color(0xFF8EB7FF)),
                           const SizedBox(width: 10),
                           Expanded(
                               child: Text(t('App Update', 'యాప్ అప్డేట్'),
@@ -714,8 +715,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: OutlinedButton.icon(
                 key: const Key('askodoxProfileSignOut'),
                 style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFB42318),
-                    side: const BorderSide(color: Color(0xFFB42318)),
+                    foregroundColor: const Color(0xFFFEA293),
+                    side: const BorderSide(color: Color(0xFFFEA293)),
                     minimumSize: const Size.fromHeight(48)),
                 icon: const Icon(Icons.logout_rounded),
                 label: Text(t('Sign out', 'సైన్ అవుట్'), style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -754,7 +755,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final on = _tab == id;
       return Expanded(
         child: Material(
-          color: on ? Colors.white : Colors.transparent,
+          color: on ? AskodoxLook.sheet : Colors.transparent,
           elevation: on ? 1 : 0,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
@@ -764,14 +765,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: SizedBox(
               height: 44,
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(icon, size: 18, color: on ? const Color(0xFF1769FF) : const Color(0xFF667085)),
+                Icon(icon, size: 18, color: on ? const Color(0xFF8EB7FF) : const Color(0xFFAEB9D0)),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(label,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           fontWeight: on ? FontWeight.w900 : FontWeight.w600,
-                          color: on ? const Color(0xFF10204A) : const Color(0xFF475467))),
+                          color: on ? const Color(0xFFF7F9FC) : const Color(0xFFB6C5DC))),
                 ),
               ]),
             ),
@@ -801,7 +802,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             Text(t('Settings', 'సెట్టింగ్స్'),
                 key: const Key('askodoxProfileSettingsTitle'),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF10204A))),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFF7F9FC))),
           ]),
         ),
         ...settingsSections,
@@ -812,7 +813,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
+      backgroundColor: const Color(0xFF1F2432),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -825,9 +826,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 key: const Key('askodoxProfileGuide'),
-                icon: const Icon(Icons.face_retouching_natural, color: Color(0xFF6C4DFF)),
+                icon: const Icon(Icons.face_retouching_natural, color: Color(0xFFADAEFD)),
                 label: Text(t('Guide: fill my profile', 'గైడ్: నా ప్రొఫైల్ నింపడం'),
-                    style: const TextStyle(color: Color(0xFF6C4DFF), fontWeight: FontWeight.w800)),
+                    style: const TextStyle(color: Color(0xFFADAEFD), fontWeight: FontWeight.w800)),
                 onPressed: () {
                   final flow = askodoxGuideById('screen_profile_details');
                   if (flow != null) ref.read(askodoxGuideProvider.notifier).start(flow);
@@ -840,11 +841,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             key: const Key('askodoxProfileAsk'),
             padding: const EdgeInsets.fromLTRB(14, 2, 4, 2),
             decoration: BoxDecoration(
-                color: Colors.white,
+                color: AskodoxLook.sheet,
                 borderRadius: BorderRadius.circular(26),
-                border: Border.all(color: const Color(0xFFD0D9EA))),
+                border: Border.all(color: const Color(0xFF3C485E))),
             child: Row(children: [
-              const Icon(Icons.search_rounded, color: Color(0xFF667085)),
+              const Icon(Icons.search_rounded, color: Color(0xFFAEB9D0)),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -897,7 +898,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Card(
                 key: const Key('askodoxProfileSearchNone'),
                 child: ListTile(
-                  leading: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF1769FF)),
+                  leading: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF8EB7FF)),
                   title: Text(t('Not in Profile — ask ASKODOX', 'ప్రొఫైల్‌లో లేదు — ASKODOX ని అడగండి')),
                   subtitle: Text('"$query"'),
                   onTap: () {
@@ -932,14 +933,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(children: [
                     Text(t('Recent', 'ఇటీవల'),
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF667085))),
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFAEB9D0))),
                     for (final e in recent)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: ActionChip(
                           key: ValueKey('askodoxProfileRecent-${e.id}'),
                           visualDensity: VisualDensity.compact,
-                          avatar: Icon(e.icon, size: 15, color: const Color(0xFF1769FF)),
+                          avatar: Icon(e.icon, size: 15, color: const Color(0xFF8EB7FF)),
                           label: Text(t(e.en, e.te), style: const TextStyle(fontSize: 12.5)),
                           onPressed: () {
                             _remember(e.id);
@@ -955,7 +956,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             if (askodoxPhase2)
               Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: const Color(0xFFE4E9F2), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(color: const Color(0xFF4A526B), borderRadius: BorderRadius.circular(14)),
                 child: Row(children: [
                   tabButton(const Key('askodoxProfileTab-me'), 'me', t('Me', 'నేను'), Icons.person_outline_rounded),
                   tabButton(const Key('askodoxProfileTab-business'), 'business', t('Business', 'వ్యాపారం'), Icons.storefront_outlined),

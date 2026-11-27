@@ -405,7 +405,7 @@ void main() {
     Color backgroundBehind(Finder f) {
       final material = tester.element(f).findAncestorWidgetOfExactType<Material>();
       if (material?.color != null && material!.color!.a > 0) return material.color!;
-      return const Color(0xFFF8FBFF); // the shell background
+      return const Color(0xFF1F2432); // the shell background (new look)
     }
 
     for (final orders in [_Orders(), _Orders()..mine = [_order('9', 'PLACED')]]) {

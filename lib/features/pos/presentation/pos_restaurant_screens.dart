@@ -113,7 +113,7 @@ class _AskodoxPosTablesScreenState extends ConsumerState<AskodoxPosTablesScreen>
                     width: 104,
                     height: 84,
                     child: Card(
-                      color: t['order'] == null ? null : const Color(0xFFFFEDD5),
+                      color: t['order'] == null ? null : const Color(0xFF3F2903),
                       child: InkWell(
                         key: ValueKey('askodoxPosTable-${t['name']}'),
                         onTap: () {
@@ -133,7 +133,7 @@ class _AskodoxPosTablesScreenState extends ConsumerState<AskodoxPosTablesScreen>
                             if (t['order'] is Map) ...[
                               Text(askodoxPaise(askodoxPosInt(askodoxPosMap(t['order'])['estimate_paise'])), style: const TextStyle(fontSize: 12)),
                               if (askodoxPosInt(askodoxPosMap(t['order'])['pending']) > 0)
-                                Text(te ? 'KOT పంపాలి' : 'KOT not sent', style: const TextStyle(fontSize: 11, color: Color(0xFFB91C1C))),
+                                Text(te ? 'KOT పంపాలి' : 'KOT not sent', style: const TextStyle(fontSize: 11, color: Color(0xFFFEA195))),
                             ] else
                               Text(te ? 'ఖాళీ' : 'Free', style: const TextStyle(fontSize: 12)),
                           ]),
@@ -561,8 +561,8 @@ class _AskodoxPosKitchenScreenState extends ConsumerState<AskodoxPosKitchenScree
                     Card(
                       key: ValueKey('askodoxPosKot-${k['number']}'),
                       color: switch ('${k['status']}') {
-                        'ready' => const Color(0xFFDCFCE7),
-                        'preparing' => const Color(0xFFFEF9C3),
+                        'ready' => const Color(0xFF0E3721),
+                        'preparing' => const Color(0xFF332F03),
                         _ => null,
                       },
                       child: Padding(

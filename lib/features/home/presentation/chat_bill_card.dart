@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -149,9 +150,9 @@ class _AskodoxChatBillCardState extends ConsumerState<AskodoxChatBillCard> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE1E8F2))),
+          border: Border.all(color: const Color(0xFF4A526B))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('${widget.card['shop_name'] ?? ''} · ${te ? 'బిల్లు' : 'Bill'}',
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -169,7 +170,7 @@ class _AskodoxChatBillCardState extends ConsumerState<AskodoxChatBillCard> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(te ? '${unknown.join(', ')} మెనూలో లేదు' : '${unknown.join(', ')} not on the menu',
                 key: const Key('askodoxChatBillUnknown'),
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFFB4530A), fontWeight: FontWeight.w700)),
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFFFB9E6A), fontWeight: FontWeight.w700)),
           ),
         const Divider(),
         Row(children: [
@@ -212,7 +213,7 @@ class _AskodoxChatBillCardState extends ConsumerState<AskodoxChatBillCard> {
         if (bill != null) ...[
           const SizedBox(height: 8),
           Text('${te ? 'బిల్లు' : 'Bill'} ${bill['number'] ?? ''} ✓',
-              key: const Key('askodoxChatBillDone'), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1F7A4A))),
+              key: const Key('askodoxChatBillDone'), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF7DD29D))),
           const SizedBox(height: 6),
           Row(children: [
             Expanded(
@@ -253,7 +254,7 @@ class _AskodoxChatBillCardState extends ConsumerState<AskodoxChatBillCard> {
           ],
           const SizedBox(height: 4),
           Text(te ? 'తర్వాతి బిల్లుకు నంబర్లు చెప్పండి / టైప్ చేయండి.' : 'Say / type the numbers for the next bill.',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF5B6475))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB4BED1))),
         ],
       ]),
     );

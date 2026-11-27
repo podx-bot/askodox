@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -155,7 +156,7 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
       };
 
   Color _basisColor(String basis) =>
-      basis == 'confirmed_from_video' ? const Color(0xFF0F7B3F) : const Color(0xFF9A5B00);
+      basis == 'confirmed_from_video' ? const Color(0xFF77D593) : const Color(0xFFEFAA64);
 
   Widget _timestamp(String key, String ts) => ActionChip(
         key: ValueKey(key),
@@ -217,14 +218,14 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
         key: const Key('askodoxVideoFactSheet'),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5FF),
+          color: const Color(0xFF272D3E),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD6E0FF)),
+          border: Border.all(color: const Color(0xFF3A456E)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_pick(lang, 'FROM THE VIDEO', 'వీడియోలో ఉన్నది', 'वीडियो में'),
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: .6,
-                  color: Color(0xFF10204A))),
+                  color: Color(0xFFF7F9FC))),
           if (study.summary.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(study.summary, style: const TextStyle(height: 1.35)),
@@ -248,7 +249,7 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
               '${_pick(lang, 'Not confirmed in the video', 'వీడియోలో నిర్ధారించలేదు', 'वीडियो में पुष्टि नहीं')}: '
               '${study.missing.join(', ')}',
               key: const Key('askodoxVideoMissing'),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D0)),
             ),
           ],
         ]),
@@ -273,12 +274,12 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
           margin: const EdgeInsets.only(top: 8),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: a.found ? Colors.white : const Color(0xFFFFF4E5),
+            color: a.found ? AskodoxLook.sheet : const Color(0xFF3C2A0D),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE1E8F2)),
+            border: Border.all(color: const Color(0xFF4A526B)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(q, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF10204A))),
+            Text(q, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFF7F9FC))),
             const SizedBox(height: 4),
             Text(a.answer, style: const TextStyle(height: 1.35)),
             if (a.timestamps.isNotEmpty)
@@ -388,7 +389,7 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
           _pick(lang, 'Contact details are shared only after the seller accepts your request.',
               'విక్రేత మీ అభ్యర్థనను అంగీకరించిన తర్వాతే కాంటాక్ట్ వివరాలు పంచుకోబడతాయి.',
               'विक्रेता के अनुरोध स्वीकार करने के बाद ही संपर्क जानकारी साझा होती है।'),
-          style: const TextStyle(fontSize: 11, color: Color(0xFF667085)),
+          style: const TextStyle(fontSize: 11, color: Color(0xFFAEB9D0)),
         ),
       ),
     ]);
@@ -414,7 +415,7 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
       key: const Key('askodoxVideoMarketSection'),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF0),
+        color: const Color(0xFF342D1A),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE0B64A)),
       ),
@@ -430,7 +431,7 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
         Text('${market['label'] ?? ''}'.toUpperCase(),
             key: const Key('askodoxVideoMarketLabel'),
             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5, letterSpacing: .5,
-                color: Color(0xFF7A5A00))),
+                color: Color(0xFFDDBA72))),
         if (prices != null)
           Text(
             '${_pick(lang, 'Comparable asking prices', 'పోల్చదగిన ధరలు', 'तुलनीय कीमतें')} (${prices['count']}): '
@@ -460,7 +461,7 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
             padding: const EdgeInsets.only(top: 6),
             child: Text(
                 '${_pick(lang, 'Price depends on', 'ధరను ప్రభావితం చేసేవి', 'कीमत इन पर निर्भर')}: ${factors.join(', ')}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D0))),
           ),
       ]),
     );
@@ -469,11 +470,11 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
   Widget _note(Key key, IconData icon, String text) => Container(
         key: key,
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: const Color(0xFFF6F7FA), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(12)),
         child: Row(children: [
-          Icon(icon, size: 18, color: const Color(0xFF667085)),
+          Icon(icon, size: 18, color: const Color(0xFFAEB9D0)),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: const TextStyle(color: Color(0xFF344054)))),
+          Expanded(child: Text(text, style: const TextStyle(color: Color(0xFFBECDE6)))),
         ]),
       );
 }

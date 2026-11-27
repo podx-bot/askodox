@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -17,9 +18,9 @@ import 'work_scene.dart';
 import 'work_team_widgets.dart';
 import 'work_test_stage.dart';
 
-const _ink = Color(0xFF10204A);
-const _green = Color(0xFF1F8A5B);
-const _soft = Color(0xFFF4F5F7); // inner-page grey (redesign 2026-11-13)
+const _ink = Color(0xFFF7F9FC);
+const _green = Color(0xFF6DCF9B);
+const _soft = Color(0xFF1F2432); // inner-page grey (redesign 2026-11-13)
 
 bool _te(BuildContext context) => Localizations.localeOf(context).languageCode == 'te';
 
@@ -163,18 +164,18 @@ class _Intro extends StatelessWidget {
           te
               ? 'ఇక్కడ పాయింట్లు, బహుమతులు, డబ్బు ఏమీ లేవు. మీ నడకే పని — ప్రతి రోజు ఒక లక్ష్యం.'
               : 'There are no points, prizes or money here. Your walk is the work — one goal a day.',
-          style: const TextStyle(fontSize: 14, color: Color(0xFF5B6670)),
+          style: const TextStyle(fontSize: 14, color: Color(0xFFB3BFCA)),
         ),
         const SizedBox(height: 12),
         for (var i = 0; i < steps.length; i++)
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: AskodoxLook.sheet, borderRadius: BorderRadius.circular(16)),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               CircleAvatar(
                 radius: 14,
-                backgroundColor: const Color(0xFFE3F4EA),
+                backgroundColor: const Color(0xFF143525),
                 child: Text('${i + 1}', style: const TextStyle(color: _green, fontWeight: FontWeight.w900)),
               ),
               const SizedBox(width: 12),
@@ -182,19 +183,19 @@ class _Intro extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(steps[i].$1, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _ink)),
                   const SizedBox(height: 2),
-                  Text(steps[i].$2, style: const TextStyle(fontSize: 13, color: Color(0xFF5B6670))),
+                  Text(steps[i].$2, style: const TextStyle(fontSize: 13, color: Color(0xFFB3BFCA))),
                 ]),
               ),
             ]),
           ),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFFFFF6E0), borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(color: const Color(0xFF3A2C01), borderRadius: BorderRadius.circular(14)),
           child: Text(
             te
                 ? 'నడుస్తున్నప్పుడు ఫోన్ జేబులో ఉంచండి; ఆగినప్పుడు మాత్రమే స్క్రీన్ చూడండి. ఆదివారం విశ్రాంతి రోజు. నొప్పి ఉంటే ఆపండి; ఆరోగ్య సమస్యలు ఉంటే డాక్టర్‌ని అడగండి.'
                 : 'Keep the phone in your pocket while walking; look at the screen only when you stop. Sunday is a rest day. Stop if anything hurts; ask a doctor if you have a health condition.',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B4A00)),
+            style: const TextStyle(fontSize: 13, color: Color(0xFFE5BF81)),
           ),
         ),
         const SizedBox(height: 14),
@@ -238,14 +239,14 @@ class _JobPickerState extends State<_JobPicker> {
           Text(
             te ? 'పెద్ద పని అంటే రోజుకు ఎక్కువ అడుగులు. రోజులు అవే (${job.gameDays}).'
                 : 'A bigger task means more steps a day. Same ${job.gameDays} days.',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF5B6670)),
+            style: const TextStyle(fontSize: 13, color: Color(0xFFB3BFCA)),
           ),
           const SizedBox(height: 10),
           for (final z in askodoxWorkSizes)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Material(
-                color: z.id == 'medium' ? const Color(0xFFE3F4EA) : const Color(0xFFF6F5F0),
+                color: z.id == 'medium' ? const Color(0xFF143525) : const Color(0xFF1F2432),
                 borderRadius: BorderRadius.circular(14),
                 child: ListTile(
                   key: ValueKey('askodoxWorkSize-${z.id}'),
@@ -279,12 +280,12 @@ class _JobPickerState extends State<_JobPicker> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               te ? 'పని మార్చితే కొత్త పని మొదటి నుంచి మొదలవుతుంది.' : 'A new job starts from the beginning.',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF8A5A00)),
+              style: const TextStyle(fontSize: 13, color: Color(0xFFE7B26B)),
             ),
           ),
         const SizedBox(height: 12),
         Text(te ? 'మీరు ఏ ఆట / వ్యాయామం చేస్తారు?' : 'What do you already play or do?',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF5B6670))),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFB3BFCA))),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final s in askodoxSportMatches)
@@ -300,15 +301,15 @@ class _JobPickerState extends State<_JobPicker> {
             key: const Key('askodoxWorkSportHint'),
             margin: const EdgeInsets.only(top: 10),
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFE3F4EA), borderRadius: BorderRadius.circular(14)),
-            child: Text(sport.how(te), style: const TextStyle(fontSize: 13, color: Color(0xFF17603D))),
+            decoration: BoxDecoration(color: const Color(0xFF143525), borderRadius: BorderRadius.circular(14)),
+            child: Text(sport.how(te), style: const TextStyle(fontSize: 13, color: Color(0xFF92D7AE))),
           ),
         const SizedBox(height: 16),
         for (final job in askodoxWorkJobs)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Material(
-              color: Colors.white,
+              color: AskodoxLook.sheet,
               borderRadius: BorderRadius.circular(16),
               child: InkWell(
                 key: ValueKey('askodoxWorkJob-${job.id}'),
@@ -319,12 +320,12 @@ class _JobPickerState extends State<_JobPicker> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: suggested.contains(job.id) ? _green : const Color(0xFFECEDE7), width: 2),
+                        color: suggested.contains(job.id) ? _green : const Color(0xFF4A526B), width: 2),
                   ),
                   child: Row(children: [
                     CircleAvatar(
                       radius: 22,
-                      backgroundColor: const Color(0xFFF0F1EC),
+                      backgroundColor: const Color(0xFF1F2432),
                       child: Icon(_jobIcon(job.id), color: _ink),
                     ),
                     const SizedBox(width: 12),
@@ -340,13 +341,13 @@ class _JobPickerState extends State<_JobPicker> {
                               margin: const EdgeInsets.only(left: 6),
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                  color: const Color(0xFFE3F4EA), borderRadius: BorderRadius.circular(99)),
+                                  color: const Color(0xFF143525), borderRadius: BorderRadius.circular(99)),
                               child: Text(te ? 'మీకు సరిపోతుంది' : 'Fits you',
                                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _green)),
                             ),
                         ]),
                         const SizedBox(height: 2),
-                        Text(job.walk(te), style: const TextStyle(fontSize: 12, color: Color(0xFF5B6670))),
+                        Text(job.walk(te), style: const TextStyle(fontSize: 12, color: Color(0xFFB3BFCA))),
                         const SizedBox(height: 2),
                         Text(
                           te
@@ -366,7 +367,7 @@ class _JobPickerState extends State<_JobPicker> {
           te
               ? 'ఇక్కడి సమయం ఆట కోసం మాత్రమే — నిజ పనికి పట్టే కాలం వేరు.'
               : 'Times here are for the game — real work takes longer.',
-          style: const TextStyle(fontSize: 12, color: Color(0xFF7A838C)),
+          style: const TextStyle(fontSize: 12, color: Color(0xFFAAB4BD)),
         ),
       ],
     );
@@ -639,7 +640,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
             padding: const EdgeInsets.only(top: 8),
             child: Row(children: [
               Icon(_walkingNow ? Icons.circle : Icons.pause_circle_outline_rounded,
-                  size: 12, color: _walkingNow ? _green : const Color(0xFF8A929A)),
+                  size: 12, color: _walkingNow ? _green : const Color(0xFFA6AEB7)),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -651,7 +652,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
-                      color: _walkingNow ? _green : const Color(0xFF5B6670)),
+                      color: _walkingNow ? _green : const Color(0xFFB3BFCA)),
                 ),
               ),
               IconButton(
@@ -660,7 +661,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                 tooltip: soundOn ? (te ? 'శబ్దం ఆపు' : 'Sound off') : (te ? 'శబ్దం పెట్టు' : 'Sound on'),
                 onPressed: () => ref.read(askodoxWorkSoundOnProvider.notifier).toggle(),
                 icon: Icon(soundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                    size: 20, color: soundOn ? _green : const Color(0xFF8A929A)),
+                    size: 20, color: soundOn ? _green : const Color(0xFFA6AEB7)),
               ),
             ]),
           ),
@@ -669,13 +670,13 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
             key: const Key('askodoxWorkWaiting'),
             margin: const EdgeInsets.only(top: 8),
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFFFF6E0), borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(color: const Color(0xFF3A2C01), borderRadius: BorderRadius.circular(14)),
             child: Row(children: [
-              const Icon(Icons.hourglass_bottom_rounded, color: Color(0xFFB45309)),
+              const Icon(Icons.hourglass_bottom_rounded, color: Color(0xFFFB9E6A)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(job.waiting(te),
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF6B4A00))),
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFFE5BF81))),
               ),
             ]),
           ),
@@ -689,7 +690,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: const Color(0xFFE3F4EA), borderRadius: BorderRadius.circular(99)),
+            decoration: BoxDecoration(color: const Color(0xFF143525), borderRadius: BorderRadius.circular(99)),
             child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _green)),
           ),
         ]),
@@ -699,13 +700,13 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           te
               ? 'దశ ${progress.stageIndex + 1}/${job.stages.length}: ${progress.stage.te} · రోజు ${progress.gameDay}/${job.gameDays}'
               : 'Stage ${progress.stageIndex + 1}/${job.stages.length}: ${progress.stage.en} · day ${progress.gameDay}/${job.gameDays}',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF5B6670)),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFB3BFCA)),
         ),
         const SizedBox(height: 12),
         if (progress.done)
           _Card(
             key: const Key('askodoxWorkDone'),
-            color: const Color(0xFFE3F4EA),
+            color: const Color(0xFF143525),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(te ? 'పని పూర్తయింది!' : 'Job finished!',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _green)),
@@ -729,15 +730,15 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
             Row(children: [
               Expanded(
                 child: Text(te ? 'ఈ రోజు' : 'Today',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF5B6670))),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFB3BFCA))),
               ),
               if (now.weekday == DateTime.sunday)
                 ActionChip(
                   key: const Key('askodoxWorkRestDay'),
-                  avatar: const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF8A5A00)),
+                  avatar: const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFE7B26B)),
                   label: Text(te ? 'విశ్రాంతి రోజు' : 'Rest day',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF8A5A00))),
-                  backgroundColor: const Color(0xFFFFF6E0),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFE7B26B))),
+                  backgroundColor: const Color(0xFF3A2C01),
                   visualDensity: VisualDensity.compact,
                   onPressed: () => showModalBottomSheet<void>(
                     context: context,
@@ -777,7 +778,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
               child: LinearProgressIndicator(
                 value: goal == 0 ? 0.0 : (todaySteps / goal).clamp(0.0, 1.0),
                 minHeight: 10,
-                backgroundColor: const Color(0xFFECEDE7),
+                backgroundColor: const Color(0xFF4A526B),
                 color: _green,
               ),
             ),
@@ -789,7 +790,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                   te
                       ? 'ఈ రోజు విశ్రాంతి: లక్ష్యం 3,000 మాత్రమే. పని ఆగదు — నడిస్తే కొనసాగుతుంది.'
                       : 'Rest day: the goal is only 3,000. The work does not stop — walk and it goes on.',
-                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A5A00)),
+                  style: const TextStyle(fontSize: 12.5, color: Color(0xFFE7B26B)),
                 ),
               ),
             if (todaySteps >= goal)
@@ -802,13 +803,13 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(te ? 'చేతితో నమోదు: ${_n(manualToday)}' : 'Typed by hand: ${_n(manualToday)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF7A838C))),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFAAB4BD))),
               ),
             if (_problem != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(key: const Key('askodoxWorkStepProblem'), _problemText(_problem!, te),
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF8A5A00))),
+                    style: const TextStyle(fontSize: 13, color: Color(0xFFE7B26B))),
               ),
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -844,7 +845,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           key: const Key('askodoxWorkUnits'),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(te ? 'పని ఎంత జరిగింది' : 'Work done',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF5B6670))),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFB3BFCA))),
             const SizedBox(height: 4),
             Text(
               key: const Key('askodoxWorkUnitsDone'),
@@ -857,7 +858,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
               child: LinearProgressIndicator(
                 value: progress.unitsTotal == 0 ? 0.0 : progress.unitsDone / progress.unitsTotal,
                 minHeight: 10,
-                backgroundColor: const Color(0xFFECEDE7),
+                backgroundColor: const Color(0xFF4A526B),
                 color: const Color(0xFFE8A317),
               ),
             ),
@@ -889,7 +890,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                           ? _green
                           : i == progress.stageIndex
                               ? const Color(0xFFE8A317)
-                              : const Color(0xFFE3E6DD),
+                              : const Color(0xFF4A526B),
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -909,13 +910,13 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: lag > size.stepsPerDay / 2 ? const Color(0xFFB45309) : _green),
+                    color: lag > size.stepsPerDay / 2 ? const Color(0xFFFB9E6A) : _green),
               ),
               Text(
                 te
                     ? 'పని పూర్తికి ఇంకా ${progress.daysLeft} రోజుల నడక (రోజుకు ${_n(size.stepsPerDay)} అడుగులు చొప్పున)'
                     : '${progress.daysLeft} more days of walking to finish (${_n(size.stepsPerDay)} steps a day)',
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF5B6670)),
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFFB3BFCA)),
               ),
             ],
             if (todaySteps > 0) ...[
@@ -965,11 +966,11 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFF5C95C))),
             const SizedBox(height: 4),
             Text(progress.stage.tip(te),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white, height: 1.35)),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AskodoxLook.sheet, height: 1.35)),
             const SizedBox(height: 6),
             Text(
               te ? 'ఇవి సాధారణ సూచనలు మాత్రమే.' : 'General tips only.',
-              style: const TextStyle(fontSize: 11, color: Color(0xFFC9CDC4)),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF969A91)),
             ),
           ]),
         ),
@@ -977,7 +978,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           key: const Key('askodoxWorkWeek'),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(te ? 'ఈ వారం' : 'This week',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF5B6670))),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFB3BFCA))),
             const SizedBox(height: 10),
             SizedBox(
               height: 90,
@@ -990,12 +991,12 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
                         Container(
                           height: 70 * (d.$2 / maxDay).clamp(0.03, 1.0),
                           decoration: BoxDecoration(
-                            color: d.$2 >= size.stepsPerDay ? _green : const Color(0xFFB8C2BC),
+                            color: d.$2 >= size.stepsPerDay ? _green : const Color(0xFF919B95),
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(d.$1.substring(8), style: const TextStyle(fontSize: 10, color: Color(0xFF7A838C))),
+                        Text(d.$1.substring(8), style: const TextStyle(fontSize: 10, color: Color(0xFFAAB4BD))),
                       ]),
                     ),
                   ),
@@ -1012,7 +1013,7 @@ class _TodayState extends ConsumerState<_Today> with WidgetsBindingObserver {
           ]),
         ),
         Material(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(16),
           child: ListTile(
             key: const Key('askodoxWorkSevaEntry'),
@@ -1103,7 +1104,7 @@ class _ReplaySheetState extends State<_ReplaySheet> with SingleTickerProviderSta
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
                 ),
                 if (widget.times != null)
-                  Text(_clock(t), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF5B6670))),
+                  Text(_clock(t), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFB3BFCA))),
               ]),
               const SizedBox(height: 10),
               AskodoxWorkSceneView(
@@ -1123,7 +1124,7 @@ class _ReplaySheetState extends State<_ReplaySheet> with SingleTickerProviderSta
                 te
                     ? '+${_n(steps - widget.from)} అడుగులు · మొదలు: ${start.stage.name(te)} ${_n(start.unitsDone)} $unit'
                     : '+${_n(steps - widget.from)} steps · started at: ${start.stage.name(te)} ${_n(start.unitsDone)} $unit',
-                style: const TextStyle(color: Color(0xFF5B6670)),
+                style: const TextStyle(color: Color(0xFFB3BFCA)),
               ),
               const SizedBox(height: 8),
               ClipRRect(
@@ -1168,7 +1169,7 @@ class _ReplaySheetState extends State<_ReplaySheet> with SingleTickerProviderSta
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.child, this.color = Colors.white, super.key});
+  const _Card({required this.child, this.color = AskodoxLook.sheet, super.key});
   final Widget child;
   final Color color;
 
@@ -1272,14 +1273,14 @@ class _AskodoxSevaScreenState extends ConsumerState<AskodoxSevaScreen> {
           te
               ? 'ఎంపిక మీదే, చేయకపోయినా ఏమీ కాదు. మీరు ఏది ఎంచుకున్నారో ఎక్కడా నిల్వ చేయము — నిమిషాలు మాత్రమే మీ ఫోన్‌లో ఉంటాయి.'
               : 'Entirely your choice; skipping is fine. What you choose is never stored — only the minutes stay on your phone.',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF5B6670)),
+          style: const TextStyle(fontSize: 13, color: Color(0xFFB3BFCA)),
         ),
         const SizedBox(height: 12),
         for (final p in practices)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Material(
-              color: Colors.white,
+              color: AskodoxLook.sheet,
               borderRadius: BorderRadius.circular(14),
               child: ListTile(
                 key: ValueKey('askodoxSevaPractice-${p.$1}'),
@@ -1292,8 +1293,8 @@ class _AskodoxSevaScreenState extends ConsumerState<AskodoxSevaScreen> {
                         : 'Coming — after review by scholars of that tradition'),
                 trailing: p.$3
                     ? Icon(_practice == p.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
-                        color: _practice == p.$1 ? _green : const Color(0xFFB8C2BC))
-                    : const Icon(Icons.lock_clock_rounded, color: Color(0xFFB8C2BC)),
+                        color: _practice == p.$1 ? _green : const Color(0xFF919B95))
+                    : const Icon(Icons.lock_clock_rounded, color: Color(0xFF919B95)),
                 onTap: p.$3 ? () => setState(() => _practice = p.$1) : null,
               ),
             ),
@@ -1313,11 +1314,11 @@ class _AskodoxSevaScreenState extends ConsumerState<AskodoxSevaScreen> {
           color: _ink,
           child: Column(children: [
             Text(key: const Key('askodoxSevaTimer'), '$mm:$ss',
-                style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900, color: Colors.white)),
+                style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900, color: AskodoxLook.sheet)),
             const SizedBox(height: 8),
             Text(guide,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.4)),
+                style: const TextStyle(fontSize: 15, color: AskodoxLook.sheet, height: 1.4)),
           ]),
         ),
         Row(children: [

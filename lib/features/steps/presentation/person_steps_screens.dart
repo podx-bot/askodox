@@ -94,7 +94,7 @@ class _PersonState extends ConsumerState<AskodoxStaffPersonStepsScreen> {
                     ('P', te ? 'వచ్చారు' : 'Present', askodoxStepDone),
                     ('A', te ? 'రాలేదు' : 'Absent', askodoxStepBad),
                     ('OT', te ? 'ఎక్కువ గంటలు' : 'Overtime', askodoxStepWarn),
-                    ('leave', te ? 'సెలవు' : 'Leave', const Color(0xFF5B2A9E)),
+                    ('leave', te ? 'సెలవు' : 'Leave', const Color(0xFFCDBAFF)),
                   ])
                     FilledButton(
                       key: Key('askodoxPersonStepsMark-$date-$s'),
@@ -144,7 +144,7 @@ class _PersonState extends ConsumerState<AskodoxStaffPersonStepsScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             FilledButton(
               key: const Key('askodoxPersonStepsAdvance'),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF5B2A9E), minimumSize: const Size.fromHeight(58)),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFCDBAFF), minimumSize: const Size.fromHeight(58)),
               onPressed: () => Navigator.pop(ctx, 'advance'),
               child: Text(te ? 'అడ్వాన్స్ ఇచ్చాను' : 'Gave an advance', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             ),

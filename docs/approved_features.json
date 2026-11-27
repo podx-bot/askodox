@@ -13641,6 +13641,45 @@
           "change": "Phase 3 of the in-app plan: paid automatic bill / baaki sending; manual stays free."
         }
       ]
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "The whole app has ONE look: calm dark page, raised cards with a thin line, one orange accent, soft white letters, Noto Sans Telugu first, fixed-width figures for money. Its colours live only in lib/config/theme/askodox_look.dart (AskodoxLook + askodoxLookTheme); AppTheme.light and askodoxInnerTheme both return it. The colours written on the pages were changed value to value into this look's colours. Paper stays black on white: QR posters, QR codes, bill pictures, PDFs and print (AskodoxPaper). Drawn art, camera and video screens keep their own colours. No file may gain hand-written colours (test/config/raw_colour_guard_test.dart + test/fixtures/raw_colour_baseline.json).",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: new look for the whole app, choice B (all pages at once); NOT PHONE VERIFIED -- pages the owner finds hard to read are fixed after his test",
+          "date": "2026-11-27"
+        }
+      ],
+      "id": "new_look_whole_app",
+      "name": "New look for the whole app (dark page, orange accent, Telugu letters first)",
+      "purpose": "Owner 2026-11-27: the new look is for the WHOLE app (every colour), not for one screen; few colours, clear letters.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/config/askodox_look_test.dart",
+          "test/config/raw_colour_guard_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "AskodoxLook",
+          "askodoxLookTheme",
+          "AskodoxPaper",
+          "askodoxNewLookOn"
+        ]
+      }
     }
   ]
 }

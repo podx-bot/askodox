@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/ui/ui_switches.dart';
@@ -9,17 +10,17 @@ import '../domain/step_logic.dart';
 // (3) one big button + a mic at the bottom -- and every job is done in three steps (1·2·3 bar on top, a big ✓ at the
 // end). Phone-app models: dialer keypad, camera, contacts, incoming call, call log, settings.
 
-const askodoxStepInk = Color(0xFF10204A);
-const askodoxStepMuted = Color(0xFF4B5563);
-const askodoxStepLine = Color(0xFFE3E7EF);
-const askodoxStepGreen = Color(0xFF0B7A4B);
-const askodoxStepGreenDark = Color(0xFF075A37);
-const askodoxStepGreenSoft = Color(0xFFEAF7F0);
-const askodoxStepGreenTint = Color(0xFFD3EEDF);
-const askodoxStepDone = Color(0xFF12A150);
-const askodoxStepWarn = Color(0xFF9A4A07);
-const askodoxStepBad = Color(0xFFA3201A);
-const askodoxStepInfo = Color(0xFF1E40AF);
+const askodoxStepInk = Color(0xFFF7F9FC);
+const askodoxStepMuted = Color(0xFFB9C5D5);
+const askodoxStepLine = Color(0xFF4A526B);
+const askodoxStepGreen = Color(0xFF77D49F);
+const askodoxStepGreenDark = Color(0xFF92DAB0);
+const askodoxStepGreenSoft = Color(0xFF1C3428);
+const askodoxStepGreenTint = Color(0xFF2A513E);
+const askodoxStepDone = Color(0xFF66CA82);
+const askodoxStepWarn = Color(0xFFFEA56F);
+const askodoxStepBad = Color(0xFFFEA89B);
+const askodoxStepInfo = Color(0xFFACC6FE);
 
 /// One choice in the header's "⋮" (the full old page, help ...): everything that is not the one job lives here.
 class AskodoxStepMore {
@@ -46,7 +47,7 @@ class AskodoxStepScaffold extends StatelessWidget {
     this.onBack,
     this.more = const [],
     this.color = askodoxStepGreen,
-    this.background = Colors.white,
+    this.background = AskodoxLook.sheet,
   });
 
   final String title;
@@ -153,7 +154,7 @@ class AskodoxStepBar extends StatelessWidget {
                 duration: const Duration(milliseconds: 220),
                 height: 5,
                 decoration: BoxDecoration(
-                    color: i <= step ? color : const Color(0xFFE3E7EF), borderRadius: BorderRadius.circular(3)),
+                    color: i <= step ? color : const Color(0xFF4A526B), borderRadius: BorderRadius.circular(3)),
               ),
             ),
             if (i < total) const SizedBox(width: 6),
@@ -224,10 +225,10 @@ class AskodoxStepBottom extends StatelessWidget {
       if (icon != null) ...[const SizedBox(width: 8), Icon(icon, size: 22)],
     ]);
     final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(20));
-    final child = busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white)) : text;
+    final child = busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: AskodoxLook.sheet)) : text;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),
+      decoration: const BoxDecoration(color: AskodoxLook.sheet, border: Border(top: BorderSide(color: Color(0xFF1F2432)))),
       child: Row(children: [
         if (onSpoken != null && askodoxPageMicsOn) ...[
           Container(
@@ -258,7 +259,7 @@ class AskodoxStepBottom extends StatelessWidget {
                   : FilledButton(
                       key: buttonKey,
                       style: FilledButton.styleFrom(
-                          backgroundColor: color, disabledBackgroundColor: const Color(0xFFCBD5E1), shape: shape),
+                          backgroundColor: color, disabledBackgroundColor: const Color(0xFF4A526B), shape: shape),
                       onPressed: busy ? null : onPressed,
                       child: child,
                     ),
@@ -316,7 +317,7 @@ class AskodoxStepKeypad extends StatelessWidget {
           child: SizedBox(
             height: keyHeight,
             child: Material(
-              color: const Color(0xFFF1F3F8),
+              color: const Color(0xFF1F2432),
               borderRadius: BorderRadius.circular(18),
               child: InkWell(
                 key: Key('askodoxStepKey-$k'),
@@ -411,10 +412,10 @@ class AskodoxStepChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Colors.white,
+        color: AskodoxLook.sheet,
         borderRadius: BorderRadius.circular(22),
         elevation: selected ? 2 : 0.5,
-        shadowColor: const Color(0x2210204A),
+        shadowColor: const Color(0x22000000),
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
@@ -430,7 +431,7 @@ class AskodoxStepChoice extends StatelessWidget {
                 width: 58,
                 height: 58,
                 decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(18)),
-                child: Icon(icon, color: Colors.white, size: 30),
+                child: Icon(icon, color: AskodoxLook.sheet, size: 30),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -480,7 +481,7 @@ class AskodoxStepDoneMark extends StatelessWidget {
             BoxShadow(color: color.withValues(alpha: 0.07), spreadRadius: 28),
           ],
         ),
-        child: Icon(Icons.check_rounded, color: Colors.white, size: size * 0.55),
+        child: Icon(Icons.check_rounded, color: AskodoxLook.sheet, size: size * 0.55),
       );
 }
 
@@ -503,7 +504,7 @@ class AskodoxStepRoundAction extends StatelessWidget {
               width: 62,
               height: 62,
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: Icon(icon, color: Colors.white, size: 28),
+              child: Icon(icon, color: AskodoxLook.sheet, size: 28),
             ),
             const SizedBox(height: 6),
             Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: askodoxStepInk)),
@@ -521,11 +522,11 @@ class AskodoxStepPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (fg, bg) = switch (kind) {
-      'warn' => (askodoxStepWarn, const Color(0xFFFFF1E0)),
-      'bad' => (askodoxStepBad, const Color(0xFFFDECEA)),
-      'info' => (askodoxStepInfo, const Color(0xFFE6EDFF)),
-      'grey' => (const Color(0xFF374151), const Color(0xFFEEF0F4)),
-      _ => (const Color(0xFF0F6B3C), const Color(0xFFE3F5EA)),
+      'warn' => (askodoxStepWarn, const Color(0xFF402804)),
+      'bad' => (askodoxStepBad, const Color(0xFF402623)),
+      'info' => (askodoxStepInfo, const Color(0xFF222C4A)),
+      'grey' => (const Color(0xFFC0CDE0), const Color(0xFF1F2432)),
+      _ => (const Color(0xFF86D7A1), const Color(0xFF123624)),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -589,11 +590,11 @@ class AskodoxStepPersonRow extends StatelessWidget {
   final Widget? action;
 
   static const _palette = [
-    (Color(0xFFE6EDFF), Color(0xFF1E40AF)),
-    (Color(0xFFE3F5EA), Color(0xFF0F6B3C)),
-    (Color(0xFFFDECEA), Color(0xFFA3201A)),
-    (Color(0xFFFFF1E0), Color(0xFF9A4A07)),
-    (Color(0xFFF1EBFB), Color(0xFF5B2A9E)),
+    (Color(0xFF222C4A), Color(0xFFACC6FE)),
+    (Color(0xFF123624), Color(0xFF86D7A1)),
+    (Color(0xFF402623), Color(0xFFFEA89B)),
+    (Color(0xFF402804), Color(0xFFFEA56F)),
+    (Color(0xFF332842), Color(0xFFCDBAFF)),
   ];
 
   @override
@@ -604,7 +605,7 @@ class AskodoxStepPersonRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 2),
-        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEF0F4)))),
+        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1F2432)))),
         child: Row(children: [
           if (photoUrl.isEmpty)
             CircleAvatar(
@@ -663,7 +664,7 @@ class AskodoxStepSearch extends StatelessWidget {
           hintText: hint,
           prefixIcon: const Icon(Icons.search_rounded),
           filled: true,
-          fillColor: const Color(0xFFF1F3F8),
+          fillColor: const Color(0xFF1F2432),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
@@ -683,7 +684,7 @@ class AskodoxStepToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: const Color(0xFFEEF0F4), borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(18)),
         child: Row(children: [
           for (final (v, label) in options)
             Expanded(
@@ -695,9 +696,9 @@ class AskodoxStepToggle extends StatelessWidget {
                   height: 42,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: v == value ? Colors.white : Colors.transparent,
+                    color: v == value ? AskodoxLook.sheet : Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: v == value ? const [BoxShadow(color: Color(0x2610204A), blurRadius: 3, offset: Offset(0, 1))] : null,
+                    boxShadow: v == value ? const [BoxShadow(color: Color(0x26000000), blurRadius: 3, offset: Offset(0, 1))] : null,
                   ),
                   child: Text(label,
                       style: TextStyle(

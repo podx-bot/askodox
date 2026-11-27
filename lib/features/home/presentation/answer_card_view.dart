@@ -1,3 +1,4 @@
+import '../../../config/theme/askodox_look.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -43,10 +44,10 @@ class AskodoxAnswerCardView extends StatefulWidget {
   State<AskodoxAnswerCardView> createState() => _AskodoxAnswerCardViewState();
 }
 
-const _ink = Color(0xFF0F172A);
-const _muted = Color(0xFF475569);
-const _blue = Color(0xFF2563EB);
-const _night = Color(0xFF1E1B3A);
+const _ink = Color(0xFFF7F9FC);
+const _muted = Color(0xFFB5C5DD);
+const _blue = Color(0xFF95B9FD);
+const _night = Color(0xFFF7F9FC);
 
 String askodoxCardText(String key, String language) {
   const te = <String, String>{
@@ -150,23 +151,23 @@ IconData askodoxCardDontIcon(String icon) => switch (icon) {
     };
 
 /// Background colours of the swipe cards, in turn.
-const _cardColors = [Color(0xFFECFDF5), Color(0xFFEFF6FF), Color(0xFFF5F3FF), Color(0xFFFFF7ED)];
-const _cardInks = [Color(0xFF15803D), Color(0xFF1D4ED8), Color(0xFF6D28D9), Color(0xFFC2410C)];
+const _cardColors = [Color(0xFF143529), Color(0xFF232F3D), Color(0xFF2F2A3E), Color(0xFF382B1A)];
+const _cardInks = [Color(0xFF75D48B), Color(0xFFA0BFFF), Color(0xFFC1B3FD), Color(0xFFFF9A79)];
 
 ({Color bg, Color fg, Color border}) _toneColors(String tone) => switch (tone) {
-      'ok' => (bg: const Color(0xFFECFDF5), fg: const Color(0xFF14532D), border: const Color(0xFF16A34A)),
-      'warn' => (bg: const Color(0xFFFFF7ED), fg: const Color(0xFF9A3412), border: const Color(0xFFFB923C)),
-      'danger' => (bg: const Color(0xFFFEF2F2), fg: const Color(0xFF991B1B), border: const Color(0xFFDC2626)),
-      _ => (bg: const Color(0xFFEFF6FF), fg: const Color(0xFF1E3A8A), border: const Color(0xFFC7D2FE)),
+      'ok' => (bg: const Color(0xFF143529), fg: const Color(0xFF9DDBAE), border: const Color(0xFF69C97E)),
+      'warn' => (bg: const Color(0xFF382B1A), fg: const Color(0xFFFCA991), border: const Color(0xFFFB923C)),
+      'danger' => (bg: const Color(0xFF3B2829), fg: const Color(0xFFFDACA2), border: const Color(0xFFFE9488)),
+      _ => (bg: const Color(0xFF232F3D), fg: const Color(0xFFB3CBFE), border: const Color(0xFF3B4473)),
     };
 
 ({Color bg, Color fg}) _markColors(String? kind) => switch (kind) {
-      'money' => (bg: const Color(0xFFDBEAFE), fg: const Color(0xFF1E3A8A)),
-      'sender' => (bg: const Color(0xFFEDE9FE), fg: const Color(0xFF5B21B6)),
-      'link' => (bg: const Color(0xFFFEE2E2), fg: const Color(0xFF991B1B)),
-      'date' => (bg: const Color(0xFFFEF3C7), fg: const Color(0xFF92400E)),
-      'number' => (bg: const Color(0xFFE0F2FE), fg: const Color(0xFF075985)),
-      _ => (bg: Colors.transparent, fg: const Color(0xFF334155)),
+      'money' => (bg: const Color(0xFF354963), fg: const Color(0xFFB3CBFE)),
+      'sender' => (bg: const Color(0xFF49435E), fg: const Color(0xFFC7BBFC)),
+      'link' => (bg: const Color(0xFF603D3E), fg: const Color(0xFFFDACA2)),
+      'date' => (bg: const Color(0xFF372D02), fg: const Color(0xFFFFA980)),
+      'number' => (bg: const Color(0xFF0C3246), fg: const Color(0xFF87CDFF)),
+      _ => (bg: Colors.transparent, fg: const Color(0xFFBCCDE6)),
     };
 
 class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
@@ -225,9 +226,9 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
       child: DecoratedBox(
         key: const Key('askodoxAnswerCard'),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AskodoxLook.sheet,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: const [BoxShadow(color: Color(0x120F172A), blurRadius: 10, offset: Offset(0, 2))],
+          boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 10, offset: Offset(0, 2))],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(22),
@@ -264,7 +265,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                   child: Text(card.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF75D48B))),
                 ),
               Text(card.headline,
                   key: const Key('askodoxAnswerCardHeadline'),
@@ -286,7 +287,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
             button: true,
             label: widget.speaking ? _t('stop') : _t('listen'),
             child: Material(
-              color: widget.speaking ? const Color(0xFF4F46E5) : _night,
+              color: widget.speaking ? const Color(0xFFADB7FC) : _night,
               shape: const CircleBorder(),
               child: InkWell(
                 key: const Key('askodoxAnswerCardVoice'),
@@ -296,7 +297,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                   width: 48,
                   height: 48,
                   child: Icon(widget.speaking ? Icons.pause_rounded : Icons.volume_up_rounded,
-                      color: Colors.white, size: 22),
+                      color: AskodoxLook.sheet, size: 22),
                 ),
               ),
             ),
@@ -308,11 +309,11 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
 
   Widget _riskRow(String risk) {
     final (label, fg, bg, filled) = switch (risk) {
-      'safe' => (_t('safe'), const Color(0xFF166534), const Color(0xFFDCFCE7), 1),
-      'danger' => (_t('danger'), const Color(0xFF991B1B), const Color(0xFFFEE2E2), 3),
-      _ => (_t('careful'), const Color(0xFF92400E), const Color(0xFFFFF4E5), 2),
+      'safe' => (_t('safe'), const Color(0xFF8DD8A0), const Color(0xFF0E3721), 1),
+      'danger' => (_t('danger'), const Color(0xFFFDACA2), const Color(0xFF603D3E), 3),
+      _ => (_t('careful'), const Color(0xFFFFA980), const Color(0xFF3C2A0D), 2),
     };
-    const segment = [Color(0xFF16A34A), Color(0xFFF59E0B), Color(0xFFDC2626)];
+    const segment = [Color(0xFF69C97E), Color(0xFFF59E0B), Color(0xFFFE9488)];
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Semantics(
@@ -330,7 +331,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
               child: Container(
                 height: 6,
                 decoration: BoxDecoration(
-                    color: i < filled ? segment[i] : const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(3)),
+                    color: i < filled ? segment[i] : const Color(0xFF4A526B), borderRadius: BorderRadius.circular(3)),
               ),
             ),
             if (i < 2) const SizedBox(width: 4),
@@ -349,8 +350,8 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          color: const Color(0xFF1F2432),
+          border: Border.all(color: const Color(0xFF4A526B)),
           borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (card.seenTitle.isNotEmpty)
@@ -368,12 +369,12 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                         color: _markColors(piece.kind).fg,
                         backgroundColor: _markColors(piece.kind).bg,
                         decoration: piece.kind == 'link' ? TextDecoration.underline : null,
-                        decorationColor: const Color(0xFFDC2626)),
+                        decorationColor: const Color(0xFFFE9488)),
               ),
           ]),
           maxLines: _compact ? 2 : 3,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 14, height: 1.6, color: Color(0xFF334155)),
+          style: const TextStyle(fontSize: 14, height: 1.6, color: Color(0xFFBCCDE6)),
         ),
         if (kinds.isNotEmpty && !_compact)
           Padding(
@@ -391,7 +392,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                     Text(_t(kind),
                         style: TextStyle(
                             fontSize: 12,
-                            color: kind == 'link' ? const Color(0xFF991B1B) : _muted,
+                            color: kind == 'link' ? const Color(0xFFFDACA2) : _muted,
                             fontWeight: kind == 'link' ? FontWeight.w700 : FontWeight.w500)),
                   ]),
             ]),
@@ -412,7 +413,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
               selected: i == _tab,
               button: true,
               child: Material(
-                color: i == _tab ? _blue : const Color(0xFFF1F5F9),
+                color: i == _tab ? _blue : const Color(0xFF1F2432),
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   key: ValueKey('askodoxAnswerCardTab-$i'),
@@ -428,10 +429,10 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                            color: i == _tab ? Colors.white.withValues(alpha: 0.2) : Colors.white,
+                            color: i == _tab ? AskodoxLook.sheet.withValues(alpha: 0.2) : AskodoxLook.sheet,
                             borderRadius: BorderRadius.circular(11)),
                         child: Icon(askodoxCardTabIcon(tab.icon),
-                            size: 18, color: i == _tab ? Colors.white : const Color(0xFF334155)),
+                            size: 18, color: i == _tab ? AskodoxLook.sheet : const Color(0xFFBCCDE6)),
                       ),
                       const SizedBox(height: 5),
                       Padding(
@@ -443,7 +444,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w800,
-                                  color: i == _tab ? Colors.white : const Color(0xFF334155))),
+                                  color: i == _tab ? AskodoxLook.sheet : const Color(0xFFBCCDE6))),
                         ),
                       ),
                     ]),
@@ -477,7 +478,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
       if (height < 60) return const SizedBox.shrink();
       return Container(
         height: height,
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),
+        decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF1F2432)))),
         padding: const EdgeInsets.only(top: 10),
         child: picked != null
             ? _followUp(picked)
@@ -503,7 +504,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
           TextSpan(children: [
             TextSpan(text: text),
             if (hint.isNotEmpty)
-              TextSpan(text: ' · $hint', style: const TextStyle(fontWeight: FontWeight.w400, color: Color(0xFF64748B))),
+              TextSpan(text: ' · $hint', style: const TextStyle(fontWeight: FontWeight.w400, color: Color(0xFFA8BAD3))),
           ]),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -539,7 +540,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                     width: i == _page ? 18 : 6,
                     height: 6,
                     decoration: BoxDecoration(
-                        color: i == _page ? _blue : const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(3)),
+                        color: i == _page ? _blue : const Color(0xFF4A526B), borderRadius: BorderRadius.circular(3)),
                   ),
               ]),
             ),
@@ -556,7 +557,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                 return Container(
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(14)),
+                  decoration: BoxDecoration(color: const Color(0xFF1F2432), borderRadius: BorderRadius.circular(14)),
                   // Owner phone 2026-11-25: "Roads, bridges and …" -- tile words were cut at two lines; three lines and
                   // a size that shrinks to fit keep the whole tile text.
                   child: LayoutBuilder(
@@ -588,10 +589,10 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
               child: _rows(tab.items.length, 2, (i) {
                 final on = _ticked.contains(i);
                 return Material(
-                  color: on ? const Color(0xFFECFDF5) : Colors.white,
+                  color: on ? const Color(0xFF143529) : AskodoxLook.sheet,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(color: on ? const Color(0xFF16A34A) : const Color(0xFFCBD5E1), width: 1.5)),
+                      side: BorderSide(color: on ? const Color(0xFF69C97E) : const Color(0xFF4A526B), width: 1.5)),
                   child: InkWell(
                     key: ValueKey('askodoxAnswerCardCheck-$i'),
                     borderRadius: BorderRadius.circular(14),
@@ -600,7 +601,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Row(children: [
                         Icon(on ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                            size: 20, color: on ? const Color(0xFF16A34A) : const Color(0xFF94A3B8)),
+                            size: 20, color: on ? const Color(0xFF69C97E) : const Color(0xFF4C596C)),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(tab.items[i].title,
@@ -638,7 +639,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Text(text,
               overflow: TextOverflow.fade,
-              style: const TextStyle(fontSize: 15, height: 1.5, color: Color(0xFF334155))),
+              style: const TextStyle(fontSize: 15, height: 1.5, color: Color(0xFFBCCDE6))),
         ),
       ),
     ]);
@@ -667,7 +668,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
     final steps = tab.style == 'steps';
     final last = steps && i == tab.items.length - 1;
     final bg = steps ? (last ? _cardColors[0] : _cardColors[1]) : _cardColors[i % _cardColors.length];
-    final ink = steps ? (last ? const Color(0xFF16A34A) : _blue) : _cardInks[i % _cardInks.length];
+    final ink = steps ? (last ? const Color(0xFF69C97E) : _blue) : _cardInks[i % _cardInks.length];
     return Padding(
       padding: EdgeInsets.only(left: i == 0 ? 16 : 5, right: 5),
       child: Container(
@@ -681,7 +682,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
               height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: ink, shape: BoxShape.circle),
-              child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+              child: Text('${i + 1}', style: const TextStyle(color: AskodoxLook.sheet, fontWeight: FontWeight.w800)),
             )
           else if (item.title.isNotEmpty && item.value.isNotEmpty)
             Text('${i + 1} · ${item.title}',
@@ -707,7 +708,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
             Text(item.body,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14.5, height: 1.45, color: Color(0xFF334155))),
+                style: const TextStyle(fontSize: 14.5, height: 1.45, color: Color(0xFFBCCDE6))),
           ],
         ])),
       ),
@@ -725,16 +726,16 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                   child: Container(
                     key: ValueKey('askodoxAnswerCardDont-$i'),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                    decoration: BoxDecoration(color: const Color(0xFFFDF0F0), borderRadius: BorderRadius.circular(14)),
+                    decoration: BoxDecoration(color: const Color(0xFF3C2828), borderRadius: BorderRadius.circular(14)),
                     child: _fit(
                         Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(askodoxCardDontIcon(d.icon), size: 22, color: const Color(0xFFB91C1C)),
+                          Icon(askodoxCardDontIcon(d.icon), size: 22, color: const Color(0xFFFEA195)),
                           const SizedBox(height: 4),
                           Text(d.text,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF7F1D1D))),
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFFFDB4AC))),
                         ]),
                         alignment: Alignment.center),
                   ),
@@ -785,7 +786,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                         ? FilledButton(
                             key: ValueKey('askodoxAnswerCardFollowAction-$i'),
                             style: FilledButton.styleFrom(
-                                backgroundColor: look.border == const Color(0xFFC7D2FE) ? _blue : look.border,
+                                backgroundColor: look.border == const Color(0xFF3B4473) ? _blue : look.border,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 padding: const EdgeInsets.symmetric(horizontal: 6)),
                             onPressed: () => _run(action),
@@ -823,7 +824,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
   Widget _replies() {
     final card = _card;
     return Container(
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF1F2432)))),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (card.isCheck)
@@ -849,7 +850,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
     return SizedBox(
       height: 50,
       child: Material(
-        color: on ? (danger ? const Color(0xFFB91C1C) : _blue) : Colors.white,
+        color: on ? (danger ? const Color(0xFFFEA195) : _blue) : AskodoxLook.sheet,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16), side: BorderSide(color: look.border, width: 1.5)),
         child: InkWell(
@@ -872,7 +873,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                 style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: on ? Colors.white : (danger ? const Color(0xFF991B1B) : const Color(0xFF1E3A8A)))),
+                    color: on ? AskodoxLook.sheet : (danger ? const Color(0xFFFDACA2) : const Color(0xFFB3CBFE)))),
             ),
           ),
         ),
@@ -913,7 +914,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
               key: const Key('askodoxAnswerCardMic'),
               customBorder: const CircleBorder(),
               onTap: widget.onMic,
-              child: const SizedBox(width: 54, height: 54, child: Icon(Icons.mic_rounded, color: Colors.white)),
+              child: const SizedBox(width: 54, height: 54, child: Icon(Icons.mic_rounded, color: AskodoxLook.sheet)),
             ),
           ),
         ),
@@ -924,19 +925,19 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
   Widget _footer() {
     final card = _card;
     return Container(
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEF0F4)))),
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF1F2432)))),
       padding: const EdgeInsets.fromLTRB(10, 2, 10, 2),
       child: Row(children: [
         Flexible(
           child: Text(_feedback == null ? _t('useful') : _t('thanks'),
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFFA8BAD3))),
         ),
         IconButton(
           key: const Key('askodoxAnswerCardUseful'),
           tooltip: _t('useful'),
           visualDensity: VisualDensity.compact,
           icon: Icon(_feedback == true ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined,
-              size: 18, color: _feedback == true ? _blue : const Color(0xFF64748B)),
+              size: 18, color: _feedback == true ? _blue : const Color(0xFFA8BAD3)),
           onPressed: _feedback != null
               ? null
               : () {
@@ -948,7 +949,7 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
           key: const Key('askodoxAnswerCardNotUseful'),
           visualDensity: VisualDensity.compact,
           icon: Icon(_feedback == false ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined,
-              size: 18, color: const Color(0xFF64748B)),
+              size: 18, color: const Color(0xFFA8BAD3)),
           onPressed: _feedback != null
               ? null
               : () {
@@ -965,8 +966,8 @@ class _AskodoxAnswerCardViewState extends State<AskodoxAnswerCardView> {
                 child: TextButton.icon(
             key: const Key('askodoxAnswerCardShare'),
             style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF334155),
-                backgroundColor: const Color(0xFFF1F5F9),
+                foregroundColor: const Color(0xFFBCCDE6),
+                backgroundColor: const Color(0xFF1F2432),
                 shape: const StadiumBorder(),
                 minimumSize: const Size(0, 40)),
             onPressed: () => _run(AskodoxCardAction(kind: 'share', label: _t('family'))),
@@ -1140,7 +1141,7 @@ class AskodoxAnswerCardPending extends StatelessWidget {
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: const LinearProgressIndicator(minHeight: 4, color: _blue, backgroundColor: Color(0xFFE2E8F0)),
+            child: const LinearProgressIndicator(minHeight: 4, color: _blue, backgroundColor: Color(0xFF4A526B)),
           ),
         ],
       );
