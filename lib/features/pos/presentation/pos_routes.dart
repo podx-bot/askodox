@@ -59,6 +59,7 @@ import '../../steps/presentation/report_steps_screens.dart';
 import '../../steps/presentation/shop_chooser_steps_screen.dart';
 import '../../steps/presentation/table_order_steps_screen.dart';
 import '../../automations/shop_automations_screen.dart';
+import '../../morning_brief/morning_brief_screen.dart';
 import 'branches_screen.dart';
 import 'pos_restaurant_screens.dart';
 import 'pos_sale_screen.dart';
@@ -351,6 +352,11 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) => AskodoxShopAutomationsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/prices', builder: (context, state) => AskodoxBulkPriceStepsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/me/family-list', builder: (context, state) => const AskodoxFamilyListScreen()),
+  // Owner 2026-11-27: the morning brief -- three things for today, the person's own or one shop's.
+  GoRoute(path: '/brief', builder: (context, state) => const AskodoxMorningBriefScreen()),
+  GoRoute(
+      path: '/pos/:id/brief',
+      builder: (context, state) => AskodoxMorningBriefScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/gst',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
