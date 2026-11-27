@@ -116,3 +116,32 @@ def test_table_order_kitchen_bill_and_staff_boundaries(api):
         "client_txn_id": _id(), "payments": [{"method": "upi", "amount_paise": 40000}]})
     assert bill.status_code == 200, bill.text
     assert bill.json()["totals"]["grand_total_paise"] == 40000
+
+
+def test_purchase_supplier_payable_and_stock_in(api):
+    """Supplier -> purchase bill (stock in) -> part payment -> payable shrinks; a stranger cannot see the supplier."""
+    c, auth = api
+    owner = f"app-phone-91{uuid.uuid4().int % 10**8:08d}"
+    stranger = f"app-phone-92{uuid.uuid4().int % 10**8:08d}"
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "Journey Store", "state_code": "36"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    item = c.post(f"{base}/products", headers=h, json={"name": "Oil", "unit": "kg", "price_paise": 15000, "track_stock": True}).json()["id"]
+    sup = c.post(f"{base}/suppliers", headers=h, json={"name": "Agro Traders", "phone": "9400000777"}).json()["id"]
+    pur = c.post(f"{base}/purchases", headers=h, json={
+        "client_txn_id": _id(), "supplier_id": sup, "supplier_bill_no": "AT-101",
+        "lines": [{"product_id": item, "qty_milli": 10000, "cost_paise": 12000}]})
+    assert pur.status_code == 200, pur.text
+    rows = c.get(f"{base}/products", headers=h).json()
+    rows = rows.get("products", rows)
+    assert [p for p in rows if p["id"] == item][0]["stock_milli"] == 10000
+    before = c.get(f"{base}/suppliers/{sup}", headers=h).json()
+    pay = c.post(f"{base}/suppliers/{sup}/payments", headers=h, json={"client_txn_id": _id(), "method": "cash", "amount_paise": 50000})
+    assert pay.status_code == 200, pay.text
+    after = c.get(f"{base}/suppliers/{sup}", headers=h).json()
+    assert before["owed_paise"] == 120000 and after["owed_paise"] == 70000, (before, after)
+    assert c.get(f"{base}/suppliers/{sup}", headers=auth(stranger)).status_code in (403, 404)
+    again = c.post(f"{base}/purchases", headers=h, json={
+        "client_txn_id": pur.json().get("client_txn_id") or _id(), "supplier_id": sup, "supplier_bill_no": "AT-101",
+        "lines": [{"product_id": item, "qty_milli": 10000, "cost_paise": 12000}]})
+    assert again.status_code in (200, 409)
