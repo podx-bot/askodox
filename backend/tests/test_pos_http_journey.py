@@ -186,3 +186,54 @@ def test_family_list_members_items_and_outsider(api):
     add = c.post(f"{path}/items", headers=auth(me), json={"texts": ["Milk", "Eggs"], "qty": "2"})
     assert add.status_code == 200, add.text
     assert c.post(f"{path}/items", headers=auth(outsider), json={"texts": ["Spy"]}).status_code in (403, 404)
+
+
+def test_selfshop_customer_scans_checks_out_and_cashier_bills(api):
+    c, auth = api
+    n = uuid.uuid4().int % 10**8
+    owner, buyer, other = f"app-phone-61{n:08d}", f"app-phone-62{n:08d}", f"app-phone-63{n:08d}"
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "Journey Mart", "state_code": "36"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    item = c.post(f"{base}/products", headers=h, json={"name": "Soap", "unit": "pcs", "price_paise": 4000,
+                                                       "barcode": "8901234567890"})
+    assert item.status_code == 200, item.text
+    on = c.put(f"{base}/selfshop", headers=h, json={"enabled": True, "minutes": 60})
+    assert on.status_code == 200, on.text
+    code = on.json().get("code") or c.get(f"{base}/selfshop", headers=h).json()["code"]
+    joined = c.post("/api/pos/selfshop/join", headers=auth(buyer), json={"code": str(code)})
+    assert joined.status_code == 200, joined.text
+    sid = joined.json()["id"]
+    for _ in range(2):
+        s = c.post(f"/api/pos/selfshop/{sid}/scan", headers=auth(buyer), json={"barcode": "8901234567890"})
+        assert s.status_code == 200, s.text
+    assert c.get(f"/api/pos/selfshop/{sid}", headers=auth(other)).status_code in (403, 404), "another customer's list"
+    out = c.post(f"/api/pos/selfshop/{sid}/checkout", headers=auth(buyer))
+    assert out.status_code == 200, out.text
+    assert c.post(f"{base}/selfshop/sessions/{sid}/bill", headers=auth(buyer),
+                  json={"payments": []}).status_code in (403, 404), "a customer can never bill himself"
+    bill = c.post(f"{base}/selfshop/sessions/{sid}/bill", headers=h,
+                  json={"payments": [{"method": "cash", "amount_paise": 8000}]})
+    assert bill.status_code == 200, bill.text
+
+
+def test_crm_lead_followup_complaint_and_briefs(api):
+    c, auth = api
+    n = uuid.uuid4().int % 10**8
+    owner, stranger = f"app-phone-51{n:08d}", f"app-phone-52{n:08d}"
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "Journey CRM", "state_code": "36"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    lead = c.post(f"{base}/crm/leads", headers=h, json={"name": "Sita", "phone": "9400000888", "need": "20 chairs"})
+    assert lead.status_code == 200, lead.text
+    fu = c.post(f"{base}/crm/followups", headers=h, json={"due_at": "2026-12-01T10:00:00", "note": "Call back",
+                                                          "lead_id": lead.json()["id"]})
+    assert fu.status_code == 200, fu.text
+    assert c.post(f"{base}/crm/followups/{fu.json()['id']}/close", headers=h, json={"note": "done"}).status_code == 200
+    comp = c.post(f"{base}/crm/complaints", headers=h, json={"subject": "Broken leg", "name": "Sita", "phone": "9400000888"})
+    assert comp.status_code == 200, comp.text
+    assert c.post(f"{base}/crm/leads", headers=auth(stranger), json={"name": "X"}).status_code in (403, 404)
+    for path in (f"{base}/morning-brief", f"{base}/automations", "/api/me/morning-brief", "/api/automations/buyer"):
+        r = c.get(path, headers=h)
+        assert r.status_code == 200, (path, r.text)
+    assert c.get(f"{base}/morning-brief", headers=auth(stranger)).status_code in (403, 404)
