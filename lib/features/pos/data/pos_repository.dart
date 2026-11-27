@@ -257,6 +257,10 @@ class AskodoxPosRepository {
       _send('POST', '/api/pos/order-desk/mine/$orderId/requests', body: {'kinds': kinds, 'text': text});
   Future<AskodoxJson> deskRequests(String biz) => _send('GET', '${_b(biz)}/desk/requests');
   Future<AskodoxJson> deskRequestDone(String biz, String id) => _send('POST', '${_b(biz)}/desk/requests/$id/done');
+  // Table watch (owner 2026-11-27): who is sitting and for how long, from the table QR. No camera.
+  Future<AskodoxJson> tableWatch(String biz) => _send('GET', '${_b(biz)}/desk/table-watch');
+  Future<AskodoxJson> tableWatchSeen(String biz, String table) => _send('POST', '${_b(biz)}/desk/table-watch/$table/seen');
+  Future<AskodoxJson> tableWatchFree(String biz, String table) => _send('POST', '${_b(biz)}/desk/table-watch/$table/free');
   Future<AskodoxJson> deskRequestSettings(String biz) => _send('GET', '${_b(biz)}/desk/request-settings');
   Future<AskodoxJson> deskRequestSettingsSave(String biz, {List<String>? off, List<AskodoxJson>? custom}) =>
       _send('PUT', '${_b(biz)}/desk/request-settings', body: {if (off != null) 'off': off, if (custom != null) 'custom': custom});

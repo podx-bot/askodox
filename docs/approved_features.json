@@ -13925,6 +13925,136 @@
           "askodoxTermEnd"
         ]
       }
+    },
+    {
+      "api": [],
+      "id": "live_work_workout_tracker",
+      "name": "Live Work workout: sets, rest timer, personal records, week and streak (free, on the phone)",
+      "purpose": "Owner 2026-11-27 (phase 4): a person who works out logs each set in two taps, rests by a timer that starts by itself, sees when a set beats their own best, and sees the week and the days in a row. Free: no server call, no AI, no AI Credits; the workouts stay on the phone (account-scoped). No points (the owner gives those rules later).",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/workout/workout_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxWorkWorkout",
+          "askodoxWorkoutScreen",
+          "askodoxWorkoutPick",
+          "askodoxWorkoutSetDone",
+          "askodoxWorkoutRest",
+          "askodoxWorkoutRecord",
+          "askodoxWorkoutFinish",
+          "askodoxWorkoutDone",
+          "askodoxWorkoutStreak",
+          "askodoxWorkoutMedals"
+        ],
+        "symbols": [
+          "AskodoxWorkoutScreen",
+          "askodoxWorkoutProvider",
+          "askodoxWorkoutRecords",
+          "askodoxWorkoutStreak",
+          "askodoxWorkoutPrefsKey"
+        ]
+      },
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Live Work bar -> the dumbbell button opens /work/workout. Pick a body part and an exercise (a starter list; the person adds their own by name), set the kg (2.5 kg steps; 0 = body weight) and the times with two steppers and tap Set done: the first set starts the workout, the rest timer (90 s) starts by itself and can be skipped. A set better than the best of EARLIER workouts (heavier, or the same weight more times) shows New record -- once per exercise per workout; the first time an exercise is done is a start, not a record. Finish workout shows the time, the sets, the weight moved and the records. The top card shows this week (Mon..Sun), the days in a row (to today, or to yesterday before today's workout) and the record medals; a member of a term-fee business sees that membership with a check-in button. Everything stays on the phone (account-scoped: leaves with a sign-out, comes back with the same account); no server call, no AI, no AI Credits, no points.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: Live Work workout tracker (phase 4 of the 2026-11-27 plan, design canvas workout screens); points set aside by the owner (rules come later); own exercise by voice and paying the gym fee from here are NOT built; NOT PHONE VERIFIED",
+          "date": "2026-11-27"
+        }
+      ]
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/desk/table-watch",
+          "response_keys": [
+            "now",
+            "unseen_minutes",
+            "tables",
+            "counts",
+            "alerts"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/table-watch/{table_id}/seen",
+          "response_keys": [
+            "ok",
+            "changed"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/desk/table-watch/{table_id}/free",
+          "response_keys": [
+            "ok",
+            "changed"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "For every business with tables: a customer opening the menu from a table's own QR starts a sitting on that table (no customer identity is kept; a second scan at the same table or a scan while an order runs changes nothing). The Table watch page (Tables page menu, or the notification) shows every table as free / seated / go to them / order waiting / eating with the minutes: seated = sat, no order yet; order waiting = an open order not served yet (a customer order or a staff-made table order); eating = served; a sitting with no order ends by itself after 3 hours. A table whose people sat 5 minutes with nobody going to them is on top and the owner + manager / waiter / cashier get ONE push for that sitting (a minute job; at most 20 a table a day). Tap a table: 'I am going' (stops the alert), 'Take the order', 'They left' (table free); a table with an order opens that order. QR only: no camera, no AI, no AI Credits; nothing moves money.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: table watch from the table QR (phase 5 of the 2026-11-27 plan, design canvas table watch screen); camera watch is NOT built (the owner chose QR only); NOT PHONE VERIFIED",
+          "date": "2026-11-27"
+        }
+      ],
+      "id": "table_watch_qr",
+      "name": "Table watch: who is sitting and for how long, from the table QR (no camera)",
+      "purpose": "Owner 2026-11-27 (phase 5): the owner / floor staff see at a glance which table has people, how long they have sat, which order is waiting, and above all which table nobody has gone to yet -- so no customer sits unseen.",
+      "roles": [
+        "owner",
+        "manager",
+        "waiter",
+        "cashier",
+        "kitchen"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_table_watch.py"
+        ],
+        "flutter": [
+          "test/features/table_watch/table_watch_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxTableWatch",
+          "askodoxTableWatchBusy",
+          "askodoxTableWatchSeen",
+          "askodoxTableWatchTakeOrder",
+          "askodoxTableWatchFree",
+          "askodoxTableWatchNote",
+          "askodoxTablesStepsWatch"
+        ],
+        "symbols": [
+          "AskodoxTableWatchScreen",
+          "askodoxTableWatchText",
+          "askodoxTableWatchTime",
+          "askodoxTableWatchOrder"
+        ]
+      }
     }
   ]
 }

@@ -531,6 +531,8 @@ class _TablesStepsState extends ConsumerState<AskodoxTablesStepsScreen> {
       more: [
         AskodoxStepMore('askodoxTablesStepsFull', te ? 'పాత టేబుల్స్ పేజీ (టేబుల్ చేర్చు, రిజర్వేషన్లు)' : 'Old tables page (add table, reservations)',
             Icons.menu_book_rounded, () => context.push('/pos/${widget.businessId}/tables?full=1')),
+        AskodoxStepMore('askodoxTablesStepsWatch', te ? 'టేబుల్ వాచ్ (ఎవరు వేచి ఉన్నారు)' : 'Table watch (who is waiting)',
+            Icons.visibility_outlined, () => context.push('/pos/${widget.businessId}/tables/watch')),
         AskodoxStepMore('askodoxTablesStepsKitchen', te ? 'వంటగది' : 'Kitchen', Icons.soup_kitchen_outlined,
             () => context.push('/pos/${widget.businessId}/kitchen')),
       ],

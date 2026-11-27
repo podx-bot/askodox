@@ -224,10 +224,32 @@ def _ai_cost_guard(container: Any) -> Any:
     return {"state": guard["state"], "alerted": True, "pushed": pushed}
 
 
+def _table_watch(container: Any) -> Any:
+    """Owner 2026-11-27: a table whose customer sat 5 minutes with nobody going to it -> ONE spoken push to the floor
+    staff (owner / manager / waiter / cashier). QR only; one indexed read a minute."""
+    from app.services.pos_store import PosStore
+    from app.services.pos_table_watch import PosTableWatch, alert_text
+    from app.services.push_service import push_service
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    watch = getattr(container, "pos_table_watch", None)
+    if watch is None or watch.store is not store:
+        watch = PosTableWatch(store)
+    items = watch.due_alerts()
+    push = push_service(container)
+    sent = 0
+    for item in items:
+        t = alert_text(item)
+        for user in item["users"]:
+            sent += bool(push.notify(user, title=t["title"], body=t["body"], route=t["route"], event_key=f"{t['key']}:{user}"))
+    return {"due": len(items), "pushed": sent}
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
             ("owner_alerts", 900.0, _owner_alerts), ("night_reports", 600.0, _night_reports),
             ("payalert_missed", 60.0, _payalert_missed), ("dues_followup", 3600.0, _dues_followup),
             ("expiry_alerts", 3600.0, _expiry_alerts), ("studio_reminders", 1800.0, _studio_reminders),
-            ("shop_activity", 21600.0, _shop_activity), ("ai_cost_guard", 1800.0, _ai_cost_guard)]
+            ("shop_activity", 21600.0, _shop_activity), ("ai_cost_guard", 1800.0, _ai_cost_guard),
+            ("table_watch", 60.0, _table_watch)]

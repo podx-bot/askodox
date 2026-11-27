@@ -192,9 +192,33 @@ class RequestSettingsIn(BaseModel):
 
 
 # ------------------------------------------------------------------------------------------- customer
+def _watch(request: Request) -> Any:
+    """Table watch (owner 2026-11-27): one per store, kept on the container."""
+    from app.services.pos_table_watch import PosTableWatch
+
+    container: Any = request.app.state.container
+    store = _store(request)
+    existing = getattr(container, "pos_table_watch", None)
+    if existing is None or existing.store is not store:
+        existing = PosTableWatch(store)
+        try:
+            container.pos_table_watch = existing
+        except Exception:
+            pass
+    return existing
+
+
 @router.get("/order-desk/resolve")
 def resolve(code: str, request: Request) -> dict:
-    return _call(_desk(request).resolve, code, _user(request, "desk-resolve", 60))
+    out = _call(_desk(request).resolve, code, _user(request, "desk-resolve", 60))
+    table = out.get("table") if isinstance(out, dict) else None
+    if table and out.get("open"):
+        # The table's own QR was opened = someone sat down (table watch). Best effort: the menu never waits on it.
+        try:
+            _watch(request).sat(out["business"]["id"], table["id"])
+        except Exception:
+            pass
+    return out
 
 
 @router.post("/order-desk/assist")
@@ -857,6 +881,22 @@ def desk_requests(business_id: str, request: Request) -> dict:
 @router.post("/businesses/{business_id}/desk/requests/{request_id}/done")
 def desk_request_done(business_id: str, request_id: str, request: Request) -> dict:
     return _call(_desk(request).requests.done, business_id, _user(request, "desk", 300), request_id)
+
+
+# ------------------------------------------------------------------------------------------- table watch (QR only)
+@router.get("/businesses/{business_id}/desk/table-watch")
+def table_watch(business_id: str, request: Request) -> dict:
+    return _call(_watch(request).watch, business_id, _user(request, "desk", 600))
+
+
+@router.post("/businesses/{business_id}/desk/table-watch/{table_id}/seen")
+def table_watch_seen(business_id: str, table_id: str, request: Request) -> dict:
+    return _call(_watch(request).seen, business_id, _user(request, "desk", 300), table_id)
+
+
+@router.post("/businesses/{business_id}/desk/table-watch/{table_id}/free")
+def table_watch_free(business_id: str, table_id: str, request: Request) -> dict:
+    return _call(_watch(request).free, business_id, _user(request, "desk", 300), table_id)
 
 
 @router.get("/businesses/{business_id}/desk/request-settings")

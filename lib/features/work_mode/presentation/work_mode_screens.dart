@@ -82,6 +82,13 @@ class AskodoxWorkModeScreen extends ConsumerWidget {
         elevation: 0,
         title: Text(te ? 'వర్క్ మోడ్' : 'Work Mode', style: const TextStyle(fontWeight: FontWeight.w900)),
         actions: [
+          IconButton(
+            key: const Key('askodoxWorkWorkout'),
+            tooltip: te ? 'వర్కౌట్' : 'Workout',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.fitness_center_rounded),
+            onPressed: () => context.push('/work/workout'),
+          ),
           if (state.loaded && state.introSeen)
             IconButton(
               key: const Key('askodoxWorkHowToPlay'),

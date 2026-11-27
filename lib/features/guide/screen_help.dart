@@ -674,6 +674,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '7,000 అడుగులు = ఒక రోజు పూర్తి పని. పని అసలు క్రమంలో, నిజ సమయంలో సగంలో జరుగుతుంది.',
     'పాయింట్లు, బహుమతులు లేవు. ట్రెడ్‌మిల్ అడుగులకు "చేతితో నమోదు" వాడండి; ఆదివారం విశ్రాంతి.',
   ]),
+  '/work/workout': _H('Workout', 'వర్కౌట్', [
+    'Pick a body part and an exercise, tap Start. Set the kg and the times with + and −, then "Set done".',
+    'The rest timer starts by itself. A set better than your best so far shows "New record".',
+    '"Finish workout" shows the time, the sets and the weight moved. Free; your workouts stay on this phone.',
+  ], [
+    'శరీర భాగం, వ్యాయామం ఎంచుకుని "మొదలు" నొక్కండి. + − తో కేజీ, సార్లు పెట్టి "సెట్ పూర్తయింది" నొక్కండి.',
+    'విశ్రాంతి టైమర్ తనంతట మొదలవుతుంది. మీ గత బెస్ట్ కంటే ఎక్కువ చేస్తే "కొత్త రికార్డ్" చూపిస్తుంది.',
+    '"వర్కౌట్ పూర్తి" నొక్కితే సమయం, సెట్లు, ఎత్తిన బరువు కనిపిస్తాయి. ఉచితం; మీ వర్కౌట్ ఈ ఫోన్‌లోనే ఉంటుంది.',
+  ]),
   '/work/seva': _H('Seva / meditation', 'సేవ / ధ్యానం', [
     'Optional. Choose a practice and a time, then tap Start in a walking break.',
     'Only the minutes are kept on your phone; your choice is never stored.',
@@ -1286,6 +1295,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
   ], [
     'పైన షాప్ QR; టేబుల్ నొక్కితే దాని QR. ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
     'పెద్ద బటన్ ఆర్డర్ కోడ్‌ని కస్టమర్లకు WhatsApp లో పంపుతుంది. ఇంకా టేబుల్స్, కాపీ ⋮ మెనూలో.',
+  ]),
+  '/pos/:id/tables/watch': _H('Table watch', 'టేబుల్ వాచ్', [
+    'Each table shows who is sitting and for how long. The time starts when the table\'s QR is scanned; no camera.',
+    'A table nobody has gone to for 5 minutes comes on top and the staff get a notification.',
+    'Tap a table: "I am going", "Take the order", or "They left". A table with an order opens that order.',
+  ], [
+    'ప్రతి టేబుల్‌లో ఎవరు కూర్చున్నారు, ఎంతసేపైంది కనిపిస్తుంది. టేబుల్ QR స్కాన్ చేసినప్పటి నుంచి సమయం; కెమెరా అవసరం రాదు.',
+    '5 నిమిషాలుగా ఎవరూ వెళ్ళని టేబుల్ పైన వస్తుంది, సిబ్బందికి నోటిఫికేషన్ వెళ్తుంది.',
+    'టేబుల్ నొక్కండి: "నేను వెళ్తున్నా", "ఆర్డర్ తీసుకో", "వెళ్ళిపోయారు". ఆర్డర్ ఉన్న టేబుల్ నొక్కితే ఆ ఆర్డర్ తెరుచుకుంటుంది.',
   ]),
   '/pos/:id/tables': _H('Tables', 'టేబుల్స్', [
     'The number on top is busy tables. Tap a green (free) table to start an order, an orange one to open its order.',
