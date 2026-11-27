@@ -247,37 +247,37 @@ class TermCheckInIn(BaseModel):
     code: str = Field(max_length=12)
 
 
-@router.get("/businesses/{business_id}/members")
+@router.get("/businesses/{business_id}/memberships")
 def term_members(business_id: str, request: Request) -> Dict[str, Any]:
     return _call(_terms(request).overview, business_id, _user(request, "members", 240))
 
 
-@router.post("/businesses/{business_id}/members")
+@router.post("/businesses/{business_id}/memberships")
 def add_term_member(business_id: str, body: TermMemberIn, request: Request) -> Dict[str, Any]:
     return _call(_terms(request).add, business_id, _user(request, "members", 120), body.model_dump())
 
 
-@router.post("/businesses/{business_id}/members/{member_id}/renew")
+@router.post("/businesses/{business_id}/memberships/{member_id}/renew")
 def renew_term_member(business_id: str, member_id: str, body: TermRenewIn, request: Request) -> Dict[str, Any]:
     return _call(_terms(request).renew, business_id, _user(request, "members", 120), member_id, body.model_dump())
 
 
-@router.post("/businesses/{business_id}/members/{member_id}/status")
+@router.post("/businesses/{business_id}/memberships/{member_id}/status")
 def term_member_status(business_id: str, member_id: str, body: StatusIn, request: Request) -> Dict[str, Any]:
     return _call(_terms(request).set_status, business_id, _user(request, "members", 120), member_id, body.status)
 
 
-@router.get("/businesses/{business_id}/members/attendance")
+@router.get("/businesses/{business_id}/memberships/attendance")
 def term_attendance(business_id: str, request: Request) -> Dict[str, Any]:
     return _call(_terms(request).attendance, business_id, _user(request, "members", 240))
 
 
-@router.post("/businesses/{business_id}/members/{member_id}/visit")
+@router.post("/businesses/{business_id}/memberships/{member_id}/visit")
 def term_visit(business_id: str, member_id: str, body: TermVisitIn, request: Request) -> Dict[str, Any]:
     return _call(_terms(request).mark, business_id, _user(request, "members", 600), member_id, body.came)
 
 
-@router.get("/businesses/{business_id}/members/report")
+@router.get("/businesses/{business_id}/memberships/report")
 def term_report(business_id: str, request: Request, month: str = "") -> Dict[str, Any]:
     return _call(_terms(request).report, business_id, _user(request, "members", 120), month)
 
