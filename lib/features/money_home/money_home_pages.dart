@@ -98,6 +98,8 @@ const askodoxBuyerPages = <AskodoxLaunchPage>[
       route: '/me/monthly'),
   AskodoxLaunchPage('b.memberships', 'My memberships', 'నా సభ్యత్వాలు', Icons.badge_rounded, AskodoxLook.accentText,
       route: '/me/memberships'),
+  AskodoxLaunchPage('b.vault', 'Bills & warranty', 'బిల్స్ & వారంటీ', Icons.verified_user_outlined, AskodoxLook.good,
+      route: '/me/vault'),
   // Owner 2026-11-26: photo try-on is NOT a page of its own -- it lives on a PRODUCT ("Try it" on an item with a photo).
   AskodoxLaunchPage('b.following', 'Shops I follow', 'ఫాలో షాప్‌లు', Icons.favorite_rounded, Color(0xFFFE9488),
       route: '/me/following', keyName: 'askodoxShoppingFollowing'),

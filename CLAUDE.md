@@ -7,6 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/paper-vault` (2026-11-28, owner "No continue" = phase 6): BILLS & WARRANTY -- `paper_vault.py` (`read_paper` never raises, stores nothing; `warranty_end` only from printed purchase day + printed months) + POST `/api/me/vault/read` (sign-in, <= 2 photos, one AI Credits `image` use, released when nothing is read). App `lib/features/vault/` (`/me/vault`, Buyer page `b.vault`, chip `askodoxVaultChip` above the chat when a warranty ends within 30 days; papers + photos on the PHONE only, prefs `askodox.vault.v1`, account-scoped; share-for-service = item, shop, dates, serial only). Registry `paper_vault_bills_warranty`. Nothing phone verified.
 - `main` PR #546 (2026-11-27, owner "Merge" 22:01; squash 91d77c0; first piece of phase 6; NOT in any Play bundle): YIELD &
   RATES -- buy in one form, sell in another (live birds -> dressed, goat, fish, paddy, cloth roll). Pure integer maths
   in TWO twins: `backend/app/services/yield_math.py` == `lib/features/yield/yield_math.dart`, both run
