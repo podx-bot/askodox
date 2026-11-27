@@ -13794,7 +13794,7 @@
       "api": [
         {
           "method": "GET",
-          "path": "/api/pos/businesses/{business_id}/members",
+          "path": "/api/pos/businesses/{business_id}/memberships",
           "response_keys": [
             "today",
             "terms",
@@ -13806,7 +13806,7 @@
         },
         {
           "method": "POST",
-          "path": "/api/pos/businesses/{business_id}/members",
+          "path": "/api/pos/businesses/{business_id}/memberships",
           "response_keys": [
             "id",
             "name",
@@ -13816,7 +13816,7 @@
         },
         {
           "method": "POST",
-          "path": "/api/pos/businesses/{business_id}/members/{member_id}/renew",
+          "path": "/api/pos/businesses/{business_id}/memberships/{member_id}/renew",
           "response_keys": [
             "id",
             "end_date",
@@ -13825,7 +13825,7 @@
         },
         {
           "method": "GET",
-          "path": "/api/pos/businesses/{business_id}/members/attendance",
+          "path": "/api/pos/businesses/{business_id}/memberships/attendance",
           "response_keys": [
             "day",
             "code",
@@ -13838,7 +13838,7 @@
         },
         {
           "method": "POST",
-          "path": "/api/pos/businesses/{business_id}/members/{member_id}/visit",
+          "path": "/api/pos/businesses/{business_id}/memberships/{member_id}/visit",
           "response_keys": [
             "ok",
             "came",
@@ -13847,7 +13847,7 @@
         },
         {
           "method": "GET",
-          "path": "/api/pos/businesses/{business_id}/members/report",
+          "path": "/api/pos/businesses/{business_id}/memberships/report",
           "response_keys": [
             "month",
             "new",
