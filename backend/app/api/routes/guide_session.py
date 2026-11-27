@@ -6,6 +6,7 @@ Customer (signed in):
   POST   /api/me/guide-session/consent ....... {consent} -- nothing is kept without it; false also deletes what was kept
   POST   /api/me/guide-session/turn .......... {answer, language, asked_why, not_understood, skip} -> the next question
   POST   /api/me/guide-session/pause ......... time is up: what is done, what is left
+  GET    /api/me/guide-session/arrangement ... page ids to bring to the front from the kept answers (move only)
   GET    /api/me/guide-session/facts ......... what was kept (the person's own words)
   DELETE /api/me/guide-session/facts ......... one topic (?topic=) or everything
   GET    /api/me/guide-reminders ............. unfinished setup + one feature that fits what they said
@@ -39,7 +40,12 @@ def sessions(container: Any) -> GuideSessions:
                 raise RuntimeError("no model")
             return ai.write_text(prompt, max_tokens=700) or ""
 
-        service = GuideSessions(container.settings.database_path, write_text=write_text)
+        def tell(user: str, title: str, body: str, route: str, event_key: str) -> None:
+            push = getattr(container, "push_service", None)
+            if push is not None:
+                push.notify_async(user, title=title, body=body, route=route, event_key=event_key)
+
+        service = GuideSessions(container.settings.database_path, write_text=write_text, tell=tell)
         container.guide_sessions = service
     return service
 
@@ -123,6 +129,11 @@ def turn(body: TurnBody, request: Request) -> Dict[str, Any]:
 @router.post("/api/me/guide-session/pause")
 def pause(request: Request) -> Dict[str, Any]:
     return sessions(request.app.state.container).pause(_user(request, "guide", 60))
+
+
+@router.get("/api/me/guide-session/arrangement")
+def arrangement(request: Request) -> Dict[str, Any]:
+    return sessions(request.app.state.container).arrangement(_user(request, "guide"))
 
 
 @router.get("/api/me/guide-session/facts")

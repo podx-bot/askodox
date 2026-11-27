@@ -237,6 +237,7 @@ class AskodoxPosRepository {
       _send('POST', '/api/me/guide-session/turn',
           body: {'answer': answer, 'language': language, 'asked_why': askedWhy, 'not_understood': notUnderstood, 'skip': skip},
           timeout: const Duration(seconds: 40));
+  Future<AskodoxJson> guideArrangement() => _send('GET', '/api/me/guide-session/arrangement');
   Future<AskodoxJson> guidePause() => _send('POST', '/api/me/guide-session/pause');
   Future<AskodoxJson> guideDeleteFacts({String? topic}) =>
       _send('DELETE', '/api/me/guide-session/facts', query: {if (topic != null) 'topic': topic});

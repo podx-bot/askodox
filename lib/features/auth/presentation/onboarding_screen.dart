@@ -434,6 +434,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'te': 'మీకు ఇష్టమైతే మొదలుపెడదాం.',
         'hi': 'आपको ठीक लगे तो शुरू करें।',
       },
+      'introHear': {'en': 'Hear it again', 'te': 'మళ్ళీ వినండి', 'hi': 'फिर से सुनें'},
       'introGo': {'en': 'OK, let us begin', 'te': 'ఓకే, మొదలుపెడదాం', 'hi': 'ठीक है, शुरू करें'},
       'termsTitle': {'en': 'Terms and conditions', 'te': 'నిబంధనలు, షరతులు', 'hi': 'नियम और शर्तें'},
       'termsHint': {
@@ -1159,7 +1160,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ]),
         ),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 8),
+      TextButton.icon(
+        key: const Key('askodoxIntroHear'),
+        onPressed: () => unawaited(ref.read(askodoxGuideSpeakerProvider)('${_t('introHello')}. $line', _languageCode).catchError((_) {})),
+        icon: const Icon(Icons.volume_up_rounded),
+        label: Text(_t('introHear')),
+      ),
+      const SizedBox(height: 8),
       FilledButton(key: const Key('askodoxIntroGo'), onPressed: () => setState(() => _pre = 3), child: Text(_t('introGo'))),
     ];
   }
