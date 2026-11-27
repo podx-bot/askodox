@@ -85,3 +85,34 @@ def test_shop_day_journey(api):
     day = c.post(f"{base}/day-close", headers=h, json={"local_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                                                        "counted_cash_paise": 0})
     assert day.status_code == 200, day.text
+
+
+def test_table_order_kitchen_bill_and_staff_boundaries(api):
+    """Table -> order -> KOT -> kitchen steps -> bill; a kitchen member cannot bill; a stranger sees nothing."""
+    c, auth = api
+    n = uuid.uuid4().int % 10**8
+    owner, kitchen, stranger = (f"app-phone-97{n:08d}", f"app-phone-98{n:08d}", f"app-phone-99{n:08d}")
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "Journey Mess", "state_code": "36", "template": "restaurant"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    dish = c.post(f"{base}/products", headers=h, json={"name": "Biryani", "unit": "plate", "price_paise": 20000}).json()["id"]
+    table = c.post(f"{base}/tables", headers=h, json={"name": "T1", "seats": 4}).json()["id"]
+    assert c.post(f"{base}/members", headers=h, json={"phone": kitchen[-10:], "role": "kitchen"}).status_code == 200
+    order = c.post(f"{base}/orders", headers=h, json={"kind": "dine_in", "table_id": table, "guests": 2}).json()["id"]
+    added = c.post(f"{base}/orders/{order}/items", headers=h, json={"items": [{"product_id": dish, "qty_milli": 2000}]})
+    assert added.status_code == 200, added.text
+    assert c.post(f"{base}/orders/{order}/kot", headers=h).status_code == 200
+
+    kots = c.get(f"{base}/kitchen", headers=auth(kitchen))
+    assert kots.status_code == 200 and kots.json()["kots"], "kitchen sees the ticket"
+    kid = kots.json()["kots"][0]["id"]
+    for step in ("preparing", "ready", "served"):
+        assert c.post(f"{base}/kitchen/{kid}", headers=auth(kitchen), json={"status": step}).status_code == 200
+
+    assert c.post(f"{base}/orders/{order}/bill", headers=auth(kitchen),
+                  json={"client_txn_id": _id(), "payments": []}).status_code in (403, 404), "kitchen must not bill"
+    assert c.get(f"{base}/kitchen", headers=auth(stranger)).status_code in (403, 404)
+    bill = c.post(f"{base}/orders/{order}/bill", headers=h, json={
+        "client_txn_id": _id(), "payments": [{"method": "upi", "amount_paise": 40000}]})
+    assert bill.status_code == 200, bill.text
+    assert bill.json()["totals"]["grand_total_paise"] == 40000
