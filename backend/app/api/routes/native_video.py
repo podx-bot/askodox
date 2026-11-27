@@ -24,6 +24,7 @@ import hashlib
 import os
 import re
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -366,11 +367,16 @@ def study_native_video(video_id: str, body: StudyBody, request: Request) -> dict
     """Deep Video Study of an ASKODOX-native video from its REAL stored file
     (the same video analysis as a chat upload). Facts come only from what
     the analysis found in the video -- never from the title or caption.
-    The owner may study before publishing; anyone may study a published one.
-    One model call per video (cached under ``nv_<id>``); ask questions with
-    POST /api/videos/nv_<id>/ask."""
+    Owner rule (2026-11-27): only the UPLOADER starts a study, and only once.
+    Its cost is reserved from the uploader's AI Credits (feature
+    ``video_study``) and kept only when the analysis answers. Everyone else
+    reads the stored study for free, or gets ``not_studied`` -- a viewer never
+    starts a paid study. One model call per video (cached under ``nv_<id>``);
+    ask questions with POST /api/videos/nv_<id>/ask."""
+    from app.api.routes.ai_credits import ai_credits
     from app.services import rate_limit
-    from app.services.video_study import eligibility, mp4_duration_seconds, suggested_questions
+    from app.services.ai_credits import CreditsError
+    from app.services.video_study import eligibility, mp4_duration_seconds
 
     record = _video(request, video_id)
     user = None
@@ -387,35 +393,75 @@ def study_native_video(video_id: str, body: StudyBody, request: Request) -> dict
     pf = _pf(request)
     cached = pf.video_study.cached(ref)
     if cached:
-        return {"ref": ref, "status": cached.get("status"), "cached": True, "summary": cached.get("summary") or "",
-                "facts_count": len(cached.get("facts") or []),
-                "suggested_questions": suggested_questions(cached, body.language)}
-    name = str(d.get("url") or "").rsplit("/", 1)[-1]
-    path = os.path.join(_folder(request), name)
-    if not _NAME.fullmatch(name) or not os.path.exists(path):
-        return {"ref": ref, "status": "unavailable", "message": "The video file is not available."}
-    with open(path, "rb") as handle:
-        data = handle.read()
-    duration = mp4_duration_seconds(data)
-    gate = eligibility(duration, body.language)
-    if not gate["eligible"]:
-        return {"ref": ref, "status": "not_eligible", **gate}
-    service = getattr(request.app.state.container, "universal_image_service", None)
-    if service is None or not hasattr(service, "analyze_video"):
-        return {"ref": ref, "status": "unavailable", "message": "Video analysis is not available right now."}
-    rate_limit.check(request, "native_video_study", limit=6)
-    try:
-        analysis = service.analyze_video(video_bytes=data, mime_type="video/webm" if name.endswith(".webm")
-                                         else "video/mp4", caption=None)
-    except Exception:
-        analysis = None
-    if not analysis:
-        return {"ref": ref, "status": "unavailable", "message": "The video could not be analysed right now."}
-    study = pf.video_study.study_from_upload(ref, analysis, duration, body.language)
-    out = {"ref": ref, "status": study["status"], "cached": False, "summary": study.get("summary") or "",
+        return _study_reply(ref, cached, body.language, cached=True)
+    if user is None or user != record.get("owner_ref"):
+        return {"ref": ref, "status": "not_studied", "cached": False,
+                "message": "The uploader has not studied this video yet."}
+    with _study_guard(ref):
+        cached = pf.video_study.cached(ref)  # a second tap waited for the first study: read it, charge nothing
+        if cached:
+            return _study_reply(ref, cached, body.language, cached=True)
+        name = str(d.get("url") or "").rsplit("/", 1)[-1]
+        path = os.path.join(_folder(request), name)
+        if not _NAME.fullmatch(name) or not os.path.exists(path):
+            return {"ref": ref, "status": "unavailable", "message": "The video file is not available."}
+        with open(path, "rb") as handle:
+            data = handle.read()
+        duration = mp4_duration_seconds(data)
+        gate = eligibility(duration, body.language)
+        if not gate["eligible"]:
+            return {"ref": ref, "status": "not_eligible", **gate}
+        container = request.app.state.container
+        service = getattr(container, "universal_image_service", None)
+        if service is None or not hasattr(service, "analyze_video"):
+            return {"ref": ref, "status": "unavailable", "message": "Video analysis is not available right now."}
+        rate_limit.check(request, "native_video_study", limit=6)
+        credits = ai_credits(container)
+        attempt = f"study:{video_id}:{uuid.uuid4().hex}"  # one reservation per attempt; a failed one is given back
+        try:
+            credits.reserve(user, "video_study", attempt)
+        except CreditsError as error:
+            if error.code != "insufficient":
+                raise
+            return {"ref": ref, "status": "credits_low", "cached": False,
+                    "message": "Not enough AI Credits to study this video. Add credits, then try again."}
+        try:
+            analysis = service.analyze_video(video_bytes=data, mime_type="video/webm" if name.endswith(".webm")
+                                             else "video/mp4", caption=None)
+        except Exception:
+            analysis = None
+        if not analysis:
+            credits.release(user, attempt)
+            return {"ref": ref, "status": "unavailable", "message": "The video could not be analysed right now."}
+        try:
+            study = pf.video_study.study_from_upload(ref, analysis, duration, body.language)
+        except Exception:
+            credits.release(user, attempt)
+            raise
+    return _study_reply(ref, study, body.language, cached=False)
+
+
+_STUDY_LOCKS_GUARD = threading.Lock()
+_STUDY_LOCKS: Dict[str, threading.Lock] = {}
+
+
+@contextmanager
+def _study_guard(ref: str):
+    """One study at a time per video in this process: a parallel tap waits and then reads the stored study,
+    so the uploader can never be charged twice for the same video."""
+    with _STUDY_LOCKS_GUARD:
+        lock = _STUDY_LOCKS.setdefault(ref, threading.Lock())
+    with lock:
+        yield
+
+
+def _study_reply(ref: str, study: Dict[str, Any], language: str, *, cached: bool) -> dict:
+    from app.services.video_study import suggested_questions
+
+    out = {"ref": ref, "status": study.get("status"), "cached": cached, "summary": study.get("summary") or "",
            "facts_count": len(study.get("facts") or [])}
-    if study["status"] == "ready":
-        out["suggested_questions"] = suggested_questions(study, body.language)
+    if cached or study.get("status") == "ready":
+        out["suggested_questions"] = suggested_questions(study, language)
     return out
 
 

@@ -175,3 +175,86 @@ def test_native_video_deep_study_uses_only_the_analysed_file(env, monkeypatch):
     assert ans["found"] is True and "1.8 L" in ans["answer"]
     warranty = client.post(f"/api/videos/{own['ref']}/ask", json={"question": "what warranty is missing?"}).json()
     assert "5 year" not in warranty["answer"], "the title's claim is never presented as a video fact"
+
+
+def test_only_the_uploader_starts_a_study_and_pays_once(env, monkeypatch, tmp_path):
+    from app.services.ai_credits import AiCredits
+
+    client, container = env
+    seller_id, seller = _user(container)
+    _, viewer = _user(container)
+    credits = AiCredits(str(tmp_path / "credits.db"))
+    credits.update_settings({"plan": {"daily_free_paise": 0, "first_bonus_pct": 0, "daily_bonus_pct": 0},
+                             "charging": True, "rates_paise": {"video_study": 300}}, actor="test")
+    credits.topup(seller_id, paise=1000, purchase_id="p-study-1", mode="live")
+    monkeypatch.setattr(container, "ai_credits", credits, raising=False)
+    calls = []
+    answer = {"on": True}
+
+    class _Vision:
+        client = object()
+
+        def analyze_video(self, *, video_bytes, mime_type, caption):
+            calls.append(len(video_bytes))
+            if not answer["on"]:
+                return None
+            return {"summary": "A 1.8 L rice cooker demo", "subject": "rice cooker", "category": "product",
+                    "facts": [{"key": "capacity", "label": "Capacity", "value": "1.8 L", "basis": "shown",
+                               "timestamp": "0:12", "evidence": "label on the box at 0:12"}], "missing": []}
+
+    monkeypatch.setattr(container, "universal_image_service", _Vision(), raising=False)
+    video = _upload(client, seller, data=_mp4(), title="Rice cooker 1.8 L").json()
+    assert client.post(f"/admin/cc/platform/r/videos/{video['id']}/actions/approve", headers=OWNER,
+                       json={}).status_code == 200
+    study = f"/api/videos/native/{video['id']}/study"
+
+    waiting = client.post(study, headers=viewer, json={}).json()
+    assert waiting["status"] == "not_studied" and calls == [], "a viewer never starts the paid study"
+    assert credits.balance(seller_id)["live"] == 1000, "nothing is charged to anyone for a viewer's tap"
+
+    done = client.post(study, headers=seller, json={}).json()
+    assert done["status"] == "ready" and len(calls) == 1
+    assert credits.balance(seller_id)["live"] == 700, "the uploader pays the study once"
+    again = client.post(study, headers=seller, json={}).json()
+    assert again["cached"] is True and len(calls) == 1 and credits.balance(seller_id)["live"] == 700
+    assert client.post(study, headers=viewer, json={}).json()["cached"] is True, "viewers read the stored study free"
+
+    failing = _upload(client, seller, data=_mp4(), title="Kettle 1 L").json()
+    client.post(f"/admin/cc/platform/r/videos/{failing['id']}/actions/approve", headers=OWNER, json={})
+    answer["on"] = False
+    gone = client.post(f"/api/videos/native/{failing['id']}/study", headers=seller, json={}).json()
+    assert gone["status"] == "unavailable" and credits.balance(seller_id)["live"] == 700, \
+        "an analysis that gives no answer is given back"
+    answer["on"] = True
+    retry = client.post(f"/api/videos/native/{failing['id']}/study", headers=seller, json={}).json()
+    assert retry["status"] == "ready" and credits.balance(seller_id)["live"] == 400, "a retry is charged once"
+
+    broke = _user(container)[1]
+    broke_video = _upload(client, broke, data=_mp4(), title="Mixer 500 W").json()
+    client.post(f"/admin/cc/platform/r/videos/{broke_video['id']}/actions/approve", headers=OWNER, json={})
+    short = client.post(f"/api/videos/native/{broke_video['id']}/study", headers=broke, json={}).json()
+    assert short["status"] == "credits_low" and len(calls) == 3 and "AI Credits" in short["message"], \
+        "no credits -> no model call"
+
+
+def test_study_stays_free_while_charging_is_off(env, monkeypatch, tmp_path):
+    from app.services.ai_credits import AiCredits
+
+    client, container = env
+    seller_id, seller = _user(container)
+    credits = AiCredits(str(tmp_path / "off.db"))  # charging is OFF by default
+    monkeypatch.setattr(container, "ai_credits", credits, raising=False)
+
+    class _Vision:
+        client = object()
+
+        def analyze_video(self, *, video_bytes, mime_type, caption):
+            return {"summary": "A kettle", "subject": "kettle", "category": "product",
+                    "facts": [{"key": "volume", "label": "Volume", "value": "1 L", "basis": "shown",
+                               "timestamp": "0:05", "evidence": "label at 0:05"}], "missing": []}
+
+    monkeypatch.setattr(container, "universal_image_service", _Vision(), raising=False)
+    video = _upload(client, seller, data=_mp4(), title="Kettle 1 L").json()
+    client.post(f"/admin/cc/platform/r/videos/{video['id']}/actions/approve", headers=OWNER, json={})
+    out = client.post(f"/api/videos/native/{video['id']}/study", headers=seller, json={}).json()
+    assert out["status"] == "ready" and credits.balance(seller_id) == {"live": 0, "test": 0}

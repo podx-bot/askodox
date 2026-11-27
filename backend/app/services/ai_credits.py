@@ -35,7 +35,9 @@ from typing import Any, Dict, List, Optional
 from app.services import shop_free_core
 
 AUDIENCE = "ai_credits"
-FEATURES = ("chat", "reasoning", "voice", "web_search", "image", "radio")
+FEATURES = ("chat", "reasoning", "voice", "web_search", "image", "radio", "video_study")
+# video_study (owner 2026-11-27): the uploader's one-time AI study of their own ASKODOX video. Free (rate 0) until
+# staff set a rate; a viewer never pays for it.
 # Owner 2026-11-23: the shop's everyday tools (payment voice, quick bill, dues, sales reports) are free for ever --
 # they are never a credits feature, never carry a rate, and a reserve for one always answers free.
 assert not set(FEATURES) & set(shop_free_core.keys()), "a free-forever shop tool can never be an AI Credits feature"
