@@ -485,6 +485,9 @@ class AskodoxPosRepository {
   Future<AskodoxJson> termVisit(String biz, String member, bool came) =>
       _send('POST', '${_b(biz)}/memberships/$member/visit', body: {'came': came});
   Future<AskodoxJson> termReport(String biz) => _send('GET', '${_b(biz)}/memberships/report');
+  /// Bills & warranty: a photo of the paper -> its facts for the person to check. Nothing is kept on the server.
+  Future<AskodoxJson> vaultRead(List<AskodoxJson> images) =>
+      _send('POST', '/api/me/vault/read', body: {'images': images}, timeout: const Duration(seconds: 60));
   Future<List<AskodoxJson>> myMemberships() async =>
       askodoxPosList((await _send('GET', '/api/pos/me/memberships'))['memberships']);
   Future<AskodoxJson> membershipCheckIn(String biz, String code) =>

@@ -14166,6 +14166,69 @@
           "date": "2026-11-28"
         }
       ]
+    },
+    {
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/me/vault/read",
+          "response_keys": [
+            "read",
+            "item",
+            "shop",
+            "bought_on",
+            "warranty_months",
+            "warranty_until",
+            "warranty_from",
+            "serial",
+            "service_phone",
+            "amount_paise"
+          ]
+        }
+      ],
+      "dependencies": [
+        "universal_image_service",
+        "ai_credits"
+      ],
+      "domains": [
+        "buyer",
+        "bills",
+        "warranty"
+      ],
+      "expected_behavior": "A photo of a bill or warranty card is read for the person to check; a warranty end is worked out only from printed facts; papers and photos are kept on the person's own phone (account-scoped); the list says which warranty is ending and a chip above the chat reminds 30 days before; share-for-service sends item, shop, dates and serial only.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: bills & warranty vault"
+      ],
+      "id": "paper_vault_bills_warranty",
+      "name": "Bills & warranty vault",
+      "purpose": "Keep bills and warranty cards, find them again, know which warranty is ending.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_paper_vault.py"
+        ],
+        "flutter": [
+          "test/features/vault/vault_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxVault",
+          "askodoxVaultCamera",
+          "askodoxVaultChip",
+          "askodoxVaultSave",
+          "askodoxVaultShare"
+        ],
+        "symbols": [
+          "AskodoxVaultScreen",
+          "askodoxVaultShow",
+          "askodoxVaultState"
+        ]
+      }
     }
   ]
 }

@@ -7,6 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/paper-vault` (2026-11-28, owner "No continue" = phase 6): BILLS & WARRANTY -- `paper_vault.py` (`read_paper` never raises, stores nothing; `warranty_end` only from printed purchase day + printed months) + POST `/api/me/vault/read` (sign-in, <= 2 photos, one AI Credits `image` use, released when nothing is read). App `lib/features/vault/` (`/me/vault`, Buyer page `b.vault`, chip `askodoxVaultChip` above the chat when a warranty ends within 30 days; papers + photos on the PHONE only, prefs `askodox.vault.v1`, account-scoped; share-for-service = item, shop, dates, serial only). Registry `paper_vault_bills_warranty`. Nothing phone verified.
 - `main` PR #556 (2026-11-28, owner "do the three remaining parts of item 2"; squash d83ad9c; NOT in any Play bundle): GUIDE SESSION FINISH --
   (a) `GuideSessions.arrangement` + GET `/api/me/guide-session/arrangement`: page ids (`b.` / `s.`) from the person's OWN kept words
   (consent only; `PAGE_HINTS` = page functions, never categories); app `guide_arrange.dart` `askodoxBringFirst` only MOVES top-level

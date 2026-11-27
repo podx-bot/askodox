@@ -1002,6 +1002,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'ఈ నెల కొత్తగా చేరినవారు, రెన్యూ చేసినవారు, వదిలినవారు, వారం వారీగా వసూలైన ఫీజు; మీరు నమోదు చేసిన దాని నుంచే.',
     'వదిలినవారికి: సిద్ధంగా ఉన్న "తిరిగి రండి" మెసేజ్; మీరే పంపాలి.',
   ]),
+  '/me/vault': _H('Bills & warranty', 'బిల్స్ & వారంటీ', [
+    'Take a photo of a bill or a warranty card. AI reads the item, shop, dates and serial number; check them and save.',
+    'The list shows which warranty is ending. Search by item or shop. Tap a paper to see its photo and details.',
+    '"Share for service" sends the item, purchase date and serial number. Papers and photos stay on this phone, in your account.',
+  ], [
+    'బిల్ లేదా వారంటీ కార్డ్ ఫోటో తీయండి. వస్తువు, షాప్, తేదీలు, సీరియల్ నంబర్ AI చదువుతుంది; సరిచూసి సేవ్ చేయండి.',
+    'ఏ వారంటీ ముగుస్తోందో లిస్ట్ చూపిస్తుంది. వస్తువు లేదా షాప్ పేరుతో వెతకండి. నొక్కితే ఫోటో, వివరాలు కనిపిస్తాయి.',
+    '"సర్వీస్ కోసం షేర్" వస్తువు, కొన్న తేదీ, సీరియల్ నంబర్ పంపుతుంది. బిల్స్, ఫోటోలు ఈ ఫోన్‌లో మీ ఖాతాలోనే ఉంటాయి.',
+  ]),
   '/me/memberships': _H('My memberships', 'నా సభ్యత్వాలు', [
     'Places where you are a member: until which day, how many days are left.',
     'When you go there, type the 4-digit code shown at the counter and tap "I came".',

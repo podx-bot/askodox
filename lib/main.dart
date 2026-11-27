@@ -27,6 +27,7 @@ import 'core/ui/ui_switches.dart';
 import 'config/router/app_router.dart' show appRouterProvider;
 import 'features/morning_brief/morning_brief_screen.dart';
 import 'features/shops/domain/shop_link_install.dart';
+import 'features/vault/vault_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +36,7 @@ void main() {
   askodoxSpeakTypedReplies = true; // owner 2026-11-19: text + voice on every reply
   // Owner 2026-11-26: no guide chip / intro, no mics inside pages, ONE Ask button on every page (one place: ui_switches).
   askodoxApplyOwnerUi();
+  askodoxVaultChip = true; // owner 2026-11-27: a warranty ending within 30 days shows above the chat
   askodoxMorningBriefChip = true; // owner 2026-11-27: "ఈ రోజు N పనులు" above the chat when something waits
   askodoxGuideReminderChip = true; // owner 2026-11-26: setup left / a feature that fits, as a chip above the chat
   askodoxAutoOpenAppActions = true; // owner 2026-11-20: a named screen opens at once, no extra tap
