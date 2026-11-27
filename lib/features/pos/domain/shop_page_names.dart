@@ -33,6 +33,7 @@ const askodoxShopPageNames = <String, (String, String)>{
   '/biz/<id>/jobs': ('Job cards', 'జాబ్ కార్డ్స్'),
   '/biz/<id>/monthly': ('Monthly members', 'నెలవారీ సభ్యులు'),
   '/biz/<id>/members': ('Members & attendance', 'సభ్యులు & హాజరు'),
+  '/pos/<id>/yield': ('Yield & rates', 'యీల్డ్ & రేట్లు'),
 };
 
 /// `/my-shop/<tool>` (chat + pins, "the person's own shop") -> the shop page it opens.

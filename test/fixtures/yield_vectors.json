@@ -1,0 +1,267 @@
+{
+ "version": 1,
+ "note": "Made-up numbers only. Shared by backend/tests/test_yield_math.py and test/features/yield/yield_test.dart.",
+ "cases": [
+  {
+   "name": "design sample: 100 kg live at 100, transport 300 + labour 200, 70 kg dressed, sold at 180",
+   "live_g": 100000,
+   "rate_p": 10000,
+   "extras_p": [
+    30000,
+    20000
+   ],
+   "out_g": 70000,
+   "byproduct_p": 0,
+   "sell_p": 18000,
+   "form_yield_bp": null,
+   "delta_p": 200,
+   "expect": {
+    "goods_p": 1000000,
+    "total_p": 1050000,
+    "yield_bp": 7000,
+    "cost_p": 15000,
+    "form_cost_p": null,
+    "profit_p": 3000,
+    "margin_bp": 1667,
+    "rise_p": 286
+   }
+  },
+  {
+   "name": "by-products sold (liver, legs) bring 350 back",
+   "live_g": 100000,
+   "rate_p": 10000,
+   "extras_p": [
+    30000,
+    20000
+   ],
+   "out_g": 70000,
+   "byproduct_p": 35000,
+   "sell_p": 18000,
+   "form_yield_bp": null,
+   "delta_p": 200,
+   "expect": {
+    "goods_p": 1000000,
+    "total_p": 1050000,
+    "yield_bp": 7000,
+    "cost_p": 14500,
+    "form_cost_p": null,
+    "profit_p": 3500,
+    "margin_bp": 1944,
+    "rise_p": 286
+   }
+  },
+  {
+   "name": "skinless cut from the dressed kg at the owner's 90% yield, sold at 200",
+   "live_g": 100000,
+   "rate_p": 10000,
+   "extras_p": [
+    30000,
+    20000
+   ],
+   "out_g": 70000,
+   "byproduct_p": 0,
+   "sell_p": 20000,
+   "form_yield_bp": 9000,
+   "delta_p": 200,
+   "expect": {
+    "goods_p": 1000000,
+    "total_p": 1050000,
+    "yield_bp": 7000,
+    "cost_p": 15000,
+    "form_cost_p": 16667,
+    "profit_p": 3333,
+    "margin_bp": 1667,
+    "rise_p": 286
+   }
+  },
+  {
+   "name": "odd weights: 43.2 kg at 98.50, no extras, 29.85 kg out",
+   "live_g": 43200,
+   "rate_p": 9850,
+   "extras_p": [],
+   "out_g": 29850,
+   "byproduct_p": 0,
+   "sell_p": 16000,
+   "form_yield_bp": null,
+   "delta_p": 200,
+   "expect": {
+    "goods_p": 425520,
+    "total_p": 425520,
+    "yield_bp": 6910,
+    "cost_p": 14255,
+    "form_cost_p": null,
+    "profit_p": 1745,
+    "margin_bp": 1091,
+    "rise_p": 289
+   }
+  },
+  {
+   "name": "a goat: 22.4 kg live at 420, 400 transport, 11.9 kg mutton, sold at 900",
+   "live_g": 22400,
+   "rate_p": 42000,
+   "extras_p": [
+    40000
+   ],
+   "out_g": 11900,
+   "byproduct_p": 12000,
+   "sell_p": 90000,
+   "form_yield_bp": null,
+   "delta_p": 1000,
+   "expect": {
+    "goods_p": 940800,
+    "total_p": 980800,
+    "yield_bp": 5313,
+    "cost_p": 81412,
+    "form_cost_p": null,
+    "profit_p": 8588,
+    "margin_bp": 954,
+    "rise_p": 1882
+   }
+  },
+  {
+   "name": "selling under cost shows a loss",
+   "live_g": 100000,
+   "rate_p": 10000,
+   "extras_p": [
+    30000,
+    20000
+   ],
+   "out_g": 70000,
+   "byproduct_p": 0,
+   "sell_p": 14000,
+   "form_yield_bp": null,
+   "delta_p": 200,
+   "expect": {
+    "goods_p": 1000000,
+    "total_p": 1050000,
+    "yield_bp": 7000,
+    "cost_p": 15000,
+    "form_cost_p": null,
+    "profit_p": -1000,
+    "margin_bp": -714,
+    "rise_p": 286
+   }
+  },
+  {
+   "name": "not weighed after dressing yet",
+   "live_g": 100000,
+   "rate_p": 10000,
+   "extras_p": [
+    30000,
+    20000
+   ],
+   "out_g": 0,
+   "byproduct_p": 0,
+   "sell_p": 18000,
+   "form_yield_bp": null,
+   "delta_p": 200,
+   "expect": {
+    "goods_p": 1000000,
+    "total_p": 1050000,
+    "yield_bp": null,
+    "cost_p": null,
+    "form_cost_p": null,
+    "profit_p": null,
+    "margin_bp": null,
+    "rise_p": null
+   }
+  },
+  {
+   "name": "a cloth roll: 50 m bought as 50000 units at 120, 46.5 usable, sold at 150",
+   "live_g": 50000,
+   "rate_p": 12000,
+   "extras_p": [
+    5000
+   ],
+   "out_g": 46500,
+   "byproduct_p": 0,
+   "sell_p": 15000,
+   "form_yield_bp": null,
+   "delta_p": 200,
+   "expect": {
+    "goods_p": 600000,
+    "total_p": 605000,
+    "yield_bp": 9300,
+    "cost_p": 13011,
+    "form_cost_p": null,
+    "profit_p": 1989,
+    "margin_bp": 1326,
+    "rise_p": 215
+   }
+  }
+ ],
+ "days": [
+  {
+   "name": "design sample day",
+   "opening_g": 5000,
+   "made_g": 70000,
+   "sold_g": 66200,
+   "actual_g": 8100,
+   "cost_p": 15000,
+   "sell_p": 18000,
+   "other_p": 50000,
+   "expect": {
+    "expected_g": 8800,
+    "diff_g": -700,
+    "diff_value_p": 10500,
+    "sales_p": 1191600,
+    "spent_p": 993000,
+    "profit_p": 148600
+   }
+  },
+  {
+   "name": "stock matches exactly",
+   "opening_g": 0,
+   "made_g": 70000,
+   "sold_g": 61500,
+   "actual_g": 8500,
+   "cost_p": 15000,
+   "sell_p": 18000,
+   "other_p": 0,
+   "expect": {
+    "expected_g": 8500,
+    "diff_g": 0,
+    "diff_value_p": 0,
+    "sales_p": 1107000,
+    "spent_p": 922500,
+    "profit_p": 184500
+   }
+  },
+  {
+   "name": "more on the scale than the books say",
+   "opening_g": 2000,
+   "made_g": 29850,
+   "sold_g": 25000,
+   "actual_g": 7000,
+   "cost_p": 14253,
+   "sell_p": 16000,
+   "other_p": 12000,
+   "expect": {
+    "expected_g": 6850,
+    "diff_g": 150,
+    "diff_value_p": 2138,
+    "sales_p": 400000,
+    "spent_p": 356325,
+    "profit_p": 31675
+   }
+  },
+  {
+   "name": "nothing sold",
+   "opening_g": 5000,
+   "made_g": 0,
+   "sold_g": 0,
+   "actual_g": 5000,
+   "cost_p": 15000,
+   "sell_p": 18000,
+   "other_p": 0,
+   "expect": {
+    "expected_g": 5000,
+    "diff_g": 0,
+    "diff_value_p": 0,
+    "sales_p": 0,
+    "spent_p": 0,
+    "profit_p": 0
+   }
+  }
+ ]
+}
