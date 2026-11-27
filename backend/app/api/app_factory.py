@@ -446,6 +446,9 @@ def create_app() -> FastAPI:
     from app.api.routes.automations import admin_router as automations_admin_router, router as automations_router
 
     app.include_router(automations_router)
+    from app.api.routes.paper_vault import router as paper_vault_router
+
+    app.include_router(paper_vault_router)
     app.include_router(automations_admin_router)
     from app.api.routes.guide_session import admin_router as guide_session_admin_router, router as guide_session_router
 
