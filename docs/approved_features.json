@@ -14156,9 +14156,7 @@
         "warranty"
       ],
       "expected_behavior": "A photo of a bill or warranty card is read for the person to check; a warranty end is worked out only from printed facts; papers and photos are kept on the person's own phone (account-scoped); the list says which warranty is ending and a chip above the chat reminds 30 days before; share-for-service sends item, shop, dates and serial only.",
-      "flags": [
-        "askodoxVaultChip"
-      ],
+      "flags": {},
       "history": [
         "2026-11-28 phase 6: bills & warranty vault"
       ],
