@@ -63,6 +63,16 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- App Links (owner 2026-11-27): shared askodox.com video / shop / product links open the app.
+                 Verified by https://askodox.com/.well-known/assetlinks.json (Play app-signing key). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="askodox.com" android:pathPrefix="/v/"/>
+                <data android:scheme="https" android:host="askodox.com" android:pathPrefix="/s/"/>
+                <data android:scheme="https" android:host="askodox.com" android:pathPrefix="/p/"/>
+            </intent-filter>
             <!-- "Share -> ASKODOX": a link or text from any app (staff add it in
                  the Staff Workspace; everyone else asks ASKODOX about it). -->
             <intent-filter>
