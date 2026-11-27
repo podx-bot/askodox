@@ -35,6 +35,7 @@ import '../../steps/presentation/glance_steps_screens.dart';
 import '../../steps/presentation/items_steps_screens.dart';
 import '../../steps/presentation/desk_menu_steps_screens.dart';
 import '../../steps/presentation/desk_settings_steps_screens.dart';
+import '../../steps/presentation/agent_team_screens.dart';
 import '../../steps/presentation/agents_steps_screens.dart';
 import '../../steps/presentation/branches_steps_screen.dart';
 import '../../steps/presentation/buyer_agent_steps_screen.dart';
@@ -240,6 +241,9 @@ final askodoxPosRoutes = <GoRoute>[
       builder: (context, state) => state.uri.queryParameters['full'] == '1'
           ? AskodoxPosAgentsScreen(businessId: state.pathParameters['id']!)
           : AskodoxAgentsStepsScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/agents/inbox', builder: (context, state) => AskodoxAgentInboxScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/agents/log', builder: (context, state) => AskodoxAgentLogScreen(businessId: state.pathParameters['id']!)),
+  GoRoute(path: '/pos/:id/agents/settings', builder: (context, state) => AskodoxAgentSettingsScreen(businessId: state.pathParameters['id']!)),
   GoRoute(
       path: '/pos/:id/agents/:agent',
       builder: (context, state) => state.uri.queryParameters['full'] == '1'

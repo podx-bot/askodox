@@ -913,12 +913,33 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'మీ shop CRM తెరుస్తుంది (ఒకటి కంటే ఎక్కువ shops ఉంటే shop నొక్కండి).',
     'Shop ఇంకా లేదా? పెద్ద బటన్ చేరుస్తుంది: CRM మీ shop customers, bills, staff మీదే పని చేస్తుంది.',
   ]),
-  '/pos/:id/agents': _H('AI agents', 'AI Agents', [
+  '/pos/:id/agents': _H('My team', 'నా టీమ్', [
     'Only the agents your role allows: owner, sales, support, finance, inventory, HR, tax.',
     'Answers come from your shop records. Money, stock, complaint closing and staff changes are only proposed; an owner / manager approves them here.',
   ], [
     'మీ role కి అనుమతి ఉన్న agents మాత్రమే: owner, sales, support, finance, inventory, HR, tax.',
     'జవాబులు shop records నుండే. డబ్బు, stock, complaint close, staff మార్పులు propose మాత్రమే; owner / manager ఇక్కడ approve చేయాలి.',
+  ]),
+  '/pos/:id/agents/inbox': _H('Waiting for your OK', 'మీ OK కోసం', [
+    'Jobs an agent asked to do. Nothing changes until you tap Yes.',
+    'Yes runs it under your name; No stops it. Who may say yes is set in Team settings.',
+  ], [
+    'ఏజెంట్ చేయమని అడిగిన పనులు. మీరు సరే నొక్కేవరకు ఏమీ మారదు.',
+    'సరే అంటే మీ పేరు మీద జరుగుతుంది; వద్దు అంటే ఆగుతుంది. ఎవరు OK చెప్పొచ్చో టీమ్ సెట్టింగ్స్ లో ఉంటుంది.',
+  ]),
+  '/pos/:id/agents/log': _H('History', 'చరిత్ర', [
+    'What the agents did and who said yes. You can only read it here.',
+    'Use the three buttons on top to see all, only the ones that asked for an OK, or the stopped ones.',
+  ], [
+    'ఏజెంట్లు ఏం చేశాయి, ఎవరు OK చెప్పారు. ఇక్కడ చూడటమే, మార్చలేరు.',
+    'పైన మూడు బటన్లతో అన్నీ, OK అడిగినవి, ఆగినవి చూడొచ్చు.',
+  ]),
+  '/pos/:id/agents/settings': _H('Team settings', 'టీమ్ సెట్టింగ్స్', [
+    'The owner switches agents on or off and chooses who may say yes: owner only, or owner and manager.',
+    'Everyone else can read it. Agents never move money, message customers or delete anything.',
+  ], [
+    'యజమాని ఏజెంట్లను ఆన్ / ఆఫ్ చేస్తారు, ఎవరు OK చెప్పొచ్చో ఎంచుకుంటారు: యజమాని మాత్రమే, లేదా యజమాని + మేనేజర్.',
+    'మిగతావారు చదవొచ్చు. ఏజెంట్లు డబ్బు కదపవు, కస్టమర్ కి మెసేజ్ పంపవు, ఏదీ డిలీట్ చేయవు.',
   ]),
   '/pos/:id/agents/:agent': _H('Agent', 'Agent', [
     'Ask a question or read today\'s summary; "Facts used" shows exactly what the AI read.',

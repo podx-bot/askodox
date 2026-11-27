@@ -649,6 +649,11 @@ class AskodoxPosRepository {
       (await _send('GET', '${_b(id)}/agent-actions', query: {if (status.isNotEmpty) 'status': status}))['actions']);
   Future<AskodoxJson> agentDecide(String id, String actionId, bool approve, {String note = ''}) =>
       _send('POST', '${_b(id)}/agent-actions/$actionId/decision', body: {'approve': approve, 'note': note});
+  // Agent team (owner 2026-11-28): one read for the map, the owner's team settings.
+  Future<AskodoxJson> agentTeam(String id) => _send('GET', '${_b(id)}/agent-team');
+  Future<AskodoxJson> agentSettings(String id) => _send('GET', '${_b(id)}/agent-settings');
+  Future<AskodoxJson> setAgentSettings(String id, {List<String>? agentsOff, String? approvers}) =>
+      _send('PUT', '${_b(id)}/agent-settings', body: {if (agentsOff != null) 'agents_off': agentsOff, if (approvers != null) 'approvers': approvers});
   Future<AskodoxJson> buyerAgentAsk(String question, String locale) =>
       _send('POST', '/api/pos/me/agents/buyer/ask', body: {'question': question, 'locale': locale});
 

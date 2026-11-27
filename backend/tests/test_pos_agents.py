@@ -149,3 +149,86 @@ def test_http_agents(api):
     assert client.post(base + "/agents/payroll/ask", json={}, headers=auth(owner)).status_code == 404
     me = client.post("/api/pos/me/agents/buyer/ask", json={"question": "anything pending?"}, headers=auth(owner)).json()
     assert me["agent"] == "buyer" and me["facts"]["my_shops"] == 1
+
+
+# ---------------------------------------------------------------- agent team (owner 2026-11-28)
+def test_team_settings_are_owner_only_and_switch_agents_off(env):
+    _, agents, biz, _, _ = env
+    assert agents.settings(biz, MANAGER) == {**agents.settings(biz, MANAGER), "agents_off": [], "approvers": "owner_manager", "is_owner": False}
+    with pytest.raises(PosError) as e:
+        agents.set_settings(biz, MANAGER, ["finance"], None)
+    assert e.value.status == 403
+    with pytest.raises(PosError) as e:
+        agents.set_settings(biz, OWNER, ["nope"], None)
+    assert e.value.status == 400
+    with pytest.raises(PosError) as e:
+        agents.set_settings(biz, OWNER, None, "everyone")
+    assert e.value.status == 400
+    agents.set_settings(biz, OWNER, ["finance"], None)
+    mine = {a["id"]: a["enabled"] for a in agents.agents(biz, OWNER)}
+    assert mine["finance"] is False and mine["inventory"] is True  # the owner still sees it, to switch it on again
+    assert "finance" not in {a["id"] for a in agents.agents(biz, ACCOUNTANT)}
+    with pytest.raises(PosError) as e:
+        agents.ask(biz, ACCOUNTANT, "finance", "today sales")
+    assert e.value.code == "agent_off"
+    agents.set_settings(biz, OWNER, [], None)
+    assert agents.ask(biz, ACCOUNTANT, "finance", "today sales")["agent"] == "finance"
+
+
+def test_owner_can_keep_approvals_to_themself_and_the_push_list_follows(env):
+    store, agents, biz, rice, _ = env
+    assert set(agents.approvers(biz)) == {OWNER, MANAGER}
+    assert agents.approvers(biz, exclude=MANAGER) == [OWNER]
+    prop = agents.propose(biz, MANAGER, "inventory", "stock_adjust",
+                          {"product_id": rice, "kind": "count", "qty_milli": 8000, "reason": "Counted shelf"})
+    agents.set_settings(biz, OWNER, None, "owner")
+    assert agents.approvers(biz) == [OWNER]
+    with pytest.raises(PosError) as e:
+        agents.decide(biz, MANAGER, prop["id"], True)
+    assert e.value.status == 403
+    assert agents.decide(biz, OWNER, prop["id"], True)["status"] in ("DONE", "FAILED")
+    assert agents.approvers(biz, exclude=MANAGER) == [OWNER]
+
+
+def test_team_read_has_pending_count_recent_and_settings(env):
+    _, agents, biz, rice, _ = env
+    agents.propose(biz, MANAGER, "inventory", "stock_adjust",
+                   {"product_id": rice, "kind": "count", "qty_milli": 8000, "reason": "Counted shelf"})
+    team = agents.team(biz, OWNER)
+    assert team["pending"] == 1 and len(team["recent"]) == 1 and team["settings"]["is_owner"] is True
+    assert team["agents"] and team["recent"][0]["status"] == "PENDING_APPROVAL"
+    with pytest.raises(PosError) as e:
+        agents.team("no-such-shop", OWNER)
+    assert e.value.status == 404
+
+
+def test_http_team_settings_and_the_approver_push(api, monkeypatch):
+    from server import container
+    from app.services import push_service as push_module
+
+    sent = []
+
+    class FakePush:
+        def notify_async(self, user_id, **kw):
+            sent.append((user_id, kw))
+
+    monkeypatch.setattr(push_module, "push_service", lambda _c: FakePush())
+    client, auth = api
+    owner, manager = "app-phone-9500000201", "app-phone-9500000202"
+    biz = client.post("/api/pos/businesses", json={"name": "Team Shop", "state_code": "36"}, headers=auth(owner)).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    container.pos_store.set_member(biz, owner, "9500000202", "manager")
+    assert client.get(base + "/agent-team").status_code == 401
+    team = client.get(base + "/agent-team", headers=auth(owner)).json()
+    assert team["pending"] == 0 and team["settings"]["is_owner"] is True
+    assert client.put(base + "/agent-settings", json={"approvers": "owner"}, headers=auth(manager)).status_code == 403
+    prop = client.post(base + "/agents/hr/actions", json={"action": "set_member_role",
+                                                         "params": {"phone": "9500000202", "role": "cashier"}},
+                       headers=auth(owner)).json()
+    assert prop["status"] == "PENDING_APPROVAL"
+    assert [u for u, _ in sent] == [manager]
+    assert sent[0][1]["route"] == f"/pos/{biz}/agents/inbox" and "9500000202" not in sent[0][1]["body"]
+    assert client.get(base + "/agent-team", headers=auth(manager)).json()["pending"] == 1
+    assert client.put(base + "/agent-settings", json={"approvers": "owner"}, headers=auth(owner)).status_code == 200
+    denied = client.post(base + f"/agent-actions/{prop['id']}/decision", json={"approve": True}, headers=auth(manager))
+    assert denied.status_code == 403
