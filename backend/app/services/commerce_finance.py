@@ -80,7 +80,8 @@ OPTIONAL_SECRETS: Dict[str, tuple[str, ...]] = {
 # switch them on in TEST mode (live keys stay locked, see live_credentials).
 ENV_ENABLED_GATEWAYS = frozenset({"razorpay", "cashfree"})
 OPTIONAL_CONFIG: Dict[str, tuple[str, ...]] = {
-    "whatsapp_cloud": ("api_version", "template_name", "template_language", "dues_template_name"),
+    "whatsapp_cloud": ("api_version", "template_name", "template_language", "dues_template_name",
+                      "bill_template_name"),
     "sms": ("vendor", "dlt_template_id", "account_sid"),
     "email": ("port", "username"),
     "fcm_push": ("project_id",),
@@ -249,7 +250,7 @@ _RX = {
 VALIDATION: Dict[str, Dict[str, str]] = {
     "whatsapp_cloud": {"phone_number_id": "digits", "access_token": "token", "app_secret": "token",
                        "api_version": "api_version", "template_name": "template", "template_language": "lang",
-                       "dues_template_name": "template"},
+                       "dues_template_name": "template", "bill_template_name": "template"},
     "sms": {"vendor": "vendor", "sender_id": "sender_id", "dlt_template_id": "flow", "account_sid": "twilio_sid",
             "api_key": "token"},
     "email": {"host": "host", "from_address": "email", "port": "port", "username": "email"},

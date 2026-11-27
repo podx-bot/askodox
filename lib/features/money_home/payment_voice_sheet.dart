@@ -315,16 +315,15 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                 Semantics(
                   toggled: active,
                   label: k.label(te),
-                  child: Container(
+                  child: Switch(
                     key: ValueKey('askodoxVoiceKindDot-${k.id}-${active ? 'on' : 'off'}'),
-                    width: 26,
-                    height: 26,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                        color: active ? (k.locked ? const Color(0xFFFB9E6A) : const Color(0xFF66CA82)) : const Color(0xFF9498A1),
-                        shape: BoxShape.circle),
-                    child: Icon(k.locked ? Icons.lock_rounded : (active ? Icons.check_rounded : Icons.remove_rounded),
-                        size: 16, color: AskodoxLook.sheet),
+                    value: active,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    activeThumbColor: AskodoxLook.sheet,
+                    activeTrackColor: k.locked ? const Color(0xFFFB9E6A) : const Color(0xFF66CA82),
+                    inactiveThumbColor: AskodoxLook.sheet,
+                    inactiveTrackColor: const Color(0xFF9498A1),
+                    onChanged: k.locked ? null : (_) => _toggle(k),
                   ),
                 ),
                 const SizedBox(width: 10),

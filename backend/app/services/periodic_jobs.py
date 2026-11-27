@@ -145,8 +145,22 @@ def _dues_followup(container: Any) -> Any:
 
     from app.services.pos_dues_followup import auto_whatsapp
 
+    from app.services.ai_credits import AiCredits
+
     send, state, base = auto_whatsapp(container)
-    return PosDuesFollowup(store, PosBills(store), notify=notify, whatsapp=send, auto=state, base_url=base).run()
+    credits = AiCredits(container.settings.database_path)
+    bills = PosBills(store)
+    follow = PosDuesFollowup(store, bills, notify=notify, whatsapp=send, auto=state, base_url=base, credits=credits)
+    result = follow.run()
+    try:  # bills ASKODOX sends by itself (paid automatic option); never stops the baaki run
+        from app.services.pos_bill_auto import PosBillAuto, auto_bill_whatsapp
+
+        bill_send, bill_state, _base = auto_bill_whatsapp(container)
+        result["bills_auto"] = PosBillAuto(store, bills, follow, whatsapp=bill_send, auto=bill_state, credits=credits,
+                                           base_url=base).run()
+    except Exception as problem:
+        print(f"ASKODOX BILL AUTO job fault={type(problem).__name__}", flush=True)
+    return result
 
 
 def _expiry_alerts(container: Any) -> Any:
