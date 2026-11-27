@@ -237,3 +237,23 @@ def test_crm_lead_followup_complaint_and_briefs(api):
         r = c.get(path, headers=h)
         assert r.status_code == 200, (path, r.text)
     assert c.get(f"{base}/morning-brief", headers=auth(stranger)).status_code in (403, 404)
+
+
+def test_term_memberships_routes_are_not_shadowed_by_staff_members(api):
+    """The gym kit lived at /members, the same path as the shop's STAFF list (staff won): the screen showed the owner as a
+    member and Save could never add one. Shop-side term members now live at /memberships."""
+    c, auth = api
+    owner = f"app-phone-96{uuid.uuid4().int % 10**8:08d}"
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "Journey Gym", "state_code": "36"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    view = c.get(f"{base}/memberships", headers=h).json()
+    assert "counts" in view and view["counts"]["members"] == 0, view
+    add = c.post(f"{base}/memberships", headers=h, json={"name": "Suresh", "phone": "9400000333", "months": 3, "fee_paise": 50000, "paid": True})
+    assert add.status_code == 200, add.text
+    view = c.get(f"{base}/memberships", headers=h).json()
+    assert view["counts"]["members"] == 1, view
+    assert c.get(f"{base}/memberships/attendance", headers=h).status_code == 200
+    assert c.get(f"{base}/memberships/report", headers=h).status_code == 200
+    staff = c.get(f"{base}/members", headers=h).json()
+    assert staff["members"][0]["role"] == "owner"

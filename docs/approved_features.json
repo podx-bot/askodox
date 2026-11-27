@@ -13794,7 +13794,7 @@
       "api": [
         {
           "method": "GET",
-          "path": "/api/pos/businesses/{business_id}/members",
+          "path": "/api/pos/businesses/{business_id}/memberships",
           "response_keys": [
             "today",
             "terms",
@@ -13806,7 +13806,7 @@
         },
         {
           "method": "POST",
-          "path": "/api/pos/businesses/{business_id}/members",
+          "path": "/api/pos/businesses/{business_id}/memberships",
           "response_keys": [
             "id",
             "name",
@@ -13816,7 +13816,7 @@
         },
         {
           "method": "POST",
-          "path": "/api/pos/businesses/{business_id}/members/{member_id}/renew",
+          "path": "/api/pos/businesses/{business_id}/memberships/{member_id}/renew",
           "response_keys": [
             "id",
             "end_date",
@@ -13825,7 +13825,7 @@
         },
         {
           "method": "GET",
-          "path": "/api/pos/businesses/{business_id}/members/attendance",
+          "path": "/api/pos/businesses/{business_id}/memberships/attendance",
           "response_keys": [
             "day",
             "code",
@@ -13838,7 +13838,7 @@
         },
         {
           "method": "POST",
-          "path": "/api/pos/businesses/{business_id}/members/{member_id}/visit",
+          "path": "/api/pos/businesses/{business_id}/memberships/{member_id}/visit",
           "response_keys": [
             "ok",
             "came",
@@ -13847,7 +13847,7 @@
         },
         {
           "method": "GET",
-          "path": "/api/pos/businesses/{business_id}/members/report",
+          "path": "/api/pos/businesses/{business_id}/memberships/report",
           "response_keys": [
             "month",
             "new",
@@ -14126,6 +14126,46 @@
           "askodoxYieldBoardText"
         ]
       }
+    },
+    {
+      "id": "guide_session_finish",
+      "name": "Guide session finish: pages arranged from the answers, intro voice replay, guide-done push",
+      "purpose": "Owner 2026-11-28: after the guide session the pages the person's own words point at move to the front (move only, one tap undo); the intro can be heard again; a push says the guide is done.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_guide_arrangement.py"
+        ],
+        "flutter": [
+          "test/features/guide_session/guide_arrange_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxGuideArranged",
+          "askodoxGuideArrangeUndo",
+          "askodoxIntroHear"
+        ],
+        "symbols": [
+          "askodoxBringFirst",
+          "askodoxApplyGuideArrangement"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "GET /api/me/guide-session/arrangement returns page ids from kept facts only (consent); the app moves existing top-level pages to the front, never hides / groups / deletes; Undo restores. One push guide_done:<user>:<time> when the session finishes, in the person's language.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-28); NOT PHONE VERIFIED",
+          "date": "2026-11-28"
+        }
+      ]
     },
     {
       "api": [

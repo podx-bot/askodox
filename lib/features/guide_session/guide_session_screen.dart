@@ -9,6 +9,8 @@ import '../guide/in_app_guide.dart' show askodoxGuideSpeakerProvider;
 import '../location/application/location_controller.dart' show LocationController;
 import '../pos/data/pos_repository.dart';
 import '../steps/presentation/step_kit.dart';
+import '../money_home/money_home_store.dart' show askodoxMoneyShopProvider;
+import 'guide_arrange.dart';
 import 'guide_reminders.dart';
 import 'guide_session_logic.dart';
 
@@ -43,6 +45,8 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
   bool _finished = false;
   String? _error;
   bool _gapSent = false;
+  bool _arranged = false;
+  AskodoxGuideArrangeUndo? _undo;
   final _answer = TextEditingController();
 
   bool get _te => Localizations.localeOf(context).languageCode == 'te';
@@ -162,6 +166,7 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
         if (_finished) {
           _phase = _Phase.summary;
           _clock?.cancel();
+          unawaited(_arrange());
         } else {
           _question = next.isEmpty ? _question : next;
         }
@@ -192,7 +197,34 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
       if (mounted) setState(() => _busy = false);
     }
     _clock?.cancel();
+    unawaited(_arrange());
     unawaited(ref.read(askodoxGuideRemindersProvider.notifier).refresh(_lang));
+  }
+
+  /// Brings the pages the person's own answers point at to the front (move only; one tap undoes it).
+  Future<void> _arrange() async {
+    if (_arranged || !_consent) return;
+    try {
+      final r = await ref.read(askodoxPosRepositoryProvider).guideArrangement();
+      if (r['ready'] != true) return;
+      final undo = await askodoxApplyGuideArrangement(
+        buyer: askodoxGuideKeys(r['buyer']),
+        seller: askodoxGuideKeys(r['seller']),
+        shop: ref.read(askodoxMoneyShopProvider),
+      );
+      if (!mounted) return;
+      setState(() {
+        _arranged = undo != null;
+        _undo = undo;
+      });
+    } catch (_) {
+      // The arrangement is a nicety: a failure leaves the person's pages as they were.
+    }
+  }
+
+  Future<void> _undoArrange() async {
+    await _undo?.restore();
+    if (mounted) setState(() => _undo = null);
   }
 
   Future<void> _deleteMine() async {
@@ -430,6 +462,18 @@ class _AskodoxGuideSessionScreenState extends ConsumerState<AskodoxGuideSessionS
                     ? 'Home లో పైన "సెటప్ మిగిలింది" చిప్ ఉంటుంది. నొక్కితే ఇక్కడినుంచే కొనసాగుతుంది. మార్పులు కనిపించడానికి యాప్ మూసి మళ్ళీ తెరవండి.'
                     : 'On Home there is a "Setup left" chip. Tap it to continue from here. Close and reopen the app to see the changes.',
                 AskodoxLook.sheet),
+            if (_arranged)
+              Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _card(
+                      _undo != null
+                          ? (te ? 'మీరు చెప్పినవాటిని బట్టి మీ పేజీలు ముందుకు పెట్టాను. ఏదీ దాచలేదు, తీసేయలేదు.' : 'I moved the pages you talked about to the front. Nothing was hidden or removed.')
+                          : (te ? 'పేజీలు మునుపటిలా పెట్టాను.' : 'Your pages are back as they were.'),
+                      AskodoxLook.sheet,
+                      key: const Key('askodoxGuideArranged'),
+                      action: _undo == null
+                          ? null
+                          : TextButton(key: const Key('askodoxGuideArrangeUndo'), onPressed: _undoArrange, child: Text(te ? 'వద్దు' : 'Undo')))),
             if (_gapSent) Padding(padding: const EdgeInsets.only(top: 10), child: _gapBox(te)),
           ]),
           bottom: AskodoxStepBottom(

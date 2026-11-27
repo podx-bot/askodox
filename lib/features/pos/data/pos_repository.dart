@@ -237,6 +237,7 @@ class AskodoxPosRepository {
       _send('POST', '/api/me/guide-session/turn',
           body: {'answer': answer, 'language': language, 'asked_why': askedWhy, 'not_understood': notUnderstood, 'skip': skip},
           timeout: const Duration(seconds: 40));
+  Future<AskodoxJson> guideArrangement() => _send('GET', '/api/me/guide-session/arrangement');
   Future<AskodoxJson> guidePause() => _send('POST', '/api/me/guide-session/pause');
   Future<AskodoxJson> guideDeleteFacts({String? topic}) =>
       _send('DELETE', '/api/me/guide-session/facts', query: {if (topic != null) 'topic': topic});
@@ -474,16 +475,16 @@ class AskodoxPosRepository {
   Future<AskodoxJson> monthlyMemberStatus(String biz, String member, String status) =>
       _send('POST', '${_b(biz)}/monthly/members/$member/status', body: {'status': status});
   /// Term memberships + attendance (owner 2026-11-27): a gym, a class, a pool ... Fees are records; reminders are drafts.
-  Future<AskodoxJson> termMembers(String biz) => _send('GET', '${_b(biz)}/members');
-  Future<AskodoxJson> addTermMember(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/members', body: body);
+  Future<AskodoxJson> termMembers(String biz) => _send('GET', '${_b(biz)}/memberships');
+  Future<AskodoxJson> addTermMember(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/memberships', body: body);
   Future<AskodoxJson> renewTermMember(String biz, String member, AskodoxJson body) =>
-      _send('POST', '${_b(biz)}/members/$member/renew', body: body);
+      _send('POST', '${_b(biz)}/memberships/$member/renew', body: body);
   Future<AskodoxJson> termMemberStatus(String biz, String member, String status) =>
-      _send('POST', '${_b(biz)}/members/$member/status', body: {'status': status});
-  Future<AskodoxJson> termAttendance(String biz) => _send('GET', '${_b(biz)}/members/attendance');
+      _send('POST', '${_b(biz)}/memberships/$member/status', body: {'status': status});
+  Future<AskodoxJson> termAttendance(String biz) => _send('GET', '${_b(biz)}/memberships/attendance');
   Future<AskodoxJson> termVisit(String biz, String member, bool came) =>
-      _send('POST', '${_b(biz)}/members/$member/visit', body: {'came': came});
-  Future<AskodoxJson> termReport(String biz) => _send('GET', '${_b(biz)}/members/report');
+      _send('POST', '${_b(biz)}/memberships/$member/visit', body: {'came': came});
+  Future<AskodoxJson> termReport(String biz) => _send('GET', '${_b(biz)}/memberships/report');
   /// Bills & warranty: a photo of the paper -> its facts for the person to check. Nothing is kept on the server.
   Future<AskodoxJson> vaultRead(List<AskodoxJson> images) =>
       _send('POST', '/api/me/vault/read', body: {'images': images}, timeout: const Duration(seconds: 60));
