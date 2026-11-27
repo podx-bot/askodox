@@ -242,6 +242,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxDuesSteps2')), findsOneWidget);
     expect(find.text('How much did they pay?'), findsOneWidget);
+    // The whole due is only a suggestion: typing replaces it (was ₹1,500 + "200" = ₹15,00,200).
+    for (final k in ['2', '00']) {
+      await tester.tap(find.byKey(Key('askodoxStepKey-$k')));
+      await tester.pump();
+    }
+    expect(find.text('₹200'), findsOneWidget);
     await tester.tap(find.byKey(const Key('askodoxStepQuick-1000')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('askodoxDuesStepsGot')));

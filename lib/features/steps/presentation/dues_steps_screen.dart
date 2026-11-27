@@ -30,6 +30,9 @@ class _AskodoxDuesStepsScreenState extends ConsumerState<AskodoxDuesStepsScreen>
   String _q = '';
   AskodoxJson? _person;
   String _typed = '';
+  /// The amount on the pad is our suggestion (the whole due): the first digit typed REPLACES it, never joins it
+  /// (₹360 shown + "100" typed used to read ₹3,60,100).
+  bool _suggested = false;
   String _pay = 'cash';
   bool _busy = false;
   String _txn = askodoxNewTxnId();
@@ -81,6 +84,7 @@ class _AskodoxDuesStepsScreenState extends ConsumerState<AskodoxDuesStepsScreen>
     setState(() {
       _person = p;
       _typed = '${askodoxPosInt(p['due_paise']) ~/ 100}';
+      _suggested = true;
       _pay = 'cash';
       _txn = askodoxNewTxnId();
       _step = 2;
@@ -267,7 +271,7 @@ class _AskodoxDuesStepsScreenState extends ConsumerState<AskodoxDuesStepsScreen>
       onRefresh: _load,
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), children: [
         AskodoxStepBigNumber(askodoxStepRupees(askodoxPosInt(_data?['total_paise'])),
-            label: te ? '${all.length} మంది బాకీ' : '${all.length} people owe', color: askodoxStepWarn, size: 40),
+            label: te ? '${all.length} మంది బాకీ' : (all.length == 1 ? '1 person owes' : '${all.length} people owe'), color: askodoxStepWarn, size: 40),
         const SizedBox(height: 12),
         if (all.isEmpty)
           Padding(
@@ -344,7 +348,16 @@ class _AskodoxDuesStepsScreenState extends ConsumerState<AskodoxDuesStepsScreen>
         onChanged: (v) => setState(() => _pay = v),
       ),
       const SizedBox(height: 10),
-      AskodoxStepAmountPad(value: _typed, quick: quick, onChanged: (v) => setState(() => _typed = v)),
+      AskodoxStepAmountPad(
+          value: _typed,
+          quick: quick,
+          onChanged: (v) => setState(() {
+                if (_suggested && v.length > _typed.length && v.startsWith(_typed)) {
+                  v = v.substring(_typed.length).replaceFirst(RegExp(r'^0+'), '');
+                }
+                _suggested = false;
+                _typed = v;
+              })),
     ]);
   }
 
