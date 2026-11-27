@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from app.api.routes.in_app_deal import _authenticated_app_user
 from app.services import rate_limit
 from app.services.automations import AutomationError, Automations
+from app.services.morning_brief import MorningBrief
 from app.services.phone_health import PhoneHealth, PhoneHealthError
 from app.services.pos_store import PosError
 
@@ -103,6 +104,41 @@ def phone_report(body: PhoneReportBody, request: Request) -> Dict[str, Any]:
     try:
         return phone_health(request.app.state.container).report(user, body.model_dump())
     except PhoneHealthError as error:
+        raise _fail(error) from None
+
+
+# -------------------------------------------------------------- morning brief --
+def morning_brief(container: Any) -> MorningBrief:
+    service = getattr(container, "morning_brief", None)
+    if service is None:
+        service = MorningBrief(container.settings.database_path)
+        container.morning_brief = service
+    return service
+
+
+@router.get("/api/me/morning-brief")
+def my_brief(request: Request) -> Dict[str, Any]:
+    """The person's own three things for today (own bills, family list, "same again"). Read only."""
+    from app.api.routes.pos_frontdesk import _bills
+
+    user = _user(request, "brief")
+    container = request.app.state.container
+    return morning_brief(container).me(_bills(request), automations(container), user)
+
+
+@router.get("/api/pos/businesses/{business_id}/morning-brief")
+def shop_brief(business_id: str, request: Request) -> Dict[str, Any]:
+    """The shop's three things for today + what was done yesterday. Free for ever: it only reads the shop's own
+    tools; nothing is sent from here."""
+    from app.api.routes.pos_frontdesk import _bills, dues_followup
+
+    user = _user(request, "brief")
+    container = request.app.state.container
+    store, _ = _pos(request)
+    try:
+        return morning_brief(container).shop(store, dues_followup(container, store, _bills(request)),
+                                             automations(container), business_id, user)
+    except PosError as error:
         raise _fail(error) from None
 
 

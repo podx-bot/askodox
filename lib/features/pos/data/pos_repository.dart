@@ -219,6 +219,9 @@ class AskodoxPosRepository {
   // Automations (owner 2026-11-26): what ASKODOX noticed. Drafts only -- nothing here orders, pays or messages.
   Future<List<AskodoxJson>> buyerAutomations() async => askodoxPosList((await _send('GET', '/api/automations/buyer'))['cards']);
   Future<AskodoxJson> shopAutomations(String biz) => _send('GET', '${_b(biz)}/automations');
+  /// Morning brief (owner 2026-11-27): at most three things for today; read only.
+  Future<AskodoxJson> myBrief() => _send('GET', '/api/me/morning-brief');
+  Future<AskodoxJson> shopBrief(String biz) => _send('GET', '${_b(biz)}/morning-brief');
   Future<AskodoxJson> lowStockDraft(String biz, String supplierId) =>
       _send('POST', '${_b(biz)}/automations/low-stock/draft', body: {'supplier_id': supplierId});
   Future<AskodoxJson> automationDismiss(String kind, String ref, {bool forever = false}) =>

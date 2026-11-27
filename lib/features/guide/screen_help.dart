@@ -954,6 +954,22 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన సంఖ్య మీ టీమ్‌లో ఉన్నవాళ్ళు. ఒకరిని నొక్కితే కాల్ చేయవచ్చు.',
     'పెద్ద బటన్ కొత్త పని వాళ్ళని వెతుకుతుంది (పాత పేజీ). పత్రాలు, నెలవారీ పోస్టింగ్, రిజిస్ట్రేషన్ కూడా అక్కడే.',
   ]),
+  '/brief': _H('Today', 'ఈ రోజు', [
+    'At most three things that wait for you today: bills to pay, things on the home list, a usual order.',
+    'Each row has ONE button; it opens the page where you do it. Nothing is sent or paid from here.',
+  ], [
+    'ఈ రోజు మీ కోసం ఆగిన పనులు, మూడు వరకే: కట్టాల్సిన బిల్లులు, ఇంటి లిస్ట్ వస్తువులు, అలవాటైన ఆర్డర్.',
+    'ప్రతి వరుసలో ఒకే బటన్; నొక్కితే ఆ పని చేసే పేజీ తెరుచుకుంటుంది. ఇక్కడి నుంచి ఏదీ పంపబడదు, కట్టబడదు.',
+  ]),
+  '/pos/:id/brief': _H('Today in the shop', 'షాప్‌లో ఈ రోజు', [
+    'At most three things for today: dues to remind, items running low, regulars not seen, yesterday\'s bills.',
+    'Send / Approve / View opens the page where you check and do it yourself. ASKODOX only drafts.',
+    'Below: what was done yesterday, as real counts. A count ASKODOX could not read is left out.',
+  ], [
+    'ఈ రోజు పనులు, మూడు వరకే: గుర్తు చేయాల్సిన బాకీలు, తక్కువైన ఐటమ్స్, రాని regular customers, నిన్నటి బిల్లులు.',
+    'పంపు / ఆమోదించు / చూడు నొక్కితే ఆ పేజీ తెరుచుకుంటుంది; మీరే చూసి చేయాలి. ASKODOX డ్రాఫ్ట్ మాత్రమే చేస్తుంది.',
+    'కింద: నిన్న జరిగినవి, నిజమైన లెక్కలు. చదవలేని లెక్క చూపించదు.',
+  ]),
   '/me/family-list': _H('Family shopping list', 'ఇంటి షాపింగ్ లిస్ట్', [
     'One list for the whole home. The big number = things still needed.',
     'Tap the mic and say "sugar, milk, soap" or tap Add. Tap a thing when it is bought; ⋮ on a row = edit, not now, delete.',

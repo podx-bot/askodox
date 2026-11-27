@@ -13714,6 +13714,81 @@
           "change": "App Links, last item of the in-app plan."
         }
       ]
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/me/morning-brief",
+          "response_keys": [
+            "day",
+            "weekday",
+            "tasks",
+            "more",
+            "approve_first",
+            "scope"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/morning-brief",
+          "response_keys": [
+            "day",
+            "weekday",
+            "tasks",
+            "more",
+            "approve_first",
+            "scope",
+            "business_id"
+          ]
+        }
+      ],
+      "dependencies": [
+        "automations",
+        "pos_dues_followup"
+      ],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "When something waits, a chip above the Home chat says how many things there are today; it opens the brief: a greeting, at most THREE rows, each with ONE button (Send / Approve / View) that opens the page where the person does it, and for a shop what was done yesterday as real counts. The brief only reads engines that exist (baaki reminders, low stock, regulars not seen, yesterday's bills; own bills, family list, usual order): no AI call, nothing sent, ordered, paid or marked from it. A part the caller may not do is absent; a non-member gets the shop's 404; a count that cannot be read is left out, never shown as 0. A row with money shows the rough-figures note (AskodoxEstimateNote). Free for ever.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: morning brief, phase 2 of the 2026-11-27 plan (design canvas new look, screen 1); the chip opens it (it does not open by itself); NOT PHONE VERIFIED",
+          "date": "2026-11-27"
+        }
+      ],
+      "id": "morning_brief_three_things",
+      "name": "Morning brief: three things for today + what ASKODOX did",
+      "purpose": "Owner 2026-11-27: on opening the app the person sees the few things that need THEM today, approves each with one tap, and sees what was already taken care of.",
+      "roles": [
+        "any"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_morning_brief.py"
+        ],
+        "flutter": [
+          "test/features/morning_brief/morning_brief_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMorningBriefChip",
+          "askodoxMorningBrief",
+          "askodoxBriefHeadline",
+          "askodoxBriefApproveNote",
+          "askodoxEstimateNote"
+        ],
+        "symbols": [
+          "AskodoxMorningBriefScreen",
+          "AskodoxMorningBriefChipStrip",
+          "askodoxMorningBriefProvider",
+          "AskodoxEstimateNote"
+        ]
+      }
     }
   ]
 }

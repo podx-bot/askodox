@@ -25,6 +25,7 @@ import 'features/location/application/location_controller.dart' show LocationCon
 import 'features/pos/data/pos_payment_alerts.dart' show askodoxAutoJoinStaffVoices;
 import 'core/ui/ui_switches.dart';
 import 'config/router/app_router.dart' show appRouterProvider;
+import 'features/morning_brief/morning_brief_screen.dart';
 import 'features/shops/domain/shop_link_install.dart';
 
 void main() {
@@ -34,6 +35,7 @@ void main() {
   askodoxSpeakTypedReplies = true; // owner 2026-11-19: text + voice on every reply
   // Owner 2026-11-26: no guide chip / intro, no mics inside pages, ONE Ask button on every page (one place: ui_switches).
   askodoxApplyOwnerUi();
+  askodoxMorningBriefChip = true; // owner 2026-11-27: "ఈ రోజు N పనులు" above the chat when something waits
   askodoxGuideReminderChip = true; // owner 2026-11-26: setup left / a feature that fits, as a chip above the chat
   askodoxAutoOpenAppActions = true; // owner 2026-11-20: a named screen opens at once, no extra tap
   LocationController.askOnStart = true; // owner 2026-11-20: first open asks Allow, the town names itself

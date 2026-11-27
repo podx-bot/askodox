@@ -7,6 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/morning-brief` (2026-11-27, owner "Ok go" = phase 2 of the new plan): MORNING BRIEF --
+  `morning_brief.py` (`MorningBrief.shop` / `.me`, READ ONLY: dues `PosDuesFollowup.to_remind` (no pay link made),
+  `Automations.low_stock` / `winback` / `habit`, yesterday's bills, own unpaid bills without marking them seen,
+  family list open items; max 3 tasks in a fixed order + `more`; `handled` = yesterday's real counts for a member
+  with `reports`, a count that cannot be read is left out) + GET `/api/me/morning-brief`,
+  `/api/pos/businesses/{id}/morning-brief` (in `routes/automations.py`). App `lib/features/morning_brief/`
+  (`/brief`, `/pos/:id/brief`, chip `askodoxMorningBriefChip` above the Home chat only when something waits; flag
+  `askodoxMorningBriefChip` on in `main()`; the brief never opens by itself and sends nothing). Money rows show
+  `AskodoxEstimateNote` (`shared/widgets/estimate_note.dart` = the owner's rough-figures note, ONE place for the
+  wording). Registry `morning_brief_three_things`. New-look Play bundle = `askodox-play-1733.aab` (run 733 on
+  2858a66; owner on his phone: "came out well" -- first look only, QR scan not confirmed). Nothing else phone verified.
 - `main` PR #527 + #529 + #533 (2026-11-27, owner "1"; NOT in any Play bundle): IN-APP VIDEO Q&A + PAID AUTO SEND -- (#527/#529) uploader pays ONCE for a video's study (AI Credits `video_study`), viewers read the stored study free (`video_study.answer` `use_model=False`), `video_ask_flow.py` next_step answered / product / ask_uploader, viewer messages the uploader in-app (`/api/videos/{id}/message`, generic pushes, no numbers). (#533) bills + baaki: MANUAL = owner's own WhatsApp, free for ever; AUTOMATIC = one `shop_message` use from the OWNER's AI Credits per message (`MIN_RATE_PAISE` 5 while charging ON, `AiCredits.price`, `shop_messages.charge/give_back`; too few credits = nothing sent, refused = given back); `pos_bill_auto.py` (settings `bills.auto_send`, `bills.auto_daily_per_shop`, `whatsapp_cloud` `bill_template_name`, bills < 24 h, ASKODOX users in-app free); reminders `auto.price_paise` + app switch price line. Meta bill template NOT approved yet. App Links still LAST (needs Play SHA-256). Nothing phone verified.
 - Branch `claude/new-look-1b-all` (2026-11-27, owner "B" = all pages at once; after #530 palette + #531 guard):
   NEW LOOK ON FOR THE WHOLE APP -- 137 files, every hand-written light-UI colour mapped to the dark look (white ->

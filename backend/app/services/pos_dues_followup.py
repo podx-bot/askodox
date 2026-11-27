@@ -276,6 +276,24 @@ class PosDuesFollowup:
         return {"today": today, "remind_days_before": REMIND_DAYS_BEFORE, "items": rows, "auto": auto,
                 "to_send": sum(1 for r in rows if r["state"] == "remind" and not r["sent_today"])}
 
+    def to_remind(self, business_id: str, user: str) -> int:
+        """How many bills are in today's "remind" window with a phone and not yet reminded today. Read only (the
+        morning brief): no pay link is made and nothing is marked."""
+        today = self._today()
+        count = 0
+        with self.store._connect() as conn:
+            self.store._require(conn, business_id, user, "sell")
+            for inv in conn.execute("SELECT * FROM pos_invoices WHERE business_id = ? AND status = 'issued' AND"
+                                    " balance_paise > 0 ORDER BY issued_at DESC LIMIT 600", (business_id,)).fetchall():
+                if self.bills._due(conn, inv) <= 0:
+                    continue
+                row = conn.execute("SELECT * FROM pos_due_followups WHERE invoice_id = ?", (inv["id"],)).fetchone()
+                left = self._days_left(self._pay_date(inv, row))
+                if 0 <= left <= REMIND_DAYS_BEFORE and self._phone_of(conn, inv) and not (
+                        row is not None and row["owner_sent_day"] == today):
+                    count += 1
+        return count
+
     def mark_sent(self, business_id: str, user: str, invoice_id: str) -> Dict[str, Any]:
         """The owner sent today's WhatsApp reminder for this bill (it leaves today's list until tomorrow)."""
         with self.store._tx() as conn:

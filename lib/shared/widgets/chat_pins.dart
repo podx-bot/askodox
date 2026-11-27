@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/guide_session/guide_reminders.dart';
+import '../../features/morning_brief/morning_brief_screen.dart';
 import '../../features/pos/data/pos_repository.dart';
 import '../../features/pos/domain/shop_page_names.dart';
 
@@ -316,7 +317,10 @@ class AskodoxChatPinStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(askodoxChatPinsProvider);
     final live = askodoxLiveOrderChip ? ref.watch(askodoxLiveOrdersProvider) : const <AskodoxJson>[];
-    if (state.pins.isEmpty && live.isEmpty) return const AskodoxGuideReminderChips();
+    if (state.pins.isEmpty && live.isEmpty) {
+      return const Column(
+          mainAxisSize: MainAxisSize.min, children: [AskodoxMorningBriefChipStrip(), AskodoxGuideReminderChips()]);
+    }
     final te = _te(context);
     final control = ref.read(askodoxChatPinsProvider.notifier);
     if (state.folded && live.isEmpty) {
@@ -335,6 +339,7 @@ class AskodoxChatPinStrip extends ConsumerWidget {
       );
     }
     return Column(mainAxisSize: MainAxisSize.min, children: [
+      const AskodoxMorningBriefChipStrip(),
       const AskodoxGuideReminderChips(),
       Padding(
       key: const Key('askodoxChatPins'),
