@@ -7,6 +7,17 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
+- Branch `claude/yield-rates` (2026-11-27, first piece of phase 6, stacked on `claude/table-watch` PR #544): YIELD &
+  RATES -- buy in one form, sell in another (live birds -> dressed, goat, fish, paddy, cloth roll). Pure integer maths
+  in TWO twins: `backend/app/services/yield_math.py` == `lib/features/yield/yield_math.dart`, both run
+  `test/fixtures/yield_vectors.json` (change the two together; grams, paise, basis points, halves away from zero).
+  cost of a sellable kg = (weight x rate + transport + unloading - by-product income) / what came out; rate up by d ->
+  cost up d / yield; day: opening + made - sold = expected, against the scale. App `lib/features/yield/`
+  (`/pos/:id/yield`, Seller page `s.yield`, hub `money.yield`; 3 steps bought -> weighed after -> rate, board, day
+  end, last lots), book on the PHONE only (`askodox.yield.v1`, account-scoped, per shop id). The owner trials it on
+  his own chicken / mutton shop: every number is his entry, NO presets, `AskodoxEstimateNote` on the page. NOT built:
+  sold kg from bills, server sync for staff phones, skinless / boneless rows, WhatsApp rate board, trend chart.
+  Registry `yield_and_rates`. Nothing phone verified.
 - Branch `claude/table-watch` (2026-11-27, phase 5, stacked on `claude/workout-tracker` PR #543): TABLE WATCH, QR ONLY
   -- `pos_table_watch.py` (`pos_table_sits`: a table + a time, NO customer identity; `sat` from the customer
   `GET /order-desk/resolve` of a TABLE code -- route-level, best effort; states empty / seated / unseen (`UNSEEN_MINUTES`

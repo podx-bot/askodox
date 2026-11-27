@@ -174,6 +174,7 @@ void main() {
       ));
       await tester.pump();
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.byKey(const Key('askodoxWorkoutPick')), findsOneWidget);
       expect(find.text('Best so far: 57.5 kg × 8'), findsOneWidget);

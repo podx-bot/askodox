@@ -1296,6 +1296,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన షాప్ QR; టేబుల్ నొక్కితే దాని QR. ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
     'పెద్ద బటన్ ఆర్డర్ కోడ్‌ని కస్టమర్లకు WhatsApp లో పంపుతుంది. ఇంకా టేబుల్స్, కాపీ ⋮ మెనూలో.',
   ]),
+  '/pos/:id/yield': _H('Yield & rates', 'యీల్డ్ & రేట్లు', [
+    '"New lot came in": enter the weight you bought, the rate, transport and unloading. The total shows at once.',
+    'After dressing / cleaning, weigh what is left to sell: you see your yield % and the real cost of each sellable kg.',
+    'Enter your selling rate: profit a kg shows. "Day end" compares the stock that should be there with the scale. All numbers are your own.',
+  ], [
+    '"కొత్త సరుకు వచ్చింది": కొన్న బరువు, రేటు, రవాణా, కూలి రాయండి. మొత్తం ఖర్చు వెంటనే కనిపిస్తుంది.',
+    'డ్రెస్ / శుభ్రం చేశాక అమ్మడానికి మిగిలింది తూకం వేయండి: మీ యీల్డ్ %, అమ్మే ప్రతి కిలో అసలు ఖర్చు కనిపిస్తాయి.',
+    'మీ అమ్మే రేటు రాయండి: కిలోకి లాభం కనిపిస్తుంది. "రోజు ముగింపు" ఉండాల్సిన స్టాక్‌ని తూకంతో పోలుస్తుంది. సంఖ్యలన్నీ మీవే.',
+  ]),
   '/pos/:id/tables/watch': _H('Table watch', 'టేబుల్ వాచ్', [
     'Each table shows who is sitting and for how long. The time starts when the table\'s QR is scanned; no camera.',
     'A table nobody has gone to for 5 minutes comes on top and the staff get a notification.',

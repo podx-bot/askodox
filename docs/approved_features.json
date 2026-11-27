@@ -14055,6 +14055,62 @@
           "askodoxTableWatchOrder"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "For any shop that buys in one form and sells in another (live birds -> dressed meat, a goat -> mutton, fish, paddy -> rice, a cloth roll -> pieces): Seller page 'Yield & rates' (/pos/:id/yield). 'New lot came in' = 3 steps: (1) weight bought, rate a kg, count (optional), transport, unloading -> everything spent = weight x rate + the other costs; (2) what came out to sell, weighed -> yield % = out / in, the weight that went down, optional income from by-products, the real cost of a sellable kg = (everything spent - by-product income) / what came out ('I will weigh later' keeps the lot open); (3) the owner's own selling rate and least profit a kg -> profit a kg and its share of the selling rate, a warning under the least profit. The board shows the newest lot, 'if the buying rate goes up Rs 2 a sellable kg costs about Rs X more' (2 / yield), the owner's own last 5 yields and the last lots as a rate trend. 'Day end': morning stock (yesterday's scale reading) + came today - sold = should be there; against the scale -> the difference in kg and its worth at cost, a reason chip, then sales - cost of what was sold - other costs = the day's rough profit. Integer arithmetic (grams, paise, basis points), halves rounded away from zero; the same vectors pass in Python and Dart. Every number is the owner's own entry -- no presets; the rough-figures note is on the page. On the phone only for now (account-scoped).",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: yield & rates (first piece of phase 6 of the 2026-11-27 plan; design canvas buy / dressing / rate board / day end / trend); the owner trials it on his own chicken / mutton shop. NOT built: sold kg read from bills, staff phones sharing one book (server sync), skinless / boneless form rows on the board, the rate board sent to WhatsApp, the trend chart; NOT PHONE VERIFIED",
+          "date": "2026-11-27"
+        }
+      ],
+      "id": "yield_and_rates",
+      "name": "Yield & rates: the real cost of a sellable kg, profit a kg, day stock against the scale",
+      "purpose": "Owner 2026-11-27 (phase 6): a shop that buys live / raw and sells processed knows what one sellable kg really costs it, what it earns on a kg at today's selling rate, how a change in the buying rate hits it, and whether the day's stock matches the scale.",
+      "roles": [
+        "owner",
+        "manager"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_yield_math.py"
+        ],
+        "flutter": [
+          "test/features/yield/yield_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxYield",
+          "askodoxYieldNew",
+          "askodoxYieldLive",
+          "askodoxYieldRate",
+          "askodoxYieldOut",
+          "askodoxYieldSell",
+          "askodoxYieldCost",
+          "askodoxYieldProfit",
+          "askodoxYieldBoard",
+          "askodoxYieldDayEnd",
+          "askodoxYieldDiff",
+          "askodoxEstimateNote"
+        ],
+        "symbols": [
+          "AskodoxYieldScreen",
+          "askodoxYieldProvider",
+          "askodoxYieldCostPerKg",
+          "askodoxYieldBp",
+          "askodoxYieldDayProfit",
+          "askodoxYieldPrefsKey"
+        ]
+      }
     }
   ]
 }
