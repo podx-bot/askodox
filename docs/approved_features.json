@@ -13789,6 +13789,142 @@
           "AskodoxEstimateNote"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/members",
+          "response_keys": [
+            "today",
+            "terms",
+            "counts",
+            "ending",
+            "members",
+            "draft_only"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/members",
+          "response_keys": [
+            "id",
+            "name",
+            "end_date",
+            "state"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/members/{member_id}/renew",
+          "response_keys": [
+            "id",
+            "end_date",
+            "renewed"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/members/attendance",
+          "response_keys": [
+            "day",
+            "code",
+            "came",
+            "came_count",
+            "waiting",
+            "absent",
+            "draft_only"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/members/{member_id}/visit",
+          "response_keys": [
+            "ok",
+            "came",
+            "changed"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/members/report",
+          "response_keys": [
+            "month",
+            "new",
+            "renewed",
+            "left",
+            "collected_paise",
+            "weeks_paise",
+            "left_members",
+            "draft_only"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/me/memberships",
+          "response_keys": [
+            "memberships"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/me/memberships/{business_id}/check-in",
+          "response_keys": [
+            "ok",
+            "day",
+            "already",
+            "shop"
+          ]
+        }
+      ],
+      "dependencies": [
+        "business_kit"
+      ],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "For every business that sells time by the term (gym, class, pool, library ...; shops whose Business Kit way of working holds 5): members with a term in months, the fee and an END DAY worked out from the start day (31 Jan + 1 month = the last day of Feb). A fee received is a record that moves the end day on -- from the old end day when it has not passed, else from today. The page shows members / ending this month / fee to come, who is ending within 5 days or has ended with a reminder DRAFT that opens in the owner's own WhatsApp, and everyone. Attendance once a day per member: staff tap, or the member types today's 4-digit counter code in My memberships (the code changes every India day; a wrong code or a non-member is refused). Members away for 7 days and members who left carry message drafts. The month report (new, renewed, left, collected by week) needs the reports permission. Nothing is sent, charged or paid by ASKODOX. The morning brief counts memberships ending (key renewals).",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: gym owner kit as a universal term-membership + attendance engine (phase 3 of the 2026-11-27 plan, design canvas gym screens); QR scan by camera and fee by payment voice with automatic renewal are NOT built; NOT PHONE VERIFIED",
+          "date": "2026-11-27"
+        }
+      ],
+      "id": "term_memberships_attendance",
+      "name": "Members & attendance (term memberships: gym, class, pool, library)",
+      "purpose": "Owner 2026-11-27: a gym owner (and every business like it) keeps members, fees, end days and attendance in one place, with reminders ready to send.",
+      "roles": [
+        "seller",
+        "buyer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_memberships.py"
+        ],
+        "flutter": [
+          "test/features/memberships/memberships_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxMembers",
+          "askodoxMembersNew",
+          "askodoxMembersAttendance",
+          "askodoxMembersReport",
+          "askodoxAttendanceCode",
+          "askodoxMyMemberships"
+        ],
+        "symbols": [
+          "AskodoxMembersScreen",
+          "AskodoxMembersAttendanceScreen",
+          "AskodoxMembersReportScreen",
+          "AskodoxMyMembershipsScreen",
+          "askodoxTermEnd"
+        ]
+      }
     }
   ]
 }

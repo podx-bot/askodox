@@ -41,7 +41,7 @@ class AskodoxBriefTask {
   }
 }
 
-const askodoxBriefKinds = <String>{'dues', 'low_stock', 'winback', 'yesterday', 'my_bills', 'family', 'habit'};
+const askodoxBriefKinds = <String>{'dues', 'renewals', 'low_stock', 'winback', 'yesterday', 'my_bills', 'family', 'habit'};
 
 List<AskodoxBriefTask> askodoxBriefTasks(Object? raw) => [
       if (raw is List)
@@ -75,6 +75,8 @@ String askodoxBriefTitle(AskodoxBriefTask t, bool te) {
   switch (t.key) {
     case 'dues':
       return te ? '${t.count} బాకీలు గుర్తు చేయాలి' : '${t.count} dues to remind';
+    case 'renewals':
+      return te ? '${t.count} సభ్యత్వాలు ముగుస్తున్నాయి' : '${t.count} memberships ending';
     case 'low_stock':
       final more = t.count > 1 ? ' +${t.count - 1}' : '';
       return te ? '${t.name}$more తక్కువ' : '${t.name}$more running low';
@@ -95,6 +97,8 @@ String askodoxBriefSub(AskodoxBriefTask t, bool te) {
   switch (t.key) {
     case 'dues':
       return te ? 'మెసేజ్ రెడీ · మీరు పంపితేనే వెళ్తుంది' : 'Message ready · goes only when you send it';
+    case 'renewals':
+      return te ? 'రిమైండర్ డ్రాఫ్ట్ రెడీ' : 'Reminder draft is ready';
     case 'low_stock':
       return te ? 'సప్లయర్‌కి ఆర్డర్ డ్రాఫ్ట్ రెడీ' : 'Order draft for the supplier is ready';
     case 'winback':

@@ -129,3 +129,15 @@ def test_my_side_counts_my_unpaid_bills_without_marking_them_seen(env):
     with store._connect() as conn:
         assert conn.execute("SELECT COUNT(*) FROM pos_bill_shares WHERE seen_at IS NOT NULL").fetchone()[0] == 0
     assert json.dumps(out)  # plain data only
+
+
+def test_memberships_ending_join_the_brief_after_the_dues(env):
+    from app.services.pos_memberships import PosMemberships
+
+    brief, autos, store, _, dues, biz, now = env
+    terms = PosMemberships(store, clock=lambda: now[0].astimezone(timezone.utc))
+    assert brief.shop(store, dues, autos, biz, OWNER, terms)["tasks"] == []
+    terms.add(biz, OWNER, {"name": "Member", "phone": "9300002060", "months": 1, "fee_paise": 150000,
+                           "start_date": "2026-10-29"})  # ends 29 Nov: two days from this Friday
+    task = brief.shop(store, dues, autos, biz, OWNER, terms)["tasks"][0]
+    assert task == {"key": "renewals", "action": "send", "count": 1, "route": f"/biz/{biz}/members"}

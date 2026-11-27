@@ -22,7 +22,7 @@ from app.services.pos_store import PosError
 IST = timezone(timedelta(hours=5, minutes=30))
 MAX_TASKS = 3
 # The order is the priority: money owed to the shop first, then the shelf, then customers, then a look back.
-SHOP_ORDER = ("dues", "low_stock", "winback", "yesterday")
+SHOP_ORDER = ("dues", "renewals", "low_stock", "winback", "yesterday")
 ME_ORDER = ("my_bills", "family", "habit")
 
 
@@ -53,7 +53,7 @@ class MorningBrief:
                 "more": max(0, len(tasks) - MAX_TASKS), "approve_first": True}
 
     # ------------------------------------------------------------------ shop --
-    def shop(self, store: Any, dues: Any, autos: Any, business_id: str, user: str) -> Dict[str, Any]:
+    def shop(self, store: Any, dues: Any, autos: Any, business_id: str, user: str, terms: Any = None) -> Dict[str, Any]:
         with store._connect() as conn:
             store._require(conn, business_id, user, "view")  # a non-member: 404, as everywhere
         found: Dict[str, Dict[str, Any]] = {}
@@ -107,7 +107,12 @@ class MorningBrief:
             return {"action": "view", "count": len(rows), "amount_paise": total, "date": yesterday,
                     "route": f"/biz/{business_id}/reports/day?date={yesterday}"}
 
+        def renewals_task() -> Optional[Dict[str, Any]]:
+            count = terms.ending_count(business_id, user) if terms is not None else 0
+            return {"action": "send", "count": count, "route": f"/biz/{business_id}/members"} if count else None
+
         part("dues", dues_task)
+        part("renewals", renewals_task)
         part("low_stock", stock_task)
         part("winback", winback_task)
         part("yesterday", yesterday_task)

@@ -95,6 +95,7 @@ String askodoxBizRoute(String id, String page) => switch (page) {
       'orders.team' => '/pos/$id/team',
       'orders.branches' => '/me/branches?shop=$id',
       'money.monthly' => '/biz/$id/monthly',
+      'money.members' => '/biz/$id/members',
       'money.bill' => '/me/business/$id/bill',
       'money.counter' => '/pos/$id/sale',
       'money.dues' => '/biz/$id/money/dues',
@@ -248,6 +249,9 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flo
           if (flows.contains('5'))
             const AskodoxBizTileSpec('money.monthly', Icons.event_repeat_outlined, 'Monthly members', 'నెలవారీ సభ్యులు',
                 'Milk, tuition, gym, PG', 'పాలు, ట్యూషన్, జిమ్, PG', tone: 'purple', perm: 'customers'),
+          if (flows.contains('5'))
+            const AskodoxBizTileSpec('money.members', Icons.badge_outlined, 'Members & attendance', 'సభ్యులు & హాజరు',
+                'Term fee, end day, who came', 'ఫీజు, ముగింపు తేదీ, ఎవరు వచ్చారు', tone: 'teal', perm: 'customers'),
           AskodoxBizTileSpec('money.sound', Icons.volume_up_outlined, 'Payment sound', 'పేమెంట్ సౌండ్',
               'Says each payment aloud', 'డబ్బు రాగానే చెబుతుంది', tone: 'teal', badge: (h) => _n(h['sounds'])),
           const AskodoxBizTileSpec('money.accounts', Icons.qr_code_2, 'My QR / accounts', 'నా QR / ఖాతాలు',

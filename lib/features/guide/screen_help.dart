@@ -970,6 +970,36 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పంపు / ఆమోదించు / చూడు నొక్కితే ఆ పేజీ తెరుచుకుంటుంది; మీరే చూసి చేయాలి. ASKODOX డ్రాఫ్ట్ మాత్రమే చేస్తుంది.',
     'కింద: నిన్న జరిగినవి, నిజమైన లెక్కలు. చదవలేని లెక్క చూపించదు.',
   ]),
+  '/biz/:id/members': _H('Members & attendance', 'సభ్యులు & హాజరు', [
+    'For a gym, a class, a pool, a library: members who pay for a term. Top: members, ending this month, fee to come.',
+    'New member: name, phone, term, fee. ASKODOX works out the end day. Tap a member when the fee comes: the end day moves on.',
+    'Remind opens the ready message in YOUR WhatsApp; it goes only when you send it.',
+  ], [
+    'జిమ్, క్లాస్, స్విమ్మింగ్ పూల్, లైబ్రరీ లాంటి వాటికి: టర్మ్ ఫీజు కట్టే సభ్యులు. పైన: సభ్యులు, ఈ నెల ముగిసేవి, ఫీజు రావాల్సినవి.',
+    'కొత్త సభ్యుడు: పేరు, ఫోన్, టర్మ్, ఫీజు. ముగింపు తేదీ ASKODOX లెక్కిస్తుంది. ఫీజు వచ్చాక సభ్యుడిని నొక్కండి: తేదీ ముందుకు జరుగుతుంది.',
+    'రిమైండర్ నొక్కితే సిద్ధంగా ఉన్న మెసేజ్ మీ WhatsApp లో తెరుచుకుంటుంది; మీరు పంపితేనే వెళ్తుంది.',
+  ]),
+  '/biz/:id/members/attendance': _H('Today\'s attendance', 'ఈ రోజు హాజరు', [
+    'Tap a name when the member comes. Or show today\'s 4-digit code: the member types it in "My memberships".',
+    'Below: members away for a week, with a ready message you send yourself.',
+  ], [
+    'సభ్యుడు రాగానే పేరు నొక్కండి. లేదా ఈ రోజు 4 అంకెల కోడ్ చూపించండి: సభ్యుడు "నా సభ్యత్వాలు" లో టైప్ చేస్తాడు.',
+    'కింద: వారం రోజులుగా దూరంగా ఉన్నవారు, సిద్ధంగా ఉన్న మెసేజ్ తో; మీరే పంపాలి.',
+  ]),
+  '/biz/:id/members/report': _H('Members: this month', 'సభ్యులు: ఈ నెల', [
+    'New, renewed and left this month, and the fee collected week by week, from what you recorded.',
+    'Those who left: a ready "come back" message you send yourself.',
+  ], [
+    'ఈ నెల కొత్తగా చేరినవారు, రెన్యూ చేసినవారు, వదిలినవారు, వారం వారీగా వసూలైన ఫీజు; మీరు నమోదు చేసిన దాని నుంచే.',
+    'వదిలినవారికి: సిద్ధంగా ఉన్న "తిరిగి రండి" మెసేజ్; మీరే పంపాలి.',
+  ]),
+  '/me/memberships': _H('My memberships', 'నా సభ్యత్వాలు', [
+    'Places where you are a member: until which day, how many days are left.',
+    'When you go there, type the 4-digit code shown at the counter and tap "I came".',
+  ], [
+    'మీరు సభ్యులుగా ఉన్న చోట్లు: ఏ తేదీ వరకు, ఎన్ని రోజులు మిగిలాయి.',
+    'అక్కడికి వెళ్ళినప్పుడు కౌంటర్ దగ్గర ఉన్న 4 అంకెల కోడ్ టైప్ చేసి "నేను వచ్చాను" నొక్కండి.',
+  ]),
   '/me/family-list': _H('Family shopping list', 'ఇంటి షాపింగ్ లిస్ట్', [
     'One list for the whole home. The big number = things still needed.',
     'Tap the mic and say "sugar, milk, soap" or tap Add. Tap a thing when it is bought; ⋮ on a row = edit, not now, delete.',
