@@ -8,7 +8,27 @@ this file, don't trust it blindly.
 
 ## Current verified checkpoint
 - Branch `claude/kitchen-stock` (2026-11-28, phase 6; after #554 vault): KITCHEN STOCK -- `lib/features/kitchen/` (`/me/kitchen`, Buyer page `b.kitchen`): the person's OWN home items (own unit, own low level, NO presets; amounts in milli-units), + / - / finished, buy list (low or finished) shared as text, month grocery spend the person types; phone only (`askodox.kitchen.v1`, account-scoped); `AskodoxEstimateNote`. NOT built: grocery bill photo -> items in one go, family sharing across phones, voice "dal finished". Registry `kitchen_stock_home`. Nothing phone verified.
+- `main` PR #559 (2026-11-28, owner "కట్టండి" on the agent team demo, canvas 9w4B1qVNUadY5rDaJSgi2y; squash c0e8a05; NOT in any Play bundle): AGENT TEAM --
+  `pos_agents.py` `pos_agent_settings` (`agents_off`, `approvers` owner | owner_manager; PUT owner only) + `team()` / `approvers()`; a
+  switched-off agent is hidden from all but the owner and refuses ask / propose with 409 `agent_off`; `approvers=owner` -> a manager's decision
+  is 403; a sensitive proposal sends ONE push to the people who may approve (never the proposer, route `/pos/:id/agents/inbox`, no numbers).
+  Routes `GET /api/pos/businesses/{id}/agent-team`, `GET|PUT .../agent-settings`. App `agent_team_screens.dart` (`/pos/:id/agents/inbox|log|
+  settings`, specific routes BEFORE `/agents/:agent`), `/pos/:id/agents` = team map (pending count, OK inbox button, ⋮ History / Team settings).
+  Page renamed "My team" / "నా టీమ్" in `shop_page_names`, `pos_staff_tools`, `biz_hub`, `chat_actions` (keep all four equal). Registry `agent_team`.
+  Real agents stay owner / sales / support / finance / inventory / hr / tax (the demo's manager / cashier / delivery names were examples).
+  NOT built: morning-brief line for waiting OKs, a separate buyer team map (`/me/agent` stays), Home chip for pending OKs. Nothing phone verified.
 - Branch `claude/paper-vault` (2026-11-28, owner "No continue" = phase 6): BILLS & WARRANTY -- `paper_vault.py` (`read_paper` never raises, stores nothing; `warranty_end` only from printed purchase day + printed months) + POST `/api/me/vault/read` (sign-in, <= 2 photos, one AI Credits `image` use, released when nothing is read). App `lib/features/vault/` (`/me/vault`, Buyer page `b.vault`, chip `askodoxVaultChip` above the chat when a warranty ends within 30 days; papers + photos on the PHONE only, prefs `askodox.vault.v1`, account-scoped; share-for-service = item, shop, dates, serial only). Registry `paper_vault_bills_warranty`. Nothing phone verified.
+- `main` PR #545-#555 (2026-11-28, owner "continue, don't stop, don't ask"): TEST SWEEP 2 -- HTTP journey tests
+  (`tests/test_pos_http_journey.py`: shop day, table + kitchen, purchase + supplier, bulk price, family list, self-shop,
+  CRM, gym routes) + the real screens clicked on the web build (`web-preview-8`, demo shop, headless Chrome through the
+  semantics tree). BUGS FIXED: (#551) dues keypad appended to the suggested amount (now replaces it), bill page looked empty
+  when every item was out of stock (now says so); (#555) gym Members routes `/members` were SHADOWED by the staff list in
+  `routes/pos.py` (owner showed as a member, Save never worked) -> shop-side term members now `/api/pos/businesses/{id}/memberships*`
+  (`/me/memberships*` unchanged); route-level test added. On screen OK: 3-step cash / due / online bills, dues collect, day
+  close, bulk price, menu add, family list, counter bill, parcel / table / delivery orders, staff add, CRM enquiry, UPI add,
+  job card (what -> estimate -> token), gym add / renew / attendance / report, Buyer order by shop name. Test tip: a reused
+  sandbox DB holds several shops with one name -- make the DB fresh per run. Not testable in the sandbox: real AI chat,
+  payment voice, camera, face. Nothing phone verified.
 - `main` PR #556 (2026-11-28, owner "do the three remaining parts of item 2"; squash d83ad9c; NOT in any Play bundle): GUIDE SESSION FINISH --
   (a) `GuideSessions.arrangement` + GET `/api/me/guide-session/arrangement`: page ids (`b.` / `s.`) from the person's OWN kept words
   (consent only; `PAGE_HINTS` = page functions, never categories); app `guide_arrange.dart` `askodoxBringFirst` only MOVES top-level

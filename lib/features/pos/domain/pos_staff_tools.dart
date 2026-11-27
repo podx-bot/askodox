@@ -16,7 +16,7 @@ const askodoxStaffTools = <(String, String, String)>[
   ('customers', 'Customers & credit', 'కస్టమర్లు & ఖాతా'),
   ('dues', 'Baaki reminders', 'బాకీ గుర్తులు'),
   ('crm', 'Business CRM', 'CRM'),
-  ('agents', 'AI agents', 'AI Agents'),
+  ('agents', 'My team', 'నా టీమ్'),
   ('bills', 'Bills', 'బిల్లులు'),
   ('day', 'Day close', 'రోజు ముగింపు'),
   ('gst', 'GST summary', 'GST'),

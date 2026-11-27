@@ -367,7 +367,7 @@ List<AskodoxBizGroupSpec> askodoxBizGroups(AskodoxBizKind kind, {Set<String> flo
               'బ్లూటూత్ / USB', tone: 'teal', setup: true),
           AskodoxBizTileSpec('settings.selfshop', Icons.shopping_basket_outlined, 'Self-shopping', 'సెల్ఫ్ షాపింగ్',
               'Customers scan and shop', 'కస్టమర్లే స్కాన్ చేసి కొంటారు', tone: 'gray', setup: true),
-          AskodoxBizTileSpec('settings.agents', Icons.smart_toy_outlined, 'AI agents', 'AI Agents',
+          AskodoxBizTileSpec('settings.agents', Icons.smart_toy_outlined, 'My team', 'నా టీమ్',
               'One per role', 'పాత్రకు ఒకటి', tone: 'purple', setup: true),
         ]),
   ];
