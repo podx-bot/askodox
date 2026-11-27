@@ -67,12 +67,7 @@ void main() {
               'handled': {'bills': 12, 'reminders': 4},
             }),
       ],
-      child: MaterialApp.router(theme: AppTheme.light, locale: const Locale('te'), routerConfig: router,
-          supportedLocales: const [Locale('te'), Locale('en')],
-          localizationsDelegates: const [
-            DefaultMaterialLocalizations.delegate,
-            DefaultWidgetsLocalizations.delegate,
-          ]),
+      child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('askodoxBriefHeadline')), findsOneWidget);

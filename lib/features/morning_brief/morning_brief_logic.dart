@@ -79,7 +79,7 @@ String askodoxBriefTitle(AskodoxBriefTask t, bool te) {
       final more = t.count > 1 ? ' +${t.count - 1}' : '';
       return te ? '${t.name}$more తక్కువ' : '${t.name}$more running low';
     case 'winback':
-      return te ? '${t.count} మంది రెగ్యులర్లు రాలేదు' : '${t.count} regulars not seen';
+      return te ? '${t.count} మంది రెగ్యులర్లను మళ్ళీ పిలుద్దాం' : '${t.count} regulars to call back';
     case 'yesterday':
       return te ? 'నిన్న ${t.count} బిల్లులు$money' : 'Yesterday: ${t.count} bills$money';
     case 'my_bills':
