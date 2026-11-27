@@ -14229,6 +14229,50 @@
           "askodoxVaultState"
         ]
       }
+    },
+    {
+      "id": "agent_team",
+      "name": "Agent team: My team map, OK inbox, history, owner settings, approver push",
+      "purpose": "Owner 2026-11-28 (\"కట్టండి\" on the agent team demo): the shop's AI agents as one team the owner can see and steer -- what waits for an OK, what was done, which agents are on, who may say yes.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_agents.py"
+        ],
+        "flutter": [
+          "test/features/steps/agent_team_screens_test.dart",
+          "test/features/steps/agents_steps_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxAgentsSteps",
+          "askodoxAgentsStepsReview",
+          "askodoxAgentsStepsRule",
+          "askodoxAgentInbox",
+          "askodoxAgentLog",
+          "askodoxAgentSettings"
+        ],
+        "symbols": [
+          "AskodoxAgentInboxScreen",
+          "AskodoxAgentLogScreen",
+          "AskodoxAgentSettingsScreen"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "GET /api/pos/businesses/{id}/agent-team = agents my role may use + pending count + latest + settings; GET/PUT .../agent-settings (PUT owner only: agents_off, approvers owner | owner_manager); a switched-off agent is hidden from everyone but the owner and refuses ask / propose with 409 agent_off; when approvers = owner a manager's decision is 403; a sensitive proposal sends ONE push (route /pos/:id/agents/inbox, no numbers) to the people who may approve, never the proposer. Agents never move money, message customers or delete; every decision runs as the approver (unchanged).",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-28); NOT PHONE VERIFIED",
+          "date": "2026-11-28"
+        }
+      ]
     }
   ]
 }

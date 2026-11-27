@@ -847,6 +847,11 @@ class AgentActionIn(BaseModel):
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
+class AgentSettingsIn(BaseModel):
+    agents_off: Optional[List[str]] = Field(default=None, max_length=12)
+    approvers: Optional[str] = Field(default=None, max_length=20)
+
+
 class AgentDecisionIn(BaseModel):
     approve: bool
     note: str = Field(default="", max_length=200)
@@ -891,9 +896,59 @@ def agent_ask(business_id: str, agent: str, body: AgentAskIn, request: Request) 
     return out
 
 
+AGENT_WAIT_TEXT = {
+    "te": ("మీ OK కోసం ఒక పని ఆగింది", "{agent} అడిగింది: {summary}"),
+    "en": ("One job is waiting for your OK", "{agent} asked: {summary}"),
+}
+
+
+def _tell_approvers(request: Request, service: Any, business_id: str, proposer: str, out: dict) -> None:
+    """Owner 2026-11-28: when an agent proposes something sensitive, the people who may say yes get ONE push.
+    Best effort -- a push that fails never fails the proposal. No numbers, no customer names (the summary is the
+    action's own words); the route opens the OK inbox."""
+    if out.get("status") != "PENDING_APPROVAL":
+        return
+    try:
+        from app.services.push_service import push_service
+
+        push = push_service(request.app.state.container)
+        title, body = AGENT_WAIT_TEXT["te"]
+        name = AGENTS_NAMES.get(str(out.get("agent")), "AI")
+        text = body.format(agent=name, summary=str(out.get("summary") or "")[:120])
+        for user_id in service.approvers(business_id, exclude=proposer):
+            push.notify_async(user_id, title=title, body=text, route=f"/pos/{business_id}/agents/inbox",
+                              event_key=f"agent_wait:{out.get('id')}:{user_id}")
+    except Exception:
+        return
+
+
+AGENTS_NAMES = {"owner": "ఓనర్ ఏజెంట్", "sales": "సేల్స్ ఏజెంట్", "support": "సపోర్ట్ ఏజెంట్", "finance": "డబ్బు లెక్కల ఏజెంట్",
+                "inventory": "స్టాక్ ఏజెంట్", "hr": "సిబ్బంది ఏజెంట్", "tax": "GST ఏజెంట్"}
+
+
 @router.post("/businesses/{business_id}/agents/{agent}/actions")
 def agent_propose(business_id: str, agent: str, body: AgentActionIn, request: Request) -> dict:
-    return _call(_agents(request).propose, business_id, _user(request), agent, body.action, body.params)
+    user = _user(request)
+    service = _agents(request)
+    out = _call(service.propose, business_id, user, agent, body.action, body.params)
+    _tell_approvers(request, service, business_id, user, out)
+    return out
+
+
+@router.get("/businesses/{business_id}/agent-team")
+def agent_team(business_id: str, request: Request) -> dict:
+    """The team map in one read: agents my role may use, how many proposals wait, the latest few, the settings."""
+    return _call(_agents(request).team, business_id, _user(request))
+
+
+@router.get("/businesses/{business_id}/agent-settings")
+def agent_settings(business_id: str, request: Request) -> dict:
+    return _call(_agents(request).settings, business_id, _user(request))
+
+
+@router.put("/businesses/{business_id}/agent-settings")
+def agent_settings_set(business_id: str, body: AgentSettingsIn, request: Request) -> dict:
+    return _call(_agents(request).set_settings, business_id, _user(request), body.agents_off, body.approvers)
 
 
 @router.get("/businesses/{business_id}/agent-actions")

@@ -9,6 +9,8 @@ import '../../pos/presentation/pos_agent_screens.dart' show askodoxAgentIcon;
 import '../../pos/presentation/pos_common.dart';
 import 'step_kit.dart';
 
+/// Owner 2026-11-28 (agent team): the list is the team map (pending count, history, owner settings); OK inbox / History / Settings
+/// are in `agent_team_screens.dart`.
 /// Owner 2026-11-24 (3-step design, batch 24): the shop's AI agents `/pos/:id/agents` and one agent `/pos/:id/agents/:agent`.
 /// List: top = how many proposals wait for approval, middle = ONE list of the agents my role may use, bottom = ONE big button
 /// (review the approvals; owner / manager only). One agent: top = the question, middle = the answer + what it can do,
@@ -23,8 +25,7 @@ class AskodoxAgentsStepsScreen extends ConsumerStatefulWidget {
 }
 
 class _AgentsStepsState extends ConsumerState<AskodoxAgentsStepsScreen> {
-  List<AskodoxJson>? _agents;
-  List<AskodoxJson> _pending = const [];
+  AskodoxJson? _team;
   Object? _error;
 
   bool get _te => askodoxPosTe(context);
@@ -38,126 +39,75 @@ class _AgentsStepsState extends ConsumerState<AskodoxAgentsStepsScreen> {
 
   Future<void> _load() async {
     try {
-      final list = await _repo.agents(widget.businessId);
-      final pending = await _repo.agentActions(widget.businessId, status: 'PENDING_APPROVAL');
+      final team = await _repo.agentTeam(widget.businessId);
       if (mounted) {
         setState(() {
-          _agents = list;
-          _pending = pending;
+          _team = team;
           _error = null;
         });
       }
     } catch (e) {
-      if (mounted && _agents == null) setState(() => _error = e);
+      if (mounted && _team == null) setState(() => _error = e);
     }
   }
 
-  Future<void> _decide(AskodoxJson action, bool approve) async {
-    final te = _te;
-    try {
-      final out = await _repo.agentDecide(widget.businessId, '${action['id']}', approve);
-      if (!mounted) return;
-      askodoxPosSnack(
-          context,
-          out['status'] == 'DONE'
-              ? (te ? 'Approve చేశాం — పని అయింది.' : 'Approved and done.')
-              : out['status'] == 'FAILED'
-                  ? '${te ? 'కాలేదు' : 'Failed'}: ${out['error'] ?? ''}'
-                  : (te ? 'Reject చేశాం.' : 'Rejected.'));
-      await _load();
-    } on AskodoxPosException catch (e) {
-      if (mounted) askodoxPosSnack(context, e.message(te));
-    }
-  }
-
-  Future<void> _review() async {
-    final te = _te;
-    final action = await showModalBottomSheet<AskodoxJson>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(te ? 'Approval కోసం ఆగినవి' : 'Waiting for approval', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            for (final a in _pending) ...[
-              const SizedBox(height: 10),
-              Text('${a['summary']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text('${a['agent']} · ${a['mine'] == true ? (te ? 'మీరు propose చేశారు' : 'proposed by you') : '${a['proposed_by']}'}',
-                  style: const TextStyle(color: askodoxStepMuted)),
-              const SizedBox(height: 6),
-              Row(children: [
-                Expanded(
-                    child: FilledButton(
-                        key: ValueKey('askodoxAgentsStepsApprove-${a['id']}'),
-                        style: FilledButton.styleFrom(backgroundColor: askodoxStepGreen, minimumSize: const Size.fromHeight(50)),
-                        onPressed: () => Navigator.pop(ctx, {...a, '_ok': true}),
-                        child: const Text('Approve'))),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: OutlinedButton(
-                        key: ValueKey('askodoxAgentsStepsReject-${a['id']}'),
-                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                        onPressed: () => Navigator.pop(ctx, {...a, '_ok': false}),
-                        child: const Text('Reject'))),
-              ]),
-            ],
-          ]),
-        ),
-      ),
-    );
-    if (action == null || !mounted) return;
-    await _decide(action, action['_ok'] == true);
+  Future<void> _open(String path) async {
+    await context.push('/pos/${widget.businessId}/agents/$path');
+    if (mounted) await _load();
   }
 
   @override
   Widget build(BuildContext context) {
     final te = _te;
-    final title = te ? 'AI Agents' : 'AI agents';
+    final title = te ? 'నా టీమ్' : 'My team';
+    final team = _team;
+    final settings = askodoxPosMap(team?['settings']);
+    final owner = settings['is_owner'] == true;
     final more = [
+      AskodoxStepMore('askodoxAgentsStepsLog', te ? 'చరిత్ర' : 'History', Icons.history_rounded, () => _open('log')),
+      if (owner) AskodoxStepMore('askodoxAgentsStepsSettings', te ? 'టీమ్ సెట్టింగ్స్' : 'Team settings', Icons.tune_rounded, () => _open('settings')),
       AskodoxStepMore('askodoxAgentsStepsFull', te ? 'పాత పేజీ' : 'Old page', Icons.menu_book_rounded, () => context.push('/pos/${widget.businessId}/agents?full=1')),
     ];
     if (_error != null) return AskodoxStepScaffold(title: title, more: more, body: AskodoxPosError(error: _error!, onRetry: _load));
-    final agents = _agents;
-    if (agents == null) return AskodoxStepScaffold(title: title, more: more, body: const Center(child: CircularProgressIndicator()));
-    final business = ref.watch(askodoxPosBusinessProvider(widget.businessId)).valueOrNull ?? const <String, Object?>{};
-    final approver = business['my_role'] == 'owner' || business['my_role'] == 'manager';
+    if (team == null) return AskodoxStepScaffold(title: title, more: more, body: const Center(child: CircularProgressIndicator()));
+    final agents = askodoxPosList(team['agents']);
+    final pending = (team['pending'] as num?)?.toInt() ?? 0;
     return AskodoxStepScaffold(
       key: const Key('askodoxAgentsSteps'),
       title: title,
+      sub: te ? 'ప్రతి పనికి ఒక ఏజెంట్. పెద్ద నిర్ణయం మీదే.' : 'One agent for each job. The big decision is yours.',
       more: more,
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
-          AskodoxStepBigNumber('${_pending.length}',
-              label: _pending.isEmpty ? (te ? 'Approval కోసం ఏదీ ఆగలేదు ✓' : 'Nothing waiting for approval ✓') : (te ? 'Approval కోసం ఆగినవి' : 'Waiting for approval'),
-              color: _pending.isEmpty ? askodoxStepDone : askodoxStepWarn,
+          AskodoxStepBigNumber('$pending',
+              label: pending == 0 ? (te ? 'మీ OK కోసం ఏదీ ఆగలేదు ✓' : 'Nothing is waiting for your OK ✓') : (te ? 'మీ OK కోసం ఆగినవి' : 'Waiting for your OK'),
+              color: pending == 0 ? askodoxStepDone : askodoxStepWarn,
               size: 44),
           const SizedBox(height: 10),
-          if (agents.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text(te ? 'మీ role కి agents లేవు.' : 'No agents for your role.', textAlign: TextAlign.center)),
+          if (agents.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text(te ? 'మీ role కి ఏజెంట్లు లేవు.' : 'No agents for your role.', textAlign: TextAlign.center)),
           for (final a in agents)
             AskodoxStepPersonRow(
               key: ValueKey('askodoxAgentsStepsAgent-${a['id']}'),
               name: '${te ? a['name_te'] : a['name_en']}',
-              sub: '${te ? a['about_te'] : a['about_en']}',
+              sub: a['enabled'] == false ? (te ? 'ఆఫ్ లో ఉంది' : 'Switched off') : '${te ? a['about_te'] : a['about_en']}',
               amount: '›',
               amountColor: askodoxStepMuted,
-              onTap: () async {
-                await context.push('/pos/${widget.businessId}/agents/${a['id']}');
-                if (mounted) await _load();
-              },
+              onTap: () => a['enabled'] == false ? _open('settings') : _open('${a['id']}'),
             ),
+          const SizedBox(height: 10),
+          Text(
+              te ? 'ఏజెంట్లు ఎప్పుడూ: డబ్బు కదపవు · కస్టమర్ కి మెసేజ్ పంపవు · ఏదీ డిలీట్ చేయవు.' : 'Agents never move money, message customers or delete anything.',
+              key: const Key('askodoxAgentsStepsRule'),
+              style: const TextStyle(fontSize: 13, color: askodoxStepMuted)),
         ]),
       ),
-      bottom: _pending.isEmpty || !approver
-          ? null
-          : AskodoxStepBottom(
-              buttonKey: const Key('askodoxAgentsStepsReview'),
-              label: te ? 'Approvals చూడు (${_pending.length})' : 'Review approvals (${_pending.length})',
-              icon: Icons.check_circle_outline,
-              onPressed: _review,
-            ),
+      bottom: AskodoxStepBottom(
+        buttonKey: const Key('askodoxAgentsStepsReview'),
+        label: pending == 0 ? (te ? 'OK ఇన్బాక్స్' : 'OK inbox') : (te ? 'OK ఇన్బాక్స్ ($pending)' : 'OK inbox ($pending)'),
+        icon: Icons.check_circle_outline,
+        onPressed: () => _open('inbox'),
+      ),
     );
   }
 }

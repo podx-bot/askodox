@@ -20,7 +20,7 @@ const askodoxShopPageNames = <String, (String, String)>{
   '/pos/<id>/stock-report': ('Expiry & stock value', 'ఎక్స్‌పైరీ & స్టాక్ విలువ'),
   '/pos/<id>/customers': ('Customer list', 'కస్టమర్ల లిస్ట్'),
   '/pos/<id>/dues': ('Baaki reminders', 'బాకీ గుర్తులు'),
-  '/pos/<id>/agents': ('AI agents', 'AI Agents'),
+  '/pos/<id>/agents': ('My team', 'నా టీమ్'),
   '/pos/<id>/invoices': ('Bills', 'బిల్లులు'),
   '/pos/<id>/day': ('Close the day', 'రోజు ముగింపు'),
   '/pos/<id>/gst': ('GST report', 'GST రిపోర్ట్'),

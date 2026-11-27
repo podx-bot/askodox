@@ -49,19 +49,15 @@ Future<void> _pump(WidgetTester tester, _Api api, Widget child) async {
 }
 
 void main() {
-  testWidgets('agents: list with approvals, review sheet', (tester) async {
+  testWidgets('agents: team map with the waiting count and the inbox button', (tester) async {
     final api = _Api((m, path, b) {
-      if (path.endsWith('/agent-actions')) {
+      if (path.endsWith('/agent-team')) {
         return {
-          'actions': [
-            {'id': 'a1', 'summary': 'Change stock of Tea', 'agent': 'inventory', 'mine': false, 'proposed_by': 'Test Staff'}
-          ]
-        };
-      }
-      if (path.endsWith('/agents')) {
-        return {
+          'pending': 1,
+          'recent': <Object?>[],
+          'settings': {'is_owner': true, 'agents_off': <Object?>[], 'approvers': 'owner_manager', 'all_agents': <Object?>[]},
           'agents': [
-            {'id': 'sales', 'name_en': 'Sales agent', 'name_te': 'Sales agent', 'about_en': 'Leads and follow-ups', 'about_te': 'Leads'}
+            {'id': 'sales', 'enabled': true, 'name_en': 'Sales agent', 'name_te': 'Sales agent', 'about_en': 'Leads and follow-ups', 'about_te': 'Leads'}
           ]
         };
       }
@@ -71,6 +67,8 @@ void main() {
     expect(find.byKey(const Key('askodoxAgentsSteps')), findsOneWidget);
     expect(find.byKey(const ValueKey('askodoxAgentsStepsAgent-sales')), findsOneWidget);
     expect(find.text('1'), findsWidgets);
+    expect(find.byKey(const Key('askodoxAgentsStepsReview')), findsOneWidget);
+    expect(find.byKey(const Key('askodoxAgentsStepsRule')), findsOneWidget);
   });
 
   testWidgets('agent: asks once on open and shows the answer', (tester) async {

@@ -25,8 +25,8 @@ CATALOG: tuple[tuple[str, str, str, str, str], ...] = (
     # Shop tools, straight to the page (the app finds the person's shop). Owner 2026-11-19.
     ("shop_new_bill", "/my-shop/sale", "Counter bill", "కౌంటర్ బిల్లు",
      "counter bill / కౌంటర్ బిల్లు / new bill / కొత్త బిల్లు / bill వేయి: start a new bill for a shop customer right now"),
-    ("shop_agents", "/my-shop/agents", "AI agents", "AI Agents",
-     "ai agents / my ai agents: the shop's own AI helpers (sales, stock, accounts agents) -- open them, never explain what AI agents are"),
+    ("shop_agents", "/my-shop/agents", "My team", "నా టీమ్",
+     "my team / నా టీమ్ / ai agents / my ai agents: the shop's own AI helpers (sales, stock, accounts agents) and what waits for the owner's OK -- open them, never explain what AI agents are"),
     ("shop_items", "/my-shop/items", "Stock & barcodes", "స్టాక్ & బార్‌కోడ్",
      "my items / stock / menu / products / prices of my shop: add, edit, stock count"),
     ("shop_suppliers", "/my-shop/suppliers", "Purchases", "కొనుగోళ్లు",

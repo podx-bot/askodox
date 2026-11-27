@@ -32,7 +32,11 @@ SCHEMA = [
     " action TEXT NOT NULL, risk TEXT NOT NULL, params TEXT NOT NULL, summary TEXT NOT NULL, status TEXT NOT NULL,"
     " proposed_by TEXT NOT NULL, proposed_at TEXT NOT NULL, decided_by TEXT, decided_at TEXT, result TEXT, error TEXT)",
     "CREATE INDEX IF NOT EXISTS idx_pos_agent_actions ON pos_agent_actions(business_id, status)",
+    # Owner 2026-11-28 (agent team): which agents this shop switched off + who may approve. Owner only.
+    "CREATE TABLE IF NOT EXISTS pos_agent_settings (business_id TEXT PRIMARY KEY, agents_off TEXT NOT NULL DEFAULT '[]',"
+    " approvers TEXT NOT NULL DEFAULT 'owner_manager', updated_by TEXT, updated_at TEXT)",
 ]
+APPROVERS = ("owner", "owner_manager")
 
 # agent -> the POS permission it needs, its skills (read-only facts) and actions.
 AGENTS: Dict[str, Dict[str, Any]] = {
@@ -123,17 +127,79 @@ class PosAgents:
         with self.store._connect() as conn:
             return self.store._require(conn, business_id, user, "view")
 
+    # ------------------------------------------------------------ settings
+    def _settings_row(self, business_id: str) -> Dict[str, Any]:
+        with self.store._connect() as conn:
+            row = conn.execute("SELECT agents_off, approvers FROM pos_agent_settings WHERE business_id = ?",
+                               (business_id,)).fetchone()
+        if row is None:
+            return {"agents_off": [], "approvers": "owner_manager"}
+        try:
+            off = [a for a in json.loads(row["agents_off"]) if a in AGENTS]
+        except (TypeError, ValueError):
+            off = []
+        return {"agents_off": off, "approvers": row["approvers"] if row["approvers"] in APPROVERS else "owner_manager"}
+
+    def settings(self, business_id: str, user: str) -> Dict[str, Any]:
+        """Any member may read the team settings (so the app can say who approves); only the owner changes them."""
+        role = self._role(business_id, user)
+        return {**self._settings_row(business_id), "is_owner": role == "owner",
+                "all_agents": [{"id": k, "name_en": a["en"], "name_te": a["te"]} for k, a in AGENTS.items()]}
+
+    def set_settings(self, business_id: str, user: str, agents_off: Optional[List[str]] = None,
+                     approvers: Optional[str] = None) -> Dict[str, Any]:
+        if self._role(business_id, user) != "owner":
+            raise PosError(403, "permission", "Only the owner can change the agent team settings.")
+        current = self._settings_row(business_id)
+        if agents_off is not None:
+            unknown = [a for a in agents_off if a not in AGENTS]
+            if unknown:
+                raise PosError(400, "agent", "Unknown agent.")
+            current["agents_off"] = sorted(set(agents_off))
+        if approvers is not None:
+            if approvers not in APPROVERS:
+                raise PosError(400, "approvers", "Approvers must be owner or owner_manager.")
+            current["approvers"] = approvers
+        now = self.store.clock().isoformat()
+        with self.store._tx() as conn:
+            conn.execute("INSERT INTO pos_agent_settings (business_id, agents_off, approvers, updated_by, updated_at)"
+                         " VALUES (?, ?, ?, ?, ?) ON CONFLICT(business_id) DO UPDATE SET agents_off = excluded.agents_off,"
+                         " approvers = excluded.approvers, updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+                         (business_id, json.dumps(current["agents_off"]), current["approvers"], user, now))
+            self.store._audit(conn, business_id, user, "agent.settings", business_id, current, now)
+        return self.settings(business_id, user)
+
+    def approvers(self, business_id: str, exclude: str = "") -> List[str]:
+        """App users who may approve now (owner, and managers unless the owner kept it to themself)."""
+        roles = ("owner",) if self._settings_row(business_id)["approvers"] == "owner" else ("owner", "manager")
+        marks = ",".join("?" for _ in roles)
+        with self.store._connect() as conn:
+            rows = conn.execute(f"SELECT phone_key, app_user_id FROM pos_members WHERE business_id = ? AND active = 1"
+                                f" AND role IN ({marks})", (business_id, *roles)).fetchall()
+        users = [r["app_user_id"] or f"app-phone-{r['phone_key']}" for r in rows]
+        return [u for u in dict.fromkeys(users) if u != exclude]
+
+    def team(self, business_id: str, user: str) -> Dict[str, Any]:
+        """One read for the team map: the agents my role may use, what waits, the last few things that happened."""
+        agents = self.agents(business_id, user)
+        waiting = self.actions(business_id, user, status="PENDING_APPROVAL")
+        recent = self.actions(business_id, user)[:5]
+        return {"agents": agents, "pending": len(waiting), "recent": recent, "settings": self.settings(business_id, user)}
+
     def agents(self, business_id: str, user: str) -> List[Dict[str, Any]]:
         """The agents this caller's role may use (an agent never adds a permission)."""
         from app.services.pos_store import PERMISSIONS
 
         role = self._role(business_id, user)
         perms = PERMISSIONS[role]
+        off = set(self._settings_row(business_id)["agents_off"])
         out = []
         for key, a in AGENTS.items():
             if a["perm"] not in perms:
                 continue
-            out.append({"id": key, "name_en": a["en"], "name_te": a["te"], "about_en": a["about_en"],
+            if key in off and role != "owner":
+                continue  # a switched-off agent is hidden from everyone but the owner, who can switch it on again
+            out.append({"id": key, "enabled": key not in off, "name_en": a["en"], "name_te": a["te"], "about_en": a["about_en"],
                         "about_te": a["about_te"], "skills": a["skills"],
                         "actions": [{"id": x, "risk": ACTIONS[x]["risk"], "can_propose": ACTIONS[x]["perm"] in perms}
                                     for x in a["actions"]]})
@@ -148,6 +214,8 @@ class PosAgents:
         role = self._role(business_id, user)
         if spec["perm"] not in PERMISSIONS[role]:
             raise PosError(403, "permission", f"Your role ({role}) cannot use the {agent} agent.", role=role)
+        if agent in self._settings_row(business_id)["agents_off"]:
+            raise PosError(409, "agent_off", "The owner switched this agent off.")
         return spec
 
     # -------------------------------------------------------------- skills
@@ -428,6 +496,7 @@ class PosAgents:
     def decide(self, business_id: str, user: str, action_id: str, approve: bool, note: str = "") -> Dict[str, Any]:
         """Owner / manager approve or reject a sensitive proposal; approving runs it as the approver."""
         role = self._role(business_id, user)
+        owner_only_approvals = self._settings_row(business_id)["approvers"] == "owner"
         with self.store._tx() as conn:
             row = conn.execute("SELECT * FROM pos_agent_actions WHERE id = ? AND business_id = ?",
                                (action_id, business_id)).fetchone()
@@ -437,6 +506,8 @@ class PosAgents:
                 raise PosError(409, "status", "This action was already decided.")
             if role not in ("owner", "manager"):
                 raise PosError(403, "permission", "Only the owner or a manager can approve agent actions.", role=role)
+            if role != "owner" and owner_only_approvals:
+                raise PosError(403, "permission", "The owner kept approvals to themself.", role=role)
             if ACTIONS[row["action"]].get("owner_only") and role != "owner":
                 raise PosError(403, "permission", "Only the owner can approve staff role changes.", role=role)
             if row["proposed_by"] == user and role != "owner":
