@@ -929,6 +929,10 @@ class PosPaymentAlerts:
         for r in conn.execute("SELECT app_user_id, role FROM pos_members WHERE business_id = ? AND active = 1",
                               (business_id,)):
             if r["app_user_id"] and r["role"] in settings["roles"]:
+                # The owner's per-person tick "Payment sound" decides too (None = nothing ticked yet = role default).
+                ticked = self.store._member_tools(conn, business_id, r["app_user_id"], r["role"])
+                if ticked is not None and "payalerts" not in ticked:
+                    continue
                 allowed.add(r["app_user_id"])
         with_devices = {r["user_id"] for r in conn.execute(
             "SELECT DISTINCT user_id FROM pos_alert_devices WHERE business_id = ? AND revoked = 0 AND alerts_on = 1",
