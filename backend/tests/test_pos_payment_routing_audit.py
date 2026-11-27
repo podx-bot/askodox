@@ -141,3 +141,12 @@ def test_owner_ticking_and_unticking_changes_who_hears_at_once(env):
     pushes.clear()
     _fire(alerts, biz, devs, OWNER, "8")
     assert CASH_B not in _heard(pushes)
+
+
+def test_staff_whose_account_was_deleted_never_hears(env):
+    store, alerts, biz, devs, pushes = env
+    with store._tx() as conn:  # same statement the account deletion runs
+        conn.execute("UPDATE pos_members SET active=0, app_user_id=NULL WHERE app_user_id=?", (CASH_A,))
+    pushes.clear()
+    _fire(alerts, biz, devs, OWNER, "9")
+    assert CASH_A not in _heard(pushes)
