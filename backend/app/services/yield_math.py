@@ -73,3 +73,15 @@ def day_profit(sold_grams: int, sell_paise: int, cost: int, other_paise: int) ->
     sales = round_div(sold_grams * sell_paise, 1000)
     spent = round_div(sold_grams * cost, 1000)
     return sales, spent, sales - spent - max(0, other_paise)
+
+
+def portion_cost(grams: int, cost: int) -> int:
+    """What one plate / piece costs in this item alone: the owner's own measure x the cost of a sellable kg."""
+    return round_div(max(0, grams) * cost, 1000)
+
+
+def measure_grams(batch_grams: int, portions: int) -> Optional[int]:
+    """The owner's own measure worked out from one batch: what went in / how many plates came out."""
+    if batch_grams <= 0 or portions <= 0:
+        return None
+    return round_div(batch_grams, portions)

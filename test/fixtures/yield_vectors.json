@@ -263,5 +263,81 @@
     "profit_p": 0
    }
   }
+ ],
+ "portions": [
+  {
+   "name": "a plate with 180 g at 150 a kg, sold at 120",
+   "grams": 180,
+   "cost_p": 15000,
+   "sell_p": 12000,
+   "expect": {
+    "portion_cost_p": 2700,
+    "profit_p": 9300
+   }
+  },
+  {
+   "name": "a half plate with 95 g at 166.67 a kg",
+   "grams": 95,
+   "cost_p": 16667,
+   "sell_p": 7000,
+   "expect": {
+    "portion_cost_p": 1583,
+    "profit_p": 5417
+   }
+  },
+  {
+   "name": "a piece of cloth: 2.5 units at 129.03",
+   "grams": 2500,
+   "cost_p": 12903,
+   "sell_p": 45000,
+   "expect": {
+    "portion_cost_p": 32258,
+    "profit_p": 12742
+   }
+  },
+  {
+   "name": "nothing measured yet",
+   "grams": 0,
+   "cost_p": 15000,
+   "sell_p": 12000,
+   "expect": {
+    "portion_cost_p": 0,
+    "profit_p": 12000
+   }
+  }
+ ],
+ "measures": [
+  {
+   "name": "5 kg cooked into 28 plates",
+   "batch_g": 5000,
+   "portions": 28,
+   "expect": {
+    "grams": 179
+   }
+  },
+  {
+   "name": "12.4 kg into 65 plates",
+   "batch_g": 12400,
+   "portions": 65,
+   "expect": {
+    "grams": 191
+   }
+  },
+  {
+   "name": "no plates counted",
+   "batch_g": 5000,
+   "portions": 0,
+   "expect": {
+    "grams": null
+   }
+  },
+  {
+   "name": "one plate",
+   "batch_g": 230,
+   "portions": 1,
+   "expect": {
+    "grams": 230
+   }
+  }
  ]
 }

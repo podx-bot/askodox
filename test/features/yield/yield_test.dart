@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:podx/config/theme/app_theme.dart';
+import 'package:podx/features/native_video/video_commerce.dart' show askodoxShareTextProvider;
 import 'package:podx/features/yield/yield_math.dart';
 import 'package:podx/features/yield/yield_screen.dart';
 import 'package:podx/features/yield/yield_store.dart';
@@ -56,6 +57,33 @@ void main() {
       });
     }
 
+    for (final raw in vectors['portions'] as List) {
+      final p = raw as Map<String, dynamic>;
+      test('plate: ${p['name']}', () {
+        final cost = askodoxYieldPortionCost(p['grams'] as int, p['cost_p'] as int);
+        expect(cost, (p['expect'] as Map)['portion_cost_p']);
+        expect((p['sell_p'] as int) - cost, (p['expect'] as Map)['profit_p']);
+      });
+    }
+    for (final raw in vectors['measures'] as List) {
+      final m = raw as Map<String, dynamic>;
+      test('measure: ${m['name']}', () {
+        expect(askodoxYieldMeasure(m['batch_g'] as int, m['portions'] as int), (m['expect'] as Map)['grams']);
+      });
+    }
+
+    test('the board for customers carries selling rates only', () {
+      const forms = [
+        AskodoxYieldForm(name: 'Skinless', yieldBp: 9000, sellPaise: 20000),
+        AskodoxYieldForm(name: 'Boneless', yieldBp: 6000),
+      ];
+      final text = askodoxYieldBoardText('Sample Shop', 'chicken', 18000, forms, false);
+      expect(text, 'Sample Shop\nChicken · today\'s rates\nChicken: ₹180 / kg\nSkinless: ₹200 / kg\nASKODOX');
+      expect(askodoxYieldParsePercent('62.5'), 6250);
+      expect(askodoxYieldGrams(180), '180 g');
+      expect(askodoxYieldGrams(1200), '1.2 kg');
+    });
+
     test('rounding, words and typed numbers', () {
       expect(askodoxYieldRoundDiv(5, 2), 3);
       expect(askodoxYieldRoundDiv(-5, 2), -3);
@@ -104,6 +132,16 @@ void main() {
       expect(back.latest('chicken')!.total, 1050000);
       expect(back.minProfit['chicken'], 2500);
       expect(back.days.single.actualGrams, 5000);
+      final more = book.copyWith(forms: {
+        'chicken': const [AskodoxYieldForm(name: 'Skinless', yieldBp: 9000, sellPaise: 20000)],
+      }, portions: {
+        'chicken': const [AskodoxYieldPortion(name: 'Plate', grams: 180, sellPaise: 12000)],
+      });
+      final again = askodoxYieldDecode(askodoxYieldEncode({'shop1': more}))['shop1']!;
+      expect(again.formsOf('chicken').single.yieldBp, 9000);
+      expect(again.portionsOf('chicken').single.grams, 180);
+      expect(again.formsOf('mutton'), isEmpty);
+      expect(again.batches.length, 3);
       expect(askodoxYieldDecode('{broken'), isEmpty);
       expect(askodoxYieldDecode(null), isEmpty);
     });
@@ -183,5 +221,69 @@ void main() {
     expect(saved.minProfit['chicken'], 3500);
     final day = saved.dayOf('chicken', '2026-11-27')!;
     expect([day.expected, day.diff, day.reason], [8800, -700, 'weight']);
+  });
+
+  testWidgets('other forms, the measure card and the rates message', (tester) async {
+    tester.view.physicalSize = const Size(900, 3200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    const lot = AskodoxYieldBatch(
+        id: 'a', item: 'chicken', day: '2026-11-27', liveGrams: 100000, ratePaise: 10000, transportPaise: 30000,
+        labourPaise: 20000, outGrams: 70000, sellPaise: 18000);
+    SharedPreferences.setMockInitialValues({
+      askodoxYieldPrefsKey: askodoxYieldEncode({'shop1': const AskodoxYieldBook(batches: [lot])}),
+    });
+    final shared = <String>[];
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        askodoxYieldClockProvider.overrideWithValue(() => DateTime(2026, 11, 27, 9)),
+        askodoxShareTextProvider.overrideWithValue((text, {subject = ''}) async {
+          shared.add(text);
+          return true;
+        }),
+      ],
+      child: MaterialApp(theme: AppTheme.light, home: const AskodoxYieldScreen(businessId: 'shop1')),
+    ));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(_text(tester, 'askodoxYieldBoardCost'), '₹150');
+
+    await tester.tap(find.byKey(const Key('askodoxYieldFormAdd')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxYieldFormName')), 'Skinless');
+    await tester.enterText(find.byKey(const Key('askodoxYieldFormYield')), '90');
+    await tester.enterText(find.byKey(const Key('askodoxYieldFormRate')), '200');
+    await tester.pump();
+    expect(_text(tester, 'askodoxYieldFormPreview'), 'Real cost of a kg of this form: ₹166.67');
+    await tester.tap(find.byKey(const Key('askodoxYieldFormSave')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.byKey(const ValueKey('askodoxYieldFormCost-Skinless'))).data, 'cost ₹166.67 · sell ₹200');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('askodoxYieldFormProfit-Skinless'))).data, '₹33.33');
+
+    await tester.tap(find.byKey(const Key('askodoxYieldPortionAdd')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('askodoxYieldPortionName')), 'Plate');
+    await tester.enterText(find.byKey(const Key('askodoxYieldMeasureBatch')), '5');
+    await tester.enterText(find.byKey(const Key('askodoxYieldMeasurePlates')), '28');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('askodoxYieldMeasureUse')));
+    await tester.pump();
+    expect(_text(tester, 'askodoxYieldPortionPreview'), contains('₹26.85'));
+    await tester.tap(find.byKey(const Key('askodoxYieldPortionSave')));
+    await tester.pumpAndSettle();
+    expect(find.text('Plate · 179 g'), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('askodoxYieldPortionCost-Plate'))).data, 'Chicken cost ₹26.85');
+
+    await tester.tap(find.byKey(const Key('askodoxYieldShare')));
+    await tester.pump();
+    expect(shared.single, contains('Skinless: ₹200 / kg'));
+    expect(shared.single, contains('Chicken: ₹180 / kg'));
+    expect(shared.single.contains('150') || shared.single.contains('166'), isFalse);
+
+    final prefs = await SharedPreferences.getInstance();
+    final saved = askodoxYieldDecode(prefs.getString(askodoxYieldPrefsKey))['shop1']!;
+    expect(saved.formsOf('chicken').single.sellPaise, 20000);
+    expect(saved.portionsOf('chicken').single.grams, 179);
   });
 }

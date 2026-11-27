@@ -37,6 +37,17 @@ def test_day_vectors(day):
     assert m.day_profit(day["sold_g"], day["sell_p"], day["cost_p"], day["other_p"]) == (e["sales_p"], e["spent_p"], e["profit_p"])
 
 
+@pytest.mark.parametrize("row", VECTORS["portions"], ids=lambda r: r["name"])
+def test_portion_vectors(row):
+    cost = m.portion_cost(row["grams"], row["cost_p"])
+    assert cost == row["expect"]["portion_cost_p"] and row["sell_p"] - cost == row["expect"]["profit_p"]
+
+
+@pytest.mark.parametrize("row", VECTORS["measures"], ids=lambda r: r["name"])
+def test_measure_vectors(row):
+    assert m.measure_grams(row["batch_g"], row["portions"]) == row["expect"]["grams"]
+
+
 def test_the_design_sample_by_hand():
     # 100 kg live at Rs 100 + transport Rs 300 + unloading Rs 200 = Rs 10,500; 70 kg dressed = 70%; Rs 150 a kg.
     total = m.total_paise(100_000, 10_000, [30_000, 20_000])
