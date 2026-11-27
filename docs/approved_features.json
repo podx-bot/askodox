@@ -13961,7 +13961,20 @@
           "askodoxWorkoutStreak",
           "askodoxWorkoutPrefsKey"
         ]
-      }
+      },
+      "dependencies": [],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "Live Work bar -> the dumbbell button opens /work/workout. Pick a body part and an exercise (a starter list; the person adds their own by name), set the kg (2.5 kg steps; 0 = body weight) and the times with two steppers and tap Set done: the first set starts the workout, the rest timer (90 s) starts by itself and can be skipped. A set better than the best of EARLIER workouts (heavier, or the same weight more times) shows New record -- once per exercise per workout; the first time an exercise is done is a start, not a record. Finish workout shows the time, the sets, the weight moved and the records. The top card shows this week (Mon..Sun), the days in a row (to today, or to yesterday before today's workout) and the record medals; a member of a term-fee business sees that membership with a check-in button. Everything stays on the phone (account-scoped: leaves with a sign-out, comes back with the same account); no server call, no AI, no AI Credits, no points.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: Live Work workout tracker (phase 4 of the 2026-11-27 plan, design canvas workout screens); points set aside by the owner (rules come later); own exercise by voice and paying the gym fee from here are NOT built; NOT PHONE VERIFIED",
+          "date": "2026-11-27"
+        }
+      ]
     }
   ]
 }
