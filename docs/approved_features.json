@@ -13543,6 +13543,61 @@
           "change": "Added."
         }
       ]
+    },
+    {
+      "id": "video_viewer_ask_next_step",
+      "name": "Video viewer Ask: stored study, then product, then the uploader in-app",
+      "purpose": "Owner 2026-11-27: a viewer question is answered from the uploader's stored study (fact + timestamp) for free. If not solved, a related ASKODOX product is shown. If still not solved, the viewer messages the uploader in-app; phone numbers are never shown; the uploader and the viewer each get a generic push.",
+      "expected_behavior": "POST /api/videos/native/{video_id}/ask returns next_step (answered | product | ask_uploader | none) and ask_uploader (true only when not answered and the viewer is not the uploader of a live video). Viewer questions never call the AI model (video_study.answer use_model=False). POST /api/videos/{video_id}/message queues WAITING_FOR_OWNER and pushes the uploader once (event video_msg:<id>, no question text). POST /api/videos/messages/{id}/reply pushes the viewer once (event video_reply:<id>, no reply text).",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "path": "/api/videos/native/{video_id}/ask"
+        },
+        {
+          "method": "POST",
+          "path": "/api/videos/{video_id}/message"
+        },
+        {
+          "method": "POST",
+          "path": "/api/videos/messages/{message_id}/reply"
+        }
+      ],
+      "ui": {
+        "keys": [],
+        "symbols": []
+      },
+      "flags": {},
+      "tests": {
+        "backend": [
+          "tests/test_video_ask_flow.py::test_next_step_order",
+          "tests/test_video_ask_flow.py::test_a_waiting_question_pushes_the_uploader_once_and_the_reply_pushes_the_viewer",
+          "tests/test_video_ask_flow.py::test_an_auto_answered_question_does_not_push_the_uploader",
+          "tests/test_video_ask_flow.py::test_ask_route_says_what_comes_next_for_a_viewer_and_not_for_the_uploader",
+          "tests/test_video_study.py::test_viewer_questions_never_cost_a_model_call"
+        ],
+        "flutter": [
+          "test/features/home/video_ask_flow_test.dart"
+        ]
+      },
+      "dependencies": [
+        "native_video",
+        "video_study_uploader_pays_once"
+      ],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-27",
+          "pr": null,
+          "change": "Phase 2 of the in-app video Q&A plan: viewer answers from the stored study only (choice A), next_step on the ask route, uploader / viewer pushes. App wiring (Ask the uploader button) is in the same PR."
+        }
+      ]
     }
   ]
 }

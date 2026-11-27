@@ -8,6 +8,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_models.dart';
 import '../../core/providers/backend_providers.dart';
 import '../../services/media_picker.dart';
+import '../home/data/askodox_video_service.dart';
 import 'video_commerce.dart';
 import '../../shared/widgets/askodox_guided_field.dart';
 
@@ -632,9 +633,42 @@ class _NativeReelsScreenState extends ConsumerState<NativeReelsScreen> {
     if (question == null || !mounted) return;
     final a = await repo.ask('${s['ref']}', question, language: lang);
     if (!mounted) return;
-    _say(a['found'] == true
-        ? '${a['answer']}'
-        : '${a['answer'] ?? t('Not in this video.', 'ఈ వీడియోలో లేదు.')}');
+    if (a['found'] == true || a['ask_uploader'] != true) {
+      _say(a['found'] == true
+          ? '${a['answer']}'
+          : '${a['answer'] ?? t('Not in this video.', 'ఈ వీడియోలో లేదు.')}');
+      return;
+    }
+    // Not in the study: the uploader can answer in ASKODOX (in-app, no phone number shown).
+    final send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(t(
+            'This video does not have the answer. Send your question to the uploader in ASKODOX? They reply in the app.',
+            'ఈ వీడియోలో జవాబు లేదు. మీ ప్రశ్నను ASKODOXలో వీడియో యజమానికి పంపాలా? వాళ్ళు యాప్‌లోనే జవాబు ఇస్తారు.')),
+        actions: [
+          TextButton(
+              key: const ValueKey('askodoxAskUploaderNo'),
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(t('No', 'వద్దు'))),
+          FilledButton(
+              key: const ValueKey('askodoxAskUploaderYes'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(t('Send', 'పంపు'))),
+        ],
+      ),
+    );
+    if (send != true || !mounted) return;
+    final session = ref.read(authSessionProvider);
+    final sent = await ref.read(askodoxVideoServiceProvider).askUploader('${s['ref']}', question,
+        authToken: session.user == null ? null : session.tokenPlaceholder);
+    if (!mounted) return;
+    _say(sent == null
+        ? t('Could not send now. Try again later.', 'ఇప్పుడు పంపలేకపోయాం. మళ్ళీ ప్రయత్నించండి.')
+        : sent.answered
+            ? (sent.reply ?? '')
+            : t('Sent to the uploader. You will get a notice when they reply.',
+                'వీడియో యజమానికి పంపాం. వాళ్ళు జవాబు ఇచ్చినప్పుడు నోటీసు వస్తుంది.'));
   }
 
   Future<String?> _prompt(String title, {String hint = ''}) {

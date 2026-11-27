@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/backend_providers.dart';
 import '../data/askodox_video_service.dart';
 import 'question_mic.dart';
 
@@ -48,6 +49,8 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
   bool _busy = false;
   bool _asking = false;
   final _answers = <(String, AskodoxVideoAnswer)>[];
+  final _uploaderNote = <int, String>{};
+  final _uploaderBusy = <int>{};
   Map<String, Object?>? _market;
   bool _marketBusy = false;
   final _question = TextEditingController();
@@ -101,6 +104,36 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
             AskodoxVideoAnswer(found: false, answer: _pick(lang, 'Could not get an answer right now.',
                 'ఇప్పుడు సమాధానం రాలేదు.', 'अभी जवाब नहीं मिला।'))
       ));
+    });
+  }
+
+  /// The study did not answer: the question goes to the uploader in-app (never a phone number).
+  Future<void> _askUploader(int index, String question) async {
+    if (_uploaderBusy.contains(index)) return;
+    final session = ref.read(authSessionProvider);
+    if (session.user == null) {
+      // A snackbar, not a note: the button stays so the viewer can ask again after signing in.
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_pick(lang,
+          'Sign in to ask the uploader.', 'వీడియో యజమానిని అడగడానికి సైన్ ఇన్ చేయండి.',
+          'वीडियो मालिक से पूछने के लिए साइन इन करें।'))));
+      return;
+    }
+    setState(() {
+      _uploaderBusy.add(index);
+    });
+    final sent = await ref.read(askodoxVideoServiceProvider).askUploader(widget.videoRef!, question,
+        authToken: session.tokenPlaceholder);
+    if (!mounted) return;
+    setState(() {
+      _uploaderBusy.remove(index);
+      _uploaderNote[index] = sent == null
+          ? _pick(lang, 'Could not send now. Try again later.', 'ఇప్పుడు పంపలేకపోయాం. మళ్ళీ ప్రయత్నించండి.',
+              'अभी नहीं भेज सके। बाद में फिर कोशिश करें।')
+          : sent.answered
+              ? (sent.reply ?? '')
+              : _pick(lang, 'Sent to the uploader. You will get a notice when they reply.',
+                  'వీడియో యజమానికి పంపాం. వాళ్ళు జవాబు ఇచ్చినప్పుడు నోటీసు వస్తుంది.',
+                  'वीडियो मालिक को भेज दिया। जवाब आने पर सूचना मिलेगी।');
     });
   }
 
@@ -252,6 +285,20 @@ class _AskodoxVideoStudyPanelState extends ConsumerState<AskodoxVideoStudyPanel>
               Wrap(spacing: 6, children: [
                 for (final t in a.timestamps) _timestamp('askodoxVideoAnswerTs-$i-$t', t),
               ]),
+            if (a.askUploader && (widget.videoRef ?? '').startsWith('nv_')) ...[
+              const SizedBox(height: 6),
+              if (_uploaderNote[i] != null)
+                Text(_uploaderNote[i]!, key: ValueKey('askodoxAskUploaderNote-$i'),
+                    style: const TextStyle(height: 1.35))
+              else
+                OutlinedButton.icon(
+                  key: ValueKey('askodoxAskUploader-$i'),
+                  onPressed: _uploaderBusy.contains(i) ? null : () => _askUploader(i, q),
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                  label: Text(_pick(lang, 'Ask the uploader in ASKODOX', 'ASKODOXలో వీడియో యజమానిని అడగండి',
+                      'ASKODOX में वीडियो मालिक से पूछें')),
+                ),
+            ],
           ]),
         ),
       const SizedBox(height: 6),

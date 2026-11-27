@@ -21,6 +21,7 @@ PENDING_REVIEW -> ACTIVE). External social platforms are separate
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import sqlite3
@@ -37,6 +38,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.routes.in_app_deal import _authenticated_app_user
 
 router = APIRouter(tags=["native-video"])
+_log = logging.getLogger("askodox.video")
+
+# The app screen that holds the owner's video inbox and the viewer's sent questions (lib/config/router).
+VIDEO_INBOX_ROUTE = "/videos/native"
 REPORTS_TO_PAUSE = 3
 _NAME = re.compile(r"[0-9a-f]{32}\.(mp4|webm|jpg|png)")
 
@@ -291,6 +296,35 @@ class MessageBody(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
+def _push_uploader(request: Request, owner: str, message_id: str) -> None:
+    """Tell the uploader a viewer question waits (generic text, no question, no viewer details).
+    Once per message; a failed push never fails the viewer's request."""
+    from app.services import video_ask_flow
+    from app.services.push_service import push_service
+
+    try:
+        text = video_ask_flow.uploader_push_text()
+        push_service(request.app.state.container).notify_async(
+            owner, title=text["title"], body=text["body"], route=VIDEO_INBOX_ROUTE,
+            event_key=f"video_msg:{message_id}")
+    except Exception:  # best effort: the message is already stored; a failure is logged, never raised
+        _log.warning("video message push to the uploader failed", exc_info=True)
+
+
+def _push_sender(request: Request, sender: str, message_id: str) -> None:
+    """Tell the viewer the uploader replied (no reply text in the push)."""
+    from app.services import video_ask_flow
+    from app.services.push_service import push_service
+
+    try:
+        text = video_ask_flow.sender_push_text()
+        push_service(request.app.state.container).notify_async(
+            sender, title=text["title"], body=text["body"], route=VIDEO_INBOX_ROUTE,
+            event_key=f"video_reply:{message_id}")
+    except Exception:  # best effort: the reply is already stored; a failure is logged, never raised
+        _log.warning("video reply push to the viewer failed", exc_info=True)
+
+
 @router.post("/api/videos/{video_id}/message")
 def message_business(video_id: str, body: MessageBody, request: Request) -> dict:
     """Native ASKODOX DM about a video. The business's APPROVED FAQ answers
@@ -323,6 +357,8 @@ def message_business(video_id: str, body: MessageBody, request: Request) -> dict
         conn.execute("INSERT INTO video_messages VALUES(?,?,?,?,?,?,?,?,?,?)",
                      (mid, video_id, user, owner, text, result["text"] if answered else None,
                       result["source"] if answered else None, status, _now(), _now()))
+    if status == "WAITING_FOR_OWNER":
+        _push_uploader(request, owner, mid)
     return {"id": mid, "status": status, "reply": result["text"] if answered else None,
             "reply_label": ("Auto-reply" if result["status"] == "answered" else "Auto-reply (outside business hours)")
             if answered else None,
@@ -354,6 +390,7 @@ def reply_video_message(message_id: str, body: MessageBody, request: Request) ->
         reply = pii_mask.mask_sensitive(body.text.strip())
         conn.execute("UPDATE video_messages SET reply=?, reply_source='owner', status='ANSWERED', updated_at=? "
                      "WHERE id=?", (reply, _now(), message_id))
+    _push_sender(request, row["sender"], message_id)
     return {"id": message_id, "status": "ANSWERED", "reply": reply}
 
 
