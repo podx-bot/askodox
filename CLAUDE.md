@@ -7,7 +7,7 @@ with the actual repo or `git log`/`git show origin/main`, the repo wins — fix
 this file, don't trust it blindly.
 
 ## Current verified checkpoint
-- Branch `claude/yield-rates` (2026-11-27, first piece of phase 6, stacked on `claude/table-watch` PR #544): YIELD &
+- `main` PR #546 (2026-11-27, owner "Merge" 22:01; squash 91d77c0; first piece of phase 6; NOT in any Play bundle): YIELD &
   RATES -- buy in one form, sell in another (live birds -> dressed, goat, fish, paddy, cloth roll). Pure integer maths
   in TWO twins: `backend/app/services/yield_math.py` == `lib/features/yield/yield_math.dart`, both run
   `test/fixtures/yield_vectors.json` (change the two together; grams, paise, basis points, halves away from zero).
@@ -18,7 +18,7 @@ this file, don't trust it blindly.
   his own chicken / mutton shop: every number is his entry, NO presets, `AskodoxEstimateNote` on the page. NOT built:
   sold kg from bills, server sync for staff phones, skinless / boneless rows, WhatsApp rate board, trend chart.
   Registry `yield_and_rates`. Nothing phone verified.
-- Branch `claude/table-watch` (2026-11-27, phase 5, stacked on `claude/workout-tracker` PR #543): TABLE WATCH, QR ONLY
+- `main` PR #544 (2026-11-27, owner "Merge"; squash 1b7a5af; phase 5; NOT in any Play bundle): TABLE WATCH, QR ONLY
   -- `pos_table_watch.py` (`pos_table_sits`: a table + a time, NO customer identity; `sat` from the customer
   `GET /order-desk/resolve` of a TABLE code -- route-level, best effort; states empty / seated / unseen (`UNSEEN_MINUTES`
   5) / waiting (open desk order or staff table order not served) / eating (served); a sitting with no order ends after
@@ -27,8 +27,8 @@ this file, don't trust it blindly.
   `/api/pos/businesses/{id}/desk/table-watch[/{table}/seen|free]` (in `routes/pos_frontdesk.py`). App
   `lib/features/table_watch/` (`/pos/:id/tables/watch`, opened from the Tables page ⋮ `askodoxTablesStepsWatch` or
   the push; refresh 30 s). Camera watch NOT built (owner: QR only). Registry `table_watch_qr`. Nothing phone verified.
-- Branch `claude/workout-tracker` (2026-11-27, owner "set the points aside, do the rest" = phase 4; stacked on
-  `claude/gym-kit` PR #540, which is CI green but NOT merged yet): LIVE WORK WORKOUT -- `lib/features/workout/`
+- `main` via PR #544 (PR #543 closed: its commits landed inside the #544 squash; 2026-11-27, owner "set the points
+  aside, do the rest" = phase 4; NOT in any Play bundle): LIVE WORK WORKOUT -- `lib/features/workout/`
   (`workout_logic.dart` pure rules: better set = heavier or same weight more times, a record needs an EARLIER
   workout's best and is said once per exercise per workout, streak counts to today or yesterday, weight in grams;
   `workout_store.dart` prefs `askodox.workout.v1` account-scoped, last 400 workouts; `workout_screen.dart` pick ->
@@ -36,7 +36,7 @@ this file, don't trust it blindly.
   `askodoxWorkWorkout` on the Live Work bar, "my gym" card from `askodoxMyMembershipsProvider`. Free: no server
   call, no AI, NO POINTS (owner gives the rules later -- do not add them). Own code and own exercise list.
   NOT built: own exercise by voice, pay the gym fee from here. Registry `live_work_workout_tracker`. Nothing phone verified.
-- Branch `claude/gym-kit` (2026-11-27, owner "merge and continue phase 3"; #538 morning brief merged as 5b9dd75):
+- `main` PR #540 (2026-11-27, owner "merge and continue phase 3"; squash 06c30d8; NOT in any Play bundle):
   MEMBERS & ATTENDANCE = the gym owner kit as ONE universal engine `pos_memberships.py` (tables `pos_term_members` /
   `pos_term_payments` / `pos_term_visits`; `add_months` == Dart `askodoxTermEnd`, keep equal): term in months + fee ->
   END DAY worked out; `renew` = a fee RECORD that moves the end day (from the old end day if not passed, else today);
