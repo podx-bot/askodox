@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../config/theme/askodox_fonts.dart';
+
 /// The look of every inner page (redesign, owner 2026-11-13: "all inner pages in this model").
 /// Soft grey page, white cards with a thin border and round corners, dark-navy text and primary
 /// buttons, blue links. Home is NOT wrapped (owner: Home stays as it is).
@@ -31,7 +33,7 @@ ThemeData askodoxInnerTheme(ThemeData base) {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: askodoxInnerInk),
+      titleTextStyle: const TextStyle(fontFamilyFallback: askodoxFontFallback, fontSize: 20, fontWeight: FontWeight.w800, color: askodoxInnerInk),
       iconTheme: const IconThemeData(color: askodoxInnerInk),
     ),
     cardTheme: CardThemeData(
@@ -48,8 +50,8 @@ ThemeData askodoxInnerTheme(ThemeData base) {
     listTileTheme: const ListTileThemeData(
       iconColor: askodoxInnerBlue,
       textColor: askodoxInnerInk,
-      titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: askodoxInnerInk),
-      subtitleTextStyle: TextStyle(fontSize: 12.5, color: askodoxInnerMuted),
+      titleTextStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, fontSize: 15, fontWeight: FontWeight.w700, color: askodoxInnerInk),
+      subtitleTextStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, fontSize: 12.5, color: askodoxInnerMuted),
     ),
     dividerTheme: const DividerThemeData(color: Color(0xFFEEF0F4), thickness: 1, space: 1),
     filledButtonTheme: FilledButtonThemeData(
@@ -58,7 +60,7 @@ ThemeData askodoxInnerTheme(ThemeData base) {
         foregroundColor: Colors.white,
         minimumSize: const Size(48, 46),
         shape: RoundedRectangleBorder(borderRadius: radius14),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontFamilyFallback: askodoxFontFallback, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -67,11 +69,11 @@ ThemeData askodoxInnerTheme(ThemeData base) {
         minimumSize: const Size(48, 46),
         side: const BorderSide(color: Color(0xFFDCE0E8)),
         shape: RoundedRectangleBorder(borderRadius: radius14),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontFamilyFallback: askodoxFontFallback, fontWeight: FontWeight.w700),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: askodoxInnerBlue, textStyle: const TextStyle(fontWeight: FontWeight.w700)),
+      style: TextButton.styleFrom(foregroundColor: askodoxInnerBlue, textStyle: const TextStyle(fontFamilyFallback: askodoxFontFallback, fontWeight: FontWeight.w700)),
     ),
     inputDecorationTheme: base.inputDecorationTheme.copyWith(
       filled: true,
@@ -115,6 +117,6 @@ class AskodoxSectionLabel extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
         child: Text(text,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: askodoxInnerMuted, letterSpacing: .4)),
+            style: const TextStyle(fontFamilyFallback: askodoxFontFallback, fontSize: 12, fontWeight: FontWeight.w700, color: askodoxInnerMuted, letterSpacing: .4)),
       );
 }
