@@ -116,3 +116,73 @@ def test_table_order_kitchen_bill_and_staff_boundaries(api):
         "client_txn_id": _id(), "payments": [{"method": "upi", "amount_paise": 40000}]})
     assert bill.status_code == 200, bill.text
     assert bill.json()["totals"]["grand_total_paise"] == 40000
+
+
+def test_purchase_supplier_payable_and_stock_in(api):
+    """Supplier -> purchase bill (stock in) -> part payment -> payable shrinks; a stranger cannot see the supplier."""
+    c, auth = api
+    owner = f"app-phone-91{uuid.uuid4().int % 10**8:08d}"
+    stranger = f"app-phone-92{uuid.uuid4().int % 10**8:08d}"
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "Journey Store", "state_code": "36"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    item = c.post(f"{base}/products", headers=h, json={"name": "Oil", "unit": "kg", "price_paise": 15000, "track_stock": True}).json()["id"]
+    sup = c.post(f"{base}/suppliers", headers=h, json={"name": "Agro Traders", "phone": "9400000777"}).json()["id"]
+    pur = c.post(f"{base}/purchases", headers=h, json={
+        "client_txn_id": _id(), "supplier_id": sup, "supplier_bill_no": "AT-101",
+        "lines": [{"product_id": item, "qty_milli": 10000, "cost_paise": 12000}]})
+    assert pur.status_code == 200, pur.text
+    rows = c.get(f"{base}/products", headers=h).json()
+    rows = rows.get("products", rows)
+    assert [p for p in rows if p["id"] == item][0]["stock_milli"] == 10000
+    before = c.get(f"{base}/suppliers/{sup}", headers=h).json()
+    pay = c.post(f"{base}/suppliers/{sup}/payments", headers=h, json={"client_txn_id": _id(), "method": "cash", "amount_paise": 50000})
+    assert pay.status_code == 200, pay.text
+    after = c.get(f"{base}/suppliers/{sup}", headers=h).json()
+    assert before["owed_paise"] == 120000 and after["owed_paise"] == 70000, (before, after)
+    assert c.get(f"{base}/suppliers/{sup}", headers=auth(stranger)).status_code in (403, 404)
+    again = c.post(f"{base}/purchases", headers=h, json={
+        "client_txn_id": pur.json().get("client_txn_id") or _id(), "supplier_id": sup, "supplier_bill_no": "AT-101",
+        "lines": [{"product_id": item, "qty_milli": 10000, "cost_paise": 12000}]})
+    assert again.status_code in (200, 409)
+
+
+def test_bulk_price_preview_then_apply_and_staff_cannot(api):
+    c, auth = api
+    n = uuid.uuid4().int % 10**8
+    owner, cashier = f"app-phone-81{n:08d}", f"app-phone-82{n:08d}"
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "Journey Prices", "state_code": "36"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}"
+    ids = [c.post(f"{base}/products", headers=h, json={"name": nm, "unit": "kg", "price_paise": p}).json()["id"]
+           for nm, p in (("Dal", 10000), ("Sugar", 4500))]
+    assert c.post(f"{base}/members", headers=h, json={"phone": cashier[-10:], "role": "cashier"}).status_code == 200
+    body = {"scope": "all", "mode": "up_percent", "value": 10, "round_paise": 100}
+    prev = c.post(f"{base}/prices/bulk", headers=h, json=body)
+    assert prev.status_code == 200, prev.text
+    rows = c.get(f"{base}/products", headers=h).json()
+    rows = rows.get("products", rows)
+    assert sorted(p["price_paise"] for p in rows) == [4500, 10000], "preview changes nothing"
+    assert c.post(f"{base}/prices/bulk", headers=auth(cashier), json={**body, "apply": True}).status_code in (403, 404)
+    done = c.post(f"{base}/prices/bulk", headers=h, json={**body, "apply": True})
+    assert done.status_code == 200, done.text
+    rows = c.get(f"{base}/products", headers=h).json()
+    rows = rows.get("products", rows)
+    assert sorted(p["price_paise"] for p in rows) == [5000, 11000]
+    assert ids
+
+
+def test_family_list_members_items_and_outsider(api):
+    c, auth = api
+    n = uuid.uuid4().int % 10**8
+    me, wife, outsider = f"app-phone-71{n:08d}", f"app-phone-72{n:08d}", f"app-phone-73{n:08d}"
+    lst = c.get("/api/me/family-lists", headers=auth(me))
+    assert lst.status_code == 200, lst.text
+    first = lst.json()
+    lists = first.get("lists", first)
+    lid = lists[0]["id"] if isinstance(lists, list) else first["id"]
+    path = f"/api/me/family-lists/{lid}"
+    assert c.post(f"{path}/members", headers=auth(me), json={"phone": wife[-10:], "label": "Wife"}).status_code == 200
+    add = c.post(f"{path}/items", headers=auth(me), json={"texts": ["Milk", "Eggs"], "qty": "2"})
+    assert add.status_code == 200, add.text
+    assert c.post(f"{path}/items", headers=auth(outsider), json={"texts": ["Spy"]}).status_code in (403, 404)
