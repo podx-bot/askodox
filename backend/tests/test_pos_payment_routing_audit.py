@@ -76,3 +76,56 @@ def test_removed_staff_and_other_shop_never_hear(env):
     alerts.report(other, OTHER_OWNER, {"client_event_id": f"{APP}|o1|1729900099", "source_app": APP,
                                        "amount_paise": 777700, "device_id": od, "spoken": "announced"})
     assert not ({OWNER, CASH_A, CASH_B} & set(_heard(pushes))), "another shop's payment never reaches this shop's people"
+
+
+def _collect(alerts):
+    alerts._collect_method = lambda conn, biz: {"upi_id": "audit@okhdfcbank", "payee_name": "Audit Kirana"}
+
+
+def test_two_open_qrs_of_the_same_amount_get_a_paise_apart_and_only_owner_and_shower_hear(env):
+    store, alerts, biz, devs, pushes = env
+    _collect(alerts)
+    a = alerts.create_request(biz, CASH_A, {"amount_paise": 25000, "label": "#1"})
+    b = alerts.create_request(biz, CASH_B, {"amount_paise": 25000, "label": "#2"})
+    assert (a["amount_paise"], b["amount_paise"]) == (25000, 25001), "same amount twice = the later one is +1 paisa"
+    pushes.clear()
+    with store._tx() as conn:
+        alerts._match_request(conn, biz, "ppe_audit", 25001)
+    told = {p[0] for p in pushes if "వచ్చింది" in p[1]}
+    assert told == {OWNER, CASH_B}, "the owner and the person who showed THAT QR -- never the other cashier"
+    assert alerts.requests(biz, OWNER)  # owner still sees both
+
+
+def test_staff_of_another_shop_cannot_create_collect_requests_here(env):
+    store, alerts, biz, devs, pushes = env
+    _collect(alerts)
+    with pytest.raises(PosError) as e:
+        alerts.create_request(biz, OTHER_OWNER, {"amount_paise": 1000})
+    assert e.value.status == 404
+
+
+def test_owner_of_two_shops_each_payment_stays_in_its_own_shop(env):
+    store, alerts, biz, devs, pushes = env
+    second = store.create_business(OWNER, {"name": "Second Shop", "state_code": "37"})["id"]
+    store.set_member(second, OWNER, "9400000405", "cashier", tools=["payalerts"])
+    third = "app-phone-9400000405"
+    store.business(second, third)
+    alerts.update_settings(second, OWNER, {"enabled": True, "roles": ["cashier"]})
+    od = alerts.register_device(second, OWNER, {"device_key": "owner-second-01", "listener_on": True})["device_id"]
+    alerts.register_device(second, third, {"device_key": "third-phone-01"})
+    pushes.clear()
+    alerts.report(second, OWNER, {"client_event_id": f"{APP}|s1|1729900123", "source_app": APP, "amount_paise": 55500,
+                                  "device_id": od, "spoken": "announced"})
+    assert _heard(pushes) == [third], "second shop's staff hear it; first shop's cashiers never do"
+    assert not ({CASH_A, CASH_B} & set(_heard(pushes)))
+
+
+def test_same_notification_twice_is_one_voice_but_two_customers_same_amount_are_two(env):
+    _, alerts, biz, devs, pushes = env
+    pushes.clear()
+    _fire(alerts, biz, devs, OWNER, "9", amount_paise=88800)
+    first = len(pushes)
+    _fire(alerts, biz, devs, OWNER, "9", amount_paise=88800)  # the app re-posts the very same notification
+    assert first >= 1 and len(pushes) == first, "same notification key = never spoken twice"
+    _fire(alerts, biz, devs, OWNER, "10", amount_paise=88800)  # a different notification, same amount
+    assert len(pushes) > first, "two customers can pay the same amount: a second payment, a second voice"
