@@ -14126,6 +14126,46 @@
           "askodoxYieldBoardText"
         ]
       }
+    },
+    {
+      "id": "guide_session_finish",
+      "name": "Guide session finish: pages arranged from the answers, intro voice replay, guide-done push",
+      "purpose": "Owner 2026-11-28: after the guide session the pages the person's own words point at move to the front (move only, one tap undo); the intro can be heard again; a push says the guide is done.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_guide_arrangement.py"
+        ],
+        "flutter": [
+          "test/features/guide_session/guide_arrange_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxGuideArranged",
+          "askodoxGuideArrangeUndo",
+          "askodoxIntroHear"
+        ],
+        "symbols": [
+          "askodoxBringFirst",
+          "askodoxApplyGuideArrangement"
+        ]
+      },
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "GET /api/me/guide-session/arrangement returns page ids from kept facts only (consent); the app moves existing top-level pages to the front, never hides / groups / deletes; Undo restores. One push guide_done:<user>:<time> when the session finishes, in the person's language.",
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new (2026-11-28); NOT PHONE VERIFIED",
+          "date": "2026-11-28"
+        }
+      ]
     }
   ]
 }

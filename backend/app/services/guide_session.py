@@ -61,6 +61,31 @@ FEATURE_HINTS: List[Dict[str, Any]] = [
     {"key": "day_report", "route": "/me/business", "en": "Your day's report", "te": "రోజు రిపోర్ట్", "words": ["report", "sales", "లెక్క", "రిపోర్ట్"]},
     {"key": "family_list", "route": "/me/family-list", "en": "A shopping list shared with your family", "te": "ఇంటి వాళ్లతో షేర్ చేసే సరుకుల లిస్ట్", "words": ["family", "home", "grocery", "ఇల్లు", "సరుకు"]},
 ]
+# Which pages a person's own words point at (owner 2026-11-28: "arrange my pages from what I told you"). Words describe the
+# FUNCTION of a page, never a business category. The app only MOVES pages that exist on the person's screen to the front;
+# nothing is hidden, grouped or deleted.
+PAGE_HINTS: List[Dict[str, Any]] = [
+    {"pages": ["s.dues", "b.dues"], "words": ["baaki", "due", "credit", "bakaya", "udhar", "బాకీ", "అప్పు", "బాకీలు"]},
+    {"pages": ["s.bill", "s.counter"], "words": ["bill", "billing", "invoice", "counter", "బిల్లు", "బిల్"]},
+    {"pages": ["s.reports", "s.sales", "s.day"], "words": ["report", "sales", "profit", "lekka", "లెక్క", "రిపోర్ట్", "అమ్మకాలు"]},
+    {"pages": ["s.link"], "words": ["link", "share", "facebook", "instagram", "whatsapp", "లింక్", "షేర్"]},
+    {"pages": ["s.team", "s.checkin", "s.attendance"], "words": ["staff", "worker", "team", "attendance", "salary", "సిబ్బంది", "పనివాళ్ళు", "జీతం"]},
+    {"pages": ["s.menu"], "words": ["item", "items", "menu", "stock", "price", "prices", "ఐటమ్", "ధర", "ధరలు", "స్టాక్"]},
+    {"pages": ["s.bookings"], "words": ["booking", "appointment", "slot", "బుకింగ్"]},
+    {"pages": ["s.jobs"], "words": ["repair", "job card", "service", "రిపేర్"]},
+    {"pages": ["s.members", "b.memberships"], "words": ["member", "membership", "gym", "monthly fee", "సభ్యత్వం", "మెంబర్"]},
+    {"pages": ["s.send", "s.orders"], "words": ["delivery", "deliver", "order", "orders", "డెలివరీ", "ఆర్డర్"]},
+    {"pages": ["s.yield"], "words": ["yield", "weigh", "weight", "kg", "rate", "తూకం", "కిలో"]},
+    {"pages": ["s.voice", "b.voice", "s.qr", "b.qr"], "words": ["payment", "phonepe", "gpay", "upi", "qr", "voice", "పేమెంట్", "చెల్లింపు"]},
+    {"pages": ["b.bills"], "words": ["my bills", "receipt", "warranty", "బిల్లులు"]},
+]
+ARRANGE_MAX = 8
+DONE_TEXT = {
+    "te": ("మీ గైడ్ పూర్తయింది", "మీరు చెప్పిన వాటిని బట్టి మీ పేజీలు సిద్ధం. చూడండి."),
+    "en": ("Your guide is done", "Your pages are ready, arranged from what you told me. Have a look."),
+    "hi": ("आपका गाइड पूरा हुआ", "आपने जो बताया उसके हिसाब से आपके पेज तैयार हैं। देखिए।"),
+}
+DONE_ROUTE = "/money-home"
 _URL = re.compile(r"https?://\S+|www\.\S+", re.I)
 _LONG_NUMBER = re.compile(r"\b\d{10,16}\b")
 _SECRET_ASK = re.compile(r"otp|pin\b|cvv|password|aadhaar|aadhar|pan\s*(no|number|card)|card\s*number|account\s*number", re.I)
@@ -130,9 +155,11 @@ def _lang(language: Optional[str]) -> str:
 
 
 class GuideSessions:
-    def __init__(self, db_path: str, *, write_text: Optional[Callable[[str], str]] = None) -> None:
+    def __init__(self, db_path: str, *, write_text: Optional[Callable[[str], str]] = None,
+                 tell: Optional[Callable[[str, str, str, str, str], None]] = None) -> None:
         self.db_path = db_path
         self.write_text = write_text
+        self.tell = tell  # (user, title, body, route, event_key): the "your guide is done" push
         with closing(_connect(db_path)):
             pass
 
@@ -241,7 +268,12 @@ class GuideSessions:
 
     def _finished(self, user: str, lang: str, facts: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         with closing(_connect(self.db_path)) as conn, conn:
-            conn.execute("UPDATE guide_sessions SET status='finished', current=NULL, updated_at=? WHERE user_id=?", (_now(), user))
+            before = self._row(conn, user)
+            first_time = before is not None and before["status"] != "finished"
+            at = _now()
+            conn.execute("UPDATE guide_sessions SET status='finished', current=NULL, updated_at=? WHERE user_id=?", (at, user))
+        if first_time:
+            self._tell_done(user, lang, at)
         st = self.status(user)
         return {"understood": True, "topic": None, "question": "", "explanation": "", "facts": facts or [], "done": st["done"],
                 "remaining": st["remaining"], "status": "finished", "finished": True}
@@ -256,6 +288,37 @@ class GuideSessions:
             if topic not in items:
                 items.append(topic)
             conn.execute(f"UPDATE guide_sessions SET {key}=?, updated_at=? WHERE user_id=?", (json.dumps(items), _now(), user))
+
+    def _tell_done(self, user: str, lang: str, at: float) -> None:
+        """One push when the guided session ends (once per finish). Best effort: a push never breaks the answer."""
+        if self.tell is None:
+            return
+        title, body = DONE_TEXT.get(lang, DONE_TEXT["en"])
+        try:
+            self.tell(user, title, body, DONE_ROUTE, f"guide_done:{user}:{int(at)}")
+        except Exception:
+            pass
+
+    def arrangement(self, user: str) -> Dict[str, Any]:
+        """Page ids to bring to the front, from the person's OWN kept words (so only with consent). Buyer ids ``b.``, seller
+        ids ``s.``. Empty = nothing to arrange. The app moves, never hides or deletes."""
+        said = " ".join(f["value"].lower() for f in self.facts(user))
+        st = self._status(user)
+        scored: List[tuple] = []
+        for order, hint in enumerate(PAGE_HINTS):
+            hits = sum(1 for w in hint["words"] if w in said)
+            if hits:
+                scored.append((-hits, order, hint["pages"]))
+        scored.sort()
+        buyer: List[str] = []
+        seller: List[str] = []
+        for _, _, pages in scored:
+            for page in pages:
+                bucket = buyer if page.startswith("b.") else seller
+                if page not in bucket and len(bucket) < ARRANGE_MAX:
+                    bucket.append(page)
+        return {"ready": bool(buyer or seller) and st["status"] in ("finished", "paused"), "buyer": buyer, "seller": seller,
+                "status": st["status"]}
 
     def pause(self, user: str) -> Dict[str, Any]:
         """Time is up: what is done, what is left, and that the rest can wait. Never an error."""
