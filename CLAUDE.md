@@ -15,8 +15,11 @@ this file, don't trust it blindly.
   cost up d / yield; day: opening + made - sold = expected, against the scale. App `lib/features/yield/`
   (`/pos/:id/yield`, Seller page `s.yield`, hub `money.yield`; 3 steps bought -> weighed after -> rate, board, day
   end, last lots), book on the PHONE only (`askodox.yield.v1`, account-scoped, per shop id). The owner trials it on
-  his own chicken / mutton shop: every number is his entry, NO presets, `AskodoxEstimateNote` on the page. NOT built:
-  sold kg from bills, server sync for staff phones, skinless / boneless rows, WhatsApp rate board, trend chart.
+  his own chicken / mutton shop: every number is his entry, NO presets, `AskodoxEstimateNote` on the page. PIECE 2
+  (branch `claude/yield-forms-measure`, 2026-11-28): `yield_extras.dart` = other forms (own yield + rate ->
+  `askodoxYieldFormCost`), measure card (`askodoxYieldPortionCost` = grams x cost; `askodoxYieldMeasure` = batch /
+  plates), `askodoxYieldBoardText` = SELLING rates only for customers (never cost / yield / profit). NOT built:
+  sold kg from bills, server sync for staff phones, trend chart.
   Registry `yield_and_rates`. Nothing phone verified.
 - `main` PR #544 (2026-11-27, owner "Merge"; squash 1b7a5af; phase 5; NOT in any Play bundle): TABLE WATCH, QR ONLY
   -- `pos_table_watch.py` (`pos_table_sits`: a table + a time, NO customer identity; `sat` from the customer

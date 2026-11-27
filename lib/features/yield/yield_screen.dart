@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme/askodox_look.dart';
 import '../../shared/widgets/estimate_note.dart';
+import 'yield_extras.dart';
 import 'yield_math.dart';
 import 'yield_store.dart';
 
@@ -268,6 +269,8 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
         )
       else
         _rateCard(te, book, last, onTap: () => _open(last, last.outGrams <= 0 ? 2 : 3)),
+      if (last != null && last.cost != null)
+        AskodoxYieldExtras(businessId: widget.businessId, item: _item, cost: last.cost!, sell: last.sellPaise),
       if (yields.isNotEmpty) ...[
         const SizedBox(height: 8),
         Text(te ? 'మీ గత యీల్డ్ % (మీ స్వంత రికార్డ్)' : 'Your last yields % (your own record)',

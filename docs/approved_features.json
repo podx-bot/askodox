@@ -14062,13 +14062,18 @@
       "domains": [
         "any"
       ],
-      "expected_behavior": "For any shop that buys in one form and sells in another (live birds -> dressed meat, a goat -> mutton, fish, paddy -> rice, a cloth roll -> pieces): Seller page 'Yield & rates' (/pos/:id/yield). 'New lot came in' = 3 steps: (1) weight bought, rate a kg, count (optional), transport, unloading -> everything spent = weight x rate + the other costs; (2) what came out to sell, weighed -> yield % = out / in, the weight that went down, optional income from by-products, the real cost of a sellable kg = (everything spent - by-product income) / what came out ('I will weigh later' keeps the lot open); (3) the owner's own selling rate and least profit a kg -> profit a kg and its share of the selling rate, a warning under the least profit. The board shows the newest lot, 'if the buying rate goes up Rs 2 a sellable kg costs about Rs X more' (2 / yield), the owner's own last 5 yields and the last lots as a rate trend. 'Day end': morning stock (yesterday's scale reading) + came today - sold = should be there; against the scale -> the difference in kg and its worth at cost, a reason chip, then sales - cost of what was sold - other costs = the day's rough profit. Integer arithmetic (grams, paise, basis points), halves rounded away from zero; the same vectors pass in Python and Dart. Every number is the owner's own entry -- no presets; the rough-figures note is on the page. On the phone only for now (account-scoped).",
+      "expected_behavior": "For any shop that buys in one form and sells in another (live birds -> dressed meat, a goat -> mutton, fish, paddy -> rice, a cloth roll -> pieces): Seller page 'Yield & rates' (/pos/:id/yield). 'New lot came in' = 3 steps: (1) weight bought, rate a kg, count (optional), transport, unloading -> everything spent = weight x rate + the other costs; (2) what came out to sell, weighed -> yield % = out / in, the weight that went down, optional income from by-products, the real cost of a sellable kg = (everything spent - by-product income) / what came out ('I will weigh later' keeps the lot open); (3) the owner's own selling rate and least profit a kg -> profit a kg and its share of the selling rate, a warning under the least profit. The board shows the newest lot, 'if the buying rate goes up Rs 2 a sellable kg costs about Rs X more' (2 / yield), the owner's own last 5 yields and the last lots as a rate trend. 'Day end': morning stock (yesterday's scale reading) + came today - sold = should be there; against the scale -> the difference in kg and its worth at cost, a reason chip, then sales - cost of what was sold - other costs = the day's rough profit. Integer arithmetic (grams, paise, basis points), halves rounded away from zero; the same vectors pass in Python and Dart. Every number is the owner's own entry -- no presets; the rough-figures note is on the page. On the phone only for now (account-scoped). Under the board, once a lot is weighed: 'Other forms' (skinless, boneless ... any name) each with the owner's own yield from the sellable kg and own selling rate -> that form's real cost a kg (cost / yield) and profit; the 'Measure card' = lines of plate / piece with the owner's own measure in grams -> what this item costs in one plate (measure x cost of a kg), with a helper that works the measure out from one batch (weight that went in / plates it gave); and 'Send the selling rates to customers' = a message with SELLING rates only (never a cost, a yield or a profit).",
       "flags": {},
       "history": [
         {
           "approved_by": "owner",
           "change": "new: yield & rates (first piece of phase 6 of the 2026-11-27 plan; design canvas buy / dressing / rate board / day end / trend); the owner trials it on his own chicken / mutton shop. NOT built: sold kg read from bills, staff phones sharing one book (server sync), skinless / boneless form rows on the board, the rate board sent to WhatsApp, the trend chart; NOT PHONE VERIFIED",
           "date": "2026-11-27"
+        },
+        {
+          "approved_by": "owner",
+          "change": "added (owner \"No continue\" 2026-11-28 03:11 = keep building phase 6): other forms with own yield + rate, the measure card with the batch helper, the selling-rates message; NOT PHONE VERIFIED",
+          "date": "2026-11-28"
         }
       ],
       "id": "yield_and_rates",
@@ -14100,7 +14105,13 @@
           "askodoxYieldBoard",
           "askodoxYieldDayEnd",
           "askodoxYieldDiff",
-          "askodoxEstimateNote"
+          "askodoxEstimateNote",
+          "askodoxYieldFormAdd",
+          "askodoxYieldFormSave",
+          "askodoxYieldPortionAdd",
+          "askodoxYieldPortionSave",
+          "askodoxYieldMeasureUse",
+          "askodoxYieldShare"
         ],
         "symbols": [
           "AskodoxYieldScreen",
@@ -14108,7 +14119,11 @@
           "askodoxYieldCostPerKg",
           "askodoxYieldBp",
           "askodoxYieldDayProfit",
-          "askodoxYieldPrefsKey"
+          "askodoxYieldPrefsKey",
+          "AskodoxYieldExtras",
+          "askodoxYieldPortionCost",
+          "askodoxYieldMeasure",
+          "askodoxYieldBoardText"
         ]
       }
     }

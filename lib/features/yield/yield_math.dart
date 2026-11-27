@@ -58,6 +58,13 @@ int askodoxYieldDiffValue(int diffGrams, int costPaise) => askodoxYieldRoundDiv(
   return (sales: sales, spent: spent, profit: sales - spent - (otherPaise > 0 ? otherPaise : 0));
 }
 
+/// What one plate / piece costs in this item alone: the owner's own measure x the cost of a sellable kg.
+int askodoxYieldPortionCost(int grams, int costPaise) => askodoxYieldRoundDiv((grams > 0 ? grams : 0) * costPaise, 1000);
+
+/// The owner's own measure worked out from one batch: what went in / how many plates came out.
+int? askodoxYieldMeasure(int batchGrams, int portions) =>
+    batchGrams <= 0 || portions <= 0 ? null : askodoxYieldRoundDiv(batchGrams, portions);
+
 // ------------------------------------------------------------------------------------------------ words
 /// "66.2" / "29.85" / "70" from grams.
 String askodoxYieldKg(int grams) {
@@ -90,6 +97,9 @@ String askodoxYieldRupees(int paise) {
 String askodoxYieldPercent(int bp) =>
     bp % 100 == 0 ? '${bp ~/ 100}%' : '${(askodoxYieldRoundDiv(bp, 10) / 10).toStringAsFixed(1)}%';
 
+/// "350 g" / "1.2 kg" for a measure.
+String askodoxYieldGrams(int grams) => grams < 1000 ? '$grams g' : '${askodoxYieldKg(grams)} kg';
+
 int _decimal(String text, int scale) {
   final clean = text.replaceAll(',', '').replaceAll('₹', '').trim();
   final match = RegExp(r'^(\d{0,7})(?:\.(\d{0,6}))?$').firstMatch(clean);
@@ -107,6 +117,23 @@ int askodoxYieldParseGrams(String text) => _decimal(text, 1000);
 
 /// "98.50" (rupees) -> 9850 paise. Anything unreadable is 0.
 int askodoxYieldParsePaise(String text) => _decimal(text, 100);
+
+/// "90" / "62.5" (percent) -> 9000 / 6250 basis points. Anything unreadable is 0.
+int askodoxYieldParsePercent(String text) => _decimal(text, 100);
+
+/// The rate board a shop sends its customers: SELLING rates only -- never a cost, a yield or a profit.
+String askodoxYieldBoardText(String shop, String item, int sellPaise, List<AskodoxYieldForm> forms, bool te) {
+  final name = askodoxYieldItemName(item, te);
+  final lines = <String>[
+    if (shop.trim().isNotEmpty) shop.trim(),
+    te ? '$name · ఈ రోజు రేట్లు' : '$name · today\'s rates',
+    if (sellPaise > 0) '$name: ${askodoxYieldRupees(sellPaise)} / kg',
+    for (final f in forms)
+      if (f.sellPaise > 0) '${f.name}: ${askodoxYieldRupees(f.sellPaise)} / kg',
+    'ASKODOX',
+  ];
+  return lines.join('\n');
+}
 
 String askodoxYieldDayKey(DateTime day) =>
     '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
@@ -179,6 +206,37 @@ class AskodoxYieldBatch {
   }
 }
 
+/// A further form of an item the owner sells (skinless, boneless ...): the owner's own yield from the sellable kg and
+/// its own selling rate. No number here is a preset.
+class AskodoxYieldForm {
+  const AskodoxYieldForm({required this.name, this.yieldBp = 0, this.sellPaise = 0});
+  final String name;
+  final int yieldBp, sellPaise;
+
+  Map<String, Object?> toJson() => {'n': name, 'y': yieldBp, 's': sellPaise};
+
+  static AskodoxYieldForm? from(Object? raw) {
+    if (raw is! Map || '${raw['n'] ?? ''}'.isEmpty) return null;
+    int n(String k) => raw[k] is num ? (raw[k] as num).toInt() : 0;
+    return AskodoxYieldForm(name: '${raw['n']}', yieldBp: n('y'), sellPaise: n('s'));
+  }
+}
+
+/// One line of the owner's measure card: a plate / piece, how much of the item goes into it, what it sells for.
+class AskodoxYieldPortion {
+  const AskodoxYieldPortion({required this.name, this.grams = 0, this.sellPaise = 0});
+  final String name;
+  final int grams, sellPaise;
+
+  Map<String, Object?> toJson() => {'n': name, 'g': grams, 's': sellPaise};
+
+  static AskodoxYieldPortion? from(Object? raw) {
+    if (raw is! Map || '${raw['n'] ?? ''}'.isEmpty) return null;
+    int n(String k) => raw[k] is num ? (raw[k] as num).toInt() : 0;
+    return AskodoxYieldPortion(name: '${raw['n']}', grams: n('g'), sellPaise: n('s'));
+  }
+}
+
 /// One day's close for an item: the books against the scale.
 class AskodoxYieldDay {
   const AskodoxYieldDay({
@@ -219,10 +277,37 @@ class AskodoxYieldDay {
 
 /// One shop's book: lots (oldest first), day closes, and the least profit per kg the owner set for each item.
 class AskodoxYieldBook {
-  const AskodoxYieldBook({this.batches = const [], this.days = const [], this.minProfit = const {}});
+  const AskodoxYieldBook({
+    this.batches = const [],
+    this.days = const [],
+    this.minProfit = const {},
+    this.forms = const {},
+    this.portions = const {},
+  });
   final List<AskodoxYieldBatch> batches;
   final List<AskodoxYieldDay> days;
   final Map<String, int> minProfit;
+
+  /// Per item: the further forms the owner sells, and the lines of the measure card.
+  final Map<String, List<AskodoxYieldForm>> forms;
+  final Map<String, List<AskodoxYieldPortion>> portions;
+
+  AskodoxYieldBook copyWith({
+    List<AskodoxYieldBatch>? batches,
+    List<AskodoxYieldDay>? days,
+    Map<String, int>? minProfit,
+    Map<String, List<AskodoxYieldForm>>? forms,
+    Map<String, List<AskodoxYieldPortion>>? portions,
+  }) =>
+      AskodoxYieldBook(
+          batches: batches ?? this.batches,
+          days: days ?? this.days,
+          minProfit: minProfit ?? this.minProfit,
+          forms: forms ?? this.forms,
+          portions: portions ?? this.portions);
+
+  List<AskodoxYieldForm> formsOf(String item) => forms[item] ?? const [];
+  List<AskodoxYieldPortion> portionsOf(String item) => portions[item] ?? const [];
 
   List<AskodoxYieldBatch> of(String item) => [for (final b in batches) if (b.item == item) b];
 
@@ -261,6 +346,8 @@ class AskodoxYieldBook {
         'batches': [for (final b in batches) b.toJson()],
         'days': [for (final d in days) d.toJson()],
         'min': minProfit,
+        'forms': {for (final e in forms.entries) e.key: [for (final f in e.value) f.toJson()]},
+        'portions': {for (final e in portions.entries) e.key: [for (final p in e.value) p.toJson()]},
       };
 
   static AskodoxYieldBook from(Object? raw) {
@@ -285,7 +372,19 @@ class AskodoxYieldBook {
         if (v is num) min['$k'] = v.toInt();
       });
     }
-    return AskodoxYieldBook(batches: batches, days: days, minProfit: min);
+    final forms = <String, List<AskodoxYieldForm>>{};
+    if (raw['forms'] is Map) {
+      (raw['forms'] as Map).forEach((k, v) {
+        if (v is List) forms['$k'] = [for (final row in v) AskodoxYieldForm.from(row)].nonNulls.toList();
+      });
+    }
+    final portions = <String, List<AskodoxYieldPortion>>{};
+    if (raw['portions'] is Map) {
+      (raw['portions'] as Map).forEach((k, v) {
+        if (v is List) portions['$k'] = [for (final row in v) AskodoxYieldPortion.from(row)].nonNulls.toList();
+      });
+    }
+    return AskodoxYieldBook(batches: batches, days: days, minProfit: min, forms: forms, portions: portions);
   }
 }
 
