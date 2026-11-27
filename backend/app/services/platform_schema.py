@@ -1297,6 +1297,10 @@ SETTING_BOUNDS: Dict[str, Tuple[float, float, float]] = {
     # Baaki reminders sent by ASKODOX's own WhatsApp number (owner 2026-11-25): 0 = off (the owner taps each one).
     "dues.auto_whatsapp": (0, 1, 0),
     "dues.auto_whatsapp_daily_per_shop": (0, 200, 30),
+    # Bills sent by ASKODOX itself (owner 2026-11-27, the paid automatic option): 0 = off. Needs the owner's switch per
+    # shop (same one as the baaki reminders), an approved bill template for people not on ASKODOX, and AI Credits.
+    "bills.auto_send": (0, 1, 0),
+    "bills.auto_daily_per_shop": (0, 1000, 100),
     "notices.max_recipients": (10, 5000, 1000),
     "notices.per_day_sender": (1, 20, 3),
     "notices.per_day_receiver": (1, 10, 3),
