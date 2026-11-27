@@ -8,6 +8,17 @@ this file, don't trust it blindly.
 
 ## Current verified checkpoint
 - Branch `claude/paper-vault` (2026-11-28, owner "No continue" = phase 6): BILLS & WARRANTY -- `paper_vault.py` (`read_paper` never raises, stores nothing; `warranty_end` only from printed purchase day + printed months) + POST `/api/me/vault/read` (sign-in, <= 2 photos, one AI Credits `image` use, released when nothing is read). App `lib/features/vault/` (`/me/vault`, Buyer page `b.vault`, chip `askodoxVaultChip` above the chat when a warranty ends within 30 days; papers + photos on the PHONE only, prefs `askodox.vault.v1`, account-scoped; share-for-service = item, shop, dates, serial only). Registry `paper_vault_bills_warranty`. Nothing phone verified.
+- `main` PR #545-#555 (2026-11-28, owner "continue, don't stop, don't ask"): TEST SWEEP 2 -- HTTP journey tests
+  (`tests/test_pos_http_journey.py`: shop day, table + kitchen, purchase + supplier, bulk price, family list, self-shop,
+  CRM, gym routes) + the real screens clicked on the web build (`web-preview-8`, demo shop, headless Chrome through the
+  semantics tree). BUGS FIXED: (#551) dues keypad appended to the suggested amount (now replaces it), bill page looked empty
+  when every item was out of stock (now says so); (#555) gym Members routes `/members` were SHADOWED by the staff list in
+  `routes/pos.py` (owner showed as a member, Save never worked) -> shop-side term members now `/api/pos/businesses/{id}/memberships*`
+  (`/me/memberships*` unchanged); route-level test added. On screen OK: 3-step cash / due / online bills, dues collect, day
+  close, bulk price, menu add, family list, counter bill, parcel / table / delivery orders, staff add, CRM enquiry, UPI add,
+  job card (what -> estimate -> token), gym add / renew / attendance / report, Buyer order by shop name. Test tip: a reused
+  sandbox DB holds several shops with one name -- make the DB fresh per run. Not testable in the sandbox: real AI chat,
+  payment voice, camera, face. Nothing phone verified.
 - `main` PR #556 (2026-11-28, owner "do the three remaining parts of item 2"; squash d83ad9c; NOT in any Play bundle): GUIDE SESSION FINISH --
   (a) `GuideSessions.arrangement` + GET `/api/me/guide-session/arrangement`: page ids (`b.` / `s.`) from the person's OWN kept words
   (consent only; `PAGE_HINTS` = page functions, never categories); app `guide_arrange.dart` `askodoxBringFirst` only MOVES top-level
