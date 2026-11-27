@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'askodox_design_tokens.dart';
+import 'askodox_fonts.dart';
 
 abstract final class AppTheme {
   static ThemeData get light => _theme(Brightness.light);
@@ -28,6 +29,7 @@ abstract final class AppTheme {
       textTheme: ThemeData(brightness: brightness).textTheme.apply(
             bodyColor: foreground,
             displayColor: foreground,
+            fontFamilyFallback: askodoxFontFallback,
           ),
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -48,7 +50,7 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: inputFill,
-        hintStyle: TextStyle(color: muted),
+        hintStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, color: muted),
         prefixIconColor: isDark ? AskodoxDesignTokens.violet100 : const Color(0xFF1769FF),
         suffixIconColor: isDark ? AskodoxDesignTokens.violet100 : const Color(0xFF1769FF),
         border: OutlineInputBorder(
@@ -69,7 +71,7 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: isDark ? AskodoxDesignTokens.surfaceRaised : const Color(0xFFF2F6FF),
-        labelStyle: TextStyle(color: foreground),
+        labelStyle: TextStyle(fontFamilyFallback: askodoxFontFallback, color: foreground),
         side: BorderSide(color: outline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -77,7 +79,7 @@ abstract final class AppTheme {
         height: 72,
         backgroundColor: isDark ? AskodoxDesignTokens.surface : Colors.white,
         indicatorColor: isDark ? AskodoxDesignTokens.surfaceRaised : const Color(0xFFE9F7ED),
-        labelTextStyle: WidgetStatePropertyAll(TextStyle(color: foreground)),
+        labelTextStyle: WidgetStatePropertyAll(TextStyle(fontFamilyFallback: askodoxFontFallback, color: foreground)),
         iconTheme: WidgetStatePropertyAll(IconThemeData(color: foreground)),
       ),
       filledButtonTheme: FilledButtonThemeData(
