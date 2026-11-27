@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -62,7 +63,7 @@ class AskodoxLiveGameButton extends StatefulWidget {
 
 class _AskodoxLiveGameButtonState extends State<AskodoxLiveGameButton> with SingleTickerProviderStateMixin {
   // Tests settle frames; a forever animation would never settle there.
-  static final bool _animate = !Platform.environment.containsKey('FLUTTER_TEST');
+  static final bool _animate = kIsWeb || !Platform.environment.containsKey('FLUTTER_TEST');
   late final AnimationController _pulse =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
 

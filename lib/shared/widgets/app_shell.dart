@@ -4,6 +4,7 @@ import 'askodox_logo.dart';
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../core/flags/askodox_release_phase.dart';
@@ -681,7 +682,7 @@ class _LiveWorkDot extends StatefulWidget {
 
 class _LiveWorkDotState extends State<_LiveWorkDot> with SingleTickerProviderStateMixin {
   // Tests settle frames; a forever animation would never settle there.
-  static final bool _animate = !Platform.environment.containsKey('FLUTTER_TEST');
+  static final bool _animate = kIsWeb || !Platform.environment.containsKey('FLUTTER_TEST');
   late final AnimationController _blink = AnimationController(vsync: this, duration: const Duration(seconds: 1));
 
   void _sync() {
