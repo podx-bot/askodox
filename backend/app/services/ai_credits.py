@@ -35,9 +35,14 @@ from typing import Any, Dict, List, Optional
 from app.services import shop_free_core
 
 AUDIENCE = "ai_credits"
-FEATURES = ("chat", "reasoning", "voice", "web_search", "image", "radio", "video_study")
+FEATURES = ("chat", "reasoning", "voice", "web_search", "image", "radio", "video_study", "shop_message")
 # video_study (owner 2026-11-27): the uploader's one-time AI study of their own ASKODOX video. Free (rate 0) until
 # staff set a rate; a viewer never pays for it.
+# shop_message (owner 2026-11-27): ONE automatic message ASKODOX sends for a shop -- a bill or a baaki reminder -- when
+# the shop OWNER switched "send by itself" on. The owner's own manual sending (his WhatsApp, one tap) stays free for
+# ever. One price per message (staff set it; Meta's charge, when there is one, is part of it). While charging is ON a
+# message never costs less than MIN_RATE_PAISE, even when staff left the rate at 0.
+MIN_RATE_PAISE = {"shop_message": 5}
 # Owner 2026-11-23: the shop's everyday tools (payment voice, quick bill, dues, sales reports) are free for ever --
 # they are never a credits feature, never carry a rate, and a reserve for one always answers free.
 assert not set(FEATURES) & set(shop_free_core.keys()), "a free-forever shop tool can never be an AI Credits feature"
@@ -287,6 +292,15 @@ class AiCredits:
                                 " ('usage', 'free') AND ref LIKE 'use:%' AND created_at >= ?",
                                 (user_id, feature, self._day_start())).fetchone()[0])
 
+    def price(self, feature: str) -> int:
+        """What ONE use of this feature costs right now, in paise: 0 while charging is OFF or the tool is free."""
+        if shop_free_core.is_free(feature) or feature not in FEATURES:
+            return 0
+        settings = self.settings()
+        if not settings["charging"]:
+            return 0
+        return max(int(settings["rates_paise"][feature]), MIN_RATE_PAISE.get(feature, 0))
+
     def reserve(self, user_id: str, feature: str, ref: str) -> Dict[str, Any]:
         """Before one AI use. Returns {charged, paise, mode, free}; raises CreditsError('insufficient', 402).
         Atomic (BEGIN IMMEDIATE): two parallel requests can never both spend the last credits."""
@@ -297,7 +311,7 @@ class AiCredits:
         settings = self.settings()
         if not settings["charging"]:
             return {"charged": False, "reason": "charging_off", "paise": 0}
-        rate = settings["rates_paise"][feature]
+        rate = max(int(settings["rates_paise"][feature]), MIN_RATE_PAISE.get(feature, 0))
         conn = self._connect()
         try:
             conn.execute("BEGIN IMMEDIATE")

@@ -34,6 +34,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from app.services import shop_messages
 from app.services.pos_store import IST, PosError
 
 FIRST_AFTER_DAYS = 2
@@ -70,7 +71,8 @@ class PosDuesFollowup:
     def __init__(self, store: Any, bills: Any, *, notify: Optional[Callable[[str, str, str, str, str], Any]] = None,
                  clock: Optional[Callable[[], datetime]] = None,
                  whatsapp: Optional[Callable[[str, List[str]], Tuple[bool, str]]] = None,
-                 auto: Optional[Callable[[], Dict[str, Any]]] = None, base_url: str = "") -> None:
+                 auto: Optional[Callable[[], Dict[str, Any]]] = None, base_url: str = "",
+                 credits: Any = None) -> None:
         self.store = store
         self.bills = bills
         self.notify = notify or (lambda user, title, body, route, key: None)
@@ -78,6 +80,8 @@ class PosDuesFollowup:
         self.whatsapp = whatsapp
         self.auto = auto or (lambda: {"enabled": False, "daily": 0})
         self.base_url = base_url
+        # AI Credits (owner 2026-11-27): an automatic send is one paid ``shop_message`` from the SHOP OWNER's credits.
+        self.credits = credits
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         with store._connect() as conn:
             for statement in SCHEMA:
@@ -232,7 +236,9 @@ class PosDuesFollowup:
             self.store._require(conn, business_id, user, "sell")
             biz = self.store._business_row(conn, business_id)
             auto = {"available": self._auto_available(), "on": self._auto_on(conn, business_id),
-                    "owner": biz["owner_user_id"] == user}
+                    "owner": biz["owner_user_id"] == user,
+                    # ONE price per automatic message in paise (0 = free right now); the owner's own manual send is free.
+                    "price_paise": shop_messages.price(self.credits)}
             invoices = conn.execute(
                 "SELECT * FROM pos_invoices WHERE business_id = ? AND status = 'issued' AND balance_paise > 0"
                 " ORDER BY issued_at DESC LIMIT 600", (business_id,)).fetchall()
@@ -361,11 +367,16 @@ class PosDuesFollowup:
                                (business_id, today)).fetchone()
             if daily <= 0 or (row is not None and row["sent"] >= daily):
                 return False
+            owner = str(self.store._business_row(conn, business_id)["owner_user_id"] or "")
+        ref = f"shopmsg:dues:{item['invoice_id']}:{today}"
+        if not shop_messages.charge(self.credits, owner, ref):
+            return False  # too few credits: nothing is sent, the bill stays in the owner's own one-tap list
         try:
             ok, error = self.whatsapp(item["phone"], item["values"])  # type: ignore[misc]
         except Exception as problem:  # a provider fault leaves the bill with the owner
             ok, error = False, type(problem).__name__
         if not ok:
+            shop_messages.give_back(self.credits, owner, ref)
             print(f"ASKODOX DUES AUTO failed shop={business_id} bill={item['invoice_id']} error={str(error)[:120]}", flush=True)
             return False
         with self.store._tx() as conn:

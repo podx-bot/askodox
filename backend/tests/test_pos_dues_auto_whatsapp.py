@@ -49,7 +49,7 @@ def test_off_by_default_the_owner_gets_the_one_tap_list(tmp_path):
     _skip_if_paid(bills, invoices)
     out = follow.run()
     assert sent == [] and out["auto_whatsapp"] == 0 and out["owners"] == 1, "the owner never switched it on"
-    assert follow.reminders(biz, OWNER)["auto"] == {"available": True, "on": False, "owner": True}
+    assert follow.reminders(biz, OWNER)["auto"] == {"available": True, "on": False, "owner": True, "price_paise": 0}
 
 
 def test_owner_switch_sends_once_a_day_and_clears_the_owner_list(tmp_path):

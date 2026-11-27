@@ -182,7 +182,11 @@ class _DuesRemindersState extends ConsumerState<AskodoxDuesRemindersStepsScreen>
               'askodoxDuesStepsAuto',
               auto['on'] == true
                   ? (te ? 'ఆటోమేటిక్ WhatsApp ఆఫ్ చేయి' : 'Turn automatic WhatsApp off')
-                  : (te ? 'ఆటోమేటిక్ WhatsApp ఆన్ చేయి' : 'Turn automatic WhatsApp on'),
+                  : (askodoxPosInt(auto['price_paise']) > 0
+                      ? (te
+                          ? 'ఆటోమేటిక్ WhatsApp ఆన్ చేయి · ఒక్కో మెసేజ్ ${askodoxPosInt(auto['price_paise'])} పైసలు'
+                          : 'Turn automatic WhatsApp on · ${askodoxPosInt(auto['price_paise'])} paise a message')
+                      : (te ? 'ఆటోమేటిక్ WhatsApp ఆన్ చేయి' : 'Turn automatic WhatsApp on')),
               Icons.auto_mode_rounded,
               () => _setAuto(auto['on'] != true)),
         AskodoxStepMore('askodoxDuesStepsFull', te ? 'పాత బాకీ గుర్తుల పేజీ' : 'Old reminders page', Icons.menu_book_rounded,
