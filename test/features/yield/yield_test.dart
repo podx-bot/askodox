@@ -164,8 +164,8 @@ void main() {
     expect(_text(tester, 'askodoxYieldMade'), '70');
     await tester.enterText(find.byKey(const Key('askodoxYieldOpening')), '5');
     await tester.enterText(find.byKey(const Key('askodoxYieldSold')), '66.2');
-    await tester.enterText(find.byKey(const Key('askodoxYieldActual')), '8.1');
     await tester.enterText(find.byKey(const Key('askodoxYieldOther')), '500');
+    await tester.enterText(find.byKey(const Key('askodoxYieldActual')), '8.1');
     await tester.pump();
     expect(_text(tester, 'askodoxYieldExpected'), '8.8');
     expect(_text(tester, 'askodoxYieldDiff'), '-0.7 kg ≈ ₹105');

@@ -388,10 +388,13 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
       _line(te ? 'కొన్నది' : 'Bought', '${askodoxYieldKg(d.liveGrams)} kg'),
       const SizedBox(height: 6),
       _field('askodoxYieldOut', _out, te ? 'అమ్మడానికి వచ్చింది (తూకం)' : 'Came out to sell (weighed)', suffix: 'kg'),
-      if (y != null) ...[
-        _line(te ? 'యీల్డ్' : 'Yield', askodoxYieldPercent(y), keyName: 'askodoxYieldPercent', strong: true),
-        _line(te ? 'తగ్గింది' : 'Went down by', '${askodoxYieldKg(d.liveGrams - d.outGrams)} kg', keyName: 'askodoxYieldLost'),
-      ],
+      // Fixed places (an empty box until there is a number): a row appearing must never move the boxes under it.
+      y == null
+          ? const SizedBox.shrink()
+          : _line(te ? 'యీల్డ్' : 'Yield', askodoxYieldPercent(y), keyName: 'askodoxYieldPercent', strong: true),
+      y == null
+          ? const SizedBox.shrink()
+          : _line(te ? 'తగ్గింది' : 'Went down by', '${askodoxYieldKg(d.liveGrams - d.outGrams)} kg', keyName: 'askodoxYieldLost'),
       _field('askodoxYieldBy', _by, te ? 'ఇతర భాగాలు అమ్మిన ఆదాయం (ఐచ్ఛికం)' : 'Income from by-products (optional)', suffix: '₹'),
       _line(te ? 'అమ్మే కిలో అసలు ఖర్చు' : 'Real cost of a sellable kg', d.cost == null ? '—' : askodoxYieldRupees(d.cost!),
           keyName: 'askodoxYieldCost', strong: true),
@@ -450,20 +453,22 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
       _field('askodoxYieldSold', _sold, te ? 'అమ్మింది' : 'Sold', suffix: 'kg'),
       _line(te ? '= ఉండాల్సింది' : '= should be there', askodoxYieldKg(d.expected), keyName: 'askodoxYieldExpected', strong: true),
       _field('askodoxYieldActual', _actual, te ? 'నిజంగా ఉంది (తూకం)' : 'Really there (weighed)', suffix: 'kg'),
-      if (weighed) ...[
-        _line(te ? 'తేడా' : 'Difference', '${askodoxYieldKg(d.diff)} kg ≈ ${askodoxYieldRupees(value)}',
-            keyName: 'askodoxYieldDiff', strong: true, color: d.diff == 0 ? AskodoxLook.good : AskodoxLook.accentText),
-        if (d.diff != 0)
-          Wrap(spacing: 8, children: [
-            for (final r in reasons)
-              ChoiceChip(
-                key: ValueKey('askodoxYieldReason-${r.$1}'),
-                label: Text(te ? r.$3 : r.$2),
-                selected: _reason == r.$1,
-                onSelected: (_) => setState(() => _reason = r.$1),
-              ),
-          ]),
-      ],
+      // Fixed places, as above: the boxes under these rows keep their place (and their keyboard) while typing.
+      !weighed
+          ? const SizedBox.shrink()
+          : _line(te ? 'తేడా' : 'Difference', '${askodoxYieldKg(d.diff)} kg ≈ ${askodoxYieldRupees(value)}',
+              keyName: 'askodoxYieldDiff', strong: true, color: d.diff == 0 ? AskodoxLook.good : AskodoxLook.accentText),
+      !weighed || d.diff == 0
+          ? const SizedBox.shrink()
+          : Wrap(spacing: 8, children: [
+              for (final r in reasons)
+                ChoiceChip(
+                  key: ValueKey('askodoxYieldReason-${r.$1}'),
+                  label: Text(te ? r.$3 : r.$2),
+                  selected: _reason == r.$1,
+                  onSelected: (_) => setState(() => _reason = r.$1),
+                ),
+            ]),
       const Divider(height: 28),
       _field('askodoxYieldOther', _other, te ? 'ఇతర ఖర్చులు (కరెంట్, కూలి…)' : 'Other costs (power, wages…)', suffix: '₹'),
       _line(te ? 'అమ్మకం' : 'Sales', askodoxYieldRupees(money.sales), keyName: 'askodoxYieldSales'),
