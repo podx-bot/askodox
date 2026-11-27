@@ -15,6 +15,11 @@ bool askodoxGuideSwitchOn = true;
 /// ONE "Ask" button on every page outside the bottom bar: say or type what you need, the answer comes on that page.
 bool askodoxAskEverywhereOn = false;
 
+/// The NEW LOOK for the whole app (owner 2026-11-27): dark page, orange accent, Noto Sans Telugu, fixed-width figures
+/// (`lib/config/theme/askodox_look.dart`). OFF = the app looks as before. Phase 1A ships it OFF; it is turned on in
+/// [askodoxApplyOwnerUi] only after the colour clean-up (1B) so no page shows dark text on a dark page.
+bool askodoxNewLookOn = false;
+
 /// The owner's app (2026-11-26): no guide chip, no mics on pages, one Ask button everywhere.
 void askodoxApplyOwnerUi() {
   askodoxPageMicsOn = false;
