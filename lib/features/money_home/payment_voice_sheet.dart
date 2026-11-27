@@ -340,6 +340,7 @@ class _AskodoxPaymentVoiceSheetState extends ConsumerState<AskodoxPaymentVoiceSh
                         style: TextStyle(fontSize: 12, color: active ? const Color(0xFF1F5F4F) : const Color(0xFF7A8190))),
                   ]),
                 ),
+                const SizedBox(width: 8),
                 Text(active ? (te ? 'ఆన్' : 'ON') : (te ? 'ఆఫ్' : 'OFF'),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: active ? const Color(0xFF12A150) : const Color(0xFF7A8190))),
                 IconButton(
