@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'askodox_design_tokens.dart';
+import 'askodox_fonts.dart';
 
 abstract final class AppTheme {
   static ThemeData get light => _theme(Brightness.light);
@@ -28,6 +29,7 @@ abstract final class AppTheme {
       textTheme: ThemeData(brightness: brightness).textTheme.apply(
             bodyColor: foreground,
             displayColor: foreground,
+            fontFamilyFallback: askodoxFontFallback,
           ),
       appBarTheme: AppBarTheme(
         centerTitle: false,

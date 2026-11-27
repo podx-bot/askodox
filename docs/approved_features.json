@@ -13508,6 +13508,41 @@
           "change": "Phase 1 of the in-app video Q&A plan. Viewer Ask flow (stored study, product, message to uploader) is Phase 2, not built."
         }
       ]
+    },
+    {
+      "id": "all_script_fonts",
+      "name": "Clear letters in every Indian language (bundled Noto Sans per script)",
+      "purpose": "Owner 2026-11-27: every language must show clear, neat letters on every phone and on the web. One Noto Sans family per script is bundled as a text fallback.",
+      "expected_behavior": "AppTheme text theme carries askodoxFontFallback (12 script families, Regular + Bold, declared in pubspec with files in assets/fonts/noto). A letter the phone font lacks is drawn by the matching Noto family instead of a box.",
+      "roles": [
+        "customer"
+      ],
+      "domains": [
+        "any"
+      ],
+      "api": [],
+      "ui": {
+        "keys": [],
+        "symbols": [
+          "askodoxFontFallback"
+        ]
+      },
+      "flags": {},
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/config/askodox_fonts_test.dart"
+        ]
+      },
+      "dependencies": [],
+      "status": "approved",
+      "history": [
+        {
+          "date": "2026-11-27",
+          "pr": null,
+          "change": "Added."
+        }
+      ]
     }
   ]
 }

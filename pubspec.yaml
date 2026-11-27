@@ -77,6 +77,67 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: NotoSansTelugu
+      fonts:
+        - asset: assets/fonts/noto/NotoSansTelugu-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansTelugu-Bold.ttf
+          weight: 700
+    - family: NotoSansDevanagari
+      fonts:
+        - asset: assets/fonts/noto/NotoSansDevanagari-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansDevanagari-Bold.ttf
+          weight: 700
+    - family: NotoSansBengali
+      fonts:
+        - asset: assets/fonts/noto/NotoSansBengali-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansBengali-Bold.ttf
+          weight: 700
+    - family: NotoSansGujarati
+      fonts:
+        - asset: assets/fonts/noto/NotoSansGujarati-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansGujarati-Bold.ttf
+          weight: 700
+    - family: NotoSansKannada
+      fonts:
+        - asset: assets/fonts/noto/NotoSansKannada-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansKannada-Bold.ttf
+          weight: 700
+    - family: NotoSansMalayalam
+      fonts:
+        - asset: assets/fonts/noto/NotoSansMalayalam-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansMalayalam-Bold.ttf
+          weight: 700
+    - family: NotoSansOriya
+      fonts:
+        - asset: assets/fonts/noto/NotoSansOriya-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansOriya-Bold.ttf
+          weight: 700
+    - family: NotoSansGurmukhi
+      fonts:
+        - asset: assets/fonts/noto/NotoSansGurmukhi-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansGurmukhi-Bold.ttf
+          weight: 700
+    - family: NotoSansTamil
+      fonts:
+        - asset: assets/fonts/noto/NotoSansTamil-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansTamil-Bold.ttf
+          weight: 700
+    - family: NotoSansArabic
+      fonts:
+        - asset: assets/fonts/noto/NotoSansArabic-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansArabic-Bold.ttf
+          weight: 700
+    - family: NotoSansOlChiki
+      fonts:
+        - asset: assets/fonts/noto/NotoSansOlChiki-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansOlChiki-Bold.ttf
+          weight: 700
+    - family: NotoSansMeeteiMayek
+      fonts:
+        - asset: assets/fonts/noto/NotoSansMeeteiMayek-Regular.ttf
+        - asset: assets/fonts/noto/NotoSansMeeteiMayek-Bold.ttf
+          weight: 700
   generate: true
   assets:
     - assets/mock/catalog.json
