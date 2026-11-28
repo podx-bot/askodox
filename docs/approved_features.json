@@ -14315,8 +14315,20 @@
     },
     {
       "api": [
-        "GET /api/pos/businesses/{id}/closing-time",
-        "PUT /api/pos/businesses/{id}/closing-time"
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/closing-time",
+          "response_keys": [
+            "closing_time"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/closing-time",
+          "response_keys": [
+            "closing_time"
+          ]
+        }
       ],
       "dependencies": [
         "yield_and_rates"
