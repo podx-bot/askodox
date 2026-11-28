@@ -1032,6 +1032,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'వాడినప్పుడు, కొన్నప్పుడు + - నొక్కండి. "అయిపోయింది" నొక్కితే కొనుగోలు లిస్ట్‌కి వెళ్తుంది. మీ స్వంత తక్కువ స్థాయి కూడా పెట్టవచ్చు.',
     'కొనుగోలు లిస్ట్‌ని కుటుంబానికి పంపవచ్చు. కిరాణా ఖర్చు రాస్తే ఈ నెల మొత్తం కనిపిస్తుంది. లిస్ట్ ఈ ఫోన్‌లోనే ఉంటుంది.',
   ]),
+  '/me/tell-business': _H('Tell about my business', 'నా బిజినెస్ చెప్పండి', [
+    'Answer the three questions by voice or typing: what you sell, where stock comes from, your biggest headache.',
+    'Under "What we understood" you see only what you said. Tap ✕ on a chip that is wrong.',
+    'Then ask how to solve your problem in the chat. Your answers stay on this phone.',
+  ], [
+    'మూడు ప్రశ్నలకు వాయిస్‌తో లేదా టైప్ చేసి చెప్పండి: ఏం అమ్ముతారు, సరుకు ఎక్కడి నుంచి, పెద్ద తలనొప్పి ఏంటి.',
+    '"మేం అర్థం చేసుకున్నవి"లో మీరు చెప్పినవే కనిపిస్తాయి. తప్పు చిప్‌పై ✕ నొక్కండి.',
+    'తర్వాత మీ సమస్యకు పరిష్కారం చాట్‌లో అడగండి. మీ సమాధానాలు ఈ ఫోన్‌లోనే ఉంటాయి.',
+  ]),
   '/me/home': _H('My home', 'నా ఇల్లు', [
     '"Photograph a bill" reads a bill or warranty paper; you check it before it is kept on this phone.',
     'The tiles open your kitchen stock, your bills & warranty, and the groceries you noted this month.',
