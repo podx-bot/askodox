@@ -9,6 +9,7 @@ import 'my_business_screens.dart';
 import 'shop_follow_screens.dart';
 import 'shop_post_screens.dart';
 import '../../memberships/memberships_screens.dart';
+import '../../kitchen/kitchen_screen.dart';
 import '../../vault/vault_screen.dart';
 
 /// Shop follows and shop updates (any signed-in person). `/shop/:id` is a legacy redirect in app_router,
@@ -26,6 +27,8 @@ final askodoxShopFollowRoutes = <GoRoute>[
   GoRoute(path: '/me/memberships', builder: (context, state) => const AskodoxMyMembershipsScreen()),
   // Owner 2026-11-27 (phase 6): bills & warranty papers, kept on the person's own phone.
   GoRoute(path: '/me/vault', builder: (context, state) => const AskodoxVaultScreen()),
+  // Owner 2026-11-27 (phase 6): the home kitchen stock, on the person's own phone.
+  GoRoute(path: '/me/kitchen', builder: (context, state) => const AskodoxKitchenScreen()),
   // Finance item: answers from the company's document + a call back on the customer's yes.
   GoRoute(path: '/finance/:id', builder: (context, state) => AskodoxFinanceItemScreen(itemId: state.pathParameters['id']!)),
   // Photo try-on: ?image=<item photo url>&name=<item>&mode=on_me|in_home (from a result card, or empty).
