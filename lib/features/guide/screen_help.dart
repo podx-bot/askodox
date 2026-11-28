@@ -1032,6 +1032,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'వాడినప్పుడు, కొన్నప్పుడు + - నొక్కండి. "అయిపోయింది" నొక్కితే కొనుగోలు లిస్ట్‌కి వెళ్తుంది. మీ స్వంత తక్కువ స్థాయి కూడా పెట్టవచ్చు.',
     'కొనుగోలు లిస్ట్‌ని కుటుంబానికి పంపవచ్చు. కిరాణా ఖర్చు రాస్తే ఈ నెల మొత్తం కనిపిస్తుంది. లిస్ట్ ఈ ఫోన్‌లోనే ఉంటుంది.',
   ]),
+  '/me/home': _H('My home', 'నా ఇల్లు', [
+    '"Photograph a bill" reads a bill or warranty paper; you check it before it is kept on this phone.',
+    'The tiles open your kitchen stock, your bills & warranty, and the groceries you noted this month.',
+    '"To remember this week" lists warranties that are ending and kitchen items that are low.',
+  ], [
+    '"బిల్ ఫోటో తీయండి" బిల్ / వారంటీ కాగితాన్ని చదువుతుంది; ఈ ఫోన్‌లో ఉంచే ముందు మీరు సరిచూస్తారు.',
+    'టైల్స్ మీ వంటగది స్టాక్, బిల్స్ & వారంటీ, ఈ నెల నోట్ చేసిన కిరాణా ఖర్చు తెరుస్తాయి.',
+    '"ఈ వారం గుర్తు చేయాల్సినవి" ముగుస్తున్న వారంటీలు, తక్కువగా ఉన్న వంటగది వస్తువులు చూపిస్తుంది.',
+  ]),
   '/me/vault': _H('Bills & warranty', 'బిల్స్ & వారంటీ', [
     'Take a photo of a bill or a warranty card. AI reads the item, shop, dates and serial number; check them and save.',
     'The list shows which warranty is ending. Search by item or shop. Tap a paper to see its photo and details.',

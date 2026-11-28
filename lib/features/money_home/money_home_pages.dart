@@ -98,6 +98,7 @@ const askodoxBuyerPages = <AskodoxLaunchPage>[
       route: '/me/monthly'),
   AskodoxLaunchPage('b.memberships', 'My memberships', 'నా సభ్యత్వాలు', Icons.badge_rounded, AskodoxLook.accentText,
       route: '/me/memberships'),
+  AskodoxLaunchPage('b.myhome', 'My home', 'నా ఇల్లు', Icons.home_outlined, AskodoxLook.good, route: '/me/home'),
   AskodoxLaunchPage('b.vault', 'Bills & warranty', 'బిల్స్ & వారంటీ', Icons.verified_user_outlined, AskodoxLook.good,
       route: '/me/vault'),
   AskodoxLaunchPage('b.kitchen', 'Kitchen stock', 'వంటగది స్టాక్', Icons.kitchen_outlined, AskodoxLook.accentText,
