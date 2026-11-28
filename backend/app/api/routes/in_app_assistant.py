@@ -276,6 +276,7 @@ def _assistant_answer(payload: AssistantRequest, request: Request, on_text: Any 
     card = None
     if answer_card.wanted(capabilities):
         card = _answer_card(service, decision, payload.message, user_words)
+        card = _with_presentation_file(request, container, service, card, decision, user_words, locale)
     else:
         # An app that cannot draw the card never sees the [[more]] mark.
         decision = {**decision, "reply": answer_card.without_mark(decision.get("reply", ""))}
@@ -291,6 +292,57 @@ def _user_words(service: Any, message: str) -> str:
         return str(service.split_app_context(message)[0] or message)
     except Exception:
         return str(message or "")
+
+
+def _with_presentation_file(request: Request, container: Any, service: Any, card: dict | None, decision: dict,
+                            user_words: str, locale: Any) -> dict | None:
+    """Owner phone 2026-11-28: "make a presentation" gave a slide outline and no file. When the person asked for a
+    presentation / PPT, the slides are drawn into a real .pptx and the card gets a download button."""
+    from app.services import presentation_file
+
+    try:
+        if not presentation_file.wanted(user_words):
+            return card
+        writer = None
+        if hasattr(service, "write_text") and getattr(service, "any_model", False):
+            writer = lambda prompt: service.write_text(prompt, max_tokens=3500)  # noqa: E731
+        action = presentation_file.make_download(
+            writer, container.settings.database_path, str(request.base_url), user_words,
+            str(decision.get("reply") or ""), telugu=str(locale or "").startswith("te"))
+        if action is None:
+            return card
+        card = dict(card) if card else {
+            "v": 1, "kind": "answer", "label": "", "headline": answer_card_headline(decision), "speak": "",
+            "risk": None, "risk_label": "", "seen": None, "tabs": [], "donts": [], "replies": [], "primary": None,
+            "actions": [], "share": False}
+        if not card.get("primary"):
+            card["primary"] = action
+        else:
+            card["actions"] = [*(card.get("actions") or []), action][:2]
+        return card
+    except Exception:
+        logger.exception("in_app_assistant: presentation file failed")
+        return card
+
+
+def answer_card_headline(decision: dict) -> str:
+    from app.services import answer_card
+
+    return answer_card.spoken_part(str(decision.get("reply") or ""))[:140] or "Presentation"
+
+
+@router.get("/files/ppt/{token}")
+def download_presentation(token: str, request: Request):
+    """The deck made for one answer: unguessable token, kept 24 h."""
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+    from app.services import presentation_file
+
+    data = presentation_file.read(request.app.state.container.settings.database_path, token)
+    if data is None:
+        raise HTTPException(status_code=404, detail="expired")
+    return Response(content=data, media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    headers={"Content-Disposition": 'attachment; filename="askodox-presentation.pptx"'})
 
 
 def _answer_card(service: Any, decision: dict, message: str, user_words: str) -> dict | None:
