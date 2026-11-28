@@ -40,4 +40,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byKey(const Key('askodoxStoryChip-type')), findsNothing);
   });
+
+  test('kinds picked are kept, unknown ids dropped, more than one allowed', () {
+    final story = const AskodoxStory(picks: ['home', 'meat']);
+    final back = askodoxStoryDecode(askodoxStoryEncode(story));
+    expect(back.picks, ['home', 'meat']);
+    final bad = askodoxStoryDecode('{"a":[],"c":{},"p":["home","nonsense","home"]}');
+    expect(bad.picks, ['home']);
+    expect(askodoxStoryKinds.length, 12);
+  });
 }

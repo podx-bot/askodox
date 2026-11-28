@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/theme/askodox_look.dart';
 import '../../shared/widgets/estimate_note.dart';
@@ -156,6 +157,32 @@ String? askodoxExplainerRoute(String route, String? shopId) {
   return route.replaceAll(':id', shopId);
 }
 
+const askodoxContactPrefKey = 'askodox.contactpref.v1';
+
+/// How the person wants to be reached about a request that is noted: whatsapp / call / app ('' = not chosen). Phone only.
+final askodoxContactPrefProvider = StateNotifierProvider<AskodoxContactPref, String>((ref) => AskodoxContactPref());
+
+class AskodoxContactPref extends StateNotifier<String> {
+  AskodoxContactPref() : super('') {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final v = (await SharedPreferences.getInstance()).getString(askodoxContactPrefKey) ?? '';
+      if (mounted && const ['whatsapp', 'call', 'app'].contains(v)) state = v;
+    } catch (_) {}
+  }
+
+  Future<void> choose(String v) async {
+    if (!const ['whatsapp', 'call', 'app'].contains(v)) return;
+    state = v;
+    try {
+      await (await SharedPreferences.getInstance()).setString(askodoxContactPrefKey, v);
+    } catch (_) {}
+  }
+}
+
 /// "Solutions for my trouble": the cards that fit what the person told about the business first, then all of them.
 class AskodoxExplainersScreen extends ConsumerWidget {
   const AskodoxExplainersScreen({super.key, this.only = ''});
@@ -203,6 +230,17 @@ class AskodoxExplainersScreen extends ConsumerWidget {
                   ? 'మీ అభ్యర్థన నోట్ చేసుకుంటాం, త్వరలోనే మిమ్మల్ని సంప్రదిస్తాం, అప్‌డేట్ చేసి ఇస్తాం.'
                   : 'We note your request, will get back to you soon and update the app for it.',
               style: const TextStyle(color: AskodoxLook.muted)),
+          const SizedBox(height: 8),
+          Text(te ? 'మిమ్మల్ని ఎలా సంప్రదించాలి?' : 'How should we reach you?', style: const TextStyle(fontWeight: FontWeight.w700)),
+          Wrap(spacing: 8, children: [
+            for (final c in [('whatsapp', 'WhatsApp', 'WhatsApp'), ('call', 'Phone call', 'ఫోన్ కాల్'), ('app', 'In the app', 'యాప్‌లో')])
+              ChoiceChip(
+                key: ValueKey('askodoxContact-${c.$1}'),
+                label: Text(te ? c.$3 : c.$2),
+                selected: ref.watch(askodoxContactPrefProvider) == c.$1,
+                onSelected: (_) => ref.read(askodoxContactPrefProvider.notifier).choose(c.$1),
+              ),
+          ]),
           const SizedBox(height: 8),
           const AskodoxEstimateNote(),
         ]),

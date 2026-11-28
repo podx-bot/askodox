@@ -14837,6 +14837,45 @@
           "askodoxMeasureGrams"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "voice_business_onboarding",
+        "explainer_cards"
+      ],
+      "domains": [
+        "buyer",
+        "seller"
+      ],
+      "expected_behavior": "\"Tell about my business\" page also has 12 tap-able kinds of work (more than one may be picked, kept on the phone: askodoxStoryKinds / picks); the solutions page asks how to reach the person about a noted request (WhatsApp / call / in the app), kept on the phone (askodoxContactPrefProvider). Nothing is sent; the note says the request is noted and he will be contacted.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: kind picker + contact choice"
+      ],
+      "id": "story_kinds_contact_choice",
+      "name": "Kind picker and contact choice",
+      "purpose": "Let the person tap his kinds of work and say how he wants to be contacted.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/business_story/business_story_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxStoryKindsNote"
+        ],
+        "symbols": [
+          "askodoxStoryKinds",
+          "askodoxContactPrefProvider"
+        ]
+      }
     }
   ]
 }
