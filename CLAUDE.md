@@ -8,7 +8,7 @@ this file, don't trust it blindly.
 
 ## Current verified checkpoint
 - Branch `claude/kitchen-stock` (2026-11-28, phase 6; after #554 vault): KITCHEN STOCK -- `lib/features/kitchen/` (`/me/kitchen`, Buyer page `b.kitchen`): the person's OWN home items (own unit, own low level, NO presets; amounts in milli-units), + / - / finished, buy list (low or finished) shared as text, month grocery spend the person types; phone only (`askodox.kitchen.v1`, account-scoped); `AskodoxEstimateNote`. NOT built: grocery bill photo -> items in one go, family sharing across phones, voice "dal finished". Registry `kitchen_stock_home`. Nothing phone verified.
-- `main` PR #559 (2026-11-28, owner "కట్టండి" on the agent team demo, canvas 9w4B1qVNUadY5rDaJSgi2y; squash c0e8a05; NOT in any Play bundle): AGENT TEAM --
+- `main` PR #559 (2026-11-28, owner "కట్టండి" on the agent team demo, canvas 9w4B1qVNUadY5rDaJSgi2y; squash c0e8a05; Play bundle `askodox-play-1747.aab` = Live Build run 747 on 6c8836f, public release `play-bundle-1747`, also holds #554 #556 #560): AGENT TEAM --
   `pos_agents.py` `pos_agent_settings` (`agents_off`, `approvers` owner | owner_manager; PUT owner only) + `team()` / `approvers()`; a
   switched-off agent is hidden from all but the owner and refuses ask / propose with 409 `agent_off`; `approvers=owner` -> a manager's decision
   is 403; a sensitive proposal sends ONE push to the people who may approve (never the proposer, route `/pos/:id/agents/inbox`, no numbers).
