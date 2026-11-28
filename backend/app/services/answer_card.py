@@ -463,6 +463,10 @@ _LETTER_SHAPE = re.compile(r"(?:^|\n)\s*(?:dear\s|respected\s|to,\s*$|subject\s*
 def is_written_document(reply: str, user_text: str = "") -> bool:
     """Owner phone 2026-11-28: a leave letter was cut at ~160 characters inside a card ("I will keep you"). A text the
     person asked us to WRITE (or that is shaped like a letter) is shown whole in the chat, never as card tabs."""
+    from app.services import presentation_file
+
+    if presentation_file.wanted(user_text):
+        return False
     text = str(reply or "")
     shaped = bool(_LETTER_SHAPE.search(text)) and len(text) > 200
     asked = bool(_WRITE_ASK.search(str(user_text or ""))) and len(text) > 200

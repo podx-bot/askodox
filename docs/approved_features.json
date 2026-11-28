@@ -15099,6 +15099,37 @@
           "askodoxMediaPickerProvider"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "one_screen_answer_card"
+      ],
+      "domains": [
+        "buyer",
+        "seller"
+      ],
+      "expected_behavior": "A presentation / PPT / slides ask makes one extra model call for the slides, python-pptx draws a real .pptx kept 24 h under an unguessable token (GET /api/in-app/files/ppt/{token}); the answer card gets an open_url download button. No slides made = the card is unchanged.",
+      "flags": {},
+      "history": [],
+      "id": "presentation_file_download",
+      "name": "Presentation file download",
+      "purpose": "Asking the chat for a presentation gives a real PowerPoint file, not only an outline.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_presentation_file.py"
+        ],
+        "flutter": []
+      },
+      "ui": {
+        "keys": [],
+        "symbols": []
+      }
     }
   ]
 }
