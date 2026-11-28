@@ -14990,6 +14990,41 @@
           "askodoxExplainersForKinds"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "stock_setup_three_steps"
+      ],
+      "domains": [
+        "buyer",
+        "seller"
+      ],
+      "expected_behavior": "A bill photo is read by the existing purchase bill reader; only kg lines are offered; tapping one fills item + stock which the owner checks; nothing is saved by the photo.",
+      "flags": {},
+      "history": [],
+      "id": "stock_from_bill_photo",
+      "name": "Stock from a bill photo",
+      "purpose": "Fill the stock-setup item and stock from the kg lines of a supplier bill photo.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/stock_setup_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxSetupBillPhoto"
+        ],
+        "symbols": [
+          "askodoxBillKgLines"
+        ]
+      }
     }
   ]
 }
