@@ -84,9 +84,9 @@ class _AskodoxWeeklyReportScreenState extends ConsumerState<AskodoxWeeklyReportS
     final shops = ref.watch(askodoxMyShopsProvider).valueOrNull ?? const [];
     final names = {for (final s in shops) '${s['id']}': '${s['name'] ?? ''}'};
     final books = {for (final e in state.books.entries) e.key: e.value};
-    final items = <String>[
+    final items = <String>{
       for (final b in books.values) ...[for (final d in b.days) d.item, for (final l in b.batches) l.item],
-    ].toSet().toList();
+    }.toList();
     final item = _item != null && items.contains(_item) ? _item! : (items.isEmpty ? '' : items.first);
     final days = askodoxWeekDays(DateTime.now());
     final all = books.values.toList();
