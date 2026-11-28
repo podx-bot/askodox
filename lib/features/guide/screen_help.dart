@@ -1000,6 +1000,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పంపు / ఆమోదించు / చూడు నొక్కితే ఆ పేజీ తెరుచుకుంటుంది; మీరే చూసి చేయాలి. ASKODOX డ్రాఫ్ట్ మాత్రమే చేస్తుంది.',
     'కింద: నిన్న జరిగినవి, నిజమైన లెక్కలు. చదవలేని లెక్క చూపించదు.',
   ]),
+  '/biz/:id/school': _H('Classes & attendance', 'క్లాసులు & హాజరు', [
+    'For a school, tuition, coaching or college. Top: only what needs you today (a class not marked, a child away for days, someone not on the parent\'s list, a sick child to ask after).',
+    'Open a class, tap "Mark today" and tap only the children who did not come. Tap a child for the gate (who takes the child) or the health room.',
+    'Messages to parents are drafts that open in YOUR WhatsApp; they go only when you send them.',
+  ], [
+    'స్కూల్, ట్యూషన్, కోచింగ్, కాలేజ్ కోసం. పైన: ఈరోజు మీరు చూడాల్సినవి మాత్రమే (హాజరు వేయని క్లాస్, రోజులుగా రాని పిల్ల, జాబితాలో లేనివారు, ఎలా ఉన్నారో అడగాల్సిన పిల్ల).',
+    'క్లాస్ తెరిచి "హాజరు వేయి" నొక్కి, రానివారిని మాత్రమే నొక్కండి. పిల్లను నొక్కితే గేట్ (ఎవరు తీసుకెళ్తున్నారు) లేదా హెల్త్ రూమ్.',
+    'తల్లిదండ్రులకు మెసేజ్ లు డ్రాఫ్ట్ లు; మీ WhatsApp లో తెరుచుకుంటాయి, మీరు పంపితేనే వెళ్తాయి.',
+  ]),
   '/biz/:id/members': _H('Members & attendance', 'సభ్యులు & హాజరు', [
     'For a gym, a class, a pool, a library: members who pay for a term. Top: members, ending this month, fee to come.',
     'New member: name, phone, term, fee. ASKODOX works out the end day. Tap a member when the fee comes: the end day moves on.',

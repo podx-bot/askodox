@@ -16,6 +16,7 @@ import 'biz_reports.dart';
 import 'biz_staff.dart';
 import 'biz_work.dart';
 import '../../memberships/memberships_screens.dart';
+import '../../school/school_screens.dart';
 
 /// The business hub's pages (owner 2026-11-18): `/biz/:id` is the hub, `/biz/:id/:group` a group page.
 final askodoxBizRoutes = <GoRoute>[
@@ -113,6 +114,8 @@ final askodoxBizRoutes = <GoRoute>[
   GoRoute(
       path: '/biz/:id/members/report',
       builder: (c, s) => AskodoxMembersReportScreen(businessId: s.pathParameters['id']!)),
+  // Owner 2026-11-28: classes + daily register + gate + health room for a school / tuition / college.
+  GoRoute(path: '/biz/:id/school', builder: (c, s) => AskodoxSchoolScreen(businessId: s.pathParameters['id']!)),
   GoRoute(
       path: '/biz/:id/monthly',
       builder: (c, s) => s.uri.queryParameters['full'] == '1'
