@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/theme/askodox_look.dart';
 import '../home/domain/shopping_mode.dart';
 import '../money_home/money_home_store.dart';
+import '../pos/data/pos_repository.dart';
 import 'yield_math.dart';
 import 'yield_store.dart';
 
@@ -65,6 +66,9 @@ class AskodoxClosingController extends StateNotifier<Map<String, String>> {
     } catch (_) {}
   }
 
+  /// The server only learns the clock time, so it can push at that time. Best effort: the chip works without it.
+  Future<void> Function(String shop, String? time) tell = (shop, time) async {};
+
   Future<void> set(String shop, String? time) async {
     final next = {...state};
     if (time == null || askodoxClosingParse(time) == null) {
@@ -74,13 +78,20 @@ class AskodoxClosingController extends StateNotifier<Map<String, String>> {
     }
     state = next;
     try {
+      await tell(shop, next[shop]);
+    } catch (_) {}
+    try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(askodoxClosingPrefsKey, [for (final e in next.entries) '${e.key}=${e.value}'].join('|'));
     } catch (_) {}
   }
 }
 
-final askodoxClosingProvider = StateNotifierProvider<AskodoxClosingController, Map<String, String>>((ref) => AskodoxClosingController());
+final askodoxClosingProvider = StateNotifierProvider<AskodoxClosingController, Map<String, String>>((ref) {
+  final c = AskodoxClosingController();
+  c.tell = (shop, time) => ref.read(askodoxPosRepositoryProvider).setClosingTime(shop, time);
+  return c;
+});
 final askodoxClosingClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// The closing-time row on the yield page: the owner's own time, or off.

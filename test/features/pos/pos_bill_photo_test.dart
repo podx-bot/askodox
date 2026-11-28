@@ -103,4 +103,52 @@ void main() {
     expect(lines.length, 3);
     expect((lines.first as Map).containsKey('price_paise'), isFalse, reason: 'no selling price was typed and none is sent');
   });
+
+  // Owner 2026-11-28 (design "Purchase"): GST bill or hand slip, GST shown on the rows, then another bill.
+  testWidgets('bill photo: GST bill shows its GST; a hand slip has none; save and add another bill', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(900, 3200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final api = _Api((method, path, body) {
+      if (path.endsWith('/purchases/photo')) {
+        return {'read': true, 'supplier': {'name': 'Sample Farm', 'gstin': '36ABCDE1234F1Z5', 'phone': ''}, 'supplier_id': null,
+          'supplier_name': 'Sample Farm', 'bill_no': '7', 'bill_date': '2026-11-24', 'total_paise': null, 'total_qty_milli': null,
+          'lines': [
+            {'name': 'Oil', 'unit': 'L', 'qty_milli': 15000, 'cost_paise': 12000, 'rate_bp': 500, 'new': true, 'product_id': null, 'price_paise': null, 'ask': <String>[]},
+          ], 'ask': <String>[], 'new_items': 1};
+      }
+      if (path.endsWith('/purchases/from-photo')) return {'id': 'pur1', 'created_items': 1};
+      return <String, Object?>{};
+    });
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        askodoxPosRepositoryProvider.overrideWithValue(AskodoxPosRepository(api, authToken: 't')),
+        askodoxMediaPickerProvider.overrideWithValue(_Picker()),
+      ],
+      child: MaterialApp(
+          home: Builder(
+              builder: (context) => TextButton(
+                  onPressed: () => Navigator.of(context)
+                      .push(MaterialPageRoute<bool>(builder: (_) => const AskodoxPosBillPhotoScreen(businessId: 'b1'))),
+                  child: const Text('OPEN')))),
+    ));
+    await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('askodoxPosBillPhotoGallery')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('₹90'), findsWidgets, reason: '5% of 15 L x Rs 120 = Rs 90');
+    expect(find.byKey(const Key('askodoxPosBillPhotoTotalWithGst')), findsOneWidget);
+    await tester.tap(find.text('No GST / hand slip'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('askodoxPosBillPhotoGst')), findsNothing, reason: 'a hand slip has no GST');
+    await tester.ensureVisible(find.byKey(const Key('askodoxPosBillPhotoSaveNext')));
+    await tester.tap(find.byKey(const Key('askodoxPosBillPhotoSaveNext')));
+    await tester.pumpAndSettle();
+    final sent = api.bodies['POST /api/pos/businesses/b1/purchases/from-photo'] as Map;
+    expect((sent['supplier'] as Map)['gstin'], '');
+    expect(((sent['lines'] as List).first as Map)['rate_bp'], 0);
+    expect(find.byKey(const Key('askodoxPosBillPhotoGallery')), findsOneWidget, reason: 'ready for the next bill');
+    expect(find.byKey(const Key('askodoxPosBillPhotoSupplier')), findsNothing);
+  });
 }

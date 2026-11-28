@@ -25,4 +25,10 @@ void main() {
     // a lot older than three days is not an item in use
     expect(askodoxClosingDue(book, DateTime(2026, 12, 5, 23), '22:30'), isEmpty);
   });
+
+  test('a day end keeps the name of its stock photo', () {
+    const d = AskodoxYieldDay(item: 'chicken', day: '2026-11-28', actualGrams: 2100, photo: 'stock-1.jpg');
+    expect(AskodoxYieldDay.from(d.toJson())?.photo, 'stock-1.jpg');
+    expect(const AskodoxYieldDay(item: 'chicken', day: '2026-11-28').toJson().containsKey('photo'), isFalse);
+  });
 }

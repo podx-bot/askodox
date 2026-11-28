@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/media_picker.dart';
+import '../../../shared/widgets/estimate_note.dart';
 import '../data/pos_repository.dart';
 import '../domain/pos_money.dart';
 import 'pos_common.dart';
@@ -73,7 +74,8 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
   bool _skipPrintedTotal = false; // the person chose to save although the lines do not add up to the printed total
   final List<_BillLine> _lines = [];
   final List<_BillLine> _removed = []; // disposed with the screen (their boxes may still be on screen this frame)
-  final _txn = askodoxNewTxnId();
+  String _txn = askodoxNewTxnId();
+  bool _gstBill = true; // false = a hand slip / a bill with no GST (owner 2026-11-28, design "Purchase")
 
   @override
   void dispose() {
@@ -130,7 +132,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _save({bool another = false}) async {
     final te = askodoxPosTe(context);
     final lines = <AskodoxJson>[];
     for (final l in _lines) {
@@ -178,11 +180,15 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
       final out = await ref.read(askodoxPosRepositoryProvider).purchaseFromPhoto(widget.businessId, {
         'client_txn_id': _txn,
         if (_supplierId != null) 'supplier_id': _supplierId,
-        'supplier': {..._supplier, 'name': _supplierName.text.trim()},
+        'supplier': {
+          ..._supplier,
+          'name': _supplierName.text.trim(),
+          if (!_gstBill) 'gstin': '', // a hand slip has no GSTIN
+        },
         'supplier_bill_no': _billNo.text.trim(),
         if (_billDate.isNotEmpty) 'bill_date': _billDate,
         if (_totalPaise != null && !_skipPrintedTotal) 'supplier_total_paise': _totalPaise,
-        'lines': lines,
+        'lines': [for (final l in lines) _gstBill ? l : {...l, 'rate_bp': 0}],
       });
       if (!mounted) return;
       final created = askodoxPosInt(out['created_items']);
@@ -191,7 +197,11 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
           te
               ? 'బిల్లు సేవ్ అయింది ✓ స్టాక్ పెరిగింది${created > 0 ? ' · $created కొత్త ఐటమ్స్ చేరాయి' : ''}'
               : 'Bill saved ✓ stock added${created > 0 ? ' · $created new items added' : ''}');
-      Navigator.of(context).pop(true);
+      if (another) {
+        _startAnother();
+      } else {
+        Navigator.of(context).pop(true);
+      }
     } on AskodoxPosException catch (e) {
       if (!mounted) return;
       if (e.code == 'total_mismatch' && !_skipPrintedTotal) {
@@ -204,7 +214,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
                 : 'The rows add up to ₹${_BillLine._rupees(_amountSum)}. The bill says ₹${_BillLine._rupees(_totalPaise)}. Save with the rows\' total?');
         if (ok && mounted) {
           _skipPrintedTotal = true;
-          return _save();
+          return _save(another: another);
         }
         return;
       }
@@ -213,6 +223,29 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  /// "+ another bill": the saved one is done; the screen is ready for the next photo (a new transaction id).
+  void _startAnother() {
+    setState(() {
+      _removed.addAll(_lines);
+      _lines.clear();
+      _read = false;
+      _supplierId = null;
+      _supplier = const {};
+      _supplierName.clear();
+      _billNo.clear();
+      _billDate = '';
+      _totalPaise = null;
+      _totalQtyMilli = null;
+      _skipPrintedTotal = false;
+      _gstBill = true;
+      _error = null;
+      _txn = askodoxNewTxnId();
+    });
+  }
+
+  /// GST on the rows (each row's own rate), rounded per row.
+  int get _gstSum => _lines.fold(0, (sum, l) => sum + ((_lineAmount(l) ?? 0) * (_gstBill ? l.rateBp : 0) / 10000).round());
 
   /// The rows' quantity added up -- only when every row has one unit (kg + pcs are never added).
   int? get _qtySum {
@@ -340,6 +373,24 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
           ),
         if (_read && !_reading) ...[
           const SizedBox(height: 12),
+          SegmentedButton<bool>(
+            key: const Key('askodoxPosBillPhotoKind'),
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: true, label: Text(te ? 'GST బిల్ (రిజిస్టర్డ్)' : 'GST bill (registered)', textAlign: TextAlign.center)),
+              ButtonSegment(value: false, label: Text(te ? 'GST లేని / చేతి చీటీ' : 'No GST / hand slip', textAlign: TextAlign.center)),
+            ],
+            selected: {_gstBill},
+            onSelectionChanged: (v) => setState(() {
+              _gstBill = v.first;
+              if (!_gstBill) {
+                for (final l in _lines) {
+                  l.rateBp = 0;
+                }
+              }
+            }),
+          ),
+          const SizedBox(height: 8),
           TextField(
               key: const Key('askodoxPosBillPhotoSupplier'),
               controller: _supplierName,
@@ -476,10 +527,25 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
                 key: const Key('askodoxPosBillPhotoWrittenQty'),
                 style: TextStyle(
                     fontWeight: FontWeight.w700, color: _totalQtyMilli == _qtySum ? null : const Color(0xFFFB9F7A))),
+          if (_gstBill && _gstSum > 0) ...[
+            Text('${te ? 'GST' : 'GST'}: ₹${_BillLine._rupees(_gstSum)}', key: const Key('askodoxPosBillPhotoGst')),
+            Text('${te ? 'మొత్తం (GST తో)' : 'Total with GST'}: ₹${_BillLine._rupees(_amountSum + _gstSum)}',
+                key: const Key('askodoxPosBillPhotoTotalWithGst'), style: const TextStyle(fontWeight: FontWeight.w800)),
+          ],
           if (_totalPaise != null)
             Text('${te ? 'బిల్లు మీద మొత్తం' : 'Total printed on the bill'}: ₹${_BillLine._rupees(_totalPaise)}',
                 style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          const AskodoxEstimateNote(),
           const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: const Key('askodoxPosBillPhotoSaveNext'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+            onPressed: _saving || _lines.isEmpty ? null : () => _save(another: true),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(te ? 'సేవ్ చేసి మరో బిల్' : 'Save and add another bill'),
+          ),
+          const SizedBox(height: 8),
           FilledButton.icon(
             key: const Key('askodoxPosBillPhotoSave'),
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
