@@ -14869,8 +14869,8 @@
       },
       "ui": {
         "keys": [
-          "askodoxStoryKind-home",
-          "askodoxContact-whatsapp"
+          "askodoxStoryKind-",
+          "askodoxContact-"
         ],
         "symbols": [
           "askodoxStoryKinds",
