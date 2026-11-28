@@ -36,7 +36,7 @@ void main() {
     expect(find.byKey(const Key('askodoxStoryBubble-a0')), findsOneWidget);
     expect(find.byKey(const Key('askodoxStoryChip-type')), findsOneWidget);
     expect(find.byKey(const Key('askodoxStoryField')), findsOneWidget);
-    await tester.tap(find.descendant(of: find.byKey(const Key('askodoxStoryChip-type')), matching: find.byIcon(Icons.cancel)));
+    tester.widget<InputChip>(find.byKey(const Key('askodoxStoryChip-type'))).onDeleted!();
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byKey(const Key('askodoxStoryChip-type')), findsNothing);
   });
