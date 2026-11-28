@@ -14869,8 +14869,7 @@
       },
       "ui": {
         "keys": [
-          "askodoxStoryKind-",
-          "askodoxContact-"
+          "askodoxStoryKindsNote"
         ],
         "symbols": [
           "askodoxStoryKinds",
