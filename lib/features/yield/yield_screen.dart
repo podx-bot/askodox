@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../config/theme/askodox_look.dart';
 import '../../services/media_picker.dart';
@@ -303,6 +304,12 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
         key: const Key('askodoxYieldDayEnd'),
         onPressed: last == null ? null : _openDay,
         child: Text(te ? 'రోజు ముగింపు · స్టాక్ + లాభం' : 'Day end · stock + profit'),
+      ),
+      OutlinedButton.icon(
+        key: const Key('askodoxYieldWeekly'),
+        onPressed: () => context.push('/weekly'),
+        icon: const Icon(Icons.bar_chart_rounded),
+        label: Text(te ? 'ఈ వారం రిపోర్ట్' : 'This week'),
       ),
       AskodoxClosingRow(businessId: widget.businessId),
       if (lots.length > 1) ...[

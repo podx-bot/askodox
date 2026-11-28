@@ -1335,6 +1335,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన షాప్ QR; టేబుల్ నొక్కితే దాని QR. ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
     'పెద్ద బటన్ ఆర్డర్ కోడ్‌ని కస్టమర్లకు WhatsApp లో పంపుతుంది. ఇంకా టేబుల్స్, కాపీ ⋮ మెనూలో.',
   ]),
+  '/weekly': _H('This week', 'ఈ వారం రిపోర్ట్', [
+    'Pick an item: the stock that was not accounted for this week, and its value, show at the top.',
+    'The bars show the leak day by day; below, the cost share for each of your shops and the supplier\'s last two rates.',
+    'It reads only the lots and day ends you entered on the Yield & rates page. Nothing is sent anywhere.',
+  ], [
+    'ఒక వస్తువు ఎంచుకోండి: ఈ వారం లెక్కలో లేని స్టాక్, దాని విలువ పైన కనిపిస్తాయి.',
+    'బార్లు రోజు వారీ లీక్ చూపిస్తాయి; కింద మీ ప్రతి షాప్ కాస్ట్ %, సప్లయర్ చివరి రెండు రేట్లు ఉంటాయి.',
+    'యీల్డ్ & రేట్లు పేజీలో మీరు రాసిన సరుకు, రోజు ముగింపులు మాత్రమే చదువుతుంది. ఎక్కడికీ పంపదు.',
+  ]),
   '/pos/:id/yield': _H('Yield & rates', 'యీల్డ్ & రేట్లు', [
     '"New lot came in": enter the weight you bought, the rate, transport and unloading. The total shows at once.',
     'After dressing / cleaning, weigh what is left to sell: you see your yield % and the real cost of each sellable kg.',

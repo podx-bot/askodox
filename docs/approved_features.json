@@ -14407,6 +14407,47 @@
           "AskodoxPosBillPhotoScreen"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "yield_and_rates"
+      ],
+      "domains": [
+        "seller",
+        "stock"
+      ],
+      "expected_behavior": "This week's report (/weekly, opened from the yield page): for one item across the owner's shops, the stock not accounted for this week with its value, the leak day by day, the cost share per shop and the supplier's last two lot rates. Read only from the owner's own lots and day ends on the phone; rough-figures note.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: weekly report"
+      ],
+      "id": "weekly_report_leak",
+      "name": "Weekly report",
+      "purpose": "Show the week's stock leak, cost share per shop and supplier rate.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/weekly_report_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxWeekly",
+          "askodoxYieldWeekly",
+          "askodoxWeeklyTotal"
+        ],
+        "symbols": [
+          "AskodoxWeeklyReportScreen",
+          "askodoxMissingGrams",
+          "askodoxCostShareBp",
+          "askodoxSupplierRates"
+        ]
+      }
     }
   ]
 }
