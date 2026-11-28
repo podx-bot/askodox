@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/theme/askodox_look.dart';
 import '../home/domain/shopping_mode.dart';
 import '../money_home/money_home_store.dart';
-import '../pos/data/pos_repository.dart';
 import 'yield_math.dart';
 import 'yield_store.dart';
 
