@@ -14529,6 +14529,48 @@
           "askodoxStoryDecode"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "voice_business_onboarding"
+      ],
+      "domains": [
+        "buyer",
+        "seller",
+        "kit"
+      ],
+      "expected_behavior": "\"Problem -> solution\" (/me/solutions, Buyer page b.solutions): cards, each a common trouble with steps that open the page that solves it (yield, purchase bill photo, dues, prices, members, warranty vault). Cards are data, one engine for every business and for homes; they hold no figures. Cards fitting the person's own spoken problem (business story) come first; a step needing a shop says so when none exists; a different trouble goes to the chat with a note-taken wording (never the word Ledu).",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: explainer cards"
+      ],
+      "id": "explainer_cards",
+      "name": "Problem to solution cards",
+      "purpose": "Show each owner the steps for his own trouble, inside the app.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/explainers/explainer_cards_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxExplainers",
+          "askodoxExplainersMine",
+          "askodoxStorySolutions"
+        ],
+        "symbols": [
+          "AskodoxExplainersScreen",
+          "askodoxExplainersFor",
+          "askodoxExplainerRoute"
+        ]
+      }
     }
   ]
 }

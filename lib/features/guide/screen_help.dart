@@ -1041,6 +1041,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     '"మేం అర్థం చేసుకున్నవి"లో మీరు చెప్పినవే కనిపిస్తాయి. తప్పు చిప్‌పై ✕ నొక్కండి.',
     'తర్వాత మీ సమస్యకు పరిష్కారం చాట్‌లో అడగండి. మీ సమాధానాలు ఈ ఫోన్‌లోనే ఉంటాయి.',
   ]),
+  '/me/solutions': _H('Problem → solution', 'సమస్య → పరిష్కారం', [
+    'Each card names a common business trouble and the steps ASKODOX gives for it.',
+    'Tap a step to open the page that does it. Use your own numbers there.',
+    'Cards that fit what you told about your business come first.',
+  ], [
+    'ప్రతి కార్డ్ ఒక సాధారణ బిజినెస్ సమస్యను, దానికి ASKODOX ఇచ్చే స్టెప్స్‌ను చూపిస్తుంది.',
+    'స్టెప్ నొక్కితే ఆ పని చేసే పేజీ తెరుచుకుంటుంది. అక్కడ మీ సొంత లెక్కలే వేయండి.',
+    'మీ బిజినెస్ గురించి చెప్పినదానికి సరిపోయే కార్డులు ముందుగా వస్తాయి.',
+  ]),
   '/me/home': _H('My home', 'నా ఇల్లు', [
     '"Photograph a bill" reads a bill or warranty paper; you check it before it is kept on this phone.',
     'The tiles open your kitchen stock, your bills & warranty, and the groceries you noted this month.',
