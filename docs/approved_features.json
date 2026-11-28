@@ -14448,6 +14448,47 @@
           "askodoxSupplierRates"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "paper_vault_bills_warranty",
+        "kitchen_stock_home"
+      ],
+      "domains": [
+        "buyer",
+        "home"
+      ],
+      "expected_behavior": "\"My home\" (/me/home, Buyer page b.myhome): a photo button that opens Bills & warranty straight on the camera, tiles for kitchen stock, bills & warranty, the month's noted groceries and the family list, and a week list of ending warranties (reminder on) and low kitchen items. It only reads what the person keeps on this phone; nothing is sent. Rough-figures note.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: My home hub"
+      ],
+      "id": "home_hub_my_home",
+      "name": "My home",
+      "purpose": "One page for the home: kitchen, bills and warranty, groceries, reminders.",
+      "roles": [
+        "buyer"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/home_hub/home_hub_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxHomeHub",
+          "askodoxHomeHubPhoto",
+          "askodoxHomeHubKitchen",
+          "askodoxHomeHubVault"
+        ],
+        "symbols": [
+          "AskodoxHomeHubScreen",
+          "askodoxHomeReminders"
+        ]
+      }
     }
   ]
 }

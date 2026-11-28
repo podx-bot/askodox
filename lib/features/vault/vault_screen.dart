@@ -47,13 +47,27 @@ class AskodoxVaultChipStrip extends ConsumerWidget {
 /// Bills & warranty (design canvas "bills & warranty" + "bill + warranty details"): a photo of the paper -> its facts
 /// read for the person to check -> kept on this phone; the list finds it again and says which warranty is ending.
 class AskodoxVaultScreen extends ConsumerStatefulWidget {
-  const AskodoxVaultScreen({super.key});
+  const AskodoxVaultScreen({super.key, this.startPhoto = ''});
+
+  /// 'camera' / 'gallery': open straight on the photo picker (from "My home").
+  final String startPhoto;
 
   @override
   ConsumerState<AskodoxVaultScreen> createState() => _AskodoxVaultScreenState();
 }
 
 class _AskodoxVaultScreenState extends ConsumerState<AskodoxVaultScreen> {
+  @override
+  void initState() {
+    super.initState();
+    final first = widget.startPhoto;
+    if (first == 'camera' || first == 'gallery') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fromPhoto(first);
+      });
+    }
+  }
+
   final _search = TextEditingController();
   final _item = TextEditingController();
   final _shop = TextEditingController();
