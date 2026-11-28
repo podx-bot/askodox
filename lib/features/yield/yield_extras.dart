@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme/askodox_look.dart';
+import '../home/presentation/question_mic.dart';
 import '../native_video/video_commerce.dart' show askodoxShareTextProvider;
 import 'yield_math.dart';
 import 'yield_store.dart';
@@ -193,12 +194,25 @@ class AskodoxYieldExtras extends ConsumerWidget {
                 enabled: old == null,
                 decoration: InputDecoration(labelText: te ? 'ప్లేట్ / పీస్ పేరు' : 'Name of the plate / piece', counterText: '')),
             const SizedBox(height: 8),
-            TextField(
-                key: const Key('askodoxYieldPortionGrams'),
-                controller: grams,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setSheet(() {}),
-                decoration: _box(te ? 'మీ కొలత (ఒక ప్లేట్‌కి)' : 'Your measure (for one plate)', 'g')),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                    key: const Key('askodoxYieldPortionGrams'),
+                    controller: grams,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setSheet(() {}),
+                    decoration: _box(te ? 'మీ కొలత (ఒక ప్లేట్‌కి)' : 'Your measure (for one plate)', 'g')),
+              ),
+              AskodoxQuestionMic(
+                  key: const Key('askodoxYieldPortionMic'),
+                  lang: te ? 'te' : 'en',
+                  followCentre: false,
+                  always: true,
+                  onText: (w) {
+                    final v = askodoxMeasureGrams(w);
+                    if (v > 0) setSheet(() => grams.text = '$v');
+                  }),
+            ]),
             const SizedBox(height: 8),
             TextField(
                 key: const Key('askodoxYieldPortionRate'),
@@ -246,6 +260,14 @@ class AskodoxYieldExtras extends ConsumerWidget {
                     ),
                   ),
             const SizedBox(height: 8),
+            TextButton(
+              key: const Key('askodoxYieldMeasureAsk'),
+              onPressed: () => ScaffoldMessenger.of(sheet).showSnackBar(SnackBar(
+                  content: Text(te
+                      ? 'మీ అభ్యర్థన నోట్ చేసుకున్నాం, త్వరలోనే మిమ్మల్ని సంప్రదిస్తాం, అప్‌డేట్ చేసి మీకు ఇస్తాం.'
+                      : 'We noted your request. We will contact you soon and give it to you with an update.'))),
+              child: Text(te ? 'మీ ఐటమ్ కనిపించకపోతే చెప్పండి' : 'Item not here? Tell us'),
+            ),
             FilledButton(
               key: const Key('askodoxYieldPortionSave'),
               onPressed: () {
@@ -271,4 +293,15 @@ class AskodoxYieldExtras extends ConsumerWidget {
       }),
     );
   }
+}
+
+/// Grams from spoken or typed words: a number with kg / కేజీ is x1000, a bare number is grams, "half kilo" / "అర కేజీ" = 500.
+int askodoxMeasureGrams(String words) {
+  final w = words.toLowerCase();
+  final m = RegExp(r'\d+(?:[.,]\d+)?').firstMatch(w);
+  final kilo = w.contains('kg') || w.contains('kilo') || w.contains('కేజీ') || w.contains('కిలో');
+  if (m == null) return (w.contains('half') || w.contains('అర')) && kilo ? 500 : 0;
+  final text = m.group(0)!.replaceAll(',', '.');
+  // askodoxYieldParseGrams reads kg ("1.5" = 1500 g); a bare number said without kg is already grams.
+  return kilo ? askodoxYieldParseGrams(text) : (double.tryParse(text) ?? 0).round();
 }
