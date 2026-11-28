@@ -59,6 +59,7 @@ const askodoxAccountScopedKeys = <String>[
   'askodox.workout.v1',
   'askodox.yield.v1',
   'askodox.livestock.v1',
+  'askodox.stocksetup.v1',
   'askodox.vault.v1',
   'askodox.closing.v1',
   'askodox.kitchen.v1',
