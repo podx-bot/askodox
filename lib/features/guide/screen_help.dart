@@ -1362,6 +1362,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన షాప్ QR; టేబుల్ నొక్కితే దాని QR. ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
     'పెద్ద బటన్ ఆర్డర్ కోడ్‌ని కస్టమర్లకు WhatsApp లో పంపుతుంది. ఇంకా టేబుల్స్, కాపీ ⋮ మెనూలో.',
   ]),
+  '/pos/:id/live-stock': _H("Today's live stock", 'ఇవాళ లైవ్ స్టాక్', [
+    'Write what came this morning, then add each sale as it happens, by typing or by voice.',
+    'The kg that should be in the shop now is worked out at once.',
+    'Set your own level: when stock falls under it, this page tells you to order. These are your own entries.',
+  ], [
+    'ఉదయం వచ్చిన సరుకు రాయండి, తర్వాత ప్రతి అమ్మకం టైప్ చేసి లేదా చెప్పి కలపండి.',
+    'ఇప్పుడు షాప్‌లో ఉండాల్సిన kg వెంటనే వస్తుంది.',
+    'మీ స్వంత కనిష్ట స్థాయి పెట్టండి: స్టాక్ అంతకంటే తగ్గితే, ఆర్డర్ చేయమని ఈ పేజీ చెబుతుంది. ఇవి మీ సొంత ఎంట్రీలు.',
+  ]),
   '/trend': _H('Rate trend', 'రేటు ట్రెండ్', [
     'The lines show the real cost of a kg and your selling rate for the last 7 days, from your own day ends.',
     'Set your minimum profit on the Yield page: days that fell under it are told here.',
