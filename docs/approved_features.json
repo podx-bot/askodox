@@ -15025,6 +15025,42 @@
           "askodoxBillKgLines"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "live_stock_today"
+      ],
+      "domains": [
+        "buyer",
+        "seller"
+      ],
+      "expected_behavior": "One local notification when a sale crosses under his own level; no level = nothing; nothing is sent to the server.",
+      "flags": {},
+      "history": [],
+      "id": "low_stock_phone_note",
+      "name": "Low stock note on the phone",
+      "purpose": "Tell the owner on his own phone when a sale takes the stock under the level he set.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/live_stock_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxLiveAdd"
+        ],
+        "symbols": [
+          "askodoxLowCrossed",
+          "askodoxLowStockNote"
+        ]
+      }
     }
   ]
 }
