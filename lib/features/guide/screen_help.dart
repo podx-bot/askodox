@@ -1371,6 +1371,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన షాప్ QR; టేబుల్ నొక్కితే దాని QR. ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
     'పెద్ద బటన్ ఆర్డర్ కోడ్‌ని కస్టమర్లకు WhatsApp లో పంపుతుంది. ఇంకా టేబుల్స్, కాపీ ⋮ మెనూలో.',
   ]),
+  '/pos/:id/stock-setup': _H('Stock setup', 'స్టాక్ సెటప్', [
+    'Step 1: choose the item and write (or say) the stock you have now.',
+    'Step 2: choose per kg (shop) or recipe (hotel) and write your own selling rate.',
+    'Step 3: set your closing time. These are your own entries; change them any time.',
+  ], [
+    '1వ స్టెప్: ఐటమ్ ఎంచుకోండి, ఇప్పుడు ఉన్న స్టాక్ రాయండి లేదా చెప్పండి.',
+    '2వ స్టెప్: కేజీ రేటు (షాప్) లేదా రెసిపీ (హోటల్) ఎంచుకుని, మీ స్వంత అమ్మకం రేటు రాయండి.',
+    '3వ స్టెప్: క్లోజింగ్ టైమ్ పెట్టండి. ఇవి మీ సొంత ఎంట్రీలు, ఎప్పుడైనా మార్చుకోవచ్చు.',
+  ]),
   '/pos/:id/live-stock': _H("Today's live stock", 'ఇవాళ లైవ్ స్టాక్', [
     'Write what came this morning, then add each sale as it happens, by typing or by voice.',
     'The kg that should be in the shop now is worked out at once.',

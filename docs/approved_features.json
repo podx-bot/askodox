@@ -14876,6 +14876,44 @@
           "askodoxContactPrefProvider"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "live_stock_today",
+        "closing_time_stock_alert"
+      ],
+      "domains": [
+        "seller"
+      ],
+      "expected_behavior": "Stock setup in 3 steps at /pos/:id/stock-setup (button askodoxYieldSetup on the yield page): item + stock now (typed or spoken), per-kg or recipe + the owner's own selling rate, closing time. Finishing fills today's live stock and the closing time; setup kept on the phone (askodox.stocksetup.v1). Alerts to staff / manager are only noted, never sent.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: stock setup"
+      ],
+      "id": "stock_setup_three_steps",
+      "name": "Stock setup in 3 steps",
+      "purpose": "Let the owner set up stock tracking in two minutes.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/stock_setup_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxStockSetup",
+          "askodoxYieldSetup"
+        ],
+        "symbols": [
+          "AskodoxStockSetupScreen",
+          "askodoxStockSetupProvider"
+        ]
+      }
     }
   ]
 }

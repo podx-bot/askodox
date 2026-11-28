@@ -63,6 +63,7 @@ import '../../automations/shop_automations_screen.dart';
 import '../../morning_brief/morning_brief_screen.dart';
 import '../../table_watch/table_watch_screen.dart';
 import '../../yield/live_stock.dart';
+import '../../yield/stock_setup.dart';
 import '../../yield/rate_trend.dart';
 import '../../yield/weekly_report.dart';
 import '../../yield/yield_screen.dart';
@@ -379,6 +380,7 @@ final askodoxPosRoutes = <GoRoute>[
   // Owner 2026-11-27 (phase 6): buy in one form, sell in another -- the real cost of a kg, profit, day stock.
   GoRoute(path: '/weekly', builder: (context, state) => const AskodoxWeeklyReportScreen()),
   GoRoute(path: '/trend', builder: (context, state) => const AskodoxRateTrendScreen()),
+  GoRoute(path: '/pos/:id/stock-setup', builder: (context, state) => AskodoxStockSetupScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/live-stock', builder: (context, state) => AskodoxLiveStockScreen(businessId: state.pathParameters['id']!)),
   GoRoute(path: '/pos/:id/yield', builder: (context, state) => AskodoxYieldScreen(businessId: state.pathParameters['id']!)),
   // Owner 2026-11-27 (phase 5): table watch -- who is sitting, for how long, from the table QR (no camera).
