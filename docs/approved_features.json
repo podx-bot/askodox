@@ -14369,6 +14369,44 @@
           "AskodoxClosingChipStrip"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "supplier_bill_photo"
+      ],
+      "domains": [
+        "seller",
+        "purchase"
+      ],
+      "expected_behavior": "On the supplier bill photo review the owner chooses GST bill or No GST / hand slip (a hand slip sends no GSTIN and GST 0), sees the rows' GST and total, and can save and go straight to another bill. Rough-figures note shown.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: purchase bill kind, GST summary, add another bill"
+      ],
+      "id": "purchase_bill_kind_gst_next",
+      "name": "Purchase bill: GST or hand slip, add another",
+      "purpose": "Fit the supplier bill photo flow to GST and non-GST bills and many bills in a row.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/pos/pos_bill_photo_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxPosBillPhotoKind",
+          "askodoxPosBillPhotoGst",
+          "askodoxPosBillPhotoSaveNext"
+        ],
+        "symbols": [
+          "AskodoxPosBillPhotoScreen"
+        ]
+      }
     }
   ]
 }
