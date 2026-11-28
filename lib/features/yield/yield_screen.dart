@@ -311,6 +311,12 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
         icon: const Icon(Icons.bar_chart_rounded),
         label: Text(te ? 'ఈ వారం రిపోర్ట్' : 'This week'),
       ),
+      OutlinedButton.icon(
+        key: const Key('askodoxYieldTrend'),
+        onPressed: () => context.push('/trend'),
+        icon: const Icon(Icons.show_chart_rounded),
+        label: Text(te ? 'రేటు ట్రెండ్' : 'Rate trend'),
+      ),
       AskodoxClosingRow(businessId: widget.businessId),
       if (lots.length > 1) ...[
         const SizedBox(height: 12),

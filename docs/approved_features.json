@@ -14571,6 +14571,47 @@
           "askodoxExplainerRoute"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "yield_and_rates",
+        "weekly_report_leak"
+      ],
+      "domains": [
+        "seller",
+        "yield"
+      ],
+      "expected_behavior": "\"Rate trend\" (/trend, button askodoxYieldTrend on the Yield page): for one item, a 7-day chart of the cost of a kg against the selling rate and a short table, from the owner's OWN day ends on the phone (a day without both rates is left out, two shops average); the days whose profit of a kg fell under the minimum he set are told; no minimum set = nothing flagged. Phone only, rough-figures note.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: rate trend"
+      ],
+      "id": "rate_trend_seven_days",
+      "name": "Rate trend",
+      "purpose": "Show cost against selling rate over a week and the days under the owner's minimum profit.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/rate_trend_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxRateTrend",
+          "askodoxYieldTrend",
+          "askodoxTrendChart"
+        ],
+        "symbols": [
+          "AskodoxRateTrendScreen",
+          "askodoxTrendDays",
+          "askodoxTrendBelow"
+        ]
+      }
     }
   ]
 }
