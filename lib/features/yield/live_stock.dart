@@ -7,13 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/theme/askodox_look.dart';
 import '../../shared/widgets/estimate_note.dart';
 import '../home/presentation/question_mic.dart';
+import '../notifications/application/askodox_notifications.dart';
 import 'yield_math.dart';
 import 'yield_store.dart';
 
 /// Today's live stock (owner 2026-11-27, design "ఇవాళ లైవ్ స్టాక్"): the owner says what came this morning, then adds each
 /// sale as it happens (typed or spoken); the stock that should be in the shop is worked out at once, and a line says when
 /// it falls under the level HE set. Everything is his own entry, kept on this phone per shop and item; nothing is sent.
-/// Not built: sales read from bills / UPI payments / a photo, and a push when the stock is low.
+/// A sale that takes the stock under HIS level shows ONE notification on this phone (`askodoxLowStockNote`; nothing is
+/// sent anywhere). Not built: sales read from bills / UPI payments / a photo.
 const askodoxLiveStockPrefsKey = 'askodox.livestock.v1';
 const askodoxLiveStockKeep = 200;
 
@@ -46,6 +48,14 @@ class AskodoxLiveStockItem {
     );
   }
 }
+
+/// True only when [after] has just crossed under the owner's level: it was not low before and is now (no level = never).
+bool askodoxLowCrossed(AskodoxLiveStockItem before, AskodoxLiveStockItem after) => !before.low && after.low;
+
+/// The notification for a stock that fell under the owner's own level: (title, body).
+(String, String) askodoxLowStockNote(String item, int leftGrams, int minGrams, bool te) => te
+    ? ('స్టాక్ తక్కువైంది', '$item: ${askodoxYieldKg(leftGrams)} kg మిగిలింది, మీరు పెట్టిన ${askodoxYieldKg(minGrams)} kg కంటే తక్కువ. ఆర్డర్ చేయండి.')
+    : ('Stock is low', '$item: ${askodoxYieldKg(leftGrams)} kg left, under the ${askodoxYieldKg(minGrams)} kg you set. Time to order.');
 
 /// The first number in spoken or typed words, as grams of a kg amount ("అర" / "half" = 0.5 kg).
 int askodoxLiveStockGrams(String words) {
@@ -130,6 +140,19 @@ class _AskodoxLiveStockScreenState extends ConsumerState<AskodoxLiveStockScreen>
   final _sale = TextEditingController();
   final _min = TextEditingController();
   String _shown = '';
+
+  /// Adds a sale and, when it has just taken the stock under his level, shows one notification on this phone.
+  Future<void> _sold(String item, String today, int g, bool te) async {
+    final ctl = ref.read(askodoxLiveStockProvider.notifier);
+    final before = ctl.of(widget.businessId, item, today);
+    await ctl.addSale(widget.businessId, item, today, g);
+    final after = ctl.of(widget.businessId, item, today);
+    if (!askodoxLowCrossed(before, after)) return;
+    final n = askodoxLowStockNote(item, after.left, after.minGrams, te);
+    await ref
+        .read(askodoxDeviceNotificationsProvider)
+        .show(id: 7300 + item.hashCode.abs() % 100, title: n.$1, body: n.$2, route: '/pos/${widget.businessId}/live-stock');
+  }
 
   @override
   void dispose() {
@@ -239,7 +262,7 @@ class _AskodoxLiveStockScreenState extends ConsumerState<AskodoxLiveStockScreen>
                   always: true,
                   onText: (w) {
                     final g = askodoxLiveStockGrams(w);
-                    if (g > 0) ctl.addSale(widget.businessId, item, today, g);
+                    if (g > 0) _sold(item, today, g, te);
                   }),
             ]),
             const SizedBox(height: 8),
@@ -248,7 +271,7 @@ class _AskodoxLiveStockScreenState extends ConsumerState<AskodoxLiveStockScreen>
               onPressed: () async {
                 final g = askodoxYieldParseGrams(_sale.text);
                 if (g <= 0) return;
-                await ctl.addSale(widget.businessId, item, today, g);
+                await _sold(item, today, g, te);
                 _sale.clear();
               },
               child: Text(te ? 'అమ్మకం రాయి' : 'Add the sale'),

@@ -51,4 +51,16 @@ void main() {
     expect(find.byKey(const Key('askodoxLiveStock')), findsOneWidget);
     expect(find.byKey(const Key('askodoxLiveEmpty')), findsOneWidget);
   });
+
+  test('a low-stock note shows only when a sale crosses the level', () {
+    const a = AskodoxLiveStockItem(day: 'd', morning: 10000, sales: [3000], minGrams: 5000);
+    final b = a.copy(sales: [3000, 3000]);
+    final c2 = b.copy(sales: [3000, 3000, 1000]);
+    expect(askodoxLowCrossed(a, b), isTrue);
+    expect(askodoxLowCrossed(b, c2), isFalse, reason: 'already low');
+    expect(askodoxLowCrossed(a.copy(minGrams: 0), b.copy(minGrams: 0)), isFalse, reason: 'no level = nothing');
+    final n = askodoxLowStockNote('Chicken', 4000, 5000, false);
+    expect(n.$2.contains('4'), isTrue);
+    expect(askodoxLowStockNote('x', 4000, 5000, true).$1, isNotEmpty);
+  });
 }
