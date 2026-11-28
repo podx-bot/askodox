@@ -32,6 +32,9 @@ dependencies:
   # Owner 2026-11-23 (attendance): live face check on the phone -- Google ML Kit face detection, free, on-device, no
   # API bill (head turn / nod / blink in a random order; a photo of a photo does not move).
   google_mlkit_face_detection: ^1.0.2
+  # Owner 2026-11-28: papers (bills, warranty) are scanned like Google Drive's camera -- ML Kit document scanner (edges found,
+  # straightened, cleaned), on-device through Google Play services. Must pass sms-consent-e2e.yml.
+  google_mlkit_document_scanner: ^0.7.2
   file_picker: ^12.2.0
   pdf: ^3.11.3
   qr_flutter: ^4.1.0

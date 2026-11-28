@@ -325,7 +325,7 @@ class _AskodoxPosBillPhotoScreenState extends ConsumerState<AskodoxPosBillPhotoS
           Expanded(
             child: FilledButton.icon(
               key: const Key('askodoxPosBillPhotoCamera'),
-              onPressed: _reading || _saving ? null : () => _photo('camera'),
+              onPressed: _reading || _saving ? null : () => _photo('scan'),
               icon: const Icon(Icons.photo_camera_outlined),
               label: Text(te ? 'ఫోటో తీయి' : 'Take photo'),
             ),

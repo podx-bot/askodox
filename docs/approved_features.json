@@ -15061,6 +15061,44 @@
           "askodoxLowStockNote"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "paper_vault_bills_warranty",
+        "stock_from_bill_photo"
+      ],
+      "domains": [
+        "buyer",
+        "seller"
+      ],
+      "expected_behavior": "Camera buttons on the bills & warranty vault, the supplier bill photo and the stock-from-bill step open the ML Kit document scanner (source 'scan'); if it cannot open, the plain camera is used; cancel = nothing.",
+      "flags": {},
+      "history": [],
+      "id": "paper_scan_camera",
+      "name": "Paper scanner camera",
+      "purpose": "Papers (bills, warranty) are scanned like Google Drive's camera: edges found, straightened, cleaned.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_android_app_size.py"
+        ],
+        "flutter": [
+          "test/features/yield/stock_setup_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxSetupBillPhoto"
+        ],
+        "symbols": [
+          "askodoxMediaPickerProvider"
+        ]
+      }
     }
   ]
 }
