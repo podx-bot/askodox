@@ -14914,6 +14914,45 @@
           "askodoxStockSetupProvider"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "explainer_cards",
+        "stock_setup_three_steps"
+      ],
+      "domains": [
+        "buyer",
+        "seller"
+      ],
+      "expected_behavior": "The solutions page has filter chips (all / stock / money / people / home); every card carries a group; the stock card also opens the 3-step stock setup.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: kit filter groups"
+      ],
+      "id": "kit_filter_groups",
+      "name": "Kit filter groups",
+      "purpose": "Let the person narrow the problem cards by kind.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/explainers/explainer_cards_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxExplainers"
+        ],
+        "symbols": [
+          "askodoxExplainerGroups",
+          "askodoxExplainerGroupProvider"
+        ]
+      }
     }
   ]
 }

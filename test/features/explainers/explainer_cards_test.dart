@@ -45,4 +45,11 @@ void main() {
     expect(find.byKey(const Key('askodoxExplainerStep-bills_mixed-0')), findsOneWidget);
     expect(find.text('Set up your shop first'), findsWidgets);
   });
+
+  test('every card sits under a known filter group', () {
+    final known = {for (final g in askodoxExplainerGroups) g.$1}..remove('all');
+    for (final e in askodoxExplainers) {
+      expect(known.contains(e.group), isTrue, reason: e.id);
+    }
+  });
 }
