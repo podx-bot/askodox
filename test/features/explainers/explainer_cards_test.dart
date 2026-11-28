@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:podx/features/business_story/business_story.dart';
 import 'package:podx/config/theme/app_theme.dart';
 import 'package:podx/features/explainers/explainer_cards.dart';
 import 'package:podx/features/money_home/money_home_store.dart';
@@ -50,6 +51,27 @@ void main() {
     final known = {for (final g in askodoxExplainerGroups) g.$1}..remove('all');
     for (final e in askodoxExplainers) {
       expect(known.contains(e.group), isTrue, reason: e.id);
+    }
+  });
+
+  test('picked kinds of work lead to cards of their groups', () {
+    expect(askodoxExplainersForKinds(const []), isEmpty);
+    expect(askodoxExplainersForKinds(const ['nothing']), isEmpty);
+    final home = askodoxExplainersForKinds(const ['home']);
+    expect(home, isNotEmpty);
+    expect(home.every((e) => e.group == 'home'), isTrue);
+    final both = askodoxExplainersForKinds(const ['meat', 'home']);
+    expect(both.map((e) => e.id).toSet().length, both.length, reason: 'no card twice');
+    expect(both.any((e) => e.group == 'stock'), isTrue);
+    expect(both.any((e) => e.group == 'home'), isTrue);
+    final known = {for (final g in askodoxExplainerGroups) g.$1};
+    for (final groups in askodoxKindGroups.values) {
+      for (final g in groups) {
+        expect(known.contains(g), isTrue, reason: g);
+      }
+    }
+    for (final k in askodoxStoryKinds) {
+      expect(askodoxKindGroups.containsKey(k.$1), isTrue, reason: 'kind ${k.$1} has groups');
     }
   });
 }

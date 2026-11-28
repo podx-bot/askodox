@@ -160,6 +160,33 @@ List<AskodoxExplainer> askodoxExplainersFor(String said) {
   return [for (final s in scored) s.key];
 }
 
+/// Which card groups each kind of work on the "who are you" page leads to (data, never per-category code).
+const askodoxKindGroups = <String, List<String>>{
+  'home': ['home'],
+  'grocery': ['stock', 'money'],
+  'hotel': ['stock', 'money'],
+  'meat': ['stock', 'money'],
+  'cloth': ['stock', 'money'],
+  'salon': ['people', 'money'],
+  'medical': ['stock', 'money'],
+  'farm': ['stock', 'money'],
+  'factory': ['stock', 'money'],
+  'service': ['people', 'money'],
+  'online': ['money', 'stock'],
+  'school': ['people', 'money'],
+};
+
+/// Cards whose group fits the kinds of work the person tapped, in the order of the picks; none picked = none.
+List<AskodoxExplainer> askodoxExplainersForKinds(List<String> picks) {
+  final groups = <String>[];
+  for (final p in picks) {
+    for (final g in askodoxKindGroups[p] ?? const <String>[]) {
+      if (!groups.contains(g)) groups.add(g);
+    }
+  }
+  return [for (final g in groups) for (final e in askodoxExplainers) if (e.group == g) e];
+}
+
 /// A step's page for [shopId]; null when it needs a shop and none is known.
 String? askodoxExplainerRoute(String route, String? shopId) {
   if (!route.contains(':id')) return route;
@@ -215,7 +242,8 @@ class AskodoxExplainersScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final te = Localizations.localeOf(context).languageCode == 'te';
     final story = ref.watch(askodoxStoryProvider);
-    final fit = askodoxExplainersFor('${story.chips['problem'] ?? ''} ${story.answers.join(' ')}');
+    final byWords = askodoxExplainersFor('${story.chips['problem'] ?? ''} ${story.answers.join(' ')}');
+    final fit = [...byWords, for (final e in askodoxExplainersForKinds(story.picks)) if (!byWords.contains(e)) e];
     final group = ref.watch(askodoxExplainerGroupProvider);
     bool shown(AskodoxExplainer e) => group == 'all' || e.group == group;
     final rest = [for (final e in askodoxExplainers) if (!fit.contains(e) && shown(e)) e];

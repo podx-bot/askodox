@@ -14953,6 +14953,43 @@
           "askodoxExplainerGroupProvider"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "explainer_cards",
+        "stock_setup_three_steps"
+      ],
+      "domains": [
+        "buyer",
+        "seller"
+      ],
+      "expected_behavior": "Tapped kinds map to card groups by data (askodoxKindGroups); words the person said still come first; nothing picked adds nothing.",
+      "flags": {},
+      "history": [],
+      "id": "kind_picks_choose_cards",
+      "name": "Picked kinds choose the cards",
+      "purpose": "The kinds of work the person tapped decide which problem cards are shown first.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/explainers/explainer_cards_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxExplainers"
+        ],
+        "symbols": [
+          "askodoxKindGroups",
+          "askodoxExplainersForKinds"
+        ]
+      }
     }
   ]
 }
