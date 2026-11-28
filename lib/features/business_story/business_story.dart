@@ -31,13 +31,31 @@ const askodoxStoryQuestions = <AskodoxStoryQuestion>[
 /// The five boxes the words are mapped onto, in the order the chips show.
 const askodoxStoryKeys = ['type', 'branches', 'supplier', 'bills', 'problem'];
 
+/// The kinds of work the person can tap on the "who are you" page (design "మీ రకం ఎంచుకోండి"): id, English, Telugu.
+/// More than one may be picked; a kind that is not here is told by voice and noted (never guessed).
+const askodoxStoryKinds = <(String, String, String)>[
+  ('home', 'Home / kitchen', 'ఇల్లు / వంటగది'),
+  ('grocery', 'Grocery shop', 'కిరాణా షాప్'),
+  ('hotel', 'Hotel / tiffin', 'హోటల్ / టిఫిన్'),
+  ('meat', 'Chicken / mutton shop', 'చికెన్ / మటన్ షాప్'),
+  ('cloth', 'Cloth shop', 'బట్టల షాప్'),
+  ('salon', 'Salon / parlour', 'సెలూన్ / పార్లర్'),
+  ('medical', 'Medical shop', 'మెడికల్ షాప్'),
+  ('farm', 'Farmer / farm', 'రైతు / పొలం'),
+  ('factory', 'Factory / making', 'ఫ్యాక్టరీ / తయారీ'),
+  ('service', 'Service (mechanic etc.)', 'సర్వీస్ (మెకానిక్ మొ.)'),
+  ('online', 'Online selling', 'ఆన్‌లైన్ అమ్మకం'),
+  ('school', 'School / tuition', 'విద్య / ట్యూషన్'),
+];
+
 class AskodoxStory {
-  const AskodoxStory({this.answers = const [], this.chips = const {}});
+  const AskodoxStory({this.answers = const [], this.chips = const {}, this.picks = const []});
   final List<String> answers;
   final Map<String, String> chips;
+  final List<String> picks;
 
-  AskodoxStory copyWith({List<String>? answers, Map<String, String>? chips}) =>
-      AskodoxStory(answers: answers ?? this.answers, chips: chips ?? this.chips);
+  AskodoxStory copyWith({List<String>? answers, Map<String, String>? chips, List<String>? picks}) =>
+      AskodoxStory(answers: answers ?? this.answers, chips: chips ?? this.chips, picks: picks ?? this.picks);
 
   /// The question being asked now; null when all are answered.
   AskodoxStoryQuestion? get next => answers.length < askodoxStoryQuestions.length ? askodoxStoryQuestions[answers.length] : null;
@@ -53,7 +71,7 @@ String askodoxStoryChipText(String key, String value, bool te) => switch (key) {
       _ => value,
     };
 
-String askodoxStoryEncode(AskodoxStory s) => jsonEncode({'a': s.answers, 'c': s.chips});
+String askodoxStoryEncode(AskodoxStory s) => jsonEncode({'a': s.answers, 'c': s.chips, 'p': s.picks});
 
 AskodoxStory askodoxStoryDecode(String? raw) {
   if (raw == null || raw.isEmpty) return const AskodoxStory();
@@ -71,7 +89,9 @@ AskodoxStory askodoxStoryDecode(String? raw) {
         if (v.isNotEmpty && v.length <= 80) chips[k] = v;
       }
     }
-    return AskodoxStory(answers: answers, chips: chips);
+    final known = {for (final k in askodoxStoryKinds) k.$1};
+    final picks = [for (final p in (m['p'] is List ? m['p'] as List : const [])) '$p'].where(known.contains).toSet().toList();
+    return AskodoxStory(answers: answers, chips: chips, picks: picks);
   } catch (_) {
     return const AskodoxStory();
   }
@@ -106,6 +126,12 @@ class AskodoxStoryController extends StateNotifier<AskodoxStory> {
   Future<void> setChips(Map<String, String> chips) => _put(state.copyWith(chips: chips));
 
   Future<void> dropChip(String key) => _put(state.copyWith(chips: {...state.chips}..remove(key)));
+
+  /// Tap a kind: picked -> not picked and back.
+  Future<void> togglePick(String id) {
+    final has = state.picks.contains(id);
+    return _put(state.copyWith(picks: has ? [for (final p in state.picks) if (p != id) p] : [...state.picks, id]));
+  }
 
   Future<void> startOver() => _put(const AskodoxStory());
 }
@@ -188,6 +214,22 @@ class _AskodoxBusinessStoryScreenState extends ConsumerState<AskodoxBusinessStor
       ),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+          Text(te ? 'మీరు ఎవరు? ఏం చేస్తారు? (ఒకటి కంటే ఎక్కువ ఎంచుకోవచ్చు)' : 'Who are you? What do you do? (pick more than one)',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final k in askodoxStoryKinds)
+              FilterChip(
+                key: ValueKey('askodoxStoryKind-${k.$1}'),
+                label: Text(te ? k.$3 : k.$2),
+                selected: story.picks.contains(k.$1),
+                onSelected: (_) => ref.read(askodoxStoryProvider.notifier).togglePick(k.$1),
+              ),
+          ]),
+          const SizedBox(height: 6),
+          Text(te ? 'మీ రకం ఇక్కడ కనిపించకపోతే కింద చెప్పండి. మీ అభ్యర్థన నోట్ చేసుకుంటాం, త్వరలోనే సంప్రదిస్తాం.' : 'If your kind is not here, tell us below. We note your request and will contact you soon.',
+              key: const Key('askodoxStoryKindsNote'), style: const TextStyle(color: AskodoxLook.muted)),
+          const Divider(height: 24),
           Text(te ? 'మాట్లాడితే చాలు · తెలుగులో' : 'Just speak · in your language', style: const TextStyle(color: AskodoxLook.muted)),
           const SizedBox(height: 10),
           for (var i = 0; i < askodoxStoryQuestions.length; i++) ...[
