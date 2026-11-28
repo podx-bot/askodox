@@ -14614,6 +14614,46 @@
       }
     },
     {
+      "api": [],
+      "dependencies": [
+        "yield_and_rates"
+      ],
+      "domains": [
+        "seller",
+        "yield"
+      ],
+      "expected_behavior": "\"Today's live stock\" (/pos/:id/live-stock, button askodoxYieldLive on the Yield page): the owner enters what came this morning and adds each sale by typing or voice; the kg that should be in the shop is worked out at once; a line tells him to order when it is under the level he set (none set = nothing flagged); a new day starts empty. Phone only, rough-figures note. Sales from bills / UPI / photo and a push are NOT built.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: live stock"
+      ],
+      "id": "live_stock_today",
+      "name": "Today's live stock",
+      "purpose": "Show the stock that should be in the shop now from the owner's own morning stock and sales.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/live_stock_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxLiveStock",
+          "askodoxYieldLive",
+          "askodoxLiveLeft"
+        ],
+        "symbols": [
+          "AskodoxLiveStockScreen",
+          "AskodoxLiveStockItem",
+          "askodoxLiveStockGrams"
+        ]
+      }
+    },
+    {
       "api": [
         {
           "method": "GET",
