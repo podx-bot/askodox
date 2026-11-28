@@ -98,16 +98,21 @@ class AskodoxNetQuality {
 
 /// The real probe: the server's tiny `/health` answer, 6 s limit.
 Future<int?> Function() askodoxHealthProbe(Uri base, {http.Client? client}) => () async {
-      final watch = Stopwatch()..start();
-      final c = client ?? http.Client();
-      try {
-        final r = await c.get(base.resolve('/health')).timeout(const Duration(seconds: 6));
-        return r.statusCode < 500 ? watch.elapsedMilliseconds : null;
-      } catch (_) {
-        return null;
-      } finally {
-        if (client == null) c.close();
+      // Owner 2026-11-28 (friend's phone on Wi-Fi showed "No internet"): ANY answer from the server proves the net works,
+      // even a 5xx from a busy server; and one failed try is repeated once before the phone is called offline.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final watch = Stopwatch()..start();
+        final c = client ?? http.Client();
+        try {
+          await c.get(base.resolve('/health')).timeout(const Duration(seconds: 8));
+          return watch.elapsedMilliseconds;
+        } catch (_) {
+          // try once more below
+        } finally {
+          if (client == null) c.close();
+        }
       }
+      return null;
     };
 
 /// The strip above the chat while Lite mode is on (nothing when the net is good).

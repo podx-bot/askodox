@@ -3133,8 +3133,15 @@ class _AskodoxPrimaryHomeScreenState
     } else if (transactional && needClarification == null && !cardsThisTurn && askodoxReplyClaimsResults(reply)) {
       // Drop only the false claim; the reasoning before results stays.
       final kept = askodoxStripResultClaims(reply);
-      final notice = askodoxNoCardsReply(results: results, question: detailQuestion, telugu: _te);
-      reply = kept.isEmpty ? notice : '$kept\n\n$notice';
+      // Owner 2026-11-28: a real answer is never followed by "I haven't searched yet" -- the answer stays; the
+      // notice is only used when nothing real is left, or the next question is the thing to say.
+      final hasQuestion = detailQuestion != null && detailQuestion.trim().isNotEmpty;
+      if (kept.isNotEmpty && !hasQuestion) {
+        reply = kept;
+      } else {
+        final notice = askodoxNoCardsReply(results: results, question: detailQuestion, telugu: _te);
+        reply = kept.isEmpty ? notice : '$kept\n\n$notice';
+      }
     }
     // The reply's own price figures must agree with the cards shown with it
     // (owner 2026-11-04: "20-23 thousand" said, cards up to ₹40,000).

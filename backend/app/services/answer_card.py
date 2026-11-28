@@ -69,6 +69,12 @@ PROMPT_RULES = (
     "numbered steps where order matters, [risk] lines for things not to do, and when you need the user to choose, "
     "a last section '## Choose' with 2-4 short options as '- ' points (never '(a) (b) (c) type'). "
     "Keep every point under 12 words. Part 2 may be empty for a short chat reply (then no [[more]] line). "
+    "ANSWER EXACTLY WHAT WAS ASKED, IN THE FORM ASKED: when the user names a form (one line each, a few lines, a "
+    "table, steps, a list of names, a letter, a message) give that form and nothing else -- never explain the "
+    "meaning of their words unless they asked for the meaning. Give the best answer first, with real names / "
+    "numbers; ask at most ONE question AFTER the answer, never only a question. When the user asks you to WRITE "
+    "something (letter, email, message, application, notice, speech) give the COMPLETE finished text, never cut, "
+    "never a summary or an outline of it. "
 )
 
 _CARD_PROMPT = """You turn an assistant answer into ONE phone-screen answer card for the ASKODOX app (India).
@@ -446,11 +452,30 @@ def from_text(reply: str, *, suggestions: list[str] | None = None, facts: str = 
             "primary": None, "actions": [], "share": False}
 
 
+_WRITE_ASK = re.compile(
+    r"\b(write|draft|compose|letter|e-?mail|application|notice|speech|apology|resignation|complaint|"
+    r"rayi|raayi|rayandi|rayamanna)\b|రాయి|రాయండి|వ్రాయ|లేఖ|ఉత్తరం|లెటర్",
+    re.IGNORECASE)
+_LETTER_SHAPE = re.compile(r"(?:^|\n)\s*(?:dear\s|respected\s|to,\s*$|subject\s*[:\-]|sir\s*/\s*madam|ప్రియమైన|గౌరవనీయ)",
+                           re.IGNORECASE)
+
+
+def is_written_document(reply: str, user_text: str = "") -> bool:
+    """Owner phone 2026-11-28: a leave letter was cut at ~160 characters inside a card ("I will keep you"). A text the
+    person asked us to WRITE (or that is shaped like a letter) is shown whole in the chat, never as card tabs."""
+    text = str(reply or "")
+    shaped = bool(_LETTER_SHAPE.search(text)) and len(text) > 200
+    asked = bool(_WRITE_ASK.search(str(user_text or ""))) and len(text) > 200
+    return shaped or asked
+
+
 def build(writer: Any, *, reply: str, user_text: str = "", facts: str = "",
           suggestions: list[str] | None = None) -> dict[str, Any] | None:
     """The card for this answer: the model's (cleaned) card, else the one built from the text."""
     text = str(reply or "").strip()
     if not text:
+        return None
+    if is_written_document(text, user_text):
         return None
     short = len(text) < 160 and MARK not in text and "\n" not in text.strip() and not facts
     if short:
