@@ -9,6 +9,7 @@ import 'my_business_screens.dart';
 import 'shop_follow_screens.dart';
 import 'shop_post_screens.dart';
 import '../../memberships/memberships_screens.dart';
+import '../../business_story/business_story.dart';
 import '../../home_hub/home_hub_screen.dart';
 import '../../kitchen/kitchen_screen.dart';
 import '../../vault/vault_screen.dart';
@@ -29,6 +30,8 @@ final askodoxShopFollowRoutes = <GoRoute>[
   // Owner 2026-11-27 (phase 6): bills & warranty papers, kept on the person's own phone.
   GoRoute(path: '/me/vault', builder: (context, state) => AskodoxVaultScreen(startPhoto: state.uri.queryParameters['photo'] ?? '')),
   // Owner 2026-11-27 (phase 6): "My home" reads the kitchen stock and the papers kept on this phone.
+  // Owner 2026-11-27 (phase 6): three spoken questions about the business; the answers stay on this phone.
+  GoRoute(path: '/me/tell-business', builder: (context, state) => const AskodoxBusinessStoryScreen()),
   GoRoute(path: '/me/home', builder: (context, state) => const AskodoxHomeHubScreen()),
   // Owner 2026-11-27 (phase 6): the home kitchen stock, on the person's own phone.
   GoRoute(path: '/me/kitchen', builder: (context, state) => const AskodoxKitchenScreen()),

@@ -14489,6 +14489,46 @@
           "askodoxHomeReminders"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [],
+      "domains": [
+        "buyer",
+        "seller",
+        "onboarding"
+      ],
+      "expected_behavior": "\"Tell about my business\" (/me/tell-business, Buyer page b.story): three questions answered by voice or typing; the words are mapped onto five boxes through the existing form-fill route and shown as removable chips -- only the person's own words, nothing guessed. Answers and chips stay on this phone (askodox.bizstory.v1, account-scoped). When all are answered, a button asks the chat how to solve the problem. Rough-figures note.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: voice onboarding"
+      ],
+      "id": "voice_business_onboarding",
+      "name": "Tell about my business",
+      "purpose": "Understand a business from three spoken answers, without forms.",
+      "roles": [
+        "buyer",
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/business_story/business_story_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxBusinessStory",
+          "askodoxStoryMic",
+          "askodoxStoryField",
+          "askodoxStoryAsk"
+        ],
+        "symbols": [
+          "AskodoxBusinessStoryScreen",
+          "askodoxStoryDecode"
+        ]
+      }
     }
   ]
 }
