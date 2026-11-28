@@ -257,3 +257,24 @@ def test_term_memberships_routes_are_not_shadowed_by_staff_members(api):
     assert c.get(f"{base}/memberships/report", headers=h).status_code == 200
     staff = c.get(f"{base}/members", headers=h).json()
     assert staff["members"][0]["role"] == "owner"
+
+
+def test_school_routes_are_reachable_over_http(api):
+    c, auth = api
+    owner = f"app-phone-96{uuid.uuid4().int % 10**8:08d}"
+    h = auth(owner)
+    biz = c.post("/api/pos/businesses", headers=h, json={"name": "School Journey", "state_code": "36"}).json()["id"]
+    base = f"/api/pos/businesses/{biz}/school"
+    cls = c.post(f"{base}/classes", headers=h, json={"name": "7-B", "teacher": "Teacher"}).json()["id"]
+    kid = c.post(f"{base}/students", headers=h, json={"class_id": cls, "name": "Child", "parent_name": "Parent",
+                                                       "parent_phone": "9400000777", "pickups": [{"name": "Aunt", "relation": "aunt"}]})
+    assert kid.status_code == 200, kid.text
+    sid = kid.json()["id"]
+    assert c.get(base, headers=h).json()["classes"][0]["students"][0]["name"] == "Child"
+    assert c.get(f"{base}/today", headers=h).json()["problems"][0]["key"] == "unmarked"
+    assert c.post(f"{base}/classes/{cls}/register", headers=h, json={"absent": [sid]}).json()["absent"] == 1
+    gate = c.post(f"{base}/students/{sid}/gate", headers=h, json={"kind": "pickup", "who_name": "Someone Else"}).json()
+    assert gate["listed"] is False
+    assert c.post(f"{base}/students/{sid}/sick", headers=h, json={"complaint": "fever", "outcome": "home"}).status_code == 200
+    assert c.get(f"{base}/report", headers=h).status_code == 200
+    assert c.get(base, headers=auth("app-phone-9400000999")).status_code == 404

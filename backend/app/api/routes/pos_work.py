@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.api.routes.pos import _call, _store, _user
 from app.services.pos_memberships import PosMemberships
+from app.services.pos_school import PosSchool
 from app.services.pos_work import PosBookings, PosJobs, PosMonthly
 
 router = APIRouter(prefix="/api/pos", tags=["POS bookings, jobs, monthly"])
@@ -342,3 +343,101 @@ def branches_overview(group_id: str, request: Request, local_date: str = "") -> 
 
     day = local_date or (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
     return _call(_branches(request).overview, _user(request), group_id, day)
+
+
+# ---- school / tuition / college register (owner 2026-11-28)
+def _school(request: Request) -> PosSchool:
+    return PosSchool(_store(request))
+
+
+class SchoolClassIn(BaseModel):
+    name: str = Field(max_length=40)
+    teacher: str = Field(default="", max_length=60)
+
+
+class SchoolPickupIn(BaseModel):
+    name: str = Field(max_length=60)
+    relation: str = Field(default="", max_length=30)
+
+
+class SchoolStudentIn(BaseModel):
+    class_id: str = Field(max_length=60)
+    name: str = Field(max_length=60)
+    parent_name: str = Field(default="", max_length=60)
+    parent_phone: str = Field(default="", max_length=20)
+    hostel: bool = False
+    pickups: list[SchoolPickupIn] = Field(default_factory=list, max_length=8)
+
+
+class SchoolPickupsIn(BaseModel):
+    pickups: list[SchoolPickupIn] = Field(default_factory=list, max_length=8)
+
+
+class SchoolRegisterIn(BaseModel):
+    absent: list[str] = Field(default_factory=list, max_length=400)
+    day: str = Field(default="", max_length=10)
+
+
+class SchoolGateIn(BaseModel):
+    kind: str = Field(default="pickup", max_length=10)
+    who_name: str = Field(max_length=60)
+    relation: str = Field(default="", max_length=30)
+    reason: str = Field(default="", max_length=120)
+
+
+class SchoolSickIn(BaseModel):
+    complaint: str = Field(max_length=160)
+    action: str = Field(default="", max_length=160)
+    outcome: str = Field(default="room", max_length=10)
+    follow_up: str = Field(default="", max_length=10)
+
+
+@router.get("/businesses/{business_id}/school")
+def school_classes(business_id: str, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).classes, business_id, _user(request, "school", 240))
+
+
+@router.get("/businesses/{business_id}/school/today")
+def school_today(business_id: str, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).today, business_id, _user(request, "school", 240))
+
+
+@router.post("/businesses/{business_id}/school/classes")
+def school_add_class(business_id: str, body: SchoolClassIn, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).add_class, business_id, _user(request, "school", 120), body.model_dump())
+
+
+@router.post("/businesses/{business_id}/school/students")
+def school_add_student(business_id: str, body: SchoolStudentIn, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).add_student, business_id, _user(request, "school", 240), body.model_dump())
+
+
+@router.put("/businesses/{business_id}/school/students/{student_id}/pickups")
+def school_set_pickups(business_id: str, student_id: str, body: SchoolPickupsIn, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).set_pickups, business_id, _user(request, "school", 120), student_id,
+                 [p.model_dump() for p in body.pickups])
+
+
+@router.post("/businesses/{business_id}/school/classes/{class_id}/register")
+def school_register(business_id: str, class_id: str, body: SchoolRegisterIn, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).register, business_id, _user(request, "school", 240), class_id, body.absent, body.day)
+
+
+@router.post("/businesses/{business_id}/school/students/{student_id}/gate")
+def school_gate(business_id: str, student_id: str, body: SchoolGateIn, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).gate, business_id, _user(request, "school", 600), student_id, body.model_dump())
+
+
+@router.post("/businesses/{business_id}/school/students/{student_id}/sick")
+def school_sick(business_id: str, student_id: str, body: SchoolSickIn, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).sick, business_id, _user(request, "school", 240), student_id, body.model_dump())
+
+
+@router.post("/businesses/{business_id}/school/health/{health_id}/recovered")
+def school_recovered(business_id: str, health_id: str, request: Request) -> Dict[str, Any]:
+    return _call(_school(request).recovered, business_id, _user(request, "school", 240), health_id)
+
+
+@router.get("/businesses/{business_id}/school/report")
+def school_report(business_id: str, request: Request, month: str = "") -> Dict[str, Any]:
+    return _call(_school(request).report, business_id, _user(request, "school", 120), month)

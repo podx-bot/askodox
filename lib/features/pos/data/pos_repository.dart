@@ -485,6 +485,20 @@ class AskodoxPosRepository {
   Future<AskodoxJson> termVisit(String biz, String member, bool came) =>
       _send('POST', '${_b(biz)}/memberships/$member/visit', body: {'came': came});
   Future<AskodoxJson> termReport(String biz) => _send('GET', '${_b(biz)}/memberships/report');
+  /// School / tuition / college register (owner 2026-11-28): classes, the day's register, gate, health room. Drafts only.
+  Future<AskodoxJson> schoolClasses(String biz) => _send('GET', '${_b(biz)}/school');
+  Future<AskodoxJson> schoolToday(String biz) => _send('GET', '${_b(biz)}/school/today');
+  Future<AskodoxJson> schoolAddClass(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/school/classes', body: body);
+  Future<AskodoxJson> schoolAddStudent(String biz, AskodoxJson body) => _send('POST', '${_b(biz)}/school/students', body: body);
+  Future<AskodoxJson> schoolRegister(String biz, String cls, List<String> absent) =>
+      _send('POST', '${_b(biz)}/school/classes/$cls/register', body: {'absent': absent});
+  Future<AskodoxJson> schoolGate(String biz, String student, AskodoxJson body) =>
+      _send('POST', '${_b(biz)}/school/students/$student/gate', body: body);
+  Future<AskodoxJson> schoolSick(String biz, String student, AskodoxJson body) =>
+      _send('POST', '${_b(biz)}/school/students/$student/sick', body: body);
+  Future<AskodoxJson> schoolRecovered(String biz, String health) =>
+      _send('POST', '${_b(biz)}/school/health/$health/recovered');
+  Future<AskodoxJson> schoolReport(String biz) => _send('GET', '${_b(biz)}/school/report');
   /// Closing time: the owner's own clock time (HH:MM, or null = off) so the server can push at that time. Owner only.
   Future<void> setClosingTime(String biz, String? time) async {
     await _send('PUT', '${_b(biz)}/closing-time', body: {'closing_time': time});
