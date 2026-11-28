@@ -116,7 +116,7 @@ class _AskodoxVaultScreenState extends ConsumerState<AskodoxVaultScreen> {
 
   Future<void> _fromPhoto(String source) async {
     final te = _te;
-    final picked = (await ref.read(askodoxMediaPickerProvider).pick(source)).where((a) => a.isImage).toList();
+    final picked = (await ref.read(askodoxMediaPickerProvider).pick(source == 'camera' ? 'scan' : source)).where((a) => a.isImage).toList();
     if (picked.isEmpty || !mounted) return;
     final photo = picked.first;
     if (photo.bytes.length > 4400000) {
@@ -284,7 +284,7 @@ class _AskodoxVaultScreenState extends ConsumerState<AskodoxVaultScreen> {
       const SizedBox(height: 12),
       FilledButton.icon(
         key: const Key('askodoxVaultCamera'),
-        onPressed: () => _fromPhoto('camera'),
+        onPressed: () => _fromPhoto('scan'),
         icon: const Icon(Icons.photo_camera_outlined),
         label: Text(te ? 'బిల్ / వారంటీ కార్డ్ ఫోటో తీయండి' : 'Photo of a bill / warranty card'),
       ),

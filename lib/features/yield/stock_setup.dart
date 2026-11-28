@@ -194,7 +194,7 @@ class _AskodoxStockSetupScreenState extends ConsumerState<AskodoxStockSetupScree
             Row(children: [
               OutlinedButton.icon(
                 key: const Key('askodoxSetupBillPhoto'),
-                onPressed: _reading ? null : () => _fromBill('camera'),
+                onPressed: _reading ? null : () => _fromBill('scan'),
                 icon: const Icon(Icons.photo_camera_outlined),
                 label: Text(te ? 'బిల్లు ఫోటో నుంచి' : 'From a bill photo'),
               ),
