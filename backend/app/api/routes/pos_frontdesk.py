@@ -1444,3 +1444,24 @@ def report_settings(business_id: str, request: Request) -> dict:
 @router.put("/businesses/{business_id}/reports/settings")
 def report_settings_save(business_id: str, body: ReportSettingsIn, request: Request) -> dict:
     return _call(_reports(request).save_settings, business_id, _user(request, "reports", 60), body.night_push, body.send_time)
+
+
+# ------------------------------------------------------------------------------------------- closing time (owner only)
+class ClosingTimeIn(BaseModel):
+    closing_time: Optional[str] = Field(default=None, max_length=5)
+
+
+def _closing(request: Request) -> Any:
+    from app.services.pos_closing_time import PosClosingTime
+
+    return PosClosingTime(_store(request))
+
+
+@router.get("/businesses/{business_id}/closing-time")
+def closing_time(business_id: str, request: Request) -> dict:
+    return _call(_closing(request).get, business_id, _user(request, "desk", 600))
+
+
+@router.put("/businesses/{business_id}/closing-time")
+def closing_time_set(business_id: str, payload: ClosingTimeIn, request: Request) -> dict:
+    return _call(_closing(request).set, business_id, _user(request, "desk", 60), payload.closing_time)

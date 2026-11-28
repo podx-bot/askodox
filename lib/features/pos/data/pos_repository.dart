@@ -485,6 +485,10 @@ class AskodoxPosRepository {
   Future<AskodoxJson> termVisit(String biz, String member, bool came) =>
       _send('POST', '${_b(biz)}/memberships/$member/visit', body: {'came': came});
   Future<AskodoxJson> termReport(String biz) => _send('GET', '${_b(biz)}/memberships/report');
+  /// Closing time: the owner's own clock time (HH:MM, or null = off) so the server can push at that time. Owner only.
+  Future<void> setClosingTime(String biz, String? time) async {
+    await _send('PUT', '${_b(biz)}/closing-time', body: {'closing_time': time});
+  }
   /// Bills & warranty: a photo of the paper -> its facts for the person to check. Nothing is kept on the server.
   Future<AskodoxJson> vaultRead(List<AskodoxJson> images) =>
       _send('POST', '/api/me/vault/read', body: {'images': images}, timeout: const Duration(seconds: 60));

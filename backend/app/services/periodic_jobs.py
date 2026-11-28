@@ -245,6 +245,22 @@ def _table_watch(container: Any) -> Any:
     return {"due": len(items), "pushed": sent}
 
 
+def _closing_reminder(container: Any) -> Any:
+    """Owner 2026-11-27: ONE push at the owner's own closing time -- "close today's stock". A time only, no quantity."""
+    from app.services.pos_closing_time import PosClosingTime, reminder_text
+    from app.services.pos_store import PosStore
+    from app.services.push_service import push_service
+
+    store = getattr(container, "pos_store", None) or PosStore(container.settings.database_path)
+    items = PosClosingTime(store).due()
+    push = push_service(container)
+    sent = 0
+    for item in items:
+        t = reminder_text(item)
+        sent += bool(push.notify(item["owner"], title=t["title"], body=t["body"], route=t["route"], event_key=t["key"]))
+    return {"due": len(items), "pushed": sent}
+
+
 def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
     return [("promotions", 60.0, _promotions), ("selfheal", 120.0, _selfheal), ("feeds", 900.0, _feeds),
             ("crm_reminders", 300.0, _crm_reminders), ("availability", 600.0, _availability),
@@ -252,4 +268,4 @@ def default_jobs() -> List[Tuple[str, float, Callable[[Any], Any]]]:
             ("payalert_missed", 60.0, _payalert_missed), ("dues_followup", 3600.0, _dues_followup),
             ("expiry_alerts", 3600.0, _expiry_alerts), ("studio_reminders", 1800.0, _studio_reminders),
             ("shop_activity", 21600.0, _shop_activity), ("ai_cost_guard", 1800.0, _ai_cost_guard),
-            ("table_watch", 60.0, _table_watch)]
+            ("table_watch", 60.0, _table_watch), ("closing_reminder", 60.0, _closing_reminder)]

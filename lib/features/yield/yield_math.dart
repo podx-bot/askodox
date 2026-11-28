@@ -250,9 +250,10 @@ class AskodoxYieldDay {
     this.costPaise = 0,
     this.sellPaise = 0,
     this.reason = '',
+    this.photo = '',
   });
 
-  final String item, day, reason;
+  final String item, day, reason, photo;
   final int openingGrams, madeGrams, soldGrams, actualGrams, otherPaise, costPaise, sellPaise;
 
   int get expected => askodoxYieldExpected(openingGrams, madeGrams, soldGrams);
@@ -261,6 +262,7 @@ class AskodoxYieldDay {
   Map<String, Object?> toJson() => {
         'item': item, 'day': day, 'opening': openingGrams, 'made': madeGrams, 'sold': soldGrams, 'actual': actualGrams,
         'other': otherPaise, 'cost': costPaise, 'sell': sellPaise, 'reason': reason,
+        if (photo.isNotEmpty) 'photo': photo,
       };
 
   static AskodoxYieldDay? from(Object? raw) {
@@ -271,7 +273,7 @@ class AskodoxYieldDay {
     return AskodoxYieldDay(
         item: item, day: day, openingGrams: n('opening'), madeGrams: n('made'), soldGrams: n('sold'),
         actualGrams: n('actual'), otherPaise: n('other'), costPaise: n('cost'), sellPaise: n('sell'),
-        reason: '${raw['reason'] ?? ''}');
+        reason: '${raw['reason'] ?? ''}', photo: '${raw['photo'] ?? ''}');
   }
 }
 

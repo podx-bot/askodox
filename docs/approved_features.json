@@ -14314,7 +14314,10 @@
       }
     },
     {
-      "api": [],
+      "api": [
+        "GET /api/pos/businesses/{id}/closing-time",
+        "PUT /api/pos/businesses/{id}/closing-time"
+      ],
       "dependencies": [
         "yield_and_rates"
       ],
@@ -14322,10 +14325,11 @@
         "seller",
         "stock"
       ],
-      "expected_behavior": "The owner sets his own closing time per shop on the yield page; after it, until midnight, a chip above the Seller chat names an item (traded in the last 3 days) whose day end is not saved today and opens the yield day end. Never sends anything; phone only; off until a time is set.",
+      "expected_behavior": "The owner sets his own closing time per shop on the yield page; after it, until midnight, a chip above the Seller chat names an item (traded in the last 3 days) whose day end is not saved today and opens the yield day end. Never sends anything; phone only; off until a time is set. The owner's time is also told to the server (a time only, owner only) and ONE push goes to the owner at that time (periodic job closing_reminder, route /pos/:id/yield, no quantity). The day end can keep a stock photo on the phone only.",
       "flags": {},
       "history": [
-        "2026-11-28 phase 6: closing-time stock alert (chip, no scheduled push)"
+        "2026-11-28 phase 6: closing-time stock alert (chip, no scheduled push)",
+        "2026-11-28 phase 6: server push at closing time + stock photo on the day end"
       ],
       "id": "closing_time_stock_alert",
       "name": "Closing-time stock alert",
@@ -14335,7 +14339,9 @@
       ],
       "status": "approved",
       "tests": {
-        "backend": [],
+        "backend": [
+          "tests/test_pos_closing_time.py"
+        ],
         "flutter": [
           "test/features/yield/closing_alert_test.dart"
         ]
@@ -14343,7 +14349,8 @@
       "ui": {
         "keys": [
           "askodoxYieldClosing",
-          "askodoxClosingChip"
+          "askodoxClosingChip",
+          "askodoxYieldStockPhoto"
         ],
         "symbols": [
           "askodoxClosingDue",

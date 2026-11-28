@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme/askodox_look.dart';
+import '../../services/media_picker.dart';
 import '../../shared/widgets/estimate_note.dart';
+import '../vault/vault_store.dart';
 import 'closing_alert.dart';
 import 'yield_extras.dart';
 import 'yield_math.dart';
@@ -39,6 +43,8 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
   int _step = 0; // 0 board · 1 bought · 2 weighed after · 3 rate · 9 day end
   String? _editing;
   String _reason = '';
+  String _photoName = '';
+  Uint8List? _photoBytes;
 
   List<TextEditingController> get _all =>
       [_own, _live, _count, _rate, _transport, _labour, _out, _by, _sell, _min, _opening, _sold, _actual, _other];
@@ -129,8 +135,18 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
     _other.text = _plain(saved?.otherPaise ?? 0, 100);
     setState(() {
       _reason = saved?.reason ?? '';
+      _photoName = saved?.photo ?? '';
+      _photoBytes = null;
       _step = 9;
     });
+  }
+
+  /// The stock as the owner sees it, kept on this phone beside the day end (never uploaded).
+  Future<void> _takeStockPhoto() async {
+    final picked = (await ref.read(askodoxMediaPickerProvider).pick('camera')).where((a) => a.isImage).toList();
+    if (picked.isEmpty || !mounted) return;
+    if (picked.first.bytes.length > 4400000) return;
+    setState(() => _photoBytes = picked.first.bytes);
   }
 
   AskodoxYieldDay _dayDraft() {
@@ -147,6 +163,7 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
       costPaise: last?.cost ?? 0,
       sellPaise: last?.sellPaise ?? 0,
       reason: _reason,
+      photo: _photoName,
     );
   }
 
@@ -474,6 +491,14 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
                   onSelected: (_) => setState(() => _reason = r.$1),
                 ),
             ]),
+      OutlinedButton.icon(
+        key: const Key('askodoxYieldStockPhoto'),
+        icon: Icon(_photoName.isNotEmpty || _photoBytes != null ? Icons.check_circle_outline : Icons.photo_camera_outlined),
+        label: Text(_photoName.isNotEmpty || _photoBytes != null
+            ? (te ? 'స్టాక్ ఫోటో సేవ్ అవుతుంది (ఫోన్‌లోనే)' : 'Stock photo will be kept (on this phone)')
+            : (te ? 'స్టాక్ ఫోటో తీయండి' : 'Take a stock photo')),
+        onPressed: _takeStockPhoto,
+      ),
       const Divider(height: 28),
       _field('askodoxYieldOther', _other, te ? 'ఇతర ఖర్చులు (కరెంట్, కూలి…)' : 'Other costs (power, wages…)', suffix: '₹'),
       _line(te ? 'అమ్మకం' : 'Sales', askodoxYieldRupees(money.sales), keyName: 'askodoxYieldSales'),
@@ -481,7 +506,18 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
       _line(te ? 'ఈ రోజు లాభం (ఉజ్జాయింపు)' : 'Profit today (rough)', askodoxYieldRupees(money.profit),
           keyName: 'askodoxYieldDayProfit', strong: true, color: money.profit >= 0 ? AskodoxLook.good : AskodoxLook.accentText),
       _next('askodoxYieldDaySave', te ? 'సేవ్ చేయి' : 'Save', () async {
-        await ref.read(askodoxYieldProvider.notifier).saveDay(widget.businessId, d);
+        var day = d;
+        final bytes = _photoBytes;
+        if (bytes != null) {
+          final name = await ref.read(askodoxVaultFilesProvider).save('stock-${widget.businessId}-${d.item.hashCode.abs()}-${d.day}', bytes);
+          if (name.isNotEmpty) {
+            day = AskodoxYieldDay(
+                item: d.item, day: d.day, openingGrams: d.openingGrams, madeGrams: d.madeGrams, soldGrams: d.soldGrams,
+                actualGrams: d.actualGrams, otherPaise: d.otherPaise, costPaise: d.costPaise, sellPaise: d.sellPaise,
+                reason: d.reason, photo: name);
+          }
+        }
+        await ref.read(askodoxYieldProvider.notifier).saveDay(widget.businessId, day);
         if (mounted) setState(() => _step = 0);
       }),
     ];
