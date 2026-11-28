@@ -14571,6 +14571,154 @@
           "askodoxExplainerRoute"
         ]
       }
+    },
+    {
+      "api": [
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/school",
+          "response_keys": [
+            "today",
+            "classes"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/school/today",
+          "response_keys": [
+            "day",
+            "problems",
+            "all_clear",
+            "counts",
+            "draft_only"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/school/classes",
+          "response_keys": [
+            "id",
+            "name",
+            "teacher",
+            "students"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/school/students",
+          "response_keys": [
+            "id",
+            "name",
+            "class_id",
+            "pickups"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/api/pos/businesses/{business_id}/school/students/{student_id}/pickups",
+          "response_keys": [
+            "ok",
+            "pickups"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/school/classes/{class_id}/register",
+          "response_keys": [
+            "ok",
+            "class",
+            "day",
+            "present",
+            "absent",
+            "drafts",
+            "draft_only"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/school/students/{student_id}/gate",
+          "response_keys": [
+            "id",
+            "student",
+            "listed",
+            "kind"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/school/students/{student_id}/sick",
+          "response_keys": [
+            "id",
+            "outcome",
+            "follow_up"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/api/pos/businesses/{business_id}/school/health/{health_id}/recovered",
+          "response_keys": [
+            "ok",
+            "status"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/api/pos/businesses/{business_id}/school/report",
+          "response_keys": [
+            "month",
+            "classes",
+            "left_early",
+            "unlisted_pickups"
+          ]
+        }
+      ],
+      "dependencies": [
+        "business_kit"
+      ],
+      "domains": [
+        "any"
+      ],
+      "expected_behavior": "For every business whose Business Kit way of working holds 7 (school, tuition, coaching, play school): classes with a teacher, students with parent name + phone, the people the parent allows to take the child, and ONE register per class per day saved as the list of absent children (everyone else present). The page 'today' shows ONLY problems, in this order: someone not on the parent's list took a child (with a call-parent link), a sick child whose follow-up day came, a child absent three marked days in a row (Sundays skipped), a class not marked today, children absent today. Every message to parents is a WhatsApp DRAFT the owner sends; the health draft never names the illness; the month report holds attendance per class and counts of early exits and unlisted pick-ups, with no health detail (reports permission). A non-member gets 404. Nothing is sent, charged or paid by ASKODOX.",
+      "flags": {},
+      "history": [
+        {
+          "approved_by": "owner",
+          "change": "new: school / tuition / college register, phase 1 of the 2026-11-28 school kit (design canvas QjSMqdnmenHHR5De6KcnMB); fees, buses, hostel roll call, kitchen, visitors, parent view and audit reports are NOT built; NOT PHONE VERIFIED",
+          "date": "2026-11-28"
+        }
+      ],
+      "id": "school_class_register_problems",
+      "name": "Classes & attendance (school, tuition, coaching, college: register, gate, health room, today's problems)",
+      "purpose": "Owner 2026-11-28: a school / tuition owner sees only what needs a person today, and the daily register, the gate pick-up check and the health room follow-up are a few taps each.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [
+          "tests/test_pos_school.py",
+          "tests/test_pos_http_journey.py"
+        ],
+        "flutter": [
+          "test/features/school/school_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxSchool",
+          "askodoxSchoolAddClass",
+          "askodoxSchoolAllClear",
+          "askodoxSchoolRegisterSave",
+          "askodoxSchoolGateSave",
+          "askodoxSchoolSickSave",
+          "askodoxSchoolUnlisted"
+        ],
+        "symbols": [
+          "AskodoxSchoolScreen",
+          "askodoxSchoolProblemTitle",
+          "askodoxSchoolItemText"
+        ]
+      }
     }
   ]
 }
