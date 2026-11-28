@@ -10,6 +10,7 @@ import '../../features/morning_brief/morning_brief_screen.dart';
 import '../../features/pos/data/pos_repository.dart';
 import '../../features/pos/domain/shop_page_names.dart';
 import '../../features/vault/vault_screen.dart';
+import '../../features/yield/closing_alert.dart';
 
 /// Chat shortcut strip (owner 2026-11-19): at most FIVE buttons the person pinned themselves, shown just above the
 /// chat box. Long-press a tile / row anywhere (the ☰ menu, every Buyer and Seller page on the Money screen) -> "Pin
@@ -321,7 +322,7 @@ class AskodoxChatPinStrip extends ConsumerWidget {
     if (state.pins.isEmpty && live.isEmpty) {
       return const Column(
           mainAxisSize: MainAxisSize.min,
-          children: [AskodoxMorningBriefChipStrip(), AskodoxVaultChipStrip(), AskodoxGuideReminderChips()]);
+          children: [AskodoxMorningBriefChipStrip(), AskodoxVaultChipStrip(), AskodoxClosingChipStrip(), AskodoxGuideReminderChips()]);
     }
     final te = _te(context);
     final control = ref.read(askodoxChatPinsProvider.notifier);
@@ -343,6 +344,7 @@ class AskodoxChatPinStrip extends ConsumerWidget {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       const AskodoxMorningBriefChipStrip(),
       const AskodoxVaultChipStrip(),
+      const AskodoxClosingChipStrip(),
       const AskodoxGuideReminderChips(),
       Padding(
       key: const Key('askodoxChatPins'),
