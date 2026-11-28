@@ -14800,6 +14800,43 @@
           "askodoxSchoolItemText"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "yield_and_rates"
+      ],
+      "domains": [
+        "seller",
+        "yield"
+      ],
+      "expected_behavior": "Measure card: the grams box of a plate / piece can be filled by voice (askodoxMeasureGrams: a number with kg = x1000, bare number = grams, half kilo = 500) and an item the owner cannot find is noted with \"Item not here? Tell us\" (a note on screen only, nothing is sent). The owner's own measure only, no presets.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: measure card voice"
+      ],
+      "id": "measure_card_voice",
+      "name": "Measure card voice and request note",
+      "purpose": "Fill the owner's own measure by voice and let him ask for a new card.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/measure_voice_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxYieldPortionMic",
+          "askodoxYieldMeasureAsk"
+        ],
+        "symbols": [
+          "askodoxMeasureGrams"
+        ]
+      }
     }
   ]
 }
