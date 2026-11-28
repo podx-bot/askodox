@@ -37,4 +37,16 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('askodoxSetupRate')), findsOneWidget);
   });
+
+  test('bill lines: only kg lines with a name and a quantity', () {
+    final r = askodoxBillKgLines([
+      {'name': 'Broiler', 'unit': 'kg', 'qty_milli': 25000},
+      {'name': 'Eggs', 'unit': 'pcs', 'qty_milli': 30000},
+      {'name': '', 'unit': 'kg', 'qty_milli': 1000},
+      {'name': 'Goat', 'unit': 'kg', 'qty_milli': 0},
+      'junk',
+    ]);
+    expect(r, [('Broiler', 25000)]);
+    expect(askodoxBillKgLines(null), isEmpty);
+  });
 }

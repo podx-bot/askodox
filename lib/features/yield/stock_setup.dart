@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../services/media_picker.dart';
+import '../pos/data/pos_repository.dart';
+
 import '../../config/theme/askodox_look.dart';
 import '../../shared/widgets/estimate_note.dart';
 import '../home/presentation/question_mic.dart';
@@ -16,8 +19,24 @@ import 'yield_store.dart';
 /// Stock setup in 3 steps (owner 2026-11-28, design "చికెన్ స్టాక్ సెటప్"): 1 item + stock now (typed or spoken),
 /// 2 how it is measured (per kg in a shop / by recipe in a hotel) + the selling rate, 3 closing time + who is told.
 /// It only fills the pages that already exist (live stock, closing time); every number is the owner's own entry and
-/// stays on this phone (`askodox.stocksetup.v1`, per shop). Not built: stock from a bill photo, alerts to staff / manager.
+/// stays on this phone (`askodox.stocksetup.v1`, per shop). Stock from a supplier bill photo = `askodoxBillKgLines` (kg lines only). Not built: alerts to staff / manager.
 const askodoxStockSetupPrefsKey = 'askodox.stocksetup.v1';
+
+/// The lines of a read supplier bill that are weighed in kg: (name as printed, grams). Other units are left out
+/// (never converted by guess); a line with no quantity or no name is left out.
+List<(String, int)> askodoxBillKgLines(Object? lines) {
+  final out = <(String, int)>[];
+  if (lines is! List) return out;
+  for (final l in lines) {
+    if (l is! Map) continue;
+    final name = '${l['name'] ?? ''}'.trim();
+    final unit = '${l['unit'] ?? ''}'.trim().toLowerCase();
+    final q = l['qty_milli'];
+    if (name.isEmpty || q is! num || q <= 0) continue;
+    if (unit == 'kg') out.add((name, q.round()));
+  }
+  return out;
+}
 
 class AskodoxStockSetup {
   const AskodoxStockSetup({this.item = 'chicken', this.recipe = false, this.sellPaise = 0, this.done = false});
@@ -84,6 +103,9 @@ class _AskodoxStockSetupScreenState extends ConsumerState<AskodoxStockSetupScree
   final _rate = TextEditingController();
   final _other = TextEditingController();
   String _time = '22:30';
+  bool _reading = false;
+  String _billNote = '';
+  List<(String, int)> _billLines = const [];
 
   @override
   void dispose() {
@@ -91,6 +113,34 @@ class _AskodoxStockSetupScreenState extends ConsumerState<AskodoxStockSetupScree
     _rate.dispose();
     _other.dispose();
     super.dispose();
+  }
+
+  /// A photo of the supplier bill -> the kg lines it holds; tapping one fills the item and the stock (the owner checks).
+  Future<void> _fromBill(String source) async {
+    final te = Localizations.localeOf(context).languageCode == 'te';
+    final picked = (await ref.read(askodoxMediaPickerProvider).pick(source)).where((a) => a.isImage).toList();
+    if (picked.isEmpty || !mounted) return;
+    setState(() {
+      _reading = true;
+      _billNote = '';
+    });
+    try {
+      final out = await ref.read(askodoxPosRepositoryProvider).purchaseBillPhoto(widget.businessId, [
+        for (final a in picked.take(2)) {'data': base64Encode(a.bytes), 'mime': a.mimeType},
+      ]);
+      final lines = askodoxBillKgLines(out['lines']);
+      if (!mounted) return;
+      setState(() {
+        _billLines = lines;
+        _billNote = lines.isEmpty
+            ? (te ? 'ఈ ఫోటో నుంచి కేజీ లైన్లు చదవలేకపోయాం. చేతితో రాయండి, లేదా స్పష్టంగా మళ్ళీ తీయండి.' : 'No kg lines could be read from this photo. Type it, or take it again, clear.')
+            : (te ? 'బిల్లులో వచ్చిన బరువు ఇది. ఇప్పుడు షాప్‌లో ఉన్నది మీరే చెక్ చేసి సరిచేయండి.' : 'This is the weight that came on the bill. Check what is in the shop now and correct it.');
+      });
+    } catch (_) {
+      if (mounted) setState(() => _billNote = te ? 'బిల్లు చదవడం కుదరలేదు. చేతితో రాయండి.' : 'The bill could not be read. Type it.');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
   }
 
   Future<void> _finish() async {
@@ -140,6 +190,39 @@ class _AskodoxStockSetupScreenState extends ConsumerState<AskodoxStockSetupScree
                   controller: _other,
                   decoration: InputDecoration(labelText: te ? 'ఐటమ్ పేరు' : 'Item name'),
                   onChanged: (t) => setState(() => _item = t.trim().isEmpty ? ' ' : t.trim())),
+            const SizedBox(height: 12),
+            Row(children: [
+              OutlinedButton.icon(
+                key: const Key('askodoxSetupBillPhoto'),
+                onPressed: _reading ? null : () => _fromBill('camera'),
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: Text(te ? 'బిల్లు ఫోటో నుంచి' : 'From a bill photo'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                key: const Key('askodoxSetupBillGallery'),
+                onPressed: _reading ? null : () => _fromBill('photos'),
+                child: Text(te ? 'గ్యాలరీ' : 'Gallery'),
+              ),
+            ]),
+            if (_reading) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator()),
+            if (_billNote.isNotEmpty)
+              Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(_billNote, key: const Key('askodoxSetupBillNote'), style: const TextStyle(color: AskodoxLook.muted))),
+            if (_billLines.isNotEmpty)
+              Wrap(spacing: 8, children: [
+                for (var i = 0; i < _billLines.length; i++)
+                  ActionChip(
+                    key: ValueKey('askodoxSetupBillLine-$i'),
+                    label: Text('${_billLines[i].$1} · ${askodoxYieldKg(_billLines[i].$2)} kg'),
+                    onPressed: () => setState(() {
+                      _item = _billLines[i].$1;
+                      _other.text = _billLines[i].$1;
+                      _stock.text = askodoxYieldKg(_billLines[i].$2);
+                    }),
+                  ),
+              ]),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(
