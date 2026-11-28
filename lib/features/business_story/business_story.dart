@@ -242,6 +242,13 @@ class _AskodoxBusinessStoryScreenState extends ConsumerState<AskodoxBusinessStor
               ),
             ),
           ] else ...[
+            OutlinedButton(
+              key: const Key('askodoxStorySolutions'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              onPressed: () => context.push('/me/solutions'),
+              child: Text(te ? 'సరిపోయే పరిష్కారాలు చూడండి' : 'See solutions that fit'),
+            ),
+            const SizedBox(height: 8),
             FilledButton(
               key: const Key('askodoxStoryAsk'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
