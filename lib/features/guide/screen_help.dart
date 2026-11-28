@@ -1371,6 +1371,15 @@ const askodoxScreenHelp = <String, AskodoxScreenHelp>{
     'పైన షాప్ QR; టేబుల్ నొక్కితే దాని QR. ప్రింట్ చేసి ప్రతి టేబుల్ మీద, షాప్ గుమ్మం దగ్గర అతికించండి.',
     'పెద్ద బటన్ ఆర్డర్ కోడ్‌ని కస్టమర్లకు WhatsApp లో పంపుతుంది. ఇంకా టేబుల్స్, కాపీ ⋮ మెనూలో.',
   ]),
+  '/trend': _H('Rate trend', 'రేటు ట్రెండ్', [
+    'The lines show the real cost of a kg and your selling rate for the last 7 days, from your own day ends.',
+    'Set your minimum profit on the Yield page: days that fell under it are told here.',
+    'These are rough figures from your own entries.',
+  ], [
+    'గీతలు గత 7 రోజుల కిలో అసలు ఖర్చు, మీ అమ్మే రేటు చూపిస్తాయి; మీ సొంత డే ఎండ్‌ల నుంచే.',
+    'కనిష్ట లాభం యీల్డ్ పేజీలో పెడితే, అంతకంటే తగ్గిన రోజులు ఇక్కడ చెబుతాం.',
+    'ఇవి మీ సొంత ఎంట్రీల నుంచి వచ్చిన ఉజ్జాయింపు లెక్కలు.',
+  ]),
   '/weekly': _H('This week', 'ఈ వారం రిపోర్ట్', [
     'Pick an item: the stock that was not accounted for this week, and its value, show at the top.',
     'The bars show the leak day by day; below, the cost share for each of your shops and the supplier\'s last two rates.',
