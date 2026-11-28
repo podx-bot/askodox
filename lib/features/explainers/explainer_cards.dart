@@ -30,12 +30,16 @@ class AskodoxExplainer {
     required this.problemTe,
     required this.steps,
     required this.words,
+    this.group = 'stock',
   });
   final String id, titleEn, titleTe, problemEn, problemTe;
   final List<AskodoxExplainerStep> steps;
 
   /// Words (lower case, any language) that say a person has this trouble.
   final List<String> words;
+
+  /// The filter chip it sits under: stock / money / people / home.
+  final String group;
 }
 
 const askodoxExplainers = <AskodoxExplainer>[
@@ -47,6 +51,7 @@ const askodoxExplainers = <AskodoxExplainer>[
     problemTe: 'సరుకు వస్తుంది, అమ్ముడవుతుంది, కానీ రాత్రి లెక్క అనుకున్నట్లు ఉండదు. ఎక్కడ పోయిందో తెలియదు.',
     steps: [
       AskodoxExplainerStep('Note what you bought, what came out after cleaning, and the rate.', 'ఏం కొన్నారో, శుభ్రం చేశాక ఎంత వచ్చిందో, రేటు ఎంతో నోట్ చేయండి.', '/pos/:id/yield'),
+      AskodoxExplainerStep('Set up stock tracking in three steps.', 'స్టాక్ ట్రాకింగ్ మూడు స్టెప్స్‌లో సెటప్ చేయండి.', '/pos/:id/stock-setup'),
       AskodoxExplainerStep('At closing, weigh what is left and save the day end.', 'మూసేటప్పుడు మిగిలింది తూచి డే ఎండ్ సేవ్ చేయండి.', '/pos/:id/yield'),
       AskodoxExplainerStep('Read the weekly report: the gaps show by day.', 'వారం రిపోర్ట్ చూడండి: ఏ రోజు తేడా వచ్చిందో కనిపిస్తుంది.', '/weekly'),
     ],
@@ -76,6 +81,7 @@ const askodoxExplainers = <AskodoxExplainer>[
       AskodoxExplainerStep('Check the rows it read, then save and add the next bill.', 'చదివిన వరుసలు సరిచూసి సేవ్ చేసి తర్వాతి బిల్ వేయండి.', '/pos/:id/purchase/new'),
     ],
     words: ['bill', 'gst', 'slip', 'invoice', 'బిల్', 'చీటీ', 'జీఎస్టీ'],
+    group: 'money',
   ),
   AskodoxExplainer(
     id: 'money_stuck',
@@ -88,6 +94,7 @@ const askodoxExplainers = <AskodoxExplainer>[
       AskodoxExplainerStep('Send the reminder yourself on WhatsApp in one tap.', 'రిమైండర్ WhatsApp లో ఒక్క టచ్‌తో మీరే పంపండి.', '/pos/:id/dues'),
     ],
     words: ['baaki', 'due', 'credit', 'pending', 'బాకీ', 'అప్పు', 'రావాల్సిన', 'వసూలు'],
+    group: 'money',
   ),
   AskodoxExplainer(
     id: 'forgot_close',
@@ -111,6 +118,7 @@ const askodoxExplainers = <AskodoxExplainer>[
       AskodoxExplainerStep('Change many prices together and check the preview first.', 'చాలా ధరలు కలిపి మార్చండి, ముందు ప్రివ్యూ చూడండి.', '/pos/:id/prices'),
     ],
     words: ['price', 'rate', 'rates', 'ధర', 'రేటు', 'రేట్లు'],
+    group: 'money',
   ),
   AskodoxExplainer(
     id: 'members_end',
@@ -123,6 +131,7 @@ const askodoxExplainers = <AskodoxExplainer>[
       AskodoxExplainerStep('See who is ending soon and send the reminder yourself.', 'ఎవరు త్వరలో ముగుస్తున్నారో చూసి రిమైండర్ మీరే పంపండి.', '/biz/:id/members'),
     ],
     words: ['member', 'renew', 'gym', 'class', 'fee', 'సభ్య', 'రెన్యూ', 'జిమ్', 'ఫీజు'],
+    group: 'people',
   ),
   AskodoxExplainer(
     id: 'home_papers',
@@ -135,6 +144,7 @@ const askodoxExplainers = <AskodoxExplainer>[
       AskodoxExplainerStep('It tells you before a warranty ends.', 'వారంటీ ముగిసే ముందు చెబుతుంది.', '/me/home'),
     ],
     words: ['warranty', 'mixer', 'home', 'papers', 'వారంటీ', 'ఇల్లు', 'ఇంట్లో', 'కాగితా'],
+    group: 'home',
   ),
 ];
 
@@ -183,6 +193,17 @@ class AskodoxContactPref extends StateNotifier<String> {
   }
 }
 
+const askodoxExplainerGroups = <(String, String, String)>[
+  ('all', 'All', 'మొత్తం'),
+  ('stock', 'Stock', 'స్టాక్'),
+  ('money', 'Money', 'డబ్బు'),
+  ('people', 'People', 'మనుషులు'),
+  ('home', 'Home', 'ఇల్లు'),
+];
+
+/// The filter chip chosen on the solutions page ('all' = every card).
+final askodoxExplainerGroupProvider = StateProvider.autoDispose<String>((ref) => 'all');
+
 /// "Solutions for my trouble": the cards that fit what the person told about the business first, then all of them.
 class AskodoxExplainersScreen extends ConsumerWidget {
   const AskodoxExplainersScreen({super.key, this.only = ''});
@@ -195,7 +216,9 @@ class AskodoxExplainersScreen extends ConsumerWidget {
     final te = Localizations.localeOf(context).languageCode == 'te';
     final story = ref.watch(askodoxStoryProvider);
     final fit = askodoxExplainersFor('${story.chips['problem'] ?? ''} ${story.answers.join(' ')}');
-    final rest = [for (final e in askodoxExplainers) if (!fit.contains(e)) e];
+    final group = ref.watch(askodoxExplainerGroupProvider);
+    bool shown(AskodoxExplainer e) => group == 'all' || e.group == group;
+    final rest = [for (final e in askodoxExplainers) if (!fit.contains(e) && shown(e)) e];
     final shops = ref.watch(askodoxMyShopsProvider).valueOrNull ?? const [];
     final picked = askodoxPickShop(shops, ref.watch(askodoxMoneyShopProvider));
     final shopId = picked == null ? null : '${picked['id']}';
@@ -204,6 +227,16 @@ class AskodoxExplainersScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(te ? 'సమస్య → పరిష్కారం' : 'Problem → solution')),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+          Wrap(spacing: 8, children: [
+            for (final g in askodoxExplainerGroups)
+              ChoiceChip(
+                key: ValueKey('askodoxExplainerGroup-${g.$1}'),
+                label: Text(te ? g.$3 : g.$2),
+                selected: group == g.$1,
+                onSelected: (_) => ref.read(askodoxExplainerGroupProvider.notifier).state = g.$1,
+              ),
+          ]),
+          const SizedBox(height: 8),
           if (fit.isNotEmpty) ...[
             Text(te ? 'మీరు చెప్పిన దానికి సరిపోయేవి' : 'Fits what you told us', style: const TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
