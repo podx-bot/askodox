@@ -312,6 +312,12 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
         label: Text(te ? 'ఈ వారం రిపోర్ట్' : 'This week'),
       ),
       OutlinedButton.icon(
+        key: const Key('askodoxYieldLive'),
+        onPressed: () => context.push('/pos/${widget.businessId}/live-stock'),
+        icon: const Icon(Icons.inventory_2_outlined),
+        label: Text(te ? 'ఇవాళ లైవ్ స్టాక్' : "Today's live stock"),
+      ),
+      OutlinedButton.icon(
         key: const Key('askodoxYieldTrend'),
         onPressed: () => context.push('/trend'),
         icon: const Icon(Icons.show_chart_rounded),
