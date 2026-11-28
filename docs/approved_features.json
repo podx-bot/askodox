@@ -14312,6 +14312,44 @@
           "askodoxKitchenLow"
         ]
       }
+    },
+    {
+      "api": [],
+      "dependencies": [
+        "yield_and_rates"
+      ],
+      "domains": [
+        "seller",
+        "stock"
+      ],
+      "expected_behavior": "The owner sets his own closing time per shop on the yield page; after it, until midnight, a chip above the Seller chat names an item (traded in the last 3 days) whose day end is not saved today and opens the yield day end. Never sends anything; phone only; off until a time is set.",
+      "flags": {},
+      "history": [
+        "2026-11-28 phase 6: closing-time stock alert (chip, no scheduled push)"
+      ],
+      "id": "closing_time_stock_alert",
+      "name": "Closing-time stock alert",
+      "purpose": "Remind the owner to close the day's stock.",
+      "roles": [
+        "seller"
+      ],
+      "status": "approved",
+      "tests": {
+        "backend": [],
+        "flutter": [
+          "test/features/yield/closing_alert_test.dart"
+        ]
+      },
+      "ui": {
+        "keys": [
+          "askodoxYieldClosing",
+          "askodoxClosingChip"
+        ],
+        "symbols": [
+          "askodoxClosingDue",
+          "AskodoxClosingChipStrip"
+        ]
+      }
     }
   ]
 }

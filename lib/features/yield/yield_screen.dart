@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme/askodox_look.dart';
 import '../../shared/widgets/estimate_note.dart';
+import 'closing_alert.dart';
 import 'yield_extras.dart';
 import 'yield_math.dart';
 import 'yield_store.dart';
@@ -286,6 +287,7 @@ class _AskodoxYieldScreenState extends ConsumerState<AskodoxYieldScreen> {
         onPressed: last == null ? null : _openDay,
         child: Text(te ? 'రోజు ముగింపు · స్టాక్ + లాభం' : 'Day end · stock + profit'),
       ),
+      AskodoxClosingRow(businessId: widget.businessId),
       if (lots.length > 1) ...[
         const SizedBox(height: 12),
         Text(te ? 'రేటు ట్రెండ్ (గత సరుకులు)' : 'Rate trend (last lots)',
